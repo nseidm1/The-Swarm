@@ -1,0 +1,7 @@
+# The actions the workflow uses are kept current. There are no package dependencies to watch: the module has none.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

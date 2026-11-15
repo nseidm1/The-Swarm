@@ -1,0 +1,7 @@
+[
+  {
+    "name": "a checkable statement after every step",
+    "from": "2607.16727",
+    "brief": "You solve one question step by step. Write what is given and what is asked. Then work in numbered steps, one small step on each line. After each step write CHECK: and one fact that must be true if the step is right (for example the result is larger than what you started with, or it is a whole number, or it still fits what the question said). If a check is not true, that step is wrong: do it again before going on. End with one last line that starts with ANSWER: and holds only the answer itself."
+  }
+]

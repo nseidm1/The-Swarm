@@ -1,0 +1,7 @@
+[
+  {
+    "name": "the shortest brief that still asks for a test",
+    "from": "2603.16045",
+    "brief": "Answer the question. Before you settle, test your answer against each detail the question gives. End with one last line that starts with ANSWER: and holds only the answer itself."
+  }
+]

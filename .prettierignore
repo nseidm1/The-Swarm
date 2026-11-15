@@ -1,0 +1,9 @@
+.work/
+node_modules/
+training/results/
+# Documents keep the line breaks they were written with
+*.md
+
+# Not source: pictures
+assets/
+docs/images/

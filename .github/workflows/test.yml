@@ -1,0 +1,70 @@
+name: test
+
+# Runs on a pull request, on a push to main, or by hand from the Actions tab. The checks use stand-ins in place of the models:
+# nothing is fetched, started or installed.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# It reads the repository and nothing more
+permissions:
+  contents: read
+
+# A newer push to the same branch replaces the run in hand
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    name: format
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # The version is the one package.json pins, so a newer Prettier never fails a pull request by itself.
+      - run: npx --yes prettier@3.10.1 --check .
+      # the shell scripts parse
+      - run: bash -n training/session.sh && bash -n training/support/steps.sh && bash -n training/kev.sh && bash -n tools/hooks/pre-commit && sh -n tools/hooks/install.sh
+
+  module:
+    name: module (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # the oldest Node the trainers run on, and the one they are written on
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # No install step: the module and its checks have no dependencies.
+      - run: npm test
+
+  dashboard:
+    name: dashboard (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # the oldest Python the page runs on, and a current one
+        python: ['3.9', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      # the page: Python's standard library only
+      - run: python3 ui/check.py

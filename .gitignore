@@ -1,0 +1,26 @@
+# What a run makes: model files, training rows, logs
+.work/
+
+# Python's own leavings
+__pycache__/
+*.pyc
+
+# A file being written whole, and the last good copy kept beside it (training/support/recover.mjs)
+*.tmp
+*.bak
+*.part
+
+# Anything private to one machine
+.env
+.env.*
+
+# Dependencies (only the formatter)
+node_modules/
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
+*.swp

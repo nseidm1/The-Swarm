@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# pre-commit - KEEP OUT WHAT DOES NOT BELONG, AND FORMAT WHAT IS BEING COMMITTED. Every staged file Prettier knows is formatted and staged again, so a commit never
+# carries a layout the repository's own check (.github/workflows/test.yml: prettier --check .) would refuse.
+#   - Only files in this commit are touched, never the rest of the working tree.
+#   - A file with further changes that are NOT staged is left exactly as it is: formatting it would pull those changes into the
+#     commit. It is checked instead, and the commit stops if it is not formatted, saying which file.
+#   - With no Node on this shell's PATH the hook says so and lets the commit through: the check on GitHub still runs.
+# Installed by: sh tools/hooks/install.sh     Skipped for one commit by: git commit --no-verify
+set -eu
+cd "$(git rev-parse --show-toplevel)"
+
+if [ -x node_modules/.bin/prettier ]; then
+  PRETTIER="node_modules/.bin/prettier"
+elif command -v npx >/dev/null 2>&1; then
+  PRETTIER="npx --yes prettier@3.10.1"
+else
+  echo "pre-commit: Node.js is not on this shell's PATH, so nothing was formatted. The format check on GitHub still runs." >&2
+  exit 0
+fi
+
+# WHAT MUST NEVER BE COMMITTED: a model file, what a run leaves in .work, a file kept beside another while it is written, and
+# anything over 5 MB (a repository is cloned whole, for ever). Refused by name, with what to do.
+refused=0
+git diff --cached --name-only --diff-filter=ACM -z | while IFS= read -r -d '' f; do
+  [ -f "$f" ] || continue
+  case "$f" in
+    .work/*|*.gguf|*.safetensors|*.part|*.tmp|*.bak|.env|.env.*)
+      echo "pre-commit: $f is not for the repository (a model file, a run's leavings, or a private setting)." >&2
+      echo "            Take it out of the commit: git restore --staged -- \"$f\"" >&2
+      exit 1 ;;
+  esac
+  size=$(wc -c < "$f" | tr -d ' ')
+  if [ "$size" -gt 5242880 ]; then
+    echo "pre-commit: $f is $((size / 1048576)) MB. Files over 5 MB are not committed here." >&2
+    exit 1
+  fi
+done || refused=1
+[ "$refused" = 0 ] || exit 1
+
+bad=0
+git diff --cached --name-only --diff-filter=ACM -z | while IFS= read -r -d '' f; do
+  [ -f "$f" ] || continue
+  if git diff --quiet -- "$f"; then
+    $PRETTIER --write --ignore-unknown --log-level warn -- "$f"
+    git add -- "$f"
+  elif ! $PRETTIER --check --ignore-unknown --log-level warn -- "$f" >/dev/null 2>&1; then
+    echo "pre-commit: $f is not formatted and has changes that are not staged, so it was left alone." >&2
+    echo "            Format it (npm run format), stage what you mean to commit, and commit again." >&2
+    exit 1
+  fi
+done || bad=1
+exit $bad

@@ -1,0 +1,363 @@
+// bench.mjs - WHAT EVERY TRAINER NEEDS: the flags, the models started (or found already running), a way to put the questions to
+// something and write down what came back. Nothing here grades (tasks.mjs does) and nothing here decides (the trainers do).
+//   --llama <file>          the llama-server program (or SWARM_LLAMA_SERVER, or one on the PATH)
+//   --models <folder>       where the model files are (or SWARM_MODELS_DIR; default .work/models)
+//   --attach-a <url>  --attach-b <url>     servers already running, in place of starting them
+//   --kev <url>             a running Kev (python -m kev.serve), for the decide step; SWARM_KEV does the same
+//   --split train|held   --each 6   --kinds chain,trap   --limit 20   --label name
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { createSwarm, MEMBERS, readBriefs } from '../../src/index.mjs';
+import { CONFIG_ID } from '../../src/catalog.mjs';
+import { note, checkpoint, briefKey } from './recover.mjs';
+import { spawn } from 'node:child_process';
+import { attachMember, startMember } from '../../src/members.mjs';
+import { tasks, KIND_NAMES } from '../tasks.mjs';
+import { readState, targetOf } from '../state.mjs';
+import { openTarget } from '../target.mjs';
+
+export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+export const WORK = process.env.SWARM_WORK_DIR || path.join(REPO_ROOT, '.work', 'train'); // the checks point this at a folder of their own
+export const RESULTS = path.join(REPO_ROOT, 'training', 'results');
+export const arg = (n, d) => {
+  const i = process.argv.indexOf('--' + n);
+  return i < 0 ? d : process.argv[i + 1];
+};
+export const has = (n) => process.argv.includes('--' + n);
+export const modelsDir = () =>
+  path.resolve(arg('models', process.env.SWARM_MODELS_DIR || path.join(REPO_ROOT, '.work', 'models')));
+// the llama-server program: the one named (--llama, SWARM_LLAMA_SERVER), the one on the PATH, or the one setup.mjs fetched
+export function llamaServer() {
+  const named = arg('llama', process.env.SWARM_LLAMA_SERVER || '');
+  if (named) return named;
+  try {
+    return execFileSync(process.platform === 'win32' ? 'where' : 'which', ['llama-server'], { encoding: 'utf8' })
+      .split(/\r?\n/)[0]
+      .trim();
+  } catch {
+    /* not on the PATH */
+  }
+  try {
+    const own = fs.readFileSync(path.join(REPO_ROOT, '.work', 'engine', 'path'), 'utf8').trim();
+    if (fs.existsSync(own)) return own;
+  } catch {
+    /* not fetched */
+  }
+  return '';
+}
+// what one model alone is written down as: the model, and the larger model its answers were marked against
+export const aloneLabel = (place) => MEMBERS[place].id + '-alone-vs-' + targetOf().id;
+// the questions of this pass: made from the seeds the last pass left, with more of the kinds it found the swarm trailing on
+export const questions = (split, each = Number(arg('each', 6))) => {
+  const kinds = String(arg('kinds', '')).split(',').filter(Boolean);
+  const state = readState();
+  return tasks({ split, each, kinds: kinds.length ? kinds : KIND_NAMES, seed: state.seeds[split], focus: state.focus });
+};
+export const chosen = () => {
+  const list = questions(arg('split', 'train'));
+  const limit = Number(arg('limit', 0));
+  return limit ? list.slice(0, limit) : list;
+};
+
+// WHAT IS HAPPENING NOW, written where the page reads it (.work/train/live.json): which trainer, which question, and for every
+// slot whether it is working or what it just answered. Written as it happens; a page that is not open costs a small file.
+const LIVE = path.join(WORK, 'live.json');
+const liveNow = { slots: {} };
+export function live(patch = {}) {
+  Object.assign(liveNow, patch, { at: Date.now(), trainer: path.basename(process.argv[1] || '', '.mjs') });
+  try {
+    fs.mkdirSync(WORK, { recursive: true });
+    fs.writeFileSync(LIVE + '.tmp', JSON.stringify(liveNow));
+    fs.renameSync(LIVE + '.tmp', LIVE);
+  } catch {
+    /* the page goes without */
+  }
+}
+const liveSlot = (id, what) => {
+  liveNow.slots = { ...liveNow.slots, [id]: what };
+  live();
+};
+
+// WHERE KEV IS: named (--kev, or SWARM_KEV), or the one training/kev.sh started on this machine (it writes its port down), if
+// that one answers. '' when there is none: the trainers then say so, because a pass without Kev trains another arrangement.
+export async function kevAddress() {
+  const named = arg('kev', process.env.SWARM_KEV || '');
+  if (named) return named;
+  try {
+    const port = Number(fs.readFileSync(path.join(REPO_ROOT, '.work', 'kev', 'port'), 'utf8').trim());
+    const base = 'http://127.0.0.1:' + port;
+    if (port && (await fetch(base + '/v1/models', { signal: AbortSignal.timeout(3000) })).ok) return base;
+  } catch {
+    /* none running */
+  }
+  return '';
+}
+// THE DECIDER, KEPT UP. Where Kev is the one this folder runs (training/kev.sh), and it has stopped, it is started again before
+// the next question, and that is written down. A Kev someone named is theirs to keep up.
+let kevCheckedAt = 0;
+export async function kevGuard(kev) {
+  if (!kev || process.env.SWARM_KEV_FIXED === '1' || Date.now() - kevCheckedAt < 15000) return;
+  kevCheckedAt = Date.now();
+  const up = async () => {
+    try {
+      return (await fetch(kev + '/v1/models', { signal: AbortSignal.timeout(4000) })).ok;
+    } catch {
+      return false;
+    }
+  };
+  if (await up()) return;
+  const port = Number((/:(\d+)$/.exec(kev) || [])[1]);
+  const script = path.join(REPO_ROOT, 'training', 'kev.sh');
+  if (!port || !fs.existsSync(path.join(REPO_ROOT, '.work', 'kev', 'uvenv', 'bin', 'uv')))
+    return void note(
+      'the decider (Kev)',
+      "it has stopped and is not this folder's to start: the answer most slots gave will stand",
+      { kind: 'gone' },
+    );
+  fs.mkdirSync(WORK, { recursive: true });
+  const log = fs.openSync(path.join(WORK, 'kev.log'), 'a');
+  spawn('bash', [script, 'serve', String(port)], { stdio: ['ignore', log, log], env: process.env }).unref();
+  for (let i = 0; i < 90 && !(await up()); i++) await new Promise((r) => setTimeout(r, 2000));
+  note(
+    'the decider (Kev)',
+    (await up())
+      ? 'it had stopped: started again'
+      : 'it had stopped and would not start again: the answer most slots gave will stand',
+    { kind: 'gone' },
+  );
+}
+// what a run of the swarm is a run OF: the swarm as configured, with these briefs and this plan, on these questions. A checkpoint
+// under this name holds answers to exactly that, and nothing else.
+export const swarmName = (briefs, split, seed) =>
+  ['swarm', CONFIG_ID, targetOf().id, briefKey(briefs), split, seed].join('-');
+const checkpoints = [];
+// a trainer that has finished and written down what it found has no more use for its checkpoints
+export const finished = () => checkpoints.splice(0).forEach((c) => c.done());
+
+export async function openSwarm(briefs = readBriefs()) {
+  const attach = {};
+  if (arg('attach-a')) attach.a = arg('attach-a');
+  if (arg('attach-b')) attach.b = arg('attach-b');
+  const kev = await kevAddress();
+  console.log(
+    kev
+      ? 'Kev decides, at ' + kev + '.'
+      : 'NO KEV: nothing is running to decide (bash training/kev.sh serve). The answer most slots gave will stand.',
+  );
+  const swarm = await createSwarm({
+    briefs,
+    attach,
+    llamaServer: llamaServer(),
+    modelsDir: modelsDir(),
+    kev,
+    onRecover: note,
+  });
+  // every slot, as it starts and as it ends
+  const answer = swarm.answer.bind(swarm);
+  swarm.answer = (messages, o = {}) =>
+    answer(messages, {
+      ...o,
+      onStart: (x) => liveSlot(x.slot, { state: 'working', since: Date.now() }),
+      onStep: (row) =>
+        liveSlot(row.slot, {
+          state: row.ok ? 'done' : 'failed',
+          ms: row.ms,
+          said: String(row.final || row.out || row.why || '')
+            .replace(/\s+/g, ' ')
+            .slice(0, 120),
+        }),
+    });
+  return swarm;
+}
+// one model by itself, one conversation at a time: what the swarm is measured against.
+//   which: 'a' | 'b' | 'target' (the larger model being chased: target.mjs) | an address that speaks /v1/chat/completions
+export async function openAlone(which) {
+  if (which === 'target') {
+    const t = await openTarget(targetOf(), { llamaServer: llamaServer(), modelsDir: modelsDir(), onRecover: note });
+    return { ask: (messages, o) => t.ask(messages, o), stop: t.stop, label: t.rung.id };
+  }
+  if (/^https?:/.test(which)) {
+    const m = attachMember({ key: 'ref', name: arg('label', 'reference'), sampling: {} }, which, 1);
+    return { ask: (messages) => m.ask('alone', messages, { maxTokens: 700 }), stop: () => {} };
+  }
+  const at = arg('attach-' + which);
+  if (at) {
+    const m = attachMember(MEMBERS[which], at, 1);
+    return { ask: (messages) => m.ask('alone', messages, { maxTokens: 700 }), stop: () => {} };
+  }
+  const r = await startMember(MEMBERS[which], {
+    onRecover: note,
+    llamaServer: llamaServer(),
+    modelsDir: modelsDir(),
+    slots: 1,
+    contextPerSlot: 8192,
+  });
+  if (!r.ok) throw new Error(r.why);
+  return { ask: (messages) => r.member.ask('alone', messages, { maxTokens: 700 }), stop: r.member.stop };
+}
+
+// WHAT THE LARGER MODEL ANSWERED, for these questions: id -> its whole reply. The swarm is trained toward these, so nothing can
+// be measured until the larger model has answered the same questions (node training/baseline.mjs --who target --split <split>).
+// Equivalence is decided from the replies themselves (a function is run, not summarised).
+export function reference(list) {
+  const label = targetOf().id;
+  const file = path.join(WORK, 'baseline-runs.jsonl');
+  const ids = new Set(list.map((t) => t.id));
+  const ref = new Map();
+  if (fs.existsSync(file))
+    for (const l of fs.readFileSync(file, 'utf8').split('\n').filter(Boolean)) {
+      const r = JSON.parse(l);
+      if (r.label === label && ids.has(r.id)) ref.set(r.id, String(r.reply || ''));
+    }
+  return ref;
+}
+export function needReference(list, split) {
+  const ref = reference(list);
+  if (ref.size < list.length) {
+    console.log(
+      targetOf().name +
+        ' has answered ' +
+        ref.size +
+        ' of these ' +
+        list.length +
+        ' ' +
+        split +
+        ' questions. Parity is equivalence with its answers, so it goes first:\n  node training/baseline.mjs --who target --split ' +
+        split,
+    );
+    process.exit(2);
+  }
+  return ref;
+}
+
+// put every question to `answerOf(task) -> { reply, ...anything }`, one after another, and mark each reply by whether it is
+// FUNDAMENTALLY EQUIVALENT TO THE LARGER MODEL'S REPLY (ref): for a function, whether the two functions do the same; for a value,
+// whether it is the same value; for an answer in words, whether Kev says they say the same (tasks.mjs, support/equivalent.mjs).
+// The marks keep their short names, and here they mean:
+//   right    equivalent to the larger model's answer       wrong    not equivalent: a different answer
+//   unsure   the reply gave no answer                      noref    the larger model gave none, or nothing could compare: not counted
+// self: true is the larger model itself, whose own answer is the mark (right when it gave one).
+let kevOnce = null;
+// name: what these answers are answers to. With one, every answer is written down as it comes (a checkpoint), and a run under
+// the same name starts with the answers it has and asks only what is left: a trainer that stopped midway carries on.
+export async function run(
+  list,
+  answerOf,
+  { onRow = () => {}, ref = null, self = false, who = 'swarm', name = '' } = {},
+) {
+  kevOnce = kevOnce || kevAddress();
+  const kev = await kevOnce;
+  const ck = name ? checkpoint(name) : null;
+  if (ck) checkpoints.push(ck);
+  const had = ck ? list.filter((t) => ck.have.has(t.id)).length : 0;
+  if (had)
+    note(
+      who === 'swarm' ? 'the swarm' : who,
+      'this run had stopped partway: carrying on from ' + had + ' of ' + list.length + ' answers already written down',
+      { kind: 'resumed' },
+    );
+  const rows = [];
+  for (const t of list) {
+    if (ck && ck.have.has(t.id)) {
+      rows.push(ck.have.get(t.id));
+      onRow(ck.have.get(t.id));
+      continue;
+    }
+    if (who === 'swarm' || t.type === 'open') await kevGuard(kev);
+    const t0 = Date.now();
+    let got = { reply: '' };
+    live({
+      who,
+      split: t.split,
+      n: rows.length + 1,
+      of: list.length,
+      question: { id: t.id, kind: t.kind, ask: t.ask.slice(0, 400) },
+      slots: who === 'swarm' ? {} : { [who]: { state: 'working', since: t0 } },
+    });
+    try {
+      got = await answerOf(t);
+    } catch (e) {
+      got = { reply: '', why: String((e && e.message) || e).slice(0, 200) };
+    }
+    const seconds = Math.round((Date.now() - t0) / 100) / 10;
+    const theirs = self ? got.reply : ref ? ref.get(t.id) : undefined;
+    let mark = { grade: 'noref' };
+    if (self) mark = { grade: t.show(got.reply) ? 'right' : 'unsure' };
+    else if (theirs !== undefined)
+      mark = got.why ? { grade: 'unsure' } : await t.equivalent(theirs, got.reply, { kev });
+    const row = {
+      cfg: who === 'swarm' ? CONFIG_ID : undefined,
+      target: targetOf().id,
+      id: t.id,
+      kind: t.kind,
+      split: t.split,
+      seed: t.seed,
+      ask: t.ask,
+      ref: theirs === undefined ? '' : t.show(theirs),
+      refReply: self ? undefined : theirs,
+      said: got.why ? '' : t.show(got.reply),
+      grade: mark.grade,
+      seconds,
+      ...got,
+    };
+    if (mark.grade === 'wrong' && mark.input !== undefined)
+      row.partsOn = { input: mark.input, theirs: mark.theirs, ours: mark.ours };
+    if (mark.why) row.markWhy = mark.why;
+    if (who !== 'swarm')
+      liveSlot(who, {
+        state: got.why ? 'failed' : 'done',
+        ms: Math.round(seconds * 1000),
+        said: String(row.said || '').slice(0, 120),
+      });
+    live({ last: { id: t.id, grade: row.grade } });
+    if (ck) ck.add(row);
+    rows.push(row);
+    onRow(row);
+  }
+  live({ who: '', question: null, slots: {} });
+  return rows;
+}
+// right = an answer equivalent to the larger model's; compared = the questions the larger model gave an answer to
+export function count(rows) {
+  const c = { asked: rows.length, right: 0, wrong: 0, unsure: 0, noref: 0 };
+  for (const r of rows) c[r.grade]++;
+  c.compared = c.asked - c.noref;
+  c.score = c.right - c.wrong; // a different answer costs what an equivalent one earns; settling on nothing costs nothing and earns nothing
+  c.seconds = rows.length ? Math.round((rows.reduce((a, r) => a + r.seconds, 0) / rows.length) * 10) / 10 : 0;
+  const kinds = {};
+  for (const r of rows) {
+    if (r.grade === 'noref') continue;
+    kinds[r.kind] = kinds[r.kind] || { asked: 0, right: 0, wrong: 0 };
+    kinds[r.kind].asked++;
+    if (r.grade !== 'unsure') kinds[r.kind][r.grade]++;
+  }
+  return { ...c, kinds };
+}
+export const line = (label, c) =>
+  label.padEnd(26) +
+  String(c.right).padStart(3) +
+  ' of ' +
+  c.compared +
+  ' equivalent ' +
+  String(c.wrong).padStart(3) +
+  ' different ' +
+  String(c.unsure).padStart(3) +
+  ' none   ' +
+  c.seconds +
+  ' s each';
+
+export function save(label, body) {
+  fs.mkdirSync(RESULTS, { recursive: true });
+  const at = new Date().toISOString();
+  fs.writeFileSync(path.join(RESULTS, label + '.json'), JSON.stringify({ at, ...body }, null, 2) + '\n');
+  fs.appendFileSync(
+    path.join(RESULTS, 'history.jsonl'),
+    JSON.stringify({ at, label, ...body, rows: undefined, slots: body.slots }) + '\n',
+  );
+}
+export function rowsTo(file, rows) {
+  fs.mkdirSync(WORK, { recursive: true });
+  fs.appendFileSync(path.join(WORK, file), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+}
