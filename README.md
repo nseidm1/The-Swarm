@@ -18,8 +18,10 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/flow.svg" alt="A message goes to four drafting slots, two on each model; two checking slots look at the drafts; a decision model picks which answer stands; one slot writes the reply" width="860">
+  <img src="docs/images/dashboard.png" alt="The training dashboard: pills to choose the two small models, the decision model and the larger model; whether the swarm is at parity with the larger model; every slot of both small models by stage (draft, check, decide, write) with the larger model alongside; and beside them the Run training button, the passes so far and the ideas waiting to be measured" width="860">
 </p>
+
+<p align="center"><em>The training dashboard, on made-up sample data (the page says so at its top). It is not a measurement.</em></p>
 
 The Swarm is a module from Family Office. To the program that uses it, it is one model: messages go in and one reply comes
 out. Inside, two small models of your choosing are each served with several slots, and every slot has a part: some draft an
@@ -214,11 +216,25 @@ python3 ui/swarm_ui.py
 
 It opens at `http://127.0.0.1:8787/` (`--port` changes that). It needs nothing installed.
 
+The pictures here and at the top of this page show it on made-up sample data. They are not measurements.
+
 <p align="center">
-  <img src="docs/images/ui-sample.png" alt="The dashboard on made-up sample data: the model pills, the swarm's parity with the larger model, the arrangement of slots with the larger model alongside, the plan being carried out move by move, and one input with what every slot wrote and both outputs" width="860">
+  <img src="docs/images/dashboard-plan.png" alt="The plan being carried out: what the pass's measurement showed, then each move in order with its slot and model, its technique, the paper it came from, why it was chosen, and whether it is planned, being measured, kept or not kept" width="860">
 </p>
 
-<p align="center"><em>Shown on made-up sample data (the page says so at its top). It is not a measurement.</em></p>
+<p align="center"><em>The plan of a pass, as it is carried out.</em></p>
+
+<p align="center">
+  <img src="docs/images/dashboard-measurement.png" alt="The whole measurement, opened from the parity strip: at parity or not yet, equivalent and different answers, seconds a reply, equivalent answers pass by pass, which step settled each answer, equivalent answers by kind of question, and each small model alone beside the swarm" width="860">
+</p>
+
+<p align="center"><em>The whole measurement, opened from the parity strip.</em></p>
+
+<p align="center">
+  <img src="docs/images/dashboard-input-output.png" alt="Input against output: the list of questions, one input with what the larger model answered, what every slot wrote and settled on, the swarm's output, and the larger model's output beside it" width="860">
+</p>
+
+<p align="center"><em>One input, with what every slot wrote and both outputs.</em></p>
 
 | Part | What it shows |
 |---|---|
