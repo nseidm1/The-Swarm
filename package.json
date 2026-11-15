@@ -1,0 +1,58 @@
+{
+  "name": "the-swarm",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "Two small models that answer as one: a message in, a reply out, trained toward parity with a much larger model.",
+  "keywords": [
+    "llm",
+    "small-language-models",
+    "ensemble",
+    "orchestration",
+    "llama.cpp",
+    "openai-compatible",
+    "prompt-optimization",
+    "local-inference"
+  ],
+  "author": "Family Office",
+  "homepage": "https://github.com/nseidm1/The-Swarm#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nseidm1/The-Swarm.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nseidm1/The-Swarm/issues"
+  },
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./catalog": "./src/catalog.mjs"
+  },
+  "bin": {
+    "swarm": "bin/swarm.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "LICENSE",
+    "NOTICE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node tests/run.mjs",
+    "serve": "node bin/swarm.mjs serve",
+    "train": "bash training/session.sh",
+    "ui": "python3 ui/swarm_ui.py",
+    "test:ui": "python3 ui/check.py",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run format:check && npm test && npm run test:ui"
+  },
+  "devDependencies": {
+    "prettier": "3.10.1"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "about": "The swarm as it is configured now: the two small models (places a and b), the model that decides, and the larger model it is being brought to parity with. The ids are those of src/models.json. The page changes this file; so can a person.",
+  "a": "lfm25-2.6b",
+  "b": "bonsai2-2b",
+  "decider": "kev-4b",
+  "target": "nemotron35-30b"
+}

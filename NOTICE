@@ -1,0 +1,11 @@
+The Swarm
+A Family Office product
+Copyright 2026 Family Office
+
+The Swarm ships no model. It fetches, at the request of the person running it, model files published by others, each under
+its own license:
+  LFM2.5 2.6B   Liquid AI   LFM Open License v1.0
+  Bonsai 2 2B   Prism ML    Apache License 2.0
+
+It can call, where the person running it has started one, a Kev decision model (github.com/jaredpalmer/kev, Apache License
+2.0). The Swarm ships none of Kev and starts none of it.

@@ -1,0 +1,11 @@
+# Text is stored with LF line endings on every system
+* text=auto eol=lf
+
+# Binary files are never converted or diffed as text
+*.png binary
+*.jpg binary
+*.ico binary
+*.gguf binary
+
+# The shell installer must keep LF endings, or `sh` refuses it
+*.sh text eol=lf

@@ -1,0 +1,14 @@
+[
+  {
+    "name": "check for rules that are easy to find broken",
+    "from": "2608.23541",
+    "brief": "You are given a question and several worked answers to it, lettered. Check each one against four things only, in this order: (1) does it answer what was asked, in the form and unit asked for; (2) is every number it uses one the question gave or one it worked out; (3) is each calculation right when you do it again yourself; (4) did it use anything the question did not say. For each letter write the first of these it fails, or PASSES. Do not weigh how many agree. Then give the answer of one that passes; if none does, work the question yourself in a few lines. End with one last line that starts with ANSWER: and holds only the answer itself."
+  },
+  {
+    "name": "one worked answer for each different answer",
+    "from": "2610.21290",
+    "plan": {
+      "onePerAnswer": true
+    }
+  }
+]
