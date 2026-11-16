@@ -193,31 +193,56 @@ async function model(m, what, check) {
 function decider(check) {
   const what = 'The decider (' + DECIDER.name + ')';
   if (process.env.SWARM_KEV) return (say(what, 'ready', { note: 'running at ' + process.env.SWARM_KEV }), true);
-  if (
-    fs.existsSync(path.join(REPO_ROOT, '.work', 'kev', 'uvenv', 'bin', 'uv')) &&
-    fs.existsSync(path.join(REPO_ROOT, '.work', 'kev', 'src', '.venv'))
-  )
-    return (say(what, 'ready', { note: 'its weights come the first time it is served' }), true);
+  const kind = (DECIDER.serve || { kind: 'kev' }).kind;
+  const script = path.join(REPO_ROOT, 'training', 'kev.sh');
+  // (installed is the decider script's own test: training/kev.sh ready, by the decider's recipe)
+  const ready = () => spawnSync('bash', [script, 'ready'], { encoding: 'utf8' }).status === 0;
+  const later = kind === 'kev' ? 'its weights come the first time it is served' : '';
+  if (ready()) return (say(what, 'ready', later ? { note: later } : {}), true);
+  // one the swarm does not start (it needs an NVIDIA GPU): it is named with SWARM_KEV, where it runs
+  if (kind !== 'kev' && kind !== 'startlux-mlx')
+    return (
+      say(what, 'failed', {
+        why:
+          'it is not started by the swarm: it needs ' +
+          DECIDER.needs +
+          '. Start it where it can run (its entry in src/models.json says how) and name it: SWARM_KEV=http://<host>:<port>.',
+      }),
+      false
+    );
   if (check) return (say(what, 'missing'), false);
-  say(what, 'installing', { note: 'its program and a Python of its own (a few minutes)' });
+  say(what, 'installing', {
+    note:
+      kind === 'startlux-mlx'
+        ? 'its server and a Python of its own, and its weights (' +
+          Math.round(((DECIDER.serve.bytes || 0) / 2 ** 30) * 10) / 10 +
+          ' GB)'
+        : 'its program and a Python of its own (a few minutes)',
+  });
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const r = spawnSync('bash', [path.join(REPO_ROOT, 'training', 'kev.sh'), 'install'], { encoding: 'utf8' });
-    if (r.status === 0) return (say(what, 'ready', { note: 'its weights come the first time it is served' }), true);
+    const r = spawnSync('bash', [script, 'install'], { encoding: 'utf8' });
+    if (r.status === 0 && ready()) return (say(what, 'ready', later ? { note: later } : {}), true);
     if (attempt === 2)
       return (
         say(what, 'failed', {
           why:
-            'Kev could not be installed: ' +
+            DECIDER.name +
+            ' could not be installed: ' +
             String(r.stderr || r.stdout)
               .trim()
               .split('\n')
               .slice(-1)[0]
               .slice(0, 160) +
-            '. It needs git and python3. Without it nothing decides.',
+            '. It needs git and python3' +
+            (kind === 'startlux-mlx' ? ', and an Apple silicon Mac' : '') +
+            '. Without it nothing decides.',
         }),
         false
       );
-    fs.rmSync(path.join(REPO_ROOT, '.work', 'kev', 'src', '.venv'), { recursive: true, force: true }); // a half-made environment: made again
+    // a half-made environment: made again (the weights are kept: they are only marked complete once whole)
+    if (kind === 'kev')
+      fs.rmSync(path.join(REPO_ROOT, '.work', 'kev', 'src', '.venv'), { recursive: true, force: true });
+    else fs.rmSync(path.join(REPO_ROOT, '.work', 'deciders', 'startlux', 'venv'), { recursive: true, force: true });
   }
   return false;
 }

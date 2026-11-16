@@ -1,5 +1,5 @@
 {
-  "about": "Every model the swarm can be made of, be decided by, or be brought to parity with, and the engine that runs them. Each file is pinned: a repository, a revision, a size and a SHA-256, as Hugging Face (and, for the engine, GitHub) listed them on 2026-11-15. Only LFM2.5 2.6B, Bonsai 2 2B, Kev 4B and Nemotron 3.5 Lightning 30B have been run here; the others are listed as their makers published them and are untried.",
+  "about": "Every model the swarm can be made of, be decided by, or be brought to parity with, and the engine that runs them. Each file is pinned: a repository, a revision, a size and a SHA-256, as Hugging Face (and, for the engine, GitHub) listed them on 2026-11-15. Only LFM2.5 2.6B, Bonsai 2 2B, Kev 4B, StartLux Decision 4B and Nemotron 3.5 Lightning 30B have been run here; the others are listed as their makers published them and are untried.",
   "engine": {
     "name": "llama.cpp",
     "site": "https://github.com/ggml-org/llama.cpp",
@@ -267,7 +267,15 @@
       "rev": "6cfce5c2fa4b4bd64026336ab649c5ca78857d52",
       "memGb": 5,
       "license": "Apache-2.0",
-      "needs": "a 32 GB Mac, or a 24 GB GPU"
+      "needs": "a 32 GB Mac, or a 24 GB GPU",
+      "serve": {
+        "kind": "kev"
+      },
+      "runsOn": ["mac", "cuda"],
+      "index": {
+        "score": 34.93,
+        "as": "Kev 4B r10, an older checkpoint than v1.0"
+      }
     },
     {
       "id": "kev-0.8b",
@@ -278,7 +286,15 @@
       "rev": "bf75a6a8848ea6960ff2ed108d9ed44c2941174f",
       "memGb": 1.5,
       "license": "Apache-2.0",
-      "needs": "any Apple silicon Mac, or a 4 GB GPU"
+      "needs": "any Apple silicon Mac, or a 4 GB GPU",
+      "serve": {
+        "kind": "kev"
+      },
+      "runsOn": ["mac", "cuda"],
+      "index": {
+        "score": 16.3,
+        "as": "Kev 0.8B r15, an older checkpoint than v1.0"
+      }
     },
     {
       "id": "kev-9b",
@@ -289,7 +305,15 @@
       "rev": "db029f08b290afd9fee4aa4bbcd9ae48602d1eb0",
       "memGb": 10,
       "license": "Apache-2.0",
-      "needs": "a 32 GB Mac or larger"
+      "needs": "a 32 GB Mac or larger",
+      "serve": {
+        "kind": "kev"
+      },
+      "runsOn": ["mac", "cuda"],
+      "index": {
+        "score": 40.91,
+        "as": "Kev 9B v2"
+      }
     },
     {
       "id": "kev-27b",
@@ -300,7 +324,119 @@
       "rev": "af0e6d551bdc2cc724f3e9d7a8bee1cd4fb8f7bf",
       "memGb": 60,
       "license": "Apache-2.0",
-      "needs": "a 96 GB Mac, or an 80 GB GPU"
+      "needs": "a 96 GB Mac, or an 80 GB GPU",
+      "serve": {
+        "kind": "kev"
+      },
+      "runsOn": ["mac", "cuda"],
+      "index": {
+        "score": 59.56,
+        "as": "Kev 27B"
+      }
+    },
+    {
+      "id": "startlux-4b",
+      "name": "StartLux Decision 4B",
+      "by": "StartLux",
+      "params": 4.7,
+      "memGb": 5.5,
+      "license": "CC-BY-NC-4.0 (non-commercial)",
+      "needs": "an Apple silicon Mac with 16 GB or more",
+      "runsOn": ["mac"],
+      "index": {
+        "score": 54.8,
+        "as": "StartLux-Decision v1.1 4B"
+      },
+      "serve": {
+        "kind": "startlux-mlx",
+        "code": "https://github.com/StartLuxLabs/StartLux-Decision.git",
+        "codeRev": "a99977d9332decc9fb27a2488b4a83b533b6cd5f",
+        "weights": "startlux-models/StartLux-Decision-v1.1-4B-Instant-MLX-8bit",
+        "weightsRev": "56f18acdc9502c44fdb80234c09a2276e3398916",
+        "bytes": 5150022293
+      }
+    },
+    {
+      "id": "startlux-9b",
+      "name": "StartLux Decision 9B",
+      "by": "StartLux",
+      "params": 9.7,
+      "memGb": 11,
+      "license": "CC-BY-NC-4.0 (non-commercial)",
+      "needs": "an Apple silicon Mac with 32 GB or more",
+      "runsOn": ["mac"],
+      "index": {
+        "score": 58.07,
+        "as": "StartLux-Decision v1.1 9B"
+      },
+      "serve": {
+        "kind": "startlux-mlx",
+        "code": "https://github.com/StartLuxLabs/StartLux-Decision.git",
+        "codeRev": "a99977d9332decc9fb27a2488b4a83b533b6cd5f",
+        "weights": "startlux-models/StartLux-Decision-v1.1-9B-Instant-MLX-8bit",
+        "weightsRev": "616e1a72c00fede2a46b1c1d05abf8a60322ff0f",
+        "bytes": 10439940084
+      }
+    },
+    {
+      "id": "knowline-4b",
+      "name": "KnowLine 4B Gen5.5",
+      "by": "PelaAI",
+      "params": 4.7,
+      "memGb": 10,
+      "license": "Apache-2.0",
+      "needs": "an NVIDIA GPU (served by SGLang)",
+      "runsOn": ["cuda"],
+      "index": {
+        "score": 55.99,
+        "as": "KnowLine 4B Gen5.5"
+      },
+      "serve": {
+        "kind": "cuda",
+        "weights": "PelaAI/KnowLine-4B-Gen5.5",
+        "weightsRev": "890ecc3765a16c8e22b884807e19827fa695eb9a",
+        "how": "pip install sglang==0.5.21 transformers==5.12.1 requests; bash serve_knowline.sh <model folder> 0 <port>   (from the model card: SGLang with FP8 on :<port>+1000, /v1/systemone on :<port>)"
+      }
+    },
+    {
+      "id": "jeffan-9b",
+      "name": "Jeffan 9B",
+      "by": "tattrongvu",
+      "params": 9.0,
+      "memGb": 18,
+      "license": "Apache-2.0",
+      "needs": "an NVIDIA GPU",
+      "runsOn": ["cuda"],
+      "index": {
+        "score": 61.48,
+        "as": "Jeffan-9B-1211"
+      },
+      "serve": {
+        "kind": "cuda",
+        "weights": "tattrongvu/Jeffan-9B-1211",
+        "weightsRev": "862d1a7a8b64a8d708ddb0b0cd775a740f01841a",
+        "how": "the inference/ folder of the model repository (jeffan_engine), as its README describes"
+      }
+    },
+    {
+      "id": "karpo-31b",
+      "name": "karpo-decision 31B",
+      "by": "MachinePulse AI",
+      "params": 31.3,
+      "memGb": 64,
+      "license": "Apache-2.0",
+      "needs": "an NVIDIA GPU with 80 GB",
+      "runsOn": ["cuda"],
+      "index": {
+        "score": 73.86,
+        "as": "karpo-decision-31B, first on the board"
+      },
+      "serve": {
+        "kind": "cuda",
+        "weights": "MachinePulseAI/karpo-decision-31B",
+        "weightsRev": "b8e6fd7463cea8662c556d6257955d7ef9c10d19",
+        "how": "pip install \"karpo-decision @ git+https://github.com/machinepulse-ai/karpo-decision\"; torchrun --standalone --nproc_per_node 1 -m karpo_decision.serve.server --checkpoint <model folder> --port <port>   (from the model card)"
+      }
     }
   ],
   "targets": [
@@ -491,5 +627,6 @@
       "license": "LFM Open License v1.0",
       "engine": "llama"
     }
-  ]
+  ],
+  "decidersAbout": "The models that can decide. Every one answers the same request (POST /v1/systemone: a state and typed questions, a probability for each option), so any of them can stand in the decide step. index: its balanced score on the community Decision Index (multimodalart/jev-decision-index, data of 2026-11-12, 300 models; Jev 1.14, TypeSafe's hosted model, scores 60.24), and the entry it was scored as. runsOn: 'mac' (Apple silicon) and 'cuda' (an NVIDIA GPU), as its maker documents it. serve: how training/kev.sh fetches and starts it here ('kev', 'startlux-mlx'); 'cuda' ones are listed with their maker's own instructions and are not started by the swarm."
 }

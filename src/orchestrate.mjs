@@ -423,7 +423,7 @@ export async function answer(
       // HOW THE MATTER IS SETTLED is part of the plan (plan.decideBy), and so is trained: the decider always ('kev', where nothing
       // is said); the answer most slots hold ('most': the decider is not asked); the decider only where it is sure
       // ('kev-if-confident'), or only where no answer has more than half the slots behind it ('kev-unless-majority')
-      const by = step.keep ? 'kev' : plan.decideBy || 'kev';
+      const by = step.keep || step.sure ? 'kev' : plan.decideBy || 'kev';
       if (decide && table.length > 1 && by !== 'most') {
         onStart({ slot: 'kev-decide', member: 'kev', stage: 'decide' });
         const k = await decide({
@@ -448,6 +448,22 @@ export async function answer(
         };
         trace.push(ruled);
         onStep(ruled);
+      }
+      // A DECISION EARLY IN THE FLOW, THAT SETTLES IT ONLY IF IT IS SURE ({ sure: 0.75 }): where the decider gives one answer that
+      // much, the matter is settled there and what follows is passed over; where it does not, nothing is settled or thrown away
+      // and the flow goes on (to the checks, to the answers going back) with what it said beside the answers
+      if (step.sure) {
+        const top = ruled && ruled.ok && ruled.probs ? Math.max(...Object.values(ruled.probs)) : 0;
+        if (ruled && ruled.ok && top >= step.sure) {
+          S.decided = ruled.final;
+          S.path = 'decided-early';
+          ruled.out = 'Sure (' + top.toFixed(2) + '): picked ' + ruled.out.replace(/^Picked /, '');
+        } else if (ruled) {
+          ruled.out = 'Not sure enough to settle it here (' + top.toFixed(2) + '): the flow goes on.';
+          ruled.final = '';
+          ruled.set = 'aside';
+        }
+        return;
       }
       if (step.keep && table.length > step.keep) {
         // the likeliest few go on; the rest are out of it. By Kev's probabilities where it gave them, else by how many hold each

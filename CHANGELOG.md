@@ -12,6 +12,16 @@ The first version.
 - **Training.** Recursive passes toward parity with a larger model: each pass measures the Swarm against the larger model's own
   answers, plans from where the answers were lost, tries other briefs and arrangements, keeps a change only on evidence, and
   hands what it learned to the next pass.
+- **What equivalence means.** The work of a seat on a team (The Crew): programming, and the conversation around it in Simple
+  and Developer, judged on the act, the substance and the conventions. Chosen on the dashboard under the models, with Math,
+  Logic and Reasoning as further choices. Each has a pencil that opens its questions, to which a person can add their own.
+- **Uninstall Helper.** A button beside the output spec lists what the Swarm has installed in `.work`, with sizes and what the
+  configured swarm uses, and removes a piece after asking. Nothing outside `.work`, and never through a link.
+- **More deciders.** StartLux Decision 4B and 9B, run here through MLX, and three leaders that need an NVIDIA GPU, each with its
+  Decision Index score; the decider script starts any of them by its recipe.
+- **The search over arrangements.** Every step kind in every place it can go, in a fixed order with nothing drawn by lot;
+  a measurement is named for the flow it was made with (before 2026-11-16 it was not, and a changed flow was given the score
+  of the flow it came from).
 - **Recovery.** A session restarts what stops, resumes what was interrupted, and records every recovery.
 - **The dashboard.** A local page showing the models, the arrangement, the plan being carried out and parity with the larger
   model, with a button that fetches what is needed and runs a pass.

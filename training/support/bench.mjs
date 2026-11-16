@@ -11,11 +11,11 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { createSwarm, MEMBERS, readBriefs } from '../../src/index.mjs';
-import { CONFIG_ID, CONFIG_KEY } from '../../src/catalog.mjs';
+import { CONFIG_ID, CONFIG_KEY, readConfig } from '../../src/catalog.mjs';
 import { note, checkpoint, briefKey } from './recover.mjs';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { attachMember, startMember } from '../../src/members.mjs';
-import { tasks, KIND_NAMES, reworded } from '../tasks.mjs';
+import { tasks, kindsFor, readOwn, CODE_KIND_NAMES, reworded } from '../tasks.mjs';
 import { readerOk, readerMark } from './reader-file.mjs';
 import { readState, targetOf } from '../state.mjs';
 import { openTarget } from '../target.mjs';
@@ -63,10 +63,17 @@ export const questions = (split, each = Number(arg('each', 6))) => {
     tasks({
       split: s,
       each,
-      kinds: kinds.length ? kinds : KIND_NAMES,
+      // the kinds this configuration's pass asks: its record says (a pass ends on the questions it began with, whatever is
+      // chosen meanwhile; one begun before there was a choice ends on the programming kinds); a first pass asks what is chosen
+      kinds: kinds.length
+        ? kinds
+        : state.kinds || ((state.history || []).length ? CODE_KIND_NAMES : kindsFor(readConfig().equivalence)),
       seed: state.seeds[s],
       focus: state.focus,
       tiers: state.tiers || {},
+      // the questions a person wrote: as the pass's record has them (a pass ends on the questions it began with); a first pass
+      // reads them as they are now; a pass begun before they could be written, and a run told which kinds to ask, has none
+      own: kinds.length ? {} : state.own || ((state.history || []).length ? {} : readOwn(readConfig().equivalence)),
     });
   // the held questions, each put a second way (tasks.mjs: reword); they are compared with the larger model's answer to the first
   return split === 'reworded' ? reworded(of('held')) : of(split);
@@ -132,7 +139,7 @@ export async function kevGuard(kev) {
   if (await up()) return;
   const port = Number((/:(\d+)$/.exec(kev) || [])[1]);
   const script = path.join(REPO_ROOT, 'training', 'kev.sh');
-  if (!port || !fs.existsSync(path.join(REPO_ROOT, '.work', 'kev', 'uvenv', 'bin', 'uv')))
+  if (!port || spawnSync('bash', [script, 'ready']).status !== 0)
     return void note(
       'the decider (Kev)',
       "it has stopped and is not this folder's to start: the answer most slots gave will stand",
@@ -332,7 +339,7 @@ export async function run(
       onRow(ck.have.get(t.id));
       continue;
     }
-    if (who === 'swarm' || t.type === 'open') await kevGuard(kev);
+    if (who === 'swarm' || t.type === 'open' || t.type === 'talk') await kevGuard(kev);
     const t0 = Date.now();
     let got = { reply: '' };
     live({
@@ -357,14 +364,17 @@ export async function run(
       // a reply of the larger model's that holds no answer (cut off, empty) is nothing to be equivalent to: not compared
       mark = !holds(theirs)
         ? { grade: 'noref' }
-        : t.type === 'open' && !readerOk(WORKC)
+        : (t.type === 'open' || t.type === 'talk') && !readerOk(WORKC, t.type)
           ? {
               grade: 'noref',
-              why: 'the reader of answers in words failed its own check this pass (training/readers.mjs)',
+              why:
+                'the reader of ' +
+                (t.type === 'talk' ? 'replies in a conversation' : 'answers in words') +
+                ' failed its own check this pass (training/readers.mjs)',
             }
           : got.why
             ? { grade: 'unsure' }
-            : await t.equivalent(theirs, got.reply, { kev, mark: readerMark(WORKC) });
+            : await t.equivalent(theirs, got.reply, { kev, mark: readerMark(WORKC, t.type) });
     const row = {
       cfg: who === 'swarm' ? CONFIG_ID : undefined,
       target: targetOf().id,
@@ -383,6 +393,10 @@ export async function run(
     if (mark.grade === 'wrong' && mark.input !== undefined)
       row.partsOn = { input: mark.input, theirs: mark.theirs, ours: mark.ours };
     if (mark.why) row.markWhy = mark.why;
+    // a reply in a conversation: which part of equivalence it was lost on (the act, the substance, the conduct)
+    if (mark.part) row.part = mark.part;
+    if (mark.faults) row.faults = mark.faults;
+    if (t.mode) row.mode = t.mode;
     // DOES THE LARGER MODEL'S OWN ANSWER DO WHAT THE QUESTION SAYS? Parity is equivalence with it whatever it answers; but where
     // it departs from the question itself no swarm can be expected to follow, and those questions are counted apart as well
     if (self && t.toSpec) row.toSpec = await t.toSpec(got.reply);

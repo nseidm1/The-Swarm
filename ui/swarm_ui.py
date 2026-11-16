@@ -2,7 +2,7 @@
 """swarm_ui.py - THE SWARM, SEEN. One page, served from this machine, that shows what is being trained and how it stands:
 
     Parity            whether the swarm's answers are FUNDAMENTALLY EQUIVALENT to the larger model's, on the same questions.
-                      Not a percentage and not which of them is right: at parity when every answer is equivalent
+                      How far toward it is one percentage, said one way everywhere; at parity when every answer is equivalent
     The arrangement   what every pass trains: the drafts, the checks, the decision, the write, and the arrangement of the slots
                       itself. The two small models, every slot of each, what each is told and what is being tried in its
                       place; the larger model alongside
@@ -34,6 +34,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cleanup  # noqa: E402
 import data  # noqa: E402
 
 ARGS = None
@@ -57,10 +58,47 @@ header{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:flex-end;justify-co
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{background:var(--panel);border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:600;color:var(--mist);white-space:nowrap;box-shadow:var(--shadow)}
 .chip b{color:var(--fog);font-weight:800}.chip.level{background:#d7f3e9;color:var(--right)}.chip.behind{background:#fdebd0;color:#9a5b00}.chip.level b,.chip.behind b{color:inherit}
-.picks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:18px}
-.pick{background:var(--panel);border-radius:18px;padding:9px 14px 10px;box-shadow:var(--shadow);display:grid;gap:1px;border:0;text-align:left;font:inherit;color:var(--fog);border-left:4px solid var(--lfm);min-width:0}
+/* the choices, in one row where there is room and in even rows where there is not: each pill takes what it needs and the row is
+   filled, so none is left ragged; a label is one line; the larger model, whose names are longest, has twice the room */
+.picks{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;align-items:stretch}
+/* what it is to be equivalent on: one box to tick for each, in a row that wraps; each takes the room its words need and no less */
+.equiv{border:1px solid var(--line);border-radius:16px;background:var(--panel);margin:10px 0 0;padding:12px 16px 12px;min-width:0}
+.equiv legend{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--mist);padding:0 6px}
+.equiv .ticks{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 10px}
+.tick{position:relative;border:1px solid var(--line);border-radius:12px;min-width:0}.tick label{display:flex;gap:10px;align-items:flex-start;padding:9px 40px 9px 12px;cursor:pointer;min-width:0}
+.pencil{position:absolute;top:6px;right:6px;width:28px;height:28px;border:0;border-radius:8px;background:none;color:var(--mist);cursor:pointer;display:grid;place-items:center;padding:0}
+.pencil:hover,.pencil:focus-visible{background:var(--soft);color:var(--teal)}.pencil svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round}
+.tick small em{font-style:normal;font-weight:700;color:var(--teal)}
+dialog#qedit{border:0;border-radius:26px;padding:26px;max-width:min(760px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}
+dialog#qedit::backdrop{background:rgba(11,40,38,.45)}dialog#qedit h4{margin:22px 0 6px}
+.qlist{list-style:none;margin:0;padding:0;display:grid;gap:8px}.qrow{display:flex;gap:8px;align-items:flex-start;min-width:0}
+.qrow textarea{flex:1 1 auto;min-width:0;resize:vertical;font:inherit;font-size:14px;line-height:1.4;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--fog)}
+.qside{display:flex;gap:6px;align-items:center;flex:none}.qside select{font:inherit;font-size:13px;padding:7px 6px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--fog)}
+.qdel{width:32px;height:32px;border:0;border-radius:8px;background:var(--soft);color:var(--mist);font-size:18px;line-height:1;cursor:pointer}.qdel:hover{background:#fde1db;color:var(--wrong)}
+.qbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}.qbar #qcount{margin-right:auto}
+.qmade{margin:0;padding-left:18px;columns:2 220px;font-size:13px;color:var(--mist)}
+@media (max-width:560px){.qrow:has(select){flex-wrap:wrap}.qrow:has(select) .qside{width:100%;justify-content:flex-end}}
+.tick.on{border-color:var(--teal2);background:#eefaf6}.tick input{flex:none;width:17px;height:17px;margin:2px 0 0;accent-color:var(--teal)}
+.tick span{display:grid;gap:2px;min-width:0}.tick b{font-size:14.5px;font-weight:800}.tick small{font-size:12px;line-height:1.35;color:var(--mist);overflow-wrap:anywhere}
+.equiv p{margin:10px 2px 0}
+/* two groups: the small models, and what they are set against (the decider and the larger model). In one row where both fit; where
+   they do not, the second group goes under the first whole, so a row is never one stray pill */
+.picks>.group{display:flex;flex-wrap:wrap;gap:10px;flex:1 1 auto;min-width:0}.picks>.group.small{flex-grow:3}.picks>.group.against{flex-grow:2}
+.picks .pick{flex:1 1 185px}.picks .pick.target{flex:1.6 1 300px}
+.specbtn{font:inherit;font-size:12.5px;font-weight:800;color:var(--fog);background:var(--panel);border:0;border-left:4px solid var(--sun);border-radius:999px;padding:7px 14px;box-shadow:var(--shadow);cursor:pointer;white-space:nowrap}
+.specbtn span{font-weight:700;color:var(--mist);margin-left:6px}.specbtn.tidy{border-left-color:var(--coral)}
+dialog#tidy{border:0;border-radius:26px;padding:26px;max-width:min(820px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}
+dialog#tidy::backdrop{background:rgba(11,40,38,.45)}.tlist{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}
+.tgroup{font-size:10.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--teal2);margin:12px 0 0}
+.titem{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:12px}
+.titem b{font-size:14px}.titem small{display:block;font-size:12px;color:var(--mist);line-height:1.35;overflow-wrap:anywhere;margin-top:2px}.titem .pill{margin-left:4px}
+.tsize{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}.tdel{padding:8px 14px}
+.tsaid{margin:12px 0 0;padding:10px 12px;border-radius:12px;background:#d7f3e9;color:var(--right);font-weight:700;font-size:13px}
+@media (max-width:560px){.titem{grid-template-columns:minmax(0,1fr) auto}.titem>div{grid-column:1/-1}}.specbtn:hover{box-shadow:0 12px 30px rgba(11,93,87,.16)}.specbtn:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}
+.pick{background:var(--panel);border-radius:16px;padding:9px 14px 10px;box-shadow:var(--shadow);display:grid;gap:3px;align-content:center;border:0;text-align:left;font:inherit;color:var(--fog);border-left:4px solid var(--lfm);min-width:0}
 .pick.b{border-left-color:var(--bon)}.pick.c{border-left-color:#7a5cc4}.pick.d{border-left-color:#2f7fb8}.pick.add{border-left-color:var(--line);box-shadow:none;background:transparent;outline:1.5px dashed var(--line)}.pick.decider{border-left-color:var(--kev)}.pick.target{border-left-color:var(--tgt)}.pick.spec{border-left-color:var(--sun);cursor:pointer}
-.pick small{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mist)}.pick b{font-size:15px;font-weight:800}
+.pick small{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--mist);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pick b{font-size:15px;font-weight:800;white-space:nowrap}
+.pick small i{font-style:normal;font-weight:700;letter-spacing:.02em;text-transform:none;margin-left:8px;opacity:.85}.pick.add select{color:var(--mist);font-weight:700}.pick select{font-size:14.5px}
 .pick select{background:none;border:0;padding:0;font:inherit;font-size:15px;font-weight:800;color:var(--fog);width:100%;cursor:pointer;min-width:0;text-overflow:ellipsis}
 .pick select:disabled{opacity:.55;cursor:default}
 dialog#spec{border:0;border-radius:26px;padding:26px;max-width:min(980px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}
@@ -185,7 +223,9 @@ textarea{width:100%;min-height:80px;background:var(--soft);border:0;border-radiu
 .run .sec>h5 span{letter-spacing:0;text-transform:none;font-weight:600;font-size:12px}
 .steps{margin:0;padding:0;list-style:none;display:grid;gap:6px;font-size:13px;font-variant-numeric:tabular-nums;line-height:1.35}
 .steps li{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:8px;align-items:baseline}.steps li>span:first-child{color:var(--right);font-weight:800;text-align:center}
-.steps li>span:last-child{color:var(--mist);font-size:12px;white-space:nowrap}.steps .cur{color:var(--teal);font-weight:800}.steps .cur>span:first-child{color:var(--teal2)}.steps .cur>span:last-child{color:var(--teal)}
+/* the third thing in a row is how long it took, kept on one line; a row of two (what was learned, what was recovered) has no such
+   thing, and its words wrap inside the card */
+.steps li>span{min-width:0;overflow-wrap:anywhere}.steps li>span:nth-child(3){color:var(--mist);font-size:12px;white-space:nowrap}.steps li b{overflow-wrap:anywhere}.steps .cur{color:var(--teal);font-weight:800}.steps .cur>span:first-child{color:var(--teal2)}.steps .cur>span:nth-child(3){color:var(--teal)}
 .state.running{align-items:flex-start}.state.running i{margin-top:5px}.state.running span{display:grid;gap:1px}.state.running b{font-size:14px;font-weight:800;color:var(--teal)}.state.running small{font-size:12px;font-weight:600;color:var(--mist)}
 .run .sec>p{margin:0}
 .steps .bad,.steps .bad>span:first-child{color:var(--wrong)}.steps small{font-size:12px;line-height:1.35}
@@ -195,8 +235,8 @@ textarea{width:100%;min-height:80px;background:var(--soft);border:0;border-radiu
 .feed b{display:block;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed small{color:var(--mist);font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 @media (prefers-reduced-motion:reduce){.pulse{animation:none}html{scroll-behavior:auto}}
 @media (max-width:1200px){.shell{grid-template-columns:minmax(0,1fr)}.rail{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}}
-@media (max-width:1200px){.picks{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:560px){.picks{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:900px){.picks .group.small.n4 .pick{flex:1 1 40%}}
+@media (max-width:560px){.picks .pick,.picks .pick.target,.picks .group.small.n4 .pick{flex:1 1 100%}}
 @media (max-width:1000px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.charts,.two,.io,.versus{grid-template-columns:minmax(0,1fr)}
 .stages{grid-auto-columns:minmax(170px,46%)}.qlist{max-height:260px}}
 @media (max-width:560px){.stages{grid-auto-columns:minmax(170px,82%)}.kpis{grid-template-columns:minmax(0,1fr)}main{padding:18px 16px 40px}h1{font-size:27px}.panel{padding:16px;border-radius:20px}}
@@ -222,7 +262,39 @@ document.addEventListener('click',async(ev)=>{
 // A MODEL CHOSEN: written down, and everything that depends on it drawn again in place
 document.addEventListener('change',async(ev)=>{const s=ev.target.closest('[data-pick]');if(!s)return;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({[s.dataset.pick]:s.value})});
-  if(r.ok){$('#body').innerHTML=await r.text();await swap('/fragment/run','#run');liveTick();}else{alert(await r.text());await swap('/fragment/picks','#picks');}});
+  if(r.ok){$('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/chips','#chips');await swap('/fragment/run','#run');liveTick();}else{alert(await r.text());await swap('/fragment/picks','#picks');}});
+// WHAT IT IS TO BE EQUIVALENT ON: the boxes ticked are written down, and the row drawn again in place
+document.addEventListener('change',async(ev)=>{const b=ev.target.closest('[data-equiv]');if(!b)return;
+  const want=[...document.querySelectorAll('[data-equiv]:checked')].map(x=>x.dataset.equiv);
+  const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({equivalence:want})});
+  if(!r.ok)alert(await r.text());
+  await swap('/fragment/equiv','#equiv');});
+// THE UNINSTALL HELPER: what is installed here, and a piece removed only once its removal has been confirmed
+document.addEventListener('click',async(ev)=>{
+  if(ev.target.closest('#tidy-open')){$('#tidy-body').innerHTML='<p class="muted">Measuring what is installed here...</p>';$('#tidy').showModal();await swap('/fragment/tidy','#tidy-body');return;}
+  if(ev.target.id==='tidy-close'||ev.target.id==='tidy'){$('#tidy').close();return;}
+  const b=ev.target.closest('[data-tidy]');if(!b)return;
+  const again=b.dataset.used==='1'?' It is part of the swarm as configured: Run training fetches it again.':'';
+  if(!confirm('Remove '+b.dataset.what+' ('+b.dataset.size+')? This cannot be undone.'+again))return;
+  b.disabled=true;b.textContent='Removing';
+  const r=await fetch('/uninstall',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({id:b.dataset.tidy})});
+  if(!r.ok){alert(await r.text());await swap('/fragment/tidy','#tidy-body');return;}
+  $('#tidy-body').innerHTML=await r.text();
+});
+// THE QUESTIONS FOR ONE BODY OF WORK: the pencil opens them; a row is added, changed or taken out, and Save writes them all
+const qCount=()=>{const n=document.querySelectorAll('#qlist .qrow').length;const c=$('#qcount');if(c)c.textContent=n+' of 200';const a=$('#qadd');if(a)a.disabled=n>=200;};
+document.addEventListener('click',async(ev)=>{
+  const pen=ev.target.closest('[data-qedit]');
+  if(pen){await swap('/fragment/questions?id='+encodeURIComponent(pen.dataset.qedit),'#qedit-body');qCount();$('#qedit').showModal();return;}
+  if(ev.target.id==='qedit-close'||ev.target.id==='qedit'){$('#qedit').close();return;}
+  if(ev.target.id==='qadd'){const li=$('#qrow').content.firstElementChild.cloneNode(true);$('#qlist').appendChild(li);li.querySelector('textarea').focus();qCount();return;}
+  if(ev.target.closest('[data-q-del]')){ev.target.closest('.qrow').remove();qCount();return;}
+  if(ev.target.id==='qsave'){const b=ev.target;b.disabled=true;
+    const questions=[...document.querySelectorAll('#qlist .qrow')].map(li=>({ask:li.querySelector('[data-q-ask]').value,mode:(li.querySelector('[data-q-mode]')||{}).value||undefined}));
+    const r=await fetch('/questions',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({id:$('#qlist').dataset.target,questions})});
+    b.disabled=false;if(!r.ok){alert(await r.text());return;}
+    $('#equiv').innerHTML=await r.text();$('#qedit').close();}
+});
 // THE OUTPUT SPEC: what the swarm as it stands is, in one document
 document.addEventListener('click',async(ev)=>{
   if(ev.target.closest('#spec-open')){await swap('/fragment/spec','#spec-body');$('#spec').showModal();return;}
@@ -237,6 +309,7 @@ function watch(){if(timer)return;timer=setInterval(async()=>{const was=!!$('#run
   if(!$('#run [data-running]')){clearInterval(timer);timer=null;if(was){await swap('/fragment/body','#body');await swap('/fragment/picks','#picks');}}
   else{await swap('/fragment/score','#score');if($('#plan'))await swap('/fragment/plan','#plan');
     if($('#io-wrap')&&!$('#io'))await swap('/fragment/io','#io-wrap');
+    await swap('/fragment/chips','#chips');
     if($('#spec').open){const y=$('#spec').scrollTop;await swap('/fragment/spec','#spec-body');$('#spec').scrollTop=y;}}},4000);}
 if($('#run [data-running]'))watch();
 // WHAT EVERY SLOT IS DOING NOW: asked for every second and a half while a session runs, and written onto the cards in place
@@ -286,9 +359,9 @@ def bar(name, cls, p):
     n = max(1, p["compared"])
     pct = lambda k: 100.0 * p[k] / n  # noqa: E731
     return (
-        '<div class="bar"><div class="name %s">%s</div><div class="n">%d of %d equivalent</div><div class="track" role="img" aria-label="%d equivalent, %d different, %d none, of %d">'
+        '<div class="bar"><div class="name %s">%s</div><div class="n">%s</div><div class="track" role="img" aria-label="%d equivalent, %d different, %d none, of %d">'
         '<i class="r" style="width:%.2f%%"></i><i class="w" style="width:%.2f%%"></i><i class="u" style="width:%.2f%%"></i></div></div>'
-        % (cls, e(name), p["equivalent"], p["compared"], p["equivalent"], p["differ"], p["none"], p["compared"], pct("equivalent"), pct("differ"), pct("none"))
+        % (cls, e(name), e(how_far(p["equivalent"], p["compared"])), p["equivalent"], p["differ"], p["none"], p["compared"], pct("equivalent"), pct("differ"), pct("none"))
     )
 
 
@@ -358,7 +431,12 @@ def donut(parts, total, label):
 
 
 KIND_WORDS = {"write-arrays": "Write a function: arrays", "write-strings": "Write a function: strings", "write-numbers": "Write a function: numbers",
-              "write-parsing": "Write a function: parsing", "fix": "Correct a function", "bug": "Say what is wrong", "trace": "Say what a program prints"}
+              "write-parsing": "Write a function: parsing", "fix": "Correct a function", "bug": "Say what is wrong", "trace": "Say what a program prints",
+              "answer": "Simple: an everyday question", "request": "Simple: something it cannot do, or needs to ask about", "piece": "Simple: a piece of writing", "talk": "Simple: conversation",
+              "practice": "Developer: a question of good practice", "shown": "Developer: their own project",
+              "chain": "Math: sums in a row", "shop": "Math: a word problem", "rate": "Math: rates", "units": "Math: units", "count": "Math: counting",
+              "order": "Logic: an order", "day": "Logic: a day of the week", "trap": "Logic: the first answer is wrong",
+              "letters": "Reasoning: counting letters", "string": "Reasoning: a word changed in steps", "extract": "Reasoning: a figure read from a passage"}
 
 
 def kind_bars(kinds):
@@ -368,7 +446,7 @@ def kind_bars(kinds):
     for name, k in sorted(kinds.items(), key=lambda kv: (kv[1]["s"] / kv[1]["n"] if kv[1]["n"] else 0)):
         share = k["s"] / k["n"] if k["n"] else 0
         cls = "full" if k["n"] and k["s"] == k["n"] else "mid" if share >= 0.5 else "low"
-        rows.append('<li class="%s"><span class="kn">%s</span><span class="kt"><i style="width:%.1f%%"></i></span><span class="kc"><b>%s%%</b> %d of %d</span></li>'
+        rows.append('<li class="%s"><span class="kn">%s</span><span class="kt"><i style="width:%.1f%%"></i></span><span class="kc"><b>%s%%</b> · %d of %d</span></li>'
                     % (cls, e(KIND_WORDS.get(name, name)), 100 * share, fmt_pct(int(1000 * share) / 10), k["s"], k["n"]))
     return '<ul class="kinds">%s</ul>' % "".join(rows)
 
@@ -386,7 +464,7 @@ def scoreboard(d):
         )
     off = p["compared"] - p["equivalent"]
     out = ['<div class="kpis">']
-    out.append(kpi("Parity with " + short, "Yes" if p["level"] else "Not yet", "every answer equivalent" if p["level"] else "%d not equivalent" % off, "scale", "#0b5d57", "#d9f2ec", "up" if p["level"] else "down"))
+    out.append(kpi("Toward parity with " + short, "%s<small>%%</small>" % fmt_pct(p["percent"]), "at parity" if p["level"] else "%d of %d equivalent" % (p["equivalent"], p["compared"]), "scale", "#0b5d57", "#d9f2ec", "up" if p["level"] else ""))
     out.append(kpi("Equivalent answers", "%d <small>of %d</small>" % (p["equivalent"], p["compared"]), "to " + short, "check", "#149a72", "#d7f3e9"))
     out.append(kpi("Different answers", "%d <small>of %d</small>" % (p["differ"], p["compared"]), "%d gave none" % p["none"], "target", "#f2644b", "#fde1db"))
     out.append(kpi("Seconds a reply", "%s <small>s</small>" % p["seconds"], "the swarm", "clock", "#c98a06", "#fdf0cf"))
@@ -397,7 +475,7 @@ def scoreboard(d):
     labels = ["pass %s" % h["pass"] for h in hist] + ["now"]
     sw = [h["equivalent"] * p["compared"] / h["compared"] for h in hist] + [p["equivalent"]]
     verdict = '<p class="verdict %s" style="margin-top:12px">%s</p><p class="muted small" style="margin:0">Parity is every answer fundamentally equivalent to %s\'s. On %d held questions the swarm\'s answer was equivalent on %d, different on %d, and it gave none on %d. Whether either was right is not what is measured.</p>' % (
-        "level" if p["level"] else "behind", e(("At parity with " if p["level"] else "Not at parity with ") + tname + ("." if p["level"] else ": %d of %d answers are not equivalent." % (off, p["compared"]))), e(tname), p["compared"], p["equivalent"], p["differ"], p["none"])
+        "level" if p["level"] else "behind", e(verdict_words(p, tname)), e(tname), p["compared"], p["equivalent"], p["differ"], p["none"])
     out.append(
         '<div class="charts"><div class="panel tint"><div class="chart-head"><div><h3>Toward parity, pass by pass</h3><div class="muted small">Held answers equivalent to %s\'s. Parity is all %d</div></div>'
         '<div class="legend"><span><i style="background:#0b5d57"></i>The swarm</span><span><i style="background:#9aa8a5"></i>Parity</span></div></div><div class="plot">%s</div>%s</div>'
@@ -436,9 +514,23 @@ def scoreboard(d):
     return "".join(out)
 
 
+def how_far(equivalent, compared):
+    """HOW FAR ALONG, SAID ONE WAY wherever it is said: the percentage, then the count it is made of. '59.5% · 25 of 42'.
+    The page has many places that say it (the strip, the header, the passes, each kind, each model alone, the spec); they all say
+    it with this, from the same two numbers, so no two of them can disagree."""
+    return "%s%% · %d of %d" % (fmt_pct(data.percent(equivalent, compared)), equivalent, compared)
+
+
 def fmt_pct(x):
     """A percentage as it is said: 63, 62.5, and 100 only when it is 100."""
     return ("%d" % x) if float(x) == int(x) else ("%.1f" % x)
+
+
+def verdict_words(p, tname):
+    """The verdict on the held questions, in the one sentence it is given in everywhere."""
+    if p["level"]:
+        return "100%%: at parity with %s. All %d held answers are equivalent." % (tname, p["compared"])
+    return "%s%% of the way to parity with %s: %d of %d held answers are equivalent." % (fmt_pct(p["percent"]), tname, p["equivalent"], p["compared"])
 
 
 def score_strip(d):
@@ -455,7 +547,7 @@ def score_strip(d):
         for k, rows in sp["alone"].items():
             pa = data.parity(rows) if rows else None
             if pa:
-                out.append("<span>%s alone <b>%d</b> of %d</span>" % (e(data.MEMBER_NAMES[k]), pa["equivalent"], pa["compared"]))
+                out.append("<span>%s alone <b>%s%%</b> · %d of %d</span>" % (e(data.MEMBER_NAMES[k]), fmt_pct(pa["percent"]), pa["equivalent"], pa["compared"]))
         return "".join(out)
 
     def strip(cls, verdict, meta, more=True, pct=None):
@@ -468,8 +560,8 @@ def score_strip(d):
         spec = q.get("onSpec") or {}
         return "<span><b>%d</b> equivalent</span><span><b>%d</b> different</span><span><b>%d</b> no answer</span>%s" % (
             q["equivalent"], q["differ"], q["none"],
-            '<span title="Parity is equivalence with the larger model whatever it answers. This is the same count on the questions where its own answer does what the question says">where %s follows the question <b>%d</b> of %d</span>'
-            % (e(tname.split(" ")[0]), spec["equivalent"], spec["compared"]) if spec.get("compared") and spec["compared"] < q["compared"] else "")
+            '<span title="Parity is equivalence with the larger model whatever it answers. This is the same count on the questions where its own answer does what the question says">where %s follows the question <b>%s%%</b> · %d of %d</span>'
+            % (e(tname.split(" ")[0]), fmt_pct(data.percent(spec["equivalent"], spec["compared"])), spec["equivalent"], spec["compared"]) if spec.get("compared") and spec["compared"] < q["compared"] else "")
     if held["swarm"] and p:
         done, want = len(held["swarm"]), held["expected"] or len(held["swarm"])
         off = p["compared"] - p["equivalent"]
@@ -478,12 +570,12 @@ def score_strip(d):
             return strip("", "Being measured: %s%% so far. %d of %d held answers in, %d equivalent to %s's." % (fmt_pct(p["percent"]), done, want, p["equivalent"], tname),
                          counts(p) + alone_of(held) + "<span><b>%s</b> s a reply</span><span>The verdict is given when all %d are answered</span>" % (e(str(p["seconds"])), want), pct=p["percent"])
         return strip("level" if p["level"] else "behind",
-                     ("100%%: at parity with %s." % tname) if p["level"] else "%s%% of the way to parity with %s: %d of %d held answers are equivalent." % (fmt_pct(p["percent"]), tname, p["equivalent"], p["compared"]),
+                     verdict_words(p, tname),
                      "<span><b>%d</b> held questions</span>" % p["compared"] + counts(p) + alone_of(held) + "<span><b>%s</b> s a reply</span>" % e(str(p["seconds"])), pct=p["percent"])
     pt = train["parity"]
     if train["swarm"] and pt:
         done, want = len(train["swarm"]), train["expected"] or len(train["swarm"])
-        return strip("", "%s%% on this pass's train questions%s: %d of %d answers equivalent to %s's." % (fmt_pct(pt["percent"]), " so far" if done < want else "", pt["equivalent"], pt["compared"], tname),
+        return strip("", "%s%% on this pass's train questions%s: %d of %d answers are equivalent to %s's." % (fmt_pct(pt["percent"]), " so far" if done < want else "", pt["equivalent"], pt["compared"], tname),
                      ("<span><b>%d</b> of %d answered</span>" % (done, want) if done < want else "") + counts(pt) + alone_of(held)
                      + "<span><b>%s</b> s a reply</span><span>These choose what to try. Parity is said on the held questions, at the end of the pass</span>" % e(str(pt["seconds"])), more=False, pct=pt["percent"])
     answered = len(held["target"])
@@ -535,7 +627,8 @@ def plan_panel(d):
     g = p.get("gap")
     if g:
         ch = max(0.0, g["reachableByChoosing"] - g["percent"])
-        out.append('<h4>The gap, on the train questions</h4><p class="small" style="margin:0"><b class="pct" style="font-size:20px">%s%%</b> of the way to parity. <b>%d</b> answers to close.</p>'
+        out.append('<h4>The gap, on the train questions</h4><p class="small" style="margin:0"><b class="pct" style="font-size:20px">%s%%</b> on this pass&#39;s train questions: <b>%d</b> answers to close. '
+                   '<span class="muted">These are the questions a pass chooses on. How far the swarm is toward parity is said on the held questions, above.</span></p>'
                    '<span class="prog" style="height:12px"><i class="eq" style="width:%s%%"></i><i class="ch" style="width:%s%%"></i></span>'
                    '<p class="gapkey"><span><i style="background:var(--right)"></i>equivalent now: %s%%</span><span><i style="background:var(--sun)"></i>on the table but not chosen: <b>%d</b> answers. Choosing better alone could reach %s%%</span>'
                    '<span><i style="background:var(--soft)"></i>no slot had it: <b>%d</b> answers. These need better drafts</span></p>'
@@ -704,7 +797,7 @@ def kev_card(d, row=None, nth=0, purpose="Decides which answer stands"):
 def _flow_words(step):
     if step.get("do") == "repeat":
         return "repeat up to %d times (%s)" % (int(step.get("upTo", 2)), ", ".join(_flow_words(x) for x in step.get("steps", [])))
-    return step.get("do", "") + (" (keep %d)" % step["keep"] if step.get("keep") else "")
+    return step.get("do", "") + (" (keep %d)" % step["keep"] if step.get("keep") else " (only if sure)" if step.get("sure") else "")
 
 
 STEP_TITLE = {"expect": "Expect", "draft": "Draft", "try": "Try", "check": "Check", "revise": "Revise", "decide": "Decide", "write": "Write"}
@@ -761,7 +854,7 @@ def stages(d, row=None):
             cards = [slot_card(x, d, row, "revise", nth, last=bool(loop), purpose="Answers again, shown the other answers") for x in of(step, "draft")]
         elif do == "decide":
             keep = step.get("keep")
-            cards = [kev_card(d, row, nth, "Keeps the likeliest %d answers" % keep if keep else "Decides which answer stands")]
+            cards = [kev_card(d, row, nth, "Keeps the likeliest %d answers" % keep if keep else "Settles it here if it is sure; otherwise the flow goes on" if step.get("sure") else "Decides which answer stands")]
         elif do == "write":
             w = of(step, "write")
             cards = [slot_card(x, d, row, "write", 0) for x in w]
@@ -782,7 +875,7 @@ def stages(d, row=None):
     def words(step):
         if step.get("do") == "repeat":
             return "repeat up to %d times (%s)" % (int(step.get("upTo", 2)), ", ".join(words(x) for x in step.get("steps", [])))
-        return step.get("do", "") + (" (keep %d)" % step["keep"] if step.get("keep") else "")
+        return _flow_words(step)
 
     line = '<p class="flowline"><b>The flow:</b> %s. %s</p>' % (
         e(" → ".join(words(x) for x in flow_of(d))),
@@ -872,6 +965,10 @@ def versus(d, row, trow, tname):
     )
     g = row.get("grade")
     mark = '<span class="grade %s">%s</span>' % (e(g), e(WORD.get(g, ""))) if g in WORD else ""
+    # a reply in a conversation that is not equivalent: which of the three it was lost on, and how
+    part = {"act": "It did something else with the message", "substance": "It gave the person something different", "conduct": "It broke a convention the larger model kept"}.get(row.get("part"))
+    if part and g == "wrong":
+        mark += '<div class="muted small" style="margin:4px 0 6px;font-weight:600">%s%s</div>' % (e(part), (": " + e(row.get("markWhy"))) if row.get("markWhy") else ".")
     # where the drafts were run on the same calls: what that found, and the calls
     ran = next((t for t in row.get("trace") or [] if t.get("stage") == "run"), None)
     tried = ""
@@ -998,6 +1095,17 @@ def stop_run():
     _run_file().write_text(json.dumps(st))
 
 
+def decider_installed():
+    """Is the configured decider installed here? The decider script's own test (training/kev.sh ready), where the folder has it."""
+    script = Path(ARGS.root) / "training" / "kev.sh"
+    if not script.exists():
+        return False
+    try:
+        return subprocess.run(["bash", str(script), "ready"], cwd=ARGS.root, capture_output=True, timeout=20).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def kev_base():
     """The address of the Kev that training/kev.sh started here, if it answers; else ''."""
     base = os.environ.get("SWARM_KEV", "")
@@ -1022,7 +1130,7 @@ def run_panel():
     out = ['<div class="panel run">']
     # the models are loaded by a session and unloaded when it ends: outside one, nothing should be running
     kev = kev_base()
-    installed = (Path(ARGS.root) / ".work" / "kev" / "uvenv" / "bin" / "uv").exists()
+    installed = decider_installed()
     note = lambda cls, text: '<div class="state %s"><i></i><span>%s</span></div>' % (cls, text)  # noqa: E731
     if st and st["running"]:
         # when it began, in the time zone of whoever is looking (the page's script writes it; until it has, this machine's), and
@@ -1122,7 +1230,7 @@ def run_panel():
         if led:
             out.append('<ul class="steps">%s</ul></div>' % "".join(
                 '<li><span>✓</span><span><b>%s</b><small style="display:block" class="muted">%s%s · train %s → %s equivalent</small></span></li>'
-                % (e(x.get("what", "")), e(KIND_WORD.get(x.get("kind"), "")), (" · " + e(x["slot"])) if x.get("slot") else "",
+                % (e(_what(x)), e(_kind(x)), (" · " + e(x["slot"])) if x.get("slot") else "",
                    e(str(((x.get("train") or {}).get("before") or {}).get("right", "?"))), e(str(((x.get("train") or {}).get("after") or {}).get("right", "?")))) for x in led[::-1]))
     out.append("</div>")
     return "".join(out)
@@ -1189,8 +1297,8 @@ def rail(d):
     passes = "".join(
         '<li><span class="av">P%s</span><span><b>%s</b><small>%s</small></span><span class="pill %s">%s</span></li>'
         % (e(str(h["pass"])), e("with " + names.get(h.get("target"), str(h.get("target")))),
-           e("%d of %d equivalent" % (h["equivalent"], h["compared"]) if h.get("compared") else "nothing to compare"),
-           "up" if h.get("level") else "planned", "100%" if h.get("level") else ("%s%%" % fmt_pct(int(1000 * h["equivalent"] / h["compared"]) / 10)) if h.get("compared") else ("%d differ" % (h["compared"] - h["equivalent"])) if h.get("compared") else "n/a")
+           e("%d of %d held answers equivalent" % (h["equivalent"], h["compared"]) if h.get("compared") else "nothing to compare"),
+           "up" if h.get("level") else "planned", ("%s%%" % fmt_pct(data.percent(h["equivalent"], h["compared"]))) if h.get("compared") else ("%d differ" % (h["compared"] - h["equivalent"])) if h.get("compared") else "n/a")
         for h in hist
     ) or '<li><span class="av">&ndash;</span><span><b>No pass has ended yet</b><small>the first is pass 1</small></span><span></span></li>'
     ideas = [i for i in st.get("ideas", []) if i.get("status") == "open"][:6]
@@ -1212,7 +1320,7 @@ def rail(d):
 def pills(d):
     """Four choices and one document: the two small models, the model that decides, the larger model, and the output spec."""
     reg, running = d["registry"], bool((run_state() or {}).get("running"))
-    gb = lambda m: " · %.1f GB" % (m["bytes"] / 2**30) if m.get("bytes") else ""  # noqa: E731
+    weigh = lambda m: (" · %.1f GB" % (m["bytes"] / 2**30)) if m.get("bytes") else (" · about %s GB" % m["memGb"]) if m.get("memGb") else ""  # noqa: E731
 
     def pill(key, label, lst, chosen, group=None):
         opts = ""
@@ -1222,13 +1330,23 @@ def pills(d):
             for m in lst:
                 if m.get("by", "").split(",")[0] != maker:
                     continue
-                opts += '<option value="%s"%s>%s%s%s</option>' % (e(m["id"]), " selected" if chosen and m["id"] == chosen.get("id") else "", e(m["name"]), " · %sB" % m["params"] if m.get("params") else "", gb(m))
+                # (a model's name says its size already: "LFM2.5 2.6B"; what is added is how much it weighs)
+                # the one chosen is shown by its name alone, so that a pill reads at a glance (its size is beside the label); the
+                # others, in the list, say what they weigh, which is what choosing between them turns on
+                mine = bool(chosen and m["id"] == chosen.get("id"))
+                # a decider: its score on the Decision Index, and whether it can run on this machine at all (one that cannot is
+                # listed, so that it can be compared, and cannot be chosen here)
+                score = (" · index %s%s" % (m["index"]["score"], " (an older checkpoint)" if "older" in m["index"].get("as", "") else "")) if key == "decider" and m.get("index") else ""
+                here = key != "decider" or not m.get("runsOn") or any(x in d.get("machine", []) for x in m["runsOn"])
+                opts += '<option value="%s"%s%s>%s%s%s%s</option>' % (
+                    e(m["id"]), " selected" if mine else "", "" if here or mine else " disabled", e(m["name"]), "" if mine else score, "" if mine else weigh(m),
+                    "" if here else " · needs %s" % e(m.get("needs", "another machine")))
             opts += "</optgroup>"
         if group == "optional":
             # a place that can be left empty: "none" takes the model out of the swarm (or, on an empty place, is what it shows)
-            opts = '<option value=""%s>%s</option>' % ("" if chosen else " selected", "Remove it from the swarm" if chosen else "None: choose one to add") + opts
-        return '<label class="pick %s%s"><small>%s</small><select data-pick="%s"%s aria-label="%s">%s</select></label>' % (
-            key, " add" if group == "optional" and not chosen else "", e(label), key, " disabled" if running else "", e(label), opts)
+            opts = '<option value=""%s>%s</option>' % ("" if chosen else " selected", "Remove it from the swarm" if chosen else "Add a model") + opts
+        return '<label class="pick %s%s" title="%s"><small>%s%s</small><select data-pick="%s"%s aria-label="%s">%s</select></label>' % (
+            key, " add" if group == "optional" and not chosen else "", e("%s: %s%s" % (label, chosen["name"], weigh(chosen)) if chosen else label + ": none. Choose one to add a small model to the swarm"), e(label), '<i>%s</i>' % e(weigh(chosen).replace(" · ", "")) if chosen and weigh(chosen) else "", key, " disabled" if running else "", e(label), opts)
 
     # a third and a fourth small model: each place that is filled, and the next one, empty, to add to
     more = ""
@@ -1236,17 +1354,91 @@ def pills(d):
         if k in d["members"]:
             more += pill(k, "Small model %d" % (i + 3), reg["small"], d["members"][k], "optional")
         else:
-            more += pill(k, "Small model %d: add one" % (i + 3), reg["small"], None, "optional")
+            more += pill(k, "Small model %d" % (i + 3), reg["small"], None, "optional")
             break
+    n_small = 2 + more.count('class="pick ')
     return (
-        '<div class="picks" id="picks">%s%s%s%s%s<button class="pick spec" id="spec-open" type="button"><small>The swarm as it stands</small><b>Output spec%s</b></button></div>'
-        % (pill("a", "Small model 1", reg["small"], d["members"]["a"]), pill("b", "Small model 2", reg["small"], d["members"]["b"]), more,
-           pill("decider", "Decides", reg["deciders"], d["decider"]), pill("target", "Larger model: the target", sorted(reg["targets"], key=lambda t: -t.get("params", 0)), d["target"]),
-           (" · %d learned" % len(d["learned"]["ledger"])) if d["learned"]["ledger"] else "")
+        '<div class="picks" id="picks"><div class="group small n%d" style="flex-basis:%dpx">%s%s%s</div><div class="group against" style="flex-basis:495px">%s%s</div></div>'
+        # (each group asks for the room its pills need, so the two share a row exactly when both fit)
+        % (n_small, 195 * n_small - 10, pill("a", "Small model 1", reg["small"], d["members"]["a"]), pill("b", "Small model 2", reg["small"], d["members"]["b"]), more,
+           pill("decider", "Decides", sorted(reg["deciders"], key=lambda m: -(m.get("index") or {}).get("score", 0)), d["decider"]), pill("target", "Larger model", sorted(reg["targets"], key=lambda t: -t.get("params", 0)), d["target"]))
+    )
+
+
+def equiv(d, inner=False):
+    """What the swarm is to be equivalent on: one box to tick for each body of work, under the models. More than one can be
+    ticked. It can be changed while a session runs: a pass ends on the questions it began with, and the next one asks these."""
+    q = d.get("equivalence") or {"targets": [], "chosen": []}
+    own = lambda t: len(t.get("own") or [])  # noqa: E731
+    boxes = "".join(
+        '<div class="tick%s"><label title="%s"><input type="checkbox" data-equiv="%s"%s><span><b>%s</b><small>%s%s</small></span></label>'
+        '<button class="pencil" type="button" data-qedit="%s" title="Edit the questions for %s" aria-label="Edit the questions for %s">'
+        '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M13.6 3.2a1.8 1.8 0 0 1 2.6 0l.6.6a1.8 1.8 0 0 1 0 2.6l-9.3 9.3-3.8 1.1 1.1-3.8z"/><path d="M12.2 4.6l3.2 3.2"/></svg></button></div>'
+        % (" on" if t["id"] in q["chosen"] else "", e(t.get("about", "")), e(t["id"]), " checked" if t["id"] in q["chosen"] else "", e(t["name"]), e(t.get("about", "")),
+           (" <em>· %d of your own</em>" % own(t)) if own(t) else "", e(t["id"]), e(t["name"]), e(t["name"]))
+        for t in q["targets"])
+    want = [k for t in q["targets"] if t["id"] in q["chosen"] for k in t.get("kinds", [])] + ["own-" + t["id"] for t in q["targets"] if t["id"] in q["chosen"] and own(t)]
+    asking = q.get("asking")
+    note = "%d kinds of question in a pass." % len(set(want))
+    if asking is not None and set(asking) != set(want):
+        note += " The pass this configuration is on keeps the %d kinds it began with; the next pass asks these." % len(set(asking))
+    elif asking is None and (d.get("state") or {}).get("history"):
+        note += " The pass this configuration is on began before this could be chosen and keeps its programming questions; the next pass asks these."
+    body = ('<legend>Equivalent on</legend><div class="ticks">%s</div>'
+            '<p class="muted small">Parity is equivalence with the larger model on the work ticked here. %s</p>' % (boxes, e(note)))
+    # (drawn again in place, it is what is inside the row that is sent)
+    return body if inner else '<fieldset class="equiv" id="equiv">%s</fieldset>' % body
+
+
+MOST_OWN = 200  # the same bound as training/tasks.mjs
+
+
+def questions_panel(d, tid):
+    """The questions for one body of work: the kinds the trainer makes (new from a seed each pass, not edited here), and the
+    questions a person wrote, one row each, to change, add to or take out. Saved to training/questions/<id>.json."""
+    t = next((x for x in (d.get("equivalence") or {}).get("targets", []) if x["id"] == tid), None)
+    if not t:
+        return '<p class="muted">There is nothing called that to be equivalent on.</p>'
+    crew = tid == "crew"
+
+    def row(qn):
+        mode = qn.get("mode") if qn.get("mode") in ("simple", "developer") else "simple"
+        pick = ('<select data-q-mode aria-label="Sent to"><option value="simple"%s>Simple</option><option value="developer"%s>Developer</option></select>'
+                % (" selected" if mode == "simple" else "", " selected" if mode == "developer" else "")) if crew else ""
+        return ('<li class="qrow"><textarea data-q-ask rows="2" maxlength="2000" aria-label="A question" placeholder="%s">%s</textarea>'
+                '<div class="qside">%s<button class="qdel" type="button" data-q-del title="Take this question out" aria-label="Take this question out">×</button></div></li>'
+                % ("What a person would send, in their own words" if crew else "A question, as it would be asked", e(str(qn.get("ask") or "")), pick))
+
+    made = "".join("<li>%s</li>" % e(KIND_WORDS.get(k, k)) for k in t.get("kinds", []))
+    rows = "".join(row(x) for x in t.get("own") or [])
+    return (
+        '<div class="spec-head"><div><div class="kicker">Equivalent on</div><h3 style="font-size:22px;margin-top:4px">Questions: %s</h3></div>'
+        '<button class="btn stop top" id="qedit-close" type="button">Close</button></div>'
+        '<p class="muted small" style="margin:8px 0 0">%s</p>'
+        '<h4>Your own questions</h4>'
+        '<p class="muted small" style="margin:0 0 10px">Asked alongside the ones the trainer makes, and judged the same way: the same act, the same substance, and no convention broken that the larger model kept. '
+        'Every second one is held back: the swarm is measured on those and never trained on them. Saved questions are asked from the next pass on.%s</p>'
+        '<ol class="qlist" id="qlist" data-target="%s">%s</ol><template id="qrow">%s</template>'
+        '<div class="qbar"><button class="btn top" type="button" id="qadd" style="background:var(--soft);color:var(--fog);box-shadow:none">Add a question</button>'
+        '<span class="muted small" id="qcount">%d of %d</span><button class="btn top" type="button" id="qsave">Save</button></div>'
+        '<h4>Made by the trainer</h4><p class="muted small" style="margin:0 0 6px">New from a seed every pass, so there is no list to learn by heart. They are not edited here.</p>'
+        '<ul class="qmade">%s</ul>'
+        % (e(t["name"]), e(t.get("about", "")), " Simple or Developer says which kind of seat it is sent to." if crew else "", e(tid), rows, row({}),
+           len(t.get("own") or []), MOST_OWN, made)
     )
 
 
 KIND_WORD = {"brief": "Brief", "plan": "Plan", "arrangement": "Arrangement", "flow": "Flow"}
+
+
+def _what(x):
+    """What was kept, as it reads best: an arrangement of several changes at once without the trainer's own prefix for it."""
+    w = str(x.get("what", ""))
+    return w[len("several: "):] if w.startswith("several: ") else w
+
+
+def _kind(x):
+    return "Several changes at once" if str(x.get("what", "")).startswith("several: ") else KIND_WORD.get(x.get("kind"), x.get("kind", ""))
 
 
 def ledger_rows(entries, newest_first=True):
@@ -1259,7 +1451,7 @@ def ledger_rows(entries, newest_first=True):
                                         '<a href="https://arxiv.org/abs/%s" target="_blank" rel="noopener">arXiv %s</a>' % (e(x["from"]), e(x["from"])) if x.get("from") else ""] if v)
         out.append('<li class="kept"><span class="o">%s</span><span class="k %s">%s</span><span class="mv"><b>%s</b><small>%s</small>'
                    '<small>Equivalent answers on train: <b style="display:inline;font-size:inherit">%s</b> · on held: <b style="display:inline;font-size:inherit">%s</b></small></span><span class="pill up">Kept</span></li>'
-                   % (e(str(x.get("n", ""))), e(x.get("kind", "")), e(KIND_WORD.get(x.get("kind"), x.get("kind", ""))), e(x.get("what", "")), where, ev(tr), ev(he)))
+                   % (e(str(x.get("n", ""))), e(x.get("kind", "")), e(_kind(x)), e(_what(x)), where, ev(tr), ev(he)))
     return "".join(out)
 
 
@@ -1274,8 +1466,8 @@ def learned_block(d):
     stood = ""
     if passes:
         stood = '<p class="small" style="margin:10px 0 0"><b>Where each pass left it against %s:</b> %s</p>' % (
-            e(tname), " · ".join("pass %s: %s of %s equivalent%s%s%s" % (
-                e(str(p.get("pass"))), e(str(p.get("equivalent", "?"))), e(str(p.get("compared", "?"))), " (parity)" if p.get("level") else "",
+            e(tname), " · ".join("pass %s: %s%s%s%s" % (
+                e(str(p.get("pass"))), e(how_far(p["equivalent"], p["compared"])) if p.get("compared") else "nothing to compare", " (parity)" if p.get("level") else "",
                 (", lost %d and won %d since the pass before" % (len((p.get("flips") or {}).get("lost", [])), len((p.get("flips") or {}).get("won", [])))) if p.get("flips") else "",
                 (", %d of %d put a second way" % (p["reworded"]["equivalent"], p["reworded"]["compared"])) if p.get("reworded") else "") for p in passes))
     return ('<h4>What it has learned (%d kept)</h4><p class="muted small" style="margin:0 0 6px">Every change below was measured and kept: more answers equivalent to %s&#39;s on the questions it was chosen on, and no fewer on the held ones. '
@@ -1290,7 +1482,7 @@ def spec_panel(d):
     mem = lambda m: "%s <span class='muted'>· %s · %sB · %s</span><br><code>%s @ %s</code><br><code>%s</code> <span class='muted'>%.2f GB</span><br><code>sha256 %s</code>" % (  # noqa: E731
         e(m.get("name", "")), e(m.get("by", "")), e(str(m.get("params", ""))), e(m.get("license", "")), e(m.get("repo", "")), e(str(m.get("rev", ""))[:12]), e(m.get("file", "")), m.get("bytes", 0) / 2**30, e(m.get("sha256", "")))
     state_cls = "level" if t["state"] == "at parity" else "behind"
-    kinds = "".join("<li>%s: %d of %d equivalent</li>" % (e(k), v["equivalent"], v["of"]) for k, v in t["byKind"].items()) or "<li>not measured</li>"
+    kinds = "".join("<li>%s: %s</li>" % (e(KIND_WORDS.get(k, k)), e(how_far(v["equivalent"], v["of"]))) for k, v in t["byKind"].items() if v["of"]) or "<li>not measured</li>"
     slots = "".join("<tr><td><code>%s</code></td><td>%s</td><td>%s</td><td>%s</td></tr>" % (e(x["id"]), e(x["stage"]), e(x.get("purpose", "")), e(str(x.get("model", "")))) for x in sp["arrangement"]["slots"])
     return (
         '<div class="spec-head"><div><div class="kicker">Output spec</div><h3 style="font-size:24px">%s</h3><div class="muted small">%s</div></div>'
@@ -1311,7 +1503,7 @@ def spec_panel(d):
             row("Not yet", "<br>".join(e(x) for x in sp["interface"]["notYet"])),
             "".join(row("Small model %d (place %s)" % (i + 1, k), mem(m)) for i, (k, m) in enumerate(sp["members"].items())), "",
             row("Decides", "%s <span class='muted'>· %s · %s</span><br><code>%s</code>" % (e(sp["decider"].get("name") or ""), e(sp["decider"].get("by") or ""), e(sp["decider"].get("license") or ""), e(sp["decider"].get("run") or ""))),
-            row("Against %s" % e(t["target"].get("name") or ""), ("%d held questions: %d equivalent, %d different, %d no answer<ul style='margin:6px 0 0;padding-left:18px'>%s</ul>" % (t["heldQuestions"], t["equivalent"], t["different"], t["noAnswer"], kinds)) if t["state"] != "not measured" else "Not measured: no pass has put this swarm and this target to the same held questions.")
+            row("Against %s" % e(t["target"].get("name") or ""), ("<b>%s</b> of the way to parity. %d held questions: %d equivalent, %d different, %d no answer<ul style='margin:6px 0 0;padding-left:18px'>%s</ul>" % (e(fmt_pct(t["progressPercent"]) + "%"), t["heldQuestions"], t["equivalent"], t["different"], t["noAnswer"], kinds)) if t["state"] != "not measured" else "Not measured: no pass has put this swarm and this target to the same held questions.")
             + row("Served", "%d slots on each small model, %d tokens of context a slot; about %s GB of memory (an estimate); engine %s %s" % (sp["serving"]["slots"], sp["serving"]["contextPerSlot"], sp["serving"]["memoryGbEstimate"], e(sp["engine"].get("name") or ""), e(sp["engine"].get("version") or ""))),
             e(" → ".join(_flow_words(x) for x in sp["arrangement"]["flow"])), e(sp["arrangement"]["flowIs"]),
             e(str(sp["arrangement"]["briefsVersion"])), slots, e(sp["decider"].get("id") or ""),
@@ -1335,22 +1527,59 @@ def main_body(d):
     )
 
 
-def page(d):
-    st, t = d["state"], d["target"]
+def chips(d):
+    """Beside the title: which pass it is, how far toward parity, and the way in to the output spec (with how many things it has
+    learned). Read again while a pass runs."""
+    st = d["state"]
     p = d["splits"]["held"]["parity"]
-    chips = ['<span class="chip">Pass <b>%s</b></span>' % e(str(st.get("pass", 0) + 1))]
+    out = ['<span class="chip">Pass <b>%s</b></span>' % e(str(st.get("pass", 0) + 1))]
     if p:
-        chips.append('<span class="chip %s">%s</span>' % ("level" if p["level"] else "behind", "At parity: <b>100%</b>" if p["level"] else "<b>%s%%</b> of the way to parity" % fmt_pct(p["percent"])))
+        out.append('<span class="chip %s">%s</span>' % ("level" if p["level"] else "behind", "At parity: <b>100%</b>" if p["level"] else "<b>%s%%</b> of the way to parity" % fmt_pct(p["percent"])))
+    out.append('<button class="specbtn" id="spec-open" type="button" title="The swarm as it stands: what it is, and what it has learned">Output spec%s</button>'
+               % (("<span>%d learned</span>" % len(d["learned"]["ledger"])) if d["learned"]["ledger"] else ""))
+    out.append('<button class="specbtn tidy" id="tidy-open" type="button" title="What the Swarm has put on this machine, and taking out what you do not want">Uninstall Helper</button>')
+    return "".join(out)
+
+
+def tidy_panel(d, said=""):
+    """The Uninstall Helper: everything the Swarm has fetched or kept here, by group, each with the room it takes, whether the
+    configured swarm uses it, and a button to remove it (ui/cleanup.py does the removing, and refuses anything outside .work)."""
+    items = cleanup.inventory(ARGS.root, d)
+    running = bool((run_state() or {}).get("running"))
+    total = sum(x["bytes"] or 0 for x in items if x["removable"])
+    rows, group = [], None
+    for x in items:
+        if x["group"] != group:
+            group = x["group"]
+            rows.append('<li class="tgroup">%s</li>' % e(group))
+        tag = '<span class="pill">in use</span>' if x["used"] and x["removable"] else ""
+        act = ('<button class="btn stop top tdel" type="button" data-tidy="%s" data-what="%s" data-size="%s" data-used="%d"%s>Remove</button>'
+               % (e(x["id"]), e(x["what"]), e(cleanup.gb(x["bytes"] or 0)), 1 if x["used"] else 0, " disabled" if running else "")) if x["removable"] else '<span class="muted small">not removed from here</span>'
+        rows.append('<li class="titem"><div><b>%s</b> %s<small>%s</small></div><span class="tsize">%s</span>%s</li>'
+                    % (e(x["what"]), tag, e(x["note"]), e(cleanup.gb(x["bytes"])) if x["bytes"] is not None else "", act))
+    return (
+        '<div class="spec-head"><div><div class="kicker">On this machine</div><h3 style="font-size:22px;margin-top:4px">Uninstall Helper</h3></div>'
+        '<button class="btn stop top" id="tidy-close" type="button">Close</button></div>'
+        '<p class="muted small" style="margin:8px 0 0">Everything the Swarm fetched or keeps in this folder\'s <code>.work</code>: <b>%s</b> in all. '
+        'Removing a piece cannot be undone. One marked <i>in use</i> is part of the swarm as it is configured: Run training fetches it again. '
+        'What training has learned (the briefs, the arrangement, each configuration\'s record) is not an install, and is not listed.%s</p>'
+        '%s<ul class="tlist">%s</ul>'
+        % (e(cleanup.gb(total)), " A session is running: stop it before removing anything." if running else "",
+           ('<p class="tsaid">%s</p>' % e(said)) if said else "", "".join(rows) or '<li class="muted">Nothing is installed here.</li>')
+    )
+
+
+def page(d):
     banner = '<div class="banner">Sample data, made up to show the layout. It is not a measurement of anything.</div>' if d["sample"] else ""
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
         '<title>The Swarm</title><style>%s</style></head><body><div class="shell">'
         '<main id="top"><header><div><div class="kicker">The Swarm · training overview</div><h1>Training Dashboard</h1></div><div class="chips" id="chips">%s</div></header>%s%s'
         '<div id="body">%s</div>'
-        '%s</main>%s</div><dialog id="spec"><div id="spec-body"></div></dialog>'
+        '%s</main>%s</div><dialog id="spec"><div id="spec-body"></div></dialog><dialog id="qedit"><div id="qedit-body"></div></dialog><dialog id="tidy"><div id="tidy-body"></div></dialog>'
         '<dialog id="big"><div class="spec-head"><div><div class="kicker">Parity with the larger model</div><h3 style="font-size:22px;margin-top:4px">The whole measurement</h3></div>'
         '<button class="btn stop top" id="big-close" type="button">Close</button></div><div id="big-body"></div></dialog><script>%s</script></body></html>'
-        % (CSS, "".join(chips), pills(d), banner, main_body(d), footer(), rail(d), JS)
+        % (CSS, chips(d), pills(d) + equiv(d), banner, main_body(d), footer(), rail(d), JS)
     )
 
 
@@ -1396,8 +1625,16 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(main_body(d))
         if u.path == "/fragment/spec":
             return self._send(spec_panel(d))
+        if u.path == "/fragment/chips":
+            return self._send(chips(d))
         if u.path == "/fragment/picks":
             return self._send(pills(d))
+        if u.path == "/fragment/equiv":
+            return self._send(equiv(d, inner=True))
+        if u.path == "/fragment/tidy":
+            return self._send(tidy_panel(d))
+        if u.path == "/fragment/questions":
+            return self._send(questions_panel(d, parse_qs(u.query).get("id", [""])[0]))
         if u.path == "/fragment/run":
             return self._send(run_panel())
         if u.path == "/fragment/score":
@@ -1416,24 +1653,67 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):  # noqa: N802
         path = urlparse(self.path).path
-        if path not in ("/run/start", "/run/stop", "/config"):
+        if path not in ("/run/start", "/run/stop", "/config", "/questions", "/uninstall"):
             return self._send("Not here.", 404, "text/plain; charset=utf-8")
         # only this page may start or stop a pass: another website can send a plain form to this address, but it cannot
         # send this header, and a request that names another origin is refused
         origin = self.headers.get("origin", "")
         if self.headers.get("x-swarm") != "1" or (origin and urlparse(origin).netloc != self.headers.get("host", "")):
             return self._send("Not from this page.", 403, "text/plain; charset=utf-8")
-        if path == "/config":
-            # a model chosen in one of the pills: written to src/config.json, unless a session is running or it is not one that can be chosen
+        if path == "/uninstall":
+            # one piece the Uninstall Helper lists, by its id: never while a session runs, never a decider's files while one is loaded
             if (run_state() or {}).get("running"):
-                return self._send("A session is running: stop it before changing a model.", 409, "text/plain; charset=utf-8")
+                return self._send("A session is running: stop it before removing anything.", 409, "text/plain; charset=utf-8")
             try:
                 asked = json.loads(self.rfile.read(min(int(self.headers.get("content-length", 0)), 2000)) or b"{}")
             except ValueError:
                 return self._send("Not understood.", 400, "text/plain; charset=utf-8")
+            d = data.load(ARGS.root)
+            ok, said = cleanup.remove(ARGS.root, d, str(asked.get("id", "")) if isinstance(asked, dict) else "", decider_up=bool(kev_base()))
+            if not ok:
+                return self._send(said, 400, "text/plain; charset=utf-8")
+            return self._send(tidy_panel(data.load(ARGS.root), said))
+        if path == "/questions":
+            # the questions a person wrote for one body of work: written whole to training/questions/<id>.json. Allowed while a
+            # session runs: a pass ends on the questions it began with, and the next one reads these
+            try:
+                asked = json.loads(self.rfile.read(min(int(self.headers.get("content-length", 0)), 600000)) or b"{}")
+            except ValueError:
+                return self._send("Not understood.", 400, "text/plain; charset=utf-8")
+            known = [t["id"] for t in (data.load(ARGS.root).get("equivalence") or {}).get("targets", [])]
+            tid, qs = (asked.get("id"), asked.get("questions")) if isinstance(asked, dict) else (None, None)
+            if tid not in known or not isinstance(qs, list) or not all(isinstance(x, dict) for x in qs):
+                return self._send("Not understood.", 400, "text/plain; charset=utf-8")
+            keep = [{"ask": str(x.get("ask") or "").strip()[:2000], **({"mode": "developer"} if tid == "crew" and x.get("mode") == "developer" else {})} for x in qs]
+            keep = [x for x in keep if x["ask"]]
+            if len(keep) > MOST_OWN:
+                return self._send("At most %d questions." % MOST_OWN, 400, "text/plain; charset=utf-8")
+            out = Path(ARGS.root) / "training" / "questions"
+            out.mkdir(parents=True, exist_ok=True)
+            tmp = out / (tid + ".json.tmp")
+            tmp.write_text(json.dumps({"questions": keep}, indent=2, ensure_ascii=False) + "\n")
+            tmp.replace(out / (tid + ".json"))
+            return self._send(equiv(data.load(ARGS.root), inner=True))
+        if path == "/config":
+            # a model chosen in one of the pills: written to src/config.json, unless a session is running or it is not one that can be chosen
+            try:
+                asked = json.loads(self.rfile.read(min(int(self.headers.get("content-length", 0)), 2000)) or b"{}")
+            except ValueError:
+                return self._send("Not understood.", 400, "text/plain; charset=utf-8")
+            if not isinstance(asked, dict):
+                return self._send("Not understood.", 400, "text/plain; charset=utf-8")
+            # (what it is to be equivalent on can be changed while a session runs: a pass ends on the questions it began with)
+            if (run_state() or {}).get("running") and set(asked) - {"equivalence"}:
+                return self._send("A session is running: stop it before changing a model.", 409, "text/plain; charset=utf-8")
             root = Path(ARGS.root)
             reg = data._json(root / "src" / "models.json", {})
             now = data._json(root / "src" / "config.json", {})
+            if "equivalence" in asked:
+                known = [t["id"] for t in (data.load(ARGS.root).get("equivalence") or {}).get("targets", [])]
+                want = asked["equivalence"]
+                if not isinstance(want, list) or not want or any(i not in known for i in want):
+                    return self._send("Tick at least one, from the ones listed.", 400, "text/plain; charset=utf-8")
+                now["equivalence"] = [i for i in known if i in want]
             for key, lst in (("a", "small"), ("b", "small"), ("c", "small"), ("d", "small"), ("decider", "deciders"), ("target", "targets")):
                 if key in asked:
                     if key in ("c", "d") and asked[key] in ("", None):

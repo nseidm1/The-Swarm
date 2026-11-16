@@ -29,9 +29,27 @@ answer, some look for what is wrong with the drafts, a small decision model pick
 the reply.
 
 It is trained toward **parity** with a much larger model, on a machine that could never hold that model. Parity is
-equivalence: for the same message, an answer fundamentally equivalent to the larger model's. For a program that means
-equivalent **function**: the Swarm's function and the larger model's are run on the same inputs, and are equivalent when
-they do the same, however differently they are written. Parity is not correctness (the larger model's answer is the mark,
+equivalence: for the same message, an answer fundamentally equivalent to the larger model's, on the work the Swarm is
+meant to do. That work is chosen on the dashboard, under the models: **The Crew** (the reason this project exists), and with
+it or in its place Math, Logic and Reasoning ([`training/equivalence.json`](training/equivalence.json)). For The Crew it is
+the work of a seat on a team, in two parts:
+- **Programming.** Equivalent **function**: the Swarm's function and the larger model's are run on the same inputs, and are
+  equivalent when they do the same, however differently they are written.
+- **The conversation around it.** A person writes to the team, in Simple mode (an everyday question, something the team
+  cannot do for them, something it must ask about, a piece of writing, a hello or a thank-you, something heavy) or in
+  Developer mode (a question of good practice, their own project, a ticket attached to the chat). Each is sent the way a
+  seat is sent one: a system line saying who is speaking, what it can and cannot do and how to reply, then the turns so far.
+  Two replies are equivalent when they do the same thing for the person: the same **act** (both help, or both ask for what
+  is missing), the same **substance** (the same answer, advice or next step; a piece of writing with the same facts and the
+  same request), and no **convention** broken that the larger model's reply kept (claiming to have booked or sent
+  something, running well past the length asked, praising the question, signing off with an offer of more help, a
+  developer's words to someone who is not one). The decision model reads the act and the substance, in one request; the
+  conventions are read off the words.
+
+The pencil at the top right of each box opens its questions: the kinds the trainer makes, and a list of your own to add
+to, change or take out ([`training/questions/`](training/questions/README.md)). Every second one is held back, so the Swarm
+is measured on questions it was never chosen on.
+ Parity is not correctness (the larger model's answer is the mark,
 whatever it is). **Progress toward it is a percentage**: the share of the held answers that are equivalent to the larger
 model's. Parity is 100%, and nothing less: one answer that is not equivalent is a place where the two are not the same.
 
@@ -173,12 +191,12 @@ The Swarm is made of a few choices, kept in [`src/config.json`](src/config.json)
 | Choice | What it is | Listed |
 |---|---|---|
 | `a`, `b`, and optionally `c`, `d` | The small models: two at least, four at most | 15, from Liquid AI, Prism ML, Alibaba, Google, IBM, Mistral AI, NVIDIA and Hugging Face (1.2B to 4B) |
-| `decider` | The decision model | Kev in four sizes (0.8B, 4B, 9B, 27B) |
+| `decider` | The decision model | Kev in four sizes (0.8B, 4B, 9B, 27B); StartLux Decision 4B and 9B (Apple silicon, through MLX; weights for non-commercial use only); and, listed for comparison and greyed out on a Mac, the leaders that need an NVIDIA GPU: karpo-decision 31B, Jeffan 9B, KnowLine 4B. Each shows its score on the community [Decision Index](https://huggingface.co/spaces/multimodalart/jev-decision-index) (2026-11-12), best first. Every one takes the same request (`POST /v1/systemone`) |
 | `target` | The larger model to be brought to parity with | 13, from 8B to 30B |
 
 Every file is pinned: a repository, a revision, a size and a SHA-256, and a file is kept only if it matches.
 
-**Only four of these have been run here**: LFM2.5 2.6B, Bonsai 2 2B, Kev 4B and Nemotron 3.5 Lightning 30B. The rest are
+**Only five of these have been run here**: LFM2.5 2.6B, Bonsai 2 2B, Kev 4B, StartLux Decision 4B (as the decider, on the reader checks and the decide request only, not yet in a pass) and Nemotron 3.5 Lightning 30B. The rest are
 listed as their makers published them and are untried. Nemotron is served by TensorFold on an Apple silicon Mac; every other
 target is a GGUF file served by llama.cpp.
 
@@ -332,7 +350,10 @@ the held questions and on the same questions put a second way; the verdict is wr
   trainers ask with a fixed seed, so the same arrangement gives the same answers and a measurement is made once.
 - **The search is wide.** Every pass tries arrangements one change from the current one (a slot moved to the other model,
   a drafter that checks or a checker that drafts, a step moved, a decision placed anywhere, a loop, a second writer) and a
-  few that are several changes away at once, drawn by lot. A kept arrangement is where the next pass starts.
+  few that are several changes away at once. Nothing is drawn by lot: the changes are listed in a fixed order, every step
+  kind is put in every place it can go (the decider between the drafts and the checks, a check after the decision), and
+  each pass takes the next ones not yet tried, so in time every arrangement within reach is measured. A kept arrangement
+  is where the next pass starts.
 - **Watch before acting.** One measurement records what every slot answered and which answers were equivalent. From that
   record, with no model asked again, a pass says what the reply would have been under another way of choosing between the
   answers (the decider always, the answer most slots hold, the decider only where it is sure, or only where there is no
@@ -366,8 +387,9 @@ the held questions and on the same questions put a second way; the verdict is wr
 | `training/readers.mjs` | Checks the reader of answers in words on pairs anyone can judge, before its grades are believed |
 | `training/review.mjs` | The pass looks at itself: it measures its own run and applies the policy's rules, which change how this swarm is trained |
 | `training/policy.json` | How the trainer trains, as data: the margin, how many arrangements, what the plan favours, when it reviews itself and the rules it applies |
-| `training/arrange.mjs` | Arrangements one step from the current one. The flow: answers sent back to their drafters, a loop of checking and revising, a decision that narrows before the one that settles, a second writer, a step taken out. The slots: one moved to the other model, a drafter or checker added or dropped, what a checker sees, how freely a drafter samples |
-| `training/kev.sh` | Installs and runs Kev beside the Swarm |
+| `training/arrange.mjs` | Arrangements one step from the current one. The flow: answers sent back to their drafters, a loop of checking and revising, a decision that narrows before the one that settles, a decision that settles early only if it is sure, each of them and a check or a revision put after every step in turn, a second writer, a step taken out, two steps changing places. The slots: one moved to the other model, a drafter or checker added or dropped, what a checker sees, how freely a drafter samples |
+| `training/kev.sh` | Installs and runs the configured decider beside the Swarm, by the recipe its entry gives (Kev; StartLux through MLX); `ready` says whether it is installed |
+| `ui/cleanup.py` | The Uninstall Helper: what the Swarm has put in `.work` (models, the engine, each decider's program and weights, what training keeps), with sizes, and removing one piece at a time. Never anything outside `.work`, never through a link, never what training has learned, never while a session runs |
 | `training/publish.mjs` | Writes what was measured to `src/trained.json`, which ships with the module |
 
 The questions are small programming ones: write a JavaScript function, correct one with a flaw, say what a short program
@@ -418,7 +440,7 @@ npm test
 python3 ui/check.py
 ```
 
-One hundred and three checks of the module and the trainers, and forty-five of the dashboard. Stand-in servers take the place of the
+One hundred and three checks of the module and the trainers, and forty-seven of the dashboard. Stand-in servers take the place of the
 models, Kev and Hugging Face, so nothing is fetched, started or installed, and both finish in well under a minute. They cover what
 goes in and comes out, which slots run, what happens when a slot, a model or everything fails, that two functions are judged
 equivalent by running them, that model-written code can reach nothing, and that each fault in [Recovery](#recovery) is

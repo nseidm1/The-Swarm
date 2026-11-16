@@ -50,7 +50,7 @@ kev_down() { [ -n "$KEV_STARTED" ] && bash training/kev.sh stop > /dev/null 2>&1
 trap kev_down EXIT
 trap 'exit 143' TERM INT
 if [ -z "$SWARM_KEV" ]; then
-  if [ -x .work/kev/uvenv/bin/uv ]; then
+  if bash training/kev.sh ready; then
     mkdir -p .work/train
     # its usual port, or the next one free if something else has that
     KEV_PORT=${KEV_PORT:-$("$NODE" training/support/recover.mjs port 8009)}
@@ -68,7 +68,7 @@ if [ -z "$SWARM_KEV" ]; then
       echo "$(date +%H:%M:%S) Kev did not come up at $SWARM_KEV (see .work/train/kev.log). The trainers will try to start it again."
     fi
   else
-    echo "$(date +%H:%M:%S) NO KEV: it is not installed here (bash training/kev.sh install). The answer most slots gave will stand."
+    echo "$(date +%H:%M:%S) NO DECIDER: it is not installed here (bash training/kev.sh install). The answer most slots gave will stand."
   fi
 fi
 # TRAINING IS CONTINUOUS. One pass follows another, each beginning from what the last one left, until it is stopped on purpose

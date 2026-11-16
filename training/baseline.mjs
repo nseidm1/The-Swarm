@@ -23,6 +23,7 @@ import {
   RESULTS,
 } from './support/bench.mjs';
 import { targetOf } from './state.mjs';
+import { messagesOf } from './tasks.mjs';
 
 const who = arg('who', 'a');
 const label = String(
@@ -62,7 +63,7 @@ try {
     async (t) => ({
       reply: (
         await model.ask(
-          [{ role: 'user', content: t.ask }],
+          messagesOf(t),
           self ? { usable: (text) => (t.usable ? t.usable(text) : !!t.show(text)) } : undefined,
         )
       ).text,

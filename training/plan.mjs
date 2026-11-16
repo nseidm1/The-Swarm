@@ -130,7 +130,7 @@ function stepAnswers(findings, briefs, name) {
     if (/^flow: /.test(name)) {
       // a change to the order of steps: sending answers back or looping gives a draft that was wrong a second go; narrowing
       // before deciding gives the decider less to get wrong; dropping a check that turns answers away stops it doing so
-      const again = /go back to the drafters|check and revise again|times at most/.test(name);
+      const again = /answers go back to the drafters|check and revise again|times at most/.test(name);
       if (again)
         w =
           f.id === 'drafts-short'
@@ -140,7 +140,9 @@ function stepAnswers(findings, briefs, name) {
               : f.stage === 'check' || f.stage === 'decide'
                 ? 0.4
                 : 0;
-      else if (/decide twice|narrow/.test(name)) w = f.stage === 'decide' ? 1 : 0;
+      else if (/keep the likeliest two|settle it if the decider is sure|narrow|settling early/.test(name))
+        w = f.stage === 'decide' ? 1 : f.stage === 'check' ? 0.5 : 0;
+      else if (/^flow: a check, straight after/.test(name)) w = f.stage === 'decide' ? 0.6 : 0;
       else if (/what each call should give/.test(name)) w = f.stage === 'decide' ? 1 : f.stage === 'check' ? 0.5 : 0;
       else if (/^flow: no check/.test(name)) w = f.stage === 'check' ? 0.6 : 0;
     } else if (/^add a second/.test(name) && stage === 'write') {
@@ -165,6 +167,9 @@ function stepAnswers(findings, briefs, name) {
 }
 const TECHNIQUE = [
   [/^flow: .*(go back to the drafters|no revising)/, 'Answers go back to those who wrote them'],
+  [/^flow: .*(settle it if the decider is sure|settling early)/, 'The decider earlier in the flow'],
+  [/^flow: .*keep the likeliest two/, 'More than one decision'],
+  [/^flow: a check, straight after/, 'A check somewhere else'],
   [/^flow: .*(again while|the loop)/, 'A loop of checking and revising'],
   [/^flow: .*(decide twice|narrowing)/, 'More than one decision'],
   [/^flow: .*what each call should give/, 'Tests written apart from the code'],
@@ -353,7 +358,6 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         wild: wildMoves(briefs, {
           n: policy.trials.wild || 0,
           depth: policy.trials.depth || 2,
-          seed: state.pass + 1,
           tried: (state.tried || {})._arrangement || [],
         }),
         hashOf: candHash,

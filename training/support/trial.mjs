@@ -6,6 +6,7 @@
 //   4  kept only if it does no worse there
 // The margin is not fixed in this file. It is the trainer's policy (policy.mjs), which a pass's review of itself can change.
 import { run, count, line, paired, swarmName } from './bench.mjs';
+import { messagesOf } from '../tasks.mjs';
 
 export async function runTrial({ swarm, base, cands, of, refs, policy, width = 24 }) {
   const margin = Math.max(1, Number(policy.keep && policy.keep.margin) || 1);
@@ -16,7 +17,7 @@ export async function runTrial({ swarm, base, cands, of, refs, policy, width = 2
     const rows = await run(
       list,
       async (t) => {
-        const got = await swarm.answer([{ role: 'user', content: t.ask }]);
+        const got = await swarm.answer(messagesOf(t));
         return {
           reply: got.reply,
           decided: got.decided,

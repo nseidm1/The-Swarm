@@ -27,6 +27,9 @@ fundamentally equivalent to the larger model's: the same thing said, whatever th
 | The models to climb | The targets in [`../src/models.json`](../src/models.json), smallest first. Each says how it is served: a GGUF file by llama.cpp, or a program of its own |
 | The one being chased | `target` in [`state.json`](state.json). The first is **Nemotron 3.5 Lightning 30B**, served by TensorFold on the Mac the Swarm is first trained on |
 | At parity | Every answer the Swarm gives to the held questions is equivalent to the larger model's answer. [`state.mjs`](state.mjs) `parity()`. Then the next, larger model becomes the target |
+| What it is equivalent on | Chosen on the dashboard, under the models, or `equivalence` in `src/config.json`: **The Crew** where nothing is chosen, and with it or in its place Math, Logic, Reasoning. Each is a list of kinds of question in [`equivalence.json`](equivalence.json); a pass asks the kinds of all that are chosen, and a choice takes effect when the next pass begins (a pass ends on the questions it began with, which its record names) |
+| Your own questions | The pencil at the top right of each box opens its questions: the kinds the trainer makes, and questions a person writes, saved to [`questions/<id>.json`](questions/README.md) (200 at most; for The Crew each says Simple or Developer). Every second one is held back. They are judged as a reply in a conversation, and a pass keeps the ones it began with (`own` in its record) |
+| A reply in a conversation (The Crew) | [`tasks-crew.mjs`](tasks-crew.mjs): six kinds, four in Simple and two in Developer, each sent with the system line a seat is given and the turns so far. Equivalent when it is the same **act** (both help, or both ask), the same **substance** (Kev, one request with three yes-or-no questions), and breaks no **convention** the larger model's reply kept (read off the words: `faultsOf`). The page says which of the three a reply was lost on. The reader is checked on 14 pairs anyone can judge before a pass believes it (`readers.mjs` `talkPairs`); measured 2026-11-16 with Kev-4B: 14 of 14 |
 | How equivalence is decided | By **function**. Where a function is asked for, both functions are run on the same inputs, the ordinary and the awkward, and are equivalent when every call gives the same result: nothing is compared as text, and no right answer is needed. Where a value is asked for (what does this print?), the two values are read and compared. Where the answer is in words (what is the bug?), Kev is asked one yes/no: do the two say fundamentally the same thing? ([`support/equivalent.mjs`](support/equivalent.mjs)) |
 
 ```bash
@@ -41,7 +44,7 @@ small models from Liquid AI, Prism ML, Alibaba, Google, IBM, Mistral, NVIDIA and
 models from 8B to 30B. Every file is pinned (a repository, a revision, a size, a SHA-256). A slot is named for its place, not
 its model: `a-critic` is the critic in place a, whichever model is there.
 
-**Only four of them have been run here**: LFM2.5 2.6B, Bonsai 2 2B, Kev 4B and Nemotron 3.5 Lightning 30B. The rest are listed
+**Only five of them have been run here**: LFM2.5 2.6B, Bonsai 2 2B, Kev 4B, StartLux Decision 4B (as the decider, on the reader checks and the decide request only, not yet in a pass) and Nemotron 3.5 Lightning 30B. The rest are listed
 as their makers published them. To add one, add its entry to `models.json` with its pins.
 
 Results are kept apart by what the swarm was made of: change a model, and the page and the pass start from "not measured".
@@ -195,7 +198,7 @@ its own changes to it in its record (`training/states/`: `policy`, and `policyLo
 | Setting | What it is |
 |---|---|
 | `keep.margin` | How many more answers a change must win than lose, question by question on the same train questions, to be kept |
-| `trials.arrangements`, `trials.wild`, `trials.depth` | How many arrangements a pass tries one change from here; how many that are several changes away at once; how many changes those are |
+| `trials.arrangements`, `trials.wild`, `trials.depth` | How many arrangements a pass tries one change from here; how many that are several changes away at once; how many changes those are. Both are taken in a fixed order from what has not been tried: none is drawn by lot, and none is tried twice |
 | `trials.stopEarly` | A trial that can no longer win by the margin is stopped there |
 | `moves.weight` | How much each kind of move (brief, plan, arrangement, flow) counts for when the plan ranks what to try |
 | `review.after`, `review.rules` | When a pass looks at itself, and what it then changes |
@@ -249,7 +252,7 @@ A resumed pass is the same pass only for the same models. Change a model and the
 | [`improve.mjs`](improve.mjs) | One slot's candidates (other briefs, or changes to the plan). A candidate is kept only if it scores higher on `train` and not lower on `held` |
 | [`arrange.mjs`](arrange.mjs) | A few arrangements no pass has tried, each one step from the arrangement as it is. `--list` shows every step and which have been tried |
 | [`setup.mjs`](setup.mjs) | Fetches and makes ready the engine, the models and the decider the configured swarm needs, recovering by itself where it can |
-| [`kev.sh`](kev.sh) | Installs and runs Kev beside the Swarm, in `.work/kev`. The session starts and stops it |
+| [`kev.sh`](kev.sh) | Installs and runs the configured decider beside the Swarm, inside `.work` (Kev in `.work/kev`; StartLux in `.work/deciders`), by the recipe in its `src/models.json` entry (`serve.kind`). The session starts and stops it. A decider that needs an NVIDIA GPU is not started here: its entry carries its maker's instructions, and it is named with `SWARM_KEV` |
 | [`publish.mjs`](publish.mjs) | Writes what was measured on `held`, and how it stands against the target, to `src/trained.json`, which ships with the module |
 | [`session.sh`](session.sh) | Pass after pass, one step at a time, each pass from the one before, until it is stopped. `PASSES=3` runs three and ends. A pass that stopped is resumed. Passes that are over in under a minute did no work: after five in a row it stops and says so |
 | [`support/recover.mjs`](support/recover.mjs) | The ways back, and the record of each one taken. `reap` stops what a dead session left running |

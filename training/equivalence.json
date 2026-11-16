@@ -1,0 +1,44 @@
+{
+  "about": "WHAT THE SWARM IS TO BE EQUIVALENT ON. Parity is equivalence with the larger model on a body of work, and which work is chosen (the page, under the models; or \"equivalence\" in src/config.json). Each entry names the kinds of question (training/tasks.mjs) that make it up. More than one can be chosen: a pass then asks all of their kinds. A choice takes effect when the next pass begins.",
+  "default": ["crew"],
+  "targets": [
+    {
+      "id": "crew",
+      "name": "The Crew",
+      "about": "The work of a seat on a team: programming, and the conversation around it in Simple and in Developer",
+      "kinds": [
+        "write-arrays",
+        "write-strings",
+        "write-numbers",
+        "write-parsing",
+        "fix",
+        "bug",
+        "trace",
+        "answer",
+        "request",
+        "piece",
+        "talk",
+        "practice",
+        "shown"
+      ]
+    },
+    {
+      "id": "math",
+      "name": "Math",
+      "about": "Arithmetic in words: sums in a row, rates, units, counting",
+      "kinds": ["chain", "shop", "rate", "units", "count"]
+    },
+    {
+      "id": "logic",
+      "name": "Logic",
+      "about": "What follows from what is given: an order, a day of the week, a question whose first answer is wrong",
+      "kinds": ["order", "day", "trap"]
+    },
+    {
+      "id": "reasoning",
+      "name": "Reasoning",
+      "about": "Following a procedure exactly: letters counted, a word changed step by step, a figure read out of a passage",
+      "kinds": ["letters", "string", "extract"]
+    }
+  ]
+}

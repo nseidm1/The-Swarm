@@ -118,7 +118,13 @@ export function readSafe(file, dflt = null) {
 // what a set of briefs and a plan are, in a word (their content, not their version number: a candidate has the same number)
 export const briefKey = (briefs) =>
   createHash('sha256')
-    .update(JSON.stringify([briefs.slots, briefs.plan || {}, briefs.marker || '']))
+    // (the flow is part of what is measured. It was left out, so an arrangement with another flow had the name of the one it came
+    // from, was handed that one's measurement as its own, and scored exactly what the swarm as it was scored: every change to
+    // the flow tried from 2026-11-15 to 2026-11-16 was judged on nothing. Named only where there is one, so that measurements
+    // of arrangements without a flow keep their names.)
+    .update(
+      JSON.stringify([briefs.slots, briefs.plan || {}, briefs.marker || '', ...(briefs.flow ? [briefs.flow] : [])]),
+    )
     .digest('hex')
     .slice(0, 12);
 

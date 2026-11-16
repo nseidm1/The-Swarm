@@ -1,17 +1,23 @@
 // tasks.mjs - THE QUESTIONS, AND WHAT IT MEANS FOR TWO ANSWERS TO THEM TO BE EQUIVALENT. Parity is equivalence, and what is being
-// brought to parity is PROGRAMMING: so the questions are programming questions (tasks-code.mjs), and two answers are equivalent
-// when they FUNCTION the same.
+// brought to parity is THE WORK OF A SEAT ON A TEAM (The Crew): programming (tasks-code.mjs), where two answers are equivalent
+// when they FUNCTION the same, and the conversation around it (tasks-crew.mjs), where two replies are equivalent when they
+// understand the person the same way and do the same thing for them.
 //   a function asked for      the two functions are run on the same inputs, and are equivalent when every call gives the same
 //   a value asked for         the two values are read off the replies and are the same value, however written
 //   an answer in words        a decision model (Kev) says whether the two say fundamentally the same thing
+//   a reply in a conversation the same act (both help, or both ask), the same substance, and no convention of the conversation
+//                             broken that the larger model kept (support/equivalent.mjs: talkEquivalent)
 // Nothing here is marked against a right answer: the larger model's reply is the mark (support/equivalent.mjs).
 // Every question is MADE, from a seed, so there is no list to learn by heart:
 //   train      the questions a brief or an arrangement is chosen on
 //   held       questions of the same kinds from another seed, never used to choose anything: what is reported
 //   tasks({ split: 'train' | 'held', each: 6, kinds: [...], seed, focus })
-//     -> [{ id, kind, type ('code' | 'value' | 'open'), split, seed, ask, equivalent(refReply, reply, ctx), show(reply), wrap(final) }]
+//     -> [{ id, kind, type ('code' | 'value' | 'open' | 'talk'), split, seed, ask, equivalent(refReply, reply, ctx), show(reply), wrap(final) }]
+//   messagesOf(task) -> what is sent: the question alone, or a conversation's system line and its turns
 import { CODE_KINDS } from './tasks-code.mjs';
-import { codeEquivalent, openEquivalent, codeOf, codeWhole } from './support/equivalent.mjs';
+import fs from 'node:fs';
+import { CREW_KINDS, CREW_KIND_NAMES, ownQuestion } from './tasks-crew.mjs';
+import { codeEquivalent, openEquivalent, talkEquivalent, codeOf, codeWhole } from './support/equivalent.mjs';
 
 const rng = (seed) => () => {
   seed |= 0;
@@ -20,7 +26,8 @@ const rng = (seed) => () => {
   t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 };
-const tools = (r) => ({
+const tools = (r, split = 'train') => ({
+  split,
   int: (a, b) => a + Math.floor(r() * (b - a + 1)),
   pick: (list) => list[Math.floor(r() * list.length)],
   mix: (list) => {
@@ -376,12 +383,58 @@ const KINDS = {
 };
 // THE QUESTIONS ASKED ARE PROGRAMMING ONES (tasks-code.mjs): writing a function, correcting one, saying what one prints, saying
 // what is wrong with one. The older kinds (arithmetic, days, traps) are kept under REASONING and can still be asked (--kinds).
+// (new kinds go last: a kind's questions are made from where it stands in this list)
 const ALL = {
   ...CODE_KINDS,
   trace: KINDS.trace,
   ...Object.fromEntries(Object.entries(KINDS).filter(([k]) => k !== 'trace')),
+  ...CREW_KINDS,
 };
-export const KIND_NAMES = [...Object.keys(CODE_KINDS), 'trace'];
+// the programming kinds, and with them the conversation a seat on a team carries: what a pass asks, unless its record says otherwise
+export const CODE_KIND_NAMES = [...Object.keys(CODE_KINDS), 'trace'];
+// WHAT THE SWARM IS TO BE EQUIVALENT ON IS CHOSEN (equivalence.json; the page, under the models; src/config.json): The Crew, and
+// with it or in its place Math, Logic, Reasoning. Each is a list of kinds, and a pass asks the kinds of all that are chosen.
+export const EQUIVALENCE = JSON.parse(fs.readFileSync(new URL('./equivalence.json', import.meta.url), 'utf8'));
+// the kinds of the ones chosen, in the order the kinds are made in; a name that is not one of them is passed over, and with none
+// left it is the ones chosen where nobody has chosen
+export function kindsFor(ids) {
+  const of = (list) => EQUIVALENCE.targets.filter((t) => (list || []).includes(t.id));
+  const picked = of(ids).length ? of(ids) : of(EQUIVALENCE.default);
+  const want = new Set(picked.flatMap((t) => t.kinds));
+  return Object.keys(ALL).filter((k) => want.has(k));
+}
+export const KIND_NAMES = kindsFor(EQUIVALENCE.default);
+// THE QUESTIONS A PERSON WROTE for each of the ones chosen (training/questions/<id>.json, edited from the page): { id: [{ ask,
+// mode }] }. A file that is missing or will not read is no questions.
+export const QUESTIONS_DIR = process.env.SWARM_QUESTIONS_DIR || new URL('./questions/', import.meta.url).pathname;
+export const MOST_OWN = 200;
+export function readOwn(ids) {
+  const out = {};
+  const known = EQUIVALENCE.targets.map((t) => t.id);
+  const chosen = (ids || []).filter((i) => known.includes(i));
+  for (const id of chosen.length ? chosen : EQUIVALENCE.default) {
+    try {
+      const j = JSON.parse(fs.readFileSync(QUESTIONS_DIR.replace(/\/?$/, '/') + id + '.json', 'utf8'));
+      const list = (Array.isArray(j.questions) ? j.questions : [])
+        .filter((q) => q && String(q.ask || '').trim())
+        .slice(0, MOST_OWN)
+        .map((q) => ({
+          ask: String(q.ask).trim().slice(0, 2000),
+          ...(q.mode === 'developer' ? { mode: 'developer' } : {}),
+        }));
+      if (list.length) out[id] = list;
+    } catch {
+      /* none written */
+    }
+  }
+  return out;
+}
+export { CREW_KIND_NAMES };
+// what is sent for a question: the question alone, or (a conversation) the system line a seat is given and the turns so far
+export const messagesOf = (t) =>
+  t.turns
+    ? [...(t.system ? [{ role: 'system', content: t.system }] : []), ...t.turns]
+    : [{ role: 'user', content: t.ask }];
 export const REASONING = Object.keys(KINDS).filter((k) => k !== 'trace');
 export const SEEDS = { train: 1009, held: 7919 };
 
@@ -425,14 +478,29 @@ export function reword(ask) {
   return null;
 }
 export const reworded = (list) =>
-  list.map((t) => ({ ...t, id: t.id + '~2', split: 'reworded', refId: t.id, ask: reword(t.ask) })).filter((t) => t.ask);
+  list
+    .map((t) => {
+      // a conversation carries its own second wording (tasks-crew.mjs): the last message put another way, the rest as it was
+      const ask = t.type === 'talk' ? t.again : reword(t.ask);
+      return {
+        ...t,
+        id: t.id + '~2',
+        split: 'reworded',
+        refId: t.id,
+        ask,
+        ...(t.turns && ask ? { turns: [...t.turns.slice(0, -1), { role: 'user', content: ask }] } : {}),
+      };
+    })
+    .filter((t) => t.ask);
 
-export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, focus = {}, tiers = {} } = {}) {
+// own: the questions a person wrote ({ id: [{ ask, mode }] }, readOwn), asked after the ones made: the first, third, fifth ... are
+// train questions and the second, fourth ... held ones, so that what the swarm is measured on is never what it was chosen on
+export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, focus = {}, tiers = {}, own = {} } = {}) {
   const from = seed !== undefined ? seed : SEEDS[split] !== undefined ? SEEDS[split] : Date.now() % 1e6;
   const out = [];
   kinds.forEach((kind) => {
     const r = rng(from + Object.keys(ALL).indexOf(kind) * 131);
-    const t = tools(r);
+    const t = tools(r, split);
     // A BAR THAT IS HELD TIGHTENS: a kind the swarm has been at parity on for several passes is asked more of (tiers), on train
     // and held alike. The questions it was at parity on stay; more are added after them.
     const n =
@@ -464,6 +532,25 @@ export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, foc
               : '';
           },
           wrap: (final) => '```js\n' + final + '\n```',
+        });
+      else if (made.type === 'talk')
+        out.push({
+          ...base,
+          mode: made.mode,
+          system: made.system,
+          turns: made.turns,
+          again: made.again,
+          limit: made.limit,
+          claims: made.claims,
+          equivalent: (refReply, reply, ctx) => talkEquivalent(made, refReply, reply, ctx),
+          // a reply in a conversation can be two words ("You're welcome!"): anything said at all
+          usable: (reply) => String(reply || '').trim().length > 1,
+          show: (reply) =>
+            String(reply || '')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .slice(0, 160),
+          wrap: (final) => final,
         });
       else if (made.type === 'open')
         out.push({
@@ -503,5 +590,33 @@ export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, foc
       }
     }
   });
+  // the questions a person wrote
+  for (const [target, list] of Object.entries(own || {}))
+    (list || []).forEach((q, i) => {
+      if (i % 2 !== (split === 'held' ? 1 : 0) || !String((q && q.ask) || '').trim()) return;
+      const made = ownQuestion(target, q, i);
+      out.push({
+        id: split + '-own-' + target + '-' + (i + 1),
+        kind: 'own-' + target,
+        split,
+        seed: from,
+        ask: made.ask,
+        type: 'talk',
+        mode: made.mode,
+        system: made.system,
+        turns: made.turns,
+        again: null,
+        limit: made.limit,
+        claims: made.claims,
+        equivalent: (refReply, reply, ctx) => talkEquivalent(made, refReply, reply, ctx),
+        usable: (reply) => String(reply || '').trim().length > 1,
+        show: (reply) =>
+          String(reply || '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 160),
+        wrap: (final) => final,
+      });
+    });
   return out;
 }

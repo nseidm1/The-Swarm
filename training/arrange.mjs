@@ -47,6 +47,9 @@ export const shapeOf = (b) =>
       slots: b.slots.map((s) => [s.id, s.member, s.stage, s.sees || '', s.temperature ?? '', s.maxTokens ?? '']),
       plan: Object.fromEntries(Object.entries(b.plan || {}).sort()),
       flow: b.flow || null,
+      // (an arrangement with a flow of its own is known by another name than it had before the fault above was put right: what
+      // was "tried and not kept" under the old name was never tried, and is open again)
+      ...(b.flow ? { measured: 2 } : {}),
     }),
   );
 
@@ -179,19 +182,22 @@ export function flowMoves(b) {
   const out = [];
   const put = (name, flow) => out.push({ name: 'flow: ' + name, briefs: { ...b, flow } });
   const without = (i) => [...f.slice(0, i), ...f.slice(i + 1)];
-  const label = (s) => (s.do === 'repeat' ? 'loop' : s.do === 'decide' ? (s.keep ? 'narrowing' : 'decision') : s.do);
+  const label = (s) =>
+    s.do === 'repeat'
+      ? 'loop'
+      : s.do === 'decide'
+        ? s.keep
+          ? 'narrowing'
+          : s.sure
+            ? 'early decision'
+            : 'decision'
+        : s.do;
   f.forEach((s, i) => {
     const nth = f.slice(0, i).filter((x) => x.do === s.do).length;
     const many = f.filter((x) => x.do === s.do).length > 1;
     const which = many ? ' (the ' + ORD[Math.min(nth, 4)] + ')' : '';
     const next = f[i + 1];
     if (s.do === 'check') {
-      if (!(next && next.do === 'revise'))
-        put('the answers go back to the drafters after the check' + which, [
-          ...f.slice(0, i + 1),
-          { do: 'revise' },
-          ...f.slice(i + 1),
-        ]);
       put('check and revise again while the answers differ, twice at most' + which, [
         ...f.slice(0, i),
         { do: 'repeat', upTo: 2, steps: [{ do: 'check' }, { do: 'revise' }] },
@@ -199,22 +205,35 @@ export function flowMoves(b) {
       ]);
       put('no check' + which, without(i));
     }
-    if (s.do === 'try' && !f.some((x) => x.do === 'expect'))
-      put('say what each call should give, and back the answer that gives it', [
-        ...f.slice(0, i + 1),
-        { do: 'expect' },
-        ...f.slice(i + 1),
-      ]);
     if (s.do === 'expect') put('no saying what each call should give', without(i));
     if (s.do === 'revise') put('no revising' + which, without(i));
-    // A DECISION CAN STAND ANYWHERE. One that keeps the likeliest two, straight after any step that leaves answers standing
-    // (after the drafts and before they are run; after they are run; after the answers come back): what follows has less to weigh
-    if (['draft', 'try', 'expect', 'revise'].includes(s.do) && !(next && next.do === 'decide'))
-      put('keep the likeliest two straight after the ' + s.do + which, [
-        ...f.slice(0, i + 1),
-        { do: 'decide', keep: 2 },
-        ...f.slice(i + 1),
-      ]);
+    // ANY STEP CAN STAND ANYWHERE, however unlikely it looks: after every step that leaves answers standing (the drafts, the run,
+    // a check, the answers coming back, a narrowing), each kind of step there is, where it is not already the next one. The
+    // decider between the drafts and the checks, keeping the likeliest two; the decider there settling it outright if it is sure;
+    // a check before the answers are run and another after; the answers going back before anyone has checked them; what each
+    // call should give said after the checks instead of before. Whether any of it helps is not for this file to guess.
+    if (s.do !== 'write' && s.do !== 'repeat') {
+      const INSERT = [
+        ['keep the likeliest two', { do: 'decide', keep: 2 }],
+        ['settle it if the decider is sure, else go on', { do: 'decide', sure: 0.75 }],
+        ['a check', { do: 'check' }],
+        ['the answers go back to the drafters', { do: 'revise' }],
+        ['say what each call should give', { do: 'expect' }],
+      ];
+      const same = (x, y) => x && y && x.do === y.do && !!x.keep === !!y.keep && !!x.sure === !!y.sure;
+      for (const [words, step] of INSERT) {
+        if (same(step, next) || same(step, s)) continue;
+        if (
+          step.do === 'expect' &&
+          (f.some((x) => x.do === 'expect') || !f.slice(0, i + 1).some((x) => x.do === 'try'))
+        )
+          continue;
+        if (step.sure && f.some((x) => x.sure)) continue;
+        if (!next || (next.do === 'write' && step.do !== 'check' && step.do !== 'revise')) continue; // nothing after it to change
+        put(words + ', straight after the ' + label(s) + which, [...f.slice(0, i + 1), step, ...f.slice(i + 1)]);
+      }
+    }
+    if (s.do === 'decide' && s.sure) put('no settling early' + which, without(i));
     // A STEP CAN CHANGE PLACES with the one before it (never the first drafts, never the writing)
     const prev = f[i - 1];
     if (
@@ -238,13 +257,6 @@ export function flowMoves(b) {
           ]);
       }
     if (s.do === 'decide' && s.keep) put('no narrowing' + which, without(i));
-    if (s.do === 'decide' && !s.keep && !f.some((x) => x.do === 'decide' && x.keep))
-      put('decide twice: keep the likeliest two, check those again, then decide', [
-        ...f.slice(0, i),
-        { do: 'decide', keep: 2 },
-        { do: 'check' },
-        ...f.slice(i),
-      ]);
     if (s.do === 'repeat') {
       const upTo = s.upTo || 2;
       if (upTo < 3)
@@ -267,27 +279,28 @@ export function flowMoves(b) {
 
 // SEVERAL CHANGES AT ONCE. One step at a time cannot reach an arrangement whose parts only help together (a loop is worth little
 // with checkers that say nothing; a narrowing decision is worth little before answers are run). So a pass also tries a few
-// arrangements that are `depth` changes from this one, the changes drawn by lot from all that are open: endless variations, and
-// which ones a pass draws depends only on its number, so a pass that is run again tries the same ones. How many, and how deep,
+// arrangements that are `depth` changes from this one, taken in a fixed order from all there are. How many, and how deep,
 // is the trainer's policy (trials.wild, trials.depth), which its review of itself raises when nothing has been kept for a while.
-export function wildMoves(b, { n = 1, depth = 2, seed = 1, tried = [] } = {}) {
-  let x = (seed * 2654435761) >>> 0;
-  const rnd = () => ((x = (Math.imul(x ^ (x >>> 15), 2246822507) + 0x9e3779b9) >>> 0), x / 2 ** 32);
+export function wildMoves(b, { n = 1, depth = 2, tried = [] } = {}) {
+  // IN A FIXED ORDER, AND ALL OF THEM IN THE END. Not drawn by lot: every arrangement `depth` changes from this one is in one
+  // list (the changes in the order steps() gives them, the first change slowest to turn), and a pass takes the first `n` that
+  // have not been tried. What it tried is not taken again, so pass after pass it goes down the list and reaches every one.
   const out = [];
-  for (let k = 0; k < n * 6 && out.length < n; k++) {
-    let cur = b;
-    const names = [];
-    for (let d = 0; d < depth; d++) {
-      const open = steps(cur);
-      if (!open.length) break;
-      const pick = open[Math.floor(rnd() * open.length)];
-      names.push(pick.name);
-      cur = pick.briefs;
+  const here = shapeOf(b);
+  const walk = (cur, names, left) => {
+    if (out.length >= n) return;
+    if (!left) {
+      const hash = shapeOf(cur);
+      if (hash !== here && !tried.includes(hash) && !out.some((c) => c.hash === hash))
+        out.push({ name: 'several: ' + names.join('; then ').replace(/flow: /g, ''), briefs: cur, hash });
+      return;
     }
-    const hash = shapeOf(cur);
-    if (names.length === depth && hash !== shapeOf(b) && !tried.includes(hash) && !out.some((c) => c.hash === hash))
-      out.push({ name: 'several: ' + names.join('; then ').replace(/flow: /g, ''), briefs: cur, hash });
-  }
+    for (const c of steps(cur)) {
+      if (out.length >= n) return;
+      walk(c.briefs, [...names, c.name], left - 1);
+    }
+  };
+  walk(b, [], depth);
   return out;
 }
 
@@ -309,7 +322,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const policy = readPolicy(state);
   const all = [
     ...steps(briefs),
-    ...wildMoves(briefs, { n: policy.trials.wild || 0, depth: policy.trials.depth || 2, seed: state.pass + 1, tried }),
+    ...wildMoves(briefs, { n: policy.trials.wild || 0, depth: policy.trials.depth || 2, tried }),
   ];
   if (has('list')) {
     for (const c of all) console.log((tried.includes(c.hash) ? 'tried  ' : '       ') + c.name);

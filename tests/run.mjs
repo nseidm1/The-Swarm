@@ -962,12 +962,16 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   check(
     'the search over arrangements reaches the flow: answers sent back, a loop, a decision that narrows first, a step taken out, a second writer; from a flow it has kept it goes on (a longer loop, the loop undone, back to the plain flow); and a flow is part of what makes two arrangements different',
     flowOf(briefs) === DEFAULT_FLOW &&
-      names(briefs).length === 8 &&
+      names(briefs).length === 17 &&
+      // the decider between the drafts and the checks, both ways; and every other step in every place it can go
+      names(briefs).some((n) => /keep the likeliest two, straight after the draft/.test(n)) &&
+      names(briefs).some((n) => /settle it if the decider is sure, else go on, straight after the try/.test(n)) &&
+      names(briefs).some((n) => /a check, straight after the decision/.test(n)) &&
+      names(briefs).some((n) => /the answers go back to the drafters, straight after the draft/.test(n)) &&
       names(briefs).some((n) => /what each call should give/.test(n)) &&
       names(briefs).some((n) => /straight after the draft/.test(n)) &&
       names(briefs).some((n) => /the check before the try/.test(n)) &&
       names(briefs).some((n) => /go back to the drafters/.test(n)) &&
-      names(briefs).some((n) => /decide twice/.test(n)) &&
       names(briefs).some((n) => /no check/.test(n)) &&
       !names(briefs).some((n) => /plain one/.test(n)) &&
       second.some((c) => /3 times at most/.test(c.name) && c.briefs.flow.find((x) => x.do === 'repeat').upTo === 3) &&
@@ -977,7 +981,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       second.some((c) => /plain one/.test(c.name) && c.briefs.flow === undefined) &&
       shapeOf(loopMove.briefs) !== shapeOf(briefs) &&
       all.some((c) => /add a second a-writer on b/.test(c.name)) &&
-      all.filter((c) => /^flow: /.test(c.name)).length === 8 &&
+      all.filter((c) => /^flow: /.test(c.name)).length === 17 &&
       all.some(
         (c) =>
           /a-steps checks instead of drafting/.test(c.name) &&
@@ -1282,7 +1286,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     Math.abs(noisy['ceiling.noSlotHadItShare'] - 19 / 56) < 1e-9 &&
       noisy['pass.keptNothingFor'] === 2 &&
       ch.find((c) => c.set === 'keep.margin').to === 4 &&
-      /differed by 3 answers/.test(ch.find((c) => c.set === 'keep.margin').why) &&
+      /moved by 3 answers/.test(ch.find((c) => c.set === 'keep.margin').why) &&
       ch.find((c) => c.set === 'moves.weight.flow').to === 1.5 &&
       /34%/.test(ch.find((c) => c.set === 'moves.weight.flow').why) &&
       ch.find((c) => c.set === 'trials.arrangements').to === 6 &&
@@ -1382,9 +1386,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const { wildMoves, steps, shapeOf } = await import('../training/arrange.mjs');
   const { makePlan } = await import('../training/plan.mjs');
   const { answer: orchestrate, flowOf } = await import('../src/orchestrate.mjs');
-  const w1 = wildMoves(briefs, { n: 3, depth: 2, seed: 5 });
-  const w1b = wildMoves(briefs, { n: 3, depth: 2, seed: 5 });
-  const w2 = wildMoves(briefs, { n: 3, depth: 3, seed: 6 });
+  const w1 = wildMoves(briefs, { n: 3, depth: 2 });
+  const w1b = wildMoves(briefs, { n: 3, depth: 2 });
+  // what was tried is not taken again: the next three in the list
+  const w1c = wildMoves(briefs, { n: 3, depth: 2, tried: w1.map((c) => c.hash) });
+  const w2 = wildMoves(briefs, { n: 3, depth: 3 });
   const one = new Set(steps(briefs).map((c) => c.hash));
   // every arrangement the search can reach in one change, or several, still answers
   let broke = '';
@@ -1401,6 +1407,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     'a pass also tries arrangements that are several changes from here at once, the changes drawn by lot from all that are open: the same pass draws the same ones, another pass others; none is one a single change reaches; each is in the plan as what it is; and every arrangement the search can reach, by one change or several, still answers',
     w1.length === 3 &&
       w1.map((c) => c.name).join('|') === w1b.map((c) => c.name).join('|') &&
+      w1c.length === 3 &&
+      !w1c.some((c) => w1.some((x) => x.hash === c.hash)) &&
       w1.map((c) => c.name).join('|') !== w2.map((c) => c.name).join('|') &&
       w1.every((c) => /^several: .+; then .+/.test(c.name) && c.hash !== shapeOf(briefs)) &&
       w2.every((c) => c.name.split('; then ').length === 3) &&
@@ -1827,6 +1835,439 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       changesFor(basePolicy(), flat).some((c) => c.rule === 'no-progress-widens-the-search') &&
       !changesFor(basePolicy(), rising).some((c) => c.rule === 'no-progress-widens-the-search'),
     { gap: plan.gap, flat },
+  );
+}
+// ---- 6o: what the first long session showed (2026-11-16): every change to the flow had been judged on nothing
+{
+  const { briefKey } = await import('../training/support/recover.mjs');
+  const { swarmName } = await import('../training/support/bench.mjs');
+  const { shapeOf, steps } = await import('../training/arrange.mjs');
+  const { changesFor } = await import('../training/review.mjs');
+  const { basePolicy } = await import('../training/policy.mjs');
+  const withFlow = {
+    ...briefs,
+    flow: [
+      { do: 'draft' },
+      { do: 'try' },
+      { do: 'decide', keep: 2 },
+      { do: 'check' },
+      { do: 'decide' },
+      { do: 'write' },
+    ],
+  };
+  const other = {
+    ...briefs,
+    flow: [{ do: 'draft' }, { do: 'try' }, { do: 'check' }, { do: 'revise' }, { do: 'decide' }, { do: 'write' }],
+  };
+  const names = new Set(steps(briefs).map((c) => swarmName(c.briefs, 'train', 1)));
+  check(
+    'a measurement is named for the flow it was made with: an arrangement with another flow is not handed the measurement of the one it came from (it was, and every flow tried scored exactly what the swarm as it was scored); every arrangement one change away has a name of its own; and one without a flow keeps the name it had',
+    briefKey(withFlow) !== briefKey(briefs) &&
+      briefKey(withFlow) !== briefKey(other) &&
+      swarmName(withFlow, 'train', 1) !== swarmName(briefs, 'train', 1) &&
+      names.size === steps(briefs).length &&
+      !names.has(swarmName(briefs, 'train', 1)) &&
+      briefKey({ ...briefs }) === briefKey(briefs) &&
+      shapeOf(withFlow) !== shapeOf(briefs),
+    { n: names.size, of: steps(briefs).length },
+  );
+  // the decider between the drafts and the checks, settling it only if it is sure
+  reset();
+  lfm.s.script = (b) =>
+    roleOf(b).stage === 'write' ? 'It is 42.' : roleOf(b).id === 'a-direct' ? 'ANSWER: 41' : 'ANSWER: 42';
+  bonsai.s.script = () => 'ANSWER: 42';
+  let conf = 0.9;
+  const asked = [];
+  const kev = async ({ answers }) => (
+    asked.push(answers.length),
+    {
+      ok: true,
+      letter: answers[1].letter,
+      final: answers[1].final,
+      probs: { [answers[0].letter]: 1 - conf, [answers[1].letter]: conf },
+      ms: 1,
+    }
+  );
+  const sw = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, decide: kev });
+  const early = {
+    ...briefs,
+    flow: [{ do: 'draft' }, { do: 'decide', sure: 0.75 }, { do: 'check' }, { do: 'decide' }, { do: 'write' }],
+  };
+  const sure = await sw.answer(Q, { briefs: early });
+  conf = 0.6;
+  const unsure = await sw.answer(Q, { briefs: early });
+  await sw.stop();
+  check(
+    'the decider can stand between the drafts and the checks: where it is sure it settles the matter there and the checks are passed over; where it is not, nothing is settled or thrown away, the checks run, and it is asked again after them',
+    sure.decided === '42' &&
+      sure.path === 'decided-early' &&
+      !sure.trace.some((t) => t.stage === 'check') &&
+      sure.trace.filter((t) => t.stage === 'decide').length === 1 &&
+      unsure.trace.filter((t) => t.stage === 'check').length === 2 &&
+      unsure.trace.filter((t) => t.stage === 'decide').length === 2 &&
+      /Not sure enough/.test(unsure.trace.find((t) => t.stage === 'decide').out) &&
+      unsure.decided === '42',
+    { sure: sure.path, unsure: unsure.trace.map((t) => t.stage) },
+  );
+  // a rule changes how a pass trains once in that pass
+  const m = { 'ceiling.noSlotHadItShare': 0.35, 'pass.keptNothingFor': 0 };
+  const first = changesFor(basePolicy(), m);
+  const again = changesFor(basePolicy(), m, { done: first.map((c) => c.rule) });
+  check(
+    'a rule that adds a little to a setting does so once in a pass, however often the pass looks at itself',
+    first.some((c) => c.rule === 'drafts-are-the-limit') && !again.some((c) => c.rule === 'drafts-are-the-limit'),
+    { first: first.map((c) => c.rule), again: again.map((c) => c.rule) },
+  );
+}
+// ---- 6p: the work of a seat on a team: conversation, and what it means for two replies to be equivalent
+{
+  const {
+    tasks: make,
+    KIND_NAMES: NAMES,
+    CODE_KIND_NAMES,
+    CREW_KIND_NAMES,
+    EQUIVALENCE,
+    kindsFor,
+    messagesOf,
+    reworded,
+  } = await import('../training/tasks.mjs');
+  const { talkEquivalent, faultsOf } = await import('../training/support/equivalent.mjs');
+  const { talkPairs, checkReader } = await import('../training/readers.mjs');
+  const tr = make({ split: 'train', each: 6, kinds: CREW_KIND_NAMES });
+  const he = make({ split: 'held', each: 6, kinds: CREW_KIND_NAMES });
+  const follow = he.find((t) => t.turns.length === 3);
+  const ticket = tr.find((t) => /A ticket is attached/.test(t.system));
+  const again = reworded(he);
+  check(
+    'a seat on a team is written to in a conversation, so that is what is asked: six kinds in the two modes (an everyday question, something it cannot do or must ask about, a piece of writing, conversation itself; a question of good practice, their own project), each sent as a seat is sent one (a system line that says who is speaking and how to reply, then the turns), some with earlier turns and some with a ticket attached; the held ones are made from other requests than the train ones; and each is put a second way with the rest of the conversation as it was',
+    CREW_KIND_NAMES.join() === 'answer,request,piece,talk,practice,shown' &&
+      tr.length === 36 &&
+      tr.every((t) => t.type === 'talk' && t.limit > 0 && /YOUR REPLY/.test(t.system)) &&
+      new Set(tr.filter((t) => t.mode === 'simple').map((t) => t.kind)).size === 4 &&
+      new Set(tr.filter((t) => t.mode === 'developer').map((t) => t.kind)).size === 2 &&
+      messagesOf(tr[0])[0].role === 'system' &&
+      messagesOf(tr[0]).slice(-1)[0].content === tr[0].ask &&
+      messagesOf({ ask: 'x' }).length === 1 &&
+      follow &&
+      messagesOf(follow).length === 4 &&
+      ticket &&
+      /can you take it|what does it need/.test(ticket.ask) &&
+      !he.some((t) => tr.some((x) => x.ask === t.ask)) &&
+      JSON.stringify(make({ split: 'held', each: 6, kinds: CREW_KIND_NAMES }).map((t) => t.ask)) ===
+        JSON.stringify(he.map((t) => t.ask)) &&
+      again.length >= 30 &&
+      again.every(
+        (t) =>
+          t.turns[t.turns.length - 1].content === t.ask &&
+          t.ask !== he.find((x) => x.id === t.refId).ask &&
+          t.turns.length === he.find((x) => x.id === t.refId).turns.length,
+      ) &&
+      // the kinds that were there before are made as they were: what was measured stays comparable
+      JSON.stringify(make({ split: 'held', each: 3, kinds: CODE_KIND_NAMES }).map((t) => t.ask)) ===
+        JSON.stringify(
+          make({ split: 'held', each: 3 })
+            .filter((t) => CODE_KIND_NAMES.includes(t.kind))
+            .map((t) => t.ask),
+        ),
+    { n: tr.length, again: again.length },
+  );
+  check(
+    'what the swarm is to be equivalent on is chosen from a list kept as data: The Crew (programming and the conversation around it) where nothing is chosen, and with it or in its place Math, Logic and Reasoning; a pass asks the kinds of all that are chosen, and a name that is not on the list is passed over',
+    EQUIVALENCE.targets.map((t) => t.id).join() === 'crew,math,logic,reasoning' &&
+      NAMES.join() === [...CODE_KIND_NAMES, ...CREW_KIND_NAMES].join() &&
+      kindsFor(['crew']).join() === NAMES.join() &&
+      kindsFor([]).join() === NAMES.join() &&
+      kindsFor(['nothing']).join() === NAMES.join() &&
+      kindsFor(['math']).slice().sort().join() === 'chain,count,rate,shop,units' &&
+      kindsFor(['math', 'crew']).length === NAMES.length + 5 &&
+      kindsFor(['logic', 'reasoning']).length === 6 &&
+      make({ split: 'held', each: 2, kinds: kindsFor(['math', 'logic', 'reasoning']) }).length === 22 &&
+      EQUIVALENCE.targets.every((t) =>
+        t.kinds.every((k) => make({ split: 'train', each: 1, kinds: [k] }).length === 1),
+      ),
+    kindsFor(['math', 'logic']),
+  );
+  // the conduct of a reply, read off its words
+  const about = { limit: 20, claims: true, simple: true };
+  check(
+    "the conventions of the conversation are read off the words, with no model: a reply that says it did what it cannot do, runs well past the length asked, opens by praising the question, closes by offering more help, or uses the words of the trade to someone who is not a developer; saying that it cannot book, or a piece written in the person's own voice, is none of these",
+    faultsOf('All done! I have booked your table for four on Friday.', about).includes(
+      'says it did something it cannot do',
+    ) &&
+      faultsOf('Your reservation is confirmed for 7pm.', about).length === 1 &&
+      faultsOf('I cannot book it for you, but the restaurant takes bookings by phone.', about).length === 0 &&
+      faultsOf("I've paid the rent and I would like the boiler fixed this week.", { limit: 120 }).length === 0 &&
+      faultsOf('Great question! Rabbits can eat celery.', about)[0] === 'opens by praising the question' &&
+      faultsOf('Rabbits can eat celery. Let me know if you need anything else!', about)[0] ===
+        'closes by offering more help' &&
+      faultsOf('Rabbits can eat celery. Did you want to know about the leaves too?', about).length === 0 &&
+      faultsOf(Array(30).fill('word').join(' '), about)[0] === 'longer than was asked for' &&
+      faultsOf(Array(22).fill('word').join(' '), about).length === 0 &&
+      faultsOf('Check the API endpoint.', about)[0] === "uses a developer's words" &&
+      faultsOf('Check the API endpoint.', { limit: 20 }).length === 0,
+    faultsOf('All done! I have booked your table for four on Friday.', about),
+  );
+  // a decider that says what the test tells it to: one request, three yes-or-no questions
+  const said = { same: 0.9, firstAsks: 0.1, secondAsks: 0.1 };
+  const sent = [];
+  const fetchImpl = async (url, o) => (
+    sent.push({ url, body: JSON.parse(o.body) }),
+    {
+      ok: true,
+      json: async () => ({ answers: Object.fromEntries(Object.entries(said).map(([k, v]) => [k, { noul: v }])) }),
+    }
+  );
+  const t = tr.find((x) => x.kind === 'request');
+  const eq = (ref, mine, more = {}) => talkEquivalent(t, ref, mine, { kev: 'http://kev', fetchImpl, ...more });
+  const ok = await eq(
+    'You will need to book it yourself: ring the restaurant.',
+    'I cannot book it. Phone them and ask for the table.',
+  );
+  said.secondAsks = 0.9;
+  const asked = await eq('Ring the restaurant and ask for the table.', 'Which restaurant did you have in mind?');
+  said.firstAsks = 0.9;
+  const bothAsk = await eq('Which town are you in?', 'Whereabouts are you?');
+  Object.assign(said, { firstAsks: 0.1, secondAsks: 0.1, same: 0.3 });
+  const other = await eq('Ring the restaurant.', 'Use the booking website.');
+  said.same = 0.9;
+  const claimed = await eq('Ring the restaurant and ask for the table.', 'I have booked the table for you.');
+  const bothClaim = await eq('I have booked it.', 'I have booked the table for you.');
+  const marked = await eq('Ring them.', 'Phone them.', { mark: 0.95 });
+  check(
+    "two replies in a conversation are equivalent when they do the same thing for the person, and that is three things: the same act (one that only asks where the other answered understood the message differently, whatever else it says), the same substance (the decision model says so, in the same request), and no convention broken that the larger model's reply kept (a fault they share is not a difference: the larger model's reply is the mark). The part it was lost on is said. With no decision model the question is not compared, and with no reply there is no answer",
+    ok.grade === 'right' &&
+      asked.grade === 'wrong' &&
+      asked.part === 'act' &&
+      asked.p === 0 &&
+      /asked where the larger model answered/.test(asked.why) &&
+      bothAsk.grade === 'right' &&
+      other.grade === 'wrong' &&
+      other.part === 'substance' &&
+      claimed.grade === 'wrong' &&
+      claimed.part === 'conduct' &&
+      claimed.faults[0] === 'says it did something it cannot do' &&
+      bothClaim.grade === 'right' &&
+      marked.grade === 'wrong' &&
+      marked.part === 'substance' &&
+      sent.length === 7 &&
+      sent[0].url === 'http://kev/v1/systemone' &&
+      Object.keys(sent[0].body.questions).join() === 'same,firstAsks,secondAsks' &&
+      sent[0].body.questions.same.type === 'noul' &&
+      sent[0].body.state.message === t.ask &&
+      /cannot book/.test(sent[0].body.state.setting) &&
+      /DATA/.test(sent[0].body.state.guidance) &&
+      (await talkEquivalent(t, 'x', 'y', {})).grade === 'noref' &&
+      (await eq('x', '')).grade === 'unsure' &&
+      (await eq('', 'y')).grade === 'noref' &&
+      (await t.equivalent('Ring them.', 'Phone them.', { kev: 'http://kev', fetchImpl })).grade === 'right' &&
+      t.usable('Sure!') &&
+      !t.usable(''),
+    { ok, asked, other, claimed },
+  );
+  // the reader of replies in a conversation is checked on pairs anyone can judge, before it is believed
+  const pairs = talkPairs();
+  const fair = await checkReader({
+    kev: 'k',
+    pairs,
+    judge: async (task, a, b) => ({ grade: 'x', p: pairs.find((p) => p.a === a && p.b === b).same ? 0.85 : 0.2 }),
+  });
+  const blind = await checkReader({ kev: 'k', pairs, judge: async () => ({ grade: 'right', p: 0.9 }) });
+  const { readerOk, readerMark, READER_FILE } = await import('../training/support/reader-file.mjs');
+  const rdir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-reader-'));
+  fs.writeFileSync(READER_FILE(rdir), JSON.stringify({ ok: true, mark: 0.75, talk: { ok: false, mark: 0.6 } }));
+  check(
+    'the reader of replies in a conversation is tried on pairs anyone can judge (the same help said two ways; another fact, a refusal, a question back, a claim to have done it), half of each, and is believed apart from the reader of answers in words: one can fail its check while the other is believed, and each has its own line',
+    pairs.length === 14 &&
+      pairs.filter((p) => p.same).length === 7 &&
+      pairs.every((p) => p.task.system && p.task.turns.length === 1) &&
+      fair.ok &&
+      fair.right === 14 &&
+      !blind.ok &&
+      blind.right === 7 &&
+      readerOk(rdir) &&
+      readerOk(rdir, 'open') &&
+      !readerOk(rdir, 'talk') &&
+      readerMark(rdir) === 0.75 &&
+      readerMark(rdir, 'talk') === 0.6 &&
+      readerOk(path.join(rdir, 'none'), 'talk'),
+    { fair: fair.right, blind: blind.right },
+  );
+  // the swarm itself answers a conversation: every slot is shown the system line the seat was given
+  reset();
+  lfm.s.script = (b) =>
+    roleOf(b).stage === 'write' ? 'Ring the restaurant: I cannot book it for you.' : 'ANSWER: ring the restaurant';
+  bonsai.s.script = () => 'ANSWER: ring the restaurant';
+  const sw = await createSwarm({ attach: { a: lfm.base, b: bonsai.base } });
+  const got = await sw.answer(messagesOf(t));
+  await sw.stop();
+  check(
+    'the swarm takes a conversation as it is sent to a seat: every slot is shown the system line the seat was given (who is speaking, what it cannot do, how the reply is shaped), and one reply comes out',
+    got.ok &&
+      got.reply === 'Ring the restaurant: I cannot book it for you.' &&
+      lfm.s.calls.length > 0 &&
+      [...lfm.s.calls, ...bonsai.s.calls].every(
+        (c) =>
+          /You cannot book, buy, pay/.test(c.messages[0].content) &&
+          /The person set this for the conversation/.test(c.messages[0].content),
+      ),
+    { reply: got.reply, calls: lfm.s.calls.length },
+  );
+  // which kinds a pass asks: what its record says; a record from before there was a choice ends its pass on programming
+  const { readState, writeState } = await import('../training/state.mjs');
+  const { questions } = await import('../training/support/bench.mjs');
+  const { readConfig, writeConfig } = await import('../src/catalog.mjs');
+  const was = readState();
+  const kindsOf = (list) => [...new Set(list.map((q) => q.kind))].join();
+  writeState({ ...was, kinds: ['chain', 'order'], history: [{ pass: 1 }] });
+  const byRecord = kindsOf(questions('held', 2));
+  const older = { ...was, history: [{ pass: 1 }] };
+  delete older.kinds;
+  writeState(older);
+  const before = kindsOf(questions('held', 2));
+  const fresh = { ...was, history: [] };
+  delete fresh.kinds;
+  writeState(fresh);
+  const cfg = readConfig();
+  writeConfig({ equivalence: ['math'] });
+  const chosen = kindsOf(questions('held', 2));
+  const kept = readConfig().equivalence;
+  writeConfig({ a: cfg.a });
+  const stillKept = readConfig().equivalence;
+  writeConfig({ equivalence: ['crew'] });
+  const first = kindsOf(questions('held', 2));
+  // the questions a person wrote: read from their own folder, asked after the ones made, every second one held back
+  const { readOwn, QUESTIONS_DIR, MOST_OWN } = await import('../training/tasks.mjs');
+  fs.mkdirSync(QUESTIONS_DIR, { recursive: true });
+  fs.writeFileSync(
+    path.join(QUESTIONS_DIR, 'crew.json'),
+    JSON.stringify({
+      questions: [
+        { ask: 'Move my dentist to Friday.' },
+        { ask: 'Is a fixed sleep a fix for a flaky test?', mode: 'developer' },
+        { ask: '   ' },
+        { ask: 'thanks!' },
+      ],
+    }),
+  );
+  fs.writeFileSync(
+    path.join(QUESTIONS_DIR, 'math.json'),
+    JSON.stringify({ questions: [{ ask: 'What is 17 times 23?' }, { ask: 'Half of 3 is?' }] }),
+  );
+  fs.writeFileSync(path.join(QUESTIONS_DIR, 'logic.json'), '{ not json');
+  const own = readOwn(['crew', 'math', 'logic']);
+  const ownTr = make({ split: 'train', each: 1, kinds: ['answer'], own }).filter((x) => x.kind.startsWith('own-'));
+  const ownHe = make({ split: 'held', each: 1, kinds: ['answer'], own }).filter((x) => x.kind.startsWith('own-'));
+  writeState({ ...was, kinds: ['answer'], own: { math: [{ ask: 'What is 2 + 2?' }] }, history: [{ pass: 1 }] });
+  const fromRecord = questions('held', 1)
+    .concat(questions('train', 1))
+    .filter((x) => x.kind.startsWith('own-'))
+    .map((x) => x.ask);
+  writeState({ ...was, kinds: ['answer'], history: [] });
+  writeConfig({ equivalence: ['crew'] });
+  const firstPass = questions('train', 1)
+    .filter((x) => x.kind.startsWith('own-'))
+    .map((x) => x.ask);
+  const crewTr = ownTr.filter((x) => x.kind === 'own-crew');
+  writeState(was);
+  check(
+    'a person can write questions of their own for each body of work (one file each, edited from the page): blank ones and a file that will not read are no questions; the first, third ... are train questions and the second, fourth ... held, so nothing measured is what was chosen on; for The Crew each goes to the seat its mode names, for the others with a plain instruction to answer; each is judged as a reply in a conversation; a pass asks those its record kept, and a first pass those written now',
+    MOST_OWN === 200 &&
+      Object.keys(own).join() === 'crew,math' &&
+      own.crew.length === 3 &&
+      crewTr.map((x) => x.ask).join('|') === 'Move my dentist to Friday.|thanks!' &&
+      ownHe
+        .filter((x) => x.kind === 'own-crew')
+        .map((x) => x.ask)
+        .join() === 'Is a fixed sleep a fix for a flaky test?' &&
+      ownHe.find((x) => x.kind === 'own-crew').mode === 'developer' &&
+      crewTr[0].mode === 'simple' &&
+      /cannot book/.test(crewTr[0].system) &&
+      crewTr[0].claims &&
+      ownTr.find((x) => x.kind === 'own-math').system ===
+        'Answer the question. Give the answer itself first, then as much working as it needs, and nothing after it.' &&
+      ownTr.find((x) => x.kind === 'own-math').limit === 0 &&
+      [...ownTr, ...ownHe].every((x) => x.type === 'talk' && typeof x.equivalent === 'function' && x.again === null) &&
+      reworded(ownHe).length === 0 &&
+      fromRecord.join() === 'What is 2 + 2?' &&
+      firstPass.join('|') === 'Move my dentist to Friday.|thanks!',
+    { train: ownTr.map((x) => x.id), held: ownHe.map((x) => x.id), fromRecord, firstPass },
+  );
+  check(
+    'a pass asks the kinds its record names, so that it ends on the questions it began with whatever is chosen meanwhile; a record from before there was a choice ends its pass on the programming questions; a first pass asks what is chosen; and the choice is kept in the configuration through a change of model',
+    byRecord === 'chain,order' &&
+      before === CODE_KIND_NAMES.join() &&
+      chosen.split(',').sort().join() === 'chain,count,rate,shop,units' &&
+      kept.join() === 'math' &&
+      stillKept.join() === 'math' &&
+      first === NAMES.join(),
+    { byRecord, before, chosen, kept },
+  );
+}
+// ---- 6q: more deciders: every one takes the same request, and each says how it is started and where it can run
+{
+  const { REGISTRY } = await import('../src/catalog.mjs');
+  const { spawnSync } = await import('node:child_process');
+  const ds = REGISTRY.deciders;
+  const envOf = (id) =>
+    spawnSync(process.execPath, ['training/support/decider-env.mjs'], {
+      encoding: 'utf8',
+      env: { ...process.env, DECIDER_ID: id },
+    }).stdout;
+  const kevSh = (id, ...a) =>
+    spawnSync('bash', ['training/kev.sh', ...a], {
+      encoding: 'utf8',
+      env: { ...process.env, DECIDER_ID: id, NODE: process.execPath },
+    });
+  const cuda = kevSh('karpo-31b', 'serve', '8999');
+  const quoted = spawnSync(
+    'bash',
+    [
+      '-c',
+      'eval "$(DECIDER_ID=startlux-4b "$0" training/support/decider-env.mjs)"; printf %s "$D_KIND|$D_WEIGHTS_REV|$D_NAME"',
+      process.execPath,
+    ],
+    { encoding: 'utf8' },
+  ).stdout;
+  check(
+    "the deciders that can be chosen go beyond Kev: each carries its score on the community Decision Index and the entry it was scored as, where it can run (an Apple silicon Mac, an NVIDIA GPU), and how the swarm starts it (Kev, StartLux through MLX) or, where the swarm cannot, its maker's own instructions; every file it fetches is pinned to a revision; and the decider script refuses to start one that needs another machine, saying what it needs",
+    ds.length === 9 &&
+      ds.every(
+        (x) =>
+          x.index &&
+          Number.isFinite(x.index.score) &&
+          x.index.as &&
+          Array.isArray(x.runsOn) &&
+          x.runsOn.length &&
+          x.serve &&
+          x.license &&
+          x.needs,
+      ) &&
+      ds.filter((x) => x.serve.kind === 'kev').length === 4 &&
+      ds
+        .filter((x) => x.serve.kind === 'startlux-mlx')
+        .map((x) => x.id)
+        .join() === 'startlux-4b,startlux-9b' &&
+      ds
+        .filter((x) => x.serve.kind === 'startlux-mlx')
+        .every(
+          (x) =>
+            /^[0-9a-f]{40}$/.test(x.serve.weightsRev) &&
+            /^[0-9a-f]{40}$/.test(x.serve.codeRev) &&
+            x.serve.bytes > 1e9 &&
+            x.runsOn.join() === 'mac' &&
+            /NC/.test(x.license),
+        ) &&
+      ds
+        .filter((x) => x.serve.kind === 'cuda')
+        .every((x) => x.runsOn.join() === 'cuda' && /^[0-9a-f]{40}$/.test(x.serve.weightsRev) && x.serve.how) &&
+      Math.max(...ds.map((x) => x.index.score)) === ds.find((x) => x.id === 'karpo-31b').index.score &&
+      quoted === 'startlux-mlx|56f18acdc9502c44fdb80234c09a2276e3398916|StartLux Decision 4B' &&
+      /D_KIND='kev'/.test(envOf('')) &&
+      cuda.status === 1 &&
+      /is not started by the swarm: it needs an NVIDIA GPU with 80 GB/.test(cuda.stdout) &&
+      /SWARM_KEV=/.test(cuda.stdout) &&
+      kevSh('karpo-31b', 'ready').status === 1,
+    { n: ds.length, cuda: cuda.stdout.slice(0, 120) },
   );
 }
 // ---- 7: one worked answer for each different answer

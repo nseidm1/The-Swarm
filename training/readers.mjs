@@ -10,7 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { tasks } from './tasks.mjs';
-import { openEquivalent } from './support/equivalent.mjs';
+import { openEquivalent, talkEquivalent } from './support/equivalent.mjs';
 import { READER_FILE, readerOk } from './support/reader-file.mjs';
 
 export function knownPairs({ each = 6, seed = 4242 } = {}) {
@@ -34,6 +34,113 @@ export function knownPairs({ each = 6, seed = 4242 } = {}) {
   });
   return out;
 }
+// THE SAME FOR A REPLY IN A CONVERSATION. Pairs of replies to a person's message that anyone can judge: the same help said two
+// ways (it must say they do the same), and replies that do different things: another fact, another recommendation, a question
+// back where the other answered, a refusal where the other helped (it must say they differ).
+const SETTING =
+  'You are Alex, one of a small team of helpers in a group chat with one person. The person is not a developer. You cannot book, buy or send anything for anyone.\n\nYOUR REPLY: open with the answer itself. At most 110 words.';
+const DEV_SETTING =
+  "You are Robin, an engineer on a small software team, talking in the team's chat with the person whose project it is.\n\nYOUR REPLY: begin with the thing itself, then why. At most 110 words.";
+const pair = (system, ask, a, b, same) => ({
+  task: { system, turns: [{ role: 'user', content: ask }], ask },
+  a,
+  b,
+  same,
+});
+export const talkPairs = () => [
+  pair(
+    SETTING,
+    'Can a rabbit eat celery?',
+    'Yes, in small amounts. Cut it into short pieces so the strings are not a choking risk.',
+    'They can, a little at a time. Chop it short first: the stringy bits can catch in the throat.',
+    true,
+  ),
+  pair(
+    SETTING,
+    'Can a rabbit eat celery?',
+    'Yes, in small amounts. Cut it into short pieces so the strings are not a choking risk.',
+    'No. Celery is poisonous to rabbits and should never be given to them.',
+    false,
+  ),
+  pair(
+    SETTING,
+    'Book me a table for four in Leeds on Friday at 7pm.',
+    'I cannot book for you, but you can do it in a minute: search for the restaurant on Google Maps and use its Reserve button, or ring them. Ask for four at 7pm on Friday.',
+    'Booking is something you will need to do yourself. Find the place on Google Maps and press Reserve, or phone them, and ask for a table for four at 7 on Friday evening.',
+    true,
+  ),
+  pair(
+    SETTING,
+    'Book me a table for four in Leeds on Friday at 7pm.',
+    'I cannot book for you, but you can do it in a minute: search for the restaurant on Google Maps and use its Reserve button, or ring them.',
+    'All done. Your table for four is booked for Friday at 7pm.',
+    false,
+  ),
+  pair(SETTING, 'Can you find me a dentist?', 'Which town or area are you in?', 'Happy to. Whereabouts are you?', true),
+  pair(
+    SETTING,
+    'Can you find me a dentist?',
+    'Which town or area are you in?',
+    'Look on the NHS website under Find a dentist, put in your postcode, and ring the nearest three to ask who is taking new patients.',
+    false,
+  ),
+  pair(
+    SETTING,
+    'How long do I boil an egg so the yolk is still runny?',
+    'Six minutes from the moment the water boils, then straight into cold water.',
+    'About six minutes in boiling water. Cool it under the cold tap so it stops cooking.',
+    true,
+  ),
+  pair(
+    SETTING,
+    'How long do I boil an egg so the yolk is still runny?',
+    'Six minutes from the moment the water boils, then straight into cold water.',
+    'Twelve minutes at a rolling boil will give you the runny yolk you want.',
+    false,
+  ),
+  pair(
+    SETTING,
+    'Write a text to Tom to cancel dinner on Friday. I have a cold. Suggest next week.',
+    'Hi Tom, so sorry but I have to cancel Friday: I have come down with a cold. Could we do next week instead?',
+    'Tom, I am really sorry, I have a rotten cold and will have to miss dinner on Friday. Are you free some time next week?',
+    true,
+  ),
+  pair(
+    SETTING,
+    'Write a text to Tom to cancel dinner on Friday. I have a cold. Suggest next week.',
+    'Hi Tom, so sorry but I have to cancel Friday: I have come down with a cold. Could we do next week instead?',
+    'Hi Tom, looking forward to dinner on Friday! Shall I bring a bottle of wine?',
+    false,
+  ),
+  pair(
+    DEV_SETTING,
+    'We have a flaky test. Is adding a fixed two-second sleep before the assertion a reasonable fix?',
+    'No. A fixed sleep hides the race and slows every run. Wait for the condition itself: poll for the element or await the promise, with a timeout.',
+    'It is not. Sleeping only makes the race less likely and the suite slower. Wait on the thing you are asserting, with a timeout, so the test passes as soon as it is true.',
+    true,
+  ),
+  pair(
+    DEV_SETTING,
+    'We have a flaky test. Is adding a fixed two-second sleep before the assertion a reasonable fix?',
+    'No. A fixed sleep hides the race and slows every run. Wait for the condition itself, with a timeout.',
+    'Yes, that is a reasonable fix. Two seconds is usually plenty, and you can raise it if the test still fails.',
+    false,
+  ),
+  pair(
+    DEV_SETTING,
+    'Why did my deploy fail last night?',
+    'I have not been shown the deploy log, so I cannot say what failed. I would look at the last lines of the pipeline output first, then at what changed in the release.',
+    'I cannot tell without seeing it. Start with the end of the pipeline log, and then the changes that went into that release.',
+    true,
+  ),
+  pair(
+    DEV_SETTING,
+    'Why did my deploy fail last night?',
+    'I have not been shown the deploy log, so I cannot say what failed. I would look at the last lines of the pipeline output first.',
+    'It failed because the database migration timed out. Increase the migration timeout to ten minutes and run it again.',
+    false,
+  ),
+];
 // WHERE IT DRAWS THE LINE IS LEARNED FROM THE SAME PAIRS. The reader gives a probability that two answers say the same, and
 // "more likely than not" need not be where it tells them apart best: a reader that gives two different flaws 0.6 and the same
 // flaw 0.95 reads well with the line at 0.8 and badly with it at one half. So the line is put where it reads the known pairs
@@ -41,7 +148,7 @@ export function knownPairs({ each = 6, seed = 4242 } = {}) {
 export async function checkReader({ kev, pairs = knownPairs(), need = 0.8, judge = openEquivalent } = {}) {
   const read = [];
   for (const p of pairs) {
-    const g = await judge(p.ask, p.a, p.b, { kev });
+    const g = await judge(p.task || p.ask, p.a, p.b, { kev });
     if (g.grade === 'noref') continue; // it did not answer: not a reading, right or wrong
     read.push({ ...p, p: Number.isFinite(g.p) ? g.p : g.grade === 'right' ? 1 : 0 });
   }
@@ -79,7 +186,8 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     process.exit(0);
   }
   const r = await checkReader({ kev });
-  fs.writeFileSync(READER_FILE(WORK), JSON.stringify({ at: new Date().toISOString(), ...r }, null, 2));
+  const talk = await checkReader({ kev, pairs: talkPairs(), judge: talkEquivalent });
+  fs.writeFileSync(READER_FILE(WORK), JSON.stringify({ at: new Date().toISOString(), ...r, talk }, null, 2));
   console.log(
     'The reader of answers in words read ' +
       r.right +
@@ -99,5 +207,21 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   for (const m of r.missed)
     console.log(
       '  misread (' + (m.same ? 'the same, said two ways' : 'two different flaws') + '): ' + m.a + ' | ' + m.b,
+    );
+  console.log(
+    'The reader of replies in a conversation read ' +
+      talk.right +
+      ' of ' +
+      talk.asked +
+      ' pairs anyone can judge correctly, taking ' +
+      talk.mark +
+      ' or more as yes. ' +
+      (talk.ok
+        ? 'It is believed.'
+        : 'Its grades are NOT believed this pass, and replies in a conversation are not compared.'),
+  );
+  for (const m of talk.missed)
+    console.log(
+      '  misread (' + (m.same ? 'the same help, said two ways' : 'two different replies') + '): ' + m.a + ' | ' + m.b,
     );
 }

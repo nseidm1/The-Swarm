@@ -35,9 +35,9 @@
           "set": "keep.margin",
           "to": "metric+1",
           "min": 2,
-          "max": 6
+          "max": 4
         },
-        "why": "The same arrangement measured twice differed by {metric} answers. A change must win by more than that to be kept."
+        "why": "With another draw the same arrangement's score moved by {metric} answers. A change must win by more than that to be kept."
       },
       {
         "id": "steady-measurements-lower-the-margin",

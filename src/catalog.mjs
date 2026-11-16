@@ -41,6 +41,8 @@ export function readConfig() {
   }
   out.decider = pick(REGISTRY.deciders, c.decider).id;
   out.target = pick(REGISTRY.targets, c.target).id;
+  // what the swarm is to be equivalent on, where it has been chosen (training/equivalence.json names them): kept as it is
+  if (Array.isArray(c.equivalence) && c.equivalence.length) out.equivalence = c.equivalence.map(String);
   return out;
 }
 // the places of a configuration that hold a small model, in order
@@ -64,6 +66,7 @@ export function writeConfig(patch) {
       throw new Error('place ' + PLACES[PLACES.indexOf(k) - 1] + ' is empty: fill it first');
     next[k] = patch[k];
   }
+  if (Array.isArray(patch.equivalence) && patch.equivalence.length) next.equivalence = patch.equivalence.map(String);
   // no place is left empty between two that are filled: the ones after it move up
   const small = PLACES.map((p) => next[p]).filter(Boolean);
   for (const [i, p] of PLACES.entries()) {

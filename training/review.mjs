@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { arg, has, RESULTS, WORK, WORKC, openSwarm, questions, run, needReference, paired } from './support/bench.mjs';
+import { messagesOf } from './tasks.mjs';
 import { readState } from './state.mjs';
 import { readPolicy, setPolicy, at as valueAt } from './policy.mjs';
 import { readLearned } from '../src/index.mjs';
@@ -56,9 +57,12 @@ export function valueOf(to, current, metric) {
   return m[2] === '+' ? base + n : m[2] === '-' ? base - n : base * n;
 }
 // the changes the rules call for: [{ rule, set, from, to, why }]
-export function changesFor(policy, metrics) {
+export function changesFor(policy, metrics, { done = [] } = {}) {
   const out = [];
   for (const r of (policy.review && policy.review.rules) || []) {
+    // a rule changes how this pass trains once: a pass looks at itself more than once, and a rule that adds a little each time
+    // it is looked at would add it twice a pass and be at its limit in three
+    if (done.includes(r.id)) continue;
     const w = r.when || {};
     const metric = metrics[w.metric];
     if (metric === undefined || !OPS[w.op] || !OPS[w.op](metric, w.value)) continue;
@@ -121,13 +125,11 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       const ref = needReference(sample, 'train');
       const swarm = await openSwarm(undefined, { seed: 2 });
       try {
-        const again = await run(
-          sample,
-          async (t) => ({ reply: (await swarm.answer([{ role: 'user', content: t.ask }])).reply }),
-          { ref },
-        );
+        const again = await run(sample, async (t) => ({ reply: (await swarm.answer(messagesOf(t))).reply }), { ref });
         const p = paired(was, again);
-        noise = Math.round(((p.wins + p.losses) * list.length) / sample.length);
+        // what a change is judged by is the NET of answers won and lost. Answers that change both ways with another draw cancel
+        // in that; what does not cancel is how far a score moves by itself, and that is what a change must beat
+        noise = Math.round((Math.abs(p.wins - p.losses) * list.length) / sample.length);
         console.log(
           'Asked ' +
             sample.length +
@@ -146,7 +148,9 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   }
   const metrics = metricsOf({ report, learned: readLearned(), state, noise });
   for (const [k, v] of Object.entries(metrics)) console.log('measured  ' + k.padEnd(28) + Math.round(v * 100) / 100);
-  const changes = changesFor(policy, metrics);
+  const changes = changesFor(policy, metrics, {
+    done: (state.policyLog || []).filter((x) => x.pass === state.pass + 1).map((x) => x.rule),
+  });
   const done = [];
   for (const c of changes) {
     console.log(

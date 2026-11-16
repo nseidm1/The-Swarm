@@ -14,7 +14,9 @@ Only the Python standard library is used.
 """
 
 import json
+import platform
 import re
+import shutil
 from pathlib import Path
 
 STAGES = [("draft", "Draft"), ("check", "Check"), ("decide", "Decide"), ("write", "Write")]
@@ -63,6 +65,12 @@ def same_answer(said, want):
         return clean == want_s or want_s in clean.split()
 
 
+def percent(equivalent, compared):
+    """HOW FAR TOWARD PARITY, as one number, worked out in one place: the share of the answers that are equivalent, as a
+    percentage, rounded down (100 only when every one is). The same rule as training/state.mjs percentOf."""
+    return int(1000 * equivalent / compared) / 10 if compared else 0
+
+
 def parity(rows):
     """The same rule as training/state.mjs parity(). PARITY IS EQUIVALENCE, NOT A SHARE: at parity when every answer is
     fundamentally equivalent to the larger model's. Rows are marked against the larger model already: right = equivalent,
@@ -81,7 +89,7 @@ def parity(rows):
         return None
     out["level"] = out["equivalent"] == out["compared"]
     # progress toward parity, as a percentage; rounded down, so that 100 is said only at parity
-    out["percent"] = int(1000 * out["equivalent"] / out["compared"]) / 10
+    out["percent"] = percent(out["equivalent"], out["compared"])
     # the same count where the larger model's own answer does what the question says (training/tasks.mjs: toSpec)
     spec = [r for r in rows if r.get("refToSpec") is True and r.get("grade") in ("right", "wrong", "unsure")]
     out["onSpec"] = {"compared": len(spec), "equivalent": sum(1 for r in spec if r.get("grade") == "right")}
@@ -112,6 +120,16 @@ def _with_places(briefs, places):
     return dict(briefs, slots=slots)
 
 
+def machine():
+    """What this machine can run a decider on, as the decider entries say it (runsOn): 'mac' (Apple silicon), 'cuda' (an NVIDIA GPU)."""
+    out = []
+    if platform.system() == "Darwin" and platform.machine() == "arm64":
+        out.append("mac")
+    if shutil.which("nvidia-smi"):
+        out.append("cuda")
+    return out
+
+
 def load(root):
     root = Path(root)
     briefs = _json(root / "src" / "briefs.json", {"slots": [], "plan": {}, "version": 0})
@@ -119,6 +137,14 @@ def load(root):
     # the swarm as it is configured: which models, out of the ones that can be chosen (src/models.json, src/config.json)
     registry = _json(root / "src" / "models.json", {"small": [], "deciders": [], "targets": [], "engine": {}})
     chosen = _json(root / "src" / "config.json", {})
+    # what the swarm is to be equivalent on: the ones that can be chosen (training/equivalence.json), and the ones that are
+    equiv = _json(root / "training" / "equivalence.json", None) or _json(Path(__file__).resolve().parent.parent / "training" / "equivalence.json", {"default": [], "targets": []})
+    known = [t["id"] for t in equiv.get("targets", [])]
+    picked = [i for i in (chosen.get("equivalence") or []) if i in known] or [i for i in equiv.get("default", []) if i in known]
+    # and the questions a person wrote for each (training/questions/<id>.json, edited from the page)
+    for t in equiv.get("targets", []):
+        own = _json(root / "training" / "questions" / (t["id"] + ".json"), {}) or {}
+        t["own"] = [q for q in (own.get("questions") if isinstance(own.get("questions"), list) else []) if isinstance(q, dict) and str(q.get("ask") or "").strip()]
     pick = lambda lst, i, n=0: next((m for m in lst if m.get("id") == i), lst[n] if len(lst) > n else None)  # noqa: E731
     members = {"a": pick(registry["small"], chosen.get("a")), "b": pick(registry["small"], chosen.get("b"), 1)}
     # a third and a fourth small model, where they are named (no place is left empty between)
@@ -247,9 +273,12 @@ def load(root):
         "policyLog": state.get("policyLog") or [],
         "learned": {"ledger": (learned or {}).get("ledger") or [], "passes": (learned or {}).get("passes") or [], "startedFrom": started_from.get("version")},
         "state": state,
+        # asking: the kinds the pass under way asks, where this configuration's record says (a choice takes effect with the next pass)
+        "equivalence": {"targets": equiv.get("targets", []), "chosen": picked, "asking": state.get("kinds")},
         "targets": targets,
         "target": target,
         "registry": registry,
+        "machine": machine(),
         "members": members,
         "decider": decider,
         "cfg": cfg,

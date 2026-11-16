@@ -23,6 +23,7 @@ import {
   finished,
 } from './support/bench.mjs';
 import { plain } from '../src/read.mjs';
+import { messagesOf } from './tasks.mjs';
 import { CONFIG_ID, TARGET } from '../src/catalog.mjs';
 
 // each slot's own answer is marked as the reply is: equivalent to the larger model's, or not. The mark is written onto the trace
@@ -91,7 +92,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     const rows = await run(
       list,
       async (t) => {
-        const got = await swarm.answer([{ role: 'user', content: t.ask }]);
+        const got = await swarm.answer(messagesOf(t));
         return {
           reply: got.reply,
           decided: got.decided,

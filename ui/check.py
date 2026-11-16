@@ -7,6 +7,7 @@ Only the standard library; nothing is installed and no model is started.
 
 import json
 import os
+import re
 import sys
 import time
 import tempfile
@@ -17,6 +18,7 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cleanup  # noqa: E402
 import data  # noqa: E402
 import sample  # noqa: E402
 import swarm_ui  # noqa: E402
@@ -83,7 +85,7 @@ with tempfile.TemporaryDirectory() as tmp:
     pc = held["parity"]["percent"]
     check("it shows how far the swarm is toward parity with the larger model, by name, as a percentage with a bar and the count behind it; 100 is said only when every answer is equivalent; and it says that being right is not what is measured",
           ("%s%% of the way to parity with Nemotron" % swarm_ui.fmt_pct(pc) in html or "100%: at parity with Nemotron" in html) and 'class="prog"' in top and "of the way to parity</span>" in html
-          and "Parity with Nemotron" in full and "The swarm" in full and "LFM2.5 2.6B alone" in full and "fundamentally equivalent" in full and "Whether either was right is not what is measured" in full
+          and "Toward parity with Nemotron" in full and "The swarm" in full and "LFM2.5 2.6B alone" in full and "fundamentally equivalent" in full and "Whether either was right is not what is measured" in full
           and data.parity([{"grade": "right"}] * 999 + [{"grade": "wrong"}])["percent"] == 99.9 and data.parity([{"grade": "right"}] * 3)["percent"] == 100 and data.parity([{"grade": "right"}] * 1999 + [{"grade": "wrong"}])["percent"] < 100
           and swarm_ui.fmt_pct(75.0) == "75" and swarm_ui.fmt_pct(62.5) == "62.5")
     strip = get(base + "/fragment/score")[1]
@@ -104,6 +106,10 @@ with tempfile.TemporaryDirectory() as tmp:
           and grown_flow.count('class="stage"') == 6 and grown_flow.count('class="stage loop"') == 2 and "up to 2 times" in grown_flow and "Answers again, shown the other answers" in grown_flow
           and "Keeps the likeliest 2 answers" in grown_flow and "Decides which answer stands" in grown_flow and "repeat up to 2 times (check, revise)" in grown_flow and "A pass changed it" in grown_flow,
           grown_flow.count('class="stage'))
+    early = swarm_ui.stages(dict(d, briefs=dict(d["briefs"], flow=[{"do": "draft"}, {"do": "decide", "sure": 0.75}, {"do": "try"}, {"do": "check"}, {"do": "decide"}, {"do": "write"}])))
+    check("a decision placed between the drafts and the checks is drawn where it is, and says what it does there: it settles the matter only if it is sure",
+          early.count('class="stage"') == 6 and "draft → decide (only if sure) → try → check → decide → write" in early and "Settles it here if it is sure; otherwise the flow goes on" in early
+          and early.index("Settles it here") < early.index("Decides which answer stands"), early.count('class="stage"'))
     # THE MEASUREMENT AS IT IS MADE: the strip says the most that is known at each moment, and what kind of knowledge it is
     H, T = d["splits"]["held"], d["splits"]["train"]
     part = dict(d, splits=dict(d["splits"], held=dict(H, swarm=H["swarm"][:5], parity=data.parity(H["swarm"][:5]), expected=12)))
@@ -149,8 +155,8 @@ with tempfile.TemporaryDirectory() as tmp:
     sp = data.spec(d)
     check("the output spec is the record of what this configuration has learned against this larger model: every change that was kept, newest first, with where it came from and the answers it won on train and on held; where each pass left it; the flow; and a count of them on its pill",
           len(d["learned"]["ledger"]) == 2 and sp["learned"]["changesKept"] == 2 and "What it has learned (2 kept)" in spec_html and spec_html.index("go back to the drafters") < spec_html.index("the shortest brief that still asks for a test")
-          and "arxiv.org/abs/2603.16045" in spec_html and "13 → 15" in spec_html and "6 → 7" in spec_html and "Where each pass left it" in spec_html and "pass 4: 9 of 12 equivalent" in spec_html
-          and "The flow" in spec_html and "Output spec · 2 learned" in html and d["briefs"].get("version") == 3 and sp["arrangement"]["flow"][0]["do"] == "draft", sp["learned"]["changesKept"])
+          and "arxiv.org/abs/2603.16045" in spec_html and "13 → 15" in spec_html and "6 → 7" in spec_html and "Where each pass left it" in spec_html and "pass 4: 75% · 9 of 12" in spec_html
+          and "The flow" in spec_html and "Output spec<span>2 learned</span>" in html and d["briefs"].get("version") == 3 and sp["arrangement"]["flow"][0]["do"] == "draft", sp["learned"]["changesKept"])
     bare = data.load(Path(tmp) / "empty")
     check("a swarm that has learned nothing says so, and runs the arrangement every swarm starts from", bare["learned"]["ledger"] == [] and "Nothing yet" in swarm_ui.learned_block(dict(d, learned={"ledger": [], "passes": []})))
     check("what a slot is doing is two lines and never more or fewer, and the line above the arrangement is one: a card is the same height whatever it says, so nothing below moves as a pass runs",
@@ -169,10 +175,23 @@ with tempfile.TemporaryDirectory() as tmp:
         time.sleep(0.8)
     check("a page that is closed or reloaded before its answer has been sent leaves nothing printed as an error, and the next request is answered as usual",
           "Traceback" not in noise.getvalue() and "BrokenPipe" not in noise.getvalue() and get(base + "/api/live")[0] == 200, noise.getvalue()[-300:])
+    # ONE NUMBER, SAID ONE WAY: every place on the page that says how far the swarm is says the same percentage, from the same count
+    P = held["parity"]
+    same = "%s%%" % swarm_ui.fmt_pct(P["percent"])
+    far = swarm_ui.how_far(P["equivalent"], P["compared"])
+    spec_now = get(base + "/fragment/spec")[1]
+    alone_pct = ["%s%%" % swarm_ui.fmt_pct(data.parity(r)["percent"]) for r in held["alone"].values() if r]
+    check("every place that says how far the swarm is toward parity says the same percentage, worked out in one place from the same count: the strip, the header, the whole measurement, the bars of each alone, the passes and the spec; and each small model alone is said the same way",
+          ("%s of the way to parity with" % same) in top and ("<b>%s</b> of the way to parity" % same) in html.split('id="chips"')[1].split("</header>")[0]
+          and ("%s<small>%%</small>" % swarm_ui.fmt_pct(P["percent"])) in full and ("%s of the way to parity with" % same) in full and far in full and ("%s of the way to parity against" % same) in spec_now
+          and ("<b>%s</b> of the way to parity." % same) in spec_now and all(a in top and a in full for a in alone_pct) and swarm_ui.how_far(25, 42) == "59.5% · 25 of 42"
+          and data.percent(25, 42) == 59.5 and "Not at parity" not in html + full + spec_now and "Not yet" not in full, [same, far, alone_pct])
     kb = swarm_ui.kind_bars({"write-parsing": {"n": 8, "s": 1}, "trace": {"n": 8, "s": 8}, "fix": {"n": 8, "s": 5}, "something-new": {"n": 2, "s": 1}})
     check("each kind of question is a row: its name in words, a bar, and the percentage and count behind it, the furthest behind first, all of one kind equivalent marked as such; a kind with no name of its own is shown as it is",
-          kb.count("<li") == 4 and kb.index("Write a function: parsing") < kb.index("Correct a function") < kb.index("Say what a program prints") and "<b>12.5%</b> 1 of 8" in kb and "<b>100%</b> 8 of 8" in kb
+          kb.count("<li") == 4 and kb.index("Write a function: parsing") < kb.index("Correct a function") < kb.index("Say what a program prints") and "<b>12.5%</b> · 1 of 8" in kb and "<b>100%</b> · 8 of 8" in kb
           and 'class="full"' in kb and 'class="low"' in kb and "something-new" in kb and "<svg" not in kb and "WRITE-PARSING" not in full, kb[:200])
+    check("a row of the training card with no duration (a thing learned, a recovery) wraps inside the card: only a duration is kept on one line",
+          ".steps li>span:nth-child(3){" in html and ".steps li>span:last-child{" not in html and ".steps li>span{min-width:0;overflow-wrap:anywhere}" in html)
     check("the page ends with a footer: whose product it is, its licence, and that the page is served from this machine",
           '<footer class="foot">' in html and "A Family Office product" in html and "apache.org/licenses/LICENSE-2.0" in html and "github.com/nseidm1/The-Swarm" in html and "Copyright 2026 Family Office" in html and "<svg" in html.split('<footer class="foot">')[1].split("</footer>")[0])
     check("it shows the arrangement being trained: every slot of both models by stage, what each is told, what is being tried, and the larger model alongside",
@@ -184,7 +203,7 @@ with tempfile.TemporaryDirectory() as tmp:
     # ---- choosing the models, the output spec, and an idea's paper
     reg = d["registry"]
     check("five pills lead the page: the two small models, the model that decides and the larger model, each a list of the models that can be chosen, grouped by who made them, with the one chosen marked; and the output spec",
-          html.count('data-pick="') == 5 and "Small model 3: add one" in html and html.count("<optgroup") >= 12 and all(m["name"] in html for m in reg["small"] + reg["targets"] + reg["deciders"]) and 'value="%s" selected' % d["members"]["a"]["id"] in html
+          html.count('data-pick="') == 5 and 'class="specbtn" id="spec-open"' in html.split('id="chips"')[1].split("</header>")[0] and "spec-open" not in get(base + "/fragment/picks")[1] and "Add a model" in html and 'class="pick c add"' in html and ".picks{display:flex;flex-wrap:wrap" in html and html.count('class="group small n3"') == 1 and html.count('class="group against"') == 1 and html.count("<optgroup") >= 12 and all(m["name"] in html for m in reg["small"] + reg["targets"] + reg["deciders"]) and 'value="%s" selected' % d["members"]["a"]["id"] in html
           and 'value="%s" selected' % d["target"]["id"] in html and 'id="spec-open"' in html and len({m["by"].split(",")[0] for m in reg["small"]}) >= 6)
 
     def send(path, body, headers=None):
@@ -216,10 +235,81 @@ with tempfile.TemporaryDirectory() as tmp:
     cfg_two = json.loads((root / "src" / "config.json").read_text())
     check("a third and a fourth small model can be added from the page: each has a pill, begins as two drafting slots of its own, is part of what the configuration is called and of its spec; taking one out moves the next up; and with them out it is the two it was",
           c3 == 200 and list(d3["members"]) == ["a", "b", "c"] and d3["cfg"].count("+") == 3 and third["id"] in d3["cfg"] and with3.count('class="slot c"') == 2 and "c-direct" in with3 and third["name"] in with3
-          and "Small model 3" in picks3 and "Small model 4: add one" in picks3 and "Remove it from the swarm" in picks3 and len(data.spec(d3)["members"]) == 3
+          and "Small model 3" in picks3 and 'class="pick d add"' in picks3 and "Add a model" in picks3 and "Remove it from the swarm" in picks3 and len(data.spec(d3)["members"]) == 3
           and c4 == 200 and cfg4.get("c") == third["id"] and cfg4.get("d") == fourth["id"] and with4.count('class="slot d"') == 2
           and cback == 200 and cfg_up.get("c") == fourth["id"] and "d" not in cfg_up and "c" not in cfg_two and "d" not in cfg_two and cfg_two["a"] == d["members"]["a"]["id"]
           and send("/config", {"d": fourth["id"]})[0] == 200 and json.loads((root / "src" / "config.json").read_text()).get("c") == fourth["id"] and send("/config", {"c": ""})[0] == 200, [c3, c4, cfg4, cfg_up, cfg_two])
+    row = swarm_ui.equiv(data.load(root))
+    e_ok, _ = send("/config", {"equivalence": ["reasoning", "crew"]})
+    e_cfg = json.loads((root / "src" / "config.json").read_text())
+    row2 = get(base + "/fragment/equiv")[1]
+    check("under the models, a box to tick for each body of work the swarm can be brought to equivalence on: The Crew ticked where nothing was chosen, then Math, Logic and Reasoning, each saying what it is; ticking writes the choice down in the list's own order beside the models, and the row is drawn again in place with what a pass will now ask; none, or one that is not listed, is refused and nothing is written",
+          row.startswith('<fieldset class="equiv" id="equiv">') and row.count('data-equiv="') == 4 and row.count(" checked") == 1 and 'data-equiv="crew" checked' in row and "<b>The Crew</b>" in row and "<b>Math</b>" in row and "<b>Logic</b>" in row and "<b>Reasoning</b>" in row
+          and "13 kinds of question in a pass" in row and 'id="equiv"' in html and html.index('id="picks"') < html.index('id="equiv"') < html.index('id="body"')
+          and e_ok == 200 and e_cfg["equivalence"] == ["crew", "reasoning"] and e_cfg["a"] == d["members"]["a"]["id"] and not row2.startswith("<fieldset") and row2.count(" checked") == 2 and "16 kinds of question in a pass" in row2
+          and send("/config", {"equivalence": []})[0] == 400 and send("/config", {"equivalence": ["crew", "poetry"]})[0] == 400 and send("/config", {"equivalence": "crew"})[0] == 400
+          and json.loads((root / "src" / "config.json").read_text())["equivalence"] == ["crew", "reasoning"] and send("/config", {"equivalence": ["crew"]})[0] == 200, [e_ok, e_cfg.get("equivalence"), row.count(" checked")])
+    pens = swarm_ui.equiv(data.load(root))
+    panel_q = get(base + "/fragment/questions?id=crew")[1]
+    q_ok, q_row = send("/questions", {"id": "crew", "questions": [{"ask": "  Move my dentist to Friday.  "}, {"ask": "Is a sleep a fix?", "mode": "developer"}, {"ask": " "}]})
+    q_file = json.loads((root / "training" / "questions" / "crew.json").read_text())
+    panel_q2 = get(base + "/fragment/questions?id=crew")[1]
+    m_ok, _ = send("/questions", {"id": "math", "questions": [{"ask": "What is 17 times 23?", "mode": "developer"}]})
+    m_file = json.loads((root / "training" / "questions" / "math.json").read_text())
+    check("each body of work has a little pencil at its top right that opens its questions: the kinds the trainer makes (not edited) and the questions a person wrote, one row each, with Simple or Developer for The Crew; saving writes them whole (blank ones dropped, a mode only where it means something), the box then says how many there are, and the next opening shows them; an unknown body of work, more than 200, or a list that is not one is refused",
+          pens.count('class="pencil"') == 4 and 'data-qedit="crew"' in pens and "Edit the questions for The Crew" in pens and 'id="qedit"' in html
+          and "Questions: The Crew" in panel_q and "Made by the trainer" in panel_q and "Simple: a piece of writing" in panel_q and "Developer: their own project" in panel_q and "Write a function: arrays" in panel_q and panel_q.count('class="qrow"') == 1 and "0 of 200" in panel_q
+          and q_ok == 200 and q_file == {"questions": [{"ask": "Move my dentist to Friday."}, {"ask": "Is a sleep a fix?", "mode": "developer"}]} and "2 of your own" in q_row and "14 kinds of question in a pass" in q_row
+          and panel_q2.count('class="qrow"') == 3 and "Move my dentist to Friday." in panel_q2 and '<option value="developer" selected>' in panel_q2 and "2 of 200" in panel_q2
+          and m_ok == 200 and m_file == {"questions": [{"ask": "What is 17 times 23?"}]} and "data-q-mode" not in get(base + "/fragment/questions?id=math")[1].split("<template")[0]
+          and send("/questions", {"id": "poetry", "questions": []})[0] == 400 and send("/questions", {"id": "crew", "questions": "x"})[0] == 400 and send("/questions", {"id": "crew", "questions": [{"ask": "q"}] * 201})[0] == 400
+          and json.loads((root / "training" / "questions" / "crew.json").read_text()) == q_file and "nothing called that" in get(base + "/fragment/questions?id=nope")[1], [q_ok, q_file, m_file])
+    dm = dict(d, machine=["mac"])
+    sel = re.search(r'<select data-pick="decider".*?</select>', swarm_ui.pills(dm), re.S).group(0)
+    names = re.findall(r'<option value="([^"]+)"', sel)
+    check("the Decides pill lists every decider best first by its Decision Index score, says the score beside each, and on a machine that cannot run one lists it greyed out with what it needs; the one chosen is shown by its name alone",
+          names[0] == "karpo-31b" and 'value="karpo-31b" disabled' in sel and "needs an NVIDIA GPU with 80 GB" in sel and "StartLux Decision 4B · index 54.8 · about 5.5 GB<" in sel
+          and 'value="startlux-4b" disabled' not in sel and "(an older checkpoint)" in sel and 'value="kev-4b" selected>Kev 4B<' in sel and len(names) == 9
+          and 'value="karpo-31b" disabled' not in re.search(r'<select data-pick="decider".*?</select>', swarm_ui.pills(dict(d, machine=["cuda"])), re.S).group(0), names[:3])
+    # the Uninstall Helper, on a made-up .work: a model file, a model that is a link to a file kept elsewhere, a decider's weights
+    w = root / ".work"
+    (w / "models").mkdir(parents=True, exist_ok=True)
+    small0 = reg["small"][0]
+    (w / "models" / small0["file"]).write_bytes(b"x" * 4096)
+    outside = Path(tempfile.mkdtemp()) / "kept-elsewhere.gguf"
+    outside.write_bytes(b"y" * 8192)
+    link_name = reg["small"][1]["file"]
+    if (w / "models" / link_name).exists() or (w / "models" / link_name).is_symlink():
+        (w / "models" / link_name).unlink()
+    os.symlink(outside, w / "models" / link_name)
+    (w / "deciders" / "startlux-4b" / "model").mkdir(parents=True, exist_ok=True)
+    (w / "deciders" / "startlux-4b" / "model" / "w.safetensors").write_bytes(b"z" * 20000)
+    (w / "train" / "measured").mkdir(parents=True, exist_ok=True)
+    (w / "train" / "measured" / "m.json").write_text("{}")
+    tidy = get(base + "/fragment/tidy")[1]
+    chips_html = swarm_ui.chips(d)
+    t_link = send("/uninstall", {"id": "model:" + link_name})
+    t_dir = send("/uninstall", {"id": "decider:startlux-4b"})
+    t_bad = send("/uninstall", {"id": "../../etc"})[0]
+    t_none = send("/uninstall", {"id": "engine"})[0]
+    t_foreign = send("/uninstall", {"id": "model:" + small0["file"]}, {"content-type": "application/json"})[0]
+    check("an Uninstall Helper beside the output spec lists what the Swarm has put in .work, by group, with the room each takes and whether the configured swarm uses it; removing one asks first in the page, then takes out exactly that piece: a model that is a link loses only the link and the file it points at is kept, a folder goes whole; an id that is not on the list, one with nothing there, or a request not from this page is refused",
+          'id="tidy-open"' in chips_html and "Uninstall Helper" in chips_html and 'id="tidy"' in html
+          and "Uninstall Helper" in tidy and "Models" in tidy and "Deciders" in tidy and "StartLux Decision 4B: weights" in tidy and 'data-tidy="model:%s"' % small0["file"] in tidy
+          and "A link to" in tidy and "only the link is removed" in tidy and "in use" in tidy and "cannot be undone" in tidy and "Measurements kept so as not to ask twice" in tidy
+          and "confirm('Remove '" in html
+          and t_link[0] == 200 and not os.path.lexists(w / "models" / link_name) and outside.exists() and outside.stat().st_size == 8192 and "freed" in t_link[1]
+          and t_dir[0] == 200 and not (w / "deciders" / "startlux-4b").exists() and 'data-tidy="decider:startlux-4b"' not in t_dir[1] and "Removed StartLux Decision 4B: weights" in t_dir[1]
+          and t_bad == 400 and t_none == 400 and t_foreign == 403 and (w / "models" / small0["file"]).exists(), [t_link[0], t_dir[0], t_bad, t_none, t_foreign])
+    # a .work whose models folder is a link to somewhere else: nothing there is removed
+    esc_root = Path(tempfile.mkdtemp())
+    far = Path(tempfile.mkdtemp())
+    (far / "precious.gguf").write_bytes(b"p")
+    (esc_root / ".work").mkdir()
+    os.symlink(far, esc_root / ".work" / "models")
+    esc_ok, esc_said = cleanup.remove(esc_root, {"registry": {"small": [], "targets": [], "deciders": []}}, "model:precious.gguf")
+    check("nothing outside .work is ever removed: a .work whose models folder is a link elsewhere has its files listed, and removing one is refused, the file kept",
+          not esc_ok and "not inside .work" in esc_said and (far / "precious.gguf").exists(), esc_said)
     code_s, sp = get(base + "/fragment/spec")
     spec = data.spec(data.load(root))
     check("the output spec says what the swarm as it stands is: what goes in and comes out, each model with its pinned file and SHA-256, the decider, every slot and what it is for, and where it stands against the larger model, to read and to copy as JSON",
@@ -294,6 +384,14 @@ with tempfile.TemporaryDirectory() as tmp:
           now["running"] and now["question"]["kind"] == "fix" and now["slots"]["a-direct"]["state"] == "working" and now["slots"]["kev-decide"]["said"] == "Picked B." and now["whoName"] == "The swarm", now)
     (fake / ".work" / "train" / "setup.json").write_text(json.dumps({"at": time.time() * 1000, "steps": [{"what": "The engine (llama.cpp)", "state": "ready"}, {"what": "Small model 1 (Qwen3.5 2B)", "state": "fetching", "done": 600 * 2**20, "of": 1200 * 2**20}]}))
     check("while a session runs no model can be changed", post("/config", b'{"a":"x"}')[0] == 409)
+    (fake / "src").mkdir(exist_ok=True)
+    eq_run = post("/config", b'{"equivalence":["crew","logic"]}')[0]
+    eq_cfg = json.loads((fake / "src" / "config.json").read_text()).get("equivalence")
+    q_run = post("/questions", b'{"id":"crew","questions":[{"ask":"hello"}]}')[0]
+    check("while a session runs nothing can be uninstalled", post("/uninstall", b'{"id":"train:measured"}')[0] == 409)
+    check("the questions a person wrote can be changed while a session runs, like what it is equivalent on", q_run == 200)
+    check("what the swarm is to be equivalent on can be changed while a session runs (a pass ends on the questions it began with), but not together with a model",
+          eq_run == 200 and eq_cfg == ["crew", "logic"] and post("/config", b'{"equivalence":["crew"],"a":"x"}')[0] == 409, [eq_run, eq_cfg])
     # a step tried again, a step passed over on a resumed pass, and the ways back taken, are all shown
     stat = fake / ".work" / "train" / "pass-3" / "status.txt"
     stat.write_text(stat.read_text() + "10:00:02 END   02-target exit 1 0 min\n10:00:07 START 02-target\n10:00:09 SKIP  03-a-alone\n")

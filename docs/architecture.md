@@ -43,9 +43,12 @@ it is `draft, try, check, decide, write`.
 | `expect` | Where the answers were run: one slot says what each call should give, from the question alone. The answer that gives it on the most calls is backed, and the count is put before the decider |
 | `check` | Its slots are shown one answer for each different answer and where they part, and name the one they find correct |
 | `revise` | The drafting slots are shown the different answers, which was their own, where they part and what the checkers said, and answer again |
-| `decide` | The decision model picks the answer that stands. With `keep: n` it settles nothing: the likeliest n go on |
+| `decide` | The decision model picks the answer that stands. With `keep: n` it settles nothing: the likeliest n go on. With `sure: p` it settles the matter there only if it gives one answer a probability of p or more; otherwise nothing is settled or dropped and the flow goes on. It can stand anywhere, more than once: between the drafts and the checks, for one |
 | `repeat` | `{ steps, upTo }`: its steps again, while the answers still differ |
 | `write` | Its slots write the reply. With more than one, the decision model picks. Code goes out as settled |
+
+A conversation from `training/tasks-crew.mjs` is sent as a seat in The Crew is sent one: its system line reaches every slot
+as what the person set for the conversation, after the slot's own brief.
 
 A step that works on a dispute (`check`, `revise`, `decide`, `repeat`) is passed over when every answer is the same one. If no
 step settles it, the one answer stands where there is one, and otherwise the answer most slots hold. `slots: [ids]` on a step

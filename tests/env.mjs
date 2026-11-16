@@ -16,3 +16,5 @@ process.env.SWARM_STATE = path.join(WORK_DIR, 'state.json');
 // nor the configuration a person has chosen: the checks have a copy of it, and change only the copy (src/catalog.mjs)
 fs.copyFileSync(new URL('../src/config.json', import.meta.url), path.join(WORK_DIR, 'config.json'));
 process.env.SWARM_CONFIG = path.join(WORK_DIR, 'config.json');
+// nor the questions a person wrote (training/questions/)
+process.env.SWARM_QUESTIONS_DIR = path.join(WORK_DIR, 'questions');
