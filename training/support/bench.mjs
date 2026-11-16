@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { createSwarm, MEMBERS, readBriefs } from '../../src/index.mjs';
 import { CONFIG_ID } from '../../src/catalog.mjs';
 import { note, checkpoint, briefKey } from './recover.mjs';
@@ -136,13 +137,45 @@ export async function kevGuard(kev) {
 }
 // what a run of the swarm is a run OF: the swarm as configured, with these briefs and this plan, on these questions. A checkpoint
 // under this name holds answers to exactly that, and nothing else.
+// what a measurement is a measurement OF, in a name: the swarm, the larger model, the arrangement (its content), the questions,
+// and the programs that ran it (a measurement made by other code is not this one)
+const CODE_KEY = (() => {
+  const h = createHash('sha256');
+  const dir = path.join(REPO_ROOT, 'src');
+  for (const f of fs
+    .readdirSync(dir)
+    .filter((n) => n.endsWith('.mjs'))
+    .sort())
+    h.update(fs.readFileSync(path.join(dir, f)));
+  return h.digest('hex').slice(0, 8);
+})();
 export const swarmName = (briefs, split, seed) =>
-  ['swarm', CONFIG_ID, targetOf().id, briefKey(briefs), split, seed].join('-');
+  ['swarm', CONFIG_ID, targetOf().id, briefKey(briefs), CODE_KEY, split, seed].join('-');
+// A MEASUREMENT ALREADY MADE IS NOT MADE AGAIN. The trainers ask with a fixed seed (the same slot asked the same thing draws the
+// same answer), so the same arrangement on the same questions gives the same rows: they are kept (.work/train/measured), and
+// "the swarm as it is" is measured once in a pass and not once for every slot and again for the arrangements.
+const MEASURED = path.join(WORK, 'measured');
+const keyOfName = (name) => name.replace(/^(?:measure|try)-/, '').replace(/[^\w.+-]+/g, '_');
+const measuredRows = (name, list) => {
+  try {
+    const have = new Map(
+      fs
+        .readFileSync(path.join(MEASURED, keyOfName(name) + '.jsonl'), 'utf8')
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => JSON.parse(l))
+        .map((r) => [r.id, r]),
+    );
+    return list.every((t) => have.has(t.id)) ? list.map((t) => have.get(t.id)) : null;
+  } catch {
+    return null;
+  }
+};
 const checkpoints = [];
 // a trainer that has finished and written down what it found has no more use for its checkpoints
 export const finished = () => checkpoints.splice(0).forEach((c) => c.done());
 
-export async function openSwarm(briefs = readBriefs()) {
+export async function openSwarm(briefs = readBriefs(), { seed = Number(arg('seed', 1)) } = {}) {
   const attach = {};
   if (arg('attach-a')) attach.a = arg('attach-a');
   if (arg('attach-b')) attach.b = arg('attach-b');
@@ -154,6 +187,7 @@ export async function openSwarm(briefs = readBriefs()) {
   );
   const swarm = await createSwarm({
     briefs,
+    seed, // a measurement that changes by itself cannot say whether a change helped
     attach,
     llamaServer: llamaServer(),
     modelsDir: modelsDir(),
@@ -212,11 +246,16 @@ export function reference(list) {
   const file = path.join(WORK, 'baseline-runs.jsonl');
   const ids = new Set(list.map((t) => t.id));
   const ref = new Map();
+  const toSpec = new Map();
   if (fs.existsSync(file))
     for (const l of fs.readFileSync(file, 'utf8').split('\n').filter(Boolean)) {
       const r = JSON.parse(l);
-      if (r.label === label && ids.has(r.id)) ref.set(r.id, String(r.reply || ''));
+      if (r.label === label && ids.has(r.id)) {
+        ref.set(r.id, String(r.reply || ''));
+        toSpec.set(r.id, r.toSpec);
+      }
     }
+  ref.toSpec = toSpec; // whether its own answer does what the question says (tasks: toSpec)
   return ref;
 }
 export function needReference(list, split) {
@@ -251,8 +290,14 @@ let kevOnce = null;
 export async function run(
   list,
   answerOf,
-  { onRow = () => {}, ref = null, self = false, who = 'swarm', name = '' } = {},
+  { onRow = () => {}, ref = null, self = false, who = 'swarm', name = '', until = null } = {},
 ) {
+  // measured before, by these programs, on these questions: the rows as they were
+  const before = name && who === 'swarm' ? measuredRows(name, list) : null;
+  if (before) {
+    before.forEach(onRow);
+    return before;
+  }
   kevOnce = kevOnce || kevAddress();
   const kev = await kevOnce;
   const ck = name ? checkpoint(name) : null;
@@ -317,6 +362,10 @@ export async function run(
     if (mark.grade === 'wrong' && mark.input !== undefined)
       row.partsOn = { input: mark.input, theirs: mark.theirs, ours: mark.ours };
     if (mark.why) row.markWhy = mark.why;
+    // DOES THE LARGER MODEL'S OWN ANSWER DO WHAT THE QUESTION SAYS? Parity is equivalence with it whatever it answers; but where
+    // it departs from the question itself no swarm can be expected to follow, and those questions are counted apart as well
+    if (self && t.toSpec) row.toSpec = await t.toSpec(got.reply);
+    if (!self && ref && ref.toSpec) row.refToSpec = ref.toSpec.get(t.id);
     if (who !== 'swarm')
       liveSlot(who, {
         state: got.why ? 'failed' : 'done',
@@ -327,15 +376,43 @@ export async function run(
     if (ck) ck.add(row);
     rows.push(row);
     onRow(row);
+    // a trial that can no longer be kept is not run to its end
+    if (until && until(rows, list.length - rows.length)) {
+      rows.stopped = true;
+      break;
+    }
+  }
+  if (name && who === 'swarm' && !rows.stopped && rows.length === list.length) {
+    fs.mkdirSync(MEASURED, { recursive: true });
+    fs.writeFileSync(
+      path.join(MEASURED, keyOfName(name) + '.jsonl'),
+      rows.map((r) => JSON.stringify(r)).join('\n') + '\n',
+    );
   }
   live({ who: '', question: null, slots: {} });
   return rows;
+}
+// QUESTION BY QUESTION: on the same questions, how many answers a change wins (equivalent now, not before) and how many it loses
+export function paired(before, after) {
+  const was = new Map(before.map((r) => [r.id, r.grade === 'right']));
+  let wins = 0;
+  let losses = 0;
+  for (const r of after) {
+    if (!was.has(r.id)) continue;
+    const now = r.grade === 'right';
+    if (now && !was.get(r.id)) wins++;
+    if (!now && was.get(r.id)) losses++;
+  }
+  return { wins, losses, net: wins - losses };
 }
 // right = an answer equivalent to the larger model's; compared = the questions the larger model gave an answer to
 export function count(rows) {
   const c = { asked: rows.length, right: 0, wrong: 0, unsure: 0, noref: 0 };
   for (const r of rows) c[r.grade]++;
   c.compared = c.asked - c.noref;
+  // the same, on the questions where the larger model's own answer does what the question says
+  const spec = rows.filter((r) => r.refToSpec === true && r.grade !== 'noref');
+  c.onSpec = { compared: spec.length, right: spec.filter((r) => r.grade === 'right').length };
   c.score = c.right - c.wrong; // a different answer costs what an equivalent one earns; settling on nothing costs nothing and earns nothing
   c.seconds = rows.length ? Math.round((rows.reduce((a, r) => a + r.seconds, 0) / rows.length) * 10) / 10 : 0;
   const kinds = {};

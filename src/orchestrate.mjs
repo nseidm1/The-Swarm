@@ -4,6 +4,8 @@
 // part of an arrangement that says what happens in what order, how often, and what settles it:
 //   draft    several slots answer the question, each told to go about it differently, all at once
 //   try      where code is asked for, the answers are run on the same calls: those that do the same are one answer (behave.mjs)
+//   expect   where the answers were run: one slot says what each call should give, from the question alone, and the answer that
+//            gives it on the most calls is backed
 //   check    slots that are shown the different answers and look for what is wrong with them, all at once
 //   revise   the answers go back to the slots that wrote them, with the others, where they part and what the checkers said;
 //            each gives its answer again
@@ -28,7 +30,7 @@ import {
   isToolCall,
   letterOf,
 } from './read.mjs';
-import { PROBE_BRIEF } from './behave.mjs';
+import { PROBE_BRIEF, EXPECT_BRIEF, expectedIn } from './behave.mjs';
 
 // an answer as it is shown to another slot or to the person: code in a block of its own, anything else as it is
 const fenced = (final) => (isCode(final) ? '\n```\n' + final + '\n```' : ' ' + final);
@@ -83,9 +85,9 @@ export async function answer(
       row.out = String((r && r.text) || '');
       row.final = slot.stage === 'write' ? '' : finalOf(row.out, marker);
       // a reply that is a call to a tool is not what the writer was asked for; a checker may answer with a letter alone
-      if (slot.stage === 'probe') row.final = '';
+      if (slot.stage === 'probe' || slot.stage === 'expect') row.final = '';
       row.ok =
-        slot.stage === 'write' || slot.stage === 'probe'
+        slot.stage === 'write' || slot.stage === 'probe' || slot.stage === 'expect'
           ? row.out.trim().length > 0 && !isToolCall(row.out)
           : !!row.final || (slot.stage === 'check' && !!letterOf(row.out, marker, LETTERS));
       if (r && r.tokens) row.tokens = r.tokens;
@@ -98,6 +100,38 @@ export async function answer(
     return row;
   };
   const all = (slots, msgsOf) => Promise.all(slots.map((s) => run(s, msgsOf(s))));
+  // A SLOT THAT RAN OUT OF ROOM BEFORE IT ANSWERED IS ASKED FOR ITS ANSWER. It has done the work (it was cut off testing its own
+  // answer, or going round again); what is missing is the last line. Asked once, on the same slot, with the end of what it wrote.
+  const askAgain = async (row, slot, msgs) => {
+    if (row.ok || row.why || !row.out.trim() || isToolCall(row.out)) return;
+    const at = Date.now();
+    try {
+      const r = await ask({ ...slot, maxTokens: wantsCode ? 420 : 40, temperature: 0 }, [
+        ...msgs,
+        { role: 'assistant', content: row.out.slice(-1500) },
+        {
+          role: 'user',
+          content: wantsCode
+            ? 'You ran out of room. Do not explain or test any more. Give your final answer now and nothing else: the whole of the code, in one code block.'
+            : 'You ran out of room. Do not explain any more. Write one line and nothing else: ' +
+              marker +
+              ' and your answer.',
+        },
+      ]);
+      const text = String((r && r.text) || '');
+      const final = finalOf(text, marker);
+      if (final && !isToolCall(text)) {
+        row.out += '\n\n(Asked for its answer.)\n' + text.trim();
+        row.final = final;
+        row.ok = true;
+        row.concluded = true;
+        row.ms += Date.now() - at;
+        onStep(row);
+      }
+    } catch {
+      /* it stays without an answer */
+    }
+  };
 
   // ================================================================ THE FLOW
   // What is known as the steps run. pool: the answers standing (one for each slot that has answered, its latest). remarks: what
@@ -255,6 +289,15 @@ export async function answer(
         byBehaviour && !S.probe ? run(prober, [sys(prober), ...kept]) : null,
       ]);
       if (probe) S.probe = probe;
+      await Promise.all(
+        rows.map((r) =>
+          askAgain(
+            r,
+            slotsOf(step, 'draft').find((s) => s.id === r.slot),
+            [sys(byId[r.slot]), ...kept],
+          ),
+        ),
+      );
       for (const r of rows.filter((d) => d.ok)) {
         const at = S.pool.findIndex((d) => d.slot === r.slot);
         if (at >= 0) S.pool[at] = r;
@@ -437,6 +480,54 @@ export async function answer(
         await runSteps(step.steps || []);
       }
       S.round = 0;
+    },
+    // WHAT SHOULD EACH CALL GIVE? One slot says, from the question alone and without writing the function, what a correct
+    // function returns for each call the answers were run on. The answers are then counted against that: one that gives what the
+    // question asks for on the most calls is backed, and the count is put before the decider. (Tests written apart from the
+    // code they test: an answer and a test that agree were not copied from each other.) It can be wrong, so it backs and
+    // informs; it does not settle.
+    async expect() {
+      if (!S.tried) return;
+      const asker = {
+        id: 'expect',
+        stage: 'expect',
+        member:
+          (plan.expect && plan.expect.member) ||
+          (briefs.slots.find((s) => s.member === 'a') ? 'a' : briefs.slots[0].member),
+        brief: (plan.expect && plan.expect.brief) || EXPECT_BRIEF,
+        maxTokens: (plan.expect && plan.expect.maxTokens) || 360,
+        temperature: 0,
+      };
+      const row = await run(asker, [
+        sys(asker),
+        ...kept.slice(0, -1),
+        { role: 'user', content: question + '\n\nThe calls:\n' + S.tried.calls.join('\n') },
+      ]);
+      if (!row.ok) return;
+      const want = expectedIn(row.out, S.tried.calls);
+      const total = Object.keys(want).length;
+      if (total < 2) return;
+      const scored = distinct()
+        .filter((d) => d.does)
+        .map((d) => ({ d, n: S.tried.matches(d.does, want) }))
+        .sort((x, y) => y.n - x.n);
+      if (!scored.length) return;
+      const note =
+        'One slot said, from the question alone, what each call should give. ' +
+        scored.map((x) => 'Answer ' + x.d.letter + ' gives that on ' + x.n + ' of ' + total + ' calls').join('; ') +
+        '.';
+      row.out += '\n\n' + note;
+      S.remarks = [...S.remarks, note];
+      // backed only where one answer is clearly ahead and gives what was expected on at least half the calls
+      const [best, next] = scored;
+      if (best.n * 2 >= total && (!next || best.n > next.n)) {
+        row.picked = best.d.letter;
+        S.backers = [
+          ...S.backers.filter((b) => b.slot !== 'expect'),
+          { slot: 'expect', stage: 'expect', final: best.d.final, does: best.d.does },
+        ];
+      }
+      onStep(row);
     },
     write: async () => {}, // done last, below: it needs what was settled
   };

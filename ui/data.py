@@ -80,7 +80,17 @@ def parity(rows):
     if not out["compared"]:
         return None
     out["level"] = out["equivalent"] == out["compared"]
+    # the same count where the larger model's own answer does what the question says (training/tasks.mjs: toSpec)
+    spec = [r for r in rows if r.get("refToSpec") is True and r.get("grade") in ("right", "wrong", "unsure")]
+    out["onSpec"] = {"compared": len(spec), "equivalent": sum(1 for r in spec if r.get("grade") == "right")}
     out["seconds"] = round(sum(r.get("seconds", 0) for r in rows) / len(rows), 1) if rows else 0
+    return out
+
+
+def _merge(a, b):
+    out = dict(a)
+    for k, v in (b or {}).items():
+        out[k] = _merge(a[k], v) if isinstance(v, dict) and isinstance(a.get(k), dict) else v
     return out
 
 
@@ -172,6 +182,9 @@ def load(root):
             o["ms"] += s.get("ms", 0)
             if s.get("stage") == "write":
                 o["right"] += 1 if r.get("grade") == "right" else 0
+            elif s.get("same") is not None:
+                # the trainer marked this slot's own answer against the larger model's (for code: by running both)
+                o["right"] += 1 if s.get("same") else 0
             elif r.get("ref") and same_answer(s.get("final"), r.get("ref")):
                 o["right"] += 1
     candidates = {}
@@ -196,6 +209,9 @@ def load(root):
         "trained": trained,
         "sample": (root / ".sample").exists(),
         "briefs": briefs,
+        # how this swarm is trained now: the settings every swarm starts with, and over them this configuration's own changes
+        "policy": _merge(_json(root / "training" / "policy.json", {}), state.get("policy") or {}),
+        "policyLog": state.get("policyLog") or [],
         "learned": {"ledger": (learned or {}).get("ledger") or [], "passes": (learned or {}).get("passes") or [], "startedFrom": started_from.get("version")},
         "state": state,
         "targets": targets,

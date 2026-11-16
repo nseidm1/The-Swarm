@@ -46,7 +46,7 @@ export async function slotReport(rows, tasksById, { kev = '' } = {}) {
     let anyRight = false;
     let draftRight = false;
     for (const s of r.trace || []) {
-      if (s.stage === 'probe' || s.stage === 'run') continue; // they try the drafts; they do not answer
+      if (s.stage === 'probe' || s.stage === 'run' || s.stage === 'expect') continue; // they try the drafts; they do not answer
       const o = (slots[s.slot] = slots[s.slot] || { stage: s.stage, ran: 0, right: 0, silent: 0, ms: 0 });
       o.ran++;
       o.ms += s.ms;

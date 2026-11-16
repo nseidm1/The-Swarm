@@ -419,6 +419,8 @@ export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, foc
           ok: made.ok,
           equivalent: (refReply, reply) => codeEquivalent(refReply, reply, made),
           usable: (reply) => codeWhole(reply, made.name),
+          // does this reply's function do what the question says (what the question's own reference function does)?
+          toSpec: async (reply) => (await codeEquivalent('```js\n' + made.ok + '\n```', reply, made)).grade === 'right',
           show: (reply) => {
             const c = codeOf(reply);
             return c
@@ -458,6 +460,7 @@ export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, foc
             return { grade: theirs ? gradeFor(theirs)(reply) : 'noref' };
           },
           usable: (reply) => !!read(reply),
+          toSpec: async (reply) => (made.want === undefined ? null : gradeFor(String(made.want))(reply) === 'right'),
           show: read,
           wrap: (final) => 'ANSWER: ' + final,
         });

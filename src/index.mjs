@@ -14,6 +14,7 @@
 //                                     same place: it takes what such a call takes and gives back what such a call gives back
 //                                     ({ ok, port, pid, base, args, loadMs } or { ok: false, why }).
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { MEMBERS, SERVING, ENTRY, SERVED_NAME } from './catalog.mjs';
 import { attachMember, startMember, modelFile } from './members.mjs';
@@ -43,6 +44,7 @@ export const readTrained = () => {
   }
 };
 
+const seedOf = (text) => createHash('sha256').update(text).digest().readUInt32BE(0) >>> 1;
 export async function createSwarm(opts = {}) {
   let briefs = opts.briefs || readBriefs(opts.briefsFile);
   const slots = opts.slots || SERVING.slots;
@@ -86,6 +88,14 @@ export async function createSwarm(opts = {}) {
     const { maxTokens, temperature, top_p, top_k } = slot;
     const params = { maxTokens, timeoutMs: opts.timeoutMs };
     for (const [k, v] of Object.entries({ temperature, top_p, top_k })) if (v !== undefined) params[k] = v;
+    // opts.seed: the same slot asked the same thing draws the same answer. A program that serves people leaves it off; the
+    // trainers set it, because a measurement that changes by itself from one run to the next cannot say whether a change helped
+    if (opts.seed !== undefined) {
+      const last = messages[messages.length - 1];
+      params.seed = seedOf(
+        opts.seed + '|' + slot.id + '|' + messages.length + '|' + String((last && last.content) || ''),
+      );
+    }
     return m.ask(slot.id, messages, params);
   };
   let last = null;

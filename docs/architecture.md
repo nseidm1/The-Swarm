@@ -40,6 +40,7 @@ it is `draft, try, check, decide, write`.
 |---|---|
 | `draft` | Its slots answer the question, all at once. Each slot's latest answer stands |
 | `try` | Where code is asked for: the answers are run on the same calls, and those that do the same are one answer |
+| `expect` | Where the answers were run: one slot says what each call should give, from the question alone. The answer that gives it on the most calls is backed, and the count is put before the decider |
 | `check` | Its slots are shown one answer for each different answer and where they part, and name the one they find correct |
 | `revise` | The drafting slots are shown the different answers, which was their own, where they part and what the checkers said, and answer again |
 | `decide` | The decision model picks the answer that stands. With `keep: n` it settles nothing: the likeliest n go on |

@@ -47,6 +47,9 @@ function pool(n) {
   };
 }
 
+// what opens a call to a tool, in the models that have such a thing
+const TOOL_OPENERS = ['<|tool_call_start|>', '<tool_call>', '<|python_tag|>'];
+
 // faults that mean the server is gone or hung (and so may be started again), as against a fault in what was asked
 const SERVER_FAULT =
   /ECONNREFUSED|ECONNRESET|EPIPE|socket hang up|fetch failed|other side closed|terminated|timed? ?out|TimeoutError|aborted|AbortError/i;
@@ -58,6 +61,30 @@ const SERVER_FAULT =
 function member(m, base, slots, stop = () => {}, { revive = null, onRecover = () => {} } = {}) {
   const p = pool(slots);
   const pinned = new Map(); // a plan slot's id -> the server slot it keeps to, while that one is free
+  // A MODEL TRAINED TO CALL TOOLS IS NOT LEFT ABLE TO START A CALL. Given no tools, LFM2.5 still answered a quarter of its drafts
+  // with <|tool_call_start|>[...] (24 of 112 in one pass, 2026-11-15), and each was an answer lost. Telling it not to did not
+  // help. So the token that opens a call is found once (the server is asked what number it is) and forbidden in every request:
+  // the model cannot begin one, and writes its answer. A server that cannot say, or a model with no such token, is asked as before.
+  let banned = null;
+  const findBanned = async () => {
+    const ids = [];
+    for (const mark of TOOL_OPENERS) {
+      try {
+        const r = await fetch(self.base + '/tokenize', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          signal: AbortSignal.timeout(5000),
+          body: JSON.stringify({ content: mark, add_special: false, parse_special: true }),
+        });
+        const j = r.ok ? await r.json() : {};
+        // only where the whole marker is ONE token: forbidding a piece of ordinary text would do harm
+        if (Array.isArray(j.tokens) && j.tokens.length === 1 && Number.isInteger(j.tokens[0])) ids.push(j.tokens[0]);
+      } catch {
+        /* asked as before */
+      }
+    }
+    return ids;
+  };
   const self = {
     key: m.key,
     name: m.name,
@@ -73,6 +100,8 @@ function member(m, base, slots, stop = () => {}, { revive = null, onRecover = ()
       const t0 = Date.now();
       try {
         if (!pinned.has(slotId)) pinned.set(slotId, pinned.size % slots);
+        banned = banned || findBanned();
+        const noCall = await banned;
         const { maxTokens = 400, signal, timeoutMs, ...sampling } = params;
         const once = async () => {
           const r = await fetch(self.base + '/v1/chat/completions', {
@@ -85,6 +114,7 @@ function member(m, base, slots, stop = () => {}, { revive = null, onRecover = ()
               cache_prompt: true,
               id_slot: pinned.get(slotId),
               max_tokens: maxTokens,
+              ...(noCall.length ? { logit_bias: noCall.map((id) => [id, false]) } : {}),
               ...m.sampling,
               ...sampling,
             }),

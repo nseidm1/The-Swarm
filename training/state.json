@@ -1,13 +1,4 @@
 {
-  "pass": 0,
-  "target": "nemotron35-30b",
-  "seeds": {
-    "train": 1009,
-    "held": 7919
-  },
-  "focus": {},
-  "tried": {},
-  "order": [],
   "questions": [
     "all:\"multi-agent debate\" AND all:\"language models\" AND all:reasoning",
     "all:\"self-consistency\" AND all:\"chain of thought\" AND all:\"small language models\"",
@@ -62,33 +53,28 @@
       "from": "2610.21290",
       "slot": "a-critic",
       "name": "one worked answer for each different answer",
-      "hash": "1a526401df199dd1",
-      "status": "open"
+      "hash": "1a526401df199dd1"
     },
     {
       "pass": 1,
       "from": "2608.23541",
       "slot": "a-critic",
       "name": "check for rules that are easy to find broken",
-      "hash": "fbce5f121d6adbac",
-      "status": "open"
+      "hash": "fbce5f121d6adbac"
     },
     {
       "pass": 1,
       "from": "2607.16727",
       "slot": "a-steps",
       "name": "a checkable statement after every step",
-      "hash": "a75c04e633ec41bb",
-      "status": "open"
+      "hash": "a75c04e633ec41bb"
     },
     {
       "pass": 1,
       "from": "2603.16045",
       "slot": "b-direct",
       "name": "the shortest brief that still asks for a test",
-      "hash": "3385fb556fff0d64",
-      "status": "open"
+      "hash": "3385fb556fff0d64"
     }
-  ],
-  "history": []
+  ]
 }

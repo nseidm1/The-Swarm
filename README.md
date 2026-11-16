@@ -153,7 +153,8 @@ How it behaves when things go its way, and when they do not:
 |---|---|
 | Every draft reaches the same answer (for a function: every draft does the same on the calls tried) | Nothing is in dispute: the checks and the decider are passed over |
 | The drafts cannot be tried (not JavaScript, no calls could be read, a Node older than 20, or `runCode: false`) | They are compared as text |
-| A checker runs out of room before it answers | It is asked once more for one line: the letter of the answer it finds correct |
+| A slot runs out of room before it answers | It is asked once more for its answer alone (a checker: the letter of the answer it finds correct) |
+| A model has a token for opening a tool call | The server is asked for it once and it is forbidden in every request, so the model cannot answer with a call |
 | A slot fails | The others carry on |
 | Kev is not running, or does not answer | The answer most slots gave stands |
 | The writer answers with a call to a tool | That is not sent: the answer that was settled goes out as it stands |
@@ -305,8 +306,16 @@ the Swarm answers again; the verdict is written.
   and scores every move open to it by how many of those answers it could win back: another brief for a slot, a change to
   the plan, any arrangement one step from the current one. The dashboard shows the plan as it is carried out.
 
-- **A change is kept only on evidence.** A brief or an arrangement is kept if it does better on the questions it was chosen
-  on and no worse on questions it never saw.
+- **A change is kept only on evidence.** A brief, a plan, an arrangement or a flow is kept if, question by question on the
+  same train questions, it wins more answers than it loses by a margin, and does no worse on questions it never saw. The
+  trainers ask with a fixed seed, so the same arrangement gives the same answers and a measurement is made once.
+- **The search is wide.** Every pass tries arrangements one change from the current one (a slot moved to the other model,
+  a drafter that checks or a checker that drafts, a step moved, a decision placed anywhere, a loop, a second writer) and a
+  few that are several changes away at once, drawn by lot. A kept arrangement is where the next pass starts.
+- **The trainer changes how it trains.** Its settings and its rules are data ([`training/policy.json`](training/policy.json)),
+  not code. At set points a pass looks at itself (do answers change by themselves? are they lost in drafting, or in choosing?
+  has anything been kept lately?) and its rules change the margin, what the plan favours, and how widely it searches, on this
+  configuration's own record, each change with its reason. A person can add a rule; no program changes.
 - **Each pass feeds the next.** A pass ends by writing down where the Swarm answered differently, which slots did worst, what
   was tried and not kept, and what to ask arXiv. The next begins from that, with new questions.
 - **At parity, it climbs.** When every answer is equivalent, the next, larger model becomes the target.
@@ -320,6 +329,8 @@ the Swarm answers again; the verdict is written.
 | `training/baseline.mjs` | One model by itself: the larger model, and each small model |
 | `training/measure.mjs` | The Swarm, and every slot on its own account |
 | `training/improve.mjs` | One slot's candidates |
+| `training/review.mjs` | The pass looks at itself: it measures its own run and applies the policy's rules, which change how this swarm is trained |
+| `training/policy.json` | How the trainer trains, as data: the margin, how many arrangements, what the plan favours, when it reviews itself and the rules it applies |
 | `training/arrange.mjs` | Arrangements one step from the current one. The flow: answers sent back to their drafters, a loop of checking and revising, a decision that narrows before the one that settles, a second writer, a step taken out. The slots: one moved to the other model, a drafter or checker added or dropped, what a checker sees, how freely a drafter samples |
 | `training/kev.sh` | Installs and runs Kev beside the Swarm |
 | `training/publish.mjs` | Writes what was measured to `src/trained.json`, which ships with the module |
@@ -372,7 +383,7 @@ npm test
 python3 ui/check.py
 ```
 
-Eighty-five checks of the module and the trainers, and forty-one of the dashboard. Stand-in servers take the place of the
+Ninety-three checks of the module and the trainers, and forty-two of the dashboard. Stand-in servers take the place of the
 models, Kev and Hugging Face, so nothing is fetched, started or installed, and both finish in well under a minute. They cover what
 goes in and comes out, which slots run, what happens when a slot, a model or everything fails, that two functions are judged
 equivalent by running them, that model-written code can reach nothing, and that each fault in [Recovery](#recovery) is
@@ -414,9 +425,6 @@ Known limits:
 - **Small JavaScript questions only.** Larger programs, other languages, long writing and conversation are not measured.
 - **Few families of question.** Eleven kinds of function, with details that change. The train and held questions are
   different draws from the same families, so a pass can learn a family. More families are the cure.
-- **A model trained to call tools may answer with a tool call.** LFM2.5 often does, though it is given no tools (8 of the
-  first 20 replies it wrote in a real pass). Code a slot hands over that way is read. A reply written that way is never sent:
-  the answer that was settled goes out as it stands.
 - **Kev is not trained for this yet.** It decides as it was published.
 - **A larger model that gives no usable answer is not compared.** A reply cut off partway (a function that does not parse, a
   sentence of one word) is not taken for an answer: it is asked again, and if it still holds none, its question is left out

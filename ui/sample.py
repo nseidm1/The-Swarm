@@ -39,6 +39,7 @@ def main(dest):
         (dest / sub).mkdir(parents=True, exist_ok=True)
     (dest / ".sample").write_text("made-up data: see ui/sample.py\n")
     shutil.copy(HERE / "src" / "briefs.json", dest / "src" / "briefs.json")
+    shutil.copy(HERE / "training" / "policy.json", dest / "training" / "policy.json")
     for name in ("models.json", "config.json"):
         shutil.copy(HERE / "src" / name, dest / "src" / name)
     for f in (HERE / "training" / "candidates").glob("*.json"):

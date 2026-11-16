@@ -86,7 +86,7 @@ for N in $(seq 1 "${PASSES:-1}"); do
   . training/support/steps.sh
   run 00-begin        training/pass.mjs begin
   # THE PLAN, before anything is measured: from what the last pass left
-  run 00-plan         training/plan.mjs make --tries "${TRIES:-4}"
+  run 00-plan         training/plan.mjs make ${TRIES:+--tries "$TRIES"}
   # what has been published on what the last pass left open
   if [ -n "$TEACHER" ]; then run 01-research training/research.mjs --teacher "$TEACHER" --spend-claude
   else run 01-research training/research.mjs; fi
@@ -101,7 +101,11 @@ for N in $(seq 1 "${PASSES:-1}"); do
   run 05-swarm-train  training/measure.mjs --split train --each "$EACH"
   # THE PLAN, AGAIN, now that this pass has measured the swarm on its own questions: where the answers were lost decides what is
   # tried and in what order
-  run 06-plan         training/plan.mjs make --tries "${TRIES:-4}"
+  # THE PASS LOOKS AT ITSELF: is the measurement steady, where are answers lost, has anything been kept lately? The policy's rules
+  # then change how this swarm is trained (the margin a change must win by, what the plan favours, how many arrangements are
+  # tried): data, on this configuration's record, each change with its reason. No program is changed
+  run 05-review       training/review.mjs --at 05-swarm-train --noise "${NOISE:-12}" --each "$EACH"
+  run 06-plan         training/plan.mjs make ${TRIES:+--tries "$TRIES"}
   # the slots the plan names, in its order (with a teacher, every slot: it writes candidates the plan could not have known)
   for S in $([ -n "$TEACHER" ] && "$NODE" training/pass.mjs order || "$NODE" training/plan.mjs slots); do
     if [ -n "$TEACHER" ]; then run "10-improve-$S" training/improve.mjs --slot "$S" --each "$EACH" --teacher "$TEACHER" --spend-claude
@@ -109,7 +113,8 @@ for N in $(seq 1 "${PASSES:-1}"); do
   done
   # then the arrangement itself: a few layouts no pass has tried (which model drafts and which checks, how many, what a checker
   # sees, how freely a drafter samples), kept by the same rule a brief is
-  run 15-arrange      training/arrange.mjs --each "$EACH" --tries "${TRIES:-4}"
+  run 15-arrange      training/arrange.mjs --each "$EACH" ${TRIES:+--tries "$TRIES"}
+  run 16-review       training/review.mjs --at 15-arrange
   # the swarm as it now is: train again (the order of slots for the next pass comes from this), then held (what is reported)
   run 20-swarm-train  training/measure.mjs --split train --each "$EACH"
   run 21-swarm-held   training/measure.mjs --split held --each "$EACH"

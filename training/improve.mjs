@@ -33,6 +33,8 @@ import {
 import { readState, writeState, candHash } from './state.mjs';
 import { mark } from './support/plan-file.mjs';
 import { readBriefs, saveLearned } from '../src/index.mjs';
+import { runTrial, whyOf } from './support/trial.mjs';
+import { readPolicy } from './policy.mjs';
 
 const slotId = arg('slot', '');
 const briefs = readBriefs();
@@ -120,61 +122,26 @@ const refs = { train: needReference(of('train'), 'train'), held: needReference(o
 const mine = (m) => m.slot === slotId && m.kind !== 'arrangement';
 mark((m) => mine(m) && cands.some((c) => c.name === m.what), 'running');
 const swarm = await openSwarm(briefs);
-const measure = async (c, split) => {
-  swarm.setBriefs(withBrief(c));
-  return count(
-    // every answer is written down as it comes, under a name that says which briefs and which questions: a run that stopped
-    // partway carries on, and a candidate already measured is not measured again
-    await run(of(split), async (t) => ({ reply: (await swarm.answer([{ role: 'user', content: t.ask }])).reply }), {
-      ref: refs[split],
-      name: 'try-' + swarmName(withBrief(c), split, (of(split)[0] || {}).seed),
-    }),
-  );
-};
 let verdict;
 try {
-  const now = await measure({}, 'train');
-  console.log(line('as it is (train)', now));
-  let best = null;
-  for (const c of cands) {
-    c.train = await measure(c, 'train');
-    console.log(line(c.name.slice(0, 22) + ' (train)', c.train));
-    if (c.train.score > now.score && (!best || c.train.score > best.train.score)) best = c;
+  for (const c of cands) c.briefs = withBrief(c);
+  verdict = await runTrial({ swarm, base: withBrief({}), cands, of, refs, policy: readPolicy(), width: 22 });
+  if (verdict.kept) {
+    const best = verdict.winner;
+    const next = { ...best.briefs, version: (briefs.version || 1) + 1 };
+    // kept: the arrangement as it now is, and the entry that says what changed and on what evidence (src/learned.mjs)
+    saveLearned(next, {
+      pass: state.pass + 1,
+      kind: best.brief ? 'brief' : 'plan',
+      slot: slotId,
+      what: best.name,
+      from: best.from || undefined,
+      why: verdict.why,
+      train: { before: verdict.now, after: verdict.best.train, wins: best.pair.wins, losses: best.pair.losses },
+      held: { before: verdict.heldNow, after: verdict.heldBest },
+    });
   }
-  if (!best) verdict = { kept: false, why: 'no candidate scored higher on the train questions', now };
-  else {
-    const heldNow = await measure({}, 'held');
-    const heldBest = await measure(best, 'held');
-    console.log(line('as it is (held)', heldNow));
-    console.log(line(best.name.slice(0, 22) + ' (held)', heldBest));
-    const kept = heldBest.score >= heldNow.score;
-    verdict = {
-      kept,
-      why: kept
-        ? 'higher on train, not lower on held'
-        : 'higher on train but lower on held: it had learned the train questions',
-      now,
-      best: { name: best.name, train: best.train },
-      heldNow,
-      heldBest,
-    };
-    if (kept) {
-      const next = withBrief(best);
-      next.version = (briefs.version || 1) + 1;
-      // kept: the arrangement as it now is, and the entry that says what changed and on what evidence (src/learned.mjs)
-      const c2 = (c) => ({ right: c.right, wrong: c.wrong });
-      saveLearned(next, {
-        pass: state.pass + 1,
-        kind: best.brief ? 'brief' : 'plan',
-        slot: slotId,
-        what: best.name,
-        from: best.from || undefined,
-        why: 'higher on train, not lower on held',
-        train: { before: c2(now), after: c2(best.train) },
-        held: { before: c2(heldNow), after: c2(heldBest) },
-      });
-    }
-  }
+  delete verdict.winner;
 } finally {
   await swarm.stop();
 }
@@ -198,10 +165,12 @@ fs.appendFileSync(
       name: c.name,
       from: c.from,
       train: c.train && { right: c.train.right, wrong: c.train.wrong },
+      pair: c.pair,
+      stopped: (c.train && c.train.stopped) || undefined,
     })),
     keptHash: verdict.kept ? candHash(cands.find((c) => c.name === verdict.best.name)) : undefined,
     ...verdict,
-    now: verdict.now && { right: verdict.now.right, wrong: verdict.now.wrong },
+    cands: undefined,
   }) + '\n',
 );
 finished();
@@ -213,14 +182,7 @@ for (const c of cands)
       ? {
           now: { right: verdict.now.right, wrong: verdict.now.wrong },
           train: { right: c.train.right, wrong: c.train.wrong },
-          why:
-            c.name === keptName
-              ? verdict.why
-              : verdict.best && verdict.best.name === c.name
-                ? verdict.why
-                : c.train.score > verdict.now.score
-                  ? 'higher on train, but another candidate was higher'
-                  : 'not higher on the train questions',
+          why: whyOf(c, verdict),
         }
       : undefined,
   });

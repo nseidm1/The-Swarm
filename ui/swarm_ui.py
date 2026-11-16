@@ -447,7 +447,12 @@ def score_strip(d):
         return '%s<p class="verdict %s">%s</p><p class="meta">%s%s</p>%s' % (
             tag[0], cls, e(verdict), meta, '<span class="more">Open the whole measurement</span>' if more else "", tag[1])
 
-    counts = lambda q: "<span><b>%d</b> equivalent</span><span><b>%d</b> different</span><span><b>%d</b> no answer</span>" % (q["equivalent"], q["differ"], q["none"])  # noqa: E731
+    def counts(q):
+        spec = q.get("onSpec") or {}
+        return "<span><b>%d</b> equivalent</span><span><b>%d</b> different</span><span><b>%d</b> no answer</span>%s" % (
+            q["equivalent"], q["differ"], q["none"],
+            '<span title="Parity is equivalence with the larger model whatever it answers. This is the same count on the questions where its own answer does what the question says">where %s follows the question <b>%d</b> of %d</span>'
+            % (e(tname.split(" ")[0]), spec["equivalent"], spec["compared"]) if spec.get("compared") and spec["compared"] < q["compared"] else "")
     if held["swarm"] and p:
         done, want = len(held["swarm"]), held["expected"] or len(held["swarm"])
         off = p["compared"] - p["equivalent"]
@@ -514,6 +519,16 @@ def plan_panel(d):
     if p.get("focus"):
         out.append('<h4>Questions</h4><p class="small" style="margin:0">New train questions, with more of the kinds the last pass answered differently on: %s.</p>'
                    % ", ".join("<b>%s</b> +%s" % (e(x["kind"]), e(str(x["more"]))) for x in p["focus"]))
+    # HOW IT IS TRAINING, which is itself changed by the pass: the margin in force, and what its review of itself changed and why
+    pol = d.get("policy") or {}
+    log = [x for x in d.get("policyLog") or [] if x.get("pass") == n]
+    out.append('<h4>How it is training</h4><p class="small" style="margin:0">A change is kept if, question by question, it wins <b>%s</b> more answers than it loses on train and does no worse on held. '
+               "This pass tries <b>%s</b> arrangements one change from here and <b>%s</b> that are %s changes from here at once.</p>"
+               % (e(str((pol.get("keep") or {}).get("margin", "?"))), e(str((pol.get("trials") or {}).get("arrangements", "?"))), e(str((pol.get("trials") or {}).get("wild", 0))), e(str((pol.get("trials") or {}).get("depth", 2)))))
+    if log:
+        out.append('<ul class="finds" style="margin-top:8px">%s</ul>' % "".join(
+            '<li><span class="n" style="background:#fdf0cf;color:#8a5a00">changed</span><span><code>%s</code>: %s → <b>%s</b>. %s</span></li>'
+            % (e(x.get("set", "")), e(json.dumps(x.get("from"))), e(json.dumps(x.get("to"))), e(x.get("why", ""))) for x in log))
     out.append('<h4>Moves, in the order they are measured</h4>')
     if not moves:
         out.append('<p class="muted small" style="margin:0">Nothing is left to try from here: every candidate and every arrangement one step away has been measured and not kept.</p>')
@@ -659,7 +674,7 @@ def _flow_words(step):
     return step.get("do", "") + (" (keep %d)" % step["keep"] if step.get("keep") else "")
 
 
-STEP_TITLE = {"draft": "Draft", "try": "Try", "check": "Check", "revise": "Revise", "decide": "Decide", "write": "Write"}
+STEP_TITLE = {"expect": "Expect", "draft": "Draft", "try": "Try", "check": "Check", "revise": "Revise", "decide": "Decide", "write": "Write"}
 
 
 def flow_of(d):
@@ -701,6 +716,12 @@ def stages(d, row=None):
             cards = [slot_card(x, d, row, "draft", nth) for x in of(step, "draft")]
         elif do == "try":
             cards = [run_card(d, row, nth)]
+        elif do == "expect":
+            t = next((x for x in (row or {}).get("trace", []) if x.get("stage") == "expect"), None) if row else None
+            cards = [card("run", "One slot, asked apart", "Says what each call should give, from the question alone", "expect",
+                          ["<span>expect</span>"] + (["<span>%d ms</span>" % t.get("ms", 0)] if t else []), "",
+                          '<div class="body">%s</div>' % e((t or {}).get("out", "") if row else "It does not write the function. The answer that gives what it expects on the most calls is backed, and the count is put before the decider."),
+                          live=row is None, opened=bool(t))]
         elif do == "check":
             cards = [slot_card(x, d, row, "check", nth, last=bool(loop)) for x in of(step, "check")]
         elif do == "revise":

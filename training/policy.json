@@ -1,0 +1,134 @@
+{
+  "about": "HOW THE TRAINER TRAINS: its own settings and its own rules, as data. The trainers read this and nothing of it is written into their code, so the way a swarm is trained can be changed, by a person or by the trainer itself, without changing a program. Each configuration keeps its own changes to it (training/states/), made by the review step from what a pass measured, each with its reason.",
+  "keep": {
+    "margin": 2,
+    "about": "A change is kept only if, question by question on the same train questions, it wins this many more answers than it loses, and does no worse on the held ones."
+  },
+  "trials": {
+    "arrangements": 4,
+    "stopEarly": true,
+    "about": "How many arrangements a pass tries one change from here, how many that are several changes from here at once (wild) and how many changes each of those is (depth), and whether a trial stops once it can no longer be kept.",
+    "wild": 1,
+    "depth": 2
+  },
+  "moves": {
+    "weight": {
+      "brief": 1,
+      "plan": 1,
+      "arrangement": 1,
+      "flow": 1
+    },
+    "about": "How much each kind of move counts for when the plan ranks what to try."
+  },
+  "review": {
+    "after": ["05-swarm-train", "15-arrange"],
+    "about": "When a pass looks at itself, and the rules it applies. A rule: when a number it measured passes a mark, change one setting, within bounds, and say why.",
+    "rules": [
+      {
+        "id": "noise-sets-the-margin",
+        "when": {
+          "metric": "noise.answers",
+          "op": ">=",
+          "value": 1
+        },
+        "then": {
+          "set": "keep.margin",
+          "to": "metric+1",
+          "min": 2,
+          "max": 6
+        },
+        "why": "The same arrangement measured twice differed by {metric} answers. A change must win by more than that to be kept."
+      },
+      {
+        "id": "steady-measurements-lower-the-margin",
+        "when": {
+          "metric": "noise.answers",
+          "op": "==",
+          "value": 0
+        },
+        "then": {
+          "set": "keep.margin",
+          "to": 1,
+          "min": 1,
+          "max": 6
+        },
+        "why": "The same arrangement measured twice gave the same answers. One answer won is a real gain."
+      },
+      {
+        "id": "drafts-are-the-limit",
+        "when": {
+          "metric": "ceiling.noSlotHadItShare",
+          "op": ">=",
+          "value": 0.25
+        },
+        "then": {
+          "set": "moves.weight.flow",
+          "to": "current+0.5",
+          "min": 1,
+          "max": 3
+        },
+        "why": "On {metric%} of the questions no slot had the larger model's answer. Sending answers back and looping gives a draft another go: the order of steps counts for more."
+      },
+      {
+        "id": "selection-is-the-limit",
+        "when": {
+          "metric": "ceiling.lostShare",
+          "op": ">=",
+          "value": 0.15
+        },
+        "then": {
+          "set": "moves.weight.plan",
+          "to": "current+0.5",
+          "min": 1,
+          "max": 3
+        },
+        "why": "On {metric%} of the questions a slot had the larger model's answer and the reply did not. What the decider is shown counts for more."
+      },
+      {
+        "id": "more-arrangements-when-none-is-kept",
+        "when": {
+          "metric": "pass.keptNothingFor",
+          "op": ">=",
+          "value": 2
+        },
+        "then": {
+          "set": "trials.arrangements",
+          "to": "current+2",
+          "min": 4,
+          "max": 10
+        },
+        "why": "Nothing was kept for {metric} passes. More arrangements are tried each pass."
+      },
+      {
+        "id": "wider-when-nothing-is-kept",
+        "when": {
+          "metric": "pass.keptNothingFor",
+          "op": ">=",
+          "value": 2
+        },
+        "then": {
+          "set": "trials.wild",
+          "to": "current+1",
+          "min": 1,
+          "max": 4
+        },
+        "why": "Nothing was kept for {metric} passes. One change at a time is not finding it: more arrangements that are several changes from here are tried."
+      },
+      {
+        "id": "deeper-when-nothing-is-kept-for-long",
+        "when": {
+          "metric": "pass.keptNothingFor",
+          "op": ">=",
+          "value": 4
+        },
+        "then": {
+          "set": "trials.depth",
+          "to": "current+1",
+          "min": 2,
+          "max": 4
+        },
+        "why": "Nothing was kept for {metric} passes. The arrangements tried at once are made further from this one."
+      }
+    ]
+  }
+}

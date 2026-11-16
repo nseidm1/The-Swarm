@@ -141,6 +141,7 @@ function stepAnswers(findings, briefs, name) {
                 ? 0.4
                 : 0;
       else if (/decide twice|narrow/.test(name)) w = f.stage === 'decide' ? 1 : 0;
+      else if (/what each call should give/.test(name)) w = f.stage === 'decide' ? 1 : f.stage === 'check' ? 0.5 : 0;
       else if (/^flow: no check/.test(name)) w = f.stage === 'check' ? 0.6 : 0;
     } else if (/^add a second/.test(name) && stage === 'write') {
       w = f.stage === 'write' ? 1 : 0;
@@ -166,6 +167,7 @@ const TECHNIQUE = [
   [/^flow: .*(go back to the drafters|no revising)/, 'Answers go back to those who wrote them'],
   [/^flow: .*(again while|the loop)/, 'A loop of checking and revising'],
   [/^flow: .*(decide twice|narrowing)/, 'More than one decision'],
+  [/^flow: .*what each call should give/, 'Tests written apart from the code'],
   [/^flow: /, 'The order of steps'],
   [/^add a second/, 'One more voice'],
   [/^drop /, 'One voice fewer'],
@@ -190,6 +192,8 @@ export function makePlan({
   hashOf = () => '',
   names = {},
   tries = 4,
+  wild = [],
+  weight = {},
   now = new Date(),
 }) {
   const findings = diagnose(report);
@@ -202,7 +206,11 @@ export function makePlan({
       (c) => ((c.brief && c.brief !== s.brief) || c.plan) && !(tried[s.id] || []).includes(hashOf(c)),
     );
     if (!open.length) continue;
-    const scored = open.map((c) => ({ c, ...briefAnswers(findings, s.id, s.stage, c) }));
+    // (how much each kind of move counts for is the trainer's policy, which a pass's review of itself can change)
+    const scored = open.map((c) => {
+      const x = briefAnswers(findings, s.id, s.stage, c);
+      return { c, ...x, a: Math.round(x.a * (weight[c.brief ? 'brief' : 'plan'] ?? 1) * 10) / 10 };
+    });
     bySlot.push({ slot: s, scored, a: Math.max(...scored.map((x) => x.a)) });
   }
   // the slot the measurement points at first; with nothing measured, the checkers first (a wrong check undoes a right draft)
@@ -225,7 +233,11 @@ export function makePlan({
       });
   // arrangements: the ones that speak to the findings first; then one of each kind of step, so a pass does not spend itself on one idea
   const fresh = steps.filter((c) => !(tried._arrangement || []).includes(c.hash));
-  const scoredSteps = fresh.map((c, i) => ({ c, i, ...stepAnswers(findings, briefs, c.name) }));
+  const scoredSteps = fresh.map((c, i) => {
+    const x = stepAnswers(findings, briefs, c.name);
+    const kindOf = /^flow: /.test(c.name) ? 'flow' : /^plan: /.test(c.name) ? 'plan' : 'arrangement';
+    return { c, i, ...x, a: Math.round(x.a * (weight[kindOf] ?? 1) * 10) / 10 };
+  });
   const kind = (c) => techniqueOf(c.name);
   const picked = [];
   const seen = new Set();
@@ -245,6 +257,17 @@ export function makePlan({
       hash: x.c.hash,
       answers: x.a,
       why: x.why,
+      status: 'planned',
+    });
+  for (const c of wild.filter((c) => !(tried._arrangement || []).includes(c.hash)))
+    moves.push({
+      id: 'arrange:' + c.hash,
+      kind: 'arrangement',
+      technique: 'Several changes at once',
+      what: c.name,
+      hash: c.hash,
+      answers: 0,
+      why: [],
       status: 'planned',
     });
   moves.forEach((m, i) => (m.order = i + 1));
@@ -273,9 +296,10 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     const { readState, candHash } = await import('./state.mjs');
     const { readBriefs } = await import('../src/index.mjs');
     const { MEMBERS, CONFIG_ID, TARGET } = await import('../src/catalog.mjs');
-    const { steps } = await import('./arrange.mjs');
+    const { steps, wildMoves } = await import('./arrange.mjs');
     const { RESULTS, arg } = await import('./support/bench.mjs');
     const state = readState();
+    const policy = (await import('./policy.mjs')).readPolicy(state);
     const briefs = readBriefs();
     const report = readSafe(path.join(RESULTS, 'swarm-train.json'), null);
     const mine = !!report && report.seed === state.seeds.train && (!report.cfg || report.cfg === CONFIG_ID);
@@ -293,9 +317,17 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         reportIsThisPass: mine,
         candidates,
         steps: steps(briefs),
+        // and a few that are several changes from here at once (how many and how deep: the policy)
+        wild: wildMoves(briefs, {
+          n: policy.trials.wild || 0,
+          depth: policy.trials.depth || 2,
+          seed: state.pass + 1,
+          tried: (state.tried || {})._arrangement || [],
+        }),
         hashOf: candHash,
         names: { a: MEMBERS.a.name, b: MEMBERS.b.name },
-        tries: Number(arg('tries', 4)),
+        tries: Number(arg('tries', policy.trials.arrangements || 4)),
+        weight: policy.moves.weight || {},
       }),
       config: CONFIG_ID,
       target: TARGET.id,

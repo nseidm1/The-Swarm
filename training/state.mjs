@@ -129,7 +129,10 @@ export function parity(rows) {
   }
   const compared = equivalent + differ + none;
   if (!compared) return null;
+  const spec = rows.filter((r) => r.refToSpec === true && r.grade !== 'noref');
   return {
+    // the same count on the questions where the larger model's own answer does what the question says
+    onSpec: { compared: spec.length, equivalent: spec.filter((r) => r.grade === 'right').length },
     compared,
     equivalent,
     differ,

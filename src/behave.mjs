@@ -18,6 +18,45 @@ export const PROBE_BRIEF =
   'smallest and largest cases the request mentions). One call on each line, as JavaScript, using the name the request gives ' +
   'the function, with literal arguments only. Nothing else: no results, no comments, no explanation.';
 
+export const EXPECT_BRIEF =
+  'You are given a request for a function, and some calls to it. Do not write the function. For each call, work out from the ' +
+  'request alone what a correct function returns. Write one line for each call: the call exactly as given, then =>, then the ' +
+  'result as a JavaScript literal. Nothing else: no working, no comments.';
+
+// what a slot said each call should give: { call: the result, as it wrote it }
+export function expectedIn(text, calls) {
+  const out = {};
+  for (const raw of String(text || '').split(/\r?\n/)) {
+    const line = raw.replace(/`/g, '').trim();
+    for (const c of calls) {
+      const at = line.indexOf(c);
+      if (at < 0 || out[c] !== undefined) continue;
+      const rest = line.slice(at + c.length).replace(/^\s*(?:=>|->|→|returns|gives|===?|:)\s*/i, '');
+      if (rest === line.slice(at + c.length)) continue; // no sign between the call and a result
+      const value = rest.replace(/\s*\/\/.*$/, '').replace(/[;\s]+$/, '');
+      if (value) out[c] = value;
+    }
+  }
+  return out;
+}
+// is what a function returned (as JSON text) the value a slot wrote (as a JavaScript literal)?
+const literal = (text) => {
+  const t = String(text).trim();
+  for (const s of [
+    t,
+    t.replace(/'/g, '"'),
+    t.replace(/([{,]\s*)([A-Za-z_$][\w$]*)\s*:/g, '$1"$2":').replace(/'/g, '"'),
+  ]) {
+    try {
+      return JSON.stringify(JSON.parse(s));
+    } catch {
+      /* the next way of reading it */
+    }
+  }
+  return t === 'undefined' ? '"__undefined__"' : t;
+};
+const sameValue = (v, want) => literal(v) === literal(want);
+
 // the function the drafts define: the name most of them give one (a name the question itself uses wins a tie)
 export function nameOf(codes, question = '') {
   const count = new Map();
@@ -147,6 +186,16 @@ export async function behaviours({
       return lines.length
         ? 'Each answer was run on the same calls. They give different results on:\n' + lines.join('\n')
         : '';
+    },
+    // on how many of the calls does this behaviour give what was expected? want: { call: the result, as text }
+    matches(sig, want) {
+      const o = outsBySig.get(sig);
+      if (!o) return 0;
+      let n = 0;
+      calls.forEach((c, i) => {
+        if (want[c] !== undefined && !o[i].e && sameValue(o[i].v, want[c])) n++;
+      });
+      return n;
     },
     async sigOf(code) {
       const o = await run(code, name, calls);

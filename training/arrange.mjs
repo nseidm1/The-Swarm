@@ -37,6 +37,8 @@ import { readState, writeState, briefHash } from './state.mjs';
 import { mark, readPlan } from './support/plan-file.mjs';
 import { readBriefs, saveLearned, SERVING } from '../src/index.mjs';
 import { flowOf } from '../src/orchestrate.mjs';
+import { runTrial } from './support/trial.mjs';
+import { readPolicy } from './policy.mjs';
 
 // an arrangement is known by its shape, not its words: who is where, at what stage, seeing what, how hot; and the plan
 export const shapeOf = (b) =>
@@ -82,6 +84,48 @@ export function steps(b, { cap = SERVING.slots, members = ['a', 'b'] } = {}) {
   }
   if (drafts.length > 2)
     for (const s of drafts) out.push({ name: 'drop ' + s.id, briefs: withSlots(b.slots.filter((x) => x.id !== s.id)) });
+  // A SLOT CAN CHANGE ITS PART: a drafter becomes a checker, a checker a drafter (told what a slot of that part on its own model,
+  // or failing that the other, is told). Which model does which part is not fixed
+  const like = (stage, m) =>
+    b.slots.find((x) => x.stage === stage && x.member === m) || b.slots.find((x) => x.stage === stage);
+  if (drafts.length > 2)
+    for (const s of drafts) {
+      const model = like('check', s.member);
+      if (model)
+        out.push({
+          name: s.id + ' checks instead of drafting',
+          briefs: withSlots(
+            b.slots.map((x) =>
+              x.id === s.id
+                ? { ...x, stage: 'check', brief: model.brief, purpose: model.purpose, sees: model.sees }
+                : x,
+            ),
+          ),
+        });
+    }
+  for (const s of checks) {
+    const model = like('draft', s.member);
+    if (model)
+      out.push({
+        name: s.id + ' drafts instead of checking',
+        briefs: withSlots(
+          b.slots.map((x) =>
+            x.id === s.id
+              ? Object.fromEntries(
+                  Object.entries({
+                    ...x,
+                    stage: 'draft',
+                    brief: model.brief,
+                    purpose: model.purpose,
+                    sees: undefined,
+                    temperature: 0.7,
+                  }).filter(([, v]) => v !== undefined),
+                )
+              : x,
+          ),
+        ),
+      });
+  }
   for (const s of checks) {
     out.push({ name: 'drop ' + s.id, briefs: withSlots(b.slots.filter((x) => x.id !== s.id)) });
     const sees = s.sees === 'finals' ? undefined : 'finals';
@@ -131,6 +175,7 @@ export function flowMoves(b) {
   const out = [];
   const put = (name, flow) => out.push({ name: 'flow: ' + name, briefs: { ...b, flow } });
   const without = (i) => [...f.slice(0, i), ...f.slice(i + 1)];
+  const label = (s) => (s.do === 'repeat' ? 'loop' : s.do === 'decide' ? (s.keep ? 'narrowing' : 'decision') : s.do);
   f.forEach((s, i) => {
     const nth = f.slice(0, i).filter((x) => x.do === s.do).length;
     const many = f.filter((x) => x.do === s.do).length > 1;
@@ -150,7 +195,44 @@ export function flowMoves(b) {
       ]);
       put('no check' + which, without(i));
     }
+    if (s.do === 'try' && !f.some((x) => x.do === 'expect'))
+      put('say what each call should give, and back the answer that gives it', [
+        ...f.slice(0, i + 1),
+        { do: 'expect' },
+        ...f.slice(i + 1),
+      ]);
+    if (s.do === 'expect') put('no saying what each call should give', without(i));
     if (s.do === 'revise') put('no revising' + which, without(i));
+    // A DECISION CAN STAND ANYWHERE. One that keeps the likeliest two, straight after any step that leaves answers standing
+    // (after the drafts and before they are run; after they are run; after the answers come back): what follows has less to weigh
+    if (['draft', 'try', 'expect', 'revise'].includes(s.do) && !(next && next.do === 'decide'))
+      put('keep the likeliest two straight after the ' + s.do + which, [
+        ...f.slice(0, i + 1),
+        { do: 'decide', keep: 2 },
+        ...f.slice(i + 1),
+      ]);
+    // A STEP CAN CHANGE PLACES with the one before it (never the first drafts, never the writing)
+    const prev = f[i - 1];
+    if (
+      i >= 2 &&
+      s.do !== 'write' &&
+      !(s.do === 'decide' && !s.keep) &&
+      prev &&
+      prev.do !== 'draft' &&
+      prev.do !== s.do
+    )
+      put('the ' + label(s) + which + ' before the ' + label(prev), [...f.slice(0, i - 1), s, prev, ...f.slice(i + 1)]);
+    // the answers go back to ONE model's drafters only: the other's stand as they are
+    if (s.do === 'revise' && !s.slots)
+      for (const m of ['a', 'b']) {
+        const mine = b.slots.filter((x) => x.stage === 'draft' && x.member === m).map((x) => x.id);
+        if (mine.length && mine.length < b.slots.filter((x) => x.stage === 'draft').length)
+          put('only the drafters on ' + m + ' answer again' + which, [
+            ...f.slice(0, i),
+            { ...s, slots: mine },
+            ...f.slice(i + 1),
+          ]);
+      }
     if (s.do === 'decide' && s.keep) put('no narrowing' + which, without(i));
     if (s.do === 'decide' && !s.keep && !f.some((x) => x.do === 'decide' && x.keep))
       put('decide twice: keep the likeliest two, check those again, then decide', [
@@ -179,6 +261,32 @@ export function flowMoves(b) {
   return out.filter((c) => !c.briefs.flow || (c.briefs.flow[0] && c.briefs.flow[0].do === 'draft'));
 }
 
+// SEVERAL CHANGES AT ONCE. One step at a time cannot reach an arrangement whose parts only help together (a loop is worth little
+// with checkers that say nothing; a narrowing decision is worth little before answers are run). So a pass also tries a few
+// arrangements that are `depth` changes from this one, the changes drawn by lot from all that are open: endless variations, and
+// which ones a pass draws depends only on its number, so a pass that is run again tries the same ones. How many, and how deep,
+// is the trainer's policy (trials.wild, trials.depth), which its review of itself raises when nothing has been kept for a while.
+export function wildMoves(b, { n = 1, depth = 2, seed = 1, tried = [] } = {}) {
+  let x = (seed * 2654435761) >>> 0;
+  const rnd = () => ((x = (Math.imul(x ^ (x >>> 15), 2246822507) + 0x9e3779b9) >>> 0), x / 2 ** 32);
+  const out = [];
+  for (let k = 0; k < n * 6 && out.length < n; k++) {
+    let cur = b;
+    const names = [];
+    for (let d = 0; d < depth; d++) {
+      const open = steps(cur);
+      if (!open.length) break;
+      const pick = open[Math.floor(rnd() * open.length)];
+      names.push(pick.name);
+      cur = pick.briefs;
+    }
+    const hash = shapeOf(cur);
+    if (names.length === depth && hash !== shapeOf(b) && !tried.includes(hash) && !out.some((c) => c.hash === hash))
+      out.push({ name: 'several: ' + names.join('; then ').replace(/flow: /g, ''), briefs: cur, hash });
+  }
+  return out;
+}
+
 // which to try this pass: ones never tried, a different kind of step first so that a pass does not spend itself on one idea
 export function pickSteps(all, tried, n) {
   const fresh = all.filter((c) => !tried.includes(c.hash));
@@ -194,7 +302,11 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const briefs = readBriefs();
   const state = readState();
   const tried = state.tried._arrangement || [];
-  const all = steps(briefs);
+  const policy = readPolicy(state);
+  const all = [
+    ...steps(briefs),
+    ...wildMoves(briefs, { n: policy.trials.wild || 0, depth: policy.trials.depth || 2, seed: state.pass + 1, tried }),
+  ];
   if (has('list')) {
     for (const c of all) console.log((tried.includes(c.hash) ? 'tried  ' : '       ') + c.name);
     console.log(
@@ -217,7 +329,9 @@ if (import.meta.url === 'file://' + process.argv[1]) {
           .map((m) => all.find((c) => c.name === m.what && !tried.includes(c.hash)))
           .filter(Boolean)
       : [];
-  const cands = planned.length ? planned : pickSteps(all, tried, Number(arg('tries', 4)));
+  const cands = planned.length
+    ? planned
+    : pickSteps(all, tried, Number(arg('tries', readPolicy().trials.arrangements || 4)));
   const mine = (m) => m.kind === 'arrangement';
   mark((m) => mine(m) && cands.some((c) => c.name === m.what), 'running');
   if (!cands.length) {
@@ -232,60 +346,31 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     held: needReference(questions('held', each), 'held'),
   };
   const swarm = await openSwarm(briefs);
-  const measure = async (b, split) => {
-    swarm.setBriefs(b);
-    return count(
-      await run(
-        questions(split, each),
-        async (t) => ({ reply: (await swarm.answer([{ role: 'user', content: t.ask }])).reply }),
-        { ref: refs[split], name: 'try-' + swarmName(b, split, (questions(split, each)[0] || {}).seed) },
-      ),
-    );
-  };
   let verdict;
   try {
-    const now = await measure(briefs, 'train');
-    console.log(line('as it is (train)', now));
-    let best = null;
-    for (const c of cands) {
-      c.train = await measure(c.briefs, 'train');
-      console.log(line(c.name.slice(0, 24) + ' (train)', c.train));
-      if (c.train.score > now.score && (!best || c.train.score > best.train.score)) best = c;
+    verdict = await runTrial({
+      swarm,
+      base: briefs,
+      cands,
+      of: (split) => questions(split, each),
+      refs,
+      policy: readPolicy(),
+    });
+    if (verdict.kept) {
+      const best = verdict.winner;
+      saveLearned(
+        { ...best.briefs, version: (briefs.version || 1) + 1 },
+        {
+          pass: state.pass + 1,
+          kind: /^flow: /.test(best.name) ? 'flow' : /^plan: /.test(best.name) ? 'plan' : 'arrangement',
+          what: best.name.replace(/^flow: /, ''),
+          why: verdict.why,
+          train: { before: verdict.now, after: verdict.best.train, wins: best.pair.wins, losses: best.pair.losses },
+          held: { before: verdict.heldNow, after: verdict.heldBest },
+        },
+      );
     }
-    if (!best) verdict = { kept: false, why: 'no arrangement tried scored higher on the train questions', now };
-    else {
-      const heldNow = await measure(briefs, 'held');
-      const heldBest = await measure(best.briefs, 'held');
-      console.log(line('as it is (held)', heldNow));
-      console.log(line(best.name.slice(0, 24) + ' (held)', heldBest));
-      const kept = heldBest.score >= heldNow.score;
-      verdict = {
-        kept,
-        why: kept ? 'higher on train, not lower on held' : 'higher on train but lower on held',
-        now,
-        best: { name: best.name, train: best.train },
-        heldNow,
-        heldBest,
-      };
-      if (kept)
-        saveLearned(
-          { ...best.briefs, version: (briefs.version || 1) + 1 },
-          {
-            pass: state.pass + 1,
-            kind: /^flow: /.test(best.name) ? 'flow' : /^plan: /.test(best.name) ? 'plan' : 'arrangement',
-            what: best.name.replace(/^flow: /, ''),
-            why: 'higher on train, not lower on held',
-            train: {
-              before: { right: now.right, wrong: now.wrong },
-              after: { right: best.train.right, wrong: best.train.wrong },
-            },
-            held: {
-              before: { right: heldNow.right, wrong: heldNow.wrong },
-              after: { right: heldBest.right, wrong: heldBest.wrong },
-            },
-          },
-        );
-    }
+    delete verdict.winner;
   } finally {
     await swarm.stop();
   }
@@ -297,6 +382,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       ')',
   );
   const c2 = (c) => c && { right: c.right, wrong: c.wrong };
+  delete verdict.cands;
   fs.mkdirSync(RESULTS, { recursive: true });
   fs.appendFileSync(
     path.join(RESULTS, 'arrangement-history.jsonl'),
@@ -325,9 +411,11 @@ if (import.meta.url === 'file://' + process.argv[1]) {
             why:
               verdict.best && verdict.best.name === c.name
                 ? verdict.why
-                : c.train.score > verdict.now.score
-                  ? 'higher on train, but another arrangement was higher'
-                  : 'not higher on the train questions',
+                : c.train.stopped
+                  ? 'stopped: it could no longer win by ' + verdict.margin
+                  : c.pair && c.pair.net >= verdict.margin
+                    ? 'won on train, but another arrangement won by more'
+                    : 'did not win ' + verdict.margin + ' more answers than it lost on train',
           }
         : undefined,
     });

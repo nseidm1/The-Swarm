@@ -133,6 +133,15 @@ with tempfile.TemporaryDirectory() as tmp:
     (sd / ("%s--%s.json" % (d["cfg"], d["target"]["id"]))).unlink()
     check("the page reads this configuration's own record of its training over the folder's: its pass, what it tried, and what became of each idea here",
           own["state"]["pass"] == 7 and own["state"]["ideas"][0]["status"] == "dropped" and own["state"]["ideas"][1]["status"] == "open" and d["state"]["pass"] == 4, own["state"]["pass"])
+    # how it is training is on the page, and so is what the pass changed in it and why
+    pol_d = dict(d, policy=dict(d["policy"], keep={"margin": 4}), policyLog=[{"pass": d["state"]["pass"] + 1, "set": "keep.margin", "from": 2, "to": 4, "why": "The same arrangement measured twice differed by 3 answers."}])
+    pol_html = swarm_ui.plan_panel(pol_d)
+    exp_html = swarm_ui.stages(dict(d, briefs=dict(d["briefs"], flow=[{"do": "draft"}, {"do": "try"}, {"do": "expect"}, {"do": "decide"}, {"do": "write"}])))
+    spec_rows = [dict(r, refToSpec=(i % 3 != 0)) for i, r in enumerate(H["swarm"])]
+    check("the plan says how the swarm is being trained (the margin a change must win by, how many arrangements are tried) and what the pass's review of itself changed in that, with the reason; a flow that asks what each call should give is drawn with that step; and parity is also counted where the larger model follows the question",
+          "How it is training" in pol_html and "wins <b>4</b> more answers" in pol_html and "keep.margin" in pol_html and "differed by 3 answers" in pol_html and d["policy"]["keep"]["margin"] == 2
+          and "Says what each call should give" in exp_html and exp_html.count('class="stage"') == 5
+          and data.parity(spec_rows)["onSpec"]["compared"] == 8 and "follows the question" in swarm_ui.score_strip(dict(d, splits=dict(d["splits"], held=dict(H, swarm=spec_rows, parity=data.parity(spec_rows))))), pol_html[:200])
     spec_html = get(base + "/fragment/spec")[1]
     sp = data.spec(d)
     check("the output spec is the record of what this configuration has learned against this larger model: every change that was kept, newest first, with where it came from and the answers it won on train and on held; where each pass left it; the flow; and a count of them on its pill",

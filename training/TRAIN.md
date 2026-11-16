@@ -160,6 +160,32 @@ rule: higher on train and not lower on held.
 
 A longer flow costs time, not memory: the same two small models and the same decider answer more turns.
 
+## The trainer trains by a policy, and changes it
+
+How a swarm is trained is data: [`policy.json`](policy.json) is where every configuration starts, and each configuration keeps
+its own changes to it in its record (`training/states/`: `policy`, and `policyLog`).
+
+| Setting | What it is |
+|---|---|
+| `keep.margin` | How many more answers a change must win than lose, question by question on the same train questions, to be kept |
+| `trials.arrangements`, `trials.wild`, `trials.depth` | How many arrangements a pass tries one change from here; how many that are several changes away at once; how many changes those are |
+| `trials.stopEarly` | A trial that can no longer win by the margin is stopped there |
+| `moves.weight` | How much each kind of move (brief, plan, arrangement, flow) counts for when the plan ranks what to try |
+| `review.after`, `review.rules` | When a pass looks at itself, and what it then changes |
+
+[`review.mjs`](review.mjs) is the pass looking at itself. It measures: how many answers change when the same questions are
+asked again with another draw; the share of questions on which no slot had the larger model's answer, and the share on which
+one did and the reply did not; how many passes in a row kept nothing. Each rule in the policy says: when one of those passes a
+mark, change one setting, within bounds, and why. A rule is data, so a new one needs no program changed:
+
+```json
+{ "id": "noise-sets-the-margin", "when": { "metric": "noise.answers", "op": ">=", "value": 1 },
+  "then": { "set": "keep.margin", "to": "metric+1", "min": 2, "max": 6 },
+  "why": "The same arrangement measured twice differed by {metric} answers. A change must win by more than that to be kept." }
+```
+
+`node training/review.mjs --dry` says what it would change and changes nothing.
+
 ## When something goes wrong
 
 | What goes wrong | What is done about it |

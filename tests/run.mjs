@@ -24,13 +24,20 @@ const check = (name, ok, detail) => {
 
 // a stand-in for one model's server: `script(body)` says what it replies; it counts how many it holds at once
 function standIn() {
-  const s = { script: () => 'ANSWER: 42', calls: [], now: 0, most: 0, delay: 30, down: false };
+  // tokens: what number the server gives a piece of text (a real server is asked what opens a tool call: /tokenize)
+  const s = { script: () => 'ANSWER: 42', calls: [], now: 0, most: 0, delay: 30, down: false, tokens: {} };
   const server = http.createServer((req, res) => {
     if (req.url === '/health') return res.writeHead(s.down ? 503 : 200).end('{}');
     const parts = [];
     req.on('data', (c) => parts.push(c));
     req.on('end', async () => {
       const body = JSON.parse(Buffer.concat(parts).toString('utf8'));
+      if (req.url === '/tokenize') {
+        const t = s.tokens[body.content];
+        return res
+          .writeHead(t ? 200 : 404, { 'content-type': 'application/json' })
+          .end(JSON.stringify({ tokens: t || [] }));
+      }
       s.calls.push(body);
       s.now++;
       s.most = Math.max(s.most, s.now);
@@ -955,7 +962,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   check(
     'the search over arrangements reaches the flow: answers sent back, a loop, a decision that narrows first, a step taken out, a second writer; from a flow it has kept it goes on (a longer loop, the loop undone, back to the plain flow); and a flow is part of what makes two arrangements different',
     flowOf(briefs) === DEFAULT_FLOW &&
-      names(briefs).length === 4 &&
+      names(briefs).length === 8 &&
+      names(briefs).some((n) => /what each call should give/.test(n)) &&
+      names(briefs).some((n) => /straight after the draft/.test(n)) &&
+      names(briefs).some((n) => /the check before the try/.test(n)) &&
       names(briefs).some((n) => /go back to the drafters/.test(n)) &&
       names(briefs).some((n) => /decide twice/.test(n)) &&
       names(briefs).some((n) => /no check/.test(n)) &&
@@ -967,7 +977,13 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       second.some((c) => /plain one/.test(c.name) && c.briefs.flow === undefined) &&
       shapeOf(loopMove.briefs) !== shapeOf(briefs) &&
       all.some((c) => /add a second a-writer on b/.test(c.name)) &&
-      all.filter((c) => /^flow: /.test(c.name)).length === 4 &&
+      all.filter((c) => /^flow: /.test(c.name)).length === 8 &&
+      all.some(
+        (c) =>
+          /a-steps checks instead of drafting/.test(c.name) &&
+          c.briefs.slots.find((x) => x.id === 'a-steps').stage === 'check',
+      ) &&
+      all.some((c) => /b-recompute drafts instead of checking/.test(c.name)) &&
       /^flow: /.test(all[0].name) &&
       first.every((c) => c.briefs.flow[0].do === 'draft'),
     { first: names(briefs), second: second.map((c) => c.name) },
@@ -1110,6 +1126,289 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   fs.rmSync(STATES_DIR, { recursive: true, force: true });
   fs.rmSync(STATE_FILE, { force: true });
   fs.rmSync(STATE_FILE + '.bak', { force: true });
+}
+// ---- 6h: what a real pass showed the second time (2026-11-15): a model that cannot be left able to call a tool, drafts cut off,
+// a measurement that moved by itself, and a rule for keeping a change that judged by less than that
+{
+  const { expectedIn } = await import('../src/behave.mjs');
+  const { paired } = await import('../training/support/bench.mjs');
+  // the token that opens a tool call is found once and forbidden in every request; a seed makes the same slot draw the same
+  reset();
+  lfm.s.tokens = { '<|tool_call_start|>': [64400], '<tool_call>': [9, 9] };
+  const seeded = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, seed: 7 });
+  await seeded.answer(Q);
+  await seeded.answer(Q);
+  const mineCalls = lfm.s.calls.filter((c) => roleOf(c) && roleOf(c).id === 'a-direct');
+  const otherCalls = lfm.s.calls.filter((c) => roleOf(c) && roleOf(c).id === 'a-steps');
+  await seeded.stop();
+  check(
+    'a model that has a token for opening a tool call is not left able to use it (the server is asked for its number once, and it is forbidden in every request; a marker that is more than one token is left alone); and with a seed the same slot asked the same thing is asked to draw the same, each slot its own',
+    lfm.s.calls.every((c) => JSON.stringify(c.logit_bias) === '[[64400,false]]') &&
+      bonsai.s.calls.every((c) => c.logit_bias === undefined) &&
+      mineCalls.length === 2 &&
+      Number.isInteger(mineCalls[0].seed) &&
+      mineCalls[0].seed === mineCalls[1].seed &&
+      otherCalls[0].seed !== mineCalls[0].seed &&
+      swarm &&
+      true,
+    { bias: lfm.s.calls[0].logit_bias, seeds: [mineCalls[0].seed, otherCalls[0].seed] },
+  );
+  lfm.s.tokens = {};
+  // a draft that ran out of room before it answered is asked for its answer
+  reset();
+  lfm.s.script = (b) => {
+    const last = b.messages[b.messages.length - 1].content;
+    if (/ran out of room/.test(last)) return 'ANSWER: 42';
+    return roleOf(b).stage === 'write'
+      ? 'It is 42.'
+      : roleOf(b).id === 'a-steps'
+        ? 'First I note that six is... and then again, checking, and again'
+        : 'ANSWER: 42';
+  };
+  bonsai.s.script = () => 'ANSWER: 42';
+  const cut = await swarm.answer(Q);
+  const st = cut.trace.find((r) => r.slot === 'a-steps');
+  check(
+    'a draft that ran out of room before it answered is asked once more for its answer alone, on the same slot, and that answer counts',
+    cut.ok &&
+      st.ok &&
+      st.concluded &&
+      st.final === '42' &&
+      /Asked for its answer/.test(st.out) &&
+      cut.path === 'agreed' &&
+      cut.trace.filter((r) => r.stage === 'draft').length === 4,
+    { st: [st.ok, st.concluded, st.final], path: cut.path },
+  );
+  // tests written apart from the code: one slot says what each call should give, and the answer that gives it is backed
+  reset();
+  const good = 'function add(a, b) {\n  return a + b;\n}';
+  const bad = 'function add(a, b) {\n  return a - b;\n}';
+  const fenced = (c) => 'So:\n\n```js\n' + c + '\n```';
+  const CALLS = 'add(1, 2)\nadd(0, 0)\nadd(-3, 5)\nadd(7, 7)';
+  const role = (b) =>
+    roleOf(b) ||
+    (/work out from the request alone/.test(b.messages[0].content)
+      ? { id: 'expect', stage: 'expect' }
+      : { id: '?', stage: '?' });
+  lfm.s.script = (b) =>
+    role(b).stage === 'expect'
+      ? 'add(1, 2) => 3\nadd(0, 0) => 0\n`add(-3, 5)` => 2\nadd(7, 7) => 15'
+      : fenced(role(b).id === 'a-direct' ? good : bad);
+  bonsai.s.script = (b) => (role(b).stage === 'probe' ? CALLS : fenced(bad));
+  const W = [{ role: 'user', content: 'Write a JavaScript function add(a, b) that returns the sum.' }];
+  const flow = [{ do: 'draft' }, { do: 'try' }, { do: 'expect' }, { do: 'decide' }, { do: 'write' }];
+  const exp = await swarm.answer(W, { briefs: { ...briefs, flow } });
+  const er = exp.trace.find((r) => r.stage === 'expect');
+  check(
+    'a flow can ask one slot what each call should give, from the question alone: the answers are counted against it, the one that gives it on the most calls is backed (three drafts that share a slip do not outvote it), and a slot that is wrong about one call does not sink the answer',
+    exp.ok &&
+      er &&
+      er.ok &&
+      er.picked === 'A' &&
+      /Answer A gives that on 3 of 4 calls; Answer B gives that on 1 of 4 calls/.test(er.out) &&
+      exp.decided === bad &&
+      exp.path === 'most' &&
+      JSON.stringify(
+        expectedIn('add(1, 2) => 3\nadd(1,2) -> 9\n- add(0, 0) returns 0; // zero\nadd(5, 5)', [
+          'add(1, 2)',
+          'add(0, 0)',
+          'add(5, 5)',
+        ]),
+      ) === '{"add(1, 2)":"3","add(0, 0)":"0"}',
+    { picked: er && er.picked, out: er && er.out.slice(-160), decided: exp.decided === good, path: exp.path },
+  );
+  // (three drafts hold the slip and one draft plus the expectation hold the sum: the slip still has more; with a decider, the count is before it)
+  const p = paired(
+    [
+      { id: 1, grade: 'right' },
+      { id: 2, grade: 'wrong' },
+      { id: 3, grade: 'wrong' },
+      { id: 4, grade: 'right' },
+    ],
+    [
+      { id: 1, grade: 'wrong' },
+      { id: 2, grade: 'right' },
+      { id: 3, grade: 'right' },
+      { id: 5, grade: 'right' },
+    ],
+  );
+  check(
+    'a change is judged question by question on the same questions: the answers it wins, the answers it loses, and questions it did not answer not counted',
+    p.wins === 2 && p.losses === 1 && p.net === 1,
+    p,
+  );
+}
+// ---- 6i: THE TRAINER'S OWN SETTINGS AND RULES ARE DATA, and a pass that looks at itself changes them, each change with its reason
+{
+  const { readPolicy, setPolicy, basePolicy } = await import('../training/policy.mjs');
+  const { metricsOf, changesFor, valueOf } = await import('../training/review.mjs');
+  const { readState, STATES_DIR, STATE_FILE } = await import('../training/state.mjs');
+  const { runTrial } = await import('../training/support/trial.mjs');
+  const base = basePolicy();
+  const noisy = metricsOf({
+    report: { compared: 56, right: 31, wrong: 25, unsure: 0, lost: 6 },
+    learned: { ledger: [] },
+    state: { pass: 2 },
+    noise: 3,
+  });
+  const ch = changesFor(base, noisy);
+  const steady = changesFor(
+    base,
+    metricsOf({
+      report: { compared: 56, right: 50, wrong: 6, lost: 1 },
+      learned: { ledger: [{ pass: 2 }] },
+      state: { pass: 2 },
+      noise: 0,
+    }),
+  );
+  const custom = changesFor(
+    {
+      ...base,
+      review: {
+        rules: [
+          {
+            id: 'mine',
+            when: { metric: 'swarm.equivalentShare', op: '<', value: 0.9 },
+            then: { set: 'trials.arrangements', to: 'current*2', max: 6 },
+            why: 'only {metric%}',
+          },
+        ],
+      },
+    },
+    noisy,
+  );
+  check(
+    'a pass that looks at itself measures its own run (how many answers change by themselves, whether answers are lost in drafting or in choosing, how long nothing has been kept) and the rules, which are data, say what to change in how it trains and why: within bounds, and a rule added to the data works without any program changing',
+    Math.abs(noisy['ceiling.noSlotHadItShare'] - 19 / 56) < 1e-9 &&
+      noisy['pass.keptNothingFor'] === 2 &&
+      ch.find((c) => c.set === 'keep.margin').to === 4 &&
+      /differed by 3 answers/.test(ch.find((c) => c.set === 'keep.margin').why) &&
+      ch.find((c) => c.set === 'moves.weight.flow').to === 1.5 &&
+      /34%/.test(ch.find((c) => c.set === 'moves.weight.flow').why) &&
+      ch.find((c) => c.set === 'trials.arrangements').to === 6 &&
+      steady.length === 1 &&
+      steady[0].set === 'keep.margin' &&
+      steady[0].to === 1 &&
+      custom.length === 1 &&
+      custom[0].to === 6 &&
+      custom[0].why === 'only 55%' &&
+      valueOf('metric+1', 0, 3) === 4 &&
+      valueOf('current*1.4', 500, 0) === 700 &&
+      valueOf('nonsense', 1, 1) === undefined,
+    { ch, steady },
+  );
+  const e = setPolicy('keep.margin', 4, { why: 'three answers changed by themselves', rule: 'noise-sets-the-margin' });
+  const now = readPolicy();
+  const again = setPolicy('keep.margin', 4, { why: 'x' });
+  const st = readState();
+  check(
+    "a change to how a swarm is trained is made on that configuration's own record, with what it was, what it is, which rule and why; the settings every swarm starts from are untouched; and setting a thing to what it already is changes nothing",
+    base.keep.margin === 2 &&
+      now.keep.margin === 4 &&
+      now.trials.arrangements === base.trials.arrangements &&
+      e.from === 2 &&
+      e.to === 4 &&
+      again === null &&
+      st.policyLog.length === 1 &&
+      st.policyLog[0].rule === 'noise-sets-the-margin' &&
+      basePolicy().keep.margin === 2,
+    { e, log: st.policyLog },
+  );
+  fs.rmSync(STATES_DIR, { recursive: true, force: true });
+  fs.rmSync(STATE_FILE, { force: true });
+  fs.rmSync(STATE_FILE + '.bak', { force: true });
+  // the one rule for keeping a change: question by question, by the margin, stopped when it cannot win, the baseline measured once
+  const qs = tasks({ split: 'train', each: 6 })
+    .filter((t) => t.type === 'value')
+    .slice(0, 6);
+  const hs = tasks({ split: 'held', each: 6 })
+    .filter((t) => t.type === 'value')
+    .slice(0, 6);
+  const refs = {
+    train: new Map(qs.map((t) => [t.id, 'ANSWER: ' + t.want])),
+    held: new Map(hs.map((t) => [t.id, 'ANSWER: ' + t.want])),
+  };
+  let asked = 0;
+  // a stand-in swarm: an arrangement is right on the questions its name says (r = right on so many of the first)
+  const fakeSwarm = {
+    cur: null,
+    setBriefs(b) {
+      this.cur = b;
+    },
+    async answer(msgs) {
+      asked++;
+      const all = [...qs, ...hs];
+      const i = all.findIndex((t) => t.ask === msgs[0].content);
+      const t = all[i];
+      const n = i < qs.length ? i : i - qs.length;
+      return { reply: 'ANSWER: ' + (n < this.cur.r ? t.want : 'no'), trace: [], path: 'x' };
+    },
+  };
+  const B = (r, tag) => ({ slots: [{ id: 's', brief: tag }], r });
+  const trial = (margin, cands) =>
+    runTrial({
+      swarm: fakeSwarm,
+      base: B(3, 'base'),
+      cands,
+      of: (s) => (s === 'train' ? qs : hs),
+      refs,
+      policy: { keep: { margin }, trials: { stopEarly: true } },
+    });
+  const t1 = await trial(2, [
+    { name: 'one better', briefs: B(4, 'c1') },
+    { name: 'worse', briefs: B(0, 'c2') },
+  ]);
+  const askedAfterFirst = asked;
+  const t2 = await trial(2, [{ name: 'three better', briefs: B(6, 'c3') }]);
+  const t3 = await trial(1, [{ name: 'one better', briefs: B(4, 'c1') }]);
+  check(
+    'a change is kept only if it wins by the margin the policy sets, question by question; one that wins by less is not kept, and is kept when the margin is less; a trial that can no longer win is stopped partway; and the swarm as it is, once measured, is not measured again',
+    t1.kept === false &&
+      /no candidate won 2 more/.test(t1.why) &&
+      t1.cands[1].train.stopped === true &&
+      t1.cands[1].train.rows.length < 6 &&
+      t2.kept === true &&
+      t2.best.pair.wins === 3 &&
+      t2.best.pair.losses === 0 &&
+      /won 3 answers and lost 0/.test(t2.why) &&
+      t3.kept === true &&
+      asked <= askedAfterFirst + 30 &&
+      askedAfterFirst <= 6 + 6 + 6,
+    { t1: t1.why, stopped: t1.cands[1].train.rows.length, t2: t2.why, asked, askedAfterFirst },
+  );
+}
+// ---- 6j: several changes at once, drawn by lot, and the same lot for the same pass
+{
+  const { wildMoves, steps, shapeOf } = await import('../training/arrange.mjs');
+  const { makePlan } = await import('../training/plan.mjs');
+  const { answer: orchestrate, flowOf } = await import('../src/orchestrate.mjs');
+  const w1 = wildMoves(briefs, { n: 3, depth: 2, seed: 5 });
+  const w1b = wildMoves(briefs, { n: 3, depth: 2, seed: 5 });
+  const w2 = wildMoves(briefs, { n: 3, depth: 3, seed: 6 });
+  const one = new Set(steps(briefs).map((c) => c.hash));
+  // every arrangement the search can reach in one change, or several, still answers
+  let broke = '';
+  for (const c of [...steps(briefs), ...w1, ...w2]) {
+    try {
+      const got = await orchestrate(Q, { briefs: c.briefs, ask: async () => ({ text: 'ANSWER: 42' }) });
+      if (!got.ok || got.decided !== '42') broke = broke || c.name;
+    } catch (e) {
+      broke = broke || c.name + ': ' + e.message;
+    }
+  }
+  const plan = makePlan({ state: { pass: 0, tried: {} }, briefs, steps: steps(briefs), wild: w1, tries: 4 });
+  check(
+    'a pass also tries arrangements that are several changes from here at once, the changes drawn by lot from all that are open: the same pass draws the same ones, another pass others; none is one a single change reaches; each is in the plan as what it is; and every arrangement the search can reach, by one change or several, still answers',
+    w1.length === 3 &&
+      w1.map((c) => c.name).join('|') === w1b.map((c) => c.name).join('|') &&
+      w1.map((c) => c.name).join('|') !== w2.map((c) => c.name).join('|') &&
+      w1.every((c) => /^several: .+; then .+/.test(c.name) && c.hash !== shapeOf(briefs)) &&
+      w2.every((c) => c.name.split('; then ').length === 3) &&
+      broke === '' &&
+      plan.moves.filter((m) => m.technique === 'Several changes at once').length === 3 &&
+      steps(briefs).length >= 40,
+    { w1: w1.map((c) => c.name), broke, n: steps(briefs).length },
+  );
 }
 // ---- 7: one worked answer for each different answer
 {
