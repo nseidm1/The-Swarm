@@ -85,7 +85,8 @@ reading them.
 | What failed | What happens |
 |---|---|
 | One slot | The others carry on |
-| Kev (not named, down or slow) | The answer most slots gave stands |
+| Kev (not named, or down) | The answer most slots gave stands |
+| Kev slow | Its wait grows to three times its slowest recent decision (up to 30 s); a decision that times out is asked once more with twice the wait, then the answer most slots gave stands |
 | The writer (it fails, or answers with a call to a tool) | The answer and its work are the reply |
 | A model's server stops or hangs | It is started again, once for all the slots waiting on it, and each asks again |
 | A whole model, for good | The other model's slots carry on |

@@ -16,6 +16,11 @@ export const KEV = {
   model: 'kev-latest',
   margin: 0.1,
   timeoutMs: 8000,
+  // THE WAIT FITS THE DECIDER (measured 2026-11-16: StartLux Decision 4B through MLX took 5.8 s at the median, and every one of its
+  // 8 failures in 40 decisions was the 8-second timeout, each one the swarm falling back to the majority). The wait grows to three
+  // times the slowest recent decision (the 90th centile of the last 20), up to maxTimeoutMs; a decision that still times out is
+  // asked once more with twice the wait. A decider that is down still decides nothing at once: only a timeout is asked again.
+  maxTimeoutMs: 30000,
   workChars: 1200,
   checkChars: 800,
   finalChars: 1600,
@@ -106,27 +111,64 @@ export function kevDecider({
   model = KEV.model,
   margin = KEV.margin,
   timeoutMs = KEV.timeoutMs,
+  maxTimeoutMs = KEV.maxTimeoutMs,
   fetchImpl = fetch,
 } = {}) {
   const at = String(base || '').replace(/\/+$/, '');
   if (!at) return null;
-  return async function decide(input) {
+  const recent = []; // how long the last decisions that came back took
+  const waitFor = () => {
+    if (!recent.length) return timeoutMs;
+    const s = [...recent].sort((x, y) => x - y);
+    const p90 = s[Math.min(s.length - 1, Math.floor(s.length * 0.9))];
+    return Math.min(maxTimeoutMs, Math.max(timeoutMs, Math.round(p90 * 3)));
+  };
+  const ask = async (input, wait) => {
+    const t = Date.now();
+    const r = await fetchImpl(at + '/v1/systemone', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      signal: AbortSignal.timeout(wait),
+      body: JSON.stringify(requestOf(input, model)),
+    });
+    if (r.ok) (recent.push(Date.now() - t), recent.length > 20 && recent.shift());
+    return r;
+  };
+  const timedOut = (e) => /abort|timeout/i.test(String((e && e.name + ' ' + e.message) || e));
+  async function decide(input) {
     const t0 = Date.now();
     const done = (o) => ({ ...o, ms: Date.now() - t0 });
     if (!input.answers || input.answers.length < 2)
       return done({ ok: false, why: 'fewer than two answers to choose between' });
-    try {
-      const r = await fetchImpl(at + '/v1/systemone', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        signal: AbortSignal.timeout(timeoutMs),
-        body: JSON.stringify(requestOf(input, model)),
-      });
-      if (!r.ok) return done({ ok: false, why: 'Kev answered ' + r.status });
-      const read = readAnswers(await r.json(), input.answers);
-      return done({ ...decisionOf(read, input.answers, margin), probs: read.probs, yes: read.yes });
-    } catch (e) {
-      return done({ ok: false, why: 'Kev did not answer: ' + String((e && e.message) || e).slice(0, 120) });
+    let wait = waitFor();
+    let retried = false;
+    for (;;) {
+      try {
+        const r = await ask(input, wait);
+        if (!r.ok) return done({ ok: false, why: 'Kev answered ' + r.status, retried });
+        const read = readAnswers(await r.json(), input.answers);
+        return done({
+          ...decisionOf(read, input.answers, margin),
+          probs: read.probs,
+          yes: read.yes,
+          retried,
+          waitMs: wait,
+        });
+      } catch (e) {
+        if (timedOut(e) && !retried && wait < maxTimeoutMs) {
+          retried = true;
+          wait = Math.min(maxTimeoutMs, wait * 2);
+          continue;
+        }
+        return done({
+          ok: false,
+          why: 'Kev did not answer: ' + String((e && e.message) || e).slice(0, 120),
+          retried,
+          waitMs: wait,
+        });
+      }
     }
-  };
+  }
+  decide.waitMs = waitFor; // what the next decision would wait (for the checks and the trace)
+  return decide;
 }

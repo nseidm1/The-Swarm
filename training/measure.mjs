@@ -28,7 +28,14 @@ import { CONFIG_ID, TARGET } from '../src/catalog.mjs';
 
 // each slot's own answer is marked as the reply is: equivalent to the larger model's, or not. The mark is written onto the trace
 // (same: true | false), so that a person looking at one question can see which slots had it.
-export async function slotReport(rows, tasksById, { kev = '' } = {}) {
+// AND THREE THINGS THE MEASUREMENT HELD THAT NO FINDING READ (measured 2026-11-16, on 41 questions of one pass):
+//   capped   how often a slot stopped at its token limit (a-steps 38 of 41, a-critic 37 of 40): an answer cut off is lost however
+//            good it was going to be, and the empty drafts were cut-off ones
+//   echo     how often a drafter's answer did the same as another drafter's on the same model (22 of 25 for one model's pair):
+//            a second slot that says what the first says adds nothing a draft could win
+//   timedOut how often the decider did not answer in time (8 of 40, every one a timeout): the answer most slots gave stood instead
+export async function slotReport(rows, tasksById, { kev = '', briefs = null } = {}) {
+  const capOf = Object.fromEntries(((briefs && briefs.slots) || []).map((s) => [s.id, s.maxTokens || 0]));
   const slots = {};
   const paths = {};
   let lost = 0;
@@ -51,6 +58,19 @@ export async function slotReport(rows, tasksById, { kev = '' } = {}) {
       const o = (slots[s.slot] = slots[s.slot] || { stage: s.stage, ran: 0, right: 0, silent: 0, ms: 0 });
       o.ran++;
       o.ms += s.ms;
+      if (capOf[s.slot] && s.tokens >= capOf[s.slot]) o.capped = (o.capped || 0) + 1;
+      if (s.stage === 'decide' && s.timedOut) o.timedOut = (o.timedOut || 0) + 1;
+      if (s.stage === 'decide' && s.retried) o.retried = (o.retried || 0) + 1;
+      if (s.stage === 'draft' && s.final) {
+        // the same answer as another drafter on its own model: by what they do where they were tried, else by their words
+        const groups = (r.tried && r.tried.groups) || null;
+        const gOf = (x) => (groups ? groups.findIndex((g) => g.includes(x.letter)) : plain(x.final));
+        const mates = (r.trace || []).filter((x) => x !== s && x.stage === 'draft' && x.member === s.member && x.final);
+        if (mates.length) {
+          o.paired = (o.paired || 0) + 1;
+          if (mates.some((x) => gOf(x) === gOf(s) && gOf(s) !== -1)) o.echo = (o.echo || 0) + 1;
+        }
+      }
       if (s.stage === 'write') {
         // the writer is right when it did not change what was settled: the reply is equivalent whenever the settled answer was
         const kept = !settled || r.grade === 'right';
@@ -109,7 +129,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       },
     );
     const c = count(rows);
-    const rep = await slotReport(rows, byId, { kev: swarm.kev });
+    const rep = await slotReport(rows, byId, { kev: swarm.kev, briefs: swarm.briefs });
     console.log('\n' + line(label + ' (' + split + ')', c));
     console.log(
       'paths: ' +

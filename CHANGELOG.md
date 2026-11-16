@@ -15,6 +15,14 @@ The first version.
 - **What equivalence means.** The work of a seat on a team (The Crew): programming, and the conversation around it in Simple
   and Developer, judged on the act, the substance and the conventions. Chosen on the dashboard under the models, with Math,
   Logic and Reasoning as further choices. Each has a pencil that opens its questions, to which a person can add their own.
+- **The decider's wait fits the decider.** It grows to three times the slowest recent decision (up to 30 s), and a decision
+  that times out is asked once more, rather than the answer most slots gave standing in its place.
+- **Training finds answers cut off at the token limit, drafters that echo each other, and a decider that times out**, and
+  measures more room, other sampling or another place for them.
+- **Recommendations from the configuration's own answers, as they arrive**: a model that adds nothing taken out, a decider
+  judged on its reliability, each with how many answers it rests on and what it costs.
+- **The arrangement as faces.** Each slot is a face of its model in the step it stands in, with its record as a ring and what
+  it is doing as a dot and a halo; choosing one opens what it is told.
 - **Configurations learn from each other.** Each keeps its own record; what another kept is measured first here, and the
   dashboard recommends changes to the configuration itself from what every configuration measured, beside Configuration.
 - **More for training to try.** The settled answer handed over without a rewrite; briefs written by the larger model for failing

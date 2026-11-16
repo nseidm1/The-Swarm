@@ -92,6 +92,49 @@ export function diagnose(report) {
         answers: s.changed,
         text: 'The writer changed the settled answer ' + n(s.changed, 'time') + '.',
       });
+  // CUT OFF: a slot that stops at its token limit on most questions is losing answers to the limit, not to its brief
+  for (const s of slots)
+    if (s.ran >= 5 && (s.capped || 0) / s.ran >= 0.4)
+      out.push({
+        id: 'capped:' + s.id,
+        stage: s.stage,
+        slot: s.id,
+        // the cut-off answers that were not the larger model's: some of them would have been, given room to finish
+        answers: Math.max(1, Math.round(Math.min(s.capped, s.ran - s.right) / 2)),
+        text:
+          s.id + ' stopped at its token limit ' + n(s.capped, 'time') + ' of ' + s.ran + ': its answers are cut off.',
+      });
+  // AN ECHO: a drafter that does what another drafter on its own model does, nearly always, adds no answer of its own
+  for (const s of drafts)
+    if ((s.paired || 0) >= 5 && (s.echo || 0) / s.paired >= 0.8)
+      out.push({
+        id: 'echo:' + s.id,
+        stage: 'draft',
+        slot: s.id,
+        answers: Math.max(1, Math.round((nobody * s.echo) / s.paired / 3)),
+        text:
+          s.id +
+          ' gave the same answer as another drafter on its model ' +
+          s.echo +
+          ' times of ' +
+          s.paired +
+          ': a slot that echoes adds no answer a draft could win.',
+      });
+  // THE DECIDER NOT ANSWERING IN TIME: each time, the answer most slots gave stood in its place
+  for (const s of slots.filter((x) => x.stage === 'decide'))
+    if (s.timedOut && s.timedOut / s.ran >= 0.1)
+      out.push({
+        id: 'decider-slow:' + s.id,
+        stage: 'decide',
+        slot: s.id,
+        answers: Math.max(1, Math.round(s.timedOut / 2)),
+        text:
+          'The decider did not answer in time ' +
+          n(s.timedOut, 'time') +
+          ' of ' +
+          s.ran +
+          ': the answer most slots gave stood instead. Its wait now grows with how long it takes.',
+      });
   for (const s of slots)
     if (s.silent && s.stage !== 'write')
       out.push({
@@ -128,6 +171,20 @@ function stepAnswers(findings, briefs, name) {
   const stage = about && about.stage;
   for (const f of findings) {
     let w = 0;
+    // THE THREE FINDINGS ONLY A NAMED MOVE ANSWERS: a cut-off slot by more room, an echo by sampling it differently, moving it or
+    // telling it what another drafter is told; the decider's timeouts by nothing here (the wait now grows with the decider)
+    if (/^(capped|echo|decider-slow):/.test(f.id)) {
+      if (f.id.startsWith('capped:')) w = about && about.id === f.slot && / with a token limit of /.test(name) ? 1 : 0;
+      else if (f.id.startsWith('echo:'))
+        w = about && about.id === f.slot && /at temperature|^move | drafts as /.test(name) ? 1 : 0;
+      if (w) ((a += w * f.answers), why.push(f.id));
+      continue;
+    }
+    // (more room answers a slot cut off, or one that gave no answer, and nothing else)
+    if (/ with a token limit of /.test(name)) {
+      if (f.id.startsWith('silent:') && about && about.id === f.slot) ((a += f.answers), why.push(f.id));
+      continue;
+    }
     if (/^flow: /.test(name)) {
       // a change to the order of steps: sending answers back or looping gives a draft that was wrong a second go; narrowing
       // before deciding gives the decider less to get wrong; dropping a check that turns answers away stops it doing so
@@ -162,11 +219,13 @@ function stepAnswers(findings, briefs, name) {
       else if (/ sees /.test(name)) w = 0.5;
       else if (/^add a second/.test(name) && stage === 'check') w = 0.5;
     } else if (f.id.startsWith('silent:') && about && about.id === f.slot && /^(move|drop) /.test(name)) w = 1;
+    w = /at temperature|^move | drafts as /.test(name) ? 1 : 0;
     if (w) ((a += w * f.answers), why.push(f.id));
   }
   return { a: Math.round(a * 10) / 10, why };
 }
 const TECHNIQUE = [
+  [/ with a token limit of /, 'More room to answer'],
   [/^flow: .*(go back to the drafters|no revising)/, 'Answers go back to those who wrote them'],
   [/^flow: .*(settle it if the decider is sure|settling early)/, 'The decider earlier in the flow'],
   [/^flow: .*keep the likeliest two/, 'More than one decision'],

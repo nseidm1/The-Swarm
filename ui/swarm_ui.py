@@ -67,7 +67,8 @@ header{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:flex-end;justify-co
 dialog#recd{border:0;border-radius:26px;padding:26px;max-width:min(760px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#recd::backdrop{background:rgba(11,40,38,.45)}
 .recs{list-style:none;margin:0;padding:0;display:grid;gap:10px}.rec{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:start;padding:14px 16px;border-radius:16px;border:1px solid var(--line2);background:#fafdfc}
 .rec b{display:block;font-size:15.5px;margin-top:6px}.rec p{margin:6px 0 4px;font-size:13.5px;line-height:1.5;color:var(--fog)}.rec small{color:var(--mist);font-size:12px}
-.rstr{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:#d7f3e9;color:var(--right)}.rec.untested .rstr{background:var(--soft);color:var(--mist)}
+.rstr{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:#d7f3e9;color:var(--right)}.rec.untested .rstr{background:var(--soft);color:var(--mist)}.rec.early .rstr{background:#fdf0cf;color:#8a5a00}.rec.info .rstr{background:#e6e9f6;color:var(--tgt)}.rec.info{grid-template-columns:minmax(0,1fr)}
+.rech{list-style:none;margin:8px 0 0;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mist)}
 @media (max-width:560px){.rec{grid-template-columns:minmax(0,1fr)}}
 details.cfg{margin-top:18px}details.cfg>summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}details.cfg>summary .cfgh{font-size:10.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--teal2)}
 details.cfg>summary .fmeta{flex:1 1 320px;font-size:13px;font-weight:600;color:var(--mist)}details.cfg[open]>summary .fmeta{display:none}details.cfg.shutting>summary .fmeta{display:block}
@@ -236,6 +237,49 @@ dialog#steerd{border:0;border-radius:26px;padding:26px;max-width:min(860px,94vw)
 .foot .fine{grid-column:1/-1;color:var(--mist);font-size:12px;line-height:1.55;max-width:92ch}@media (max-width:700px){.foot{grid-template-columns:minmax(0,1fr)}}
 .arrh{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 18px;align-items:flex-start;margin-bottom:12px}.arrh h3{margin:0}
 .achips{display:flex;flex-wrap:wrap;gap:6px}.achips span{padding:4px 11px;border-radius:999px;background:var(--soft);font-size:12.5px;font-weight:600;color:var(--mist)}.achips b{color:var(--fog)}
+/* THE ARRANGEMENT AS AVATARS: a model is a face in its colour; a slot is that face, in the step of the flow it stands in. The ring
+   round a slot is its record (the share of its answers equivalent to the larger model's), the halo what it is doing now. */
+.roster{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}.mav{display:flex;align-items:center;gap:9px;padding:6px 12px 6px 6px;border-radius:999px;background:var(--soft);min-width:0}
+button.mav{position:relative;border:0;font:inherit;color:inherit;text-align:left;cursor:pointer}button.mav:hover,button.mav.sel{background:#dfe6f3}button.mav:focus-visible{outline:3px solid var(--teal2)}
+.mav .live{position:absolute;top:2px;left:30px;margin:0;padding:0;border:0;width:12px;height:12px}.mav .live span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.mav .live i{width:9px;height:9px;margin:0;border:2px solid var(--soft);box-sizing:content-box;background:#c9d4d1}.mav:has(.live.on) .live i{background:var(--teal2);animation:p 1.2s infinite}.mav:has(.live.done) .live i{background:var(--right)}
+.via{position:relative;align-self:center;display:flex;flex-direction:column;align-items:center;gap:3px;margin:0 6px 0 -12px;padding:4px;border:0;border-radius:10px;background:none;font:inherit;cursor:pointer;flex:none}
+.via:hover,.via.sel{background:rgba(63,79,134,.08)}.via .vf{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#6b78a8}.via .vf svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.via .vn{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--mist)}.via:not(:last-child)::after{content:"";position:absolute;right:-15px;top:14px;width:8px;height:8px;border-top:2.5px solid var(--unsure);border-right:2.5px solid var(--unsure);transform:rotate(45deg)}
+.via .live{position:absolute;top:2px;right:0;margin:0;padding:0;border:0;width:10px;height:10px}.via .live span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.via .live i{width:8px;height:8px;margin:0;border:2px solid #fff;box-sizing:content-box;background:#c9d4d1}
+.via:has(.live.on) .vf{animation:halo 1.4s ease-out infinite;--fc:#6b78a8}.via:has(.live.on) .live i{background:var(--teal2)}.via:has(.live.done) .live i{background:var(--right)}
+.mav b{display:block;font-size:13px;line-height:1.2}.mav small{display:block;font-size:11.5px;color:var(--mist);font-weight:600}.mav.tgt{margin-left:auto}
+.face{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;color:#fff;font:800 12px/1 inherit;letter-spacing:-.02em;flex:none;background:var(--fc,var(--unsure))}
+.a{--fc:var(--lfm)}.b{--fc:var(--bon)}.c{--fc:#7a5cc4}.d{--fc:#2f7fb8}.kev{--fc:var(--kev)}.run{--fc:#6b78a8}.tgt{--fc:var(--tgt)}
+.face svg{width:17px;height:17px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.pipe{display:flex;flex-wrap:nowrap;align-items:stretch;gap:10px 0;margin-top:4px}.st:has(+.via)::after{display:none}.st:has(+.via){margin-right:16px}.pipe>.st,.pipe>.loopg{flex:0 1 auto}
+.st{position:relative;display:flex;flex-direction:column;gap:8px;padding:10px 8px 8px;margin-right:16px;border-radius:16px;background:#f5faf8;border:1px solid var(--line2)}
+.st:not(:last-child)::after{content:"";position:absolute;right:-14px;top:50%;width:9px;height:9px;border-top:2.5px solid var(--unsure);border-right:2.5px solid var(--unsure);transform:translateY(-50%) rotate(45deg)}
+.st .stt{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mist);white-space:nowrap}.st .stt span{letter-spacing:0;text-transform:none;font-weight:700;margin-left:6px;color:#8a5a00}
+.loopg{display:flex;flex-wrap:nowrap;gap:10px 0;padding:8px 0 4px 8px;margin-right:22px;border-radius:18px;border:1.5px dashed #e3c46a;position:relative}.loopg{flex-wrap:wrap}.loopg>.lt{flex-basis:100%;font-size:11.5px;font-weight:700;color:#8a5a00;margin:-2px 0 0 2px}
+.loopg:not(:last-child)::after{content:"";position:absolute;right:-17px;top:50%;width:9px;height:9px;border-top:2.5px solid var(--unsure);border-right:2.5px solid var(--unsure);transform:translateY(-50%) rotate(45deg)}.loopg .st:last-of-type{margin-right:8px}.loopg .st:last-of-type::after{display:none}
+.st.mk{margin-left:auto;margin-right:0;background:#eef0f8;border-color:#d7dcef}.st.mk .stt{color:var(--tgt)}
+.avs{display:flex;flex-wrap:wrap;gap:6px 2px}
+.av{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;width:72px;padding:4px 2px 2px;border:0;border-radius:12px;background:none;font:inherit;color:inherit;cursor:pointer}
+.av:hover,.av.sel{background:rgba(11,93,87,.07)}.av:focus-visible{outline:3px solid var(--teal2);outline-offset:1px}
+.av .ring{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:conic-gradient(var(--fc) calc(var(--p,0)*1%),#dfe8e5 0)}
+.av.norec .ring{background:#dfe8e5}.av .ring .face{width:36px;height:36px;font-size:11.5px;box-shadow:0 0 0 2px #f5faf8}
+.av .nm{font-size:10.5px;font-weight:700;letter-spacing:-.01em;color:var(--fog);max-width:72px;text-align:center;line-height:1.2;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.av .pc{font-size:10.5px;font-weight:700;color:var(--mist);line-height:1;white-space:nowrap}.av.norec .pc{font-weight:600;color:var(--unsure)}
+.av .live{position:absolute;top:2px;right:6px;margin:0;padding:0;border:0;width:14px;height:14px}.av .live span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.av .live i{width:12px;height:12px;margin:0;border:2px solid #f5faf8;box-sizing:content-box;background:#c9d4d1}
+.av:has(.live.on) .ring{animation:halo 1.4s ease-out infinite}.av:has(.live.on) .live i{background:var(--teal2)}
+.av:has(.live.done) .live i{background:var(--right)}.av:has(.live.bad) .live i{background:var(--wrong)}
+@keyframes halo{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--fc) 55%,transparent)}100%{box-shadow:0 0 0 9px color-mix(in srgb,var(--fc) 0%,transparent)}}
+.av .tb{position:absolute;top:40px;left:50%;transform:translateX(-50%);padding:1px 6px;border-radius:999px;background:#fdf0cf;color:#8a5a00;font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;box-shadow:0 0 0 2px #f5faf8}
+.av .tb.off{background:#e9eeec;color:var(--mist)}
+.avkey{display:flex;flex-wrap:wrap;gap:6px 16px;margin:10px 0 0;font-size:11.5px;color:var(--mist);font-weight:600}.avkey span{display:inline-flex;align-items:center;gap:6px}
+.avkey i{display:inline-block;width:10px;height:10px;border-radius:50%}.avkey .kr{width:14px;height:14px;background:conic-gradient(var(--lfm) 60%,#dfe8e5 0);border-radius:50%}
+.avdetail{margin-top:12px}.avdetail:empty{display:none}.avdetail .slot{margin:0}
+@media (prefers-reduced-motion:reduce){.av:has(.live.on) .ring{animation:none;box-shadow:0 0 0 3px var(--teal2)}}
+@media (max-width:560px){.via{flex-direction:row;align-self:flex-start;margin:-8px 0 8px 10px;gap:8px}.via:not(:last-child)::after{right:auto;left:16px;top:auto;bottom:-14px;transform:rotate(135deg)}.mav .live{left:30px}
+  .pipe,.loopg{flex-direction:column;flex-wrap:nowrap}.st,.loopg{margin-right:0;margin-bottom:16px}.st{flex-direction:row;align-items:center;gap:8px;padding:6px 8px}.st .stt{flex:none;width:58px;white-space:normal}.st.mk{margin-left:0}.mav.tgt{margin-left:0}
+  .st:not(:last-child)::after,.loopg:not(:last-child)::after{right:auto;left:22px;top:auto;bottom:-13px;transform:rotate(135deg)}.loopg .st{margin-right:8px}.loopg .st:last-of-type{margin-bottom:6px}}
 .tryline{margin:8px 0 12px;padding:9px 12px;border-radius:12px;background:#fdf0cf;color:#6b4a00;font-size:13px;overflow-wrap:anywhere}.tryline b{color:#8a5a00}.tryline a{color:#8a5a00;font-weight:800;margin-left:6px}
 .slot.tgt{background:#e6e9f6;border-left-color:var(--tgt)}.stage.mark{margin-top:14px;padding-top:14px;border-top:1px solid var(--line2)}.stage.mark .t{color:var(--tgt)}.slot.tgt .body{padding-top:8px}
 .stage.mark .slot.tgt>summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr) auto auto;gap:4px 16px;align-items:center}.stage.mark .slot.tgt .purpose{margin:0}
@@ -355,6 +399,15 @@ document.addEventListener('change',async(ev)=>{const b=ev.target.closest('[data-
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({equivalence:want})});
   if(!r.ok)alert(await r.text());
   await swap('/fragment/equiv','#equiv');await swap('/fragment/cfgmeta','#cfg-meta');});
+// THE ARRANGEMENT'S FACES: choosing one opens that slot's card below the row (what it is told, its record, what is being tried
+// on it); choosing it again closes it. The card is painted live like the faces, since it carries the same data-live.
+document.addEventListener('click',(ev)=>{
+  const a=ev.target.closest('[data-av]');if(!a)return;const box=$('#avdetail'),id=a.dataset.av;if(!box)return;
+  const was=a.classList.contains('sel');document.querySelectorAll('[data-av].sel').forEach(x=>x.classList.remove('sel'));
+  if(was){box.innerHTML='';return;}
+  const t=document.getElementById('avt-'+id);if(!t)return;box.innerHTML=t.innerHTML;a.classList.add('sel');
+  const c=box.querySelector('details');if(c)c.open=true;liveTick();
+});
 // RECOMMENDED CONFIGURATION CHANGES: the note beside Configuration opens them; a change is made as a pill makes one
 document.addEventListener('click',async(ev)=>{
   if(ev.target.closest('#rec-open')){ev.preventDefault();ev.stopPropagation();await swap('/fragment/recs','#recd-body');$('#recd').showModal();}
@@ -447,7 +500,7 @@ async function liveTick(){
   });
   // each small model answering alone shows on its own slots, since it is that model at work
   const alone=n.who&&n.who!=='swarm'&&n.who!=='target'&&slots[n.who];
-  if(alone)document.querySelectorAll('.slot.'+n.who+' [data-live]').forEach(el=>{const s=slots[n.who];
+  if(alone)document.querySelectorAll('.slot.'+n.who+' [data-live], .av.'+n.who+' [data-live]').forEach(el=>{const s=slots[n.who];
     if(s.state==='working')paint(el,'on','Answering alone · '+Math.max(0,Math.round((Date.now()-s.since)/1000))+' s');else paint(el,'done','Answered alone in '+(s.ms/1000).toFixed(1)+' s');});
 }
 setInterval(liveTick,1500);liveTick();
@@ -1012,8 +1065,10 @@ def slot_card(s, d, row=None, stage=None, nth=0, last=False, purpose=None):
     body = ""
     fin = ""  # what the slot settled on, shown on the card itself so a row of slots can be read at a glance
     if row is None:
-        if rec and rec["ran"]:
-            sub.append("<span>equivalent %d of %d</span>" % (rec["right"], rec["ran"]))
+        if rec and rec.get("judged", rec["ran"]):
+            sub.append("<span>equivalent %d of %d</span>" % (rec["right"], rec.get("judged", rec["ran"])))
+        elif rec and rec["ran"]:
+            sub.append("<span>%d answered, not yet judged</span>" % rec["ran"])
         body = '<div class="body"><span class="muted small">What it is told%s · up to %d tokens</span>\n%s' % (
             " · temperature %s" % e(str(s["temperature"])) if s.get("temperature") is not None else "", s.get("maxTokens", 0), e(s["brief"]))
         for c in d["candidates"].get(s["id"], []):
@@ -1149,6 +1204,149 @@ def stages(d, row=None, mark=""):
     return (line if row is None else "") + '<div class="stages">%s</div>%s' % ("".join(out), mark)
 
 
+def initials(name):
+    """Two or three characters that stand for a model on its face: LFM2.5 2.6B -> LFM, Bonsai 2 2B -> B2, Kev 4B -> K4."""
+    w = str(name or "?").split()
+    head = re.match(r"[A-Za-z]+", w[0])
+    head = head.group(0) if head else w[0]
+    if head.isupper() and len(head) >= 2:
+        return head[:3]
+    return (head[:1] + (re.sub(r"[^0-9A-Za-z]", "", w[1])[:1] if len(w) > 1 else head[1:2])).upper()
+
+
+def slot_name(sid):
+    """A slot's name under its face, whole: its hyphens do not break (U+2011), except the last of a long one, where it may."""
+    nb = lambda x: e(x).replace("-", "&#8209;")  # noqa: E731
+    if sid.count("-") > 1:
+        head, tail = sid.rsplit("-", 1)
+        return nb(head) + "-<wbr>" + nb(tail)
+    return nb(sid)
+
+
+SANDBOX_FACE = '<svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>'
+
+
+def avatars(d):
+    """THE ARRANGEMENT AS AVATARS: the models as faces (the roster), and the flow as stations, each slot a face of its model in the
+    step it stands in. On each slot: its record as a ring, what it is doing now as a dot and a halo (painted live, as the cards
+    were), and a badge while the plan is trying a brief on it. Choosing one opens its card, with what it is told, below."""
+    b, t = d["briefs"], d["target"]
+    slots = b["slots"]
+    by_id = {x["id"]: x for x in slots}
+    members = d.get("members", {})
+    name = lambda place: (members.get(place) or {}).get("name") or data.MEMBER_NAMES.get(place, place)  # noqa: E731
+    dec = (d.get("decider") or {}).get("name", "Kev")
+    # one face for each model, and no two the same: two of one family (LFM2.5 2.6B and 1.2B) are told apart by their size
+    places = [k for k in ("a", "b", "c", "d") if k in members]
+    first = {k: initials(name(k)) for k in places}
+    fc = dict(first)
+    for k in places:
+        if sum(1 for j in places if first[j] == first[k]) > 1:
+            size = re.search(r"(\d+(?:\.\d+)?)B\b", name(k))
+            fc[k] = (fc[k][:1] + size.group(1)) if size else fc[k]
+    live_now = session_live()
+    p = read_plan(d)
+    trying = {m["slot"] for m in (p or {}).get("moves", []) if m.get("status") == "running" and m.get("slot")}
+    # the roster: each model once, with what it brings
+    roster = []
+    for place in [k for k in ("a", "b", "c", "d") if k in members]:
+        n_ = sum(1 for s in slots if s["member"] == place)
+        gb = ((members.get(place) or {}).get("bytes") or 0) / 2**30
+        roster.append('<div class="mav %s"><span class="face">%s</span><div><b>%s</b><small>%d slot%s%s</small></div></div>'
+                      % (place, e(fc[place]), e(name(place)), n_, "" if n_ == 1 else "s", (" · %.1f GB" % gb) if gb else ""))
+    roster.append('<div class="mav kev"><span class="face">%s</span><div><b>%s</b><small>decides%s</small></div></div>'
+                  % (e(initials(dec)), e(dec), (" · about %s GB" % e(str(d["decider"]["memGb"]))) if (d.get("decider") or {}).get("memGb") else ""))
+    if t:
+        roster.append('<button type="button" class="mav tgt" data-av="target" title="%s: its answer is what the swarm must be equivalent to. Choose it to read how it is served"><span class="face">%s</span><div><b>%s</b><small>the mark%s</small></div>'
+                      '<span class="live" data-live="target"><i></i><span>Idle</span></span></button>'
+                      % (e(t["name"]), e(initials(t["name"])), e(t["name"]), (" · about %s GB" % e(str(t["memGb"]))) if t.get("memGb") else ""))
+    tpl = {}  # each slot's card, once: opened below the row when its face is chosen
+
+    def face_of(s):
+        rec = d["record"].get(s["id"])
+        judged = rec.get("judged", rec.get("ran", 0)) if rec else 0
+        pct = (100.0 * rec["right"] / judged) if judged else None
+        badge = ""
+        if s["id"] in trying:
+            badge = '<span class="tb%s">%s</span>' % ("" if live_now else " off", "trying" if live_now else "stopped")
+        tip = "%s · %s · %s%s%s" % (s["id"], name(s["member"]), s.get("purpose") or s["stage"],
+                                    (" · equivalent %d of %d judged" % (rec["right"], judged)) if pct is not None else (" · %d answered, not yet judged against the larger model" % rec["ran"]) if rec else "",
+                                    (" · a brief being tried on it" if live_now else " · stopped partway through trying a brief on it") if s["id"] in trying else "")
+        tpl.setdefault(s["id"], slot_card(s, d))
+        return ('<button type="button" class="av %s%s" data-av="%s" title="%s" aria-label="%s"><span class="ring" style="--p:%s"><span class="face">%s</span></span>%s'
+                '<span class="nm">%s</span><span class="pc">%s</span><span class="live" data-live="%s"><i></i><span>Idle</span></span></button>'
+                % (s["member"], " norec" if pct is None else "", e(s["id"]), e(tip), e(tip), "%.1f" % (pct or 0), e(fc.get(s["member"]) or initials(name(s["member"]))), badge, slot_name(s["id"]),
+                   ("%d of %d" % (rec["right"], judged)) if pct is not None else "&nbsp;", e(s["id"])))
+
+    def special(key, cls, face, label, tip, card_html):
+        tpl.setdefault(key, card_html)
+        return ('<button type="button" class="av %s norec" data-av="%s" title="%s" aria-label="%s"><span class="ring"><span class="face">%s</span></span>'
+                '<span class="nm">%s</span><span class="pc">&nbsp;</span><span class="live" data-live="%s"><i></i><span>Idle</span></span></button>'
+                % (cls, e(key), e(tip), e(tip), face, e(label), e(key)))
+
+    def of(step, dflt):
+        return [by_id[i] for i in step.get("slots", []) if i in by_id] if step.get("slots") else [x for x in slots if x["stage"] == dflt]
+
+    def station(step):
+        do = step.get("do")
+        faces = []
+        if do in ("draft", "revise"):
+            faces = [face_of(x) for x in of(step, "draft")]
+        elif do == "check":
+            faces = [face_of(x) for x in of(step, "check")]
+        elif do == "write":
+            faces = [face_of(x) for x in of(step, "write")]
+        elif do in ("try", "expect"):
+            # A STEP NO MODEL TAKES IS NOT A STATION: the sandbox runs the answers between two steps, so it sits on the arrow
+            key = "run" if do == "try" else "expect"
+            tip = "Try: the sandbox runs every answer on the same calls" if do == "try" else "Expect: one slot, asked apart, says what each call should give"
+            tpl.setdefault(key, run_card(d) if do == "try" else card("run", "One slot, asked apart", "Says what each call should give, from the question alone", "expect", ["<span>expect</span>"], "",
+                                                                     '<div class="body">It does not write the function. The answer that gives what it expects on the most calls is backed, and the count is put before the decider.</div>'))
+            return ('<button type="button" class="via" data-av="%s" title="%s" aria-label="%s"><span class="vf">%s</span><span class="vn">%s</span>'
+                    '<span class="live" data-live="%s"><i></i><span>Idle</span></span></button>' % (key, e(tip), e(tip), SANDBOX_FACE, "try" if do == "try" else "expect", key))
+        elif do == "decide":
+            keep = step.get("keep")
+            what = "keeps %d" % keep if keep else "if sure" if step.get("sure") else "decides"
+            faces = [special("kev-decide", "kev", e(initials(dec)), what, "%s: %s" % (dec, "keeps the likeliest %d answers" % keep if keep else "settles it here only if it is sure" if step.get("sure") else "decides which answer stands"), kev_card(d))]
+        else:
+            return ""
+        extra = ""
+        if do == "write" and len(faces) > 1:
+            extra = '<span>the decider picks the reply</span>'
+        return '<div class="st"><div class="stt">%s%s</div><div class="avs">%s</div></div>' % (e(STEP_TITLE.get(do, do)), extra, "".join(faces))
+
+    parts = []
+    # (the order of stations and the markers between them; an arrow is drawn wherever two stations meet with nothing between)
+    for step in flow_of(d):
+        if step.get("do") == "repeat":
+            parts.append('<div class="loopg"><div class="lt">↻ again while the answers differ, up to %d times</div>%s</div>'
+                         % (int(step.get("upTo", 2)), "".join(station(x) for x in step.get("steps", []))))
+        else:
+            parts.append(station(step))
+    if t:
+        serve = "llama.cpp, from " + t["file"] if t.get("engine") == "llama" else (" ".join([t["serve"]["program"]] + [str(a) for a in t["serve"]["args"]]) if isinstance(t.get("serve"), dict) else "")
+        tcard = ('<details class="slot tgt" open><summary><div class="id">%s</div><div class="purpose">The larger model: its answer is what the swarm must be equivalent to</div>'
+                 '<div class="sub"><span>%s</span><span>%s</span></div><div class="live" data-live="target"><i></i><span>Idle</span></div></summary>'
+                 '<div class="body"><p class="muted small" style="margin:0 0 6px">One model, one slot, told nothing but the input. %s</p><p class="muted small" style="overflow-wrap:anywhere;margin:0">Served by: <code>%s</code></p>%s</div></details>'
+                 % (e(t["name"]), ("%sB parameters" % e(str(t["params"]))) if t.get("params") else "", ("about %s GB" % e(str(t["memGb"]))) if t.get("memGb") else "",
+                    e("By %s." % t["by"] if t.get("by") else ""), e(serve), at_parity(d, t)))
+        tpl.setdefault("target", tcard)
+    else:
+        roster.append('<div class="mav tgt"><span class="face">?</span><div><b>No larger model is named</b><small>choose one above</small></div></div>')
+    flow_line = '<p class="flowline"><b>The flow:</b> %s. %s</p>' % (
+        e(" → ".join(_flow_words(x) for x in flow_of(d))),
+        "This is the plain flow; a pass can change it." if not b.get("flow") else "A pass changed it from the plain flow, and can change it again.")
+    # said once, here, rather than under every face: a measurement under way has answers not yet judged
+    unjudged = any(r.get("ran") and not r.get("judged", r["ran"]) for k, r in d["record"].items() if k in by_id)
+    key = ('<div class="avkey"><span><i class="kr"></i>ring: its record, answers equivalent to the larger model&#39;s'
+           + (" (empty: answered, not judged yet)" if unjudged else "") + '</span><span><i style="background:var(--teal2)"></i>working</span>'
+           '<span><i style="background:var(--right)"></i>answered</span><span><i style="background:var(--wrong)"></i>failed</span><span><i style="background:#c9d4d1"></i>idle</span>'
+           '<span>choose a face to read what that slot is told</span></div>')
+    tpls = "".join('<template id="avt-%s">%s</template>' % (e(k), v) for k, v in tpl.items())
+    return ('<div class="roster">%s</div>%s<div class="pipe">%s</div>%s<div class="avdetail" id="avdetail"></div>%s'
+            % ("".join(roster), flow_line, "".join(parts), key, tpls))
+
+
 def at_parity(d, t):
     """Which configurations of small models a pass MEASURED at parity with this larger model. Only what was measured: a
     configuration is listed when its latest pass against this model found every held answer equivalent."""
@@ -1187,17 +1385,8 @@ def arrangement(d):
         nxt = next((m for m in p["moves"] if m.get("status") == "planned"), None)
         if nxt:
             plan_line = '<p class="tryline"><b>Next in the plan</b> · %s <a href="#strategy">the plan</a></p>' % e(nxt.get("what", ""))
-    if t:
-        serve = "llama.cpp, from " + t["file"] if t.get("engine") == "llama" else (" ".join([t["serve"]["program"]] + [str(a) for a in t["serve"]["args"]]) if isinstance(t.get("serve"), dict) else "")
-        mark = ('<div class="stage mark"><div class="t">The mark: what the swarm is measured against</div><details class="slot tgt"><summary><div class="id">%s</div><div class="purpose">The larger model: its answer is what the swarm must be equivalent to</div>'
-                '<div class="sub"><span>%s</span><span>%s</span></div><div class="live" data-live="target"><i></i><span>Idle</span></div></summary>'
-                '<div class="body"><p class="muted small" style="margin:0 0 6px">One model, one slot, told nothing but the input. %s</p><p class="muted small" style="overflow-wrap:anywhere;margin:0">Served by: <code>%s</code></p>%s</div></details></div>'
-                % (e(t["name"]), ("%sB parameters" % e(str(t["params"]))) if t.get("params") else "", ("about %s GB" % e(str(t["memGb"]))) if t.get("memGb") else "",
-                   e("By %s." % t["by"] if t.get("by") else ""), e(serve), at_parity(d, t)))
-    else:
-        mark = '<div class="stage mark"><div class="t">The mark</div><p class="muted small">No larger model is named. Choose one above.</p></div>'
     one = ('<div class="panel arr">%s<div class="now" id="now"><i></i><span>Nothing is running. No model is loaded.</span></div>%s%s</div>'
-           % (head, plan_line, stages(d, mark=mark)))
+           % (head, plan_line, avatars(d)))
     return '%s<h2 id="strategy">The plan being carried out</h2><div id="plan">%s</div>' % (one, plan_panel(d))
 
 
@@ -1852,7 +2041,7 @@ def recommendations(d):
         if not dec or dec["id"] == cur_dec or r.get("recovered", 0) <= r.get("lost", 0):
             continue
         edge = r["recovered"] - r["lost"]
-        out.append({"id": "decider:" + dec["id"], "strength": "measured", "apply": {"decider": dec["id"]},
+        out.append({"id": "decider:" + dec["id"], "strength": "measured", "apply": {"decider": dec["id"]}, "n": r.get("asked", 0),
                     "title": "Decide with %s" % dec["name"],
                     "why": "Put the %d choices recorded in pass %s, it chose the larger model&#39;s answer %d times against %s&#39;s %d: it recovered %d that %s missed and lost %d it had. %s"
                            % (r.get("asked", 0), e(str(rep.get("pass", "?"))), r.get("theirsRight", 0), e(rec_dec), r.get("kevRight", 0),
@@ -1877,7 +2066,7 @@ def recommendations(d):
         for mid, (pc, r_, n_) in sorted(alone.items(), key=lambda kv: -kv[1][0]):
             if mid in mine.values() or mid not in names or pc < worst[0] + 5:
                 continue
-            out.append({"id": "swap:%s:%s" % (worst[1], mid), "strength": "measured", "apply": {worst[1]: mid},
+            out.append({"id": "swap:%s:%s" % (worst[1], mid), "strength": "measured", "apply": {worst[1]: mid}, "n": n_,
                         "title": "Use %s in place of %s" % (names[mid], names.get(worst[2], worst[2])),
                         "why": "Alone, against %s, it answered %s%% of the held questions as the larger model did (%d of %d), where %s answered %s%%. Measured by another configuration on the same larger model."
                                % (e((d.get("target") or {}).get("name", "")), fmt_pct(int(pc * 10) / 10), r_, n_, e(names.get(worst[2], worst[2])), fmt_pct(int(worst[0] * 10) / 10)),
@@ -1906,7 +2095,7 @@ def recommendations(d):
             continue
         patch = {p: small[i] if i < len(small) else "" for i, p in enumerate(("a", "b", "c", "d"))}
         patch["decider"] = decs[0]
-        out.append({"id": "config:" + key, "strength": "measured", "apply": patch,
+        out.append({"id": "config:" + key, "strength": "measured", "apply": patch, "n": hist[-1]["compared"],
                     "title": "Switch to %s" % " + ".join(next((m["name"] for m in reg["small"] if m["id"] == i), i) for i in small),
                     "why": "That configuration is %s%% of the way to parity with this larger model after %d pass%s, against this one&#39;s %s%%. Both keep their own records: switching back carries on where this one was."
                            % (fmt_pct(pc), len(hist), "" if len(hist) == 1 else "es", fmt_pct(cur_pct) if cur_pct is not None else "not yet measured"),
@@ -1917,16 +2106,90 @@ def recommendations(d):
         nxt = next((k for k in ("c", "d") if k not in places), None)
         best = next((x for x in mem.get("models") or [] if x.get("drafts")), None)
         if nxt and best:
-            out.append({"id": "member:" + best["id"], "strength": "measured", "apply": {nxt: best["id"]},
+            out.append({"id": "member:" + best["id"], "strength": "measured", "apply": {nxt: best["id"]}, "n": best.get("asked", mem["gap"]),
                         "title": "Add %s as a small model" % best["name"],
                         "why": "On the %d train questions of pass %s that no slot drafted as the larger model did, it answered %d of %d as the larger model did, alone." % (mem["gap"], e(str(mem.get("pass", "?"))), best["drafts"], best.get("asked", mem["gap"])) + elsewhere(mem_from),
                         "note": "a third model makes mistakes of its own, which more slots on the same models do not"})
         elif nxt and not (mem.get("models") or []) and mem.get("notHere"):
             small = sorted(mem["notHere"], key=lambda x: x.get("bytes") or 1e12)[0]
-            out.append({"id": "member:" + small["id"], "strength": "untested", "apply": {nxt: small["id"]},
+            out.append({"id": "member:" + small["id"], "strength": "untested", "apply": {nxt: small["id"]}, "n": mem["gap"],
                         "title": "Add a third small model, %s for one" % small["name"],
                         "why": "On %d of %d train questions of pass %s no slot drafted the larger model&#39;s answer, and nothing that checks or decides can find an answer no draft holds. No other small model is on this machine for the probe to ask, so this is untested: adding one fetches it, and the next pass measures it." % (mem["gap"], mem.get("of", 0), e(str(mem.get("pass", "?")))) + elsewhere(mem_from),
                         "note": "%.1f GB to fetch; the smallest of the %d listed" % ((small.get("bytes") or 0) / 2**30, len(mem["notHere"]))})
+    # ---- WHAT THIS CONFIGURATION'S OWN ANSWERS SAY, AS THEY ARRIVE (ui/data.py session_evidence): nothing here waits for a pass
+    ev = d.get("evidence") or {}
+    small_by = {m["id"]: m for m in reg.get("small", [])}
+    gb_of = lambda mid: ((small_by.get(mid) or {}).get("bytes") or 0) / 2**30  # noqa: E731
+    name_of = lambda mid: (small_by.get(mid) or {}).get("name", mid)  # noqa: E731
+    slow_of = lambda place: max([o["ms"] for k, o in (ev.get("slots") or {}).items() if k.startswith(place + "-")] or [0]) / 1000.0  # noqa: E731
+    places = [k for k in ("a", "b", "c", "d") if k in mine]
+    # (2) A CHANGE YOU MADE, JUDGED ON WHAT FOLLOWED: a model added to the swarm that its own answers say adds nothing. Only a third
+    # or fourth model can be taken out; one in the first two places is changed in its pill.
+    traced, mstat, pairs = ev.get("traced", 0), ev.get("members") or {}, ev.get("pairs") or {}
+    for place in [k for k in ("c", "d") if k in places]:
+        st_ = mstat.get(place) or {"inwin": 0, "sole": 0}
+        if traced < 5 or st_["sole"] > 0 or st_["inwin"] > 0.25 * traced:
+            continue
+        mid = mine[place]
+        echo = next(((p[0], p[1]) for k, p in pairs.items() if all(x.startswith(place + "-") for x in k.split("+")) and p[1]), None)
+        before = [k.name for k in (Path(d["root"]) / ".work" / "train").glob("*--%s" % tid)
+                  if k.is_dir() and k.name.split("--")[0].split("+")[:-1] == [mine[x] for x in places if x != place]]
+        out.append({"id": "drop:" + place, "strength": "measured", "apply": {place: ""}, "n": traced,
+                    "title": "Take %s out of the swarm" % name_of(mid),
+                    "why": "Of the %d right answers traced to the drafts that held them, its drafts were among them %d time%s and the only ones none of the time.%s%s"
+                           % (traced, st_["inwin"], "" if st_["inwin"] == 1 else "s",
+                              (" Its two slots gave the same answer %d times of %d." % echo) if echo else "",
+                              " It was added since the configuration without it; this is the measurement since." if before else ""),
+                    "cost": "saves %.1f GB, and its slots&#39; time (its slowest about %.1f s an answer)" % (gb_of(mid), slow_of(place)),
+                    "note": "the others held every right answer it held"})
+    # (3) THE DECIDER'S RELIABILITY, AND WHY IT MISSED: a decision that timed out is the wait's fault (the engine now waits as long
+    # as the decider needs); one that failed otherwise is the decider's, compared with the decider of the configuration before
+    dv = ev.get("decider") or {}
+    if dv.get("n", 0) >= 10 and dv.get("failed", 0) >= 0.1 * dv["n"]:
+        dname = (d.get("decider") or {}).get("name", "The decider")
+        if dv.get("timedOut", 0) >= dv["failed"] * 0.8:
+            out.append({"id": "decider-wait", "strength": "info", "apply": None, "n": dv["n"],
+                        "title": "%s missed by its wait, not its choices" % dname,
+                        "why": "It did not answer in time %d times of %d, and each time the answer most slots gave stood instead. Every miss was the wait: its decisions take %.1f s at the median, and it was given 8. The wait now grows with how long the decider takes, and a decision that times out is asked again: nothing about the configuration needs to change."
+                               % (dv["timedOut"], dv["n"], ((ev.get("slots") or {}).get("kev-decide") or {}).get("ms", 0) / 1000.0),
+                        "note": "the next session waits as long as it needs"})
+        else:
+            prev = None
+            for k_, o_ in (ev.get("otherDeciders") or {}).items():
+                ids_ = k_.split("+")
+                if ids_[:-1] == [mine[x] for x in places] and o_["n"] >= 10 and (o_["failed"] / o_["n"]) < dv["failed"] / dv["n"]:
+                    prev = (ids_[-1], o_)
+            alt = prev[0] if prev else "kev-4b"
+            if alt != cur_dec:
+                altname = next((m["name"] for m in reg.get("deciders", []) if m["id"] == alt), alt)
+                out.append({"id": "decider-back:" + alt, "strength": "measured", "apply": {"decider": alt}, "n": dv["n"],
+                            "title": "Decide with %s again" % altname,
+                            "why": "%s gave no decision %d times of %d (not for want of time), and the answer most slots gave stood instead.%s"
+                                   % (dname, dv["failed"], dv["n"], (" %s failed %d times of %d on the same small models." % (altname, prev[1]["failed"], prev[1]["n"])) if prev else ""),
+                            "note": "a decider that does not answer cannot be trained on"})
+    # (4) CUT OFF AT ITS TOKEN LIMIT: for training, which measures more room itself (arrange.mjs: a token limit raised by half)
+    capped = [(k, o) for k, o in (ev.get("slots") or {}).items() if o["n"] >= 10 and o["capped"] >= 0.4 * o["n"]]
+    if capped:
+        lim = {s_["id"]: s_.get("maxTokens") for s_ in d["briefs"].get("slots", [])}
+        out.append({"id": "capped", "strength": "info", "apply": None, "n": max(o["n"] for _, o in capped),
+                    "title": "Answers cut off at the token limit",
+                    "why": "%s. An answer cut off is lost however good it was going to be. The plan now finds this and measures each with more room (a token limit raised by half), keeping it only if it wins."
+                           % "; ".join("%s stopped at its limit of %s on %d of %d" % (k, lim.get(k, "?"), o["capped"], o["n"]) for k, o in sorted(capped, key=lambda x: -x[1]["capped"] / x[1]["n"])[:4]),
+                    "note": "training does this itself"})
+    # (5) WHAT EACH COSTS, and (6) HOW STRONG: measured on fewer than 20 answers is early
+    cur_gb = sum(gb_of(mine[k]) for k in places)
+    dmem = lambda i: float(next((m.get("memGb") or 0 for m in reg.get("deciders", []) if m["id"] == i), 0) or 0)  # noqa: E731
+    for r_ in out:
+        a_ = r_.get("apply") or {}
+        if "cost" not in r_ and a_:
+            new = {k: mine.get(k) for k in places}
+            new.update({k: v for k, v in a_.items() if k in ("a", "b", "c", "d")})
+            dgb = sum(gb_of(v) for v in new.values() if v) - cur_gb
+            if "decider" in a_:
+                dgb += dmem(a_["decider"]) - dmem(cur_dec)
+            r_["cost"] = ("about %.1f GB more" % dgb) if dgb > 0.05 else ("about %.1f GB less" % -dgb) if dgb < -0.05 else "about the same memory"
+        if r_["strength"] == "measured" and r_.get("n", 99) < 20:
+            r_["strength"] = "early"
     return out
 
 
@@ -1934,12 +2197,17 @@ def recs_panel(d):
     """The recommended changes to the configuration, each with its evidence and a button to make it."""
     rs = recommendations(d)
     running = bool((run_state() or {}).get("running"))
-    items = "".join(
-        '<li class="rec %s"><div><span class="rstr">%s</span><b>%s</b><p>%s</p><small>%s</small></div>'
-        '<button type="button" class="btn top" data-rec-apply=\'%s\'%s>%s</button></li>'
-        % (r["strength"], "Measured" if r["strength"] == "measured" else "Untested", e(r["title"]), r["why"], e(r.get("note", "")),
-           e(json.dumps(r["apply"])), " disabled" if running else "", "Make this change")
-        for r in rs) or '<li class="muted">No change to the configuration is recommended now.</li>'
+    label = lambda r: {"measured": "Measured", "untested": "Untested", "info": "For training"}.get(r["strength"]) or "Early: %d answers" % r.get("n", 0)  # noqa: E731
+    rests = lambda r: ("rests on %d answer%s" % (r["n"], "" if r["n"] == 1 else "s")) if r.get("n") else ""  # noqa: E731
+    def item(r):
+        meta = " · ".join(x for x in [rests(r), r.get("cost", ""), e(r.get("note", ""))] if x)
+        act = ('<button type="button" class="btn top" data-rec-apply=\'%s\'%s>Make this change</button>' % (e(json.dumps(r["apply"])), " disabled" if running else "")) if r.get("apply") else ""
+        return '<li class="rec %s"><div><span class="rstr">%s</span><b>%s</b><p>%s</p><small>%s</small></div>%s</li>' % (r["strength"], e(label(r)), e(r["title"]), r["why"], meta, act)
+    mine_ = [r for r in rs if r.get("apply")]
+    theirs = [r for r in rs if not r.get("apply")]
+    items = "".join(item(r) for r in mine_) or '<li class="muted">No change to the configuration is recommended now.</li>'
+    if theirs:
+        items += '<li class="rech">What training does about it itself</li>' + "".join(item(r) for r in theirs)
     return ('<div class="spec-head"><div><div class="kicker">What only you can change</div><h3 style="font-size:22px;margin-top:4px">Recommended configuration changes</h3></div>'
             '<button class="btn stop top" id="rec-close" type="button">Close</button></div>'
             '<p class="muted small" style="margin:8px 0 12px">A pass cannot change which models the swarm is made of: these are for you. Each says what it rests on. A change starts this configuration&#39;s own record, as choosing models in the pills does.%s</p>'
@@ -1949,7 +2217,7 @@ def recs_panel(d):
 def config_section(d):
     """The pills and Equivalent on, in one section that folds (open to begin with); folded, it says in a line what it is. Beside its
     heading, a note when the evidence recommends a change to it."""
-    n = len(recommendations(d))
+    n = len([r for r in recommendations(d) if r.get("apply")])
     badge = ('<button type="button" class="recbadge" id="rec-open" title="Open the recommended configuration changes"><i></i>%d recommendation%s</button>' % (n, "" if n == 1 else "s")) if n else ""
     return ('<details class="cfg fold" data-keep="cfg" open><summary><span class="cfgh">Configuration</span><span id="rec-slot">%s</span><span class="fmeta" id="cfg-meta">%s</span></summary>'
             '<div class="foldb">%s%s</div></details>' % (badge, e(cfg_meta(d)), pills(d), equiv(d)))
@@ -2252,7 +2520,7 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/fragment/recs":
             return self._send(recs_panel(d))
         if u.path == "/fragment/recslot":
-            n = len(recommendations(d))
+            n = len([r for r in recommendations(d) if r.get("apply")])
             return self._send(('<button type="button" class="recbadge" id="rec-open" title="Open the recommended configuration changes"><i></i>%d recommendation%s</button>' % (n, "" if n == 1 else "s")) if n else "")
         if u.path == "/fragment/cfgmeta":
             return self._send(e(cfg_meta(d)))

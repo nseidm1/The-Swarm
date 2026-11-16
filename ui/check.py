@@ -53,7 +53,8 @@ def get(url):
 
 with tempfile.TemporaryDirectory() as tmp:
     root = Path(tmp) / "sample"
-    sample.main(root)
+    # the made-up data is of a swarm of the checks' own, whatever is chosen on this machine
+    sample.main(root, {"a": "lfm25-2.6b", "b": "bonsai2-2b", "decider": "kev-4b", "target": "nemotron35-30b"})
     d = data.load(root)
     held = d["splits"]["held"]
     check("the made-up data is read: the swarm, the larger model and each small model alone on the same held questions",
@@ -209,9 +210,28 @@ with tempfile.TemporaryDirectory() as tmp:
             sk.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, __import__("struct").pack("ii", 1, 0))
             sk.close()  # gone at once, with the page still being written
         time.sleep(0.8)
-    check("the arrangement is one section: the swarm as it stands (its briefs, slots and kept changes), what is running, what the plan is trying now, the flow's columns of slots, and the larger model as the flow's last column, the mark, with how it is served and the configurations at parity with it",
-          'class="panel arr"' in html and "The swarm as it stands" in html and 'class="achips"' in html and 'class="stage mark"' in html and 'class="slot tgt"' in html and 'data-live="target"' in html
-          and 'class="panel target"' not in html and "and the larger model alongside" not in html and html.index('class="stage mark"') > html.index('class="stages"') and "The mark: what the swarm is measured against" in html and "Configurations at parity with it" in html, html.count('class="stage'))
+    arr = html[html.index('class="panel arr"'):html.index('id="strategy"')]
+    faces = re.findall(r'class="av ([a-z]+)[^"]*" data-av="([^"]+)"', arr)
+    slot_ids = [s["id"] for s in d["briefs"]["slots"]]
+    check("the arrangement is one section, drawn as faces: a roster of the models (each small model, the decider, the larger model, whose chip carries its live dot and opens its card), then the flow as stations in order, each slot a face of its model in the step it stands in, with its record as a ring, its own live dot and its whole name; the sandbox, which no model fills, is a marker between two stations; choosing a face opens that slot's card, with what it is told, below the row",
+          'class="panel arr"' in arr and "The swarm as it stands" in arr and 'class="achips"' in arr and arr.count('class="mav ') == len(d["members"]) + 2
+          and set(slot_ids) <= {k for _, k in faces} and all(m == next(s["member"] for s in d["briefs"]["slots"] if s["id"] == k) for m, k in faces if k in slot_ids)
+          and "kev-decide" in [k for _, k in faces] and "target" not in [k for _, k in faces] and 'class="st mk"' not in arr
+          and re.search(r'<button type="button" class="mav tgt" data-av="target"[^>]*>.*?data-live="target"', arr) and re.search(r'class="via" data-av="run"', arr)
+          and arr.index('class="via" data-av="run"') > arr.index('data-av="a-direct"') and arr.index('class="via" data-av="run"') < arr.index('data-av="a-critic"')
+          and all('data-live="%s"' % k in arr for k in slot_ids + ["target", "kev-decide", "run"]) and all('<template id="avt-%s">' % k in arr for k in slot_ids + ["target", "run"])
+          and "b&#8209;other-<wbr>way" in arr and ">b&#8209;recompute<" in arr and "text-overflow:ellipsis;white-space:nowrap;line-height:1.2" not in html
+          and "--p:" in arr and "Configurations at parity with it" in arr and "What it is told" in arr and "box.innerHTML=t.innerHTML" in html
+          and 'class="stage' not in arr and 'class="panel target"' not in html, faces)
+    # AN ANSWER NOBODY COMPARED IS NOT A WRONG ONE: code is compared by running it, so a slot's code with no mark from the trainer is
+    # left out of its record rather than counted as not equivalent
+    code_rows = [{"ref": "function f(x) {\n  return x;\n}", "grade": "right", "trace": [{"slot": "a-direct", "stage": "draft", "final": "function f(x) {\n  return x;\n}"},
+                                                                                     {"slot": "a-writer", "stage": "write", "final": "x"}]},
+                 {"ref": "42", "grade": "wrong", "trace": [{"slot": "a-direct", "stage": "draft", "final": "42"}, {"slot": "a-critic", "stage": "check", "final": "41", "same": False}]}]
+    rr = data.slot_record(code_rows)
+    check("an answer nobody compared is not counted as a wrong one: a slot's code with no mark from the trainer is left out of its record (answered, not judged), a short answer is judged by its words, a checker's mark is taken as it is, and the reply by its grade; the face says not judged rather than 0",
+          rr.get("a-direct", {}).get("judged") == 1 and rr["a-direct"]["right"] == 1 and rr["a-direct"]["ran"] == 2 and rr.get("a-critic", {}).get("judged") == 1 and rr["a-critic"]["right"] == 0
+          and rr.get("a-writer", {}).get("judged") == 1, rr)
     check("the models and what the swarm is equivalent on are one section, Configuration, that folds (open to begin with) and folded says in a line what the swarm is; the line is drawn again when either changes",
           '<details class="cfg fold" data-keep="cfg" open>' in html and html.index('data-keep="cfg"') < html.index('id="picks"') < html.index('id="equiv"') and 'id="cfg-meta"' in html
           and " · decided by " in html.split('id="cfg-meta">')[1][:200] and get(base + "/fragment/cfgmeta")[0] == 200 and "swap('/fragment/cfgmeta','#cfg-meta')" in html, html.split('id="cfg-meta">')[1][:160])
@@ -398,6 +418,40 @@ with tempfile.TemporaryDirectory() as tmp:
           'id="rec-open"' not in none_yet and [r["id"] for r in rs] == ["decider:startlux-4b", "member:qwen35-2b"] and [r["strength"] for r in rs] == ["measured", "untested"]
           and "2 recommendations" in sec and 'id="recd"' in html and "Decide with StartLux Decision 4B" in pop and "recovered 4" in pop and "Untested" in pop and "Qwen3.5 2B" in pop and "kev-9b" not in pop and "Kev 9B" not in pop
           and pop.count("data-rec-apply") == 2 and ap == 200 and now_cfg.get("decider") == "startlux-4b" and "stopPropagation" in html, [r["id"] for r in rs])
+    # WHAT THE CONFIGURATION'S OWN ANSWERS SAY, AS THEY ARRIVE (ui/data.py session_evidence), and what is recommended from it
+    def row(i, right=True):
+        tr = [{"slot": "a-direct", "member": "a", "stage": "draft", "letter": "A", "final": "x" if right else "y", "tokens": 700, "ms": 6000},
+              {"slot": "b-direct", "member": "b", "stage": "draft", "letter": "B", "final": "x" if right else "z", "tokens": 100, "ms": 3000},
+              {"slot": "c-direct", "member": "c", "stage": "draft", "letter": "C", "final": "q", "tokens": 80, "ms": 900},
+              {"slot": "c-other-way", "member": "c", "stage": "draft", "letter": "D", "final": "q", "tokens": 80, "ms": 1100},
+              {"slot": "kev-decide", "member": "kev", "stage": "decide", "ok": i % 4 != 0, "ms": 5800,
+               "out": "Decided nothing: Kev did not answer: The operation was aborted due to timeout." if i % 4 == 0 else "Picked A."}]
+        return {"grade": "right" if right else "wrong", "decided": "x" if right else "y", "tried": {"groups": [["A", "B"], ["C", "D"]]}, "trace": tr}
+    rows_ = [row(i, i < 24) for i in range(30)]
+    sl = d["briefs"]["slots"] + [{"id": "c-direct", "member": "c", "stage": "draft", "maxTokens": 700}, {"id": "c-other-way", "member": "c", "stage": "draft", "maxTokens": 700}]
+    sl = [dict(x, maxTokens=700) for x in sl]
+    ev = data.session_evidence(rows_, sl)
+    third = next(m for m in d["registry"]["small"] if m["id"] == "lfm25-1.2b")
+    dd = dict(data.load(root), evidence=dict(ev, otherDeciders={}))
+    dd["members"] = dict(dd["members"], c=third)
+    dd["briefs"] = dict(dd["briefs"], slots=sl)
+    rs3 = swarm_ui.recommendations(dd)
+    by3 = {r["id"]: r for r in rs3}
+    # a decider whose misses were not its wait: the decider before it (with a better record on the same small models) is recommended
+    ev2 = dict(ev, decider={"n": 30, "failed": 8, "timedOut": 0, "retried": 0},
+               otherDeciders={"+".join([dd["members"]["a"]["id"], dd["members"]["b"]["id"], third["id"], "kev-9b"]): {"n": 400, "failed": 0, "timedOut": 0}})
+    by4 = {r["id"]: r for r in swarm_ui.recommendations(dict(dd, evidence=ev2))}
+    early = {r["id"]: r for r in swarm_ui.recommendations(dict(dd, evidence=dict(ev, traced=12, members={"a": {"inwin": 12, "sole": 4}, "b": {"inwin": 9, "sole": 0}, "c": {"inwin": 1, "sole": 0}})))}
+    check("a configuration's own answers are read as they arrive: each slot's failures and token-limit stops, the decider's timeouts, which model's drafts held each right answer (and which alone), and how often two slots on one model did the same",
+          ev["answers"] == 30 and ev["traced"] == 24 and ev["members"]["a"] == {"inwin": 24, "sole": 0} and ev["members"].get("c") is None and ev["pairs"]["c-direct+c-other-way"] == [30, 30]
+          and ev["slots"]["a-direct"]["capped"] == 30 and ev["slots"]["b-direct"]["capped"] == 0 and ev["decider"] == {"n": 30, "failed": 8, "timedOut": 8, "retried": 0}, ev)
+    check("from them: a third model whose drafts held no right answer the others did not is recommended out of the swarm (with what it saves, and its two slots echoing), early on fewer than 20 traced answers; a decider whose misses were all its wait is not blamed (the wait now grows: for training, no button); one that failed otherwise is recommended back to the decider before it, by its record; slots cut off at their token limit are for training, which measures more room itself; each says how many answers it rests on; only what a person can change is counted in the note",
+          by3.get("drop:c", {}).get("apply") == {"c": ""} and by3["drop:c"]["strength"] == "measured" and by3["drop:c"]["n"] == 24 and "saves 0.7 GB" in by3["drop:c"]["cost"] and "30 times of 30" in by3["drop:c"]["why"]
+          and by3.get("decider-wait", {}).get("apply") is None and by3["decider-wait"]["strength"] == "info" and "8 times of 30" in by3["decider-wait"]["why"]
+          and by3.get("capped", {}).get("apply") is None and "a-direct stopped at its limit of 700 on 30 of 30" in by3["capped"]["why"]
+          and by4.get("decider-back:kev-9b", {}).get("apply") == {"decider": "kev-9b"} and "decider-wait" not in by4
+          and early["drop:c"]["strength"] == "early" and all("n" in r for r in rs3)
+          and len([r for r in rs3 if r.get("apply")]) == len([r for r in rs3 if r["strength"] != "info"]), [(r["id"], r["strength"]) for r in rs3])
     # TAKING ONE DOES NOT UNDO ANOTHER: the decider changed is a new configuration with no record of its own; what was measured on
     # the same small models still stands (the third model is still recommended, said where it was measured), the way back to the
     # configuration it came from is not recommended (one not yet measured is not behind), and taking the third keeps the decider

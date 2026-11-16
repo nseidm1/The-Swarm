@@ -31,7 +31,7 @@ QUESTIONS = [
 ]
 
 
-def main(dest):
+def main(dest, config=None):
     dest = Path(dest)
     if dest.exists() and not (dest / ".sample").exists() and any(dest.iterdir()):
         sys.exit("%s exists and is not a sample folder: not written to." % dest)
@@ -40,17 +40,23 @@ def main(dest):
     (dest / ".sample").write_text("made-up data: see ui/sample.py\n")
     shutil.copy(HERE / "src" / "briefs.json", dest / "src" / "briefs.json")
     shutil.copy(HERE / "training" / "policy.json", dest / "training" / "policy.json")
-    for name in ("models.json", "config.json"):
-        shutil.copy(HERE / "src" / name, dest / "src" / name)
+    shutil.copy(HERE / "src" / "models.json", dest / "src" / "models.json")
+    # the swarm the made-up data is of: the one configured here, or one given (the checks give their own, so that what a person has
+    # chosen on this machine cannot change what they check)
+    if config:
+        (dest / "src" / "config.json").write_text(json.dumps(config, indent=2) + "\n")
+    else:
+        shutil.copy(HERE / "src" / "config.json", dest / "src" / "config.json")
     for f in (HERE / "training" / "candidates").glob("*.json"):
         shutil.copy(f, dest / "training" / "candidates" / f.name)
     # (training/state.json holds only what was read once a real pass has run: the rest is given here, as a pass begins with it)
     state = {"pass": 0, "target": "", "seeds": {"train": 1009, "held": 7919}, "focus": {}, "tried": {}, "order": [], "questions": [], "seen": [], "ideas": [], "history": [],
              **json.loads((HERE / "training" / "state.json").read_text())}
     briefs = json.loads((HERE / "src" / "briefs.json").read_text())
-    chosen = json.loads((HERE / "src" / "config.json").read_text())
+    chosen = json.loads((dest / "src" / "config.json").read_text())
     target = chosen["target"]
-    cfg = "+".join([chosen["a"], chosen["b"], chosen["decider"]])
+    # (every small model in its place, as src/catalog.mjs names a configuration: a third or fourth is part of the name)
+    cfg = "+".join([chosen[k] for k in ("a", "b", "c", "d") if chosen.get(k)] + [chosen["decider"]])
     rnd = random.Random(7)
     swarm, base = [], []
     for split in ("held", "train"):
@@ -131,7 +137,7 @@ def main(dest):
     # what this made-up swarm has "learned": two changes kept by earlier passes, with made-up evidence, and where each pass left it
     reg = json.loads((dest / "src" / "models.json").read_text())
     cho = json.loads((dest / "src" / "config.json").read_text())
-    cfg = "+".join([cho.get("a") or reg["small"][0]["id"], cho.get("b") or reg["small"][1]["id"], cho.get("decider") or reg["deciders"][0]["id"]])
+    cfg = "+".join([cho.get("a") or reg["small"][0]["id"], cho.get("b") or reg["small"][1]["id"]] + [cho[k] for k in ("c", "d") if cho.get(k)] + [cho.get("decider") or reg["deciders"][0]["id"]])
     briefs = json.loads((dest / "src" / "briefs.json").read_text())
     learned = {
         "config": cfg, "target": target, "briefs": dict(briefs, version=3, flow=[{"do": "draft"}, {"do": "try"}, {"do": "check"}, {"do": "revise"}, {"do": "decide"}, {"do": "write"}]),

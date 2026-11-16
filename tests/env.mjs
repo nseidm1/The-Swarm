@@ -13,8 +13,16 @@ process.env.SWARM_LEARNED_DIR = path.join(WORK_DIR, 'learned');
 // nor what a real configuration remembers of its training (training/state.mjs)
 process.env.SWARM_STATES_DIR = path.join(WORK_DIR, 'states');
 process.env.SWARM_STATE = path.join(WORK_DIR, 'state.json');
-// nor the configuration a person has chosen: the checks have a copy of it, and change only the copy (src/catalog.mjs)
-fs.copyFileSync(new URL('../src/config.json', import.meta.url), path.join(WORK_DIR, 'config.json'));
+// nor the configuration a person has chosen: the checks have one of their own, and change only that (src/catalog.mjs). Not a copy
+// of the person's: a third model chosen on this machine and not yet fetched would stop a check that has nothing to do with it.
+fs.writeFileSync(
+  path.join(WORK_DIR, 'config.json'),
+  JSON.stringify(
+    { a: 'lfm25-2.6b', b: 'bonsai2-2b', decider: 'kev-4b', target: 'nemotron35-30b', equivalence: ['crew'] },
+    null,
+    2,
+  ) + '\n',
+);
 process.env.SWARM_CONFIG = path.join(WORK_DIR, 'config.json');
 // nor the questions a person wrote (training/questions/)
 process.env.SWARM_QUESTIONS_DIR = path.join(WORK_DIR, 'questions');

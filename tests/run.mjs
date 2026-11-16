@@ -2666,6 +2666,68 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+// ---- 6v: what the measurement held and no finding read: answers cut off at the token limit, a drafter that echoes another on its
+// own model, the decider not answering in time; each found, and each answered by a move that speaks to it
+{
+  const { slotReport } = await import('../training/measure.mjs');
+  const { diagnose, makePlan } = await import('../training/plan.mjs');
+  const { steps } = await import('../training/arrange.mjs');
+  const b = {
+    ...briefs,
+    slots: briefs.slots.map((x) =>
+      x.id === 'a-steps' ? { ...x, maxTokens: 700 } : { ...x, maxTokens: x.maxTokens || 700 },
+    ),
+  };
+  const task = {
+    equivalent: async (ref, text) => ({ grade: String(text).trim() === String(ref).trim() ? 'right' : 'wrong' }),
+    wrap: (x) => x,
+  };
+  const rows = [];
+  for (let i = 0; i < 8; i++)
+    rows.push({
+      id: 'q' + i,
+      refReply: '1',
+      grade: i < 4 ? 'right' : 'wrong',
+      path: i % 4 === 0 ? 'most' : 'decided',
+      decided: i < 4 ? '1' : '2',
+      tried: { groups: [['A', 'B'], ['C'], ['D']] },
+      trace: [
+        { slot: 'a-direct', member: 'a', stage: 'draft', letter: 'A', final: '2', tokens: 300, ms: 1 },
+        { slot: 'a-steps', member: 'a', stage: 'draft', letter: 'B', final: '2', tokens: 700, ms: 1 },
+        { slot: 'b-direct', member: 'b', stage: 'draft', letter: 'C', final: i < 4 ? '1' : '3', tokens: 200, ms: 1 },
+        { slot: 'b-other-way', member: 'b', stage: 'draft', letter: 'D', final: '4', tokens: 200, ms: 1 },
+        i % 4 === 0
+          ? { slot: 'kev-decide', member: 'kev', stage: 'decide', final: '', ok: false, timedOut: true, ms: 1 }
+          : { slot: 'kev-decide', member: 'kev', stage: 'decide', final: i < 4 ? '1' : '2', ok: true, ms: 1 },
+      ],
+    });
+  const byId = Object.fromEntries(rows.map((r) => [r.id, task]));
+  const rep = await slotReport(rows, byId, { briefs: b });
+  const report = { compared: 8, right: 4, wrong: 4, lost: 0, ...rep };
+  const found = diagnose(report);
+  const ids = found.map((f) => f.id);
+  const plan = makePlan({ state: { pass: 2, tried: {} }, briefs: b, steps: steps(b), report, tries: 40 });
+  const forCap = plan.moves.find((m) => (m.why || []).includes('capped:a-steps'));
+  const forEcho = plan.moves.filter((m) => (m.why || []).includes('echo:a-steps')).map((m) => m.what);
+  check(
+    'what the measurement held and no finding read is found and answered: a slot stopping at its token limit on most questions (cut off), a drafter that does what another on its own model does nearly always (an echo), the decider not answering in time; a cut-off slot is answered by more room to answer, an echo by sampling it differently, moving it or telling it what another drafter is told',
+    rep.slots['a-steps'].capped === 8 &&
+      !rep.slots['a-direct'].capped &&
+      rep.slots['a-steps'].echo === 8 &&
+      rep.slots['b-direct'].echo === undefined &&
+      rep.slots['kev-decide'].timedOut === 2 &&
+      ids.includes('capped:a-steps') &&
+      ids.includes('echo:a-steps') &&
+      ids.includes('decider-slow:kev-decide') &&
+      !ids.includes('echo:b-direct') &&
+      forCap &&
+      /a-steps with a token limit of 1100/.test(forCap.what) &&
+      forCap.technique === 'More room to answer' &&
+      forEcho.length > 0 &&
+      forEcho.every((w) => /at temperature|^move | drafts as /.test(w)),
+    { ids, cap: forCap && forCap.what, forEcho },
+  );
+}
 // ---- 6u: each configuration keeps its own record, but what one kept is measured first by the others
 {
   const { makePlan } = await import('../training/plan.mjs');
@@ -2744,6 +2806,60 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       /Its final answer: 41/.test(seen) &&
       /Its final answer: 42/.test(seen),
     seen.slice(0, 400),
+  );
+}
+// ---- 7a: the decider's wait fits the decider, and a timeout is asked once more (StartLux through MLX: 5.8 s at the median, and
+// every failure in 40 decisions was the fixed 8-second wait)
+{
+  const { kevDecider } = await import('../src/decider.mjs');
+  let delay = 60;
+  let calls = 0;
+  const slow = http.createServer((req, res) => {
+    calls++;
+    req.resume();
+    req.on('end', () =>
+      setTimeout(() => {
+        if (!res.destroyed)
+          res
+            .writeHead(200, { 'content-type': 'application/json' })
+            .end(JSON.stringify({ answers: { pick: { choice: 'A', probabilities: { A: 0.8, B: 0.2 } } } }));
+      }, delay),
+    );
+  });
+  await new Promise((r) => slow.listen(0, '127.0.0.1', r));
+  const base = 'http://127.0.0.1:' + slow.address().port;
+  const answers = [
+    { letter: 'A', final: '1', work: '' },
+    { letter: 'B', final: '2', work: '' },
+  ];
+  // a wait of 40 ms against a decider that takes 60: the first ask times out, the second (80 ms) is answered
+  const d1 = kevDecider({ base, timeoutMs: 40, maxTimeoutMs: 400 });
+  const r1 = await d1({ question: 'q', answers });
+  const c1 = calls;
+  // after decisions that took about 60 ms, the next waits three times the slowest of them (at least 40)
+  const grown = d1.waitMs();
+  // a decider that will not answer in time even when asked again decides nothing, and says it was asked again
+  delay = 1000;
+  const d2 = kevDecider({ base, timeoutMs: 30, maxTimeoutMs: 60 });
+  const r2 = await d2({ question: 'q', answers });
+  // a decider that is down is not asked again: nothing to wait for
+  const d3 = kevDecider({ base: 'http://127.0.0.1:1', timeoutMs: 30, maxTimeoutMs: 400 });
+  const r3 = await d3({ question: 'q', answers });
+  slow.close();
+  check(
+    "the decider's wait fits the decider: a decision that times out is asked once more with twice the wait and then stands; the wait grows to three times the slowest recent decision; a decider that times out twice decides nothing and says it was asked again; one that is down is not asked again",
+    r1.ok &&
+      r1.letter === 'A' &&
+      r1.retried === true &&
+      c1 === 2 &&
+      grown >= 150 &&
+      grown <= 400 &&
+      r2.ok === false &&
+      r2.retried === true &&
+      /did not answer/.test(r2.why) &&
+      r3.ok === false &&
+      !r3.retried,
+    { r1: [r1.ok, r1.retried, c1], grown, r2: [r2.ok, r2.retried], r3: [r3.ok, r3.retried, r3.why] },
   );
 }
 // ---- 7b: the decide step is a decision model (Kev); no slot judges

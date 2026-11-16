@@ -125,7 +125,10 @@ A pass does not work through a fixed list. Once it has measured the Swarm on its
 | A checker less often equivalent than the best draft | each checker's own record | Its brief; what it is shown; moving or dropping it |
 | The decider had the answer and chose another | the decider's record | One worked answer for each different answer; what the checkers are shown; one more checker |
 | The writer changed the settled answer | the writer's record | Its brief |
-| A slot said nothing | each slot's record | Its brief; moving or dropping it |
+| A slot said nothing | each slot's record | Its brief; moving or dropping it; more room to answer |
+| A slot cut off at its token limit on 4 in 10 or more | each slot's stops at its limit | More room to answer: its token limit raised by half, to 2000 at most |
+| A drafter that does what another on its own model does, 8 in 10 or more | what each drafter's answer did, beside its mate's | Its temperature; moving it; telling it what another drafter is told; another brief |
+| The decider not answering in time on 1 in 10 or more | the decider's timeouts | None here: the engine's wait grows with the decider (three times its slowest recent decision, up to 30 s) and asks a timed-out decision again |
 
 Every move open to the pass (each candidate in [`candidates/`](candidates), each idea the reading left, each arrangement one
 step from this one) is scored by the answers the findings it speaks to account for. Slots are worked in that order, and the
@@ -136,6 +139,11 @@ when there is room: a pass tries what no pass has.
 The plan is written twice. First when the pass begins, from what the last pass left, so that there is one before anything
 is measured; then again from this pass's own measurement. `improve.mjs` and `arrange.mjs` mark each move as they measure
 it: being measured, then kept or not kept, with what it scored. The dashboard shows it as it stands.
+
+The last three rows were added on 2026-11-16 from a measurement of 41 questions: a-steps stopped at its limit of 700
+tokens on 38 of 41 (its empty drafts were cut-off ones), one model's two drafters did the same 22 times of 25, and every one of
+the decider's 8 misses in 40 was the fixed 8-second wait (its median was 5.8 s), each one the answer most slots gave standing
+in its place. A general change to the flow is not credited with answering any of them.
 
 A score in the plan says where to look first. It is not a measurement: a move is kept by the one rule, higher on train and
 not lower on held.

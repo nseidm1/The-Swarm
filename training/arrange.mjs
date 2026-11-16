@@ -152,6 +152,15 @@ export function steps(b, { cap = SERVING.slots, members = [...new Set(b.slots.ma
       ),
     });
   }
+  // MORE ROOM: a slot's token limit raised by half (to 2000 at most). A slot cut off at its limit loses the answer it was writing
+  for (const s of b.slots.filter((x) => x.stage !== 'decide' && x.maxTokens)) {
+    const t = Math.min(2000, Math.round((s.maxTokens * 1.5) / 100) * 100);
+    if (t > s.maxTokens)
+      out.push({
+        name: s.id + ' with a token limit of ' + t,
+        briefs: withSlots(b.slots.map((x) => (x.id === s.id ? { ...x, maxTokens: t } : x))),
+      });
+  }
   for (const s of drafts)
     for (const d of [0.3, -0.3]) {
       const t = Math.round(((s.temperature ?? 0.4) + d) * 10) / 10;

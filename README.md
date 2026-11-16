@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/dashboard.png" alt="The training dashboard: Configuration, with a note of two recommended changes, the pills that choose the small models, the decision model and the larger model, and the boxes for what the swarm is to be equivalent on; parity with Nemotron 3.5 Lightning 30B as a panel, 59.5% of the way, with each small model alone beside the swarm; the memory saved, 52.2%; the arrangement, every slot by stage and the larger model under them; and beside them the training card, its sections folded to a line each, and the passes so far" width="860">
+  <img src="docs/images/dashboard.png" alt="The training dashboard: Configuration, with a note of two recommended changes, the pills that choose the small models, the decision model and the larger model, and the boxes for what the swarm is to be equivalent on; parity with Nemotron 3.5 Lightning 30B as a panel, 59.5% of the way, with each small model alone beside the swarm; the memory saved, 52.2%; and beside them the training card, its sections folded to a line each, and the passes so far" width="860">
 </p>
 
 <p align="center"><em>The training dashboard in pass 6 of a real session, stopped at step 17 of 25 (LFM2.5 2.6B and Bonsai 2 2B, decided by Kev 4B, against Nemotron 3.5 Lightning 30B; 2026-11-16).</em></p>
@@ -296,6 +296,12 @@ The pictures here and at the top of this page show it in pass 6 of a real sessio
 line what it holds while folded; open or folded is kept on the device.
 
 <p align="center">
+  <img src="docs/images/dashboard-arrangement.png" alt="The arrangement being trained, as faces: a roster of the models (LFM2.5 2.6B, Bonsai 2 2B, Kev 4B, and Nemotron 3.5 Lightning 30B, the mark, whose chip carries its live dot); then the flow in one row, Draft, a marker for the sandbox, Check, Decide, Write, each slot a face in its model&#39;s colour with its whole name, its record as a ring (a-direct 37 of 69, a-steps 38 of 63) and a dot for what it is doing; a-steps carries a badge saying the session stopped while a brief was being tried on it; below, a-steps opened: what it is told and the brief being tried" width="860">
+</p>
+
+<p align="center"><em>The arrangement: every slot as a face of its model, in the step of the flow it stands in. Choosing one opens what it is told.</em></p>
+
+<p align="center">
   <img src="docs/images/dashboard-plan.png" alt="The plan being carried out: what the pass's measurement showed, then each move in order with its slot and model, its technique, the paper it came from, why it was chosen, and whether it is planned, being measured, kept or not kept" width="860">
 </p>
 
@@ -326,7 +332,7 @@ line what it holds while folded; open or folded is kept on the device.
 | Uninstall Helper | Everything the Swarm has put in `.work`, with the room each takes and whether the configured swarm uses it, and a button to take out each. It never touches anything outside `.work`, what training has learned, or anything while a session runs |
 | Training | **Run training** fetches and makes ready whatever the chosen models need, then trains pass after pass until **Stop training** is pressed. Its sections say where the session is: making ready (what is being fetched and how far), **Now** (the step and the question it is on), **Pass** (the steps done and what is next), **Heading** (where the percentage stands and could go), **Recovered** (faults it came back from) and **Learned this session**. Below it: the passes so far, and the ideas waiting to be measured, each opening the paper it came from |
 | Parity with the larger model | Two panels and a line of chips. **Toward parity** (amber short of parity, green at it): the share of held answers equivalent to the larger model's, large, with the verdict in a sentence, the swarm's answers as a bar (equivalent, different, no answer) and each small model alone beside it on one scale. **Memory saved**: the larger model's memory as one bar and the swarm's beside it, made of its parts (each small model, their contexts, the decider), with the saving, estimated. Then chips: held questions, where the larger model follows the question, seconds a reply. It opens the whole measurement |
-| The arrangement being trained | One section: the swarm as it stands (briefs, slots, kept changes), what is running, what the plan is trying now, the flow as one column for each step with every slot as a card (the model that fills it, what it is for, what it is doing at this moment), and the larger model it is measured against, the mark, with how it is served and the configurations at parity with it |
+| The arrangement being trained | One section, drawn as faces: the swarm as it stands (briefs, slots, kept changes), what is running, and what the plan is trying now. Then a roster of the models, each a face in its colour (two of one family are told apart by size: L2.6, L1.2); the larger model's chip carries its live dot and opens its card (how it is served, the configurations at parity with it). Then the flow in one row of stations (Draft › Check › Decide › Write, a loop drawn round the steps it repeats); the sandbox, which no model fills, is a marker between the stations it runs between. Each slot is a face of its model in the step it stands in, with its whole name: a ring for its record (its answers equivalent to the larger model's, of those judged; an answer not yet compared is left out, not counted as different), a dot and a halo for what it is doing now (working, answered, failed, idle), and a badge while the plan is trying a brief on it. Choosing a face opens that slot's card below the row: what it is told, its record, what is being tried on it |
 | The plan being carried out | What this pass's measurement showed, and every move the pass chose because of it, in order: the slot and model, the technique, the paper it came from, why it was chosen, and what became of it (planned, being measured, kept, not kept). **What only you can change**: whether another small model on this machine drafts what no slot drafts, and how another decider did on the same recorded choices. **Steer it**: lean the search on an area (briefs, slots, flow, decider placement, decider loops, several at once: less, as planned, more, only), put any move first or skip one, or choose from every move open to the pass. Steering decides what is tried, never what is kept |
 | The whole measurement (opened from the parity strip) | Equivalent answers pass by pass, which step settled each answer, each kind of question, each small model alone; **the memory the swarm takes against the larger model's**, as a bar for each on one scale, the swarm's made of its parts (each small model, their contexts, the decider), estimated; and **input against output**: any question asked, its input and what the larger model answered, what every slot wrote and settled on, the Swarm's output and the larger model's beside it |
 
@@ -334,11 +340,16 @@ line what it holds while folded; open or folded is kept on the device.
 
 A pass cannot change which models the swarm is made of; a person can. When the evidence points at a change to the
 configuration, a note beside **Configuration** says how many, and opens them: each with how strong its evidence is
-(**measured**, or **untested** where nothing here could measure it yet), what it rests on, and **Make this change**, which
-changes the configuration as a pill does.
+(**measured**; **early** on fewer than 20 answers; **untested** where nothing here could measure it yet), how many answers it
+rests on, what it would cost in memory and time, and **Make this change**, which changes the configuration as a pill does.
+Below them, what the evidence points at that training does about itself.
+
+The evidence is read as it arrives: the configuration's own answers, as a pass measures them, not only a finished pass. They
+say which model's drafts held each right answer (and which held it alone), how often two slots on one model did the same,
+how often a slot stopped at its token limit, and how often the decider did not answer.
 
 <p align="center">
-  <img src="docs/images/dashboard-recommendations.png" alt="Recommended configuration changes: measured, decide with StartLux Decision 4B, which on the 46 choices recorded in pass 6 recovered 4 that Kev 4B missed and lost 3; untested, add a third small model, LFM2.5 1.2B, since on 19 of 70 train questions no slot drafted the larger model's answer; each with a Make this change button" width="620">
+  <img src="docs/images/dashboard-recommendations.png" alt="Recommended configuration changes for the swarm of LFM2.5 2.6B, Bonsai 2 2B and LFM2.5 1.2B decided by StartLux Decision 4B, during its first pass: early, on 13 answers, take LFM2.5 1.2B out of the swarm, since its drafts were the only ones holding a right answer none of the time and its two slots gave the same answer 22 times of 25, saving 0.7 GB; then, for training, StartLux missed by its wait, not its choices (8 of 43 decisions timed out at 8 s, its median 5.8 s), and answers cut off at the token limit (a-critic 40 of 43, a-steps 39 of 44, b-recompute 34 of 43)" width="620">
 </p>
 
 | Recommends | When |
@@ -347,6 +358,9 @@ changes the configuration as a pill does.
 | A third or fourth small model | No slot drafted the larger model's answer on some questions ([`members-probe.mjs`](training/members-probe.mjs)): measured where another small model here drafts them, untested where none is here to ask |
 | One small model in place of another | Alone against the same larger model, it answered as the larger model did at least 5 points more often than the weakest member. Any configuration's measurement counts |
 | Another configuration | It is further along against the same larger model than this one, which has been measured. Both keep their own records |
+| Taking a third or fourth model out | Its drafts held no right answer the others did not, and few at all; its slots echoing each other says so too. A change you made is judged on what followed it |
+| The decider before this one | This decider gave no decision on 1 in 10 or more, not for want of time, and the one before it (on the same small models) did better |
+| For training, not you | A decider that missed only by its wait (the engine's wait now grows with the decider, and a timeout is asked again); slots cut off at their token limit (the plan measures more room) |
 
 Recommendations build on each other. A changed decider makes a new configuration with no record yet; until it has one, the
 members probe and the decider replay are read from the configuration with the same small models against the same larger

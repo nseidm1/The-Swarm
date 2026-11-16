@@ -487,6 +487,11 @@ export async function answer(
             : 'Decided nothing: ' + (k.why || 'no reason given') + '. The answer most slots gave stands.',
           final: k.ok ? k.final : '',
           ok: !!k.ok,
+          // (a decision that timed out once and was asked again with a longer wait: kept so a record can count it)
+          ...(k.retried ? { retried: true } : {}),
+          ...(k.ok === false && /did not answer/.test(String(k.why || ''))
+            ? { timedOut: /abort|timeout/i.test(String(k.why)) }
+            : {}),
           probs: k.probs,
           yes: k.yes,
         };

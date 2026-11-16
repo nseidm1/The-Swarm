@@ -153,6 +153,90 @@ def footprint(members, decider, target):
             "parts": parts, "targetName": (target or {}).get("name", "")}
 
 
+def session_evidence(rows, slots):
+    """WHAT A MEASUREMENT SAYS ABOUT THE CONFIGURATION, AS IT IS MADE (the rows of the swarm on its questions, for one configuration):
+      slots     each slot: answers, failures, how often it stopped at its token limit, its median time
+      decider   decisions asked, failed, timed out, asked again
+      traced    right answers whose winning drafts could be told apart (code, run on the same calls: the group that held the answer)
+      members   each model: how often its drafts were in that group, and how often they were the only model in it
+      pairs     two drafters on one model: how often they did the same
+    Read as it arrives: a recommendation need not wait for a pass to end."""
+    from itertools import combinations
+    from statistics import median
+    cap = {s["id"]: s.get("maxTokens") or 0 for s in slots}
+    mem = {s["id"]: s["member"] for s in slots}
+    sl, dec, members, pairs, traced = {}, {"n": 0, "failed": 0, "timedOut": 0, "retried": 0}, {}, {}, 0
+    for r in rows:
+        trace = r.get("trace") or []
+        for t in trace:
+            o = sl.setdefault(t.get("slot", "?"), {"n": 0, "failed": 0, "capped": 0, "ms": []})
+            o["n"] += 1
+            o["ms"].append(t.get("ms") or 0)
+            if t.get("ok") is False:
+                o["failed"] += 1
+            if cap.get(t.get("slot")) and (t.get("tokens") or 0) >= cap[t["slot"]]:
+                o["capped"] += 1
+            if t.get("stage") == "decide":
+                dec["n"] += 1
+                if t.get("ok") is False:
+                    dec["failed"] += 1
+                    if t.get("timedOut") or re.search(r"timeout|aborted", str(t.get("out") or ""), re.I):
+                        dec["timedOut"] += 1
+                if t.get("retried"):
+                    dec["retried"] += 1
+        groups = (r.get("tried") or {}).get("groups")
+        drafts = [t for t in trace if t.get("stage") == "draft" and t.get("letter")]
+        if not groups or not drafts:
+            continue
+        gof = {l: i for i, g in enumerate(groups) for l in g}
+        for a, b in combinations(drafts, 2):
+            if mem.get(a["slot"]) and mem.get(a["slot"]) == mem.get(b["slot"]):
+                p = pairs.setdefault("+".join(sorted((a["slot"], b["slot"]))), [0, 0])
+                p[1] += 1
+                p[0] += 1 if gof.get(a["letter"]) == gof.get(b["letter"]) else 0
+        if r.get("grade") != "right":
+            continue
+        let = {t["letter"]: t for t in drafts}
+        want = str(r.get("decided") or "").strip()
+        win = next((g for g in groups if any(str(let[l].get("final") or "").strip() == want for l in g if l in let)), None)
+        if not win:
+            continue
+        traced += 1
+        who = {mem.get(let[l]["slot"]) for l in win if l in let} - {None}
+        for m in who:
+            members.setdefault(m, {"inwin": 0, "sole": 0})["inwin"] += 1
+        if len(who) == 1:
+            members[next(iter(who))]["sole"] += 1
+    for o in sl.values():
+        o["ms"] = int(median(o["ms"])) if o["ms"] else 0
+    return {"answers": len(rows), "slots": sl, "decider": dec, "traced": traced, "members": members, "pairs": pairs}
+
+
+def slot_record(rows):
+    """EACH SLOT'S OWN RECORD from a measurement's rows: {slot: {ran, judged, right, ms}}."""
+    record = {}
+    for r in rows:
+        for s in r.get("trace", []):
+            # judged: the answers that WERE compared with the larger model's. An answer not compared is not a wrong one: code is
+            # compared by running it (the trainer marks same), never as text, so code with no mark is left out, not counted as 0
+            o = record.setdefault(s["slot"], {"ran": 0, "right": 0, "judged": 0, "ms": 0})
+            o["ran"] += 1
+            o["ms"] += s.get("ms", 0)
+            ref = str(r.get("ref") or "")
+            if s.get("stage") == "write":
+                if r.get("grade") in ("right", "wrong"):
+                    o["judged"] += 1
+                    o["right"] += 1 if r.get("grade") == "right" else 0
+            elif s.get("same") is not None:
+                # the trainer marked this slot's own answer against the larger model's (for code: by running both)
+                o["judged"] += 1
+                o["right"] += 1 if s.get("same") else 0
+            elif ref and "\n" not in ref.strip() and not re.search(r"\bfunction\b|=>|[{};]", ref):
+                o["judged"] += 1
+                o["right"] += 1 if same_answer(s.get("final"), ref) else 0
+    return record
+
+
 def load(root):
     root = Path(root)
     briefs = _json(root / "src" / "briefs.json", {"slots": [], "plan": {}, "version": 0})
@@ -254,20 +338,21 @@ def load(root):
             "expected": len(tgt) or None,
         }
     # each slot's own record on the train questions (what the trainers work from), else on the held ones
-    record = {}
-    src = splits["train"]["swarm"] or splits["held"]["swarm"]
-    for r in src:
-        for s in r.get("trace", []):
-            o = record.setdefault(s["slot"], {"ran": 0, "right": 0, "ms": 0})
-            o["ran"] += 1
-            o["ms"] += s.get("ms", 0)
-            if s.get("stage") == "write":
-                o["right"] += 1 if r.get("grade") == "right" else 0
-            elif s.get("same") is not None:
-                # the trainer marked this slot's own answer against the larger model's (for code: by running both)
-                o["right"] += 1 if s.get("same") else 0
-            elif r.get("ref") and same_answer(s.get("final"), r.get("ref")):
-                o["right"] += 1
+    record = slot_record(splits["train"]["swarm"] or splits["held"]["swarm"])
+    # the same rows, read for what they say about the configuration itself (ui/swarm_ui.py recommendations); and each other
+    # configuration's decider record, from its own rows, to compare a changed decider with the one before it
+    evidence = session_evidence(splits["train"]["swarm"] + splits["held"]["swarm"], briefs.get("slots", []))
+    others = {}
+    for r in swarm_all:
+        if r.get("cfg") and r.get("cfg") != cfg and r.get("target") in (None, (target or {}).get("id")):
+            o = others.setdefault(r["cfg"], {"n": 0, "failed": 0, "timedOut": 0})
+            for t in r.get("trace") or []:
+                if t.get("stage") == "decide":
+                    o["n"] += 1
+                    if t.get("ok") is False:
+                        o["failed"] += 1
+                        o["timedOut"] += 1 if re.search(r"timeout|aborted", str(t.get("out") or ""), re.I) else 0
+    evidence["otherDeciders"] = others
     candidates = {}
     tried = state.get("tried", {})
     for s in briefs.get("slots", []):
@@ -308,6 +393,7 @@ def load(root):
         "cfg": cfg,
         "splits": splits,
         "record": record,
+        "evidence": evidence,
         "candidates": candidates,
         "tried": tried,
     }
