@@ -179,7 +179,7 @@ textarea{width:100%;min-height:80px;background:var(--soft);border:0;border-radiu
 
 JS = """
 const $=(s,r=document)=>r.querySelector(s);
-async function swap(url,into,opts){const r=await fetch(url,opts);$(into).innerHTML=await r.text();}
+async function swap(url,into,opts){const r=await fetch(url,opts);$(into).innerHTML=await r.text();if(typeof sinceTick==='function')sinceTick();}
 document.addEventListener('click',async(ev)=>{
   const q=ev.target.closest('.q');
   if(q){document.querySelectorAll('.q[aria-current]').forEach(x=>x.removeAttribute('aria-current'));q.setAttribute('aria-current','true');
@@ -215,18 +215,29 @@ if($('#run [data-running]'))watch();
 // WHAT EVERY SLOT IS DOING NOW: asked for every second and a half while a session runs, and written onto the cards in place
 const STEP={measure:'Measuring the swarm',improve:'Trying a brief',arrange:'Trying an arrangement',baseline:'One model alone'};
 function paint(el,cls,text){el.className='live '+cls;el.querySelector('span').textContent=text;}
+// WHEN THE SESSION BEGAN, in the time zone of the person looking, and how long it has run in all: written again every tick
+function sinceTick(){const el=$('[data-since]');if(!el)return;const t=Number(el.dataset.since),s=Math.max(0,Math.floor((Date.now()-t)/1000));
+  const span=s<60?s+' s':s<3600?Math.floor(s/60)+' min '+s%60+' s':Math.floor(s/3600)+' h '+Math.floor(s%3600/60)+' min';
+  el.textContent='Running since '+new Date(t).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',timeZoneName:'short'})+' · '+span;}
 async function liveTick(){
+  sinceTick();
   let n={};try{n=await (await fetch('/api/live')).json();}catch(e){return;}
   const now=$('#now');
   if(now){const q=n.question;now.className='now'+(q?' on':'');
     now.querySelector('span').textContent=q?(STEP[n.trainer]||'Working')+' · '+(n.who==='swarm'?'the swarm':n.whoName+' alone')+' · '+n.split+' question '+n.n+' of '+n.of+' · '+q.ask.replace(/\\s+/g,' ').slice(0,150)
       :n.running?'A session is running. Between steps: models are loading or unloading.':'Nothing is running. No model is loaded.';}
-  const slots=n.slots||{};
+  const slots=n.slots||{},totals=n.totals||{};
+  // a slot's clock starts again with every question (a turn). Beside it: which turn this is, and how long this slot has been
+  // engaged altogether in the step in hand.
+  const secs=ms=>ms<60000?(ms/1000).toFixed(ms<10000?1:0)+' s':Math.floor(ms/60000)+' min '+Math.round(ms%60000/1000)+' s';
+  const sofar=(id,extra)=>{const t=totals[id]||totals[id+'-alone'];const ms=(t?t.ms:0)+(extra||0),turns=(t?t.turns:0);
+    return {turns,text:turns||extra?' · '+secs(ms)+' in all this step':''};};
   document.querySelectorAll('[data-live]').forEach(el=>{
     const id=el.dataset.live,s=slots[id]||slots[id+'-alone'];
-    if(!s){paint(el,'', n.question&&n.who==='swarm'&&id!=='target'?'Waiting its turn':'Idle');return;}
-    if(s.state==='working')paint(el,'on','Working · '+Math.max(0,Math.round((Date.now()-s.since)/1000))+' s');
-    else paint(el,s.state==='failed'?'bad':'done',(s.state==='failed'?'Failed':'Answered')+' in '+(s.ms/1000).toFixed(1)+' s'+(s.said?' · '+s.said:''));
+    if(!s){const t=sofar(id);paint(el,'', (n.question&&n.who==='swarm'&&id!=='target'?'Waiting its turn':'Idle')+(t.turns?' · '+t.turns+(t.turns===1?' turn':' turns')+t.text:''));return;}
+    if(s.state==='working'){const now=Math.max(0,Date.now()-s.since),t=sofar(id,now);
+      paint(el,'on','Working · '+Math.round(now/1000)+' s this turn · turn '+(t.turns+1)+t.text);}
+    else{const t=sofar(id);paint(el,s.state==='failed'?'bad':'done',(s.state==='failed'?'Failed':'Answered')+' in '+(s.ms/1000).toFixed(1)+' s · turn '+t.turns+t.text+(s.said?' · '+s.said:''));}
   });
   // each small model answering alone shows on its own slots, since it is that model at work
   const alone=n.who&&n.who!=='swarm'&&n.who!=='target'&&slots[n.who];
@@ -824,7 +835,11 @@ def run_panel():
     installed = (Path(ARGS.root) / ".work" / "kev" / "uvenv" / "bin" / "uv").exists()
     note = lambda cls, text: '<div class="state %s"><i></i><span>%s</span></div>' % (cls, text)  # noqa: E731
     if st and st["running"]:
-        out.append('<div class="state on" data-running="1"><i></i><span>Running since %s</span></div>' % e(st["at"][11:16]))
+        # when it began, in the time zone of whoever is looking (the page's script writes it; until it has, this machine's), and
+        # how long it has been running in all
+        began = _epoch_local(st["at"])
+        out.append('<div class="state on" data-running="1"><i></i><span data-since="%d">Running since %s · %s</span></div>'
+                   % (int(began * 1000), e(time.strftime("%H:%M %Z", time.localtime(began))), e(_span(time.time() - began))))
         out.append('<button class="btn stop top wide" id="run-stop" type="button">Stop training</button>')
         out.append('<div class="facts"><div><small>Passes</small><b>%d</b></div><div><small>Per kind</small><b>%d</b></div><div><small>Kev</small><b>%s</b></div></div>' % (st["passes"], st["each"], "loaded" if kev else "loading"))
     else:
@@ -909,6 +924,16 @@ def _epoch(iso):
         return calendar.timegm(time.strptime(str(iso)[:19], "%Y-%m-%dT%H:%M:%S"))
     except (ValueError, TypeError):
         return 0
+
+
+def _span(seconds):
+    """A length of time as a person says it: 45 s, 12 min 30 s, 2 h 5 min."""
+    s = max(0, int(seconds))
+    if s < 60:
+        return "%d s" % s
+    if s < 3600:
+        return "%d min %d s" % (s // 60, s % 60)
+    return "%d h %d min" % (s // 3600, s % 3600 // 60)
 
 
 def _epoch_local(stamp):

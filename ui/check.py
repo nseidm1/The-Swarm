@@ -92,6 +92,8 @@ with tempfile.TemporaryDirectory() as tmp:
           "The plan for pass 5" in html and "What the measurement showed" in plan and "no slot had the larger model" in plan.lower().replace("&#x27;", "'") and plan.count("<li class=") == 5 and "Being measured" in plan and ">Kept<" in plan and ">Not kept<" in plan
           and "arxiv.org/abs/2609.14412" in plan and "a-steps (draft, LFM2.5 2.6B)" in plan and "Chosen because of: no slot had the answer" in plan and "The measurement does not point at it" in plan
           and "19 equivalent, 4 different on train (as it was: 17, 6)" in plan and "Open a slot to read what it is told" not in html and "/fragment/plan" in html, plan[:300])
+    check("a slot's card says how long it has worked on this turn, which turn it is, and how long it has been engaged in all this step, since its clock starts again with every question",
+          "s this turn" in html and "in all this step" in html and "totals" in html and "turn '+(t.turns+1)" in html)
     check("the page ends with a footer: whose product it is, its licence, and that the page is served from this machine",
           '<footer class="foot">' in html and "A Family Office product" in html and "apache.org/licenses/LICENSE-2.0" in html and "github.com/nseidm1/The-Swarm" in html and "Copyright 2026 Family Office" in html and "<svg" in html.split('<footer class="foot">')[1].split("</footer>")[0])
     check("it shows the arrangement being trained: every slot of both models by stage, what each is told, what is being tried, and the larger model alongside",
@@ -183,7 +185,7 @@ with tempfile.TemporaryDirectory() as tmp:
     panel = get(base + "/fragment/run")[1]
     st = json.loads((fake / ".work" / "train" / "ui-run.json").read_text())
     check("pressed, it starts the session with what was chosen, and the page shows it running: each step as it starts and ends, and the last lines of the step it is on",
-          code == 200 and 'data-running="1"' in panel and "Stop training" in panel and "00-begin" in panel and "0 min" in panel and "02-target" in panel and "Pass 3" in panel and "asked" not in panel
+          code == 200 and 'data-running="1"' in panel and "Stop training" in panel and 'data-since="' in panel and "Running since" in panel and " · " in panel.split("Running since")[1].split("</span>")[0] and swarm_ui._span(45) == "45 s" and swarm_ui._span(750) == "12 min 30 s" and swarm_ui._span(7500) == "2 h 5 min" and "timeZoneName" in html and "00-begin" in panel and "0 min" in panel and "02-target" in panel and "Pass 3" in panel and "asked" not in panel
           and "asked 2 4" in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text(), panel[:400])
     check("a teacher is never started from the button, whatever the page was started with", "teacher=[]" in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text())
     # what every slot is doing now: written by a trainer, shown only while a session runs and only while it is fresh

@@ -241,7 +241,7 @@ The pictures here and at the top of this page show it on made-up sample data. Th
 | Five pills | **Small model 1**, **Small model 2**, **Decides**, **Larger model**: each a list of the models that can be chosen, grouped by who made them. Choosing one redraws the page for that swarm, in place. **Output spec**: what the swarm as it stands is: what goes in and comes out, each model with its pinned file, every slot and what it is for, and where it stands against the larger model. To read, and to copy as JSON |
 | Training | **Run training** fetches and makes ready whatever the chosen models need, then runs a pass. It shows what is being fetched and how far, each step as it starts and ends, and **Stop training**. Beside it: the passes so far, and the ideas waiting to be measured, each opening the paper it came from |
 | Parity with the larger model | One strip, the same size before and after anything is measured: at parity or not yet, and the counts. It opens the whole measurement: equivalent answers pass by pass, which step settled each answer, equivalent answers by kind of question, and each small model alone |
-| The arrangement being trained | Every slot as a card: the model that fills it, what it is for, and what it is doing at this moment while a session runs. Open a card for what the slot is told and what is being tried in its place. The larger model alongside, with the configurations of small models a pass has measured at parity with it |
+| The arrangement being trained | Every slot as a card: the model that fills it, what it is for, and what it is doing at this moment while a session runs: how long it has worked on this turn, which turn it is, and how long it has been engaged in all in the step in hand. Open a card for what the slot is told and what is being tried in its place. The larger model alongside, with the configurations of small models a pass has measured at parity with it |
 | The plan being carried out | What this pass's measurement showed, and every move the pass chose because of it, in order: the slot and model, the technique, the paper it came from, why it was chosen, and what became of it (planned, being measured, kept, not kept) |
 | Input against output (once the swarm has answered) | Any question asked: the input and what the larger model answered, what every slot wrote and settled on (green where it is equivalent), the Swarm's output, and the larger model's output beside it |
 
@@ -335,7 +335,7 @@ npm test
 python3 ui/check.py
 ```
 
-Seventy-one checks of the module and the trainers, and thirty-three of the dashboard. Stand-in servers take the place of the
+Seventy-one checks of the module and the trainers, and thirty-four of the dashboard. Stand-in servers take the place of the
 models, Kev and Hugging Face, so nothing is fetched, started or installed, and both finish in well under a minute. They cover what
 goes in and comes out, which slots run, what happens when a slot, a model or everything fails, that two functions are judged
 equivalent by running them, that model-written code can reach nothing, and that each fault in [Recovery](#recovery) is

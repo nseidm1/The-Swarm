@@ -75,8 +75,14 @@ export function live(patch = {}) {
     /* the page goes without */
   }
 }
+// totals: for each slot (or model alone), how many turns it has finished in this step and how long they took in all. A slot's
+// clock on the page starts again with every question; this is what says how much it has been engaged altogether.
 const liveSlot = (id, what) => {
   liveNow.slots = { ...liveNow.slots, [id]: what };
+  if (what.state !== 'working' && typeof what.ms === 'number') {
+    const t = (liveNow.totals = liveNow.totals || {})[id] || { turns: 0, ms: 0 };
+    liveNow.totals = { ...liveNow.totals, [id]: { turns: t.turns + 1, ms: t.ms + what.ms } };
+  }
   live();
 };
 
