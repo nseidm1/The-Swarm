@@ -30,4 +30,5 @@ The first version.
 - **The dashboard.** A local page showing the models, the arrangement, the plan being carried out and parity with the larger
   model, with a button that fetches what is needed and runs a pass.
 
-Not yet: a finished training pass, and so any measured result. See [Status and limits](README.md#status-and-limits).
+Measured so far: five passes on one configuration, 59.5% of the way to parity with Nemotron 3.5 Lightning 30B (25 of 42
+held answers). See [Measured, not claimed](README.md#measured-not-claimed).

@@ -18,10 +18,10 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/dashboard.png" alt="The training dashboard: pills to choose the two small models, the decision model and the larger model; whether the swarm is at parity with the larger model; every slot of both small models by stage (draft, check, decide, write) with the larger model alongside; and beside them the Run training button, the passes so far and the ideas waiting to be measured" width="860">
+  <img src="docs/images/dashboard.png" alt="The training dashboard while a session runs: pills to choose the small models, the decision model and the larger model; boxes to tick for what the swarm is to be equivalent on, each with a pencil for its questions; 59.5% of the way to parity with Nemotron 3.5 Lightning 30B; every slot by stage with what it is doing now and the larger model alongside; and beside them the session's steps, the passes so far and what was learned" width="860">
 </p>
 
-<p align="center"><em>The training dashboard, on made-up sample data (the page says so at its top). It is not a measurement.</em></p>
+<p align="center"><em>The training dashboard during pass 6 of a real session (LFM2.5 2.6B and Bonsai 2 2B, decided by Kev 4B, against Nemotron 3.5 Lightning 30B; 2026-11-16).</em></p>
 
 The Swarm is a module from Family Office. To the program that uses it, it is one model: messages go in and one reply comes
 out. Inside, two to four small models of your choosing are each served with several slots, and every slot has a part: some draft an
@@ -46,16 +46,23 @@ the work of a seat on a team, in two parts:
   developer's words to someone who is not one). The decision model reads the act and the substance, in one request; the
   conventions are read off the words.
 
+Parity is not correctness (the larger model's answer is the mark, whatever it is). **Progress toward it is a percentage**:
+the share of the held answers that are equivalent to the larger model's. Parity is 100%, and nothing less: one answer that
+is not equivalent is a place where the two are not the same.
+
 The pencil at the top right of each box opens its questions: the kinds the trainer makes, and a list of your own to add
 to, change or take out ([`training/questions/`](training/questions/README.md)). Every second one is held back, so the Swarm
 is measured on questions it was never chosen on.
- Parity is not correctness (the larger model's answer is the mark,
-whatever it is). **Progress toward it is a percentage**: the share of the held answers that are equivalent to the larger
-model's. Parity is 100%, and nothing less: one answer that is not equivalent is a place where the two are not the same.
 
-> **Status: pre-release.** The module, the trainers and the dashboard are built and checked. One question of each kind has
-> been put through the whole swarm on real models. **No training pass has finished, so nothing is known yet about parity.**
-> [Status and limits](#status-and-limits) says exactly what has and has not been run.
+<p align="center">
+  <img src="docs/images/dashboard-questions.png" alt="The questions for The Crew: a list of your own questions to add, change or take out, each sent to a Simple or a Developer seat, and the thirteen kinds the trainer makes: four kinds of function to write, correcting one, saying what is wrong, saying what a program prints, four kinds of Simple conversation and two of Developer" width="620">
+</p>
+
+> **Status: pre-release, training under way.** Five training passes have finished on one configuration (LFM2.5 2.6B and
+> Bonsai 2 2B, decided by Kev 4B) against Nemotron 3.5 Lightning 30B: **59.5% of the way to parity, 25 of 42 held answers
+> equivalent**, up from 52.3% at the first pass. That is on the programming questions only; the conversation questions are
+> asked from the next pass. [Measured, not claimed](#measured-not-claimed) has the numbers, and [Status and
+> limits](#status-and-limits) what has and has not been run.
 
 ## Contents
 
@@ -86,8 +93,8 @@ model's. Parity is 100%, and nothing less: one answer that is not equivalent is 
 | `llama-server` (llama.cpp 1.0.0 or later) | Serving the small models | Fetched for you (a pinned build) if it is not on the machine |
 | Python 3.9 or later | The dashboard | Standard library only |
 | `git` and `python3` | Kev, the decision model | Kev's own program is installed beside the Swarm, with a Python of its own that it fetches |
-| Memory | Running it | Both small models and their contexts: from about 3.5 GB to about 13 GB depending on the models chosen (an estimate, not a measurement). Kev 4B adds about 5 GB. Training also loads the larger model, one step at a time |
-| Disk | Model files | 0.5 to 5 GB for each small model, about 9 GB for Kev 4B, 2.5 to 17 GB for a larger model |
+| Memory | Running it | Both small models and their contexts (six slots each): from about 3.5 GB to about 13 GB depending on the models chosen (an estimate, not a measurement). Kev 4B adds about 5 GB. Training also loads the larger model, one step at a time |
+| Disk | Model files | 0.5 to 5 GB for each small model, about 12 GB for Kev (its program, its Python and its weights), 2.5 to 17 GB for a larger model. The dashboard's Uninstall Helper shows what is there and takes out what you do not want |
 
 There are no package dependencies. `npm install` is only needed for the formatter.
 
@@ -278,13 +285,14 @@ python3 ui/swarm_ui.py
 
 It opens at `http://127.0.0.1:8787/` (`--port` changes that). It needs nothing installed.
 
-The pictures here and at the top of this page show it on made-up sample data. They are not measurements.
+The pictures here and at the top of this page show it during pass 6 of a real session on 2026-11-16, the swarm of LFM2.5
+2.6B and Bonsai 2 2B, decided by Kev 4B, against Nemotron 3.5 Lightning 30B.
 
 <p align="center">
   <img src="docs/images/dashboard-plan.png" alt="The plan being carried out: what the pass's measurement showed, then each move in order with its slot and model, its technique, the paper it came from, why it was chosen, and whether it is planned, being measured, kept or not kept" width="860">
 </p>
 
-<p align="center"><em>The plan of a pass, as it is carried out.</em></p>
+<p align="center"><em>The plan of a pass, as it is carried out: here, briefs the larger model wrote for the slots that were failing come first.</em></p>
 
 <p align="center">
   <img src="docs/images/dashboard-measurement.png" alt="The whole measurement, opened from the parity strip: at parity or not yet, equivalent and different answers, seconds a reply, equivalent answers pass by pass, which step settled each answer, equivalent answers by kind of question, and each small model alone beside the swarm" width="860">
@@ -306,11 +314,13 @@ The pictures here and at the top of this page show it on made-up sample data. Th
 
 | Part | What it shows |
 |---|---|
+| Equivalent on | One box to tick for each body of work the swarm is brought to equivalence on: **The Crew** (ticked where nothing is chosen), Math, Logic, Reasoning. More than one can be ticked; a pass asks the kinds of every one ticked. The pencil on each opens its questions |
+| Uninstall Helper | Beside the output spec: everything the Swarm has put in `.work`, with the room each takes and whether the configured swarm uses it, and a button to take out each. It never touches anything outside `.work`, what training has learned, or anything while a session runs |
 | The pills | **Small model 1**, **Small model 2** (and a third and fourth, once added: the next empty place has a pill to add one, a filled one can be removed), **Decides**, **Larger model**: each a list of the models that can be chosen, grouped by who made them. Choosing one redraws the page for that swarm, in place. **Output spec**: the record of this configuration against this larger model, which grows as it is trained. Every change a pass keeps (a brief, a change to the plan, an arrangement, a flow) is added as it is kept, with the answers it won on the questions it was chosen on and on the held ones; then where each pass left it, the flow and every slot as they now stand, each model with its pinned file, and what goes in and comes out. To read, and to copy as JSON |
 | Training | **Run training** fetches and makes ready whatever the chosen models need, then trains pass after pass until **Stop training** is pressed. It shows what is being fetched and how far, each step as it starts and ends, and **Stop training**. As a pass goes it lists what it has kept so far. Beside it: the passes so far, and the ideas waiting to be measured, each opening the paper it came from |
 | Parity with the larger model | One strip, the same size at every moment, saying the most that is known so far and what kind of knowledge it is: what the larger model and each small model alone have done; then how the train questions are going; then the held answers as they come; and the verdict (at parity, or not yet and by how many) only when every held question is answered. Answers are read as the trainers write them down, not when a step ends. It opens the whole measurement: equivalent answers pass by pass, which step settled each answer, equivalent answers by kind of question, and each small model alone |
 | The arrangement being trained | The flow, one column for each step in order, a loop marked as one. Every slot as a card: the model that fills it, what it is for, and what it is doing at this moment while a session runs: how long it has worked on this turn, which turn it is, and how long it has been engaged in all in the step in hand. Open a card for what the slot is told and what is being tried in its place. The larger model alongside, with the configurations of small models a pass has measured at parity with it |
-| The plan being carried out | What this pass's measurement showed, and every move the pass chose because of it, in order: the slot and model, the technique, the paper it came from, why it was chosen, and what became of it (planned, being measured, kept, not kept) |
+| The plan being carried out | What this pass's measurement showed, and every move the pass chose because of it, in order: the slot and model, the technique, the paper it came from, why it was chosen, and what became of it (planned, being measured, kept, not kept). Under **What only you can change**: whether another small model on this machine drafts what no slot drafts, and how another decider did on the same recorded choices |
 | Input against output (appears as soon as the swarm has answered) | Any question asked: the input and what the larger model answered, what every slot wrote and settled on (green where it is equivalent), the Swarm's output, and the larger model's output beside it |
 
 **No model is loaded outside a session.** A session loads what it needs and unloads it when it ends, however it ends. Only
@@ -395,8 +405,10 @@ the held questions and on the same questions put a second way; the verdict is wr
 | `ui/cleanup.py` | The Uninstall Helper: what the Swarm has put in `.work` (models, the engine, each decider's program and weights, what training keeps), with sizes, and removing one piece at a time. Never anything outside `.work`, never through a link, never what training has learned, never while a session runs |
 | `training/publish.mjs` | Writes what was measured to `src/trained.json`, which ships with the module |
 
-The questions are small programming ones: write a JavaScript function, correct one with a flaw, say what a short program
-prints, say what is wrong with one. [training/TRAIN.md](training/TRAIN.md) is the procedure, and
+The questions are made from a seed, so there is no list to learn by heart. For The Crew: small programming ones (write a
+JavaScript function, correct one with a flaw, say what a short program prints, say what is wrong with one) and the
+conversation of a seat on a team, in Simple and in Developer. Math, Logic and Reasoning have kinds of their own, and each
+can carry questions a person wrote. [training/TRAIN.md](training/TRAIN.md) is the procedure, and
 [training/research.md](training/research.md) what was read.
 
 ## Recovery
@@ -443,7 +455,7 @@ npm test
 python3 ui/check.py
 ```
 
-One hundred and three checks of the module and the trainers, and forty-seven of the dashboard. Stand-in servers take the place of the
+One hundred and twenty-four checks of the module and the trainers, and fifty-seven of the dashboard. Stand-in servers take the place of the
 models, Kev and Hugging Face, so nothing is fetched, started or installed, and both finish in well under a minute. They cover what
 goes in and comes out, which slots run, what happens when a slot, a model or everything fails, that two functions are judged
 equivalent by running them, that model-written code can reach nothing, and that each fault in [Recovery](#recovery) is
@@ -453,27 +465,48 @@ How well the models do is not a check. It is a measurement.
 
 ## Measured, not claimed
 
-Nothing has been measured yet. This section will hold, from `training/results/`, whether the Swarm is at parity with the
-larger model on the held questions, how many answers were not equivalent, each small model alone the same way, and how long
-a reply takes.
+One configuration so far: LFM2.5 2.6B and Bonsai 2 2B, decided by Kev 4B, against Nemotron 3.5 Lightning 30B, on 42 held
+programming questions (six of each of seven kinds), on one Apple silicon Mac, 2026-11-15 to 2026-11-16. From
+`training/states/` and `training/results/`.
+
+| Pass | Held answers equivalent | Toward parity | Kept in the pass |
+|---|---|---|---|
+| 1 | 22 of 42 | 52.3% | nothing |
+| 2 | 22 of 42 | 52.3% | a second plain drafter, on Bonsai 2 |
+| 3 | 25 of 42 | 59.5% | a drafter made a checker, and a checker shown only the answers |
+| 4 | 25 of 42 | 59.5% | nothing |
+| 5 | 25 of 42 | 59.5% | nothing |
+
+- **Each small model alone, on the same questions:** LFM2.5 2.6B 38% (16 of 42), Bonsai 2 2B 30.9% (13 of 42). The swarm of
+  the two is ahead of either.
+- **Put a second way** (the same questions, worded otherwise): 27 of 42, every pass.
+- **By kind, at pass 5:** writing a function on arrays, on strings, and saying what a program prints 83.3% each; correcting a
+  function 66.6%; writing one on numbers and saying what is wrong 50% each; writing one that parses text 0%.
+- **About 20 seconds a reply.**
+- **Where it is stuck.** On the train questions of pass 6, no slot drafted the larger model's answer on 19 of 70, so the best
+  any way of choosing could reach was 72.8%. That is why a pass can now change what is drafted (new briefs written by the
+  larger model, worked examples) and not only how drafts are chosen: [training/TRAIN.md](training/TRAIN.md) says what was added.
 
 ## Status and limits
 
 What has been run:
 
 - **Checks:** all of them, against stand-ins.
-- **The whole swarm and the trainers, on real models:** one question of each kind (seven), with LFM2.5 2.6B, Bonsai 2 2B,
-  Kev 4B and Nemotron 3.5 Lightning 30B. It runs end to end, at 10 to 18 seconds a question. Seven questions say nothing about
-  parity, and are not reported as a result.
+- **Training, on real models:** five whole passes and most of a sixth, continuously, with LFM2.5 2.6B, Bonsai 2 2B, Kev 4B
+  and Nemotron 3.5 Lightning 30B. The briefs the larger model writes, the third-model probe and the decider replay have run
+  in that session; StartLux Decision 4B has been put a pass's recorded choices (38 of 46 to Kev 4B's 37).
+- **Recovery, on real models:** a stopped session resumed its pass and carried on from where it was.
 
 What has not:
 
-- **A whole training pass.** None has finished, so nothing is known about parity.
-- **Eleven of the fifteen small models, three of the four Kev sizes, and twelve of the thirteen larger models.** Pinned, untried.
+- **Parity.** Not reached: 59.5% after five passes.
+- **The conversation questions, Math, Logic and Reasoning, in a pass.** Built and checked; the session asks them from its
+  next pass.
+- **Thirteen of the fifteen small models, three of the four Kev sizes, and twelve of the thirteen larger models.** Pinned, untried.
 - **Linux and Windows.** It has run on one Apple silicon Mac. The pull-request workflow has not run yet.
 - **The engine and larger-model downloads.** The fetch is checked against a stand-in, not against the real files.
-- **Recovery, on real models.** Every way back in [Recovery](#recovery) is checked against stand-in servers made to fail.
-  None has yet been needed, and so none has been seen to work, in a real session.
+- **Most of recovery, on real models.** Every way back in [Recovery](#recovery) is checked against stand-in servers made to
+  fail; in a real session only resuming a stopped pass has been needed so far.
 
 Known limits:
 
@@ -482,7 +515,8 @@ Known limits:
 - **Only JavaScript is run.** Drafts in any other language are compared as text, and so are seldom found to agree.
 - **Doing the same on the calls tried is not being the same.** Drafts are one answer when they agree on about ten calls a small model wrote. Two functions that part only on a case nobody tried are taken for one.
 - **The reply is whole before it is sent.** A streamed reply is the finished one, in pieces.
-- **Small JavaScript questions only.** Larger programs, other languages, long writing and conversation are not measured.
+- **Small questions only.** Small JavaScript functions and short conversations. Larger programs, other languages and long
+  writing are not measured.
 - **Few families of question.** Eleven kinds of function, with details that change. The train and held questions are
   different draws from the same families, so a pass can learn a family. More families are the cure.
 - **Kev is not trained for this yet.** It decides as it was published.

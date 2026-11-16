@@ -14,6 +14,7 @@ Only the Python standard library is used.
 """
 
 import json
+import os
 import platform
 import re
 import shutil
@@ -21,7 +22,7 @@ from pathlib import Path
 
 STAGES = [("draft", "Draft"), ("check", "Check"), ("decide", "Decide"), ("write", "Write")]
 MEMBER_NAMES = {"a": "LFM2.5 2.6B", "b": "Bonsai 2 2B"}
-SERVING = {"slots": 4, "contextPerSlot": 4096}  # src/catalog.mjs SERVING
+SERVING = {"slots": int(os.environ.get("SWARM_SLOTS") or 6), "contextPerSlot": 4096}  # src/catalog.mjs SERVING (six since 2026-11-16)
 
 
 def _json(path, default):
@@ -329,7 +330,7 @@ def spec(d):
         },
         "trainedAgainst": {
             "target": {k: (d["target"] or {}).get(k) for k in ("id", "name", "by", "params", "engine")},
-            "parityMeans": "every answer to the held questions is fundamentally equivalent to the target's: a function that returns the same for every input, the same value, or (in words) the same thing said. Not a percentage, and not correctness.",
+            "parityMeans": "every answer to the held questions is fundamentally equivalent to the target's: a function that returns the same for every input, the same value, or (in words) the same thing said. Progress toward it is the share of held answers that are equivalent; parity is 100%, and it is not correctness.",
             "state": ("at parity" if p["level"] else "not at parity") if p else "not measured",
             "progressPercent": p["percent"] if p else None,
             "progressIs": "the percentage of the held answers that are equivalent to the larger model's; parity is 100, and nothing less",
