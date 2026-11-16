@@ -234,7 +234,7 @@ Settings are read from the environment. Each trainer also takes the flag shown.
 | `SWARM_CONFIG` | | Another file in place of `src/config.json` | |
 | `SWARM_RUN_CODE` | | `0`: the Swarm runs nothing a model wrote, and compares drafts of code as text (`createSwarm({ runCode: false })` in a program) | On: drafts of a function are run, in a sandbox, to see which do the same |
 | `NODE` | | The Node the session runs the trainers with | The newest of 20 or later it finds |
-| `PASSES` | | How many passes a session runs, each from the one before | `1` |
+| `PASSES` | | How many passes a session runs before it ends. `0`: it does not end | `0`: pass after pass, each from the one before, until it is stopped |
 | `EACH` | `--each` | Questions of each kind | `6` (42 held questions) |
 | `TRIES` | `--tries` | Arrangements tried each pass | `4` |
 | `TEACHER` | `--teacher` | `claude`: a large model writes candidate briefs. Spends on that machine's Claude plan, and is never started from the dashboard | Off |
@@ -277,7 +277,7 @@ The pictures here and at the top of this page show it on made-up sample data. Th
 | Part | What it shows |
 |---|---|
 | Five pills | **Small model 1**, **Small model 2**, **Decides**, **Larger model**: each a list of the models that can be chosen, grouped by who made them. Choosing one redraws the page for that swarm, in place. **Output spec**: the record of this configuration against this larger model, which grows as it is trained. Every change a pass keeps (a brief, a change to the plan, an arrangement, a flow) is added as it is kept, with the answers it won on the questions it was chosen on and on the held ones; then where each pass left it, the flow and every slot as they now stand, each model with its pinned file, and what goes in and comes out. To read, and to copy as JSON |
-| Training | **Run training** fetches and makes ready whatever the chosen models need, then runs a pass. It shows what is being fetched and how far, each step as it starts and ends, and **Stop training**. As a pass goes it lists what it has kept so far. Beside it: the passes so far, and the ideas waiting to be measured, each opening the paper it came from |
+| Training | **Run training** fetches and makes ready whatever the chosen models need, then trains pass after pass until **Stop training** is pressed. It shows what is being fetched and how far, each step as it starts and ends, and **Stop training**. As a pass goes it lists what it has kept so far. Beside it: the passes so far, and the ideas waiting to be measured, each opening the paper it came from |
 | Parity with the larger model | One strip, the same size at every moment, saying the most that is known so far and what kind of knowledge it is: what the larger model and each small model alone have done; then how the train questions are going; then the held answers as they come; and the verdict (at parity, or not yet and by how many) only when every held question is answered. Answers are read as the trainers write them down, not when a step ends. It opens the whole measurement: equivalent answers pass by pass, which step settled each answer, equivalent answers by kind of question, and each small model alone |
 | The arrangement being trained | The flow, one column for each step in order, a loop marked as one. Every slot as a card: the model that fills it, what it is for, and what it is doing at this moment while a session runs: how long it has worked on this turn, which turn it is, and how long it has been engaged in all in the step in hand. Open a card for what the slot is told and what is being tried in its place. The larger model alongside, with the configurations of small models a pass has measured at parity with it |
 | The plan being carried out | What this pass's measurement showed, and every move the pass chose because of it, in order: the slot and model, the technique, the paper it came from, why it was chosen, and what became of it (planned, being measured, kept, not kept) |
@@ -296,6 +296,10 @@ pass tries ones no pass has tried.
 ```bash
 bash training/session.sh
 ```
+
+Training is continuous: one pass follows another, each beginning from what the last one learned, until it is stopped (the
+dashboard's **Stop training**, or stopping the process). A stopped session loses nothing: the next one resumes the pass it
+was in. `PASSES=3` runs three and ends.
 
 One pass, in order: make ready; read what is new on arXiv; the larger model answers the questions (its answers are the mark);
 each small model answers alone; the Swarm answers; **the pass writes its plan**; the plan's moves are measured in its order;

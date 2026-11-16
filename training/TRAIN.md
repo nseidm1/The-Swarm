@@ -224,7 +224,7 @@ A resumed pass is the same pass only for the same models. Change a model and the
 | [`setup.mjs`](setup.mjs) | Fetches and makes ready the engine, the models and the decider the configured swarm needs, recovering by itself where it can |
 | [`kev.sh`](kev.sh) | Installs and runs Kev beside the Swarm, in `.work/kev`. The session starts and stops it |
 | [`publish.mjs`](publish.mjs) | Writes what was measured on `held`, and how it stands against the target, to `src/trained.json`, which ships with the module |
-| [`session.sh`](session.sh) | A whole pass, one step at a time. `PASSES=3` runs three, each from the one before. A pass that stopped is resumed |
+| [`session.sh`](session.sh) | Pass after pass, one step at a time, each pass from the one before, until it is stopped. `PASSES=3` runs three and ends. A pass that stopped is resumed. Passes that are over in under a minute did no work: after five in a row it stops and says so |
 | [`support/recover.mjs`](support/recover.mjs) | The ways back, and the record of each one taken. `reap` stops what a dead session left running |
 
 Two numbers from `measure.mjs` say where to work:

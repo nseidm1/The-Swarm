@@ -234,17 +234,18 @@ with tempfile.TemporaryDirectory() as tmp:
             return x.code, ""
 
     page0 = get(base + "/")[1]
-    check("where a pass can be started the page has a Run training button that can be pressed", 'id="run-go" type="button">Run training' in page0 and "Stop training" not in page0)
+    check("where training can be started the page has a Run training button that can be pressed, no count of passes to choose, and says it goes on until it is stopped",
+          'id="run-go" type="button">Run training' in page0 and 'id="run-stop"' not in page0 and 'id="run-passes"' not in page0 and "Until stopped" in page0 and "until <b>Stop training</b> is pressed" in page0)
     refused = post("/run/start", headers={"content-type": "text/plain"})[0]
     foreign = post("/run/start", headers={"x-swarm": "1", "origin": "https://elsewhere.example"})[0]
     check("a pass cannot be started by anything but this page: a request without the page's own header, or from another site, is refused", refused == 403 and foreign == 403 and not (fake / ".work" / "train" / "ui-run.json").exists(), [refused, foreign])
-    code, panel = post("/run/start", json.dumps({"passes": 2, "each": 4}).encode())
+    code, panel = post("/run/start", json.dumps({"each": 4}).encode())
     time.sleep(1.0)
     panel = get(base + "/fragment/run")[1]
     st = json.loads((fake / ".work" / "train" / "ui-run.json").read_text())
-    check("pressed, it starts the session with what was chosen, and the page shows it running: each step as it starts and ends, and the last lines of the step it is on",
+    check("pressed, it starts a session that goes on pass after pass until it is stopped (no number of passes is given it), and the page shows it running: each step as it starts and ends, and the last lines of the step it is on",
           code == 200 and 'data-running="1"' in panel and "Stop training" in panel and 'data-since="' in panel and "Running since" in panel and " · " in panel.split("Running since")[1].split("</span>")[0] and swarm_ui._span(45) == "45 s" and swarm_ui._span(750) == "12 min 30 s" and swarm_ui._span(7500) == "2 h 5 min" and "timeZoneName" in html and "00-begin" in panel and "0 min" in panel and "02-target" in panel and "Pass 3" in panel and "asked" not in panel
-          and "asked 2 4" in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text(), panel[:400])
+          and "until stopped" in panel and "asked 0 4" in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text(), panel[:400])
     check("a teacher is never started from the button, whatever the page was started with", "teacher=[]" in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text())
     # what every slot is doing now: written by a trainer, shown only while a session runs and only while it is fresh
     (fake / ".work" / "train" / "live.json").write_text(json.dumps({"at": time.time() * 1000, "trainer": "measure", "who": "swarm", "split": "train", "n": 3, "of": 42,

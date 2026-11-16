@@ -9,7 +9,8 @@
 # the last pass found them worst, new reading from arXiv on what was weak, arrangements no pass has tried, and nothing
 # measured twice.
 #   bash training/session.sh                   one pass
-#   PASSES=3 bash training/session.sh          three, each starting from the one before
+#   bash training/session.sh                   pass after pass, until it is stopped
+#   PASSES=3 bash training/session.sh          three, each starting from the one before, and then it ends
 #   TEACHER=claude bash training/session.sh    let a large model turn the reading and the failures into candidate briefs
 #                                              (spends on this machine's Claude plan; without it, candidates are written by hand)
 #   EACH=8 bash training/session.sh            questions of each kind (default 6: 72 held questions)
@@ -70,7 +71,20 @@ if [ -z "$SWARM_KEV" ]; then
     echo "$(date +%H:%M:%S) NO KEV: it is not installed here (bash training/kev.sh install). The answer most slots gave will stand."
   fi
 fi
-for N in $(seq 1 "${PASSES:-1}"); do
+# TRAINING IS CONTINUOUS. One pass follows another, each beginning from what the last one left, until it is stopped on purpose
+# (the dashboard's Stop training, or this process being stopped). PASSES=n runs n and ends; PASSES=0, the default, does not end.
+# It is not left to spin: a pass that is over in under a minute did no work (something it needs is missing), so the next waits a
+# little longer each time, and after five such in a row the session stops and says so.
+PASSES=${PASSES:-0}
+N=0
+QUICK=0
+while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
+  N=$((N + 1))
+  T_PASS=$(date +%s)
+  # the models may have changed (a swarm that reached parity goes on to the next, larger model): what it needs is made ready
+  if [ "$N" -gt 1 ]; then
+    "$NODE" training/setup.mjs > .work/train/setup.out 2>&1 || { cat .work/train/setup.out; echo "$(date +%H:%M:%S) NOT READY for the next pass: see above."; break; }
+  fi
   P=$("$NODE" -e "import('./training/state.mjs').then(s=>console.log(s.readState().pass+1))")
   OUT=.work/train/pass-$P; mkdir -p "$OUT"
   # A PASS THAT STOPPED IS CARRIED ON, NOT BEGUN AGAIN. If this pass was started before, for the same swarm and target, and did not
@@ -121,4 +135,11 @@ for N in $(seq 1 "${PASSES:-1}"); do
   run 22-end          training/pass.mjs end
   run 23-publish      training/publish.mjs
   echo "$(date +%H:%M:%S) DONE" >> "$OUT/status.txt"
+  if [ $(( $(date +%s) - T_PASS )) -lt 60 ]; then
+    QUICK=$((QUICK + 1))
+    if [ "$QUICK" -ge 5 ]; then echo "$(date +%H:%M:%S) STOPPED: five passes in a row were over in under a minute. Nothing is being trained: see the steps of $OUT."; break; fi
+    sleep $((QUICK * 20))
+  else
+    QUICK=0
+  fi
 done

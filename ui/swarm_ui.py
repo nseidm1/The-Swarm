@@ -200,7 +200,7 @@ document.addEventListener('click',async(ev)=>{
     document.querySelectorAll('.q').forEach(x=>{x.hidden=f.dataset.filter!=='all'&&x.dataset.cmp!==f.dataset.filter;});return;}
   if(ev.target.id==='run-go'||ev.target.id==='run-stop'){const b=ev.target;b.disabled=true;
     if(b.id==='run-go')document.querySelectorAll('[data-pick]').forEach(x=>x.disabled=true);
-    const body=b.id==='run-go'?JSON.stringify({passes:Number($('#run-passes').value),each:Number($('#run-each').value)}):'{}';
+    const body=b.id==='run-go'?JSON.stringify({each:Number($('#run-each').value)}):'{}';
     await swap(b.id==='run-go'?'/run/start':'/run/stop','#run',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body});watch();return;}
 });
 // A MODEL CHOSEN: written down, and everything that depends on it drawn again in place
@@ -930,7 +930,8 @@ def cannot_run():
     return ""
 
 
-def start_run(passes, each):
+def start_run(each, passes=0):
+    """Training is continuous: pass after pass, each from the one before, until Stop training is pressed (passes=0)."""
     st = run_state()
     if st and st["running"]:
         return
@@ -993,13 +994,13 @@ def run_panel():
         out.append('<div class="state on" data-running="1"><i></i><span data-since="%d">Running since %s · %s</span></div>'
                    % (int(began * 1000), e(time.strftime("%H:%M %Z", time.localtime(began))), e(_span(time.time() - began))))
         out.append('<button class="btn stop top wide" id="run-stop" type="button">Stop training</button>')
-        out.append('<div class="facts"><div><small>Passes</small><b>%d</b></div><div><small>Per kind</small><b>%d</b></div><div><small>Kev</small><b>%s</b></div></div>' % (st["passes"], st["each"], "loaded" if kev else "loading"))
+        out.append('<div class="facts"><div><small>Passes</small><b>%s</b></div><div><small>Per kind</small><b>%d</b></div><div><small>Kev</small><b>%s</b></div></div>' % ("until stopped" if not st.get("passes") else st["passes"], st["each"], "loaded" if kev else "loading"))
     else:
         why = cannot_run()
-        opts = "".join('<option value="%d">%d</option>' % (n, n) for n in (1, 2, 3, 5))
         each = "".join('<option value="%d"%s>%d</option>' % (n, " selected" if n == 6 else "", n) for n in (2, 4, 6, 8, 10))
         out.append('<button class="btn top wide" id="run-go" type="button"%s>Run training</button>' % (" disabled" if why else ""))
-        out.append('<div class="facts"><label><small>Passes</small><select id="run-passes">%s</select></label><label><small>Per kind</small><select id="run-each">%s</select></label></div>' % (opts, each))
+        out.append('<div class="facts"><div><small>Passes</small><b style="font-size:13px">Until stopped</b></div><label><small>Per kind</small><select id="run-each">%s</select></label></div>' % each)
+        out.append('<p class="muted small" style="margin:8px 2px 0">Training goes on, pass after pass, each from what the last one learned, until <b>Stop training</b> is pressed.</p>')
         if why:
             out.append(note("warn", e(why)))
         elif not installed and not os.environ.get("SWARM_KEV"):
@@ -1057,7 +1058,7 @@ def run_panel():
                 items.append('<li class="%s"><span>%s</span><span>%s</span><span class="muted">%s</span></li>' % (
                     "bad" if bad else "" if done else "now", "✕" if bad else "✓" if done else "▸", e(name),
                     e((x["end"].replace("exit 0 ", "").replace("exit 2 ", "nothing to do · ") if done else "since " + x["at"]) + (" · try %d" % x["tries"] if x.get("tries", 1) > 1 else ""))))
-            out.append('<div class="muted small">Pass %s%s</div><ul class="steps">%s</ul>' % (e(cur.name[5:]), " of this run's %d" % st["passes"] if st["passes"] > 1 else "", "".join(items) or "<li><span></span><span class='muted'>starting</span><span></span></li>"))
+            out.append('<div class="muted small">Pass %s%s</div><ul class="steps">%s</ul>' % (e(cur.name[5:]), " · %s this session" % ("pass %d" % (int(cur.name[5:]) - int(st.get("first", cur.name[5:])) + 1)) if cur.name[5:].isdigit() else "", "".join(items) or "<li><span></span><span class='muted'>starting</span><span></span></li>"))
     # THE WAYS BACK THIS SESSION HAS TAKEN: a pass that needed twelve restarts is not the same evidence as one that needed none
     if st:
         began = _epoch_local(st.get("at", ""))
@@ -1349,11 +1350,10 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/run/start":
             try:
                 body = json.loads(self.rfile.read(min(int(self.headers.get("content-length", 0)), 2000)) or b"{}")
-                passes = max(1, min(5, int(body.get("passes", 1))))
                 each = max(2, min(10, int(body.get("each", 6))))
             except (ValueError, TypeError, AttributeError):
                 return self._send("Not understood.", 400, "text/plain; charset=utf-8")
-            start_run(passes, each)
+            start_run(each)
         else:
             stop_run()
         return self._send(run_panel())
