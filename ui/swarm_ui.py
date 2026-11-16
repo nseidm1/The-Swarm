@@ -2445,6 +2445,21 @@ def spec_panel(d):
     kinds = "".join("<li>%s: %s</li>" % (e(KIND_WORDS.get(k, k)), e(how_far(v["equivalent"], v["of"]))) for k, v in t["byKind"].items() if v["of"]) or "<li>not measured</li>"
     slots = "".join("<tr><td><code>%s</code></td><td>%s</td><td>%s<details class='told'><summary>What it is told</summary><div>%s</div></details></td><td>%s</td></tr>"
                     % (e(x["id"]), e(x["stage"]), e(x.get("purpose", "")), e(x.get("brief", "")), e(str(x.get("model", "")))) for x in sp["arrangement"]["slots"])
+    # THIS PASS, UNDER WAY: the parts below speak of finished passes and the held questions; this says what the pass in hand has done
+    ip = sp.get("inProgress")
+    under = ""
+    if ip:
+        ts, mv = ip.get("trainSoFar"), ip["moves"]
+        live = bool((run_state() or {}).get("running"))
+        st_word = {"kept": "Kept", "not kept": "Not kept"}
+        meas = "".join("<li><b>%s</b> <span class='muted'>· %s%s</span>%s</li>" % (e(m.get("what") or ""), e(m.get("kind") or ""), (" · " + e(m["slot"])) if m.get("slot") else "",
+                                                                                    " <span class='pill %s'>%s</span>" % ("up" if m["status"] == "kept" else "down", st_word.get(m["status"], m["status"]))) for m in ip["measured"])
+        under = ("<h4>This pass, under way</h4><table class='spec'>%s%s%s%s</table>"
+                 % (row("Pass", "%d%s%s" % (ip["pass"], " · running now" if live else " · stopped partway", (" · began %s" % e(str(ip["began"])[:16].replace("T", " ")) + " UTC") if ip.get("began") else "")),
+                    row("Train questions" + (" so far" if ts and (ts.get("of") or 0) > ts["answered"] else ""), ("<b>%s%%</b> equivalent · %d of %d%s<br><span class='muted'>%s</span>" % (fmt_pct(ts["percent"]), ts["equivalent"], ts["compared"], (" · %d of %d answered" % (ts["answered"], ts["of"])) if ts.get("of") and ts["answered"] < ts["of"] else "", e(ip["trainIs"]))) if ts else "not yet"),
+                    row("Moves", "%d being measured · %d planned · %d kept · %d not kept%s" % (mv["beingMeasured"], mv["planned"], mv["kept"], mv["notKept"],
+                        ("<br><span class='muted'>now: %s</span>" % e("; ".join("%s (%s)" % (m["what"], m["slot"]) if m.get("slot") else m["what"] for m in ip["now"][:4]))) if ip["now"] else "")),
+                    row("Measured so far", "<ul style='margin:0;padding-left:18px'>%s</ul>" % meas) if meas else ""))
     # AS A MODEL CHOOSER LISTS IT (The Crew's "Choose your model" among them): the card, what it needs, what it can do, how it starts
     c, rq, cap, st_ = sp["card"], sp["requirements"], sp["interface"]["capabilities"], sp["interface"]["start"]
     host = ('<h4>As a model chooser lists it</h4><div class="hostcard"><div><b>%s</b><span class="muted small"> · %s · about %s GB · %s</span></div><div class="hcbadge">%s</div><p>%s</p>%s</div>'
@@ -2469,9 +2484,10 @@ def spec_panel(d):
         '<h4>As JSON</h4><pre class="tail" id="spec-json" style="max-height:320px">%s</pre>'
         % (
             e(sp["id"]), e(sp["what"]),
-            state_cls, e(("%s%% of the way to parity" % fmt_pct(t["progressPercent"])) if t.get("progressPercent") is not None and t["state"] != "at parity" else t["state"].capitalize()), e(t["target"].get("name") or ""),
+            state_cls, e(("%s%% of the way to parity" % fmt_pct(t["progressPercent"])) if t.get("progressPercent") is not None and t["state"] != "at parity"
+                         else ("In training: pass %d under way" % ip["pass"]) if t["state"] == "not measured" and ip else t["state"].capitalize()), e(t["target"].get("name") or ""),
             e(t["parityMeans"]),
-            learned_block(d), host,
+            under + learned_block(d), host,
             row("In", e(sp["interface"]["in"])), row("Out", e(sp["interface"]["out"])),
             row("Offered as", "<br>".join(e(x) for x in sp["interface"]["as"])),
             row("Not yet", "<br>".join(e(x) for x in sp["interface"]["notYet"])),

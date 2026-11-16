@@ -577,6 +577,34 @@ with tempfile.TemporaryDirectory() as tmp:
           and 'value="startlux-4b" selected' in j_picks.split('data-pick="judge"')[1].split("</select>")[0] and j_spec["trainedAgainst"]["judgedBy"] == "StartLux Decision 4B"
           and not any(r["id"].startswith("judge:") for r in j_recs) and j_same == 200 and "judge" not in j_cfg2 and j_bad == 400 and j_off == 200 and "judge" not in j_cfg3
           and "(the decider itself)" in data.spec(data.load(root))["trainedAgainst"]["judgedBy"], [j_ok, j_cfg.get("judge"), j_same, j_bad, j_off])
+    # THE PASS IN HAND IS IN THE SPEC, and ANOTHER CONFIGURATION'S ANSWERS NEVER STAND IN FOR THIS ONE'S (found 2026-11-16: a newer
+    # configuration was read as 40 of its 84 train answers, another's checkpoint of the same questions being read after its rows)
+    d0 = data.load(root)
+    n_train = len(d0["splits"]["train"]["swarm"])
+    ckd2 = root / ".work" / "train" / "checkpoints"
+    ckd2.mkdir(parents=True, exist_ok=True)
+    other = ckd2 / "measure-swarm-other-config-train.jsonl"
+    other.write_text("".join(json.dumps(dict(r, cfg="some+other+config", grade="wrong")) + "\n" for r in d0["splits"]["train"]["swarm"]))
+    d1 = data.load(root)
+    other.unlink()
+    wd_ = root / ".work" / "train" / d0["key"]
+    wd_.mkdir(parents=True, exist_ok=True)
+    plan_f = wd_ / "plan.json"
+    had_plan = plan_f.read_text() if plan_f.exists() else None
+    plan_f.write_text(json.dumps({"pass": int(d0["state"].get("pass", 0)) + 1, "config": d0["cfg"], "at": "2026-11-16T20:29:25Z", "moves": [
+        {"kind": "brief", "what": "a shorter brief", "slot": "a-critic", "status": "running"}, {"kind": "arrangement", "what": "drop a-steps", "status": "planned"},
+        {"kind": "brief", "what": "a brief tried", "slot": "a-steps", "status": "not kept", "result": {"train": {"right": 3, "wrong": 4}, "why": "it did not win by 6"}}]}))
+    s_ip = data.spec(data.load(root))["inProgress"]
+    dlg = get(base + "/fragment/spec")[1]
+    if had_plan is None:
+        plan_f.unlink()
+    else:
+        plan_f.write_text(had_plan)
+    check("the spec says what the pass in hand has done (the parts below it speak of finished passes): its number and when it began, the swarm on this pass's train questions (said not to be parity), what is being measured now, and each move measured with its result; and another configuration's answers to the same questions, read later, never stand in for this configuration's",
+          len(d1["splits"]["train"]["swarm"]) == n_train and d1["splits"]["train"]["parity"] == d0["splits"]["train"]["parity"]
+          and s_ip and s_ip["pass"] == int(d0["state"].get("pass", 0)) + 1 and s_ip["moves"] == {"planned": 1, "beingMeasured": 1, "kept": 0, "notKept": 1}
+          and s_ip["now"][0]["what"] == "a shorter brief" and s_ip["measured"][0]["status"] == "not kept" and s_ip["measured"][0]["why"] == "it did not win by 6"
+          and (s_ip["trainSoFar"] is None or "not parity" in s_ip["trainIs"]) and "This pass, under way" in dlg and "a brief tried" in dlg, [n_train, len(d1["splits"]["train"]["swarm"]), s_ip and s_ip["moves"]])
     # ON A PHONE, THE TRAINING COLUMN IS A TILE BESIDE THE TITLE, opening the column whole in a sheet (and nothing changes elsewhere)
     mt = get(base + "/fragment/mtile")[1]
     check("on a phone the training column is a tile beside the title: what the session is doing (idle, stopped, or running with its clock and where it is) and the passes in a line; tapping it moves the column itself (Training, Passes, Ideas waiting to be measured) into a sheet and back when closed, so what redraws it still does; the column is not left below the footer there, and nothing changes at a wider screen",

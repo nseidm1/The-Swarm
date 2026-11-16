@@ -311,11 +311,13 @@ def load(root):
     else:
         briefs = _with_places(briefs, list(members))
 
-    def newest(rows, split, label):
-        """the newest answer to each question of this pass's split, by one answerer"""
+    def newest(rows, split, label, keep=None):
+        """the newest answer to each question of this pass's split, by one answerer. keep: which rows may be that answer at all,
+        asked BEFORE the newest is chosen (another configuration's answer to the same question, read later, must not stand in
+        for this one's and then be thrown away: found 2026-11-16, a configuration read as 40 of its 84 answers)"""
         seen = {}
         for r in rows:
-            if r.get("split") != split or r.get("label") != label:
+            if r.get("split") != split or r.get("label") != label or (keep and not keep(r)):
                 continue
             if seeds.get(split) is not None and r.get("seed") not in (None, seeds.get(split)):
                 continue
@@ -343,7 +345,7 @@ def load(root):
     splits = {}
     for split in ("held", "train"):
         # the swarm's rows for THIS configuration against THIS target: another arrangement's are never read as this one's
-        swarm = [r for r in newest(swarm_all, split, "swarm") if r.get("cfg") in (None, cfg) and r.get("target") in (None, (target or {}).get("id"))]
+        swarm = newest(swarm_all, split, "swarm", keep=lambda r: r.get("cfg") in (None, cfg) and r.get("target") in (None, (target or {}).get("id")))
         tgt = newest(base_all, split, target["id"]) if target else []
         splits[split] = {
             "swarm": swarm,
@@ -439,6 +441,35 @@ def recipe_sha256(recipe):
     return hashlib.sha256(json.dumps(_canon(recipe), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
 
 
+def pass_in_hand(d):
+    """THIS PASS, UNDER WAY: what the spec would otherwise leave out until the pass ends (it says only what finished passes and the
+    held questions measured). The pass and when it began, the swarm on this pass's train questions so far (they choose what to
+    try; not parity), what is being measured now, each move measured with what it scored, and what was kept. None where no pass of
+    this configuration is under way."""
+    key = d.get("key") or ""
+    p = _json(Path(d["root"]) / ".work" / "train" / key / "plan.json", None) if key else None
+    state_pass = int((d.get("state") or {}).get("pass", 0))
+    if not isinstance(p, dict) or p.get("pass") != state_pass + 1 or p.get("config") not in (None, d.get("cfg")):
+        p = None
+    tr = d["splits"]["train"]
+    pt = tr.get("parity")
+    if not p and not pt:
+        return None
+    moves = (p or {}).get("moves") or []
+    done = [m for m in moves if m.get("status") in ("kept", "not kept")]
+    res = lambda m: {k: (m.get("result") or {}).get(k) for k in ("train", "now", "why") if (m.get("result") or {}).get(k) is not None}  # noqa: E731
+    return {
+        "pass": state_pass + 1,
+        "began": (p or {}).get("at"),
+        "trainSoFar": ({"equivalent": pt["equivalent"], "compared": pt["compared"], "percent": pt["percent"], "answered": len(tr["swarm"]), "of": tr.get("expected")} if pt else None),
+        "trainIs": "the swarm on this pass's train questions: they choose what to try, and are not parity. Parity is said on the held questions, which it was never chosen on, at the end of the pass",
+        "moves": {"planned": sum(1 for m in moves if m.get("status") == "planned"), "beingMeasured": sum(1 for m in moves if m.get("status") == "running"),
+                  "kept": sum(1 for m in moves if m.get("status") == "kept"), "notKept": sum(1 for m in moves if m.get("status") == "not kept")},
+        "now": [{"kind": m.get("kind"), "what": m.get("what"), "slot": m.get("slot")} for m in moves if m.get("status") == "running"],
+        "measured": [{"kind": m.get("kind"), "what": m.get("what"), "slot": m.get("slot"), "status": m.get("status"), **res(m)} for m in done],
+    }
+
+
 SPEC_FORMAT = "the-swarm/spec"
 SPEC_VERSION = 2
 
@@ -481,6 +512,10 @@ def spec(d):
     on = [{"id": x["id"], "name": x.get("name", x["id"])} for x in eq.get("targets", []) if x["id"] in (eq.get("chosen") or [])]
     badge = (("At parity with %s" % t.get("name")) if p["level"] else ("%s%% of the way to parity with %s" % (("%.1f" % p["percent"]).rstrip("0").rstrip("."), t.get("name")))) if p and t else "Not yet measured"
     runs_on = dec.get("runsOn") or ["mac", "cuda", "cpu"]
+    now = pass_in_hand(d)
+    if not p and now:
+        # (in training and not yet measured on the held questions: said so, with how its own train questions are going)
+        badge = "In training · pass %d" % now["pass"]
     return {
         "spec": {"format": SPEC_FORMAT, "version": SPEC_VERSION, "configuration": d.get("key"), "recipeSha256": sha,
                  "recipeIs": "members, decider, engine, serving and arrangement.briefs: what a swarm is built from. Two specs with the same hash make the same swarm."},
@@ -503,7 +538,9 @@ def spec(d):
                 ["One small model", "Two small models", "Three small models", "Four small models"][max(0, min(3, n_small - 1))],
                 ", ".join(names[:-1]) + (" and " if len(names) > 1 else "") + names[-1] if names else "",
                 dec.get("name", "a decision model"),
-                ("%s, on %s" % (badge, ", ".join(x["name"] for x in on))) if p and on else badge if p else "Not yet measured against %s" % (t.get("name") or "a larger model")),
+                ("%s, on %s" % (badge, ", ".join(x["name"] for x in on))) if p and on else badge if p
+                else ("In its first pass of training against %s%s" % (t.get("name") or "a larger model", (": %s%% of this pass's train questions%s, which are not parity" % (("%.1f" % now["trainSoFar"]["percent"]).rstrip("0").rstrip("."), " so far" if (now["trainSoFar"].get("of") or 0) > now["trainSoFar"]["answered"] else "")) if now and now.get("trainSoFar") else "") if now and now["pass"] == 1
+                else "Not yet measured against %s" % (t.get("name") or "a larger model"))),
         },
         # WHAT IT NEEDS OF A MACHINE, for a host to check before offering it
         "requirements": {
@@ -543,6 +580,8 @@ def spec(d):
                 "terminal": "node bin/swarm.mjs serve --spec <this file> [--port 8090]",
             },
         },
+        # THIS PASS, UNDER WAY (pass_in_hand): what the parts below, which speak of finished passes, do not yet hold
+        "inProgress": now,
         "recipe": recipe,
         "members": members,
         "decider": dec,
