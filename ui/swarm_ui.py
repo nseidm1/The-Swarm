@@ -128,6 +128,8 @@ a.idea:hover{background:var(--soft)}a.idea:focus-visible{outline:2px solid var(-
 .target{border-left:4px solid var(--tgt)}.target h3{color:var(--tgt)}
 button.strip{display:block;width:100%;text-align:left;border:0;font:inherit;color:inherit;cursor:pointer}button.strip:hover{box-shadow:0 14px 34px rgba(11,93,87,.16)}
 button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.strip .meta{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0;color:var(--mist)}.strip .meta b{color:var(--fog)}.strip .more{color:var(--teal);font-weight:800}
+.prog{display:block;height:8px;border-radius:999px;background:var(--soft);overflow:hidden;margin:10px 0 10px;position:relative}.prog i{display:block;height:100%;float:left}
+.prog .eq{background:var(--right)}.prog .ch{background:var(--sun)}.pct{font-variant-numeric:tabular-nums}.gapkey{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12.5px;color:var(--mist)}.gapkey i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px}
 dialog#big{border:0;border-radius:26px;padding:26px;max-width:min(1180px,96vw);width:100%;max-height:92vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:#f4fbf9}dialog#big::backdrop{background:rgba(11,40,38,.45)}
 .plan-head{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;align-items:baseline}.plan h4{font-size:10.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--teal2);margin:18px 0 6px}
 .finds{margin:0;padding:0;list-style:none;display:grid;gap:6px}.finds li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start;font-size:13.5px}
@@ -435,6 +437,11 @@ def scoreboard(d):
     return "".join(out)
 
 
+def fmt_pct(x):
+    """A percentage as it is said: 63, 62.5, and 100 only when it is 100."""
+    return ("%d" % x) if float(x) == int(x) else ("%.1f" % x)
+
+
 def score_strip(d):
     """Parity in one strip, the same size at every moment, saying the most that is known so far and what kind of knowledge it is:
     the verdict when the held questions are all answered; before that, how the held or the train questions are going as the
@@ -452,10 +459,11 @@ def score_strip(d):
                 out.append("<span>%s alone <b>%d</b> of %d</span>" % (e(data.MEMBER_NAMES[k]), pa["equivalent"], pa["compared"]))
         return "".join(out)
 
-    def strip(cls, verdict, meta, more=True):
+    def strip(cls, verdict, meta, more=True, pct=None):
         tag = ('<button type="button" class="panel strip" id="score-open" title="Open the whole measurement">', "</button>") if more else ('<div class="panel strip">', "</div>")
-        return '%s<p class="verdict %s">%s</p><p class="meta">%s%s</p>%s' % (
-            tag[0], cls, e(verdict), meta, '<span class="more">Open the whole measurement</span>' if more else "", tag[1])
+        bar = '<span class="prog" title="%s%% of these answers are equivalent"><i class="eq" style="width:%s%%"></i></span>' % (fmt_pct(pct), pct) if pct is not None else ""
+        return '%s<p class="verdict %s">%s</p>%s<p class="meta">%s%s</p>%s' % (
+            tag[0], cls, e(verdict), bar, meta, '<span class="more">Open the whole measurement</span>' if more else "", tag[1])
 
     def counts(q):
         spec = q.get("onSpec") or {}
@@ -468,16 +476,17 @@ def score_strip(d):
         off = p["compared"] - p["equivalent"]
         if done < want:
             # the held questions are being answered now: what there is, and that it is not yet the verdict
-            return strip("", "Being measured: %d of %d held answers so far, %d equivalent to %s's." % (done, want, p["equivalent"], tname),
-                         counts(p) + alone_of(held) + "<span><b>%s</b> s a reply</span><span>The verdict is given when all %d are answered</span>" % (e(str(p["seconds"])), want))
-        return strip("level" if p["level"] else "behind", ("At parity with " if p["level"] else "Not at parity with ") + tname + ("." if p["level"] else ": %d of %d answers are not equivalent." % (off, p["compared"])),
-                     "<span><b>%d</b> held questions</span>" % p["compared"] + counts(p) + alone_of(held) + "<span><b>%s</b> s a reply</span>" % e(str(p["seconds"])))
+            return strip("", "Being measured: %s%% so far. %d of %d held answers in, %d equivalent to %s's." % (fmt_pct(p["percent"]), done, want, p["equivalent"], tname),
+                         counts(p) + alone_of(held) + "<span><b>%s</b> s a reply</span><span>The verdict is given when all %d are answered</span>" % (e(str(p["seconds"])), want), pct=p["percent"])
+        return strip("level" if p["level"] else "behind",
+                     ("100%%: at parity with %s." % tname) if p["level"] else "%s%% of the way to parity with %s: %d of %d held answers are equivalent." % (fmt_pct(p["percent"]), tname, p["equivalent"], p["compared"]),
+                     "<span><b>%d</b> held questions</span>" % p["compared"] + counts(p) + alone_of(held) + "<span><b>%s</b> s a reply</span>" % e(str(p["seconds"])), pct=p["percent"])
     pt = train["parity"]
     if train["swarm"] and pt:
         done, want = len(train["swarm"]), train["expected"] or len(train["swarm"])
-        return strip("", "On this pass's train questions%s: %d of %d answers equivalent to %s's." % (" so far" if done < want else "", pt["equivalent"], pt["compared"], tname),
+        return strip("", "%s%% on this pass's train questions%s: %d of %d answers equivalent to %s's." % (fmt_pct(pt["percent"]), " so far" if done < want else "", pt["equivalent"], pt["compared"], tname),
                      ("<span><b>%d</b> of %d answered</span>" % (done, want) if done < want else "") + counts(pt) + alone_of(held)
-                     + "<span><b>%s</b> s a reply</span><span>These choose what to try. Parity is said on the held questions, at the end of the pass</span>" % e(str(pt["seconds"])), more=False)
+                     + "<span><b>%s</b> s a reply</span><span>These choose what to try. Parity is said on the held questions, at the end of the pass</span>" % e(str(pt["seconds"])), more=False, pct=pt["percent"])
     answered = len(held["target"])
     if answered or alone_of(held):
         return strip("", "%s has answered %d held question%s. The swarm has not answered yet." % (tname, answered, "" if answered == 1 else "s"),
@@ -524,6 +533,14 @@ def plan_panel(d):
              "nothing": "Nothing is measured yet, so the checkers come first and one arrangement of each kind. It is written again when this pass has measured the swarm"}.get(p.get("basedOn"), "")
     out = ['<div class="panel plan"><div class="plan-head"><h3>The plan for pass %d</h3><span class="muted small">%d moves · %d measured · %d kept</span></div><p class="muted small" style="margin:4px 0 0">%s.</p>'
            % (n, len(moves), len(done), len(kept), e(based))]
+    g = p.get("gap")
+    if g:
+        ch = max(0.0, g["reachableByChoosing"] - g["percent"])
+        out.append('<h4>The gap, on the train questions</h4><p class="small" style="margin:0"><b class="pct" style="font-size:20px">%s%%</b> of the way to parity. <b>%d</b> answers to close.</p>'
+                   '<span class="prog" style="height:12px"><i class="eq" style="width:%s%%"></i><i class="ch" style="width:%s%%"></i></span>'
+                   '<p class="gapkey"><span><i style="background:var(--right)"></i>equivalent now: %s%%</span><span><i style="background:var(--sun)"></i>on the table but not chosen: <b>%d</b> answers. Choosing better alone could reach %s%%</span>'
+                   '<span><i style="background:var(--soft)"></i>no slot had it: <b>%d</b> answers. These need better drafts</span></p>'
+                   % (fmt_pct(g["percent"]), g["toClose"], g["percent"], ch, fmt_pct(g["percent"]), g["choosing"], fmt_pct(g["reachableByChoosing"]), g["drafting"]))
     m = p.get("measured")
     finds = p.get("findings") or []
     if m:
@@ -1174,7 +1191,7 @@ def rail(d):
         '<li><span class="av">P%s</span><span><b>%s</b><small>%s</small></span><span class="pill %s">%s</span></li>'
         % (e(str(h["pass"])), e("with " + names.get(h.get("target"), str(h.get("target")))),
            e("%d of %d equivalent" % (h["equivalent"], h["compared"]) if h.get("compared") else "nothing to compare"),
-           "up" if h.get("level") else "down", "parity" if h.get("level") else ("%d differ" % (h["compared"] - h["equivalent"])) if h.get("compared") else "n/a")
+           "up" if h.get("level") else "planned", "100%" if h.get("level") else ("%s%%" % fmt_pct(int(1000 * h["equivalent"] / h["compared"]) / 10)) if h.get("compared") else ("%d differ" % (h["compared"] - h["equivalent"])) if h.get("compared") else "n/a")
         for h in hist
     ) or '<li><span class="av">&ndash;</span><span><b>No pass has ended yet</b><small>the first is pass 1</small></span><span></span></li>'
     ideas = [i for i in st.get("ideas", []) if i.get("status") == "open"][:6]
@@ -1287,7 +1304,7 @@ def spec_panel(d):
         '<h4>As JSON</h4><pre class="tail" id="spec-json" style="max-height:320px">%s</pre>'
         % (
             e(sp["id"]), e(sp["what"]),
-            state_cls, e(t["state"].capitalize()), e(t["target"].get("name") or ""),
+            state_cls, e(("%s%% of the way to parity" % fmt_pct(t["progressPercent"])) if t.get("progressPercent") is not None and t["state"] != "at parity" else t["state"].capitalize()), e(t["target"].get("name") or ""),
             e(t["parityMeans"]),
             learned_block(d),
             row("In", e(sp["interface"]["in"])), row("Out", e(sp["interface"]["out"])),
@@ -1324,7 +1341,7 @@ def page(d):
     p = d["splits"]["held"]["parity"]
     chips = ['<span class="chip">Pass <b>%s</b></span>' % e(str(st.get("pass", 0) + 1))]
     if p:
-        chips.append('<span class="chip %s">%s</span>' % ("level" if p["level"] else "behind", "At parity" if p["level"] else "Not at parity: <b>%d</b> differ" % (p["compared"] - p["equivalent"])))
+        chips.append('<span class="chip %s">%s</span>' % ("level" if p["level"] else "behind", "At parity: <b>100%</b>" if p["level"] else "<b>%s%%</b> of the way to parity" % fmt_pct(p["percent"])))
     banner = '<div class="banner">Sample data, made up to show the layout. It is not a measurement of anything.</div>' if d["sample"] else ""
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'

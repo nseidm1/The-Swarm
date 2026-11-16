@@ -283,6 +283,19 @@ export function makePlan({
     pass: state.pass + 1,
     at: now.toISOString(),
     basedOn: !report ? 'nothing' : reportIsThisPass ? 'this-pass' : 'last-pass',
+    // THE GAP, AND WHERE IT IS. How far the swarm is from the larger model on these questions, and of what remains, how much
+    // could be had by choosing better between the answers already on the table (a slot had it, the reply did not) and how much
+    // needs better answers to be written at all (no slot had it). The moves below are ranked by which of those they speak to
+    gap:
+      report && report.compared
+        ? {
+            percent: Math.floor((1000 * report.right) / report.compared) / 10,
+            reachableByChoosing: Math.floor((1000 * (report.right + (report.lost || 0))) / report.compared) / 10,
+            toClose: report.compared - report.right,
+            choosing: report.lost || 0,
+            drafting: Math.max(0, report.compared - report.right - (report.lost || 0)),
+          }
+        : null,
     measured: report
       ? { compared: report.compared, equivalent: report.right, differ: report.wrong, none: report.unsure || 0 }
       : null,

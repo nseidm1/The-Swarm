@@ -86,6 +86,7 @@ export function endPass(state, { swarmRows, train, briefs, targets, now = new Da
   };
   if (p)
     Object.assign(done, {
+      percent: p.percent,
       equivalent: p.equivalent,
       differ: p.differ,
       none: p.none,

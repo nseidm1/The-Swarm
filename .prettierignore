@@ -1,6 +1,10 @@
 .work/
 node_modules/
 training/results/
+# what a configuration remembers and has learned is written by the trainers, whole, while a session runs: never reformatted
+training/states/
+training/state.json
+src/learned/
 # Documents keep the line breaks they were written with
 *.md
 

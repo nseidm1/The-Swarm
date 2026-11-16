@@ -80,9 +80,12 @@ with tempfile.TemporaryDirectory() as tmp:
           and not any(n in none_yet + listed for n in others), listed)
     top = html.split("<main")[1].split('id="arrangement"')[0]
     full = get(base + "/fragment/scorefull")[1]
-    check("it shows whether the swarm is at parity with the larger model by name, as a yes or a not yet with how many answers are not equivalent, never as a percentage, and says that being right is not what is measured",
-          ("At parity with Nemotron" in html or "Not at parity with Nemotron" in html) and "Parity with Nemotron" in full and "The swarm" in full and "LFM2.5 2.6B alone" in full
-          and "fundamentally equivalent" in full and "Whether either was right is not what is measured" in full and "%</" not in top.replace("width:", "") and "%</" not in full.replace("width:", "").split("How replies were reached")[0] and "% parity" not in html + full)
+    pc = held["parity"]["percent"]
+    check("it shows how far the swarm is toward parity with the larger model, by name, as a percentage with a bar and the count behind it; 100 is said only when every answer is equivalent; and it says that being right is not what is measured",
+          ("%s%% of the way to parity with Nemotron" % swarm_ui.fmt_pct(pc) in html or "100%: at parity with Nemotron" in html) and 'class="prog"' in top and "of the way to parity</span>" in html
+          and "Parity with Nemotron" in full and "The swarm" in full and "LFM2.5 2.6B alone" in full and "fundamentally equivalent" in full and "Whether either was right is not what is measured" in full
+          and data.parity([{"grade": "right"}] * 999 + [{"grade": "wrong"}])["percent"] == 99.9 and data.parity([{"grade": "right"}] * 3)["percent"] == 100 and data.parity([{"grade": "right"}] * 1999 + [{"grade": "wrong"}])["percent"] < 100
+          and swarm_ui.fmt_pct(75.0) == "75" and swarm_ui.fmt_pct(62.5) == "62.5")
     strip = get(base + "/fragment/score")[1]
     check("parity stays one small strip whether or not anything is measured: the verdict and a line of counts, with the charts behind it in a dialog and never on the page itself",
           'id="score-open"' in top and "held questions" in top and "LFM2.5 2.6B alone" in top and "<svg" not in top.split('id="score"')[1] and 'class="kpis"' not in html and 'class="kpis"' in full
@@ -110,9 +113,9 @@ with tempfile.TemporaryDirectory() as tmp:
     s_part, s_train, s_alone, s_none, s_full = (swarm_ui.score_strip(x) for x in (part, only_train, only_alone, nothing, d))
     check("the parity strip says the most that is known at each moment and never more: nothing; then what the larger model and each small model alone have done; then how the train questions are going; then the held answers as they come, said not to be the verdict; and the verdict only when all are answered",
           "Not measured yet" in s_none and "has answered 12 held questions. The swarm has not answered yet" in s_alone and "alone" in s_alone and 'id="score-open"' not in s_alone
-          and "On this pass" in s_train and "train questions" in s_train and "Parity is said on the held questions" in s_train and "At parity" not in s_train and "Not at parity" not in s_train
-          and "Being measured: 5 of 12 held answers so far" in s_part and "The verdict is given when all 12 are answered" in s_part and "Not at parity" not in s_part
-          and ("Not at parity with" in s_full or "At parity with" in s_full) and "Being measured" not in s_full, s_part[:300])
+          and "% on this pass" in s_train and "train questions" in s_train and "Parity is said on the held questions" in s_train and "of the way to parity" not in s_train and "at parity with" not in s_train
+          and "Being measured: " in s_part and "% so far. 5 of 12 held answers in" in s_part and "The verdict is given when all 12 are answered" in s_part and "of the way to parity" not in s_part
+          and ("of the way to parity with" in s_full or "at parity with" in s_full) and "Being measured" not in s_full, s_part[:300])
     ckd = root / ".work" / "train" / "checkpoints"
     ckd.mkdir(parents=True, exist_ok=True)
     extra = dict(H["swarm"][0], id="held-live-1", grade="right")
@@ -216,7 +219,7 @@ with tempfile.TemporaryDirectory() as tmp:
     code_s, sp = get(base + "/fragment/spec")
     spec = data.spec(data.load(root))
     check("the output spec says what the swarm as it stands is: what goes in and comes out, each model with its pinned file and SHA-256, the decider, every slot and what it is for, and where it stands against the larger model, to read and to copy as JSON",
-          code_s == 200 and "Output spec" in sp and d["members"]["a"]["sha256"] in sp and d["members"]["b"]["file"] in sp and "kev-decide" in sp and ("Not at parity against" in sp or "At parity against" in sp) and 'id="spec-json"' in sp
+          code_s == 200 and "Output spec" in sp and d["members"]["a"]["sha256"] in sp and d["members"]["b"]["file"] in sp and "kev-decide" in sp and ("% of the way to parity against" in sp or "At parity against" in sp) and spec["trainedAgainst"]["progressPercent"] == p["percent"] and 'id="spec-json"' in sp
           and spec["trainedAgainst"]["state"] in ("at parity", "not at parity") and spec["trainedAgainst"]["equivalent"] == p["equivalent"] and len(spec["arrangement"]["slots"]) == len(d["briefs"]["slots"])
           and spec["members"]["a"]["sha256"] == d["members"]["a"]["sha256"] and spec["interface"]["out"] == "one reply" and "fundamentally equivalent" in spec["trainedAgainst"]["parityMeans"], sp[:200])
     check("an idea waiting to be measured opens the paper it came from", 'class="idea" href="https://arxiv.org/abs/' in html and 'target="_blank"' in html and "arXiv 26" in html)

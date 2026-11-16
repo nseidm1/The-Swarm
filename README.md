@@ -32,7 +32,8 @@ It is trained toward **parity** with a much larger model, on a machine that coul
 equivalence: for the same message, an answer fundamentally equivalent to the larger model's. For a program that means
 equivalent **function**: the Swarm's function and the larger model's are run on the same inputs, and are equivalent when
 they do the same, however differently they are written. Parity is not correctness (the larger model's answer is the mark,
-whatever it is) and not a percentage (the Swarm is at parity when every answer is equivalent).
+whatever it is). **Progress toward it is a percentage**: the share of the held answers that are equivalent to the larger
+model's. Parity is 100%, and nothing less: one answer that is not equivalent is a place where the two are not the same.
 
 > **Status: pre-release.** The module, the trainers and the dashboard are built and checked. One question of each kind has
 > been put through the whole swarm on real models. **No training pass has finished, so nothing is known yet about parity.**
@@ -322,6 +323,10 @@ the held questions and on the same questions put a second way; the verdict is wr
   and scores every move open to it by how many of those answers it could win back: another brief for a slot, a change to
   the plan, any arrangement one step from the current one. The dashboard shows the plan as it is carried out.
 
+- **It drives a percentage toward 100.** Every pass ends with how far the Swarm is toward parity, as a percentage of the held
+  answers. Each pass plans from the gap: of the answers still to close, how many were on the table and not chosen (choosing
+  better could win them) and how many no slot had (they need better drafts). The moves it tries are ranked by which of those
+  they speak to and how many answers they could win. If the percentage does not rise for two passes, the search is widened.
 - **A change is kept only on evidence.** A brief, a plan, an arrangement or a flow is kept if, question by question on the
   same train questions, it wins more answers than it loses by a margin, and does no worse on questions it never saw. The
   trainers ask with a fixed seed, so the same arrangement gives the same answers and a measurement is made once.
@@ -413,7 +418,7 @@ npm test
 python3 ui/check.py
 ```
 
-One hundred and two checks of the module and the trainers, and forty-four of the dashboard. Stand-in servers take the place of the
+One hundred and three checks of the module and the trainers, and forty-four of the dashboard. Stand-in servers take the place of the
 models, Kev and Hugging Face, so nothing is fetched, started or installed, and both finish in well under a minute. They cover what
 goes in and comes out, which slots run, what happens when a slot, a model or everything fails, that two functions are judged
 equivalent by running them, that model-written code can reach nothing, and that each fault in [Recovery](#recovery) is

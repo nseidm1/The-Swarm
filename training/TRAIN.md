@@ -17,7 +17,9 @@ them, and the one that reaches parity with the larger model is found by trying, 
 fundamentally equivalent to the larger model's: the same thing said, whatever the wording, the layout or the working.
 
 - **It is not correctness.** The larger model's answer is the mark, whatever it is. Whether either of them is right is not asked.
-- **It is not a percentage.** One answer that is not equivalent is a place where the two are not the same, and the Swarm is not
+- **Progress toward it is a percentage, and parity is 100.** The percentage of the held answers that are equivalent says how
+  far the Swarm has come, pass by pass, and is what the trainer drives up. It is rounded down, so 100 is said only at parity.
+- **Short of 100 it is not parity.** One answer that is not equivalent is a place where the two are not the same, and the Swarm is not
   at parity while there is one. What is counted, pass by pass, is how many answers are not yet equivalent.
 
 | | |

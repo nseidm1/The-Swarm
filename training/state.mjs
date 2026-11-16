@@ -114,6 +114,7 @@ export const candHash = (c) => briefHash(String(c.brief || '') + (c.plan ? ' ' +
 // of question asked here is in tasks.mjs (a number is the same number, however written; a day is the same day; a word the same
 // word).
 //   parity(rows) -> { compared, equivalent, differ, none, level (every one equivalent), trailing: kinds with any that are not }
+export const percentOf = (equivalent, compared) => (compared ? Math.floor((1000 * equivalent) / compared) / 10 : 0);
 export function parity(rows) {
   const kinds = {};
   let equivalent = 0;
@@ -133,6 +134,9 @@ export function parity(rows) {
   return {
     // the same count on the questions where the larger model's own answer does what the question says
     onSpec: { compared: spec.length, equivalent: spec.filter((r) => r.grade === 'right').length },
+    // PROGRESS TOWARD PARITY: the share of the answers that are equivalent, as a percentage. Parity is 100 and nothing less: it is
+    // rounded DOWN, so that 100 is said only when every answer is equivalent
+    percent: percentOf(equivalent, compared),
     compared,
     equivalent,
     differ,

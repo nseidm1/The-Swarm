@@ -29,6 +29,14 @@ export function metricsOf({ report, learned, state, noise }) {
   let dry = 0;
   for (let p = state.pass; p >= 1 && !kept.has(p); p--) dry++;
   m['pass.keptNothingFor'] = dry;
+  // PROGRESS: the percentage toward parity at the end of the last pass, and for how many passes it has not risen
+  const pcs = ((learned && learned.passes) || []).map((x) => x.percent).filter((x) => typeof x === 'number');
+  if (pcs.length) {
+    m['progress.percent'] = pcs[pcs.length - 1];
+    let flat = 0;
+    for (let i = pcs.length - 1; i >= 1 && pcs[i] <= Math.max(...pcs.slice(0, i)); i--) flat++;
+    m['progress.passesWithoutGain'] = flat;
+  }
   return m;
 }
 const OPS = {

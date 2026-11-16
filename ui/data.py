@@ -80,6 +80,8 @@ def parity(rows):
     if not out["compared"]:
         return None
     out["level"] = out["equivalent"] == out["compared"]
+    # progress toward parity, as a percentage; rounded down, so that 100 is said only at parity
+    out["percent"] = int(1000 * out["equivalent"] / out["compared"]) / 10
     # the same count where the larger model's own answer does what the question says (training/tasks.mjs: toSpec)
     spec = [r for r in rows if r.get("refToSpec") is True and r.get("grade") in ("right", "wrong", "unsure")]
     out["onSpec"] = {"compared": len(spec), "equivalent": sum(1 for r in spec if r.get("grade") == "right")}
@@ -300,6 +302,8 @@ def spec(d):
             "target": {k: (d["target"] or {}).get(k) for k in ("id", "name", "by", "params", "engine")},
             "parityMeans": "every answer to the held questions is fundamentally equivalent to the target's: a function that returns the same for every input, the same value, or (in words) the same thing said. Not a percentage, and not correctness.",
             "state": ("at parity" if p["level"] else "not at parity") if p else "not measured",
+            "progressPercent": p["percent"] if p else None,
+            "progressIs": "the percentage of the held answers that are equivalent to the larger model's; parity is 100, and nothing less",
             "heldQuestions": p["compared"] if p else 0,
             "equivalent": p["equivalent"] if p else None,
             "different": p["differ"] if p else None,

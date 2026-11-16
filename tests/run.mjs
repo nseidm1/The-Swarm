@@ -1771,6 +1771,64 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { did },
   );
 }
+// ---- 6n: PROGRESS TOWARD PARITY IS A PERCENTAGE, parity is 100 and nothing less, and a pass plans from the gap
+{
+  const { parity: par, percentOf } = await import('../training/state.mjs');
+  const { makePlan } = await import('../training/plan.mjs');
+  const { metricsOf, changesFor } = await import('../training/review.mjs');
+  const { basePolicy } = await import('../training/policy.mjs');
+  const { steps } = await import('../training/arrange.mjs');
+  const rows = (right, wrong) => [
+    ...Array(right).fill({ grade: 'right', kind: 'fix' }),
+    ...Array(wrong).fill({ grade: 'wrong', kind: 'fix' }),
+  ];
+  const report = {
+    compared: 56,
+    right: 31,
+    wrong: 25,
+    unsure: 0,
+    lost: 6,
+    slots: { 'a-direct': { stage: 'draft', ran: 56, right: 14, silent: 0, ms: 1 } },
+  };
+  const plan = makePlan({
+    state: { pass: 0, tried: {} },
+    briefs,
+    report,
+    reportIsThisPass: true,
+    steps: steps(briefs),
+    tries: 2,
+  });
+  const flat = metricsOf({
+    report,
+    learned: { ledger: [], passes: [{ percent: 50 }, { percent: 62.5 }, { percent: 62.5 }, { percent: 60 }] },
+    state: { pass: 4 },
+  });
+  const rising = metricsOf({
+    report,
+    learned: { ledger: [], passes: [{ percent: 50 }, { percent: 62.5 }] },
+    state: { pass: 2 },
+  });
+  check(
+    'how far the swarm is toward parity is a percentage of the answers that are equivalent, rounded down so that 100 is said only when every answer is; a pass states its gap (how much is on the table and not chosen, how much no slot had); and a percentage that has not risen for two passes widens the search',
+    par(rows(9, 3)).percent === 75 &&
+      par(rows(1999, 1)).percent === 99.9 &&
+      par(rows(3, 0)).percent === 100 &&
+      par(rows(3, 0)).level === true &&
+      par(rows(1999, 1)).level === false &&
+      percentOf(0, 0) === 0 &&
+      plan.gap.percent === 55.3 &&
+      plan.gap.reachableByChoosing === 66 &&
+      plan.gap.toClose === 25 &&
+      plan.gap.choosing === 6 &&
+      plan.gap.drafting === 19 &&
+      flat['progress.percent'] === 60 &&
+      flat['progress.passesWithoutGain'] === 2 &&
+      rising['progress.passesWithoutGain'] === 0 &&
+      changesFor(basePolicy(), flat).some((c) => c.rule === 'no-progress-widens-the-search') &&
+      !changesFor(basePolicy(), rising).some((c) => c.rule === 'no-progress-widens-the-search'),
+    { gap: plan.gap, flat },
+  );
+}
 // ---- 7: one worked answer for each different answer
 {
   reset();
