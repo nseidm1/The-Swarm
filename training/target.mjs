@@ -98,6 +98,8 @@ export async function openTarget(
   const fixed = rung.base || process.env.SWARM_TARGET_BASE || '';
   let base = fixed;
   let child = null;
+  // flags the model is better served with but can be served without (rung.serve.optional): dropped if its server does not know them
+  const dropped = new Set();
   const start = async () => {
     const how = servingOf(rung, { llamaServer, modelsDir });
     const program = how.program;
@@ -108,7 +110,7 @@ export async function openTarget(
     let exited = null;
     const c = spawn(
       program,
-      how.args.map((a) => String(a).replace('{port}', String(port))),
+      how.args.filter((a) => !dropped.has(a)).map((a) => String(a).replace('{port}', String(port))),
       { stdio: ['ignore', 'pipe', 'pipe'] },
     );
     const take = (x) =>
@@ -154,9 +156,23 @@ export async function openTarget(
     try {
       await start();
     } catch (e) {
-      // once more, after a moment: a port taken in between, memory another model had not yet given back
-      onRecover(rung.name, 'it would not start: tried once more', { kind: 'start', why: String(e.message) });
-      await sleep(4000);
+      const why = String(e.message);
+      const optional = ((rung.serve && rung.serve.optional) || []).filter((f) => !dropped.has(f));
+      if (
+        optional.length &&
+        /unknown|unrecogni[sz]ed|unexpected argument|no such option|invalid option|usage:/i.test(why)
+      ) {
+        // an older engine that does not know a flag: served without it, and that is said
+        for (const f of optional) dropped.add(f);
+        onRecover(rung.name, 'its server does not know ' + optional.join(' ') + ': started without', {
+          kind: 'flag',
+          why,
+        });
+      } else {
+        // once more, after a moment: a port taken in between, memory another model had not yet given back
+        onRecover(rung.name, 'it would not start: tried once more', { kind: 'start', why });
+        await sleep(4000);
+      }
       await start();
     }
   }
@@ -193,12 +209,24 @@ export async function openTarget(
     // not is asked for again the same way an empty one is.
     async ask(messages, { maxTokens = 4096, usable = (t) => t.length > 0 } = {}) {
       let text = '';
+      let first = '';
       let revived = 0;
+      let waited = 0;
       for (let draw = 0; draw <= 2; draw++) {
         try {
           text = await once(messages, maxTokens, draw);
         } catch (e) {
           const why = String((e && e.message) || e);
+          // THE SERVER SAYS IT IS BUSY PUTTING ITSELF RIGHT (TensorFold: 500 "server restarting: retry shortly"; any server:
+          // 503 while a model loads). It is still there: waited for, and asked again, the same way. Not a reason to start another.
+          if (/server restarting|retry shortly|answered 503|loading model|model is loading/i.test(why) && waited < 40) {
+            if (!waited)
+              onRecover(rung.name, 'its server said it was restarting: waited, and asked again', { kind: 'busy', why });
+            waited++;
+            await sleep(3000);
+            draw--;
+            continue;
+          }
           if (
             fixed ||
             revived >= 2 ||
@@ -212,11 +240,13 @@ export async function openTarget(
           draw--;
           continue;
         }
+        if (draw === 0) first = text;
         if (usable(text)) return { text, draws: draw + 1 };
         if (draw < 2)
           onRecover(rung.name, 'its reply held no answer: asked again with another draw', { kind: 'empty' });
       }
-      return { text, draws: 3 };
+      // none of the draws held an answer: what it said when asked plainly is what is kept, to be read; it is not a mark
+      return { text: first, draws: 3, usable: false };
     },
     stop: halt,
   };

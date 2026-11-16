@@ -61,7 +61,10 @@ try {
     list,
     async (t) => ({
       reply: (
-        await model.ask([{ role: 'user', content: t.ask }], self ? { usable: (text) => !!t.show(text) } : undefined)
+        await model.ask(
+          [{ role: 'user', content: t.ask }],
+          self ? { usable: (text) => (t.usable ? t.usable(text) : !!t.show(text)) } : undefined,
+        )
       ).text,
     }),
     {
@@ -86,7 +89,39 @@ try {
   }
   if (silent) console.log(silent + ' of ' + rows.length + ' replies were empty.');
   const c = count(rows);
-  console.log('\n' + line(label + ' (' + split + ')', c));
+  if (self) {
+    // the larger model is not marked against anything: what matters is how many of its replies ARE answers. One that is not
+    // (cut off, empty) after three draws is no mark, and the questions it belongs to are not compared for anyone.
+    const none = rows.filter((r) => r.grade !== 'right');
+    const kinds = {};
+    for (const r of none) kinds[r.kind] = (kinds[r.kind] || 0) + 1;
+    console.log(
+      '\n' +
+        label +
+        ' (' +
+        split +
+        ')  ' +
+        (rows.length - none.length) +
+        ' of ' +
+        rows.length +
+        ' replies hold an answer' +
+        (none.length
+          ? '. ' +
+            none.length +
+            ' do not, after three draws each, and will not be compared: ' +
+            Object.entries(kinds)
+              .map(([k, n]) => k + ' ' + n)
+              .join(', ')
+          : '') +
+        '   ' +
+        c.seconds +
+        ' s each',
+    );
+    if (none.length * 4 >= rows.length)
+      console.log(
+        'A QUARTER OR MORE OF ITS REPLIES HOLD NO ANSWER. It is a poor mark as it is served here: choose another larger model.',
+      );
+  } else console.log('\n' + line(label + ' (' + split + ')', c));
   rowsTo(
     'baseline-runs.jsonl',
     rows.map((r) => ({ label, ...r })),

@@ -20,7 +20,7 @@ globalThis.__text = (v) =>
   JSON.stringify(v, (k, x) =>
     x === undefined ? '__undefined__'
     : typeof x === 'number' && !Number.isFinite(x) ? '__' + String(x) + '__'
-    : Object.is(x, -0) ? '__-0__'
+    : Object.is(x, -0) ? 0 // negative zero is zero to anything that uses the number
     : typeof x === 'bigint' ? '__big' + x + '__'
     : typeof x === 'function' ? '__function__'
     : x);

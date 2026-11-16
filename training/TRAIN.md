@@ -79,7 +79,7 @@ each slot's on the way, is then marked by whether it is equivalent to it:
 | equivalent | It settled on an answer fundamentally equivalent to the larger model's |
 | different | It settled on another answer |
 | none | It settled on nothing |
-| not compared | The larger model settled on nothing, so there is nothing to be equivalent to |
+| not compared | The larger model gave no answer (nothing, a function cut off partway, a sentence cut off after a word), so there is nothing to be equivalent to |
 
 A candidate is chosen by equivalent answers minus different ones. (In the code and the result files these marks keep the short
 names `right`, `wrong`, `unsure`, `noref`: they mean the four above, not correct and incorrect.)
@@ -142,6 +142,8 @@ not lower on held.
 | A model server will not start | Tried the way that fits why: without a flag an older llama.cpp does not know; with half the context, then a quarter, where memory is short; once more otherwise |
 | The larger model's reply holds no answer | Asked again, with another draw, twice. Still nothing: that question is not compared, and is counted as such |
 | The larger model's server stops | Started again, and the question asked again |
+| The larger model's server says it is restarting | Waited for, and asked again the same way |
+| The larger model's engine does not know a flag it is better served with | Served without it, and that is recorded |
 | Kev stops | Started again before the next step. Its port is found free at the start of the session |
 | A trainer stops partway | Every answer is written down as it comes. Run again, it asks only what is left |
 | A step of a pass fails | What it left running is stopped and it is run again, three times at most. If it still fails that is written down and the pass goes on |

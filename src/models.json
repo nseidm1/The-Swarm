@@ -321,13 +321,16 @@
           "--name",
           "target",
           "--context",
-          "8192",
+          "16384",
           "--host",
           "127.0.0.1",
           "--port",
           "{port}",
-          "--no-thinking"
-        ]
+          "--no-thinking",
+          "--no-drafts"
+        ],
+        "optional": ["--no-drafts"],
+        "why": "Served without drafts: with them this model's replies break off into a token that is no real choice (the last of its vocabulary, shown as <unk>), part-way through code it is copying. Learned in The Crew on this model, and seen again here."
       }
     },
     {

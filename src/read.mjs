@@ -36,6 +36,30 @@ const lastBlock = (text, marker = MARKER, wantsCode = false) => {
   return { code: b[1].trim(), at: b.index };
 };
 // does a question ask for code? (so that the code in a reply to it is its answer)
+// A REPLY THAT IS A CALL TO A TOOL IS NOT A REPLY. A model trained to call tools sometimes answers with one though it was given
+// none (LFM2.5 writes <|tool_call_start|>[name(args)]<|tool_call_end|>). Nothing can run it and no person can read it.
+export const isToolCall = (text) =>
+  /<\|tool_call_start\|>|<tool_call>|<\|python_tag\|>|<function=/.test(String(text || '')) ||
+  /^\s*\{\s*"(?:name|tool|function)"\s*:/.test(String(text || ''));
+
+// A CHECKER MAY ANSWER WITH A LETTER: where it finds one of the lettered answers correct, its last line is ANSWER: and that
+// letter, and it need not write the answer out again (for a function, that is most of what it can say in one turn). Read from
+// the last line that carries the marker: '' when that line is not a letter alone.
+export function letterOf(text, marker = MARKER, letters = 'ABCDEFGH') {
+  const lines = String(text || '').split(/\r?\n/);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const at = lines[i].toUpperCase().lastIndexOf(marker.toUpperCase());
+    if (at < 0) continue;
+    const said = lines[i]
+      .slice(at + marker.length)
+      .replace(/[*_`.()\[\]"']/g, '')
+      .trim();
+    const m = /^(?:answer\s+|option\s+|letter\s+)?([A-Za-z])$/i.exec(said);
+    return m && letters.includes(m[1].toUpperCase()) ? m[1].toUpperCase() : '';
+  }
+  return '';
+}
+
 export const asksForCode = (question) =>
   /code block|write a (?:\w+ )*function|corrected function|give the (?:\w+ )*function/i.test(String(question || ''));
 // is an answer code? Words about a function are not: code has the marks of code (a function with its brackets, an arrow, a

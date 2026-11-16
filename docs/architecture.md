@@ -42,7 +42,7 @@ keeps it: a role costs its brief the first time and only the question after that
 | Stage | Is sent |
 |---|---|
 | draft | its brief, the conversation's last turns |
-| check | its brief, the earlier turns, then the question with the lettered drafts (the critic with their work, the other without) |
+| check | its brief, the earlier turns, then the question with the lettered drafts (the critic with their work, the other without). It may answer with the letter of the draft it finds correct, which counts as that draft's answer whole |
 | decide (Kev) | no brief: one `POST /v1/systemone` with the question, one worked answer for each different answer and what the checkers said as state; a choice among the answers and a yes/no for each as questions. No slot judges |
 | write | its brief, the earlier turns, the question, the answer settled on and the work behind it |
 
@@ -55,7 +55,7 @@ reading them.
 |---|---|
 | One slot | The others carry on |
 | Kev (not named, down or slow) | The answer most slots gave stands |
-| The writer | The answer and its work are the reply |
+| The writer (it fails, or answers with a call to a tool) | The answer and its work are the reply |
 | A model's server stops or hangs | It is started again, once for all the slots waiting on it, and each asks again |
 | A whole model, for good | The other model's slots carry on |
 | Everything | `ok: false` and no reply. Nothing is made up |

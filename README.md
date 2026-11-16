@@ -302,6 +302,8 @@ never finish, and one that carried on regardless would measure nothing, so each 
 | A model server will not start | Tried the way that fits why: without a flag an older llama.cpp does not know; with half the context, then a quarter, where memory is short; once more otherwise |
 | The larger model's reply holds no answer | Asked again, with another draw, twice. Still nothing: that question is not compared, and is counted as such |
 | The larger model's server stops | Started again, and the question asked again |
+| The larger model's server says it is restarting | Waited for, and asked again the same way |
+| The larger model's engine does not know a flag it is better served with | Served without it, and that is recorded |
 | Kev stops | Started again before the next step. Its port is found free at the start of the session |
 | A trainer stops partway | Every answer is written down as it comes. Run again, it asks only what is left |
 | A step of a pass fails | What it left running is stopped and it is run again, three times at most. If it still fails that is written down and the pass goes on |
@@ -333,7 +335,7 @@ npm test
 python3 ui/check.py
 ```
 
-Sixty-four checks of the module and the trainers, and thirty-three of the dashboard. Stand-in servers take the place of the
+Seventy-one checks of the module and the trainers, and thirty-three of the dashboard. Stand-in servers take the place of the
 models, Kev and Hugging Face, so nothing is fetched, started or installed, and both finish in well under a minute. They cover what
 goes in and comes out, which slots run, what happens when a slot, a model or everything fails, that two functions are judged
 equivalent by running them, that model-written code can reach nothing, and that each fault in [Recovery](#recovery) is
@@ -373,12 +375,17 @@ Known limits:
 - **Small JavaScript questions only.** Larger programs, other languages, long writing and conversation are not measured.
 - **Few families of question.** Eleven kinds of function, with details that change. The train and held questions are
   different draws from the same families, so a pass can learn a family. More families are the cure.
-- **A model trained to call tools may answer with a tool call.** LFM2.5 sometimes does, though it is given no tools. Code
-  handed over that way is read; anything else in such a reply is lost, and that slot is done without.
+- **A model trained to call tools may answer with a tool call.** LFM2.5 often does, though it is given no tools (8 of the
+  first 20 replies it wrote in a real pass). Code a slot hands over that way is read. A reply written that way is never sent:
+  the answer that was settled goes out as it stands.
 - **Kev is not trained for this yet.** It decides as it was published.
-- **A larger model that gives no usable answer is not compared.** Nemotron 3.5 Lightning 30B, as TensorFold serves it here,
-  runs on into unknown tokens partway through some answers (one of the seven above). Its reply is cut where that starts; if
-  what is left holds no answer, that question is left out. A target that does this often is a poor mark: choose another.
+- **A larger model that gives no usable answer is not compared.** A reply cut off partway (a function that does not parse, a
+  sentence of one word) is not taken for an answer: it is asked again, and if it still holds none, its question is left out
+  for everyone. The step that asks the larger model says how many of its replies hold an answer.
+- **How a larger model is served matters.** Nemotron 3.5 Lightning 30B, served by TensorFold with drafting on, broke off into
+  unknown tokens two lines into every answer that corrects a function (12 of 12). Served without drafts, as The Crew had
+  already learned to serve it, all 84 of its replies to one pass's questions held an answer (2026-11-15). It is served that
+  way here, and each larger model's entry in `src/models.json` carries what it must be served with.
 
 ## Troubleshooting
 

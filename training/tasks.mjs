@@ -11,7 +11,7 @@
 //   tasks({ split: 'train' | 'held', each: 6, kinds: [...], seed, focus })
 //     -> [{ id, kind, type ('code' | 'value' | 'open'), split, seed, ask, equivalent(refReply, reply, ctx), show(reply), wrap(final) }]
 import { CODE_KINDS } from './tasks-code.mjs';
-import { codeEquivalent, openEquivalent, codeOf } from './support/equivalent.mjs';
+import { codeEquivalent, openEquivalent, codeOf, codeWhole } from './support/equivalent.mjs';
 
 const rng = (seed) => () => {
   seed |= 0;
@@ -391,6 +391,7 @@ export const SEEDS = { train: 1009, held: 7919 };
 //   equivalent(refReply, reply, { kev }) -> { grade }   is this reply fundamentally equivalent to the larger model's reply?
 //                                                       right (equivalent)  wrong (different)  unsure (it gave no answer)
 //                                                       noref (the larger model gave none, or nothing here can compare them)
+//   usable(reply)                                       does this reply hold an answer at all (a whole function, a value, a sentence)?
 //   show(reply)                                         the answer in a reply, short, for a person to read
 //   wrap(final)                                         what one slot settled on, put as a reply, so that it can be compared too
 export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, focus = {} } = {}) {
@@ -417,6 +418,7 @@ export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, foc
           inputs: made.inputs,
           ok: made.ok,
           equivalent: (refReply, reply) => codeEquivalent(refReply, reply, made),
+          usable: (reply) => codeWhole(reply, made.name),
           show: (reply) => {
             const c = codeOf(reply);
             return c
@@ -430,6 +432,11 @@ export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, foc
           ...base,
           flaw: made.flaw,
           equivalent: (refReply, reply, ctx) => openEquivalent(made.ask, refReply, reply, ctx),
+          // an answer in words says something: a reply cut off after a word or two does not
+          usable: (reply) =>
+            String(reply || '')
+              .trim()
+              .split(/\s+/).length >= 6,
           show: (reply) =>
             String(reply || '')
               .replace(/\s+/g, ' ')
@@ -450,6 +457,7 @@ export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, foc
             const theirs = read(refReply);
             return { grade: theirs ? gradeFor(theirs)(reply) : 'noref' };
           },
+          usable: (reply) => !!read(reply),
           show: read,
           wrap: (final) => 'ANSWER: ' + final,
         });

@@ -7,6 +7,7 @@
 //          these two say fundamentally the same thing? Wording, order and length do not count; a different claim does.
 // A model's code is never run in this process. It runs in a process of its own with Node's permissions on (no files, no programs,
 // no workers), in a context with no require and no process, and each call is stopped after a moment (sandbox-runner.mjs).
+import vm from 'node:vm';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -24,6 +25,19 @@ export function codeOf(reply) {
   return at < 0 ? '' : s.slice(at).trim();
 }
 const bare = (code) => String(code).replace(/^\s*export\s+(default\s+)?/gm, '');
+
+// IS THE CODE IN A REPLY WHOLE? It names the function asked for and it parses. Nothing is run: it is only compiled. A reply cut
+// off partway through a function (a server that stopped early) has code in it, and is no answer.
+export function codeWhole(reply, name) {
+  const code = bare(codeOf(reply));
+  if (!code || (name && !new RegExp('\\b' + name + '\\b').test(code))) return false;
+  try {
+    new vm.Script(code);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // what a function returns for each input: [{ v } | { e }] or null when it cannot be run at all (no code, no such function, it does
 // not parse, or it runs away)

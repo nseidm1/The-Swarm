@@ -51,13 +51,18 @@ jobs:
 
   dashboard:
     name: dashboard (Python ${{ matrix.python }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        # the oldest Python the page runs on, and a current one
-        python: ['3.9', '3.13']
+        # The oldest Python the page runs on (3.9, the one macOS ships), and a current one. GitHub offers no Python 3.9 for its
+        # newest Ubuntu (26.04, which ubuntu-latest now is), so the 3.9 run is pinned to the last Ubuntu that has it.
+        include:
+          - python: '3.9'
+            os: ubuntu-24.04
+          - python: '3.13'
+            os: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

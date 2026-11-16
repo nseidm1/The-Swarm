@@ -8,7 +8,17 @@
 // carry on; if Kev is not there or decides nothing, the answer most slots gave stands; if nothing can be written, the best draft is the reply).
 // It knows nothing of servers: `ask(slot, messages)` is handed in, and returns { text } or throws.
 //   const { reply, path, trace } = await answer(messages, { briefs, ask });
-import { finalOf as readFinal, workOf as readWork, plain, tally, isCode, asksForCode, MARKER } from './read.mjs';
+import {
+  finalOf as readFinal,
+  workOf as readWork,
+  plain,
+  tally,
+  isCode,
+  asksForCode,
+  MARKER,
+  isToolCall,
+  letterOf,
+} from './read.mjs';
 
 // an answer as it is shown to another slot or to the person: code in a block of its own, anything else as it is
 const fenced = (final) => (isCode(final) ? '\n```\n' + final + '\n```' : ' ' + final);
@@ -56,7 +66,11 @@ export async function answer(messages, { briefs, ask, decide = null, onStep = ()
       const r = await ask(slot, msgs);
       row.out = String((r && r.text) || '');
       row.final = slot.stage === 'write' ? '' : finalOf(row.out, marker);
-      row.ok = slot.stage === 'write' ? row.out.trim().length > 0 : !!row.final;
+      // a reply that is a call to a tool is not what the writer was asked for; a checker may answer with a letter alone
+      row.ok =
+        slot.stage === 'write'
+          ? row.out.trim().length > 0 && !isToolCall(row.out)
+          : !!row.final || (slot.stage === 'check' && !!letterOf(row.out, marker, LETTERS));
       if (r && r.tokens) row.tokens = r.tokens;
     } catch (e) {
       row.why = String((e && e.message) || e).slice(0, 200);
@@ -108,6 +122,14 @@ export async function answer(messages, { briefs, ask, decide = null, onStep = ()
         { role: 'user', content: shown(s.sees !== 'finals') }, // a checker may be shown the answers without their work
       ])
     ).filter((c) => c.ok);
+    // a checker that answered with a letter means that answer, whole
+    // (not where the answers themselves are letters: there a letter is an answer, not a pointer to one)
+    const lettersAreAnswers = table.some((d) => /^[A-Za-z]$/.test(String(d.final).trim()));
+    for (const c of lettersAreAnswers ? [] : checks) {
+      const letter = letterOf(c.out, marker, LETTERS);
+      const meant = letter && table.find((d) => d.letter === letter);
+      if (meant) ((c.final = meant.final), (c.picked = letter));
+    }
     votes = tally([...drafts, ...checks]);
     // ---- decide: a decision model (Kev, decider.mjs), in one request that returns a probability for each different answer.
     // No slot judges: a model that writes is not asked to pick. Where Kev is not named or does not answer, the answer most
@@ -166,6 +188,8 @@ export async function answer(messages, { briefs, ask, decide = null, onStep = ()
       },
     ]);
     if (w.ok) reply = w.out.trim();
+    // the writer answered with a call to a tool: that is not a reply, and what was settled goes out as it stands
+    else if (isToolCall(w.out)) path += '+tool-call';
     // CODE IS NOT TO BE REWRITTEN ON THE WAY OUT: if the reply's code is not the code that was settled, the settled code goes out
     if (reply && isCode(decided) && plain(finalOf(reply, marker)) !== plain(decided)) {
       reply = '';

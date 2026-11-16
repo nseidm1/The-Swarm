@@ -46,7 +46,7 @@
       "stage": "check",
       "purpose": "Checks each draft for its first slip",
       "maxTokens": 700,
-      "brief": "You are given a question and several worked answers to it, lettered. They do not all agree. For each one, find the first line where it goes wrong, if it does: a misread of the question, a slip in a calculation, a step that does not follow. Say it in one line for each letter. Do not trust an answer because others agree with it. Then give the answer you find correct. End with one last line that starts with ANSWER: and holds only the answer itself. If what is asked for is code, give the whole of it in one code block at the very end instead, with nothing after it."
+      "brief": "You are given a question and several worked answers to it, lettered. They do not all agree. For each one, find the first line where it goes wrong, if it does: a misread of the question, a slip in a calculation, a step that does not follow. Say it in one line for each letter. Do not trust an answer because others agree with it. Then give the answer you find correct. If one of the lettered answers is correct, do not write it out again: your last line is ANSWER: and its letter, alone. Only if none of them is correct, give your own answer there instead (for code: the whole of it in one code block at the very end, with nothing after it)."
     },
     {
       "id": "b-recompute",
@@ -55,7 +55,7 @@
       "purpose": "Checks each answer against the question",
       "sees": "finals",
       "maxTokens": 700,
-      "brief": "You are given a question and the final answers others reached, without their work. Take each final answer in turn and test it: put it back into the question and see whether every statement in the question still holds. Say in one line for each whether it holds. Then give the answer that holds. End with one last line that starts with ANSWER: and holds only the answer itself. If what is asked for is code, give the whole of it in one code block at the very end instead, with nothing after it."
+      "brief": "You are given a question and the final answers others reached, without their work. Take each final answer in turn and test it: put it back into the question and see whether every statement in the question still holds. Say in one line for each whether it holds. Then give the answer that holds. If one of the lettered answers is correct, do not write it out again: your last line is ANSWER: and its letter, alone. Only if none of them is correct, give your own answer there instead (for code: the whole of it in one code block at the very end, with nothing after it)."
     },
     {
       "id": "a-writer",

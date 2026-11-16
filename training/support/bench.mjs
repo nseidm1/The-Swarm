@@ -284,9 +284,15 @@ export async function run(
     const seconds = Math.round((Date.now() - t0) / 100) / 10;
     const theirs = self ? got.reply : ref ? ref.get(t.id) : undefined;
     let mark = { grade: 'noref' };
-    if (self) mark = { grade: t.show(got.reply) ? 'right' : 'unsure' };
+    const holds = (text) => (t.usable ? t.usable(text) : !!t.show(text));
+    if (self) mark = { grade: holds(got.reply) ? 'right' : 'unsure' };
     else if (theirs !== undefined)
-      mark = got.why ? { grade: 'unsure' } : await t.equivalent(theirs, got.reply, { kev });
+      // a reply of the larger model's that holds no answer (cut off, empty) is nothing to be equivalent to: not compared
+      mark = !holds(theirs)
+        ? { grade: 'noref' }
+        : got.why
+          ? { grade: 'unsure' }
+          : await t.equivalent(theirs, got.reply, { kev });
     const row = {
       cfg: who === 'swarm' ? CONFIG_ID : undefined,
       target: targetOf().id,

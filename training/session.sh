@@ -81,7 +81,7 @@ for N in $(seq 1 "${PASSES:-1}"); do
     echo "$(date +%H:%M:%S) RESUMED this pass had stopped: carrying on" >> "$OUT/status.txt"
     "$NODE" -e "import('./training/support/recover.mjs').then(r=>r.note('pass $P','it had stopped: carried on from where it was',{kind:'resumed'}))" > /dev/null
   else
-    : > "$OUT/status.txt"; echo "$CFG" > "$OUT/config"
+    rm -f "$OUT"/*.out; : > "$OUT/status.txt"; echo "$CFG" > "$OUT/config"
   fi
   . training/support/steps.sh
   run 00-begin        training/pass.mjs begin

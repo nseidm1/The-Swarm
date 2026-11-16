@@ -2,6 +2,7 @@
 // fake-llama-server.mjs - A STAND-IN FOR A MODEL SERVER THAT CAN BE MADE TO GO WRONG, as a real one does: started like llama.cpp's
 // server (-m file --port n -c ctx ...), it answers /health and /v1/chat/completions, and
 //   POST /die                       it stops, as a server whose memory was taken stops
+//   --busy n                        its first n requests are answered 500 "server restarting: retry shortly"
 //   --old                           it refuses a flag it does not know (--reasoning-budget), as an older llama.cpp does
 //   --memory <n>                    it will not start with more context than n, as a machine short of memory will not
 //   --unk <n>                       its first n replies are nothing but unknown tokens
@@ -22,6 +23,7 @@ if (a.includes('--fail-once') && !fs.existsSync(val('--fail-once'))) {
   fail('bind: address already in use');
 }
 let unk = Number(val('--unk', 0));
+let busy = Number(val('--busy', 0)); // so many requests are answered 500 "server restarting: retry shortly", as TensorFold does
 http
   .createServer((req, res) => {
     if (req.url === '/die') {
@@ -34,6 +36,10 @@ http
     req.on('data', (c) => parts.push(c));
     req.on('end', () => {
       const body = JSON.parse(Buffer.concat(parts).toString('utf8') || '{}');
+      if (busy-- > 0)
+        return res
+          .writeHead(500, { 'content-type': 'application/json' })
+          .end('{"error": {"message": "server restarting: retry shortly"}}');
       const content =
         unk-- > 0
           ? '<unk><unk><unk><unk>'

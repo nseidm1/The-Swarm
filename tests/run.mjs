@@ -535,6 +535,113 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     finalOf('a\n```js\nb\n```\nANSWER: 3'),
   );
 }
+// ---- 6c: what a real pass showed (2026-11-15): a writer that answers with a tool call, checkers that cannot write a function
+// out again in one turn, a larger model whose reply is cut off, and a zero that is written -0
+{
+  const { isToolCall, letterOf } = await import('../src/read.mjs');
+  const { codeWhole, codeEquivalent } = await import('../training/support/equivalent.mjs');
+  reset();
+  const good = 'function add(a, b) {\n  return a + b;\n}';
+  const bad = 'function add(a, b) {\n  return a - b;\n}';
+  const block = (c) => 'So:\n\n```js\n' + c + '\n```';
+  const call =
+    "<|tool_call_start|>[code_block(code='" + good.replace(/\n/g, '\\n') + "', max_length=100)]<|tool_call_end|>";
+  // the drafts disagree (A is right, B, C and D share a slip); both checkers say A, by its letter alone; the writer calls a tool
+  lfm.s.script = (b) => {
+    const r = roleOf(b);
+    return r.stage === 'write'
+      ? call
+      : r.stage === 'check'
+        ? 'A adds. B, C and D subtract.\nANSWER: A'
+        : r.id === 'a-direct'
+          ? block(good)
+          : block(bad);
+  };
+  bonsai.s.script = (b) =>
+    roleOf(b).stage === 'check' ? 'Quoting B:\n```js\n' + bad + '\n```\nOnly A holds.\n**ANSWER: (A)**' : block(bad);
+  const got = await swarm.answer([{ role: 'user', content: 'Write add(a, b).' }]);
+  const checks = got.trace.filter((r) => r.stage === 'check');
+  check(
+    'a writer that answers with a call to a tool is not taken for a reply: what was settled goes out as it stands, and the path says so',
+    got.ok &&
+      !isToolCall(got.reply) &&
+      /^```js\n/.test(got.reply) &&
+      /tool-call/.test(got.path) &&
+      isToolCall(call) &&
+      !isToolCall('It is 42.') &&
+      isToolCall('{"name": "run", "arguments": {}}'),
+    { path: got.path, reply: got.reply.slice(0, 120) },
+  );
+  check(
+    'a checker may name the answer it finds correct by its letter, and that counts as that answer whole, though it quoted other code on the way; where the answers are themselves letters a letter is an answer',
+    checks.length === 2 &&
+      checks.every((c) => c.ok && c.picked === 'A' && c.final === good) &&
+      letterOf('x\nANSWER: b.') === 'B' &&
+      letterOf('ANSWER: 42') === '' &&
+      letterOf('ANSWER: Z') === '' &&
+      letterOf('no line') === '' &&
+      briefs.slots.filter((x) => x.stage === 'check').every((x) => /its letter/.test(x.brief)),
+    checks.map((c) => [c.slot, c.ok, c.picked, c.final.slice(0, 30)]),
+  );
+  // (with no decision model the answer most slots gave stands: three drafts and no checker for the slip, one draft and both checkers for A)
+  check(
+    'the checkers that named A by letter are counted with the draft that wrote it',
+    got.trace.length === 7 && typeof got.decided === 'string' && [good, bad].includes(got.decided),
+    { decided: got.decided, path: got.path },
+  );
+  // a reply cut off partway through its function is no answer, and nothing is compared with it
+  const cut = '```js\nfunction add(a, b) {\n  const n = 5;';
+  const code = tasks({ split: 'held', each: 1 }).find((t) => t.type === 'code');
+  const open = tasks({ split: 'held', each: 1 }).find((t) => t.type === 'open');
+  const value = tasks({ split: 'held', each: 1 }).find((t) => t.type === 'value');
+  const { run: runRows } = await import('../training/support/bench.mjs');
+  const whole = '```js\n' + code.ok + '\n```';
+  const cutReply = whole.slice(0, Math.floor(whole.length / 2));
+  const own = await runRows(
+    [code, code],
+    (() => {
+      let i = 0;
+      return async () => ({ reply: i++ ? cutReply : whole });
+    })(),
+    { self: true, who: 'target' },
+  );
+  const against = await runRows([code], async () => ({ reply: whole }), {
+    ref: new Map([[code.id, cutReply]]),
+    who: 'a',
+  });
+  check(
+    "the larger model's reply is the mark only where it holds an answer: a function cut off partway is code and is no answer, a sentence cut off after a word is none, and a question it gave none to is not compared for anyone",
+    codeWhole(block(good), 'add') &&
+      !codeWhole(cut, 'add') &&
+      !codeWhole(block(good), 'sub') &&
+      !codeWhole('no code here', 'add') &&
+      code.usable(whole) &&
+      !code.usable(cutReply) &&
+      open &&
+      !open.usable('The') &&
+      open.usable('The loop starts at one, so the first item is never counted.') &&
+      value &&
+      !value.usable('') &&
+      own[0].grade === 'right' &&
+      own[1].grade === 'unsure' &&
+      against[0].grade === 'noref',
+    { own: own.map((r) => r.grade), against: against[0].grade },
+  );
+  const z = await codeEquivalent(
+    block('function z(n) {\n  return n * 0;\n}'),
+    block('function z(n) {\n  return 0;\n}'),
+    { name: 'z', inputs: [[-1], [3]] },
+  );
+  const nz = await codeEquivalent(block('function z(n) {\n  return 1;\n}'), block('function z(n) {\n  return 0;\n}'), {
+    name: 'z',
+    inputs: [[-1]],
+  });
+  check(
+    'a zero written -0 is the same number as 0, and a different number is still different',
+    z.grade === 'right' && nz.grade === 'wrong',
+    { z, nz },
+  );
+}
 // ---- 7: one worked answer for each different answer
 {
   reset();
@@ -926,6 +1033,53 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       took.filter((t) => t.kind === 'empty').length >= 1 &&
       took.filter((t) => t.kind === 'gone').length === 1,
     { first, second, picky: picky.draws, took: took.map((t) => t.kind) },
+  );
+  // a larger model better served with a flag its engine may not know: with it where it can be, without it where it cannot
+  took.length = 0;
+  const flagged = {
+    id: 'f',
+    name: 'A flagged model',
+    model: 'target',
+    serve: {
+      program: 'fake-llama-server.mjs',
+      where: [path.dirname(FAKE)],
+      args: ['--port', '{port}', '--reasoning-budget', '0', '--old'],
+      optional: ['--reasoning-budget', '0'],
+    },
+  };
+  const fg = await openTarget(flagged, { onRecover, waitMs: 20000 });
+  const fgSaid = (await fg.ask(msg)).text;
+  fg.stop();
+  const flagTook = took.slice();
+  // a server that says it is restarting is waited for, not replaced
+  took.length = 0;
+  const busyRung = {
+    id: 'b',
+    name: 'A busy model',
+    model: 'target',
+    serve: { program: 'fake-llama-server.mjs', where: [path.dirname(FAKE)], args: ['--port', '{port}', '--busy', '1'] },
+  };
+  const bz = await openTarget(busyRung, { onRecover, waitMs: 20000 });
+  const bzSaid = await bz.ask(msg);
+  bz.stop();
+  check(
+    'a larger model whose server says it is restarting is waited for and asked again the same way, by the same server, and that is written down',
+    /^pid \d+/.test(bzSaid.text) &&
+      bzSaid.draws === 1 &&
+      took.filter((t) => t.kind === 'busy').length === 1 &&
+      !took.some((t) => t.kind === 'gone'),
+    { bzSaid, took },
+  );
+  const { REGISTRY } = await import('../src/catalog.mjs');
+  const nemo = REGISTRY.targets.find((t) => t.id === 'nemotron35-30b');
+  check(
+    'a larger model is served the way it was learned to be served (Nemotron without drafts, as The Crew found), and where its engine does not know the flag it is served without, and that is written down',
+    / flags none /.test(fgSaid) &&
+      flagTook.some((t) => t.kind === 'flag') &&
+      nemo.serve.args.includes('--no-drafts') &&
+      nemo.serve.optional.includes('--no-drafts') &&
+      /drafts/.test(nemo.serve.why),
+    { fgSaid, took },
   );
   // a trainer that stops midway carries on from what it had written down
   const { run: runRows, finished } = await import('../training/support/bench.mjs');
