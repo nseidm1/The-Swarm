@@ -6,6 +6,7 @@ Only the standard library; nothing is installed and no model is started.
 """
 
 import json
+import shutil
 import os
 import re
 import sys
@@ -84,22 +85,34 @@ with tempfile.TemporaryDirectory() as tmp:
     full = get(base + "/fragment/scorefull")[1]
     pc = held["parity"]["percent"]
     check("it shows how far the swarm is toward parity with the larger model, by name, as a percentage with a bar and the count behind it; 100 is said only when every answer is equivalent; and it says that being right is not what is measured",
-          ("%s%% of the way to parity with Nemotron" % swarm_ui.fmt_pct(pc) in html or "100%: at parity with Nemotron" in html) and 'class="prog"' in top and "of the way to parity</span>" in html
+          ("%s%% of the way to parity with Nemotron" % swarm_ui.fmt_pct(pc) in html or "100%: at parity with Nemotron" in html) and 'class="memc parc' in top and 'class="mbar stack"' in top and "of the way to parity</span>" not in html.split('id="chips"')[1].split("</header>")[0]
           and "Toward parity with Nemotron" in full and "The swarm" in full and "LFM2.5 2.6B alone" in full and "fundamentally equivalent" in full and "Whether either was right is not what is measured" in full
           and data.parity([{"grade": "right"}] * 999 + [{"grade": "wrong"}])["percent"] == 99.9 and data.parity([{"grade": "right"}] * 3)["percent"] == 100 and data.parity([{"grade": "right"}] * 1999 + [{"grade": "wrong"}])["percent"] < 100
           and swarm_ui.fmt_pct(75.0) == "75" and swarm_ui.fmt_pct(62.5) == "62.5")
     strip = get(base + "/fragment/score")[1]
     check("parity stays one small strip whether or not anything is measured: the verdict and a line of counts, with the charts behind it in a dialog and never on the page itself",
           'id="score-open"' in top and "held questions" in top and "LFM2.5 2.6B alone" in top and "<svg" not in top.split('id="score"')[1] and 'class="kpis"' not in html and 'class="kpis"' in full
-          and 'id="big"' in html and "/fragment/scorefull" in html and strip.startswith('<button type="button" class="panel strip"') and len(strip) < 1800, len(strip))
+          and 'id="big"' in html and "/fragment/scorefull" in html and strip.startswith('<button type="button" class="panel strip"') and len(strip) < 6000, len(strip))
     fp = data.footprint({"a": {"bytes": 2**30}, "b": {"bytes": 2**30}}, {"memGb": 5}, {"memGb": 18})
-    check("the strip says what the swarm is for: the memory it takes against the larger model's, as two bars, the share and how many times smaller, estimated and said to be; each count is a chip of its own, equivalent and different in their colours",
-          fp == {"small": 3.5, "decider": 5, "swarm": 8.5, "target": 18, "share": 47.2, "times": 2.1} and data.footprint({}, {}, {"memGb": 18}) is None
-          and 'class="mem"' in strip and "The swarm</span>" in strip and "of the larger model&#39;s memory" in strip and "estimated" in strip and "Not measured." in strip and "× smaller" in strip
-          and '<span class="ok"><b>' in strip and '<span class="no"><b>' in strip and 'class="alone"' in strip, strip[:600])
+    check("the strip says what the swarm is for: the memory it takes against the larger model's, in the same chart as the whole measurement (a bar for each on one scale, the swarm's made of its parts, a scale and a key), the share and how many times smaller, estimated and said to be; and parity in the same design above it: the share large, the swarm's answers as a bar (equivalent, different, no answer) with each small model alone beside it on one scale, and a key; the other numbers are chips",
+          {k: fp[k] for k in ("small", "decider", "swarm", "target", "share", "times")} == {"small": 3.5, "decider": 5, "swarm": 8.5, "target": 18, "share": 47.2, "times": 2.1}
+          and fp["saved"] == 52.8 and fp["savedGb"] == 9.5
+          and [x["kind"] for x in fp["parts"]] == ["model", "model", "contexts", "decider"] and abs(sum(x["gb"] for x in fp["parts"]) - fp["swarm"]) < 0.05 and data.footprint({}, {}, {"memGb": 18}) is None
+          and 'class="memc compact"' in strip and "The swarm</span>" in strip and "memory saved" in strip and "GB less" in strip and "not measured" in strip and "Not measured." in strip and "× smaller" in strip
+          and 'class="memleg"' in strip and 'class="mbar stack"' in strip and strip.count("<i style=\"width:") >= 5 and "<svg" not in strip
+          and 'class="memc parc behind"' in strip and "Toward parity with Nemotron" in strip and 'class="pe"' in strip and 'class="pd"' in strip and 'class="memrow alone"' in strip and "held answers" in strip, strip[:600])
     plan = get(base + "/fragment/plan")[1]
+    arr_stopped = swarm_ui.arrangement(data.load(root))
+    was_rs = swarm_ui.run_state
+    swarm_ui.run_state = lambda: {"pid": 1, "at": "2026-11-16 12:00:00", "passes": 0, "each": 6, "first": 1, "running": True}
+    plan_live = get(base + "/fragment/plan")[1]
+    arr_live = swarm_ui.arrangement(data.load(root))
+    swarm_ui.run_state = was_rs
+    check("a move a trainer marked as being measured says so only while a session runs: once the session has stopped, it says it was stopped partway, and the arrangement says what it stopped while trying rather than what is being tried now",
+          "Being measured" in plan_live and "Stopped partway" not in plan_live and "Being tried now" in arr_live
+          and "Stopped partway" in plan and ">Being measured<" not in plan and "stopped partway: " in plan and "Stopped while trying" in arr_stopped and "Being tried now" not in arr_stopped, plan[:200])
     check("the plan of the pass in hand is on the page as it stands: what the measurement showed, each move in order with the slot, the model, the technique, the paper it came from and why it was chosen, and what became of it",
-          "The plan for pass 5" in html and "What the measurement showed" in plan and "no slot had the larger model" in plan.lower().replace("&#x27;", "'") and plan.count("<li class=") == 5 and "Being measured" in plan and ">Kept<" in plan and ">Not kept<" in plan
+          "The plan for pass 5" in html and "What the measurement showed" in plan and "no slot had the larger model" in plan.lower().replace("&#x27;", "'") and plan.count("<li class=") == 5 and "Stopped partway" in plan and ">Kept<" in plan and ">Not kept<" in plan
           and "arxiv.org/abs/2609.14412" in plan and "a-steps (draft, LFM2.5 2.6B)" in plan and "Chosen because of: no slot had the answer" in plan and "The measurement does not point at it" in plan
           and "19 equivalent, 4 different on train (as it was: 17, 6)" in plan and "Open a slot to read what it is told" not in html and "/fragment/plan" in html, plan[:300])
     check("a slot's card says how long it has worked on this turn, which turn it is, and how long it has been engaged in all this step, since its clock starts again with every question",
@@ -137,8 +150,8 @@ with tempfile.TemporaryDirectory() as tmp:
     ids = [r["id"] for r in live_d["splits"]["held"]["swarm"]]
     for f in ckd.glob("*.jsonl"):
         f.unlink()
-    check("an answer is on the page the moment a trainer has written it down, before its step has ended; an answer of a candidate being tried is not taken for the swarm's; and input against output has a place that is filled as soon as the swarm has answered",
-          "held-live-1" in ids and "held-trial-1" not in ids and 'id="io-wrap"' in html and "/fragment/io" in html and swarm_ui.io_section(nothing) == "" and 'id="io"' in swarm_ui.io_section(d), ids[-3:])
+    check("an answer is on the page the moment a trainer has written it down, before its step has ended; an answer of a candidate being tried is not taken for the swarm's; and input against output is in the whole measurement (not on the page), beside a picture of the memory the swarm takes against the larger model's",
+          "held-live-1" in ids and "held-trial-1" not in ids and 'id="io"' not in html and 'id="io"' in full and "Input against output" in full and "Memory saved: the swarm against the larger model" in full and swarm_ui.io_section(nothing) == "" and 'id="io"' in swarm_ui.io_section(d), ids[-3:])
     # what a configuration remembers of its training is its own
     sd = root / "training" / "states"
     sd.mkdir(parents=True, exist_ok=True)
@@ -196,6 +209,12 @@ with tempfile.TemporaryDirectory() as tmp:
             sk.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, __import__("struct").pack("ii", 1, 0))
             sk.close()  # gone at once, with the page still being written
         time.sleep(0.8)
+    check("the arrangement is one section: the swarm as it stands (its briefs, slots and kept changes), what is running, what the plan is trying now, the flow's columns of slots, and the larger model as the flow's last column, the mark, with how it is served and the configurations at parity with it",
+          'class="panel arr"' in html and "The swarm as it stands" in html and 'class="achips"' in html and 'class="stage mark"' in html and 'class="slot tgt"' in html and 'data-live="target"' in html
+          and 'class="panel target"' not in html and "and the larger model alongside" not in html and html.index('class="stage mark"') > html.index('class="stages"') and "The mark: what the swarm is measured against" in html and "Configurations at parity with it" in html, html.count('class="stage'))
+    check("the models and what the swarm is equivalent on are one section, Configuration, that folds (open to begin with) and folded says in a line what the swarm is; the line is drawn again when either changes",
+          '<details class="cfg fold" data-keep="cfg" open>' in html and html.index('data-keep="cfg"') < html.index('id="picks"') < html.index('id="equiv"') and 'id="cfg-meta"' in html
+          and " · decided by " in html.split('id="cfg-meta">')[1][:200] and get(base + "/fragment/cfgmeta")[0] == 200 and "swap('/fragment/cfgmeta','#cfg-meta')" in html, html.split('id="cfg-meta">')[1][:160])
     check("a page that is closed or reloaded before its answer has been sent leaves nothing printed as an error, and the next request is answered as usual",
           "Traceback" not in noise.getvalue() and "BrokenPipe" not in noise.getvalue() and get(base + "/api/live")[0] == 200, noise.getvalue()[-300:])
     # ONE NUMBER, SAID ONE WAY: every place on the page that says how far the swarm is says the same percentage, from the same count
@@ -204,8 +223,8 @@ with tempfile.TemporaryDirectory() as tmp:
     far = swarm_ui.how_far(P["equivalent"], P["compared"])
     spec_now = get(base + "/fragment/spec")[1]
     alone_pct = ["%s%%" % swarm_ui.fmt_pct(data.parity(r)["percent"]) for r in held["alone"].values() if r]
-    check("every place that says how far the swarm is toward parity says the same percentage, worked out in one place from the same count: the strip, the header, the whole measurement, the bars of each alone, the passes and the spec; and each small model alone is said the same way",
-          ("%s of the way to parity with" % same) in top and ("<b>%s</b> of the way to parity" % same) in html.split('id="chips"')[1].split("</header>")[0]
+    check("every place that says how far the swarm is toward parity says the same percentage, worked out in one place from the same count: the strip (the header no longer repeats it), the whole measurement, the bars of each alone, the passes and the spec; and each small model alone is said the same way",
+          ("%s of the way to parity with" % same) in top and "of the way to parity" not in html.split('id="chips"')[1].split("</header>")[0]
           and ("%s<small>%%</small>" % swarm_ui.fmt_pct(P["percent"])) in full and ("%s of the way to parity with" % same) in full and far in full and ("%s of the way to parity against" % same) in spec_now
           and ("<b>%s</b> of the way to parity." % same) in spec_now and all(a in top and a in full for a in alone_pct) and swarm_ui.how_far(25, 42) == "59.5% · 25 of 42"
           and data.percent(25, 42) == 59.5 and "Not at parity" not in html + full + spec_now and "Not yet" not in full, [same, far, alone_pct])
@@ -324,6 +343,104 @@ with tempfile.TemporaryDirectory() as tmp:
           and t_link[0] == 200 and not os.path.lexists(w / "models" / link_name) and outside.exists() and outside.stat().st_size == 8192 and "freed" in t_link[1]
           and t_dir[0] == 200 and not (w / "deciders" / "startlux-4b").exists() and 'data-tidy="decider:startlux-4b"' not in t_dir[1] and "Removed StartLux Decision 4B: weights" in t_dir[1]
           and t_bad == 400 and t_none == 400 and t_foreign == 403 and (w / "models" / small0["file"]).exists(), [t_link[0], t_dir[0], t_bad, t_none, t_foreign])
+    # STEER IT: a plan of this pass with moves and every open move listed; then focus, queue, skip, and refusals
+    wdp = root / ".work" / "train" / d["key"]  # this configuration's own folder, which the page writes the steering record into
+    made_wdp = not wdp.exists()
+    wdp.mkdir(parents=True, exist_ok=True)
+    plan_file = wdp / "plan.json"
+    had_plan = plan_file.read_text() if plan_file.exists() else None
+    plan_file.write_text(json.dumps({"pass": d["state"]["pass"] + 1, "config": d["cfg"], "target": d["target"]["id"], "basedOn": "this-pass", "moves": [
+        {"id": "arrange:aaa111", "kind": "arrangement", "technique": "The order of steps", "what": "flow: no check", "status": "planned", "order": 1, "why": []},
+        {"id": "brief:a-critic:bbb222", "kind": "brief", "slot": "a-critic", "stage": "check", "model": "LFM2.5", "technique": "What the slot is told", "what": "the larger model: checker", "status": "planned", "order": 2, "why": []}],
+        "catalog": [{"id": "arrange:ccc333", "kind": "arrangement", "area": "loops", "what": "flow: a tournament: the decider keeps the likeliest three", "technique": "A change to the arrangement", "slot": ""},
+                    {"id": "arrange:aaa111", "kind": "arrangement", "area": "flow", "what": "flow: no check", "technique": "The order of steps", "slot": ""}]}))
+    pl0 = get(base + "/fragment/plan")[1]
+    f_ok, after_f = send("/steer", {"op": "focus", "area": "loops", "value": "only"})
+    p_ok, after_p = send("/steer", {"op": "pin", "id": "arrange:ccc333"})
+    k_ok, after_k = send("/steer", {"op": "skip", "id": "arrange:aaa111"})
+    sv = json.loads((wdp / "steer.json").read_text())
+    dlg = get(base + "/fragment/steer")[1]
+    bad = [send("/steer", x)[0] for x in ({"op": "focus", "area": "nowhere", "value": "more"}, {"op": "pin", "id": "../../etc"}, {"op": "explode"}, ["not", "an", "object"])]
+    unp, after_u = send("/steer", {"op": "unpin", "id": "arrange:ccc333"})
+    check("a person can steer the plan from the page: lean the search on an area (less, as planned, more, only), put any move first or skip one, and choose from every move open to this pass in a dialog with a search box; each choice is written to this configuration's steering record and the plan is drawn again with it; a move is queued or skipped, never both; anything else is refused",
+          "Steer it" in pl0 and pl0.count("data-steer-focus=") == 24 and 'data-steer="pin" data-id="arrange:aaa111"' in pl0 and 'data-steer="skip" data-id="brief:a-critic:bbb222"' in pl0 and "Choose any move" in pl0
+          and f_ok == 200 and 'data-steer-focus="loops" data-v="only" aria-pressed="true"' in after_f
+          and p_ok == 200 and "flow: a tournament: the decider keeps the likeliest three" in after_p.split("Your queue")[1] and k_ok == 200 and 'class="planned skipped"' in after_k and ">Skipped<" in after_k
+          and sv["focus"] == {"loops": "only"} and sv["pin"] == ["arrange:ccc333"] and sv["skip"] == ["arrange:aaa111"]
+          and "Choose any move" in dlg and 'id="steer-find"' in dlg and "Decider loops" in dlg and ">queued<" in dlg and 'data-steer="pin" data-id="arrange:aaa111"' in dlg
+          and bad == [400, 400, 400, 400] and unp == 200 and json.loads((wdp / "steer.json").read_text())["pin"] == [], [f_ok, p_ok, k_ok, bad, sv])
+    check("each subsection of the plan (the gap, what the measurement showed, how it is training, steer it, the moves...) folds under its heading, folded to begin with and saying in a line what it holds while folded, and kept open or folded on the device like the training card's",
+          all(('data-keep="plan-%s">' % k) in after_u for k in ("steer-it", "how-it-is-training", "moves-in-the-order-they-are-measured")) and after_u.count('<details class="psec"') == after_u.count("<h4>")
+          and " open>" not in after_u.split('class="psec"')[1][:80] and after_u.count('class="pmeta"') >= 3 and "a change must win by" in after_u and "Decider loops only · 1 skipped · nothing queued" in after_u and "2 moves · 0 measured · 0 kept" in after_u
+          and after_u.rstrip().endswith("</div>") and swarm_ui.fold_sections('<div class="panel"><p>x</p></div>', "p") == '<div class="panel"><p>x</p></div>', after_u.count("<h4>"))
+    (wdp / "steer.json").unlink()
+    if had_plan is None:
+        plan_file.unlink()
+    else:
+        plan_file.write_text(had_plan)
+    if made_wdp:
+        shutil.rmtree(wdp)
+    # RECOMMENDED CONFIGURATION CHANGES: from what the probe and the replay measured for this configuration
+    wdr = root / ".work" / "train" / d["key"]
+    made_r = not wdr.exists()
+    wdr.mkdir(parents=True, exist_ok=True)
+    none_yet = swarm_ui.config_section(data.load(root))
+    (wdr / "decider-replay.json").write_text(json.dumps({"pass": 5, "results": [{"decider": "startlux-4b", "asked": 46, "kevRight": 37, "theirsRight": 38, "recovered": 4, "lost": 3}, {"decider": "kev-9b", "asked": 46, "kevRight": 37, "theirsRight": 35, "recovered": 1, "lost": 3}]}))
+    (wdr / "members.json").write_text(json.dumps({"pass": 5, "gap": 19, "of": 70, "models": [], "notHere": [{"id": "qwen35-2b", "name": "Qwen3.5 2B", "bytes": 1280835840}, {"id": "qwen3-4b", "name": "Qwen3 4B", "bytes": 2497280256}]}))
+    dr = data.load(root)
+    rs = swarm_ui.recommendations(dr)
+    sec = swarm_ui.config_section(dr)
+    pop = get(base + "/fragment/recs")[1]
+    was_cfg = json.loads((root / "src" / "config.json").read_text())
+    ap = send("/config", rs[0]["apply"])[0] if rs else 0
+    now_cfg = json.loads((root / "src" / "config.json").read_text())
+    check("beside Configuration, a note says when the evidence recommends a change to it, and opens them: each with what it rests on (measured: another decider that recovered more recorded choices than it lost; untested: a third small model where no slot drafted the answer and no other model was here to ask), and a button that makes the change as a pill does; a decider that lost more than it recovered is not recommended; with no evidence there is no note",
+          'id="rec-open"' not in none_yet and [r["id"] for r in rs] == ["decider:startlux-4b", "member:qwen35-2b"] and [r["strength"] for r in rs] == ["measured", "untested"]
+          and "2 recommendations" in sec and 'id="recd"' in html and "Decide with StartLux Decision 4B" in pop and "recovered 4" in pop and "Untested" in pop and "Qwen3.5 2B" in pop and "kev-9b" not in pop and "Kev 9B" not in pop
+          and pop.count("data-rec-apply") == 2 and ap == 200 and now_cfg.get("decider") == "startlux-4b" and "stopPropagation" in html, [r["id"] for r in rs])
+    # TAKING ONE DOES NOT UNDO ANOTHER: the decider changed is a new configuration with no record of its own; what was measured on
+    # the same small models still stands (the third model is still recommended, said where it was measured), the way back to the
+    # configuration it came from is not recommended (one not yet measured is not behind), and taking the third keeps the decider
+    rs2 = swarm_ui.recommendations(data.load(root))
+    pop2 = get(base + "/fragment/recs")[1]
+    ap2 = send("/config", next((r["apply"] for r in rs2 if r["id"].startswith("member:")), {}))[0]
+    after = json.loads((root / "src" / "config.json").read_text())
+    check("taking a recommended change does not undo one taken before it: with the decider changed, the third small model is still recommended, from the record of the same small models (and says so), nothing recommends going back, and taking it keeps the new decider",
+          [r["id"] for r in rs2] == ["member:qwen35-2b"] and "decided by Kev" in pop2 and ap2 == 200
+          and after.get("decider") == "startlux-4b" and after.get("c") == "qwen35-2b", ([r["id"] for r in rs2], after))
+    (root / "src" / "config.json").write_text(json.dumps(was_cfg, indent=2) + "\n")
+    for fn in ("decider-replay.json", "members.json"):
+        (wdr / fn).unlink()
+    if made_r:
+        shutil.rmtree(wdr)
+    # WHAT OTHER CONFIGURATIONS MEASURED is evidence for this one: a small model measured alone against the same larger model, and
+    # another configuration further along against it (each keeps its own record; these read them, never write them)
+    res, sts = root / "training" / "results", root / "training" / "states"
+    res.mkdir(parents=True, exist_ok=True)
+    sts.mkdir(parents=True, exist_ok=True)
+    made = []
+    for mid, right in (("lfm25-2.6b", 19), ("bonsai2-2b", 11), ("qwen35-4b", 30), ("gemma4-e2b", 13)):
+        fp = res / ("%s-alone-vs-nemotron35-30b-held.json" % mid)
+        fp.write_text(json.dumps({"right": right, "compared": 42}))
+        made.append(fp)
+    for key, eq in (("qwen35-4b+gemma4-e4b+startlux-4b--nemotron35-30b", 40), ("qwen3-4b+gemma4-e2b+kev-4b--nemotron35-30b", 20)):
+        fp = sts / (key + ".json")
+        fp.write_text(json.dumps({"history": [{"pass": 1, "equivalent": eq - 2, "compared": 42}, {"pass": 2, "equivalent": eq, "compared": 42}]}))
+        made.append(fp)
+    fp = sts / (d["key"] + ".json")
+    mine_existed = fp.exists()
+    if not mine_existed:
+        fp.write_text(json.dumps({"history": [{"pass": 1, "equivalent": 1, "compared": 42}]}))
+        made.append(fp)
+    ra = swarm_ui.recommendations(data.load(root))
+    by = {r["id"]: r for r in ra}
+    sw, cf = by.get("swap:b:qwen35-4b"), by.get("config:qwen35-4b+gemma4-e4b+startlux-4b--nemotron35-30b")
+    check("what other configurations measured becomes a recommendation here: a small model that, alone against the same larger model, answered as it did more often than the weakest member (by 5 points or more) is recommended in that member's place; a configuration further along against the same larger model is recommended with its members and decider; one behind this configuration, or a model below the bar, is not; each says what it rests on",
+          sw and sw["apply"] == {"b": "qwen35-4b"} and sw["strength"] == "measured" and "30 of 42" in sw["why"] and "Bonsai 2 2B" in sw["title"]
+          and cf and cf["apply"] == {"a": "qwen35-4b", "b": "gemma4-e4b", "c": "", "d": "", "decider": "startlux-4b"} and "95.2%" in cf["why"] and "2 passes" in cf["why"]
+          and not any("gemma4-e2b" in i for i in by) and not any("qwen3-4b+" in i for i in by), list(by))
+    for fp in made:
+        fp.unlink()
     # a .work whose models folder is a link to somewhere else: nothing there is removed
     esc_root = Path(tempfile.mkdtemp())
     far = Path(tempfile.mkdtemp())
@@ -421,8 +538,11 @@ with tempfile.TemporaryDirectory() as tmp:
     (fake / ".work" / "train" / "recovery.jsonl").write_text(json.dumps({"at": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() + 1)), "what": "LFM2.5 2.6B", "did": "its server was gone or hung: started again, and asked again"}) + "\n"
                                                            + json.dumps({"at": "2020-01-01T00:00:00", "what": "old", "did": "from another session"}) + "\n")
     rp = get(base + "/fragment/run")[1]
-    check("each section of the training card folds under its heading (open to begin with; the finished steps folded), and open or folded is kept on the device and put back each time the card is drawn again; it is saved on a click of the heading, not on every toggle",
-          all(('data-keep="run-%s" open' % k) in rp for k in ("pass", "recovered", "learned")) and 'data-keep="run-done"' in rp and 'data-keep="run-done" open' not in rp
+    check("each section of the training card folds under its heading, folded to begin with and saying in a line what it holds; the passes too, in a line of what they add up to; open or folded is kept on the device and put back each time the card is drawn again; it is saved on a click of the heading, not on every toggle",
+          all(('data-keep="run-%s">' % k) in rp for k in ("pass", "recovered", "learned")) and 'data-keep="run-done"' in rp and " open>" not in rp
+          and rp.count('class="smeta"') >= 3 and "the last: " in rp and "nothing kept yet" in rp
+          and 'data-keep="rail-passes">' in html and 'class="fmeta"' in html and "pass" in html.split('class="fmeta">')[1][:60]
+          and "details.fold>summary" in html
           and "keepOpen($(into))" in html and "swarm.open." in html and "closest('details[data-keep]>summary')" in html and "addEventListener('toggle'" not in html, [k for k in ("pass", "recovered", "learned", "done") if ('data-keep="run-' + k) in rp])
     check("a step that failed and is being run again shows as one step with its try, a step done before a stop is shown as done earlier, and the ways back this session has taken are listed (and no other session's)",
           "try 2" in rp and "done earlier" in rp and rp.count('title="02-target"') == 1 and "Recovered<span>1 time this session" in rp and "started again, and asked again" in rp and "from another session" not in rp, rp[-600:])

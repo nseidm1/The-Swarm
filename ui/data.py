@@ -142,7 +142,15 @@ def footprint(members, decider, target):
     if small is None or not tgt:
         return None
     swarm = round(small + (dec or 0), 1)
-    return {"small": small, "decider": dec, "swarm": swarm, "target": tgt, "share": round(100.0 * swarm / tgt, 1), "times": round(tgt / swarm, 1) if swarm else None}
+    # its parts, for a picture of it: each small model's file, the room for their contexts, and the decider
+    parts = [{"name": (m or {}).get("name", k), "gb": round(((m or {}).get("bytes") or 0) / 2**30, 2), "kind": "model", "place": k} for k, m in (members or {}).items()]
+    parts.append({"name": "Their contexts", "gb": round(small - sum(x["gb"] for x in parts), 2), "kind": "contexts"})
+    if dec:
+        parts.append({"name": (decider or {}).get("name", "The decider"), "gb": dec, "kind": "decider"})
+    return {"small": small, "decider": dec, "swarm": swarm, "target": tgt, "share": round(100.0 * swarm / tgt, 1), "times": round(tgt / swarm, 1) if swarm else None,
+            # (said as a saving: the share of the larger model's memory the swarm does not need, and how much that is)
+            "saved": round(100.0 - 100.0 * swarm / tgt, 1), "savedGb": round(tgt - swarm, 1),
+            "parts": parts, "targetName": (target or {}).get("name", "")}
 
 
 def load(root):

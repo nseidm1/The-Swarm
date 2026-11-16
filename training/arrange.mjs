@@ -258,6 +258,34 @@ export function flowMoves(b) {
             ? 'early decision'
             : 'decision'
         : s.do;
+  // THE DECIDER INSIDE A LOOP, three ways a flow can be recursive about deciding (the engine runs each as it is: a loop stops the
+  // moment anything is settled). Put straight after the drafts are run, or after the drafts where nothing is run.
+  const at =
+    Math.max(
+      f.findIndex((x) => x.do === 'try'),
+      f.findIndex((x) => x.do === 'draft'),
+    ) + 1;
+  if (at > 0 && !f.some((x) => x.do === 'repeat')) {
+    put('a narrowing loop: the decider keeps the likeliest two and they are sent back, twice at most', [
+      ...f.slice(0, at),
+      { do: 'repeat', upTo: 2, steps: [{ do: 'decide', keep: 2 }, { do: 'revise' }] },
+      ...f.slice(at),
+    ]);
+    put('ask the decider first; if it is not sure, check, revise and ask again, twice at most', [
+      ...f.slice(0, at),
+      { do: 'repeat', upTo: 2, steps: [{ do: 'decide', sure: 0.75 }, { do: 'check' }, { do: 'revise' }] },
+      ...f.slice(at),
+    ]);
+  }
+  if (at > 0 && !f.some((x) => x.do === 'decide' && x.keep))
+    put('a tournament: the decider keeps the likeliest three, a check, then the likeliest two are sent back', [
+      ...f.slice(0, at),
+      { do: 'decide', keep: 3 },
+      { do: 'check' },
+      { do: 'decide', keep: 2 },
+      { do: 'revise' },
+      ...f.slice(at).filter((x, j) => !(j === 0 && x.do === 'check')),
+    ]);
   f.forEach((s, i) => {
     const nth = f.slice(0, i).filter((x) => x.do === s.do).length;
     const many = f.filter((x) => x.do === s.do).length > 1;
@@ -414,9 +442,23 @@ if (import.meta.url === 'file://' + process.argv[1]) {
           .map((m) => all.find((c) => c.name === m.what && !tried.includes(c.hash)))
           .filter(Boolean)
       : [];
-  const cands = planned.length
+  let cands = planned.length
     ? planned
     : pickSteps(all, tried, Number(arg('tries', readPolicy().trials.arrangements || 4)));
+  // WHAT A PERSON ASKED FOR (support/steer.mjs): a move pinned on the page is measured first, even one pinned after the plan was
+  // written; a move skipped is not measured
+  {
+    const { readSteer } = await import('./support/steer.mjs');
+    const { WORKC } = await import('./support/bench.mjs');
+    const steer = readSteer(WORKC);
+    const pinned = steer.pin
+      .map((id) => all.find((c) => 'arrange:' + c.hash === id && !tried.includes(c.hash)))
+      .filter(Boolean);
+    cands = [...pinned, ...cands.filter((c) => !pinned.includes(c))].filter(
+      (c) => !steer.skip.includes('arrange:' + c.hash),
+    );
+    if (pinned.length) console.log('Pinned on the page, measured first: ' + pinned.map((c) => c.name).join('; '));
+  }
   const mine = (m) => m.kind === 'arrangement';
   mark((m) => mine(m) && cands.some((c) => c.name === m.what), 'running');
   if (!cands.length) {

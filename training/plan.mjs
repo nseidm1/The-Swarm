@@ -15,6 +15,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readSafe } from './support/recover.mjs';
+import { AREAS, areaOf, focusWeight, readSteer } from './support/steer.mjs';
 import { PLAN_FILE, readPlan, writePlan, mark } from './support/plan-file.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -202,9 +203,21 @@ export function makePlan({
   replayed = null,
   weight = {},
   now = new Date(),
+  steer = { focus: {}, pin: [], skip: [] },
+  elsewhere = { arrangements: new Map(), briefs: [] },
 }) {
+  // what a person asked for (support/steer.mjs): areas leaned on or left out, moves pinned first, moves skipped
+  const fw = (area) => focusWeight(steer, area);
   const findings = diagnose(report);
   const tried = state.tried || {};
+  // a brief another configuration kept, for a slot of the same name here, is one more candidate for it
+  const ownCandidates = candidates;
+  candidates = (id) => [
+    ...ownCandidates(id),
+    ...elsewhere.briefs
+      .filter((b) => b.slot === id)
+      .map((b) => ({ name: b.name, brief: b.brief, from: '', elsewhere: b.config })),
+  ];
   const moves = [];
   // briefs and plan changes, slot by slot
   const bySlot = [];
@@ -215,8 +228,9 @@ export function makePlan({
     if (!open.length) continue;
     // (how much each kind of move counts for is the trainer's policy, which a pass's review of itself can change)
     const scored = open.map((c) => {
-      const x = briefAnswers(findings, s.id, s.stage, c);
-      return { c, ...x, a: Math.round(x.a * (weight[c.brief ? 'brief' : 'plan'] ?? 1) * 10) / 10 };
+      let x = briefAnswers(findings, s.id, s.stage, c);
+      if (c.elsewhere) x = { a: x.a + 100, why: ['elsewhere:' + c.elsewhere, ...x.why] };
+      return { c, ...x, a: Math.round(x.a * (weight[c.brief ? 'brief' : 'plan'] ?? 1) * fw('briefs') * 10) / 10 };
     });
     bySlot.push({ slot: s, scored, a: Math.max(...scored.map((x) => x.a)) });
   }
@@ -240,19 +254,29 @@ export function makePlan({
       });
   // arrangements: the ones that speak to the findings first; then one of each kind of step, so a pass does not spend itself on one idea
   const fresh = steps.filter((c) => !(tried._arrangement || []).includes(c.hash));
-  const scoredSteps = fresh.map((c, i) => {
-    let x = stepAnswers(findings, briefs, c.name);
-    // a way of choosing between the answers is not guessed at: the last measurement, replayed, says what it would have won
-    const way = /^plan: decide by (.+)$/.exec(c.name);
-    if (way && replayed) {
-      const gain = (replayed.ways[way[1]] ?? 0) - replayed.actual;
-      x = { a: Math.max(0, gain), why: gain > 0 ? ['replay'] : [] };
-    } else if (way) x = { a: 0, why: [] };
-    const kindOf = /^flow: /.test(c.name) ? 'flow' : /^plan: /.test(c.name) ? 'plan' : 'arrangement';
-    return { c, i, ...x, a: Math.round(x.a * (weight[kindOf] ?? 1) * 10) / 10 };
-  });
+  const scoredSteps = fresh
+    .map((c, i) => {
+      let x = stepAnswers(findings, briefs, c.name);
+      // a way of choosing between the answers is not guessed at: the last measurement, replayed, says what it would have won
+      const way = /^plan: decide by (.+)$/.exec(c.name);
+      if (way && replayed) {
+        const gain = (replayed.ways[way[1]] ?? 0) - replayed.actual;
+        x = { a: Math.max(0, gain), why: gain > 0 ? ['replay'] : [] };
+      } else if (way) x = { a: 0, why: [] };
+      const kindOf = /^flow: /.test(c.name) ? 'flow' : /^plan: /.test(c.name) ? 'plan' : 'arrangement';
+      // KEPT IN ANOTHER CONFIGURATION: evidence from elsewhere, measured here before anything the measurement only suggests
+      const kept = elsewhere.arrangements.get(c.name);
+      if (kept && kept.length)
+        x = {
+          a: x.a + 100 + Math.max(...kept.map((k) => k.gain)),
+          why: ['elsewhere:' + kept.map((k) => k.config).join(','), ...x.why],
+        };
+      return { c, i, ...x, a: Math.round(x.a * (weight[kindOf] ?? 1) * fw(areaOf('arrangement', c.name)) * 10) / 10 };
+    })
+    .filter((x) => fw(areaOf('arrangement', x.c.name)) > 0);
   const kind = (c) => techniqueOf(c.name);
-  const picked = [];
+  // (what was kept elsewhere goes in whatever the dedup below would say: it is the strongest evidence a plan has)
+  const picked = scoredSteps.filter((x) => x.why.some((w) => String(w).startsWith('elsewhere:'))).slice(0, tries);
   const seen = new Set();
   for (const x of [...scoredSteps].sort((p, q) => q.a - p.a || p.i - q.i))
     if (picked.length < tries && x.a > 0 && !seen.has(kind(x.c) + (x.why[0] || '')))
@@ -272,7 +296,7 @@ export function makePlan({
       why: x.why,
       status: 'planned',
     });
-  for (const c of wild.filter((c) => !(tried._arrangement || []).includes(c.hash)))
+  for (const c of wild.filter((c) => !(tried._arrangement || []).includes(c.hash) && fw('several') > 0))
     moves.push({
       id: 'arrange:' + c.hash,
       kind: 'arrangement',
@@ -283,6 +307,57 @@ export function makePlan({
       why: [],
       status: 'planned',
     });
+  // briefs left out by the focus; skipped moves never; pinned moves first, in the order they were pinned, wherever they came from
+  let kept = moves.filter((m) => !steer.skip.includes(m.id) && (m.kind !== 'brief' || fw('briefs') > 0));
+  const pool = [
+    ...kept,
+    ...briefs.slots.flatMap((s) =>
+      candidates(s.id)
+        .filter((c) => ((c.brief && c.brief !== s.brief) || c.plan) && !(tried[s.id] || []).includes(hashOf(c)))
+        .map((c) => ({
+          id: 'brief:' + s.id + ':' + hashOf(c),
+          kind: c.brief ? 'brief' : 'plan',
+          slot: s.id,
+          stage: s.stage,
+          model: names[s.member] || s.member,
+          technique: 'What the slot is told',
+          what: c.name,
+          from: c.from || '',
+          answers: 0,
+          why: [],
+          status: 'planned',
+        })),
+    ),
+    ...steps
+      .filter((c) => !(tried._arrangement || []).includes(c.hash))
+      .map((c) => ({
+        id: 'arrange:' + c.hash,
+        kind: 'arrangement',
+        technique: techniqueOf(c.name),
+        what: c.name,
+        hash: c.hash,
+        answers: 0,
+        why: [],
+        status: 'planned',
+      })),
+    ...wild.map((c) => ({
+      id: 'arrange:' + c.hash,
+      kind: 'arrangement',
+      technique: 'Several changes at once',
+      what: c.name,
+      hash: c.hash,
+      answers: 0,
+      why: [],
+      status: 'planned',
+    })),
+  ];
+  const pinned = steer.pin
+    .map((id) => pool.find((m) => m.id === id))
+    .filter(Boolean)
+    .map((m) => ({ ...m, pinned: true }));
+  kept = [...pinned, ...kept.filter((m) => !steer.pin.includes(m.id))];
+  moves.length = 0;
+  moves.push(...kept);
   moves.forEach((m, i) => (m.order = i + 1));
   return {
     pass: state.pass + 1,
@@ -311,6 +386,20 @@ export function makePlan({
       : null,
     focus: Object.entries(state.focus || {}).map(([kind, more]) => ({ kind, more })),
     moves,
+    // WHAT A PERSON CAN STEER (support/steer.mjs): the areas, what is asked of them now, and every move open to this pass with its
+    // area, for the page to pin or skip any of them
+    steer: { areas: AREAS, focus: steer.focus, pin: steer.pin, skip: steer.skip },
+    catalog: pool
+      .filter((m, i, all) => all.findIndex((x) => x.id === m.id) === i)
+      .map((m) => ({
+        id: m.id,
+        kind: m.kind,
+        area: areaOf(m.kind, m.what),
+        what: m.what,
+        slot: m.slot || '',
+        technique: m.technique,
+        answers: m.answers || 0,
+      })),
     open: {
       arrangements: fresh.length,
       arrangementsTried: steps.length - fresh.length,
@@ -352,8 +441,13 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         readSafe(path.join(ROOT, 'training', 'candidates', slotId + '.json'), []),
         readSafe(path.join(WORKC, 'candidates', slotId + '.json'), []),
       ].flatMap((x) => (Array.isArray(x) ? x : []));
+    const { WORKC: WORKC_ } = await import('./support/bench.mjs');
+    const { CONFIG_KEY } = await import('../src/catalog.mjs');
+    const { transferred } = await import('./support/across.mjs');
     const plan = writePlan({
       ...makePlan({
+        steer: readSteer(WORKC_),
+        elsewhere: transferred(CONFIG_KEY, briefs),
         state,
         briefs,
         report: usable ? report : null,

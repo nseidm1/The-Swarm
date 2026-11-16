@@ -18,10 +18,10 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/dashboard.png" alt="The training dashboard while a session runs: pills to choose the small models, the decision model and the larger model; boxes to tick for what the swarm is to be equivalent on, each with a pencil for its questions; 59.5% of the way to parity with Nemotron 3.5 Lightning 30B; every slot by stage with what it is doing now and the larger model alongside; and beside them the session's steps, the passes so far and what was learned" width="860">
+  <img src="docs/images/dashboard.png" alt="The training dashboard: Configuration, with a note of two recommended changes, the pills that choose the small models, the decision model and the larger model, and the boxes for what the swarm is to be equivalent on; parity with Nemotron 3.5 Lightning 30B as a panel, 59.5% of the way, with each small model alone beside the swarm; the memory saved, 52.2%; the arrangement, every slot by stage and the larger model under them; and beside them the training card, its sections folded to a line each, and the passes so far" width="860">
 </p>
 
-<p align="center"><em>The training dashboard during pass 6 of a real session (LFM2.5 2.6B and Bonsai 2 2B, decided by Kev 4B, against Nemotron 3.5 Lightning 30B; 2026-11-16).</em></p>
+<p align="center"><em>The training dashboard in pass 6 of a real session, stopped at step 17 of 25 (LFM2.5 2.6B and Bonsai 2 2B, decided by Kev 4B, against Nemotron 3.5 Lightning 30B; 2026-11-16).</em></p>
 
 The Swarm is a module from Family Office. To the program that uses it, it is one model: messages go in and one reply comes
 out. Inside, two to four small models of your choosing are each served with several slots, and every slot has a part: some draft an
@@ -169,6 +169,12 @@ swarm starts from `briefs.json` and keeps its own record. The output spec is tha
 remembers of its training (which pass it is, what it tried and did not keep) is its own in the same way; only what was
 read on arXiv is shared, since a paper read once need not be read again.
 
+**But what one configuration learns is evidence for the others.** A change another configuration kept is not adopted: it is
+measured here first ([`training/support/across.mjs`](training/support/across.mjs)). An arrangement or flow kept elsewhere
+goes to the head of this configuration's plan, and a brief kept elsewhere for a slot of the same name is one more candidate
+for that slot. Either is kept here only on this configuration's own evidence, by the same rule as any move. What the
+configurations measure together also points at the configuration itself: see [recommended changes](#recommended-changes).
+
 `a` and `b` are the two places a small model sits in; a slot is named for its place, not for the model in it. What each slot
 is told is one file, [`src/briefs.json`](src/briefs.json): that file, and the arrangement of the slots, are what training
 changes.
@@ -285,14 +291,15 @@ python3 ui/swarm_ui.py
 
 It opens at `http://127.0.0.1:8787/` (`--port` changes that). It needs nothing installed.
 
-The pictures here and at the top of this page show it during pass 6 of a real session on 2026-11-16, the swarm of LFM2.5
-2.6B and Bonsai 2 2B, decided by Kev 4B, against Nemotron 3.5 Lightning 30B.
+The pictures here and at the top of this page show it in pass 6 of a real session on 2026-11-16, the swarm of LFM2.5
+2.6B and Bonsai 2 2B, decided by Kev 4B, against Nemotron 3.5 Lightning 30B. Every section folds, smoothly, and says in a
+line what it holds while folded; open or folded is kept on the device.
 
 <p align="center">
   <img src="docs/images/dashboard-plan.png" alt="The plan being carried out: what the pass's measurement showed, then each move in order with its slot and model, its technique, the paper it came from, why it was chosen, and whether it is planned, being measured, kept or not kept" width="860">
 </p>
 
-<p align="center"><em>The plan of a pass, as it is carried out: here, briefs the larger model wrote for the slots that were failing come first.</em></p>
+<p align="center"><em>The plan of a pass, its measurement and its moves open: briefs the larger model wrote for the slots that were failing come first, then the arrangements, each with Next and Skip.</em></p>
 
 <p align="center">
   <img src="docs/images/dashboard-measurement.png" alt="The whole measurement, opened from the parity strip: at parity or not yet, equivalent and different answers, seconds a reply, equivalent answers pass by pass, which step settled each answer, equivalent answers by kind of question, and each small model alone beside the swarm" width="860">
@@ -304,7 +311,7 @@ The pictures here and at the top of this page show it during pass 6 of a real se
   <img src="docs/images/dashboard-input-output.png" alt="Input against output: the list of questions, one input with what the larger model answered, what every slot wrote and settled on, the swarm's output, and the larger model's output beside it" width="860">
 </p>
 
-<p align="center"><em>One input, with what every slot wrote and both outputs.</em></p>
+<p align="center"><em>Input against output, in the whole measurement: one input, with what every slot wrote and both outputs.</em></p>
 
 <p align="center">
   <img src="docs/images/dashboard-spec.png" alt="The output spec of one configuration: whether it is at parity with the larger model; what it has learned, each kept change with its kind, where it came from and the equivalent answers it won on train and on held; where each pass left it; then what it is, its flow and its slots" width="860">
@@ -314,14 +321,36 @@ The pictures here and at the top of this page show it during pass 6 of a real se
 
 | Part | What it shows |
 |---|---|
-| Equivalent on | One box to tick for each body of work the swarm is brought to equivalence on: **The Crew** (ticked where nothing is chosen), Math, Logic, Reasoning. More than one can be ticked; a pass asks the kinds of every one ticked. The pencil on each opens its questions |
-| Uninstall Helper | Beside the output spec: everything the Swarm has put in `.work`, with the room each takes and whether the configured swarm uses it, and a button to take out each. It never touches anything outside `.work`, what training has learned, or anything while a session runs |
-| The pills | **Small model 1**, **Small model 2** (and a third and fourth, once added: the next empty place has a pill to add one, a filled one can be removed), **Decides**, **Larger model**: each a list of the models that can be chosen, grouped by who made them. Choosing one redraws the page for that swarm, in place. **Output spec**: the record of this configuration against this larger model, which grows as it is trained. Every change a pass keeps (a brief, a change to the plan, an arrangement, a flow) is added as it is kept, with the answers it won on the questions it was chosen on and on the held ones; then where each pass left it, the flow and every slot as they now stand, each model with its pinned file, and what goes in and comes out. To read, and to copy as JSON |
-| Training | **Run training** fetches and makes ready whatever the chosen models need, then trains pass after pass until **Stop training** is pressed. It shows what is being fetched and how far, each step as it starts and ends, and **Stop training**. As a pass goes it lists what it has kept so far. Beside it: the passes so far, and the ideas waiting to be measured, each opening the paper it came from |
-| Parity with the larger model | One strip, the same size at every moment, saying the most that is known so far and what kind of knowledge it is: what the larger model and each small model alone have done; then how the train questions are going; then the held answers as they come; and the verdict (at parity, or not yet and by how many) only when every held question is answered. Answers are read as the trainers write them down, not when a step ends. It opens the whole measurement: equivalent answers pass by pass, which step settled each answer, equivalent answers by kind of question, and each small model alone |
-| The arrangement being trained | The flow, one column for each step in order, a loop marked as one. Every slot as a card: the model that fills it, what it is for, and what it is doing at this moment while a session runs: how long it has worked on this turn, which turn it is, and how long it has been engaged in all in the step in hand. Open a card for what the slot is told and what is being tried in its place. The larger model alongside, with the configurations of small models a pass has measured at parity with it |
-| The plan being carried out | What this pass's measurement showed, and every move the pass chose because of it, in order: the slot and model, the technique, the paper it came from, why it was chosen, and what became of it (planned, being measured, kept, not kept). Under **What only you can change**: whether another small model on this machine drafts what no slot drafts, and how another decider did on the same recorded choices |
-| Input against output (appears as soon as the swarm has answered) | Any question asked: the input and what the larger model answered, what every slot wrote and settled on (green where it is equivalent), the Swarm's output, and the larger model's output beside it |
+| Configuration | What the swarm is made of, in one section that folds to a line (LFM2.5 2.6B + Bonsai 2 2B, decided by Kev 4B, against Nemotron 3.5 Lightning 30B, equivalent on The Crew). **The pills**: **Small model 1**, **Small model 2** (and a third and fourth, once added: the next empty place has a pill to add one, a filled one can be removed), **Decides**, **Larger model**, each a list of the models that can be chosen, grouped by who made them. Choosing one redraws the page for that swarm, in place. **Equivalent on**: one box to tick for each body of work the swarm is brought to equivalence on (**The Crew**, ticked where nothing is chosen; Math, Logic, Reasoning); a pass asks the kinds of every one ticked, and the pencil on each opens its questions. Beside the heading, a note when there are [recommended changes](#recommended-changes) |
+| Output spec | The record of this configuration against this larger model, which grows as it is trained. Every change a pass keeps (a brief, a change to the plan, an arrangement, a flow) is added as it is kept, with the answers it won on the questions it was chosen on and on the held ones; then where each pass left it, the flow and every slot as they now stand, each model with its pinned file, and what goes in and comes out. To read, and to copy as JSON |
+| Uninstall Helper | Everything the Swarm has put in `.work`, with the room each takes and whether the configured swarm uses it, and a button to take out each. It never touches anything outside `.work`, what training has learned, or anything while a session runs |
+| Training | **Run training** fetches and makes ready whatever the chosen models need, then trains pass after pass until **Stop training** is pressed. Its sections say where the session is: making ready (what is being fetched and how far), **Now** (the step and the question it is on), **Pass** (the steps done and what is next), **Heading** (where the percentage stands and could go), **Recovered** (faults it came back from) and **Learned this session**. Below it: the passes so far, and the ideas waiting to be measured, each opening the paper it came from |
+| Parity with the larger model | Two panels and a line of chips. **Toward parity** (amber short of parity, green at it): the share of held answers equivalent to the larger model's, large, with the verdict in a sentence, the swarm's answers as a bar (equivalent, different, no answer) and each small model alone beside it on one scale. **Memory saved**: the larger model's memory as one bar and the swarm's beside it, made of its parts (each small model, their contexts, the decider), with the saving, estimated. Then chips: held questions, where the larger model follows the question, seconds a reply. It opens the whole measurement |
+| The arrangement being trained | One section: the swarm as it stands (briefs, slots, kept changes), what is running, what the plan is trying now, the flow as one column for each step with every slot as a card (the model that fills it, what it is for, what it is doing at this moment), and the larger model it is measured against, the mark, with how it is served and the configurations at parity with it |
+| The plan being carried out | What this pass's measurement showed, and every move the pass chose because of it, in order: the slot and model, the technique, the paper it came from, why it was chosen, and what became of it (planned, being measured, kept, not kept). **What only you can change**: whether another small model on this machine drafts what no slot drafts, and how another decider did on the same recorded choices. **Steer it**: lean the search on an area (briefs, slots, flow, decider placement, decider loops, several at once: less, as planned, more, only), put any move first or skip one, or choose from every move open to the pass. Steering decides what is tried, never what is kept |
+| The whole measurement (opened from the parity strip) | Equivalent answers pass by pass, which step settled each answer, each kind of question, each small model alone; **the memory the swarm takes against the larger model's**, as a bar for each on one scale, the swarm's made of its parts (each small model, their contexts, the decider), estimated; and **input against output**: any question asked, its input and what the larger model answered, what every slot wrote and settled on, the Swarm's output and the larger model's beside it |
+
+### Recommended changes
+
+A pass cannot change which models the swarm is made of; a person can. When the evidence points at a change to the
+configuration, a note beside **Configuration** says how many, and opens them: each with how strong its evidence is
+(**measured**, or **untested** where nothing here could measure it yet), what it rests on, and **Make this change**, which
+changes the configuration as a pill does.
+
+<p align="center">
+  <img src="docs/images/dashboard-recommendations.png" alt="Recommended configuration changes: measured, decide with StartLux Decision 4B, which on the 46 choices recorded in pass 6 recovered 4 that Kev 4B missed and lost 3; untested, add a third small model, LFM2.5 1.2B, since on 19 of 70 train questions no slot drafted the larger model's answer; each with a Make this change button" width="620">
+</p>
+
+| Recommends | When |
+|---|---|
+| Another decider | Replayed on the choices a pass recorded ([`decider-replay.mjs`](training/decider-replay.mjs)), it recovers more of the larger model's answers than it loses |
+| A third or fourth small model | No slot drafted the larger model's answer on some questions ([`members-probe.mjs`](training/members-probe.mjs)): measured where another small model here drafts them, untested where none is here to ask |
+| One small model in place of another | Alone against the same larger model, it answered as the larger model did at least 5 points more often than the weakest member. Any configuration's measurement counts |
+| Another configuration | It is further along against the same larger model than this one, which has been measured. Both keep their own records |
+
+Recommendations build on each other. A changed decider makes a new configuration with no record yet; until it has one, the
+members probe and the decider replay are read from the configuration with the same small models against the same larger
+model, and say so. A configuration not yet measured is never shown the way back to the one it came from.
 
 **No model is loaded outside a session.** A session loads what it needs and unloads it when it ends, however it ends. Only
 this page can start or stop one: a request from another site is refused. To see the page before a pass has run,
@@ -396,6 +425,8 @@ the held questions and on the same questions put a second way; the verdict is wr
 | `training/write-briefs.mjs` | New briefs for the slots that are failing, written each pass by the larger model from their misses on train questions |
 | `training/members-probe.mjs` | Whether another small model on this machine drafts what no slot drafts |
 | `training/decider-replay.mjs` | Whether another decider would have chosen better, on a measurement's recorded choices |
+| `training/support/across.mjs` | What other configurations kept, as moves this one measures first and briefs it can try. Read, never written |
+| `training/support/steer.mjs` | What a person asked of the plan from the dashboard: areas leaned on or left out, moves put first or skipped |
 | `training/replay.mjs` | One measurement replayed under each way of choosing between the answers, with no model asked again |
 | `training/readers.mjs` | Checks the reader of answers in words on pairs anyone can judge, before its grades are believed |
 | `training/review.mjs` | The pass looks at itself: it measures its own run and applies the policy's rules, which change how this swarm is trained |
@@ -477,7 +508,7 @@ programming questions (six of each of seven kinds), on one Apple silicon Mac, 20
 | 4 | 25 of 42 | 59.5% | nothing |
 | 5 | 25 of 42 | 59.5% | nothing |
 
-- **Memory: about 8.6 GB for the swarm against about 18 GB for Nemotron, 47.8% of it** (2.1× smaller). An estimate from what
+- **Memory: 52.2% saved, about 9.4 GB less** than Nemotron: about 8.6 GB for the swarm against about 18 GB (2.1× smaller). An estimate from what
   is on record, not a measurement: the two small models' files with their contexts (3.6 GB) and Kev 4B's listed size (5 GB),
   against Nemotron's listed size. This is what the Swarm is for: the larger model's answers in a fraction of its memory.
 - **Each small model alone, on the same questions:** LFM2.5 2.6B 38% (16 of 42), Bonsai 2 2B 30.9% (13 of 42). The swarm of

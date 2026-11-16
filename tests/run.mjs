@@ -962,7 +962,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   check(
     'the search over arrangements reaches the flow: answers sent back, a loop, a decision that narrows first, a step taken out, a second writer; from a flow it has kept it goes on (a longer loop, the loop undone, back to the plain flow); and a flow is part of what makes two arrangements different',
     flowOf(briefs) === DEFAULT_FLOW &&
-      names(briefs).length === 17 &&
+      names(briefs).length === 20 &&
       // the decider between the drafts and the checks, both ways; and every other step in every place it can go
       names(briefs).some((n) => /keep the likeliest two, straight after the draft/.test(n)) &&
       names(briefs).some((n) => /settle it if the decider is sure, else go on, straight after the try/.test(n)) &&
@@ -981,7 +981,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       second.some((c) => /plain one/.test(c.name) && c.briefs.flow === undefined) &&
       shapeOf(loopMove.briefs) !== shapeOf(briefs) &&
       all.some((c) => /add a second a-writer on b/.test(c.name)) &&
-      all.filter((c) => /^flow: /.test(c.name)).length === 17 &&
+      all.filter((c) => /^flow: /.test(c.name)).length === 20 &&
       all.some(
         (c) =>
           /a-steps checks instead of drafting/.test(c.name) &&
@@ -2581,6 +2581,150 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       fake.seed === 1,
     { v1: v1.why, v2: v2.why, worse: worse.screen, again: v1.again },
   );
+}
+// ---- 6t: a person steers the plan: areas leaned on or left out, moves pinned first or skipped; and the decider inside loops
+{
+  const { makePlan } = await import('../training/plan.mjs');
+  const { areaOf, focusWeight, readSteer, AREAS } = await import('../training/support/steer.mjs');
+  const { steps, flowMoves } = await import('../training/arrange.mjs');
+  const all = steps(briefs);
+  const loops = flowMoves(briefs).filter((c) => areaOf('arrangement', c.name) === 'loops');
+  const state0 = { pass: 3, tried: {}, focus: {} };
+  const plan0 = makePlan({ state: state0, briefs, steps: all, tries: 4 });
+  const pinId = plan0.catalog.find((m) => /tournament/.test(m.what)).id;
+  const skipId = plan0.moves.find((m) => m.kind === 'arrangement').id;
+  const plan1 = makePlan({
+    state: state0,
+    briefs,
+    steps: all,
+    tries: 4,
+    steer: { focus: {}, pin: [pinId], skip: [skipId] },
+  });
+  const only = makePlan({
+    state: state0,
+    briefs,
+    steps: all,
+    tries: 6,
+    steer: { focus: { loops: 'only' }, pin: [], skip: [] },
+  });
+  const wdir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-steer-'));
+  fs.writeFileSync(
+    path.join(wdir, 'steer.json'),
+    JSON.stringify({ focus: { flow: 'more' }, pin: ['arrange:x'], skip: 'not a list' }),
+  );
+  const rs = readSteer(wdir);
+  check(
+    'a person can steer the plan from outside: every move open to the pass is listed with its area (briefs, slots, flow, decider placement, decider loops, several at once); a pinned move is measured first even if the plan had not chosen it, a skipped one never; an area marked only leaves the others out, more counts three times, less a quarter; and a steering record that will not read in part is read as far as it goes',
+    AREAS.map((a) => a.id).join() === 'briefs,slots,flow,decider,loops,several' &&
+      plan0.catalog.length >= all.length &&
+      plan0.catalog.every((m) => m.id && m.area && m.what) &&
+      plan0.steer.areas.length === 6 &&
+      plan1.moves[0].id === pinId &&
+      plan1.moves[0].pinned === true &&
+      !plan1.moves.some((m) => m.id === skipId) &&
+      only.moves.length > 0 &&
+      only.moves.every((m) => m.kind !== 'arrangement' || areaOf('arrangement', m.what) === 'loops' || m.pinned) &&
+      focusWeight({ focus: { flow: 'more' } }, 'flow') === 3 &&
+      focusWeight({ focus: { flow: 'less' } }, 'flow') === 0.25 &&
+      focusWeight({ focus: { loops: 'only' } }, 'slots') === 0 &&
+      rs.focus.flow === 'more' &&
+      rs.pin.join() === 'arrange:x' &&
+      rs.skip.length === 0 &&
+      readSteer(path.join(wdir, 'none')).pin.length === 0,
+    { first: plan1.moves[0], only: only.moves.map((m) => m.what).slice(0, 4) },
+  );
+  // the decider inside a loop: each runs on the engine as it is, and a loop stops once something is settled
+  reset();
+  lfm.s.script = (b) =>
+    roleOf(b).stage === 'write' ? 'It is 42.' : roleOf(b).id === 'a-direct' ? 'ANSWER: 41' : 'ANSWER: 42';
+  bonsai.s.script = () => 'ANSWER: 42';
+  const sure = async ({ answers }) => ({
+    ok: true,
+    letter: answers.find((x) => x.final === '42').letter,
+    final: '42',
+    probs: Object.fromEntries(answers.map((x) => [x.letter, x.final === '42' ? 0.9 : 0.1])),
+    ms: 1,
+  });
+  const sw = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, decide: sure });
+  const ran = [];
+  for (const c of loops) {
+    const got = await sw.answer(Q, { briefs: { ...c.briefs, plan: { ...c.briefs.plan, byBehaviour: false } } });
+    ran.push({
+      name: c.name.slice(6, 40),
+      ok: got.ok,
+      decided: got.decided,
+      decides: got.trace.filter((r) => r.stage === 'decide').length,
+    });
+  }
+  await sw.stop();
+  check(
+    'three arrangements put the decider inside a loop, in the area of their own: a narrowing loop (keep the likeliest two, send them back), asking the decider first and again after a check and a revision, and a tournament (three, then two); each answers as the black box it is',
+    loops.length === 3 &&
+      ran.every((r) => r.ok && r.decided === '42' && r.decides >= 1) &&
+      loops.some((c) => JSON.stringify(c.briefs.flow).includes('"keep":3')),
+    ran,
+  );
+}
+
+// ---- 6u: each configuration keeps its own record, but what one kept is measured first by the others
+{
+  const { makePlan } = await import('../training/plan.mjs');
+  const { transferred, otherLearned } = await import('../training/support/across.mjs');
+  const { LEARNED_DIR } = await import('../src/learned.mjs');
+  const { steps } = await import('../training/arrange.mjs');
+  const all = steps(briefs);
+  const target = all[all.length - 1];
+  const slot = briefs.slots[0];
+  fs.mkdirSync(LEARNED_DIR, { recursive: true });
+  const other = 'other-a+other-b+kev-4b--nemotron35-30b';
+  const theirBriefs = {
+    ...briefs,
+    slots: briefs.slots.map((s) => (s.id === slot.id ? { ...s, brief: 'Told differently elsewhere.' } : s)),
+  };
+  fs.writeFileSync(
+    path.join(LEARNED_DIR, other + '.json'),
+    JSON.stringify({
+      config: 'other-a+other-b+kev-4b',
+      target: 'nemotron35-30b',
+      briefs: theirBriefs,
+      ledger: [
+        { n: 1, pass: 2, kind: 'arrangement', what: target.name, train: { wins: 4, losses: 1 } },
+        { n: 2, pass: 3, kind: 'brief', slot: slot.id, what: 'a shorter brief', train: { wins: 2, losses: 0 } },
+        { n: 3, pass: 3, kind: 'brief', slot: 'no-such-slot', what: 'x', train: { wins: 1, losses: 0 } },
+      ],
+    }),
+  );
+  fs.writeFileSync(path.join(LEARNED_DIR, 'broken--nemotron35-30b.json'), '{ not json');
+  const t = transferred('this-config--nemotron35-30b', briefs);
+  const mineOnly = transferred(other, briefs);
+  const state0 = { pass: 3, tried: {}, focus: {} };
+  const plain0 = makePlan({ state: state0, briefs, steps: all, tries: 3 });
+  const plan = makePlan({ state: state0, briefs, steps: all, tries: 3, elsewhere: t });
+  const arr = plan.moves.find((m) => m.what === target.name);
+  const br = plan.moves.find(
+    (m) => m.kind === 'brief' && m.slot === slot.id && (m.why || []).some((w) => /^elsewhere:/.test(w)),
+  );
+  check(
+    "each configuration keeps its own record, but what another kept is evidence here: an arrangement kept elsewhere is planned first by this one (to be measured, never adopted), a brief kept elsewhere for a slot of the same name is one of that slot's candidates, a slot this configuration does not have takes nothing, its own record is never read as another's, and a record that will not read is passed over",
+    otherLearned('this-config--nemotron35-30b').length === 1 &&
+      t.arrangements.get(target.name)?.[0]?.gain === 3 &&
+      t.briefs.length === 1 &&
+      t.briefs[0].brief === 'Told differently elsewhere.' &&
+      mineOnly.briefs.length === 0 &&
+      mineOnly.arrangements.size === 0 &&
+      !plain0.moves.slice(0, 1).some((m) => m.what === target.name) &&
+      arr &&
+      arr.why[0] === 'elsewhere:' + other &&
+      plan.moves.filter((m) => m.kind === 'arrangement')[0].what === target.name &&
+      !!br,
+    {
+      arr: arr && arr.why,
+      briefs: t.briefs.length,
+      first: plan.moves.filter((m) => m.kind === 'arrangement')[0]?.what,
+    },
+  );
+  fs.rmSync(path.join(LEARNED_DIR, other + '.json'), { force: true });
+  fs.rmSync(path.join(LEARNED_DIR, 'broken--nemotron35-30b.json'), { force: true });
 }
 // ---- 7: one worked answer for each different answer
 {

@@ -148,6 +148,14 @@ where it came from, and the answers equivalent to the larger model's before and 
 adds where the pass left it. `src/briefs.json` is never changed by training: it is where every swarm starts. The dashboard's
 output spec reads the record out, and grows as a pass keeps things.
 
+**Across configurations** ([`support/across.mjs`](support/across.mjs)): every other configuration's record is read, never
+written. An arrangement, flow or plan change kept there, by name, is planned first here (its reason in the plan: kept in
+another configuration), and a brief kept there for a slot of the same name is a candidate for that slot (`plan.mjs`,
+`improve.mjs`). Kept here only on evidence here. Each small model measured alone against a larger model
+(`results/<model>-alone-vs-<target>-held.json`) and each configuration's latest pass against it (`states/`) are shared the same
+way: the dashboard recommends a swap where a model alone beat the weakest member by 5 points or more, and a configuration
+further along against the same larger model.
+
 What a configuration remembers of its training is its own too (`training/states/<a>+<b>+<decider>--<target>.json`): which
 pass it is, the questions' seeds, what it measured and did not keep, the order of its slots, how each pass ended, and what
 became of each idea there. `training/state.json` holds only what was read: the questions put to arXiv, the papers seen and
@@ -321,3 +329,18 @@ and so that it gets through what is open faster:
 | Screening | A candidate is asked a few questions first and dropped there if it is worse (`trials.screen`) | `support/trial.mjs` |
 | Another decider | The recorded choices of a measurement are put to another decider whose weights are here; the page says what it would have recovered and lost | `decider-replay.mjs`; step `08-deciders` |
 | A second draw | A change is confirmed with another draw before it is kept (`keep.confirm`) | `support/trial.mjs` |
+
+## Steering from outside (2026-11-16)
+
+A person can see an opportunity a measurement does not. The dashboard's **Steer it** writes this configuration's steering record
+(`.work/train/<configuration>/steer.json`, read by [`support/steer.mjs`](support/steer.mjs)):
+
+| | What it does | When it is used |
+|---|---|---|
+| Focus | An area (briefs, slots, flow, decider placement, decider loops, several at once) counts for three times as much (more), a quarter (less), or alone (only) when the plan ranks moves | The next time a plan is written |
+| Next | A move is measured first, ahead of what the plan chose and beyond how many it tries; any move open to the pass can be queued (the plan lists them all as `catalog`) | When its step begins: the arrangement step, or its slot's brief step |
+| Skip | A move is never measured | The same |
+
+Each is still kept only on evidence: steering decides what is tried, never what is kept. The **decider loops** are three flows that
+put the decision model inside a loop: a narrowing loop (keep the likeliest two, send them back), asking the decider first and again
+after a check and a revision, and a tournament (three, a check, then two sent back).

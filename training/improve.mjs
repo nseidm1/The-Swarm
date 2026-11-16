@@ -58,6 +58,16 @@ const withBrief = (c) => ({
 const file = path.join(REPO_ROOT, 'training', 'candidates', slotId + '.json');
 let cands = [];
 if (fs.existsSync(file)) cands = JSON.parse(fs.readFileSync(file, 'utf8'));
+// a brief another configuration kept for a slot of this name (support/across.mjs)
+{
+  const { transferred } = await import('./support/across.mjs');
+  const { CONFIG_KEY } = await import('../src/catalog.mjs');
+  cands.push(
+    ...transferred(CONFIG_KEY, briefs)
+      .briefs.filter((b) => b.slot === slotId)
+      .map((b) => ({ name: b.name, brief: b.brief })),
+  );
+}
 // and those the larger model wrote for this configuration (write-briefs.mjs)
 const own = path.join(WORKC, 'candidates', slotId + '.json');
 if (fs.existsSync(own))
@@ -91,6 +101,18 @@ const before = state.tried[slotId] || [];
 const real = (c) => (c.brief && c.brief !== slot.brief) || c.plan;
 const known = cands.filter((c) => real(c) && before.includes(candHash(c))).length;
 cands = cands.filter((c) => real(c) && (has('again') || !before.includes(candHash(c))));
+// what a person asked for on the page (support/steer.mjs): a brief skipped is not measured; a brief pinned is measured first
+{
+  const { readSteer } = await import('./support/steer.mjs');
+  const steer = readSteer(WORKC);
+  const idOf = (c) => 'brief:' + slotId + ':' + candHash(c);
+  cands = cands.filter((c) => !steer.skip.includes(idOf(c)));
+  const at = (c) => (steer.pin.includes(idOf(c)) ? steer.pin.indexOf(idOf(c)) : 1e9);
+  cands = cands
+    .map((c, i) => [c, i])
+    .sort((x, y) => at(x[0]) - at(y[0]) || x[1] - y[1])
+    .map(([c]) => c);
+}
 if (known) console.log(known + ' candidate(s) were measured by an earlier pass and not kept: passed over.');
 if (!cands.length) {
   console.log(
