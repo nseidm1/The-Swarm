@@ -171,8 +171,18 @@ textarea{width:100%;min-height:80px;background:var(--soft);border:0;border-radiu
 .facts select{background:none;border:0;padding:0;font:inherit;font-size:16px;font-weight:800;color:var(--fog);width:100%;cursor:pointer}
 .state{display:flex;gap:8px;align-items:center;font-size:12.5px;font-weight:700;color:var(--mist)}.state i{width:8px;height:8px;border-radius:50%;background:var(--unsure);flex:none}
 .state.on{color:var(--teal)}.state.on i{background:var(--teal2);animation:p 1.2s infinite}.state.warn{color:#9a5b00}.state.warn i{background:var(--sun)}
-.steps{margin:0;padding:0;list-style:none;display:grid;gap:4px;font-size:12.5px;font-variant-numeric:tabular-nums}
-.steps li{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:8px}.steps .now{color:var(--teal);font-weight:800}.steps .bad{color:var(--wrong)}
+.panel.run{display:grid;gap:14px;padding:18px}.panel.run>*{margin:0}
+.run .meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--mist);font-weight:600}.run .meta b{color:var(--fog);font-weight:800}
+.run .meta label{display:inline-flex;align-items:center;gap:6px}.run .meta select{font:inherit;font-weight:800;color:var(--fog);background:var(--soft);border:0;border-radius:8px;padding:3px 6px;cursor:pointer}
+.run .sec{display:grid;gap:8px;padding-top:14px;border-top:1px solid var(--line2)}
+.run .sec>h5{margin:0;display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mist)}
+.run .sec>h5 span{letter-spacing:0;text-transform:none;font-weight:600;font-size:12px}
+.steps{margin:0;padding:0;list-style:none;display:grid;gap:6px;font-size:13px;font-variant-numeric:tabular-nums;line-height:1.35}
+.steps li{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:8px;align-items:baseline}.steps li>span:first-child{color:var(--right);font-weight:800;text-align:center}
+.steps li>span:last-child{color:var(--mist);font-size:12px;white-space:nowrap}.steps .cur{color:var(--teal);font-weight:800}.steps .cur>span:first-child{color:var(--teal2)}.steps .cur>span:last-child{color:var(--teal)}
+.state.running{align-items:flex-start}.state.running i{margin-top:5px}.state.running span{display:grid;gap:1px}.state.running b{font-size:14px;font-weight:800;color:var(--teal)}.state.running small{font-size:12px;font-weight:600;color:var(--mist)}
+.run .sec>p{margin:0}
+.steps .bad,.steps .bad>span:first-child{color:var(--wrong)}.steps small{font-size:12px;line-height:1.35}
 .pulse{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--teal2);animation:p 1.2s infinite}@keyframes p{50%{opacity:.25}}
 .feed{margin:0;padding:0;list-style:none;display:grid;gap:10px}.feed li{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:center;font-size:13px}
 .feed .av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--soft);font-size:11px;font-weight:800;color:var(--teal)}
@@ -229,7 +239,7 @@ function paint(el,cls,text){el.className='live '+cls;const sp=el.querySelector('
 // WHEN THE SESSION BEGAN, in the time zone of the person looking, and how long it has run in all: written again every tick
 function sinceTick(){const el=$('[data-since]');if(!el)return;const t=Number(el.dataset.since),s=Math.max(0,Math.floor((Date.now()-t)/1000));
   const span=s<60?s+' s':s<3600?Math.floor(s/60)+' min '+s%60+' s':Math.floor(s/3600)+' h '+Math.floor(s%3600/60)+' min';
-  el.textContent='Running since '+new Date(t).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',timeZoneName:'short'})+' · '+span;}
+  el.querySelector('b').textContent='Running '+span;el.querySelector('small').textContent='since '+new Date(t).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',timeZoneName:'short'});}
 async function liveTick(){
   sinceTick();
   let n={};try{n=await (await fetch('/api/live')).json();}catch(e){return;}
@@ -991,16 +1001,17 @@ def run_panel():
         # when it began, in the time zone of whoever is looking (the page's script writes it; until it has, this machine's), and
         # how long it has been running in all
         began = _epoch_local(st["at"])
-        out.append('<div class="state on" data-running="1"><i></i><span data-since="%d">Running since %s · %s</span></div>'
-                   % (int(began * 1000), e(time.strftime("%H:%M %Z", time.localtime(began))), e(_span(time.time() - began))))
+        out.append('<div class="state on running" data-running="1"><i></i><span data-since="%d"><b>Running %s</b><small>since %s</small></span></div>'
+                   % (int(began * 1000), e(_span(time.time() - began)), e(time.strftime("%H:%M %Z", time.localtime(began)))))
         out.append('<button class="btn stop top wide" id="run-stop" type="button">Stop training</button>')
-        out.append('<div class="facts"><div><small>Passes</small><b>%s</b></div><div><small>Per kind</small><b>%d</b></div><div><small>Kev</small><b>%s</b></div></div>' % ("until stopped" if not st.get("passes") else st["passes"], st["each"], "loaded" if kev else "loading"))
+        out.append('<p class="meta"><span>%s</span><span><b>%d</b> questions of each kind</span><span>Kev <b>%s</b></span></p>'
+                   % ("Goes on until stopped" if not st.get("passes") else "<b>%d</b> passes" % st["passes"], st["each"], "loaded" if kev else "loading"))
     else:
         why = cannot_run()
         each = "".join('<option value="%d"%s>%d</option>' % (n, " selected" if n == 6 else "", n) for n in (2, 4, 6, 8, 10))
         out.append('<button class="btn top wide" id="run-go" type="button"%s>Run training</button>' % (" disabled" if why else ""))
-        out.append('<div class="facts"><div><small>Passes</small><b style="font-size:13px">Until stopped</b></div><label><small>Per kind</small><select id="run-each">%s</select></label></div>' % each)
-        out.append('<p class="muted small" style="margin:8px 2px 0">Training goes on, pass after pass, each from what the last one learned, until <b>Stop training</b> is pressed.</p>')
+        out.append('<p class="meta"><label>Questions of each kind <select id="run-each" aria-label="Questions of each kind">%s</select></label></p>' % each)
+        out.append('<p class="muted small">Until stopped: training goes on, pass after pass, each from what the last one learned, until <b>Stop training</b> is pressed.</p>')
         if why:
             out.append(note("warn", e(why)))
         elif not installed and not os.environ.get("SWARM_KEV"):
@@ -1025,9 +1036,9 @@ def run_panel():
                 pct = (100.0 * x.get("done", 0) / of) if of and x.get("done") is not None else None
                 what = "ready" if x["state"] == "ready" else x.get("why") or (("%.1f of %.1f GB" % (x.get("done", 0) / 2**30, of / 2**30)) if pct is not None else x.get("note") or x["state"])
                 rows += '<li class="%s"><span>%s</span><span>%s<small style="display:block;color:var(--mist);font-weight:600">%s</small>%s</span><span></span></li>' % (
-                    "" if x["state"] == "ready" else "bad" if x["state"] == "failed" else "now", "✓" if x["state"] == "ready" else "✕" if x["state"] == "failed" else "▸", e(x["what"]), e(str(what)),
+                    "" if x["state"] == "ready" else "bad" if x["state"] == "failed" else "cur", "✓" if x["state"] == "ready" else "✕" if x["state"] == "failed" else "▸", e(x["what"]), e(str(what)),
                     '<span class="track" style="display:block;height:5px;border-radius:3px;background:var(--soft);margin-top:4px"><i style="display:block;height:100%%;border-radius:3px;background:var(--teal2);width:%.1f%%"></i></span>' % pct if pct is not None and x["state"] != "ready" else "")
-            out.append('<div class="muted small">Making ready</div><ul class="steps">%s</ul>' % rows)
+            out.append('<div class="sec"><h5>Making ready</h5><ul class="steps">%s</ul></div>' % rows)
     # the steps of the newest pass this page started
     if st:
         root = Path(ARGS.root)
@@ -1054,31 +1065,66 @@ def run_panel():
             for name in order:
                 x = steps[name]
                 done = x["end"] is not None
-                bad = done and not x["end"].startswith("exit 0")
-                items.append('<li class="%s"><span>%s</span><span>%s</span><span class="muted">%s</span></li>' % (
-                    "bad" if bad else "" if done else "now", "✕" if bad else "✓" if done else "▸", e(name),
-                    e((x["end"].replace("exit 0 ", "").replace("exit 2 ", "nothing to do · ") if done else "since " + x["at"]) + (" · try %d" % x["tries"] if x.get("tries", 1) > 1 else ""))))
-            out.append('<div class="muted small">Pass %s%s</div><ul class="steps">%s</ul>' % (e(cur.name[5:]), " · %s this session" % ("pass %d" % (int(cur.name[5:]) - int(st.get("first", cur.name[5:])) + 1)) if cur.name[5:].isdigit() else "", "".join(items) or "<li><span></span><span class='muted'>starting</span><span></span></li>"))
+                bad = done and not (x["end"].startswith("exit 0") or x["end"].startswith("exit 2"))
+                if done:
+                    took = x["end"].split(" ", 2)[2] if len(x["end"].split(" ", 2)) > 2 else ""
+                    how = "nothing to do" if x["end"].startswith("exit 2") else "under a minute" if took.startswith("0 min") else took
+                    if bad:
+                        how = "failed · " + how
+                else:
+                    how = _span(_since_clock(x["at"]))
+                items.append('<li class="%s" title="%s"><span>%s</span><span>%s</span><span>%s</span></li>' % (
+                    "bad" if bad else "" if done else "cur", e(name), "✕" if bad else "✓" if done else "▸", e(step_label(name)),
+                    e(how + (" · try %d" % x["tries"] if x.get("tries", 1) > 1 else ""))))
+            nth = int(cur.name[5:]) - int(st.get("first", cur.name[5:])) + 1 if cur.name[5:].isdigit() else 1
+            out.append('<div class="sec"><h5>Pass %s<span>%s</span></h5><ul class="steps">%s</ul></div>' % (
+                e(cur.name[5:]), ("number %d of this session" % nth) if nth > 1 else "", "".join(items) or "<li><span></span><span class='muted'>starting</span><span></span></li>"))
     # THE WAYS BACK THIS SESSION HAS TAKEN: a pass that needed twelve restarts is not the same evidence as one that needed none
     if st:
         began = _epoch_local(st.get("at", ""))
         took = [r for r in data._rows(Path(ARGS.root) / ".work" / "train" / "recovery.jsonl") if _epoch(r.get("at")) >= began - 2]
         if took:
             rows = "".join('<li><span>↺</span><span>%s<small style="display:block;color:var(--mist);font-weight:600">%s</small></span><span></span></li>' % (e(str(r.get("what", ""))), e(str(r.get("did", "")))) for r in took[-5:])
-            out.append('<div class="muted small">Recovered %d time%s this session</div><ul class="steps">%s</ul>' % (len(took), "" if len(took) == 1 else "s", rows))
+            out.append('<div class="sec"><h5>Recovered<span>%d time%s this session</span></h5><ul class="steps">%s</ul></div>' % (len(took), "" if len(took) == 1 else "s", rows))
         # what this session has taught the swarm so far: each change as it is kept (the output spec holds them all)
         try:
             led = [x for x in data.load(ARGS.root)["learned"]["ledger"] if _epoch(x.get("at")) >= began - 2]
         except Exception:  # the panel is drawn even where the folder cannot be read
             led = []
-        out.append('<div class="muted small" style="margin-top:12px">Learned this session: %s</div>' % ("%d kept" % len(led) if led else "nothing kept yet"))
+        out.append('<div class="sec"><h5>Learned this session<span>%s</span></h5>%s' % ("%d kept" % len(led) if led else "", "" if led else '<p class="muted small">Nothing kept yet. Each change is listed here as it is kept.</p></div>'))
         if led:
-            out.append('<ul class="steps">%s</ul>' % "".join(
+            out.append('<ul class="steps">%s</ul></div>' % "".join(
                 '<li><span>✓</span><span><b>%s</b><small style="display:block" class="muted">%s%s · train %s → %s equivalent</small></span></li>'
                 % (e(x.get("what", "")), e(KIND_WORD.get(x.get("kind"), "")), (" · " + e(x["slot"])) if x.get("slot") else "",
                    e(str(((x.get("train") or {}).get("before") or {}).get("right", "?"))), e(str(((x.get("train") or {}).get("after") or {}).get("right", "?")))) for x in led[::-1]))
     out.append("</div>")
     return "".join(out)
+
+
+STEP_WORDS = [("begin", "Begin the pass"), ("research", "Read what is new on arXiv"), ("target-train", "Larger model: the train questions"), ("target", "Larger model: the held questions"),
+              ("swarm-held", "The swarm: the held questions"), ("swarm-train", "The swarm: the train questions"), ("review", "Review how it is training"), ("plan", "Plan what to try"),
+              ("arrange", "Try other arrangements"), ("end", "Verdict"), ("publish", "Write it up")]
+
+
+def step_label(name):
+    """A step of a pass, in words: what the session's own name for it (00-begin, 10-improve-a-critic) stands for."""
+    key = name.split("-", 1)[1] if "-" in name and name.split("-", 1)[0].isdigit() else name
+    if key.startswith("improve-"):
+        return "Try other briefs for " + key[len("improve-"):]
+    if key in ("a-alone", "b-alone"):
+        return "%s alone" % data.MEMBER_NAMES.get(key[0], key[0])
+    return next((words for k, words in STEP_WORDS if key == k), key)
+
+
+def _since_clock(clock):
+    """Seconds since a time of day written HH:MM:SS (today, or yesterday if that would be in the future)."""
+    try:
+        h, m, sec = (int(x) for x in str(clock).split(":"))
+        now = time.localtime()
+        d = (now.tm_hour * 3600 + now.tm_min * 60 + now.tm_sec) - (h * 3600 + m * 60 + sec)
+        return d if d >= 0 else d + 86400
+    except (ValueError, TypeError):
+        return 0
 
 
 def _epoch(iso):

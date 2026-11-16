@@ -235,7 +235,8 @@ with tempfile.TemporaryDirectory() as tmp:
 
     page0 = get(base + "/")[1]
     check("where training can be started the page has a Run training button that can be pressed, no count of passes to choose, and says it goes on until it is stopped",
-          'id="run-go" type="button">Run training' in page0 and 'id="run-stop"' not in page0 and 'id="run-passes"' not in page0 and "Until stopped" in page0 and "until <b>Stop training</b> is pressed" in page0)
+          'id="run-go" type="button">Run training' in page0 and 'id="run-stop"' not in page0 and 'id="run-passes"' not in page0 and "Until stopped" in page0 and "until <b>Stop training</b> is pressed" in page0 and 'class="facts"' not in page0
+          and swarm_ui.step_label("10-improve-a-critic") == "Try other briefs for a-critic" and swarm_ui.step_label("06-plan") == "Plan what to try" and swarm_ui.step_label("99-new") == "new")
     refused = post("/run/start", headers={"content-type": "text/plain"})[0]
     foreign = post("/run/start", headers={"x-swarm": "1", "origin": "https://elsewhere.example"})[0]
     check("a pass cannot be started by anything but this page: a request without the page's own header, or from another site, is refused", refused == 403 and foreign == 403 and not (fake / ".work" / "train" / "ui-run.json").exists(), [refused, foreign])
@@ -244,8 +245,8 @@ with tempfile.TemporaryDirectory() as tmp:
     panel = get(base + "/fragment/run")[1]
     st = json.loads((fake / ".work" / "train" / "ui-run.json").read_text())
     check("pressed, it starts a session that goes on pass after pass until it is stopped (no number of passes is given it), and the page shows it running: each step as it starts and ends, and the last lines of the step it is on",
-          code == 200 and 'data-running="1"' in panel and "Stop training" in panel and 'data-since="' in panel and "Running since" in panel and " · " in panel.split("Running since")[1].split("</span>")[0] and swarm_ui._span(45) == "45 s" and swarm_ui._span(750) == "12 min 30 s" and swarm_ui._span(7500) == "2 h 5 min" and "timeZoneName" in html and "00-begin" in panel and "0 min" in panel and "02-target" in panel and "Pass 3" in panel and "asked" not in panel
-          and "until stopped" in panel and "asked 0 4" in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text(), panel[:400])
+          code == 200 and 'data-running="1"' in panel and "Stop training" in panel and 'data-since="' in panel and "<b>Running " in panel and "<small>since " in panel and swarm_ui._span(45) == "45 s" and swarm_ui._span(750) == "12 min 30 s" and swarm_ui._span(7500) == "2 h 5 min" and "timeZoneName" in html and 'title="00-begin"' in panel and "under a minute" in panel and ">0 min<" not in panel and ">Pass 3<" in panel and "asked" not in panel
+          and "Goes on until stopped" in panel and "Begin the pass" in panel and "Larger model: the held questions" in panel and 'title="02-target"' in panel and 'class="facts"' not in panel and "asked 0 4" in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text(), panel[:400])
     check("a teacher is never started from the button, whatever the page was started with", "teacher=[]" in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text())
     # what every slot is doing now: written by a trainer, shown only while a session runs and only while it is fresh
     (fake / ".work" / "train" / "live.json").write_text(json.dumps({"at": time.time() * 1000, "trainer": "measure", "who": "swarm", "split": "train", "n": 3, "of": 42,
@@ -262,7 +263,7 @@ with tempfile.TemporaryDirectory() as tmp:
                                                            + json.dumps({"at": "2020-01-01T00:00:00", "what": "old", "did": "from another session"}) + "\n")
     rp = get(base + "/fragment/run")[1]
     check("a step that failed and is being run again shows as one step with its try, a step done before a stop is shown as done earlier, and the ways back this session has taken are listed (and no other session's)",
-          "try 2" in rp and "done earlier" in rp and rp.count("02-target") == 1 and "Recovered 1 time this session" in rp and "started again, and asked again" in rp and "from another session" not in rp, rp[-600:])
+          "try 2" in rp and "done earlier" in rp and rp.count("02-target") == 1 and "Recovered<span>1 time this session" in rp and "started again, and asked again" in rp and "from another session" not in rp, rp[-600:])
     post("/run/start")
     check("pressed again while one runs, nothing more is started", json.loads((fake / ".work" / "train" / "ui-run.json").read_text())["pid"] == st["pid"])
     code, after = post("/run/stop")
