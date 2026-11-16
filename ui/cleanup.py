@@ -94,7 +94,7 @@ def inventory(root, d):
     add("startlux:program", "Deciders", "StartLux: its server and Python", [work / "deciders" / "startlux"], used=dkind == "startlux-mlx",
         note="Shared by every StartLux size.")
     for m in reg.get("deciders", []):
-        if (m.get("serve") or {}).get("kind") == "startlux-mlx":
+        if (m.get("serve") or {}).get("kind") in ("startlux-mlx", "llama"):
             add("decider:" + m["id"], "Deciders", "%s: weights" % m["name"], [work / "deciders" / m["id"]], used=decider.get("id") == m["id"],
                 note=(m.get("license") or ""))
     # what training keeps to resume and to save measuring twice (what it has LEARNED is elsewhere, and is not listed)

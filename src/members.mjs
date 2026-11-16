@@ -171,17 +171,24 @@ export const attachMember = (m, base, slots = SERVING.slots) => member(m, String
 
 // where a model's file is: in the folder named, or in a folder one level inside it (programs that keep models keep each in a
 // folder of its own, under a name of their choosing)
+// A model too large for one file on Hugging Face comes in parts (…-00001-of-00003.gguf and on): `file` is the first, which
+// llama.cpp is given and which finds the rest beside it, and `parts` the others; it is here only when every part is.
 export function modelFile(m, modelsDir) {
   if (!modelsDir || !fs.existsSync(modelsDir)) return '';
+  const whole = (f) =>
+    fs.existsSync(f) && (m.parts || []).every((p) => fs.existsSync(path.join(path.dirname(f), path.basename(p.file))));
   const direct = path.join(modelsDir, m.file);
-  if (fs.existsSync(direct)) return direct;
+  if (whole(direct)) return direct;
   for (const d of fs.readdirSync(modelsDir, { withFileTypes: true })) {
     if (!d.isDirectory()) continue;
-    const f = path.join(modelsDir, d.name, m.file);
-    if (fs.existsSync(f)) return f;
+    for (const f of [path.join(modelsDir, d.name, m.file), path.join(modelsDir, d.name, path.basename(m.file))])
+      if (whole(f)) return f;
   }
   return '';
 }
+
+// every file a model is: the first, then its parts (one file for most)
+export const filesOf = (m) => [{ file: m.file, bytes: m.bytes, sha256: m.sha256 }, ...(m.parts || [])];
 
 export async function startMember(m, opts = {}) {
   const {

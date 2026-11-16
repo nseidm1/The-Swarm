@@ -1,5 +1,5 @@
 {
-  "about": "Every model the swarm can be made of, be decided by, or be brought to parity with, and the engine that runs them. Each file is pinned: a repository, a revision, a size and a SHA-256, as Hugging Face (and, for the engine, GitHub) listed them on 2026-11-15. Only LFM2.5 2.6B, Bonsai 2 2B, Kev 4B, StartLux Decision 4B and Nemotron 3.5 Lightning 30B have been run here; the others are listed as their makers published them and are untried.",
+  "about": "Every model the swarm can be made of, be decided by, or be brought to parity with, and the engine that runs them. Each file is pinned: a repository, a revision, a size and a SHA-256, as Hugging Face (and, for the engine, GitHub) listed them on 2026-11-15. Only LFM2.5 2.6B, Bonsai 2 2B, Kev 4B, StartLux Decision 4B, Jeffan 4B and Nemotron 3.5 Lightning 30B have been run here; the others are listed as their makers published them and are untried.",
   "engine": {
     "name": "llama.cpp",
     "site": "https://github.com/ggml-org/llama.cpp",
@@ -78,6 +78,46 @@
       "file": "Ternary-Bonsai-2-4B-Q2_0.gguf",
       "bytes": 1212103520,
       "sha256": "64a5183b44921bdb5ac4a6f5f92007821d6ebe5c66997d3c147fd214ab9433d4",
+      "license": "Apache-2.0",
+      "serve": ["--reasoning", "off"],
+      "sampling": {
+        "temperature": 0.7,
+        "top_p": 0.8,
+        "top_k": 20,
+        "min_p": 0,
+        "presence_penalty": 1.5
+      }
+    },
+    {
+      "id": "bonsai2-9b",
+      "name": "Bonsai 2 9B",
+      "by": "Prism ML",
+      "params": 9,
+      "repo": "prism-ml/Ternary-Bonsai-2-9B-gguf",
+      "rev": "82265ccc78ddaac4700286a35e9badcc32376dd9",
+      "file": "Ternary-Bonsai-2-9B-Q2_0.gguf",
+      "bytes": 2556640128,
+      "sha256": "1f884aa56aacd2bbbb2e4b7abaead2b1102b74a9c75a23fc33dab916813a384d",
+      "license": "Apache-2.0",
+      "serve": ["--reasoning", "off"],
+      "sampling": {
+        "temperature": 0.7,
+        "top_p": 0.8,
+        "top_k": 20,
+        "min_p": 0,
+        "presence_penalty": 1.5
+      }
+    },
+    {
+      "id": "bonsai2-27b",
+      "name": "Bonsai 2 27B",
+      "by": "Prism ML",
+      "params": 27,
+      "repo": "prism-ml/Ternary-Bonsai-2-27B-gguf",
+      "rev": "839bd57023c1558945afea70a74fa83c054f35f9",
+      "file": "Ternary-Bonsai-2-27B-Q2_0.gguf",
+      "bytes": 7626008928,
+      "sha256": "4f99aed01b8a877e153f9aa6569a4440fe17c59701cc0953e36d7f460549e70e",
       "license": "Apache-2.0",
       "serve": ["--reasoning", "off"],
       "sampling": {
@@ -399,23 +439,75 @@
       }
     },
     {
+      "id": "jeffan-27b",
+      "name": "Jeffan 27B",
+      "by": "tattrongvu",
+      "params": 26.9,
+      "memGb": 19,
+      "license": "Apache-2.0",
+      "needs": "an Apple silicon Mac with 32 GB or more (llama.cpp)",
+      "runsOn": ["mac", "cuda"],
+      "index": {
+        "score": 70.3,
+        "as": "Jeffan-27B-1211 (served here from its maker's 4-bit GGUF, which its maker measured as no less accurate)"
+      },
+      "serve": {
+        "kind": "llama",
+        "weights": "tattrongvu/Jeffan-27B-1211-GGUF",
+        "weightsRev": "aa45de273b746b7a7d7bc1e563229577b01c929c",
+        "file": "Jeffan-27B-1211-Q4_K_M.gguf",
+        "bytes": 16742045376,
+        "sha256": "887b3d5451f30d43cf4647164e8b681718ce742129114c55102fbfe0c108804e",
+        "args": ["-c", "8192", "-b", "8192", "-ub", "8192", "-np", "1", "--cache-ram", "0"],
+        "how": "stock llama.cpp's llama-server answers it at /v1/systemone, with the flags its model card gives (one loop pass, the released default)"
+      }
+    },
+    {
       "id": "jeffan-9b",
       "name": "Jeffan 9B",
       "by": "tattrongvu",
       "params": 9.0,
-      "memGb": 18,
+      "memGb": 7.5,
       "license": "Apache-2.0",
-      "needs": "an NVIDIA GPU",
-      "runsOn": ["cuda"],
+      "needs": "an Apple silicon Mac with 16 GB or more (llama.cpp)",
+      "runsOn": ["mac", "cuda"],
       "index": {
         "score": 61.48,
-        "as": "Jeffan-9B-1211"
+        "as": "Jeffan-9B-1211, which runs two loop passes; stock llama.cpp runs its maker's GGUF as one pass, which gave the released model's answer on 269 of 300 held-out questions, its maker measured"
       },
       "serve": {
-        "kind": "cuda",
-        "weights": "tattrongvu/Jeffan-9B-1211",
-        "weightsRev": "862d1a7a8b64a8d708ddb0b0cd775a740f01841a",
-        "how": "the inference/ folder of the model repository (jeffan_engine), as its README describes"
+        "kind": "llama",
+        "weights": "tattrongvu/Jeffan-9B-1211-GGUF",
+        "weightsRev": "da71dc641f08f8f8591f328c2e885a9127ce1c5a",
+        "file": "Jeffan-9B-1211-Q4_K_M.gguf",
+        "bytes": 5681016544,
+        "sha256": "7a052d8d2b5ca551c245ccaa4f0eafb17f9edd964e2c85fb56ee7f9314df9f79",
+        "args": ["-c", "8192", "-b", "8192", "-ub", "8192", "-np", "1", "--cache-ram", "0"],
+        "how": "stock llama.cpp's llama-server answers it at /v1/systemone, with the flags its model card gives"
+      }
+    },
+    {
+      "id": "jeffan-4b",
+      "name": "Jeffan 4B",
+      "by": "tattrongvu",
+      "params": 4.2,
+      "memGb": 4,
+      "license": "Apache-2.0",
+      "needs": "any Apple silicon Mac (llama.cpp)",
+      "runsOn": ["mac", "cuda"],
+      "index": {
+        "score": 52.21,
+        "as": "Jeffan-4B-2010 (served here from its maker's 4-bit GGUF)"
+      },
+      "serve": {
+        "kind": "llama",
+        "weights": "tattrongvu/Jeffan-4B-2010-GGUF",
+        "weightsRev": "0f9ba036491920cd4ea7f5719694837ee3202298",
+        "file": "Jeffan-4B-2010-Q4_K_M.gguf",
+        "bytes": 2741247488,
+        "sha256": "36ee0bfd8a453d70b2120a7fd52815220633a49e9dfbbce3b7097863e55db0cf",
+        "args": ["-c", "8192", "-b", "8192", "-ub", "8192", "-np", "1", "--cache-ram", "0"],
+        "how": "stock llama.cpp's llama-server answers it at /v1/systemone, with the flags its model card gives"
       }
     },
     {
@@ -436,6 +528,214 @@
         "weights": "MachinePulseAI/karpo-decision-31B",
         "weightsRev": "b8e6fd7463cea8662c556d6257955d7ef9c10d19",
         "how": "pip install \"karpo-decision @ git+https://github.com/machinepulse-ai/karpo-decision\"; torchrun --standalone --nproc_per_node 1 -m karpo_decision.serve.server --checkpoint <model folder> --port <port>   (from the model card)"
+      }
+    },
+    {
+      "id": "startlux-27b",
+      "name": "StartLux Decision 27B",
+      "by": "StartLux",
+      "params": 27.8,
+      "memGb": 31,
+      "license": "CC-BY-NC-4.0 (non-commercial)",
+      "needs": "an Apple silicon Mac with 64 GB or more",
+      "runsOn": ["mac"],
+      "index": { "score": 67.92, "as": "StartLux-Decision v1.1 27B" },
+      "serve": {
+        "kind": "startlux-mlx",
+        "code": "https://github.com/StartLuxLabs/StartLux-Decision.git",
+        "codeRev": "a99977d9332decc9fb27a2488b4a83b533b6cd5f",
+        "weights": "startlux-models/StartLux-Decision-v1.1-27B-Instant-MLX-8bit",
+        "weightsRev": "c5f6a6638c16c4aa2438662f2c1b892e1d1afb03",
+        "bytes": 29514665612
+      }
+    },
+    {
+      "id": "startlux-2b",
+      "name": "StartLux Decision 2B",
+      "by": "StartLux",
+      "params": 2.3,
+      "memGb": 3,
+      "license": "CC-BY-NC-4.0 (non-commercial)",
+      "needs": "any Apple silicon Mac",
+      "runsOn": ["mac"],
+      "index": { "score": 40.11, "as": "StartLux-Decision v1.1 2B" },
+      "serve": {
+        "kind": "startlux-mlx",
+        "code": "https://github.com/StartLuxLabs/StartLux-Decision.git",
+        "codeRev": "a99977d9332decc9fb27a2488b4a83b533b6cd5f",
+        "weights": "startlux-models/StartLux-Decision-v1.1-2B-Instant-MLX-8bit",
+        "weightsRev": "71db0917855d59603cb0c3ffaa1d176b9d21f912",
+        "bytes": 2676216034
+      }
+    },
+    {
+      "id": "glide-27b",
+      "name": "GLiDE 27B",
+      "by": "Fastino",
+      "params": 26.1,
+      "memGb": 60,
+      "license": "Fastino Community License (read it before commercial use)",
+      "needs": "an NVIDIA GPU with 80 GB or more",
+      "runsOn": ["cuda"],
+      "index": { "score": 73.37, "as": "GLiDE 27B" },
+      "serve": {
+        "kind": "cuda",
+        "weights": "fastino/GLiDE-27B",
+        "weightsRev": "4d32743ae96b74f0116f050d37742bbd43c04e7d",
+        "how": "the HTTP server in the model repository, which speaks POST /v1/systemone, as its README describes (bf16; measured by its maker on one RTX PRO 6000). Fastino also serves it at https://api.fastino.ai/v1/systemone with an API key"
+      }
+    },
+    {
+      "id": "glide-9b",
+      "name": "GLiDE 9B",
+      "by": "Fastino",
+      "params": 7.9,
+      "memGb": 19,
+      "license": "Fastino Community License (read it before commercial use)",
+      "needs": "an NVIDIA GPU with 24 GB (19 GB at peak, its maker measured)",
+      "runsOn": ["cuda"],
+      "index": { "score": 62.48, "as": "GLiDE 9B" },
+      "serve": {
+        "kind": "cuda",
+        "weights": "fastino/GLiDE-9B",
+        "weightsRev": "ab54df5acba0eebf7df45560ffdaacd64e32df3b",
+        "how": "the HTTP server in the model repository, which speaks POST /v1/systemone, as its README describes (bf16)"
+      }
+    },
+    {
+      "id": "glide-2b",
+      "name": "GLiDE 2B",
+      "by": "Fastino",
+      "params": 1.9,
+      "memGb": 5.1,
+      "license": "Fastino Community License (read it before commercial use)",
+      "needs": "an NVIDIA GPU with 8 GB (5.1 GB at peak, its maker measured)",
+      "runsOn": ["cuda"],
+      "index": { "score": 43.72, "as": "GLiDE 2B" },
+      "serve": {
+        "kind": "cuda",
+        "weights": "fastino/GLiDE-2B",
+        "weightsRev": "00f122c120cdeed82284106cb77d9bab5a50ad16",
+        "how": "the HTTP server in the model repository, which speaks POST /v1/systemone, as its README describes (bf16)"
+      }
+    },
+    {
+      "id": "reax-1.3",
+      "name": "REAX 1.3",
+      "by": "REAX Labs",
+      "params": 57.4,
+      "memGb": 90,
+      "license": "Apache-2.0",
+      "needs": "Linux and one NVIDIA RTX PRO 6000 Blackwell (96 GB), with Docker and the NVIDIA Container Toolkit",
+      "runsOn": ["cuda"],
+      "index": { "score": 72.64, "as": "REAX 1.3: two decision models in parallel on one GPU" },
+      "serve": {
+        "kind": "cuda",
+        "weights": "decisionmodels/REAX-1.3",
+        "weightsRev": "fa4bf7ee3bb56a8bc421dad090631be1c5845c2d",
+        "how": "the reax13 mode of the REAX Engine (github.com/reaxlabs/reax-engine): docker build -t reax13-base -f Dockerfile . ; docker build -t reax13-runtime -f Dockerfile.conv . , as its model card describes"
+      }
+    },
+    {
+      "id": "sigma-1-duo",
+      "name": "Logits Sigma-1 Duo",
+      "by": "Logits",
+      "params": 57.4,
+      "memGb": 88,
+      "license": "Apache-2.0",
+      "needs": "an NVIDIA GPU with 96 GB (88 GB at peak, its maker measured on an RTX PRO 6000)",
+      "runsOn": ["cuda"],
+      "index": { "score": 72.28, "as": "Logits Sigma-1 Duo: two decision models on one GPU" },
+      "serve": {
+        "kind": "cuda",
+        "weights": "logitshq/Logits-Sigma-1-Duo",
+        "weightsRev": "a0c1b6e8242916aafdcf9a5a49c1a952cb56e091",
+        "how": "the Docker image its model card builds (duo/code/Dockerfile), run with --gpus all"
+      }
+    },
+    {
+      "id": "copernicus-31b",
+      "name": "Copernicus 31B",
+      "by": "Poindexter Labs",
+      "params": 31.3,
+      "memGb": 64,
+      "license": "Apache-2.0",
+      "needs": "an NVIDIA GPU with 80 GB (bf16)",
+      "runsOn": ["cuda"],
+      "index": { "score": 72.11, "as": "Copernicus-31B" },
+      "serve": {
+        "kind": "cuda",
+        "weights": "Poindexter-Labs/Copernicus-31B",
+        "weightsRev": "ae28efb0ae759c3494a1078c0a56eda10a9adb38",
+        "how": "pip install -U torch transformers accelerate requests; SGLang on :9080 and python copernicus_server.py --port 8080 (POST /v1/systemone), as its model card describes"
+      }
+    },
+    {
+      "id": "copernicus-57b",
+      "name": "Copernicus 57B",
+      "by": "Poindexter Labs",
+      "params": 57.4,
+      "memGb": 90,
+      "license": "Apache-2.0",
+      "needs": "Linux and one NVIDIA RTX PRO 6000 (96 GB), CUDA 13",
+      "runsOn": ["cuda"],
+      "index": { "score": 71.8, "as": "Copernicus-57B: a Gemma-based and a Qwen-based decision model together" },
+      "serve": {
+        "kind": "cuda",
+        "weights": "Poindexter-Labs/Copernicus-57B",
+        "weightsRev": "c6f3df30b04d15caa0951016c0772605a167983e",
+        "how": "the Copernicus Engine (github.com/poindexter-stk/copernicus-engine, branch copernicus-57b): python copernicus-engine/reax13/copernicus_serve.py ... --port 8080, as its model card describes"
+      }
+    },
+    {
+      "id": "knowline-31b",
+      "name": "KnowLine 31B Gen1.5",
+      "by": "PelaAI",
+      "params": 31.3,
+      "memGb": 64,
+      "license": "Apache-2.0",
+      "needs": "an NVIDIA GPU with 80 GB (served by SGLang, bf16)",
+      "runsOn": ["cuda"],
+      "index": { "score": 71.91, "as": "KnowLine 31B Gen1.5" },
+      "serve": {
+        "kind": "cuda",
+        "weights": "PelaAI/KnowLine-31B-Gen1.5",
+        "weightsRev": "56ca884a8e3195c9c0786a4ec22e651669d04ba9",
+        "how": "pip install sglang==0.5.21 transformers==5.12.1 requests; bash serve_knowline.sh PelaAI/KnowLine-31B-Gen1.5 0 <port>   (from the model card: SGLang on :<port>+1000, /v1/systemone on :<port>)"
+      }
+    },
+    {
+      "id": "pplx-flash-4b",
+      "name": "Perplexity Decider Flash 4B",
+      "by": "Perplexity",
+      "params": 4.5,
+      "memGb": 12,
+      "license": "Apache-2.0",
+      "needs": "an NVIDIA GPU with room for about 9 GiB of bf16 weights and working memory",
+      "runsOn": ["cuda"],
+      "index": { "score": 54.29, "as": "Perplexity Decider Flash v1.2 (4B)" },
+      "serve": {
+        "kind": "cuda",
+        "weights": "perplexity-ai/pplx-decider-flash-v1.2",
+        "weightsRev": "9ff7cf9838e59df461c276b7699d56b244d2af58",
+        "how": "pip install ./source from the model repository, then its Python Decider (from pplx_decider import Decider), as its model card describes (Python 3.12+)"
+      }
+    },
+    {
+      "id": "elephant-1-9b",
+      "name": "elephant-1 (9B)",
+      "by": "Baseten Labs",
+      "params": 9.4,
+      "memGb": 20,
+      "license": "MIT",
+      "needs": "an NVIDIA GPU (the pytorch/pytorch:2.8.0-cuda12.8-cudnn9-devel image)",
+      "runsOn": ["cuda"],
+      "index": { "score": 60.26, "as": "baselabs elephant-1 (9B)" },
+      "serve": {
+        "kind": "cuda",
+        "weights": "baselabs/elephant-1",
+        "weightsRev": "b3f8a93462fb1051a9de031e94a7ff380e254072",
+        "how": "setup.sh in the model repository installs its pinned serving runtime (OneJev + serve.patch); then qev's DecisionEngine, as its model card describes"
       }
     }
   ],
@@ -510,123 +810,208 @@
       "engine": "llama"
     },
     {
-      "id": "gemma4-26b",
-      "name": "Gemma 4 26B",
+      "id": "muse-glimmer-30b",
+      "name": "Muse Glimmer 30B",
+      "by": "Meta (Superintelligence Lab)",
+      "params": 30,
+      "repo": "meta-models/Muse-Glimmer-30B-GGUF",
+      "rev": "b44f1072cf75e918a1b82a3a17b45c4389b076e7",
+      "file": "Muse-Glimmer-30B-KQuant-17GB-Q4_K_M.gguf",
+      "bytes": 16756683904,
+      "sha256": "4cc57c0f51040a226e5a72cc47b7613f7772950e460a665f7083de89f183f60e",
+      "license": "Apache-2.0",
+      "engine": "llama"
+    },
+    {
+      "id": "gemma4-31b",
+      "name": "Gemma 4 31B",
       "by": "Google",
-      "params": 26,
-      "repo": "google/gemma-4-26B-A4B-it-qat-q4_0-gguf",
-      "rev": "d1c082be9cf3c8a514acf63b8761f4b41935842e",
-      "file": "gemma-4-26B_q4_0-it.gguf",
-      "bytes": 14439363584,
-      "sha256": "3eca3b8f6d7baf218a7dd6bba5fb59a56ee25fe2d567b6f5f589b4f697eca51d",
+      "params": 31,
+      "repo": "google/gemma-4-31B-it-qat-q4_0-gguf",
+      "rev": "59dde24573e7e61570dba08b18a2e1fe246955ed",
+      "file": "gemma-4-31B_q4_0-it.gguf",
+      "bytes": 17651001568,
+      "sha256": "179cfb99212709597eae5929112cfca677e1bbf566178b479ae1da0c4772874b",
       "license": "Apache-2.0",
       "engine": "llama"
     },
     {
-      "id": "lfm25-24b",
-      "name": "LFM2.5 24B",
-      "by": "Liquid AI",
-      "params": 24,
-      "repo": "LiquidAI/LFM2.5-24B-A2B-GGUF",
-      "rev": "7be3a8c77b010e612c42089d0dc082962cecb3a6",
-      "file": "LFM2.5-24B-A2B-Q4_K_M.gguf",
-      "bytes": 14526258464,
-      "sha256": "d3334405b96228eb9908cdebb5c6194908f2da64282bda852afc3a3910c64e7d",
-      "license": "LFM Open License v1.0",
-      "engine": "llama"
-    },
-    {
-      "id": "ministral3-14b",
-      "name": "Ministral 3 14B",
-      "by": "Mistral AI",
-      "params": 14,
-      "repo": "mistralai/Ministral-3-14B-Instruct-2512-GGUF",
-      "rev": "74fac473c43357d7fb2671713608183cc72496d0",
-      "file": "Ministral-3-14B-Instruct-2512-Q4_K_M.gguf",
-      "bytes": 8239593024,
-      "sha256": "824e0f3373e69b84f2cae46fdcb9bd1ebc6ab3bfc7acc125d818b7b8178cc613",
-      "license": "Apache-2.0",
-      "engine": "llama"
-    },
-    {
-      "id": "qwen3-14b",
-      "name": "Qwen3 14B",
-      "by": "Alibaba (Qwen)",
-      "params": 14,
-      "repo": "Qwen/Qwen3-14B-GGUF",
-      "rev": "530227a7d994db8eca5ab5ced2fb692b614357fd",
-      "file": "Qwen3-14B-Q4_K_M.gguf",
-      "bytes": 9001752960,
-      "sha256": "500a8806e85ee9c83f3ae08420295592451379b4f8cf2d0f41c15dffeb6b81f0",
-      "license": "Apache-2.0",
-      "engine": "llama"
-    },
-    {
-      "id": "gemma4-12b",
-      "name": "Gemma 4 12B",
-      "by": "Google",
-      "params": 12,
-      "repo": "google/gemma-4-12B-it-qat-q4_0-gguf",
-      "rev": "29d097773436b69ff9feafd636ab4cf873786537",
-      "file": "gemma-4-12b-it-qat-q4_0.gguf",
-      "bytes": 6975879296,
-      "sha256": "93567e57a8fe10b23569b9d9ec38cd005deedf71e29477c421a4b83f418a538b",
-      "license": "Apache-2.0",
-      "engine": "llama"
-    },
-    {
-      "id": "qwen35-9b",
-      "name": "Qwen3.5 9B",
+      "id": "qwen36-35b",
+      "name": "Qwen3.6 35B",
       "by": "Alibaba (Qwen), packaged by Unsloth",
-      "params": 9,
-      "repo": "unsloth/Qwen3.5-9B-GGUF",
-      "rev": "3885219b6810b007914f3a7950a8d1b469d598a5",
-      "file": "Qwen3.5-9B-Q4_K_M.gguf",
-      "bytes": 5680522464,
-      "sha256": "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8",
+      "params": 35,
+      "repo": "unsloth/Qwen3.6-35B-A3B-GGUF",
+      "rev": "a483e9e6cbd595906af30beda3187c2663a1118c",
+      "file": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+      "bytes": 22134528992,
+      "sha256": "ac0e2c1189e055faa36eff361580e79c5bd6f8e76bffb4ce547f167d53e31a61",
       "license": "Apache-2.0",
       "engine": "llama"
     },
     {
-      "id": "bonsai2-9b",
-      "name": "Bonsai 2 9B",
-      "by": "Prism ML",
-      "params": 9,
-      "repo": "prism-ml/Ternary-Bonsai-2-9B-gguf",
-      "rev": "82265ccc78ddaac4700286a35e9badcc32376dd9",
-      "file": "Ternary-Bonsai-2-9B-Q2_0.gguf",
-      "bytes": 2556640128,
-      "sha256": "1f884aa56aacd2bbbb2e4b7abaead2b1102b74a9c75a23fc33dab916813a384d",
-      "license": "Apache-2.0",
-      "serve": ["--reasoning", "off"],
+      "id": "ornith15-35b",
+      "name": "Ornith 1.5 35B",
+      "by": "Ornith AI",
+      "params": 35,
+      "repo": "ornith-ai/Ornith-1.5-35B-A3B-GGUF",
+      "rev": "12393612fd4f730ff5aadc23e9b8f9648aa49ceb",
+      "file": "Ornith-1.5-35B-Q4_K_M.gguf",
+      "bytes": 21713463040,
+      "sha256": "42739874cc2ccfdb8523b23fbe52e29b2a7555c8176737ca9ca0b5d59859d41f",
+      "license": "MIT",
       "engine": "llama"
     },
     {
-      "id": "granite42-8b",
-      "name": "Granite 4.2 8B",
-      "by": "IBM",
-      "params": 8,
-      "repo": "ibm-granite/granite-4.2-8b-GGUF",
-      "rev": "93f3f6a8938ee922b784cf4e5b4203cd3428df8f",
-      "file": "granite-4.2-8b-Q4_K_M.gguf",
-      "bytes": 5347917952,
-      "sha256": "16a9369d0805f80b7377d25d87f937a90c05dc04ad79173a52001e42c9aab311",
+      "id": "nemotron35-bolt-74b",
+      "name": "Nemotron 3.5 Bolt 74B",
+      "by": "NVIDIA, packaged by Unsloth",
+      "params": 74,
+      "repo": "unsloth/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-GGUF",
+      "rev": "34841e360524d421c564cc3ed247aa04a865473b",
+      "file": "UD-Q4_K_XL/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q4_K_XL-00001-of-00003.gguf",
+      "bytes": 7876160,
+      "sha256": "d6f33b5e8a49ea57a0a3ae922dfd0b3033a19429993d3215fc4992f4270aa2df",
+      "parts": [
+        {
+          "file": "UD-Q4_K_XL/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q4_K_XL-00002-of-00003.gguf",
+          "bytes": 49524981280,
+          "sha256": "93c8485db6f9e9d26085acc368ca3b0993a36aa870e8f8b7748c1fbd174c6276"
+        },
+        {
+          "file": "UD-Q4_K_XL/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q4_K_XL-00003-of-00003.gguf",
+          "bytes": 686620928,
+          "sha256": "f97b7a5443b3f77150a1bf7bac6c00862411ee2f26b7bf57a599fb61dbe867df"
+        }
+      ],
+      "license": "OpenMDW 1.1",
+      "engine": "llama"
+    },
+    {
+      "id": "gpt-oss-120b",
+      "name": "gpt-oss 120B",
+      "by": "OpenAI, packaged by ggml-org",
+      "params": 117,
+      "repo": "ggml-org/gpt-oss-120b-GGUF",
+      "rev": "f59990363fbbb67f01bce03e5e7bf0929e3e320b",
+      "file": "gpt-oss-120b-MXFP4.gguf",
+      "bytes": 63387346208,
+      "sha256": "582bd40f6886200101f4c4ed9f25f3fe80cc14c86e9e2b37746cd8904a0c622d",
       "license": "Apache-2.0",
       "engine": "llama"
     },
     {
-      "id": "lfm25-8b",
-      "name": "LFM2.5 8B",
-      "by": "Liquid AI",
-      "params": 8,
-      "repo": "LiquidAI/LFM2.5-8B-A1B-GGUF",
-      "rev": "49c14831707011e64d70b2ebd8462ba08d608434",
-      "file": "LFM2.5-8B-A1B-Q4_K_M.gguf",
-      "bytes": 5155564768,
-      "sha256": "4923ec14f06b968b74d663e5949867d2d9c3bf13a20b8be1a9f9af39989b2bb0",
-      "license": "LFM Open License v1.0",
+      "id": "mistral-small4-119b",
+      "name": "Mistral Small 4 119B",
+      "by": "Mistral AI, packaged by Unsloth",
+      "params": 119,
+      "repo": "unsloth/Mistral-Small-4-119B-2603-GGUF",
+      "rev": "bd93c721735aa32c035c0f19e738cb3371fd56ff",
+      "file": "UD-Q4_K_M/Mistral-Small-4-119B-2603-UD-Q4_K_M-00001-of-00003.gguf",
+      "bytes": 7875616,
+      "sha256": "fd3cc46082e4e64eb623eea4611b02583d1de4c20a59411bf1820925d5117dfe",
+      "parts": [
+        {
+          "file": "UD-Q4_K_M/Mistral-Small-4-119B-2603-UD-Q4_K_M-00002-of-00003.gguf",
+          "bytes": 49299298464,
+          "sha256": "f357d8dc029824fa4515ae60d7a8b7e108546763614f16c00a1b4ea0cd94145c"
+        },
+        {
+          "file": "UD-Q4_K_M/Mistral-Small-4-119B-2603-UD-Q4_K_M-00003-of-00003.gguf",
+          "bytes": 24456006464,
+          "sha256": "9dc960d67fb1ef23029d24878b4cf6c63b743ab26cf9137402549591bd770c50"
+        }
+      ],
+      "license": "Apache-2.0",
+      "engine": "llama"
+    },
+    {
+      "id": "nemotron35-super-120b",
+      "name": "Nemotron 3.5 Super 120B",
+      "by": "NVIDIA, packaged by Unsloth",
+      "params": 120,
+      "repo": "unsloth/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-GGUF",
+      "rev": "75a5829055f69a0359085ae6bbd0a81b60bc05c6",
+      "file": "UD-Q4_K_XL/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-UD-Q4_K_XL-00001-of-00003.gguf",
+      "bytes": 7874568,
+      "sha256": "04e0b45e70ab5c86c6b5d3b0133cc35fc10861015bac7dcff867dcf115dc81c5",
+      "parts": [
+        {
+          "file": "UD-Q4_K_XL/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-UD-Q4_K_XL-00002-of-00003.gguf",
+          "bytes": 49851272832,
+          "sha256": "868a7fa360ff10bc7e072e4bb4f8771b280ca35a087a55125bc21f7ebb9962b7"
+        },
+        {
+          "file": "UD-Q4_K_XL/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-UD-Q4_K_XL-00003-of-00003.gguf",
+          "bytes": 37048096032,
+          "sha256": "684abb5b5306b18a046ee69e3375a0e863d14d265e0ffa52c33442d375d08b7d"
+        }
+      ],
+      "license": "OpenMDW 1.1",
+      "engine": "llama"
+    },
+    {
+      "id": "qwen35-122b",
+      "name": "Qwen3.5 122B",
+      "by": "Alibaba (Qwen), packaged by Unsloth",
+      "params": 122,
+      "repo": "unsloth/Qwen3.5-122B-A10B-GGUF",
+      "rev": "51eab4d59d53f573fb9206cb3ce613f1d0aa392b",
+      "file": "Q4_K_M/Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf",
+      "bytes": 10943552,
+      "sha256": "467c9bd92ea518539cf75bf5a5fbfbd35e9a0b40d766ccaa67bf120e12041df3",
+      "parts": [
+        {
+          "file": "Q4_K_M/Qwen3.5-122B-A10B-Q4_K_M-00002-of-00003.gguf",
+          "bytes": 49968146912,
+          "sha256": "90db14846413aebdac365b57206441437cac5f7e5037d94b325f0167f902e6e7"
+        },
+        {
+          "file": "Q4_K_M/Qwen3.5-122B-A10B-Q4_K_M-00003-of-00003.gguf",
+          "bytes": 26557874144,
+          "sha256": "e3c24b8ebec070bb4f69ea0aca25a16531da7440cd515529953e046882901f97"
+        }
+      ],
+      "license": "Apache-2.0",
+      "engine": "llama"
+    },
+    {
+      "id": "ornith15-122b",
+      "name": "Ornith 1.5 122B",
+      "by": "Ornith AI",
+      "params": 122,
+      "repo": "ornith-ai/Ornith-1.5-122B-GGUF",
+      "rev": "8d5893d767c449a4f18dd08f4bb6d0d6d4426175",
+      "file": "Ornith-1.5-122B-Q4_K_M.gguf",
+      "bytes": 75843911648,
+      "sha256": "729fe18c2491aaa446074a923e12f184f9f2239ffd5ce3dae47b0ce9cf8df40c",
+      "license": "MIT",
+      "engine": "llama"
+    },
+    {
+      "id": "mistral-medium35-128b",
+      "name": "Mistral Medium 3.5 128B",
+      "by": "Mistral AI, packaged by Unsloth",
+      "params": 128,
+      "repo": "unsloth/Mistral-Medium-3.5-128B-GGUF",
+      "rev": "c8f5b1477e1b22cd2d819157d450f001f7047298",
+      "file": "Q4_K_M/Mistral-Medium-3.5-128B-Q4_K_M-00001-of-00003.gguf",
+      "bytes": 7875456,
+      "sha256": "94bf2dd90d80f41b1dfb1f94b569d11fd78fd302a79ae9fdf828f8082d1dfeaa",
+      "parts": [
+        {
+          "file": "Q4_K_M/Mistral-Medium-3.5-128B-Q4_K_M-00002-of-00003.gguf",
+          "bytes": 49927945056,
+          "sha256": "8396392f4b9eafac69e59355b569b6603f42d103505988e26939db7f5bfecb95"
+        },
+        {
+          "file": "Q4_K_M/Mistral-Medium-3.5-128B-Q4_K_M-00003-of-00003.gguf",
+          "bytes": 24961318624,
+          "sha256": "3f4ddc0284d522e6f1a020eaa731eaf851d6708a26431773de7bba504227c2e5"
+        }
+      ],
+      "license": "Modified MIT (Mistral AI)",
       "engine": "llama"
     }
   ],
-  "decidersAbout": "The models that can decide. Every one answers the same request (POST /v1/systemone: a state and typed questions, a probability for each option), so any of them can stand in the decide step. index: its balanced score on the community Decision Index (multimodalart/jev-decision-index, data of 2026-11-12, 300 models; Jev 1.14, TypeSafe's hosted model, scores 60.24), and the entry it was scored as. runsOn: 'mac' (Apple silicon) and 'cuda' (an NVIDIA GPU), as its maker documents it. serve: how training/kev.sh fetches and starts it here ('kev', 'startlux-mlx'); 'cuda' ones are listed with their maker's own instructions and are not started by the swarm."
+  "decidersAbout": "The models that can decide. Every one answers the same request (POST /v1/systemone: a state and typed questions, a probability for each option), so any of them can stand in the decide step. index: its balanced score on the community Decision Index (multimodalart/jev-decision-index, Decision Index 0.4.1, read 2026-11-16, 300 models; Jev 1.14, TypeSafe's hosted model, scores 60.24; the deciders listed are its leaders at each size with weights on Hugging Face, pinned at the revision named), and the entry it was scored as. runsOn: 'mac' (Apple silicon) and 'cuda' (an NVIDIA GPU), as its maker documents it. serve: how training/kev.sh fetches and starts it here ('kev'; 'startlux-mlx', through MLX; 'llama', one GGUF file its maker made for stock llama.cpp, whose llama-server answers /v1/systemone itself, served with the maker's flags); 'cuda' ones are listed with their maker's own instructions and are not started by the swarm."
 }

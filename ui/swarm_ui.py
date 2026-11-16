@@ -124,6 +124,12 @@ table.spec{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px}t
 table.spec th{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--mist);white-space:nowrap}dialog h4{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--teal2);margin:20px 0 6px}
 .tail{margin:0;padding:12px;border-radius:14px;background:var(--soft);font:11.5px/1.5 ui-monospace,Menlo,monospace;color:var(--fog);white-space:pre-wrap;overflow-wrap:anywhere;overflow:auto}
 .idea{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:center;color:inherit;text-decoration:none;border-radius:12px;padding:4px;margin:-4px}
+.ideas{display:grid;gap:4px}.ideas li{display:block}.ideas .idea{display:block;padding:8px 10px;margin:0 -10px}
+.ideas .idea b{display:block;font-size:13.5px;font-weight:700;line-height:1.35;white-space:normal;overflow:visible;text-transform:none;letter-spacing:0}
+.ideas .idea b::first-letter{text-transform:uppercase}
+.ideas .idea small{display:block;margin-top:3px;font-size:11.5px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--mist)}
+.ideas .idea small i{font-style:normal;color:var(--teal)}.ideas a.idea small i::after{content:" \u2197"}
+.ideas li+li .idea{border-top:1px solid var(--line);border-radius:0}.ideas li+li a.idea:hover{border-radius:12px}
 a.idea:hover{background:var(--soft)}a.idea:focus-visible{outline:2px solid var(--teal2)}.feed li:has(.idea){display:block}
 .banner{margin:16px 0 0;padding:10px 16px;border-radius:14px;background:#fff4d6;color:#7a5200;font-weight:600}
 .panel{background:var(--panel);border-radius:26px;padding:22px;box-shadow:var(--shadow)}
@@ -321,7 +327,7 @@ textarea{width:100%;min-height:80px;background:var(--soft);border:0;border-radiu
 .state.on{color:var(--teal)}.state.on i{background:var(--teal2);animation:p 1.2s infinite}.state.warn{color:#9a5b00}.state.warn i{background:var(--sun)}
 .panel.run{display:grid;gap:14px;padding:18px}.panel.run>*{margin:0}
 .run .meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--mist);font-weight:600}.run .meta b{color:var(--fog);font-weight:800}
-.run .meta label{display:inline-flex;align-items:center;gap:6px}.run .meta select{font:inherit;font-weight:800;color:var(--fog);background:var(--soft);border:0;border-radius:8px;padding:3px 6px;cursor:pointer}
+.run .meta label{display:inline-flex;align-items:center;gap:6px}.run .meta select{font:inherit;font-weight:800;color:var(--fog);background:var(--soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23365a52' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center/10px 6px;border:0;border-radius:8px;padding:4px 30px 4px 12px;cursor:pointer;-webkit-appearance:none;appearance:none}
 .run .sec{display:grid;gap:8px;padding-top:14px;border-top:1px solid var(--line2)}
 .run .nowline{margin:0;color:var(--teal);font-size:15px;overflow-wrap:anywhere}.run .nowline b{font-weight:800}
 .run details.done summary{cursor:pointer;color:var(--mist);font-size:12.5px;font-weight:700;list-style:none}.run details.done summary::before{content:'✓ ';color:var(--right)}
@@ -1985,13 +1991,15 @@ def rail(d):
     ) or '<li><span class="av">&ndash;</span><span><b>No pass has ended yet</b><small>the first is pass 1</small></span><span></span></li>'
     ideas = [i for i in st.get("ideas", []) if i.get("status") == "open"][:6]
     def idea(i):
+        # the idea in its own words, whole; under it, the slot it is for and where it came from (a paper opens; the owner's own
+        # ideas say so)
         src = str(i.get("from", ""))
         paper = src[:1].isdigit()
-        inner = '<span class="av">%s</span><span><b>%s</b><small>%s</small></span><span class="pill">%s</span>' % (
-            e("".join(w[0] for w in i["slot"].split("-")[:2]).upper()), e(i.get("name", "")), e(i["slot"]), ("arXiv " + e(src)) if paper else "owner")
+        inner = '<b>%s</b><small>for %s · <i>%s</i></small>' % (
+            e(i.get("name", "")), slot_name(i["slot"]), ("arXiv " + e(src)) if paper else "your idea")
         return '<li>%s</li>' % ('<a class="idea" href="https://arxiv.org/abs/%s" target="_blank" rel="noopener" title="Open the paper this idea came from">%s</a>' % (e(src), inner) if paper else '<span class="idea">%s</span>' % inner)
 
-    waiting = "".join(idea(i) for i in ideas) or '<li><span class="idea"><span class="av">&ndash;</span><span><b>None waiting</b><small>research adds them</small></span><span></span></span></li>'
+    waiting = "".join(idea(i) for i in ideas) or '<li><span class="idea"><b>None waiting</b><small>research adds them</small></span></li>'
     allh = [h for h in st.get("history", []) if h.get("compared")]
     if allh:
         pc = [data.percent(h["equivalent"], h["compared"]) for h in allh]
@@ -2001,14 +2009,15 @@ def rail(d):
     return (
         '<aside class="rail"><div id="training"><h2>Training</h2><div id="run">%s</div></div>'
         '<div><h2>Passes</h2><div class="panel"><details class="fold" data-keep="rail-passes"><summary><span class="fmeta">%s</span></summary><div class="foldb"><ul class="feed">%s</ul></div></details></div></div>'
-        '<div><h2>Ideas waiting to be measured</h2><div class="panel"><ul class="feed">%s</ul></div></div></aside>' % (run_panel(), e(pmeta), passes, waiting)
+        '<div><h2>Ideas waiting to be measured</h2><div class="panel"><ul class="feed ideas">%s</ul></div></div></aside>' % (run_panel(), e(pmeta), passes, waiting)
     )
 
 
 def pills(d):
     """Four choices and one document: the two small models, the model that decides, the larger model, and the output spec."""
     reg, running = d["registry"], bool((run_state() or {}).get("running"))
-    weigh = lambda m: (" · %.1f GB" % (m["bytes"] / 2**30)) if m.get("bytes") else (" · about %s GB" % m["memGb"]) if m.get("memGb") else ""  # noqa: E731
+    # (a model in parts weighs all of its parts)
+    weigh = lambda m: (" · %.1f GB" % ((m["bytes"] + sum(p.get("bytes") or 0 for p in m.get("parts") or [])) / 2**30)) if m.get("bytes") else (" · about %s GB" % m["memGb"]) if m.get("memGb") else ""  # noqa: E731
 
     def pill(key, label, lst, chosen, group=None):
         opts = ""

@@ -337,7 +337,7 @@ with tempfile.TemporaryDirectory() as tmp:
     names = re.findall(r'<option value="([^"]+)"', sel)
     check("the Decides pill lists every decider best first by its Decision Index score, says the score beside each, and on a machine that cannot run one lists it greyed out with what it needs; the one chosen is shown by its name alone",
           names[0] == "karpo-31b" and 'value="karpo-31b" disabled' in sel and "needs an NVIDIA GPU with 80 GB" in sel and "StartLux Decision 4B · index 54.8 · about 5.5 GB<" in sel
-          and 'value="startlux-4b" disabled' not in sel and "(an older checkpoint)" in sel and 'value="kev-4b" selected>Kev 4B<' in sel and len(names) == 9
+          and 'value="startlux-4b" disabled' not in sel and "(an older checkpoint)" in sel and 'value="kev-4b" selected>Kev 4B<' in sel and len(names) == len(d["registry"]["deciders"]) == 23
           and 'value="karpo-31b" disabled' not in re.search(r'<select data-pick="decider".*?</select>', swarm_ui.pills(dict(d, machine=["cuda"])), re.S).group(0), names[:3])
     # the Uninstall Helper, on a made-up .work: a model file, a model that is a link to a file kept elsewhere, a decider's weights
     w = root / ".work"

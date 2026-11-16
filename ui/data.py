@@ -141,7 +141,9 @@ def footprint(members, decider, target):
     files = sum(((m or {}).get("bytes") or 0) for m in (members or {}).values()) / 2**30
     small = round(files * 1.25 + 1, 1) if files else None
     dec = (decider or {}).get("memGb")
-    tgt = (target or {}).get("memGb") or (round(target["bytes"] / 2**30 * 1.1, 1) if (target or {}).get("bytes") else None)
+    # (a larger model in parts is all of its parts)
+    tbytes = ((target or {}).get("bytes") or 0) + sum((p or {}).get("bytes") or 0 for p in (target or {}).get("parts") or [])
+    tgt = (target or {}).get("memGb") or (round(tbytes / 2**30 * 1.1, 1) if tbytes else None)
     if small is None or not tgt:
         return None
     swarm = round(small + (dec or 0), 1)
@@ -485,7 +487,7 @@ def spec(d):
     from statistics import median
     b, p = d["briefs"], d["splits"]["held"]["parity"]
     gb = lambda n: round(n / 2**30, 2)  # noqa: E731
-    file_of = lambda m: {k: m.get(k) for k in ("id", "name", "by", "params", "license", "repo", "rev", "file", "bytes", "sha256", "serve", "sampling") if m.get(k) not in (None, [], {})}  # noqa: E731
+    file_of = lambda m: {k: m.get(k) for k in ("id", "name", "by", "params", "license", "repo", "rev", "file", "bytes", "sha256", "parts", "serve", "sampling") if m.get(k) not in (None, [], {})}  # noqa: E731
     a, bb = d["members"]["a"] or {}, d["members"]["b"] or {}
     held = d["splits"]["held"]["swarm"]
     last = (d["state"].get("history") or [None])[-1]

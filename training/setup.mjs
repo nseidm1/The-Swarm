@@ -17,7 +17,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { has, llamaServer, modelsDir, REPO_ROOT, WORK } from './support/bench.mjs';
 import { MEMBERS, DECIDER, TARGET, ENGINE, fileUrl, engineBuild, engineUrl } from '../src/catalog.mjs';
-import { modelFile } from '../src/members.mjs';
+import { modelFile, filesOf } from '../src/members.mjs';
 import { programOf } from './target.mjs';
 
 const gb = (n) => (n / 2 ** 30).toFixed(n > 2 ** 30 ? 1 : 2) + ' GB';
@@ -180,14 +180,20 @@ function find(dir, name) {
 async function model(m, what, check) {
   const dir = modelsDir();
   if (modelFile(m, dir)) return (say(what, 'ready'), true);
-  if (check) return (say(what, 'missing', { of: m.bytes }), false);
-  const got = await fetchFile({
-    url: fileUrl(m),
-    dest: path.join(dir, m.file),
-    bytes: m.bytes,
-    sha256: m.sha256,
-    what,
-  });
+  const files = filesOf(m);
+  if (check) return (say(what, 'missing', { of: files.reduce((n, f) => n + f.bytes, 0) }), false);
+  // a model in parts: each part in turn, beside the first (llama.cpp finds them there)
+  let got = { ok: true };
+  for (const [i, f] of files.entries()) {
+    got = await fetchFile({
+      url: fileUrl({ ...m, file: f.file }),
+      dest: path.join(dir, f.file),
+      bytes: f.bytes,
+      sha256: f.sha256,
+      what: files.length > 1 ? what + ', part ' + (i + 1) + ' of ' + files.length : what,
+    });
+    if (!got.ok) break;
+  }
   return (say(what, got.ok ? 'ready' : 'failed', got.ok ? {} : { why: got.why }), got.ok);
 }
 function decider(check) {
@@ -200,7 +206,7 @@ function decider(check) {
   const later = kind === 'kev' ? 'its weights come the first time it is served' : '';
   if (ready()) return (say(what, 'ready', later ? { note: later } : {}), true);
   // one the swarm does not start (it needs an NVIDIA GPU): it is named with SWARM_KEV, where it runs
-  if (kind !== 'kev' && kind !== 'startlux-mlx')
+  if (kind !== 'kev' && kind !== 'startlux-mlx' && kind !== 'llama')
     return (
       say(what, 'failed', {
         why:
@@ -217,7 +223,11 @@ function decider(check) {
         ? 'its server and a Python of its own, and its weights (' +
           Math.round(((DECIDER.serve.bytes || 0) / 2 ** 30) * 10) / 10 +
           ' GB)'
-        : 'its program and a Python of its own (a few minutes)',
+        : kind === 'llama'
+          ? 'its weights, one file served by llama.cpp (' +
+            Math.round(((DECIDER.serve.bytes || 0) / 2 ** 30) * 10) / 10 +
+            ' GB)'
+          : 'its program and a Python of its own (a few minutes)',
   });
   for (let attempt = 1; attempt <= 2; attempt++) {
     const r = spawnSync('bash', [script, 'install'], { encoding: 'utf8' });
@@ -233,16 +243,19 @@ function decider(check) {
               .split('\n')
               .slice(-1)[0]
               .slice(0, 160) +
-            '. It needs git and python3' +
-            (kind === 'startlux-mlx' ? ', and an Apple silicon Mac' : '') +
+            (kind === 'llama'
+              ? '. It needs curl and room for its file'
+              : '. It needs git and python3' + (kind === 'startlux-mlx' ? ', and an Apple silicon Mac' : '')) +
             '. Without it nothing decides.',
         }),
         false
       );
     // a half-made environment: made again (the weights are kept: they are only marked complete once whole)
+    // (a llama.cpp one has no environment: its file carries on from where it stopped)
     if (kind === 'kev')
       fs.rmSync(path.join(REPO_ROOT, '.work', 'kev', 'src', '.venv'), { recursive: true, force: true });
-    else fs.rmSync(path.join(REPO_ROOT, '.work', 'deciders', 'startlux', 'venv'), { recursive: true, force: true });
+    else if (kind === 'startlux-mlx')
+      fs.rmSync(path.join(REPO_ROOT, '.work', 'deciders', 'startlux', 'venv'), { recursive: true, force: true });
   }
   return false;
 }

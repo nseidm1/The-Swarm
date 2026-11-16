@@ -69,6 +69,7 @@ export function weightsHere(d) {
   const kind = (d.serve || { kind: 'kev' }).kind;
   if (kind === 'startlux-mlx')
     return fs.existsSync(path.join(REPO_ROOT, '.work', 'deciders', d.id, 'model', '.complete'));
+  if (kind === 'llama') return fs.existsSync(path.join(REPO_ROOT, '.work', 'deciders', d.id, '.complete'));
   if (kind === 'kev') {
     const repo = String(d.run || '')
       .split('@')[0]

@@ -6,6 +6,8 @@
 #   kev        Kev (github.com/jaredpalmer/kev, Apache-2.0), any of its sizes, in .work/kev; its weights come on first serve
 #   startlux-mlx  a StartLux Decision model (github.com/StartLuxLabs/StartLux-Decision, server Apache-2.0, weights CC-BY-NC-4.0) on
 #              Apple silicon through MLX, in .work/deciders/<id>: the server at a pinned commit, the MLX build at a pinned revision
+#   llama      a decision model its maker ships as a GGUF file for stock llama.cpp, whose llama-server answers /v1/systemone itself:
+#              the pinned file in .work/deciders/<id>, served by the llama-server the swarm already uses, with the maker's flags
 #   cuda       not started here: its maker's instructions are in its entry, for a machine with an NVIDIA GPU
 # Every one answers the same request (POST /v1/systemone), so the swarm asks each the same way.
 #   bash training/kev.sh install          fetch the configured decider and build its environment (once)
@@ -86,6 +88,32 @@ snapshot_download('$D_WEIGHTS', revision='$D_WEIGHTS_REV', local_dir='$M')" || e
         exec $ARM "$H/venv/bin/startlux-decide" serve --model "$M" --backend mlx --host 127.0.0.1 --port "$PORT" --name "$D_ID"
         ;;
       stop) pkill -f "startlux-decide serve .*--port $(cat "$PORT_FILE" 2>/dev/null || echo 8009)" && echo "$D_NAME stopped." || echo "$D_NAME was not running." ;;
+      *) echo "kev.sh install | ready | serve [port] | stop"; exit 2 ;;
+    esac
+    ;;
+  llama)
+    M=$ROOT/.work/deciders/$D_ID              # its one GGUF file, at the pinned revision
+    F=$M/$D_FILE
+    case "$cmd" in
+      install)
+        mkdir -p "$M" || exit 1
+        if [ "$(cat "$M/.complete" 2>/dev/null)" != "$D_WEIGHTS@$D_WEIGHTS_REV" ]; then
+          # fetched to a part (carried on from where it stopped), checked against its SHA-256, and only then put in place
+          curl -fsSL --retry 3 -C - -o "$F.part" "https://huggingface.co/$D_WEIGHTS/resolve/$D_WEIGHTS_REV/$D_FILE" || exit 1
+          [ "$(shasum -a 256 "$F.part" | cut -d' ' -f1)" = "$D_SHA256" ] || { rm -f "$F.part"; echo "$D_FILE arrived wrong (its SHA-256 does not match); fetch it again."; exit 1; }
+          mv "$F.part" "$F" && echo "$D_WEIGHTS@$D_WEIGHTS_REV" > "$M/.complete"
+        fi
+        ;;
+      ready) [ -f "$F" ] && [ "$(cat "$M/.complete" 2>/dev/null)" = "$D_WEIGHTS@$D_WEIGHTS_REV" ] ;;
+      serve)
+        PORT=${1:-8009}
+        [ -f "$F" ] && [ -f "$M/.complete" ] || { echo "$D_NAME is not installed here. First: bash training/kev.sh install"; exit 1; }
+        [ -n "$D_LLAMA" ] || { echo "$D_NAME needs llama-server, and none is here. Run training once (it fetches llama.cpp), or put llama-server on the PATH."; exit 1; }
+        [ -n "$DECIDER_NO_PORT_FILE" ] || echo "$PORT" > "$PORT_FILE"
+        # shellcheck disable=SC2086  # the maker's flags, word by word
+        exec "$D_LLAMA" -m "$F" $D_ARGS --host 127.0.0.1 --port "$PORT"
+        ;;
+      stop) pkill -f "llama-server -m $F .*--port $(cat "$PORT_FILE" 2>/dev/null || echo 8009)" && echo "$D_NAME stopped." || echo "$D_NAME was not running." ;;
       *) echo "kev.sh install | ready | serve [port] | stop"; exit 2 ;;
     esac
     ;;

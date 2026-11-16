@@ -2257,6 +2257,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       env: { ...process.env, DECIDER_ID: id, NODE: process.execPath },
     });
   const cuda = kevSh('karpo-31b', 'serve', '8999');
+  // one llama.cpp serves: named to the decider script with its file and flags; not served before its file is fetched and checked
+  const llamaEnv = envOf('jeffan-4b');
+  const llamaServe = kevSh('jeffan-4b', 'serve', '8999');
   const quoted = spawnSync(
     'bash',
     [
@@ -2268,7 +2271,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   ).stdout;
   check(
     "the deciders that can be chosen go beyond Kev: each carries its score on the community Decision Index and the entry it was scored as, where it can run (an Apple silicon Mac, an NVIDIA GPU), and how the swarm starts it (Kev, StartLux through MLX) or, where the swarm cannot, its maker's own instructions; every file it fetches is pinned to a revision; and the decider script refuses to start one that needs another machine, saying what it needs",
-    ds.length === 9 &&
+    ds.length === 23 &&
       ds.every(
         (x) =>
           x.index &&
@@ -2284,7 +2287,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       ds
         .filter((x) => x.serve.kind === 'startlux-mlx')
         .map((x) => x.id)
-        .join() === 'startlux-4b,startlux-9b' &&
+        .sort()
+        .join() === 'startlux-27b,startlux-2b,startlux-4b,startlux-9b' &&
       ds
         .filter((x) => x.serve.kind === 'startlux-mlx')
         .every(
@@ -2295,6 +2299,19 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
             x.runsOn.join() === 'mac' &&
             /NC/.test(x.license),
         ) &&
+      // the ones llama.cpp serves (its llama-server answers /v1/systemone itself): one pinned GGUF file and the maker's flags, on a Mac
+      ds.filter((x) => x.serve.kind === 'llama').length >= 3 &&
+      ds
+        .filter((x) => x.serve.kind === 'llama')
+        .every(
+          (x) =>
+            /^[0-9a-f]{40}$/.test(x.serve.weightsRev) &&
+            /^[0-9a-f]{64}$/.test(x.serve.sha256) &&
+            x.serve.bytes > 1e9 &&
+            x.serve.file.endsWith('.gguf') &&
+            Array.isArray(x.serve.args) &&
+            x.runsOn.includes('mac'),
+        ) &&
       ds
         .filter((x) => x.serve.kind === 'cuda')
         .every((x) => x.runsOn.join() === 'cuda' && /^[0-9a-f]{40}$/.test(x.serve.weightsRev) && x.serve.how) &&
@@ -2304,8 +2321,13 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       cuda.status === 1 &&
       /is not started by the swarm: it needs an NVIDIA GPU with 80 GB/.test(cuda.stdout) &&
       /SWARM_KEV=/.test(cuda.stdout) &&
-      kevSh('karpo-31b', 'ready').status === 1,
-    { n: ds.length, cuda: cuda.stdout.slice(0, 120) },
+      kevSh('karpo-31b', 'ready').status === 1 &&
+      /D_KIND='llama'/.test(llamaEnv) &&
+      /D_FILE='Jeffan-4B-2010-Q4_K_M\.gguf'/.test(llamaEnv) &&
+      /D_ARGS='-c 8192 -b 8192 -ub 8192 -np 1 --cache-ram 0'/.test(llamaEnv) &&
+      (fs.existsSync(path.join('.work', 'deciders', 'jeffan-4b', '.complete')) ||
+        (llamaServe.status === 1 && /is not installed here/.test(llamaServe.stdout))),
+    { n: ds.length, cuda: cuda.stdout.slice(0, 120), llama: llamaServe.stdout.slice(0, 120) },
   );
 }
 // ---- 6r: the eight ways the search was given more to try, after the first long session (2026-11-16)
@@ -4094,11 +4116,18 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const { targetOf } = await import('../training/state.mjs');
   const { servingOf } = await import('../training/target.mjs');
   const { REGISTRY, readConfig, MEMBERS, DECIDER } = await import('../src/catalog.mjs');
+  // a model in parts (too large for one file on Hugging Face) is pinned part by part, every part in the first one's folder
+  const { filesOf, modelFile } = await import('../src/members.mjs');
   const pinned = (m) =>
     /^[0-9a-f]{40}$/.test(m.rev) &&
-    m.bytes > 1e8 &&
-    /^[0-9a-f]{64}$/.test(m.sha256) &&
-    m.file.endsWith('.gguf') &&
+    filesOf(m).reduce((n, f) => n + f.bytes, 0) > 1e8 &&
+    filesOf(m).every(
+      (f) =>
+        /^[0-9a-f]{64}$/.test(f.sha256) &&
+        f.bytes > 0 &&
+        f.file.endsWith('.gguf') &&
+        path.dirname(f.file) === path.dirname(m.file),
+    ) &&
     m.license;
   check(
     'the larger models are a ladder, smallest first, and the one configured is the one chased; a GGUF target is served by llama.cpp from its pinned file, with a wide context and one slot',
@@ -4125,13 +4154,38 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       new Set(REGISTRY.small.map((m) => m.by.split(',')[0])).size >= 6 &&
       REGISTRY.deciders.length >= 3 &&
       REGISTRY.targets.length >= 8 &&
+      // the larger models are 27B and up (to 180B): a target is the model a swarm of small ones is brought level with
+      REGISTRY.targets.every((t) => t.params >= 27 && t.params <= 180) &&
       MEMBERS.a.id === readConfig().a &&
       MEMBERS.b.id === readConfig().b &&
       DECIDER.id === readConfig().decider &&
       MEMBERS.a.key === 'a' &&
-      new Set([...REGISTRY.small, ...REGISTRY.targets, ...REGISTRY.deciders].map((m) => m.id)).size ===
-        REGISTRY.small.length + REGISTRY.targets.length + REGISTRY.deciders.length,
+      // each list names each model once; a model in two lists (Bonsai 2 27B is a small model and a larger one) is the
+      // same pinned file in both
+      [REGISTRY.small, REGISTRY.targets, REGISTRY.deciders].every(
+        (l) => new Set(l.map((m) => m.id)).size === l.length,
+      ) &&
+      REGISTRY.small.every((m) => {
+        const t = REGISTRY.targets.find((x) => x.id === m.id);
+        return !t || (t.repo === m.repo && t.rev === m.rev && t.file === m.file && t.sha256 === m.sha256);
+      }) &&
+      ['bonsai2-2b', 'bonsai2-4b', 'bonsai2-9b', 'bonsai2-27b'].every((id) => REGISTRY.small.some((m) => m.id === id)),
     REGISTRY.small.map((m) => m.id),
+  );
+  // a model in parts is here only when every part is, beside the first
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-parts-'));
+  const split = REGISTRY.targets.find((t) => (t.parts || []).length);
+  const [first, ...rest] = filesOf(split);
+  fs.mkdirSync(path.join(dir, path.dirname(first.file)), { recursive: true });
+  fs.writeFileSync(path.join(dir, first.file), '');
+  const withoutRest = modelFile(split, dir);
+  for (const f of rest) fs.writeFileSync(path.join(dir, f.file), '');
+  const withAll = modelFile(split, dir);
+  fs.rmSync(dir, { recursive: true, force: true });
+  check(
+    'a model in parts is found only when every part is beside the first, and llama.cpp is given the first',
+    withoutRest === '' && withAll === path.join(dir, first.file),
+    { withoutRest, withAll },
   );
 }
 await swarm.stop();
