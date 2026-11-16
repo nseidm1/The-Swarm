@@ -169,6 +169,10 @@ with tempfile.TemporaryDirectory() as tmp:
         time.sleep(0.8)
     check("a page that is closed or reloaded before its answer has been sent leaves nothing printed as an error, and the next request is answered as usual",
           "Traceback" not in noise.getvalue() and "BrokenPipe" not in noise.getvalue() and get(base + "/api/live")[0] == 200, noise.getvalue()[-300:])
+    kb = swarm_ui.kind_bars({"write-parsing": {"n": 8, "s": 1}, "trace": {"n": 8, "s": 8}, "fix": {"n": 8, "s": 5}, "something-new": {"n": 2, "s": 1}})
+    check("each kind of question is a row: its name in words, a bar, and the percentage and count behind it, the furthest behind first, all of one kind equivalent marked as such; a kind with no name of its own is shown as it is",
+          kb.count("<li") == 4 and kb.index("Write a function: parsing") < kb.index("Correct a function") < kb.index("Say what a program prints") and "<b>12.5%</b> 1 of 8" in kb and "<b>100%</b> 8 of 8" in kb
+          and 'class="full"' in kb and 'class="low"' in kb and "something-new" in kb and "<svg" not in kb and "WRITE-PARSING" not in full, kb[:200])
     check("the page ends with a footer: whose product it is, its licence, and that the page is served from this machine",
           '<footer class="foot">' in html and "A Family Office product" in html and "apache.org/licenses/LICENSE-2.0" in html and "github.com/nseidm1/The-Swarm" in html and "Copyright 2026 Family Office" in html and "<svg" in html.split('<footer class="foot">')[1].split("</footer>")[0])
     check("it shows the arrangement being trained: every slot of both models by stage, what each is told, what is being tried, and the larger model alongside",

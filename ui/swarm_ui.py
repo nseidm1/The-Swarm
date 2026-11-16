@@ -89,6 +89,10 @@ a.idea:hover{background:var(--soft)}a.idea:focus-visible{outline:2px solid var(-
 .legend i{width:8px;height:8px;border-radius:50%;display:inline-block}
 .plot{background:var(--panel);border-radius:22px;padding:14px 14px 8px}
 .plot svg,.kb svg{display:block;width:100%;height:auto}
+.kinds{list-style:none;margin:16px 0 2px;padding:0;display:grid;gap:12px}.kinds li{display:grid;grid-template-columns:minmax(0,13.5em) minmax(60px,1fr) 7.5em;gap:14px;align-items:center;font-size:13.5px}
+.kinds .kn{font-weight:700;overflow-wrap:anywhere}.kinds .kt{display:block;height:10px;border-radius:999px;background:var(--soft);overflow:hidden}.kinds .kt i{display:block;height:100%;border-radius:999px;background:var(--sun)}
+.kinds .full .kt i{background:var(--teal2)}.kinds .low .kt i{background:var(--coral)}.kinds .kc{text-align:right;color:var(--mist);font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap}.kinds .kc b{color:var(--fog);font-size:13.5px;margin-right:6px}
+@media (max-width:560px){.kinds li{grid-template-columns:minmax(0,1fr) auto;gap:4px 10px}.kinds .kt{grid-column:1/-1;grid-row:2}}
 .plot text,.panel>svg text,.panel>.kb text{font:10px ui-sans-serif,system-ui,sans-serif;fill:var(--mist);font-weight:700;letter-spacing:.06em}
 .donut{display:grid;place-items:center;margin:6px 0 14px}.donut svg{width:210px;height:210px}
 .donut .n{font-size:26px;font-weight:800;fill:var(--fog);letter-spacing:-.02em}.donut .l{font-size:9px;font-weight:800;fill:var(--mist);letter-spacing:.14em}
@@ -353,25 +357,20 @@ def donut(parts, total, label):
     return "".join(out)
 
 
+KIND_WORDS = {"write-arrays": "Write a function: arrays", "write-strings": "Write a function: strings", "write-numbers": "Write a function: numbers",
+              "write-parsing": "Write a function: parsing", "fix": "Correct a function", "bug": "Say what is wrong", "trace": "Say what a program prints"}
+
+
 def kind_bars(kinds):
-    """Parity by kind of question: how much of each kind the swarm answers as the larger model does."""
-    names = list(kinds)
-    w, h, l, b = 640, 210, 8, 34
-    step = (w - 2 * l) / max(1, len(names))
-    bw = min(34, step * 0.5)
-    full = h - b - 12
-    out = ['<svg viewBox="0 0 %d %d" role="img" aria-label="Parity by kind of question">' % (w, h)]
-    for i, name in enumerate(names):
-        k = kinds[name]
-        x = l + step * i + step / 2
+    """How far along each kind of question is: one row for each, the name in words, a bar, and the count and percentage behind
+    it. Rows, not columns: a name is as long as it needs to be and nothing runs into anything."""
+    rows = []
+    for name, k in sorted(kinds.items(), key=lambda kv: (kv[1]["s"] / kv[1]["n"] if kv[1]["n"] else 0)):
         share = k["s"] / k["n"] if k["n"] else 0
-        ss = max(full * share, bw)
-        colour = "#1e9e8e" if k["s"] == k["n"] else "#f9c440" if share >= 0.5 else "#f2644b"
-        out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="#e3efeb"/>' % (x - bw / 2, h - b - full, bw, full, bw / 2))
-        out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="%s"><title>%s: equivalent on %d of %d</title></rect>' % (x - bw / 2, h - b - ss, bw, ss, bw / 2, colour, e(name), k["s"], k["n"]))
-        out.append('<text x="%.1f" y="%d" text-anchor="middle">%s</text>' % (x, h - 12, e(name.upper())))
-    out.append("</svg>")
-    return "".join(out)
+        cls = "full" if k["n"] and k["s"] == k["n"] else "mid" if share >= 0.5 else "low"
+        rows.append('<li class="%s"><span class="kn">%s</span><span class="kt"><i style="width:%.1f%%"></i></span><span class="kc"><b>%s%%</b> %d of %d</span></li>'
+                    % (cls, e(KIND_WORDS.get(name, name)), 100 * share, fmt_pct(int(1000 * share) / 10), k["s"], k["n"]))
+    return '<ul class="kinds">%s</ul>' % "".join(rows)
 
 
 def scoreboard(d):
@@ -430,7 +429,7 @@ def scoreboard(d):
         if pa:
             bars.append(bar(data.MEMBER_NAMES[k] + " alone", "muted", pa))
     out.append(
-        '<div class="charts"><div class="panel"><div class="chart-head"><div><h3>Equivalent answers by kind of question</h3><div class="muted small">Teal: every answer of that kind is equivalent to %s&#39;s. Otherwise it is not at parity there</div></div></div><div class="kb">%s</div></div>'
+        '<div class="charts"><div class="panel"><div class="chart-head"><div><h3>How far along each kind of question is</h3><div class="muted small">The share of held answers of that kind that are equivalent to %s&#39;s, furthest behind first. Teal: all of them</div></div></div><div class="kb">%s</div></div>'
         '<div class="panel"><h3>Each alone, beside the swarm</h3><div class="muted small" style="margin-bottom:14px">Equivalent to %s&#39;s answer · different · none</div><div class="score">%s</div></div></div>'
         % (e(short), kind_bars(kinds), e(short), "".join(bars))
     )

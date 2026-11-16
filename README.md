@@ -418,7 +418,7 @@ npm test
 python3 ui/check.py
 ```
 
-One hundred and three checks of the module and the trainers, and forty-four of the dashboard. Stand-in servers take the place of the
+One hundred and three checks of the module and the trainers, and forty-five of the dashboard. Stand-in servers take the place of the
 models, Kev and Hugging Face, so nothing is fetched, started or installed, and both finish in well under a minute. They cover what
 goes in and comes out, which slots run, what happens when a slot, a model or everything fails, that two functions are judged
 equivalent by running them, that model-written code can reach nothing, and that each fault in [Recovery](#recovery) is
