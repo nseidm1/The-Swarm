@@ -2666,6 +2666,68 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+// ---- 6w: A SWARM FROM ITS SPEC: the output spec holds what a swarm is made of, so a program can make the swarm it describes (a
+// chooser like The Crew's offers spec.card and starts it with serveSwarm({ ...card, spec })); a spec changed since it was written,
+// or not one at all, is refused
+{
+  const { readSpec, recipeSha256 } = await import('../src/spec.mjs');
+  const told = briefs.slots.map((x) =>
+    x.stage === 'write' ? { ...x, brief: 'From the spec: write the reply. ' + x.brief } : x,
+  );
+  const recipe = {
+    members: Object.fromEntries(Object.entries(MEMBERS).slice(0, 2)),
+    decider: { id: 'kev-4b', name: 'Kev 4B', serve: { kind: 'kev' } },
+    engine: { name: 'llama.cpp' },
+    serving: { slots: 3, contextPerSlot: 2048 },
+    briefs: { ...briefs, slots: told },
+  };
+  const spec = {
+    spec: { format: 'the-swarm/spec', version: 2, recipeSha256: recipeSha256(recipe) },
+    recipe,
+    card: { id: 'swarm-x', engine: 'swarm' },
+  };
+  reset();
+  const seen = [];
+  lfm.s.script = (b) => (
+    seen.push(b.messages[0].content),
+    b.messages[0].content.startsWith('From the spec') ? 'Six times seven is 42.' : 'ANSWER: 42'
+  );
+  const fromIt = await createSwarm({ spec, attach: { a: lfm.base, b: bonsai.base } });
+  const got = await fromIt.answer(Q);
+  const up = await serveSwarm({ ...spec.card, spec }, {}, { attach: { a: lfm.base, b: bonsai.base } });
+  const listed = up.ok ? await (await fetch(up.base + '/v1/models')).json() : null;
+  if (up.ok) await up.stop();
+  await fromIt.stop();
+  const refused = (s2) => {
+    try {
+      readSpec(s2);
+      return '';
+    } catch (e) {
+      return e.message;
+    }
+  };
+  const changed = { ...spec, recipe: { ...recipe, serving: { slots: 6, contextPerSlot: 2048 } } };
+  const unpinned = {
+    ...spec,
+    spec: { ...spec.spec, recipeSha256: undefined },
+    recipe: { ...recipe, members: { a: { id: 'x' }, b: recipe.members.b } },
+  };
+  check(
+    "a swarm is made from its spec alone: its members, its arrangement (every slot told what the spec says) and its serving, and offered as a model by the call a chooser starts a model with; a spec changed after it was written (its hash no longer its recipe's), one of a format or version not read, and one whose small models are not pinned are each refused, saying why",
+    fromIt.briefs.slots.find((x) => x.stage === 'write').brief.startsWith('From the spec') &&
+      seen.some((x) => x.startsWith('From the spec')) &&
+      got.reply === 'Six times seven is 42.' &&
+      up.ok &&
+      listed &&
+      listed.data &&
+      listed.data.length === 1 &&
+      /does not match its hash/.test(refused(changed)) &&
+      /not a swarm spec/.test(refused({ spec: { format: 'other' } })) &&
+      /version 9/.test(refused({ ...spec, spec: { ...spec.spec, version: 9 } })) &&
+      /not pinned/.test(refused(unpinned)),
+    { reply: got.reply, up: up.ok, changed: refused(changed) },
+  );
+}
 // ---- 6v: what the measurement held and no finding read: answers cut off at the token limit, a drafter that echoes another on its
 // own model, the decider not answering in time; each found, and each answered by a move that speaks to it
 {

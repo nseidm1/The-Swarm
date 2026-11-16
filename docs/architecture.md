@@ -24,6 +24,7 @@ answer is to be reached. That is the whole public surface, in three forms:
 | [`src/orchestrate.mjs`](../src/orchestrate.mjs) | The order of things: draft (and, for code, try), check, decide, write, and what happens when a slot fails. Knows nothing of servers |
 | [`src/members.mjs`](../src/members.mjs) | One model behind a llama.cpp server with several slots; never more conversations at once than slots |
 | [`src/decider.mjs`](../src/decider.mjs) | The decide step by a decision model: the request Kev is sent, how its answer is read, and when it counts as a decision |
+| [`src/spec.mjs`](../src/spec.mjs) | A swarm from its output spec: the spec read back and checked (format, version, pinned models, the recipe against its hash), and what `createSwarm({ spec })` makes from it |
 | [`src/read.mjs`](../src/read.mjs) | Reading the answer out of what a slot wrote, and telling when two answers are the same |
 | [`src/behave.mjs`](../src/behave.mjs) | Which drafts of a function do the same: the calls to try, the drafts run on them, the drafts grouped by what they returned |
 | [`src/sandbox.mjs`](../src/sandbox.mjs), [`src/sandbox-runner.mjs`](../src/sandbox-runner.mjs) | Running a function a model wrote where it can reach nothing. The only place anything a model wrote is run |

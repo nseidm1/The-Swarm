@@ -68,6 +68,9 @@ dialog#recd{border:0;border-radius:26px;padding:26px;max-width:min(760px,94vw);w
 .recs{list-style:none;margin:0;padding:0;display:grid;gap:10px}.rec{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:start;padding:14px 16px;border-radius:16px;border:1px solid var(--line2);background:#fafdfc}
 .rec b{display:block;font-size:15.5px;margin-top:6px}.rec p{margin:6px 0 4px;font-size:13.5px;line-height:1.5;color:var(--fog)}.rec small{color:var(--mist);font-size:12px}
 .rstr{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:#d7f3e9;color:var(--right)}.rec.untested .rstr{background:var(--soft);color:var(--mist)}.rec.early .rstr{background:#fdf0cf;color:#8a5a00}.rec.info .rstr{background:#e6e9f6;color:var(--tgt)}.rec.info{grid-template-columns:minmax(0,1fr)}
+.hostcard{padding:14px 16px;border-radius:16px;border:1px solid var(--line2);background:#fafdfc}.hostcard p{margin:6px 0 0;font-size:13.5px;line-height:1.5}.hcbadge{display:inline-block;margin-top:6px;padding:2px 10px;border-radius:999px;background:#fdf0cf;color:#8a5a00;font-size:12px;font-weight:700}
+.hcon{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.hcon span{padding:2px 10px;border-radius:999px;background:var(--soft);font-size:12px;font-weight:700;color:var(--teal)}
+details.told{margin-top:4px}details.told summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--teal)}details.told div{margin-top:4px;white-space:pre-wrap;font-size:12.5px;color:var(--fog)}.spec .bad{color:var(--wrong)}
 .rech{list-style:none;margin:8px 0 0;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mist)}
 @media (max-width:560px){.rec{grid-template-columns:minmax(0,1fr)}}
 details.cfg{margin-top:18px}details.cfg>summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}details.cfg>summary .cfgh{font-size:10.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--teal2)}
@@ -460,6 +463,7 @@ document.addEventListener('click',async(ev)=>{
   if(ev.target.id==='spec-close'||ev.target.id==='spec'){$('#spec').close();return;}
   if(ev.target.closest('#score-open')){await swap('/fragment/scorefull','#big-body');$('#big').showModal();return;}
   if(ev.target.id==='big-close'||ev.target.id==='big'){$('#big').close();return;}
+  if(ev.target.id==='spec-save'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([$('#spec-json').textContent],{type:'application/json'}));a.download='swarm-spec.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);return;}
   if(ev.target.id==='spec-copy'){try{await navigator.clipboard.writeText($('#spec-json').textContent);ev.target.textContent='Copied';}catch(e){ev.target.textContent='Select it below';}}
 });
 // while a pass runs, its steps are asked for again every few seconds; when it ends the rest of the page is read again once
@@ -2341,12 +2345,26 @@ def spec_panel(d):
         e(m.get("name", "")), e(m.get("by", "")), e(str(m.get("params", ""))), e(m.get("license", "")), e(m.get("repo", "")), e(str(m.get("rev", ""))[:12]), e(m.get("file", "")), m.get("bytes", 0) / 2**30, e(m.get("sha256", "")))
     state_cls = "level" if t["state"] == "at parity" else "behind"
     kinds = "".join("<li>%s: %s</li>" % (e(KIND_WORDS.get(k, k)), e(how_far(v["equivalent"], v["of"]))) for k, v in t["byKind"].items() if v["of"]) or "<li>not measured</li>"
-    slots = "".join("<tr><td><code>%s</code></td><td>%s</td><td>%s</td><td>%s</td></tr>" % (e(x["id"]), e(x["stage"]), e(x.get("purpose", "")), e(str(x.get("model", "")))) for x in sp["arrangement"]["slots"])
+    slots = "".join("<tr><td><code>%s</code></td><td>%s</td><td>%s<details class='told'><summary>What it is told</summary><div>%s</div></details></td><td>%s</td></tr>"
+                    % (e(x["id"]), e(x["stage"]), e(x.get("purpose", "")), e(x.get("brief", "")), e(str(x.get("model", "")))) for x in sp["arrangement"]["slots"])
+    # AS A MODEL CHOOSER LISTS IT (The Crew's "Choose your model" among them): the card, what it needs, what it can do, how it starts
+    c, rq, cap, st_ = sp["card"], sp["requirements"], sp["interface"]["capabilities"], sp["interface"]["start"]
+    host = ('<h4>As a model chooser lists it</h4><div class="hostcard"><div><b>%s</b><span class="muted small"> · %s · about %s GB · %s</span></div><div class="hcbadge">%s</div><p>%s</p>%s</div>'
+            '<p class="muted small" style="margin:6px 0 0">The entry a chooser such as The Crew&#39;s <i>Choose your model</i> takes, with <code>engine: swarm</code>; it is started with <code>%s</code>.</p>'
+            "<h4>What it needs</h4><table class='spec'>%s</table><h4>What it can do as a model</h4><table class='spec'>%s</table><h4>To make it</h4><table class='spec'>%s</table>"
+            % (e(c["name"]), e(c["size"]), e(str(c["memGb"])), e(c["pace"] if c.get("secondsPerReply") is None else "%s s a reply" % c["secondsPerReply"]), e(c["badge"]), e(c["plain"]),
+               ('<div class="hcon">%s</div>' % "".join("<span>%s</span>" % e(x) for x in c["equivalentOn"])) if c["equivalentOn"] else "", e(st_["host"]),
+               row("Platforms", e(", ".join(rq["platforms"])) + "<br><span class='muted'>%s</span>" % e(rq["platformsAre"])) + row("Memory", "about %s GB (an estimate)" % e(str(rq["memoryGb"])))
+               + row("Disk", "%s GB of model files" % e(str(rq["diskGb"]))) + row("Engine", e(rq["engine"])) + row("Node", e(rq["node"])) + (row("The decider", e(rq["decider"])) if rq.get("decider") else "")
+               + row("Licences", e("; ".join(rq["licenses"]))) + row("Commercial use", ("<b>Allowed by every licence listed</b>" if rq["commercialUse"] else "<b class='bad'>Not allowed</b>: a licence says non-commercial") + "<br><span class='muted'>Read every licence above before offering it</span>"),
+               row("Chat", "yes") + row("Streaming", e(cap["stream"])) + row("Tools", e(cap["tools"])) + row("Images", "no") + row("Context", "%s tokens a request" % e(str(cap["contextTokens"]))) + row("Good for", e(sp["interface"]["goodFor"])),
+               row("Recipe", "<code>%s</code><br><span class='muted'>%s</span>" % (e(sp["spec"]["recipeSha256"][:16]), e(sp["spec"]["recipeIs"]))) + row("Format", "<code>%s</code> version %s" % (e(sp["spec"]["format"]), e(str(sp["spec"]["version"]))))
+               + "".join(row(k.capitalize(), "<code>%s</code>" % e(v)) for k, v in st_.items())))
     return (
         '<div class="spec-head"><div><div class="kicker">Output spec</div><h3 style="font-size:24px">%s</h3><div class="muted small">%s</div></div>'
-        '<div style="display:flex;gap:8px"><button class="btn top" id="spec-copy" type="button">Copy as JSON</button><button class="btn stop top" id="spec-close" type="button">Close</button></div></div>'
+        '<div style="display:flex;gap:8px"><button class="btn top" id="spec-copy" type="button">Copy as JSON</button><button class="btn top" id="spec-save" type="button">Save as a file</button><button class="btn stop top" id="spec-close" type="button">Close</button></div></div>'
         '<p class="verdict %s" style="margin:14px 0 2px">%s against %s.</p><p class="muted small" style="margin:0 0 12px">%s</p>'
-        "%s<h4>What it is</h4><table class='spec'>%s%s%s%s%s%s%s%s</table>"
+        "%s%s<h4>What it is</h4><table class='spec'>%s%s%s%s%s%s%s%s</table>"
         "<h4>The flow</h4><p class='small' style='margin:0'>%s <span class='muted'>(%s)</span></p>"
         "<h4>The arrangement (briefs v%s)</h4><table class='spec'><tr><th>Slot</th><th>Stage</th><th>What it is for</th><th>Model</th></tr>%s"
         "<tr><td><code>kev-decide</code></td><td>decide</td><td>Decides which answer stands</td><td>%s</td></tr></table>"
@@ -2355,7 +2373,7 @@ def spec_panel(d):
             e(sp["id"]), e(sp["what"]),
             state_cls, e(("%s%% of the way to parity" % fmt_pct(t["progressPercent"])) if t.get("progressPercent") is not None and t["state"] != "at parity" else t["state"].capitalize()), e(t["target"].get("name") or ""),
             e(t["parityMeans"]),
-            learned_block(d),
+            learned_block(d), host,
             row("In", e(sp["interface"]["in"])), row("Out", e(sp["interface"]["out"])),
             row("Offered as", "<br>".join(e(x) for x in sp["interface"]["as"])),
             row("Not yet", "<br>".join(e(x) for x in sp["interface"]["notYet"])),

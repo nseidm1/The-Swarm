@@ -2,6 +2,7 @@
 // swarm - the module from a terminal.
 //   swarm serve [--port 8090]            both models started, and the swarm served as one model at an address
 //   swarm ask "What is 17 x 23?"         one message in, one reply out (--trace shows what each slot wrote)
+//   --spec <file>                        the swarm an output spec describes, in place of the one configured here
 // Both take: --llama <llama-server program>  --models <folder>  --attach-a <url>  --attach-b <url>
 import { createSwarm } from '../src/index.mjs';
 import { arg, has, llamaServer, modelsDir } from '../training/support/bench.mjs';
@@ -11,12 +12,17 @@ const attach = {};
 if (arg('attach-a')) attach.a = arg('attach-a');
 if (arg('attach-b')) attach.b = arg('attach-b');
 if (what !== 'serve' && what !== 'ask') {
-  console.log('swarm serve [--port n]   |   swarm ask "<message>" [--trace]');
+  console.log('swarm serve [--port n] [--spec file]   |   swarm ask "<message>" [--trace] [--spec file]');
   process.exit(2);
 }
 let swarm;
 try {
-  swarm = await createSwarm({ attach, llamaServer: llamaServer(), modelsDir: modelsDir() });
+  swarm = await createSwarm({
+    attach,
+    llamaServer: llamaServer(),
+    modelsDir: modelsDir(),
+    ...(arg('spec') ? { spec: arg('spec') } : {}),
+  });
 } catch (e) {
   console.log('The swarm did not start: ' + e.message);
   process.exit(1);

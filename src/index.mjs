@@ -21,6 +21,7 @@ import { attachMember, startMember, modelFile } from './members.mjs';
 import { answer as orchestrate } from './orchestrate.mjs';
 import { serve as serveHttp } from './server.mjs';
 import { kevDecider } from './decider.mjs';
+import { fromSpec, readSpec, recipeSha256 } from './spec.mjs';
 import { behaviours } from './behave.mjs';
 import { readLearned, saveLearned, notePass, learnedFile, LEARNED_DIR } from './learned.mjs';
 
@@ -54,6 +55,7 @@ export function withPlaces(briefs, places) {
   return { ...briefs, slots };
 }
 export { readLearned, saveLearned, notePass, learnedFile, LEARNED_DIR };
+export { fromSpec, readSpec, recipeSha256 };
 // what was measured of the swarm (training/publish.mjs writes it): for a model card to show
 export const readTrained = () => {
   try {
@@ -65,8 +67,12 @@ export const readTrained = () => {
 
 const seedOf = (text) => createHash('sha256').update(text).digest().readUInt32BE(0) >>> 1;
 export async function createSwarm(opts = {}) {
-  let briefs = opts.briefs || readBriefs(opts.briefsFile);
-  const slots = opts.slots || SERVING.slots;
+  // FROM A SPEC (spec.mjs): its members, its arrangement and its serving, exactly; nothing from this machine's configuration
+  const S = opts.spec ? fromSpec(opts.spec) : null;
+  const MEM = S ? S.members : MEMBERS;
+  let briefs = opts.briefs || (S && S.briefs) || readBriefs(opts.briefsFile);
+  const slots = opts.slots || (S && S.slots) || SERVING.slots;
+  if (S && S.contextPerSlot && !opts.contextPerSlot) opts = { ...opts, contextPerSlot: S.contextPerSlot };
   const members = {};
   const started = [];
   const stop = async () => {
@@ -74,13 +80,13 @@ export async function createSwarm(opts = {}) {
     for (const m of started.splice(0)) m.stop();
   };
   const servers = [];
-  for (const key of Object.keys(MEMBERS)) {
+  for (const key of Object.keys(MEM)) {
     const at = opts.attach && opts.attach[key];
     if (at) {
-      members[key] = attachMember(MEMBERS[key], at, slots);
+      members[key] = attachMember(MEM[key], at, slots);
       continue;
     }
-    const r = await startMember(MEMBERS[key], { ...opts, slots, file: opts.files && opts.files[key] });
+    const r = await startMember(MEM[key], { ...opts, slots, file: opts.files && opts.files[key] });
     if (!r.ok) {
       await stop();
       throw new Error(r.why);
@@ -166,7 +172,13 @@ const running = new Set();
 export async function serveSwarm(entry = ENTRY, engine = {}, opts = {}) {
   const t0 = Date.now();
   try {
-    const swarm = await createSwarm({ llamaServer: engine.file, flags: engine.pre, ...opts });
+    // (an entry that carries its spec, as a chooser's card does: { ...spec.card, spec }, makes that swarm)
+    const swarm = await createSwarm({
+      llamaServer: engine.file,
+      flags: engine.pre,
+      ...(entry && entry.spec ? { spec: entry.spec } : {}),
+      ...opts,
+    });
     const s = await swarm.serve({ port: opts.port });
     running.add(swarm);
     return {

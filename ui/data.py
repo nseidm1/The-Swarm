@@ -23,6 +23,7 @@ from pathlib import Path
 STAGES = [("draft", "Draft"), ("check", "Check"), ("decide", "Decide"), ("write", "Write")]
 MEMBER_NAMES = {"a": "LFM2.5 2.6B", "b": "Bonsai 2 2B"}
 SERVING = {"slots": int(os.environ.get("SWARM_SLOTS") or 6), "contextPerSlot": 4096}  # src/catalog.mjs SERVING (six since 2026-11-16)
+SERVED_NAME = "the-swarm"  # src/catalog.mjs SERVED_NAME: the one model an address of the swarm lists
 
 
 def _json(path, default):
@@ -399,35 +400,133 @@ def load(root):
     }
 
 
+def _canon(x):
+    if isinstance(x, float) and x.is_integer():
+        return int(x)
+    if isinstance(x, dict):
+        return {k: _canon(v) for k, v in x.items()}
+    if isinstance(x, list):
+        return [_canon(v) for v in x]
+    return x
+
+
+def recipe_sha256(recipe):
+    """The recipe's hash, in the form src/spec.mjs writes it too: keys sorted, no spaces, text as itself, 1.0 written 1."""
+    import hashlib
+    return hashlib.sha256(json.dumps(_canon(recipe), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+SPEC_FORMAT = "the-swarm/spec"
+SPEC_VERSION = 2
+
+
 def spec(d):
-    """THE OUTPUT SPEC: what the swarm, as it is configured and trained now, IS: what it is made of, how it is arranged, what
-    goes in and comes out, and where it stands against the larger model. One document that says the whole of it."""
+    """THE OUTPUT SPEC: everything needed to make this swarm again, anywhere, and to offer it as a model: what it is made of (every
+    file pinned), how it is arranged (every slot with what it is told), how it is served and decided, what it can and cannot do as a
+    model, what it needs of a machine, and where it stands against the larger model, with the evidence. One document.
+    Written with one host in mind, and generic: a model chooser like The Crew's ("Choose your model") takes `card` as one more
+    item, checks `requirements` against the machine, fetches what `recipe` pins, and starts it with serveSwarm({ ...card, spec }).
+    The parts a swarm is built from (members, decider, engine, serving, arrangement.briefs) are hashed: recipeSha256."""
+    import hashlib
+    from statistics import median
     b, p = d["briefs"], d["splits"]["held"]["parity"]
     gb = lambda n: round(n / 2**30, 2)  # noqa: E731
     file_of = lambda m: {k: m.get(k) for k in ("id", "name", "by", "params", "license", "repo", "rev", "file", "bytes", "sha256", "serve", "sampling") if m.get(k) not in (None, [], {})}  # noqa: E731
     a, bb = d["members"]["a"] or {}, d["members"]["b"] or {}
     held = d["splits"]["held"]["swarm"]
     last = (d["state"].get("history") or [None])[-1]
+    members = {k: file_of(m or {}) for k, m in d["members"].items() if m}
+    n_small = len(members)
+    dec = {k: v for k, v in (d["decider"] or {}).items() if k not in ("index",) and v not in (None, [], {})}
+    eng = d["registry"]["engine"]
+    engine = {"name": eng.get("name"), "site": eng.get("site"), "version": eng.get("version"), "build": eng.get("tag"), "minBuild": eng.get("minBuild"), "builds": eng.get("builds")}
+    fp = d.get("footprint") or {}
+    serving = dict(SERVING, memoryGbEstimate=fp.get("swarm") or round(sum(gb((m or {}).get("bytes", 0)) for m in d["members"].values()) * 1.25 + 1, 1),
+                   memoryIs="an estimate: the small models' files, their contexts and the decider; not measured")
+    run_briefs = {k: v for k, v in b.items() if k != "about"}  # what createSwarm runs, exactly
+    recipe = {"members": members, "decider": dec, "engine": engine, "serving": {k: serving[k] for k in ("slots", "contextPerSlot")}, "briefs": run_briefs}
+    sha = recipe_sha256(recipe)
+    lic = list(dict.fromkeys(x for x in [m.get("license") for m in members.values()] + [dec.get("license")] if x))
+    secs = [r["seconds"] for r in held if isinstance(r.get("seconds"), (int, float))]
+    spr = round(median(secs), 1) if secs else None
+    t = d["target"] or {}
+    names = [m.get("name", k) for k, m in members.items()]
+    eq = d.get("equivalence") or {}
+    on = [{"id": x["id"], "name": x.get("name", x["id"])} for x in eq.get("targets", []) if x["id"] in (eq.get("chosen") or [])]
+    badge = (("At parity with %s" % t.get("name")) if p["level"] else ("%s%% of the way to parity with %s" % (("%.1f" % p["percent"]).rstrip("0").rstrip("."), t.get("name")))) if p and t else "Not yet measured"
+    runs_on = dec.get("runsOn") or ["mac", "cuda", "cpu"]
     return {
+        "spec": {"format": SPEC_FORMAT, "version": SPEC_VERSION, "configuration": d.get("key"), "recipeSha256": sha,
+                 "recipeIs": "members, decider, engine, serving and arrangement.briefs: what a swarm is built from. Two specs with the same hash make the same swarm."},
         "name": "The Swarm",
-        "id": "swarm-" + "+".join((m or {}).get("id", "") for m in d["members"].values()),
-        "what": "Two small models that answer as one, trained toward parity with a larger model: an answer fundamentally equivalent to the one the larger model gives.",
+        "id": "swarm-" + "+".join(m.get("id", "") for m in members.values()),
+        "what": "%s small models that answer as one, trained toward parity with a larger model: an answer fundamentally equivalent to the one the larger model gives." % ["One", "Two", "Three", "Four"][max(0, min(3, n_small - 1))],
+        # ONE ITEM FOR A MODEL CHOOSER, in the shape The Crew's catalogue has its models (src/js/catalog.js: id, name, size, params,
+        # memGb, pace, badge, plain), with engine 'swarm'; what it is equivalent on and where it stands are said on its face
+        "card": {
+            "id": "swarm-" + "+".join(m.get("id", "") for m in members.values()), "engine": "swarm", "family": "Swarm", "name": "The Swarm",
+            "size": ["One", "Two", "Three", "Four"][max(0, min(3, n_small - 1))] + " small models",
+            "params": round(sum(float(m.get("params") or 0) for m in members.values()), 1),
+            "memGb": serving["memoryGbEstimate"],
+            "bytes": sum(int(m.get("bytes") or 0) for m in members.values()) + int((dec.get("serve") or {}).get("bytes") or 0),
+            "pace": "unmeasured" if spr is None else "quick" if spr < 8 else "steady" if spr < 30 else "thorough",
+            "secondsPerReply": spr,
+            "badge": badge,
+            "equivalentOn": [x["name"] for x in on],
+            "plain": "%s (%s), decided by %s, answering as one. %s." % (
+                ["One small model", "Two small models", "Three small models", "Four small models"][max(0, min(3, n_small - 1))],
+                ", ".join(names[:-1]) + (" and " if len(names) > 1 else "") + names[-1] if names else "",
+                dec.get("name", "a decision model"),
+                ("%s, on %s" % (badge, ", ".join(x["name"] for x in on))) if p and on else badge if p else "Not yet measured against %s" % (t.get("name") or "a larger model")),
+        },
+        # WHAT IT NEEDS OF A MACHINE, for a host to check before offering it
+        "requirements": {
+            "node": ">=20",
+            "engine": "%s, build %s or later (pinned: %s)" % (eng.get("name"), eng.get("minBuild"), eng.get("tag")),
+            "platforms": runs_on,
+            "platformsAre": "where the decider runs (mac: Apple silicon; cuda: an NVIDIA GPU); the small models run wherever llama.cpp does",
+            "decider": dec.get("needs") or "",
+            "memoryGb": serving["memoryGbEstimate"],
+            "diskGb": round((sum(int(m.get("bytes") or 0) for m in members.values()) + int((dec.get("serve") or {}).get("bytes") or 0)) / 2**30, 1),
+            "licenses": lic,
+            "commercialUse": not any("non-commercial" in str(x).lower() or "-nc" in str(x).lower() for x in lic),
+            "commercialUseIs": "false where a licence says non-commercial; every licence is listed, to be read before offering it",
+        },
         "interface": {
             "in": "messages, as a chat model takes them (role and content)",
             "out": "one reply",
-            "as": ["createSwarm().answer(messages)", "an address that answers /health, /v1/models and /v1/chat/completions (streamed or not)", "serveSwarm(entry, engine, opts): the call a llama.cpp model is started with"],
-            "notYet": ["a request that carries tools goes to the model in place a alone", "the reply is whole before any of it is sent"],
+            "as": ["createSwarm({ spec }).answer(messages)", "an address that answers /health, /v1/models and /v1/chat/completions (streamed or not)", "serveSwarm({ ...card, spec }, engine, opts): the call a llama.cpp model is started with"],
+            "servedName": SERVED_NAME,
+            "endpoints": {"GET /health": "200 while every small model answers, else 503", "GET /v1/models": "one model, " + SERVED_NAME, "POST /v1/chat/completions": "messages in, one reply out; \"stream\": true sends it as events", "GET /swarm/last": "what every slot did on the last message"},
+            "capabilities": {
+                "chat": True,
+                "stream": "the reply is whole before any of it is sent, then sent as events",
+                "tools": "not driven by the swarm: a request that carries tools goes to %s (place a) alone, untouched" % (members.get("a") or {}).get("name", "the model in place a"),
+                "images": False,
+                "contextTokens": SERVING.get("contextPerSlot"),
+            },
+            "goodFor": "replies a person reads and single steps that can be checked: what it was measured on (%s)" % (", ".join(x["name"] for x in on) or "its questions"),
+            "notYet": ["a request that carries tools goes to the model in place a alone (an agent that works by tools, as The Crew's Pi does, gets that one model)", "the reply is whole before any of it is sent"],
+            "start": {
+                "decider": "bash training/kev.sh serve (the recipe is recipe.decider.serve); or name one already running with SWARM_KEV",
+                "program": "createSwarm({ spec, kev: 'http://127.0.0.1:8009', modelsDir })",
+                "host": "serveSwarm({ ...spec.card, spec }, { file: llamaServerProgram }, { modelsDir, kev })",
+                "terminal": "node bin/swarm.mjs serve --spec <this file> [--port 8090]",
+            },
         },
-        "members": {k: file_of(m or {}) for k, m in d["members"].items()},
-        "decider": {k: (d["decider"] or {}).get(k) for k in ("id", "name", "by", "params", "run", "rev", "license")},
-        "engine": {"name": d["registry"]["engine"].get("name"), "version": d["registry"]["engine"].get("version"), "build": d["registry"]["engine"].get("tag")},
-        "serving": dict(SERVING, memoryGbEstimate=round(sum(gb((m or {}).get("bytes", 0)) for m in d["members"].values()) * 1.25 + 1, 1), memoryIs="an estimate: the small models' files and their contexts; the decider is beside it"),
+        "recipe": recipe,
+        "members": members,
+        "decider": dec,
+        "engine": engine,
+        "serving": dict(serving),
         "arrangement": {
             "briefsVersion": b.get("version"),
             "plan": b.get("plan", {}),
             "flow": b.get("flow") or [{"do": k} for k in ("draft", "try", "check", "decide", "write")],
             "flowIs": "the one this swarm has learned" if b.get("flow") else "the plain one every swarm starts from",
-            "slots": [{k: s.get(k) for k in ("id", "member", "stage", "purpose", "maxTokens", "temperature", "sees") if s.get(k) is not None} | {"model": (d["members"].get(s["member"]) or {}).get("id")} for s in b.get("slots", [])],
+            # every slot WITH WHAT IT IS TOLD: without the words the arrangement cannot be made again
+            "slots": [{k: v for k, v in s.items() if v is not None} | {"model": (d["members"].get(s["member"]) or {}).get("id")} for s in b.get("slots", [])],
+            "briefs": run_briefs,
         },
         # WHAT IT HAS LEARNED: every change that was kept, in order, with the evidence it was kept on. Nothing is here that was
         # not measured. The arrangement above is the one these changes made.
@@ -449,6 +548,8 @@ def spec(d):
             "noAnswer": p["none"] if p else None,
             "byKind": {k: {"equivalent": sum(1 for r in held if r["kind"] == k and r.get("grade") == "right"), "of": sum(1 for r in held if r["kind"] == k and r.get("grade") != "noref")} for k in dict.fromkeys(r["kind"] for r in held)},
             "passes": d["state"].get("pass", 0),
+            "equivalentOn": on,
+            "secondsPerReply": spr,
             "lastPass": {k: last.get(k) for k in ("pass", "at", "target", "level", "equivalent", "compared")} if last else None,
             "questions": {"kinds": sorted(set(r["kind"] for r in held)), "heldSeed": d["state"].get("seeds", {}).get("held")},
         },

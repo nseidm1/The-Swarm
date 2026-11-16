@@ -508,8 +508,30 @@ with tempfile.TemporaryDirectory() as tmp:
     spec = data.spec(data.load(root))
     check("the output spec says what the swarm as it stands is: what goes in and comes out, each model with its pinned file and SHA-256, the decider, every slot and what it is for, and where it stands against the larger model, to read and to copy as JSON",
           code_s == 200 and "Output spec" in sp and d["members"]["a"]["sha256"] in sp and d["members"]["b"]["file"] in sp and "kev-decide" in sp and ("% of the way to parity against" in sp or "At parity against" in sp) and spec["trainedAgainst"]["progressPercent"] == p["percent"] and 'id="spec-json"' in sp
+          and "As a model chooser lists it" in sp and "What it is told" in sp and 'id="spec-save"' in sp and "Commercial use" in sp and "swarm-spec.json" in html
           and spec["trainedAgainst"]["state"] in ("at parity", "not at parity") and spec["trainedAgainst"]["equivalent"] == p["equivalent"] and len(spec["arrangement"]["slots"]) == len(d["briefs"]["slots"])
           and spec["members"]["a"]["sha256"] == d["members"]["a"]["sha256"] and spec["interface"]["out"] == "one reply" and "fundamentally equivalent" in spec["trainedAgainst"]["parityMeans"], sp[:200])
+    # EVERYTHING NEEDED TO MAKE IT AGAIN, AND TO OFFER IT AS A MODEL: every slot with what it is told, the decider's recipe, the
+    # engine's pinned builds, a card in the shape The Crew's chooser lists its models, what it needs of a machine, what it can and
+    # cannot do as a model, and a hash of the recipe that src/spec.mjs computes the same way
+    rc = spec["recipe"]
+    check("the spec holds everything needed to make the swarm again and offer it: every slot with what it is told, the decider's serving recipe, the engine's pinned builds, a card a model chooser can list (engine swarm, memory, what it is equivalent on and where it stands), what it needs of a machine (platforms, memory, disk, licences, whether it may be used commercially), what it can and cannot do (tools go to one model alone), how to start it, and a format, version and hash",
+          spec["spec"]["format"] == "the-swarm/spec" and spec["spec"]["version"] == 2 and len(spec["spec"]["recipeSha256"]) == 64 and spec["spec"]["recipeSha256"] == data.recipe_sha256(rc)
+          and all(s_.get("brief") for s_ in rc["briefs"]["slots"]) and all(s_.get("brief") for s_ in spec["arrangement"]["slots"]) and rc["briefs"]["slots"] == d["briefs"]["slots"]
+          and rc["members"]["a"]["sha256"] == d["members"]["a"]["sha256"] and rc["decider"].get("serve") and rc["engine"].get("builds") and rc["serving"]["slots"] == data.SERVING["slots"]
+          and spec["card"]["engine"] == "swarm" and spec["card"]["memGb"] > 0 and "The Crew" in spec["card"]["equivalentOn"] and spec["card"]["badge"] and spec["card"]["plain"].startswith("Two small models")
+          and spec["requirements"]["commercialUse"] is True and spec["requirements"]["licenses"] and spec["requirements"]["diskGb"] > 0 and spec["requirements"]["platforms"]
+          and "alone" in spec["interface"]["capabilities"]["tools"] and "serveSwarm({ ...spec.card, spec }" in spec["interface"]["start"]["host"] and "--spec" in spec["interface"]["start"]["terminal"],
+          {k: spec.get(k) for k in ("spec", "card", "requirements")})
+    nc = data.spec(dict(data.load(root), decider=next(x for x in d["registry"]["deciders"] if x["id"] == "startlux-4b")))
+    check("a spec whose decider's licence says non-commercial says it may not be used commercially, and lists every licence", nc["requirements"]["commercialUse"] is False and any("NC" in x or "non-commercial" in x for x in nc["requirements"]["licenses"]), nc["requirements"])
+    node_ = swarm_ui.node_for_training()
+    if node_:
+        sp_file = Path(tmp) / "spec.json"
+        sp_file.write_text(json.dumps(spec, ensure_ascii=False))
+        rd = __import__("subprocess").run([node_, "-e", "import(process.argv[1]).then(m=>{const s=m.readSpec(process.argv[2]);console.log(s.spec.recipeSha256===m.recipeSha256(s.recipe)?'same':'differs')}).catch(e=>console.log('refused: '+e.message))",
+                                            (Path(swarm_ui.__file__).resolve().parent.parent / "src" / "spec.mjs").as_uri(), str(sp_file)], capture_output=True, text=True)
+        check("the module reads the spec the page writes, and computes its hash the same way", rd.stdout.strip() == "same", rd.stdout + rd.stderr[:300])
     check("an idea waiting to be measured opens the paper it came from", 'class="idea" href="https://arxiv.org/abs/' in html and 'target="_blank"' in html and "arXiv 26" in html)
     node = swarm_ui.node_for_training()
     if node:

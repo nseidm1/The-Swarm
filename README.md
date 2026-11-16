@@ -262,7 +262,35 @@ const started = await serveSwarm(ENTRY, { file: llamaServerProgram }, { modelsDi
 // { ok: true, port, base, pid, args, loadMs, stop }   or   { ok: false, why }
 ```
 
-The dashboard's **Output spec** is the same thing for a person: one document that says what the swarm as it stands is.
+### From its spec
+
+The dashboard's **Output spec** (**Save as a file**) is everything needed to make the swarm again, anywhere, with no record of
+its training ([`src/spec.mjs`](src/spec.mjs)):
+
+| Part | What it holds |
+|---|---|
+| `recipe` | What a swarm is built from: each small model's pinned file (repository, revision, size, SHA-256, how it is served), the decider and its serving recipe, the engine's pinned builds, slots and context, and the arrangement: the flow and every slot with what it is told. Hashed: `spec.recipeSha256` |
+| `card` | One item for a model chooser, in the shape The Crew's catalogue lists its models (`id`, `name`, `size`, `params`, `memGb`, `pace`, `badge`, `plain`), with `engine: "swarm"`, what it is equivalent on and where it stands |
+| `requirements` | What it needs of a machine: platforms (where the decider runs), memory, disk, engine, Node, every licence, and whether it may be used commercially |
+| `interface` | What it is as a model: its endpoints, what it can and cannot do (tools go to the model in place `a` alone), and how to start it |
+| `trainedAgainst`, `learned` | Where it stands against the larger model, kind by kind, and every change it kept with the evidence |
+
+```js
+import { createSwarm, serveSwarm, readSpec } from 'the-swarm';
+
+const spec = readSpec('swarm-spec.json'); // refused if its recipe no longer matches its hash
+const swarm = await createSwarm({ spec, kev: 'http://127.0.0.1:8009', modelsDir });
+const started = await serveSwarm({ ...spec.card, spec }, { file: llamaServerProgram }, { modelsDir, kev });
+```
+
+From a terminal: `node bin/swarm.mjs serve --spec swarm-spec.json`.
+
+**In a model chooser** (The Crew's *Choose your model*, for one): list `spec.card` beside the other models; offer it only where
+`spec.requirements` fit the machine (and, for a paid product, only where `commercialUse` is true: a configuration decided by
+StartLux is not); fetch what `recipe` pins; start the decider by `recipe.decider.serve`; then `serveSwarm({ ...card, spec })`,
+the same call shape a llama.cpp model is started with. It answers at an OpenAI-compatible address as one model. What it is
+good for is what it was measured on (`card.equivalentOn`): a seat's replies and single checked steps. An agent that works by
+tools, as The Crew's Pi does, gets the model in place `a` alone until the swarm drives tools.
 
 ## Configuration
 
