@@ -23,3 +23,18 @@ run() { # run <name> <script> [args...]
   done
   return "$code"
 }
+
+# open_pass <this configuration's folder> <the number of the pass> <what the configuration is, in a line>
+# THE PASS IS OPENED WHERE IT WAS LEFT. Each configuration (these small models, this decider, this larger model) has a folder of
+# its own, and each of its passes a folder in that. If this pass was begun before and did not finish, it is the same pass: its
+# status is kept, and run() passes over the steps that ended well. Otherwise it is begun: an empty status, and nothing of an
+# earlier attempt's output. Sets OUT. Stopping, training another configuration and coming back finds this one as it was.
+open_pass() {
+  OUT=$1/pass-$2; mkdir -p "$OUT"
+  if [ -f "$OUT/status.txt" ] && ! grep -q " DONE$" "$OUT/status.txt" && [ "$(cat "$OUT/config" 2>/dev/null)" = "$3" ]; then
+    echo "$(date +%H:%M:%S) RESUMED this pass had stopped: carrying on" >> "$OUT/status.txt"
+    "$NODE" -e "import('./training/support/recover.mjs').then(r=>r.note('pass $2','it had stopped: carried on from where it was',{kind:'resumed'}))" > /dev/null 2>&1
+  else
+    rm -f "$OUT"/*.out; : > "$OUT/status.txt"; echo "$3" > "$OUT/config"
+  fi
+}

@@ -66,7 +66,8 @@ export async function checkReader({ kev, pairs = knownPairs(), need = 0.8, judge
 export { READER_FILE, readerOk };
 
 if (import.meta.url === 'file://' + process.argv[1]) {
-  const { WORK, kevAddress } = await import('./support/bench.mjs');
+  // (the reader is this configuration's decider: whether it is believed is kept with this configuration)
+  const { WORKC: WORK, kevAddress } = await import('./support/bench.mjs');
   const kev = await kevAddress();
   fs.mkdirSync(WORK, { recursive: true });
   if (!kev) {

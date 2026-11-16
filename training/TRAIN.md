@@ -149,6 +149,19 @@ became of each idea there. `training/state.json` holds only what was read: the q
 the ideas they turned into. Choose other models and that swarm starts at pass 1 with nothing tried; come back and this one is
 as it was left. A swarm that reaches parity starts a new record against the next, larger model.
 
+Where each thing is kept, for a configuration `K` = `<a>+<b>[+<c>+<d>]+<decider>--<target>`:
+
+| What | Where |
+|---|---|
+| The arrangement it runs, and the ledger of kept changes | `src/learned/K.json` |
+| Which pass it is, what it tried, its policy and how each pass ended | `training/states/K.json` |
+| The results of its measurements, and its histories of trials | `training/results/K/` |
+| The pass it is in: each step's status and output, its plan, its review, its reader's verdict | `.work/train/K/` |
+| Every answer, each row marked with whose it is; answers as they are written; measurements already made | `.work/train/` (shared) |
+
+A session opens the pass where it was left (`support/steps.sh`: `open_pass`): the same pass if it had not finished, with the
+steps that ended well passed over. Stopping, training another configuration and coming back loses nothing of either.
+
 ## The flow is trained too
 
 The order of steps is part of the arrangement (`flow` in `src/briefs.json`; [docs/architecture.md](../docs/architecture.md)).

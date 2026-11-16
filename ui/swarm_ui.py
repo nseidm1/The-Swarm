@@ -490,9 +490,16 @@ FOUND = {"drafts-short": "no slot had the answer", "weak-draft": "a weak drafter
 STATUS = {"planned": "Planned", "running": "Being measured", "kept": "Kept", "not kept": "Not kept"}
 
 
+def work_of(root, key):
+    """Where the configured swarm's own pass is kept (its steps, its plan): under its name, or, in a folder from before that, in
+    the one place."""
+    base = Path(root) / ".work" / "train"
+    return base / key if key and (base / key).is_dir() else base
+
+
 def read_plan(d):
     """The plan of the pass in hand, for the swarm as it is configured; a plan of another pass or another swarm is not this one."""
-    p = data._json(Path(d["root"]) / ".work" / "train" / "plan.json", None)
+    p = data._json(work_of(d["root"], d.get("key")) / "plan.json", None)
     if not isinstance(p, dict) or p.get("pass") != d["state"].get("pass", 0) + 1 or p.get("config") not in (None, d["cfg"]):
         return None
     if p.get("target") and d["target"] and p["target"] != d["target"]["id"]:
@@ -992,6 +999,10 @@ def kev_base():
 
 def run_panel():
     st = run_state()
+    try:
+        wdir = work_of(ARGS.root, data.load(ARGS.root).get("key"))  # the configured swarm's own pass
+    except Exception:  # the panel is drawn even where the folder cannot be read
+        wdir = Path(ARGS.root) / ".work" / "train"
     out = ['<div class="panel run">']
     # the models are loaded by a session and unloaded when it ends: outside one, nothing should be running
     kev = kev_base()
@@ -1029,7 +1040,7 @@ def run_panel():
         except (OSError, ValueError):
             su = {}
         busy = [x for x in su.get("steps", []) if x.get("state") not in ("ready",)] if time.time() * 1000 - su.get("at", 0) < 600000 else []
-        if busy and not any((Path(ARGS.root) / ".work" / "train").glob("pass-*/status.txt") and (d2.stat().st_mtime * 1000 > su.get("at", 0) for d2 in (Path(ARGS.root) / ".work" / "train").glob("pass-*/status.txt"))):
+        if busy and not any(wdir.glob("pass-*/status.txt") and (d2.stat().st_mtime * 1000 > su.get("at", 0) for d2 in wdir.glob("pass-*/status.txt"))):
             rows = ""
             for x in su.get("steps", []):
                 of = x.get("of") or 0
@@ -1042,7 +1053,7 @@ def run_panel():
     # the steps of the newest pass this page started
     if st:
         root = Path(ARGS.root)
-        dirs = sorted((d for d in (root / ".work" / "train").glob("pass-*") if d.is_dir() and d.name[5:].isdigit() and int(d.name[5:]) >= st.get("first", 0)), key=lambda d: int(d.name[5:]))
+        dirs = sorted((d for d in wdir.glob("pass-*") if d.is_dir() and d.name[5:].isdigit() and int(d.name[5:]) >= st.get("first", 0)), key=lambda d: int(d.name[5:]))
         if dirs:
             cur = dirs[-1]
             steps, order = {}, []

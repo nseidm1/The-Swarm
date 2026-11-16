@@ -90,6 +90,11 @@ export const TARGET = REGISTRY.targets.find((m) => m.id === CONFIG.target);
 // the swarm as it is configured, in a word: results are kept apart by this, so that one arrangement's are never read as another's
 export const configId = (config) => [...placesOf(config).map((k) => config[k]), config.decider].join('+');
 export const CONFIG_ID = configId(CONFIG);
+// one swarm against one larger model, as the name of a folder or a file: everything that is kept of its training is kept under
+// this, apart from every other configuration's, so that stopping, choosing other models and coming back finds it as it was left
+const safeName = (s) => String(s).replace(/[^\w.+-]+/g, '_');
+export const configKey = (config) => safeName(configId(config)) + '--' + safeName(config.target);
+export const CONFIG_KEY = configKey(CONFIG);
 
 export const fileUrl = (m, base = 'https://huggingface.co') => base + '/' + m.repo + '/resolve/' + m.rev + '/' + m.file;
 export const engineBuild = (platform = process.platform, arch = process.arch) =>

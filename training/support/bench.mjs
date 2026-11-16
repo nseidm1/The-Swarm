@@ -11,7 +11,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { createSwarm, MEMBERS, readBriefs } from '../../src/index.mjs';
-import { CONFIG_ID } from '../../src/catalog.mjs';
+import { CONFIG_ID, CONFIG_KEY } from '../../src/catalog.mjs';
 import { note, checkpoint, briefKey } from './recover.mjs';
 import { spawn } from 'node:child_process';
 import { attachMember, startMember } from '../../src/members.mjs';
@@ -22,7 +22,11 @@ import { openTarget } from '../target.mjs';
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const WORK = process.env.SWARM_WORK_DIR || path.join(REPO_ROOT, '.work', 'train'); // the checks point this at a folder of their own
-export const RESULTS = path.join(REPO_ROOT, 'training', 'results');
+// WHAT A CONFIGURATION'S TRAINING LEAVES IS ITS OWN: the results of its measurements, the steps of the pass it is in, its plan and
+// its review of itself are kept under the name of the configuration and its larger model. (The answers themselves are in files
+// all configurations share, each row marked with whose it is, and a measurement's name says what it is a measurement of.)
+export const RESULTS = path.join(REPO_ROOT, 'training', 'results', CONFIG_KEY);
+export const WORKC = path.join(WORK, CONFIG_KEY);
 export const arg = (n, d) => {
   const i = process.argv.indexOf('--' + n);
   return i < 0 ? d : process.argv[i + 1];
@@ -353,14 +357,14 @@ export async function run(
       // a reply of the larger model's that holds no answer (cut off, empty) is nothing to be equivalent to: not compared
       mark = !holds(theirs)
         ? { grade: 'noref' }
-        : t.type === 'open' && !readerOk(WORK)
+        : t.type === 'open' && !readerOk(WORKC)
           ? {
               grade: 'noref',
               why: 'the reader of answers in words failed its own check this pass (training/readers.mjs)',
             }
           : got.why
             ? { grade: 'unsure' }
-            : await t.equivalent(theirs, got.reply, { kev, mark: readerMark(WORK) });
+            : await t.equivalent(theirs, got.reply, { kev, mark: readerMark(WORKC) });
     const row = {
       cfg: who === 'swarm' ? CONFIG_ID : undefined,
       target: targetOf().id,

@@ -4,14 +4,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readSafe, writeSafe } from './recover.mjs';
+import { CONFIG_KEY } from '../../src/catalog.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const WORK = process.env.SWARM_WORK_DIR || path.join(ROOT, '.work', 'train');
-export const PLAN_FILE = path.join(WORK, 'plan.json');
+export const PLAN_FILE = path.join(WORK, CONFIG_KEY, 'plan.json'); // this configuration's plan, not the folder's
 
 export const readPlan = () => readSafe(PLAN_FILE, null);
 export function writePlan(plan) {
-  fs.mkdirSync(WORK, { recursive: true });
+  fs.mkdirSync(path.dirname(PLAN_FILE), { recursive: true });
   writeSafe(PLAN_FILE, JSON.stringify(plan, null, 2) + '\n');
   return plan;
 }

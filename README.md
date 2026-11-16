@@ -187,7 +187,12 @@ different model's different mistakes count, and what else it should do is for tr
 any model. Every small model adds 0.5 to 5 GB, so four of them and the decider are still a fraction of the larger model.
 What they cost is time: the model servers share one machine. More than two has not been run on real models yet.
 
-Results are kept apart by what the swarm is made of: change, add or remove a model, and that swarm starts from "not measured".
+**Each configuration goes on from where it was left.** Everything a configuration's training leaves is kept under its own
+name (these small models, this decider, this larger model): the pass it is in and the steps it has finished, its plan, its
+results, what it remembers and what it has learned. Stop training, choose other models, train those for a while, choose the
+first again and press Run training: it carries on in the pass it was in, passing over the steps that were done, and the step
+it stopped in carries on from the answers it had already written down. A configuration never trained starts from "not
+measured".
 
 ## Using it in a program
 
@@ -408,7 +413,7 @@ npm test
 python3 ui/check.py
 ```
 
-One hundred checks of the module and the trainers, and forty-four of the dashboard. Stand-in servers take the place of the
+One hundred and two checks of the module and the trainers, and forty-four of the dashboard. Stand-in servers take the place of the
 models, Kev and Hugging Face, so nothing is fetched, started or installed, and both finish in well under a minute. They cover what
 goes in and comes out, which slots run, what happens when a slot, a model or everything fails, that two functions are judged
 equivalent by running them, that model-written code can reach nothing, and that each fault in [Recovery](#recovery) is

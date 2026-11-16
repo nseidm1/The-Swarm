@@ -86,18 +86,14 @@ while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
     "$NODE" training/setup.mjs > .work/train/setup.out 2>&1 || { cat .work/train/setup.out; echo "$(date +%H:%M:%S) NOT READY for the next pass: see above."; break; }
   fi
   P=$("$NODE" -e "import('./training/state.mjs').then(s=>console.log(s.readState().pass+1))")
-  OUT=.work/train/pass-$P; mkdir -p "$OUT"
-  # A PASS THAT STOPPED IS CARRIED ON, NOT BEGUN AGAIN. If this pass was started before, for the same swarm and target, and did not
-  # finish, its steps that ended well are passed over and it goes on from the one it stopped in (which itself carries on from the
-  # answers it had written down). A pass for another choice of models is begun afresh.
+  # THE PASS'S OWN FOLDER IS THIS CONFIGURATION'S: its steps, and what each printed. Another choice of models has another folder, so
+  # stopping, training another swarm for a while and coming back finds this pass where it stopped
+  KEY=$("$NODE" -e "import('./src/catalog.mjs').then(c=>console.log(c.CONFIG_KEY))")
   CFG=$("$NODE" -e "import('./src/catalog.mjs').then(c=>console.log(c.CONFIG_ID+' vs '+c.TARGET.id))")
-  if [ -f "$OUT/status.txt" ] && ! grep -q " DONE$" "$OUT/status.txt" && [ "$(cat "$OUT/config" 2>/dev/null)" = "$CFG" ]; then
-    echo "$(date +%H:%M:%S) RESUMED this pass had stopped: carrying on" >> "$OUT/status.txt"
-    "$NODE" -e "import('./training/support/recover.mjs').then(r=>r.note('pass $P','it had stopped: carried on from where it was',{kind:'resumed'}))" > /dev/null
-  else
-    rm -f "$OUT"/*.out; : > "$OUT/status.txt"; echo "$CFG" > "$OUT/config"
-  fi
   . training/support/steps.sh
+  # A PASS THAT STOPPED IS CARRIED ON, NOT BEGUN AGAIN (steps.sh: open_pass). Its steps that ended well are passed over and it goes on
+  # from the one it stopped in, which itself carries on from the answers it had written down
+  open_pass ".work/train/$KEY" "$P" "$CFG"
   run 00-begin        training/pass.mjs begin
   # THE PLAN, before anything is measured: from what the last pass left
   run 00-plan         training/plan.mjs make ${TRIES:+--tries "$TRIES"}

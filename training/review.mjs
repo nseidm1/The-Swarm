@@ -8,7 +8,7 @@
 // --noise n: ask the swarm n train questions again with another draw, to see how many answers change by themselves.
 import fs from 'node:fs';
 import path from 'node:path';
-import { arg, has, RESULTS, WORK, openSwarm, questions, run, needReference, paired } from './support/bench.mjs';
+import { arg, has, RESULTS, WORK, WORKC, openSwarm, questions, run, needReference, paired } from './support/bench.mjs';
 import { readState } from './state.mjs';
 import { readPolicy, setPolicy, at as valueAt } from './policy.mjs';
 import { readLearned } from '../src/index.mjs';
@@ -157,9 +157,9 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     }
   }
   if (!changes.length) console.log('The rules call for no change to how this swarm is trained.');
-  fs.mkdirSync(WORK, { recursive: true });
+  fs.mkdirSync(WORKC, { recursive: true });
   fs.writeFileSync(
-    path.join(WORK, 'review.json'),
+    path.join(WORKC, 'review.json'),
     JSON.stringify(
       { at: new Date().toISOString(), pass: state.pass + 1, when, metrics, changes: has('dry') ? changes : done },
       null,

@@ -1498,7 +1498,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const { flipsBetween } = await import('../training/pass.mjs');
   const { makePlan } = await import('../training/plan.mjs');
   const { steps } = await import('../training/arrange.mjs');
-  const { run: runRows, reference } = await import('../training/support/bench.mjs');
+  const { run: runRows, reference, WORKC } = await import('../training/support/bench.mjs');
   // one measurement, replayed under each way of choosing between the answers
   const d = (slot, final, same, does) => ({ slot, stage: 'draft', final, same, does });
   const rows = [
@@ -1615,13 +1615,14 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const yesMan = await checkReader({ kev: 'x', pairs, judge: async () => ({ grade: 'right' }) });
   const silent = await checkReader({ kev: 'x', pairs, judge: async () => ({ grade: 'noref' }) });
   const open = tasks({ split: 'held', each: 1 }).find((t) => t.type === 'open');
-  fs.writeFileSync(path.join(WORK_DIR, 'reader.json'), JSON.stringify({ ok: false }));
+  fs.mkdirSync(WORKC, { recursive: true });
+  fs.writeFileSync(path.join(WORKC, 'reader.json'), JSON.stringify({ ok: false }));
   const unread = await runRows(
     [open],
     async () => ({ reply: 'The loop starts at one, so the first item is never counted at all.' }),
     { ref: new Map([[open.id, 'The bug is that the loop starts at one and so misses the first item.']]), who: 'a' },
   );
-  fs.rmSync(path.join(WORK_DIR, 'reader.json'));
+  fs.rmSync(path.join(WORKC, 'reader.json'));
   check(
     'a reader is checked before it is believed: given the same flaw said two ways and two different flaws, one that tells them apart is believed, one that says yes to everything is not, and neither is one that does not answer; and while it is not believed, answers in words are not compared',
     pairs.length >= 8 &&
@@ -1687,6 +1688,87 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           .map((t) => t.ask)
           .join(),
     { n: second.length, sample: reword(w.ask).slice(0, 70) },
+  );
+}
+// ---- 6m: STOPPING AND STARTING, FOR EACH CONFIGURATION, GOES ON FROM WHERE IT WAS LEFT
+{
+  const { configKey, CONFIG_KEY, readConfig, REGISTRY } = await import('../src/catalog.mjs');
+  const { RESULTS, WORKC, swarmName } = await import('../training/support/bench.mjs');
+  const { PLAN_FILE } = await import('../training/support/plan-file.mjs');
+  const { stateFileOf } = await import('../training/state.mjs');
+  const { learnedFile } = await import('../src/index.mjs');
+  const { execFileSync } = await import('node:child_process');
+  const cfg = readConfig();
+  const otherSmall = REGISTRY.small.find((m) => m.id !== cfg.a && m.id !== cfg.b).id;
+  const otherTarget = REGISTRY.targets.find((m) => m.id !== cfg.target).id;
+  const keys = [
+    configKey(cfg),
+    configKey({ ...cfg, b: otherSmall }),
+    configKey({ ...cfg, target: otherTarget }),
+    configKey({ ...cfg, c: otherSmall }),
+  ];
+  check(
+    "everything a configuration's training leaves is kept under its own name, apart from every other's: the pass it is in, its plan, its review and reader, its results, what it remembers and what it has learned; another small model, another larger model or a third model is another name",
+    new Set(keys).size === 4 &&
+      keys[0] === CONFIG_KEY &&
+      [RESULTS, WORKC, PLAN_FILE, stateFileOf(), learnedFile()].every((p) => p.includes(CONFIG_KEY)) &&
+      swarmName(briefs, 'train', 1).includes(cfg.a) &&
+      stateFileOf(otherTarget) !== stateFileOf() &&
+      learnedFile('x+y+z', 't') !== learnedFile(),
+    { keys },
+  );
+  // a pass stopped partway, another configuration trained for a while, and the first come back to
+  const top = path.join(state, 'passes');
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const ok = path.join(state, 'ok.mjs');
+  fs.writeFileSync(ok, "import fs from 'node:fs';\nfs.appendFileSync(process.argv[2], process.argv[3] + '\\n');\n");
+  const ran = path.join(state, 'ran.txt');
+  const sh = (body) =>
+    execFileSync(
+      'bash',
+      [
+        '-c',
+        'cd ' +
+          JSON.stringify(root) +
+          ' && NODE=' +
+          JSON.stringify(process.execPath) +
+          ' STEP_WAIT=0 && . training/support/steps.sh && ' +
+          body,
+      ],
+      { encoding: 'utf8' },
+    );
+  const step = (name, tag) => 'run ' + name + ' ' + JSON.stringify(ok) + ' ' + JSON.stringify(ran) + ' ' + tag;
+  const A = JSON.stringify(path.join(top, 'config-a'));
+  const B = JSON.stringify(path.join(top, 'config-b'));
+  // configuration A: two steps done, then it is stopped (the third never starts)
+  sh('open_pass ' + A + ' 1 "a vs t" && ' + step('01-one', 'A1') + ' && ' + step('02-two', 'A2'));
+  // configuration B, meanwhile: its own pass, from its own beginning
+  sh('open_pass ' + B + ' 1 "b vs t" && ' + step('01-one', 'B1'));
+  // back to A: the same pass; what was done is passed over, and it goes on
+  sh(
+    'open_pass ' +
+      A +
+      ' 1 "a vs t" && ' +
+      step('01-one', 'A1again') +
+      ' && ' +
+      step('02-two', 'A2again') +
+      ' && ' +
+      step('03-three', 'A3') +
+      ' && echo "x DONE" >> "$OUT/status.txt"',
+  );
+  // and B again: its one step is not done twice either
+  sh('open_pass ' + B + ' 1 "b vs t" && ' + step('01-one', 'B1again') + ' && ' + step('02-two', 'B2'));
+  // A, finished, started once more: a finished pass is not carried on (the next pass has another number; the same number begins anew)
+  sh('open_pass ' + A + ' 1 "a vs t" && ' + step('01-one', 'A1new'));
+  const did = fs.readFileSync(ran, 'utf8').trim().split('\n');
+  const statusA = fs.readFileSync(path.join(top, 'config-a', 'pass-1', 'status.txt'), 'utf8');
+  check(
+    'stopping, training another configuration and coming back goes on from where it was left: each configuration has its own pass, a step that ended well is not done again, the pass goes on from the step it stopped before, the other configuration is untouched by it, and a pass that finished is not carried on',
+    did.join() === 'A1,A2,B1,A3,B2,A1new' &&
+      /RESUMED/.test(fs.readFileSync(path.join(top, 'config-b', 'pass-1', 'status.txt'), 'utf8')) &&
+      !/DONE/.test(statusA) &&
+      /START 01-one/.test(statusA),
+    { did },
   );
 }
 // ---- 7: one worked answer for each different answer

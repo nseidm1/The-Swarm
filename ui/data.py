@@ -141,6 +141,12 @@ def load(root):
             state["ideas"] = [dict(i, status=became.get(i.get("hash"), "open")) for i in state.get("ideas", [])]
     state["ideas"] = [dict(i, status=i.get("status", "open")) for i in state.get("ideas", [])]
     seeds = state.get("seeds", {})
+    # what this configuration's training leaves is kept under its own name (training/support/bench.mjs); a folder from before
+    # that has it in the one place, and is still read
+    key = "%s--%s" % (re.sub(r"[^\w.+-]+", "_", cfg), re.sub(r"[^\w.+-]+", "_", str((target or {}).get("id", ""))))
+    results = root / "training" / "results" / key
+    if not results.is_dir():
+        results = root / "training" / "results"
     # WHAT THIS CONFIGURATION HAS LEARNED against this larger model (src/learned.mjs): the arrangement as it now stands, every
     # change that was kept with its evidence, and where it stood at the end of each pass. With none, it runs briefs.json.
     safe = lambda x: re.sub(r"[^\w.+-]+", "_", str(x))  # noqa: E731
@@ -219,10 +225,10 @@ def load(root):
             candidates[s["id"]] = cands
     # what the passes have changed so far: briefs kept, arrangements tried and kept
     kept_briefs = {}
-    for r in _rows(root / "training" / "results" / "briefs-history.jsonl"):
+    for r in _rows(results / "briefs-history.jsonl"):
         if r.get("kept"):
             kept_briefs[r.get("slot")] = kept_briefs.get(r.get("slot"), 0) + 1
-    arr = _rows(root / "training" / "results" / "arrangement-history.jsonl")
+    arr = _rows(results / "arrangement-history.jsonl")
     trained = {
         "keptBriefs": kept_briefs,
         "arrTried": len(tried.get("_arrangement", [])) + sum(1 for r in arr if r.get("kept")),
@@ -230,6 +236,7 @@ def load(root):
     }
     return {
         "root": str(root),
+        "key": key,
         "trained": trained,
         "sample": (root / ".sample").exists(),
         "briefs": briefs,
