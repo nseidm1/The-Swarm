@@ -119,10 +119,18 @@ while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
   # tried): data, on this configuration's record, each change with its reason. No program is changed
   run 05-review       training/review.mjs --at 05-swarm-train --noise "${NOISE:-12}" --each "$EACH"
   run 06-plan         training/plan.mjs make ${TRIES:+--tries "$TRIES"}
+  # NEW BRIEFS FOR THE SLOTS THAT ARE FAILING, written by the larger model itself from what they got wrong (write-briefs.mjs; no
+  # spend), and the plan made again with them in it
+  run 07-write-briefs training/write-briefs.mjs
+  run 07-plan         training/plan.mjs make ${TRIES:+--tries "$TRIES"}
+  # what the swarm cannot try on its own, measured for a person to decide: whether another small model on this machine drafts what
+  # no slot drafts (members-probe.mjs), and whether another decider whose weights are here would have chosen better (decider-replay.mjs)
+  run 08-members      training/members-probe.mjs --each "$EACH"
+  run 08-deciders     training/decider-replay.mjs --installed
   # the slots the plan names, in its order (with a teacher, every slot: it writes candidates the plan could not have known)
   for S in $([ -n "$TEACHER" ] && "$NODE" training/pass.mjs order || "$NODE" training/plan.mjs slots); do
     if [ -n "$TEACHER" ]; then run "10-improve-$S" training/improve.mjs --slot "$S" --each "$EACH" --teacher "$TEACHER" --spend-claude
-    elif [ -f "training/candidates/$S.json" ]; then run "10-improve-$S" training/improve.mjs --slot "$S" --each "$EACH"; fi
+    elif [ -f "training/candidates/$S.json" ] || [ -f ".work/train/$KEY/candidates/$S.json" ]; then run "10-improve-$S" training/improve.mjs --slot "$S" --each "$EACH"; fi
   done
   # then the arrangement itself: a few layouts no pass has tried (which model drafts and which checks, how many, what a checker
   # sees, how freely a drafter samples), kept by the same rule a brief is

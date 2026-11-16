@@ -645,6 +645,22 @@ def plan_panel(d):
     if p.get("focus"):
         out.append('<h4>Questions</h4><p class="small" style="margin:0">New train questions, with more of the kinds the last pass answered differently on: %s.</p>'
                    % ", ".join("<b>%s</b> +%s" % (e(x["kind"]), e(str(x["more"]))) for x in p["focus"]))
+    # WHAT THE SWARM CANNOT TRY BY ITSELF, measured for a person to decide (members-probe.mjs, decider-replay.mjs)
+    wd = work_of(d["root"], d.get("key"))
+    mem = data._json(wd / "members.json", None)
+    rep = data._json(wd / "decider-replay.json", None)
+    if (isinstance(mem, dict) and mem.get("pass") == n) or (isinstance(rep, dict) and rep.get("pass") == n):
+        out.append("<h4>What only you can change</h4>")
+        if isinstance(mem, dict) and mem.get("pass") == n:
+            if mem.get("models"):
+                out.append('<p class="small" style="margin:0 0 6px">On the <b>%d</b> train questions no slot drafted: %s. A model that drafts several of them is worth adding as a third small model.</p>'
+                           % (mem.get("gap", 0), "; ".join("<b>%s</b> answered %s of %s as the larger model did" % (e(x["name"]), e(str(x.get("drafts", "?"))), e(str(x.get("asked", "?")))) if "drafts" in x else "%s could not be started" % e(x["name"]) for x in mem["models"])))
+            else:
+                out.append('<p class="small" style="margin:0 0 6px">On the <b>%d</b> train questions no slot drafted, another small model could help. %s</p>' % (mem.get("gap", 0), e(mem.get("why", ""))))
+        if isinstance(rep, dict) and rep.get("pass") == n:
+            for r in rep.get("results") or []:
+                out.append('<p class="small" style="margin:0 0 6px">Put the same choices as the decider, <b>%s</b> chose the larger model&#39;s answer <b>%d</b> times of %d, against %d: it would have recovered %d and lost %d. Worth a real pass if it recovers more than it loses.</p>'
+                           % (e(r["decider"]), r.get("theirsRight", 0), r.get("asked", 0), r.get("kevRight", 0), r.get("recovered", 0), r.get("lost", 0)))
     # HOW IT IS TRAINING, which is itself changed by the pass: the margin in force, and what its review of itself changed and why
     pol = d.get("policy") or {}
     log = [x for x in d.get("policyLog") or [] if x.get("pass") == n]
@@ -1237,7 +1253,8 @@ def run_panel():
 
 
 STEP_WORDS = [("reader", "Check the reader of answers in words"), ("swarm-reworded", "The swarm: the held questions, a second way"), ("begin", "Begin the pass"), ("research", "Read what is new on arXiv"), ("target-train", "Larger model: the train questions"), ("target", "Larger model: the held questions"),
-              ("swarm-held", "The swarm: the held questions"), ("swarm-train", "The swarm: the train questions"), ("review", "Review how it is training"), ("plan", "Plan what to try"),
+              ("swarm-held", "The swarm: the held questions"), ("swarm-train", "The swarm: the train questions"), ("review", "Review how it is training"), ("plan", "Plan what to try"), ("write-briefs", "New briefs from the larger model"),
+              ("members", "Could another small model draft it?"), ("deciders", "Would another decider choose better?"),
               ("arrange", "Try other arrangements"), ("end", "Verdict"), ("publish", "Write it up")]
 
 

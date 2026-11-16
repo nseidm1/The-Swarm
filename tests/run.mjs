@@ -2270,6 +2270,318 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { n: ds.length, cuda: cuda.stdout.slice(0, 120) },
   );
 }
+// ---- 6r: the eight ways the search was given more to try, after the first long session (2026-11-16)
+{
+  const { steps, shapeOf } = await import('../training/arrange.mjs');
+  const { examplesFor } = await import('../src/orchestrate.mjs');
+  const { briefKey } = await import('../training/support/recover.mjs');
+  // 1: the settled answer handed over as it is
+  reset();
+  lfm.s.script = (b) => (roleOf(b).stage === 'write' ? 'Rewritten: it is 41.' : 'six sevens\nANSWER: 42');
+  bonsai.s.script = () => 'because\nANSWER: 42';
+  const asked = await swarm.answer(Q, { briefs: { ...briefs, plan: { ...briefs.plan, writeAs: 'settled' } } });
+  const wrote = await swarm.answer(Q, { briefs });
+  const moves = steps(briefs).map((c) => c.name);
+  check(
+    'with writeAs "settled" the writer is passed over and the settled answer goes out as it stands, with the work behind it (the writer had changed it on 6 of 70); without it the writer writes as before; and the search can turn it on and off',
+    !asked.trace.some((r) => r.stage === 'write') &&
+      /ANSWER: 42|\b42\b/.test(asked.reply) &&
+      !/41/.test(asked.reply) &&
+      /\+as-settled/.test(asked.path) &&
+      wrote.trace.some((r) => r.stage === 'write') &&
+      moves.includes('plan: the settled answer goes out as it is') &&
+      steps({ ...briefs, plan: { ...briefs.plan, writeAs: 'settled' } }).some(
+        (c) => c.name === 'plan: the writer writes the reply again',
+      ),
+    { asked: asked.reply, path: asked.path },
+  );
+  // 3: worked examples
+  const pool = [
+    {
+      kind: 'write-arrays',
+      ask: 'Write a JavaScript function `sumAll(xs)` that adds every number in an array.',
+      answer: '```js\nfunction sumAll(xs){return xs.reduce((a,b)=>a+b,0)}\n```',
+    },
+    { kind: 'trace', ask: 'What does this print? let x = 2; console.log(x * 3);', answer: '6' },
+    {
+      kind: 'write-strings',
+      ask: 'Write a JavaScript function `shout(s)` that upper-cases a string.',
+      answer: '```js\nconst shout=(s)=>s.toUpperCase()\n```',
+    },
+  ];
+  const q = 'Write a JavaScript function `sumEven(xs)` that adds the even numbers in an array.';
+  const two = examplesFor({ examples: 2 }, pool, q);
+  const withPool = { ...briefs, examples: pool };
+  const shown = { ...withPool, slots: withPool.slots.map((s) => (s.id === 'a-direct' ? { ...s, examples: 2 } : s)) };
+  check(
+    'a slot with examples is shown the worked examples nearest the question (by the words they share, code with code), as substance and not a format; none without; the pool is part of what is measured only where a slot is shown it; and the search offers showing them to each drafter, then four, or none again',
+    /WORKED EXAMPLES/.test(two) &&
+      two.indexOf('sumAll') > 0 &&
+      (two.match(/EXAMPLE \d/g) || []).length === 2 &&
+      two.indexOf('sumAll') < (two.indexOf('shout') < 0 ? 1e9 : two.indexOf('shout')) &&
+      !/console\.log\(x \* 3\)/.test(two) &&
+      examplesFor({}, pool, q) === '' &&
+      examplesFor({ examples: 2 }, [], q) === '' &&
+      briefKey(withPool) === briefKey(briefs) &&
+      briefKey(shown) !== briefKey(withPool) &&
+      briefKey({ ...shown, examples: pool.slice(0, 1) }) !== briefKey(shown) &&
+      steps(withPool).some((c) => c.name === 'a-direct sees 2 worked examples') &&
+      !steps(briefs).some((c) => /worked examples/.test(c.name)) &&
+      steps(shown).some((c) => c.name === 'a-direct sees 4 worked examples') &&
+      steps(shown).some((c) => c.name === 'a-direct sees no worked examples') &&
+      shapeOf(shown) !== shapeOf(withPool),
+    two.slice(0, 300),
+  );
+  reset();
+  lfm.s.script = (b) => (roleOf(b).stage === 'write' ? 'It is 42.' : 'ANSWER: 42');
+  bonsai.s.script = () => 'ANSWER: 42';
+  await swarm.answer([{ role: 'user', content: q }], {
+    briefs: { ...shown, plan: { ...shown.plan, byBehaviour: false } },
+  });
+  const sysOf = (id) => ((lfm.s.calls.find((c) => roleOf(c).id === id) || {}).messages || [{}])[0].content || '';
+  check(
+    'and the slot shown them is told them in its own instructions; the others are not',
+    /WORKED EXAMPLES/.test(sysOf('a-direct')) && !/WORKED EXAMPLES/.test(sysOf('a-steps')),
+    [sysOf('a-direct').slice(-200), sysOf('a-steps').slice(-120)],
+  );
+  const { examplePool } = await import('../training/support/examples.mjs');
+  const qs = tasks({ split: 'train', each: 3, kinds: ['write-arrays', 'trace'] });
+  const ref = new Map(qs.map((x, i) => [x.id, 'answer ' + 'x'.repeat(10 * (i + 1))]));
+  const ep = examplePool({ list: qs, ref, perKind: 2 });
+  check(
+    "the pool is the larger model's own answers to train questions, the shortest two of each kind; never a held question",
+    ep.length === 4 &&
+      ep.filter((x) => x.kind === 'trace').length === 2 &&
+      ep.every((x) => qs.some((t) => t.ask === x.ask)) &&
+      ep.find((x) => x.kind === 'write-arrays').answer.length <=
+        Math.min(...qs.filter((t) => t.kind === 'write-arrays').map((t) => ref.get(t.id).length)) &&
+      examplePool({ list: tasks({ split: 'held', each: 2, kinds: ['trace'] }), ref: new Map() }).length === 0,
+    ep.map((x) => x.kind),
+  );
+  // 4: a drafter told what another is told
+  const rep = steps(briefs).filter((c) => / drafts as /.test(c.name));
+  check(
+    'a drafter can be told what another drafter is told, on its own model (with every slot in use, the way to have more of the best drafter is in place of the weakest), each such arrangement a different one',
+    rep.length >= 6 &&
+      new Set(rep.map((c) => c.hash)).size === rep.length &&
+      rep.every((c) => {
+        const [s, t] = c.name.split(' drafts as ');
+        const x = c.briefs.slots.find((y) => y.id === s);
+        const y = briefs.slots.find((z) => z.id === t.replace(' does', ''));
+        return x.brief === y.brief && x.member === briefs.slots.find((z) => z.id === s).member;
+      }),
+    rep.map((c) => c.name).slice(0, 4),
+  );
+  // 2: briefs written by the larger model
+  const { slotsToTeach } = await import('../training/write-briefs.mjs');
+  const { missesOf, briefAsk, candidatesIn } = await import('../training/support/teach.mjs');
+  const wdir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-teach-'));
+  const mk = (split, id, grade, same) =>
+    JSON.stringify({
+      split,
+      seed: 5,
+      id,
+      grade,
+      ask: 'Q ' + id,
+      ref: 'R',
+      refReply: 'the wanted answer ' + id,
+      trace: [{ slot: 'a-steps', stage: 'draft', out: 'I wrote ' + id, same }],
+    });
+  fs.writeFileSync(
+    path.join(wdir, 'swarm-runs.jsonl'),
+    [
+      mk('train', 't1', 'wrong', false),
+      mk('held', 'h1', 'wrong', false),
+      mk('train', 't2', 'right', true),
+      mk('train', 't3', 'wrong', false),
+    ].join('\n') + '\n',
+  );
+  const missed = missesOf(wdir, 'a-steps', { seed: 5 });
+  const said = candidatesIn(
+    'Sure:\n[{"name":"plainer","brief":"Answer the question in a few short steps and end with a line that starts ANSWER: and holds only the answer."},{"name":"short","brief":"too short"}]',
+    'the larger model',
+  );
+  check(
+    "when the slots the plan found failing have no briefs left to try, the larger model writes new ones: it is shown the slot's brief, what it wrote on TRAIN questions the swarm got wrong and the answer wanted (never a held question), and its reply is read for briefs a small model can follow",
+    slotsToTeach(
+      {
+        findings: [
+          { id: 'silent:a-steps', slot: 'a-steps' },
+          { id: 'drafts-short', stage: 'draft' },
+          { id: 'check-worse:a-critic', slot: 'a-critic' },
+          { id: 'decider-threw:kev-decide', slot: 'kev-decide' },
+        ],
+      },
+      briefs,
+    ).join() === 'a-steps,a-critic' &&
+      missed.map((x) => x.question).join() === 'Q t3,Q t1' &&
+      missed[0].wanted === 'the wanted answer t3' &&
+      /ANSWER:/.test(
+        briefAsk(
+          briefs.slots.find((s) => s.id === 'a-steps'),
+          missed,
+        ),
+      ) &&
+      /never mention these questions/.test(briefAsk(briefs.slots[0], missed)) &&
+      said.length === 1 &&
+      said[0].name === 'the larger model: plainer' &&
+      candidatesIn('no json here').length === 0,
+    { missed, said },
+  );
+  // 5: who could draft what nobody drafts
+  const { gapOf } = await import('../training/members-probe.mjs');
+  const rowsG = [
+    {
+      id: 'a',
+      grade: 'wrong',
+      trace: [
+        { stage: 'draft', same: false },
+        { stage: 'draft', same: false },
+      ],
+    },
+    { id: 'b', grade: 'wrong', trace: [{ stage: 'draft', same: true }] },
+    {
+      id: 'c',
+      grade: 'right',
+      trace: [
+        { stage: 'draft', same: false },
+        { stage: 'revise', same: true },
+      ],
+    },
+    { id: 'd', grade: 'noref', trace: [{ stage: 'draft', same: false }] },
+  ];
+  check(
+    'the questions another small model is asked are those no slot drafted as the larger model did (a revision that got there counts as drafted)',
+    gapOf(rowsG)
+      .map((r) => r.id)
+      .join() === 'a',
+    gapOf(rowsG).map((r) => r.id),
+  );
+  // 7: another decider put the same choices
+  const { choicesOf, replayWith } = await import('../training/decider-replay.mjs');
+  const recRow = (id, kevRight, rightFinal) => ({
+    id,
+    ask: 'What is it?',
+    trace: [
+      { slot: 'a-direct', stage: 'draft', final: '41', out: 'w\nANSWER: 41', same: rightFinal === '41' },
+      { slot: 'b-direct', stage: 'draft', final: '42', out: 'w\nANSWER: 42', same: rightFinal === '42' },
+      { slot: 'a-critic', stage: 'check', final: 'B', out: 'B is right' },
+      {
+        slot: 'kev-decide',
+        stage: 'decide',
+        final: kevRight ? rightFinal : rightFinal === '41' ? '42' : '41',
+        same: kevRight,
+      },
+    ],
+  });
+  const recs = [
+    recRow('r1', true, '42'),
+    recRow('r2', false, '42'),
+    recRow('r3', true, '41'),
+    {
+      id: 'r4',
+      ask: 'x',
+      trace: [
+        { slot: 'a', stage: 'draft', final: '1', same: false },
+        { slot: 'k', stage: 'decide', final: '1', same: false },
+      ],
+    },
+  ];
+  const alwaysB = async ({ answers }) => ({ ok: true, letter: answers.find((x) => x.final === '42').letter });
+  const res = await replayWith(alwaysB, recs);
+  check(
+    "another decider can be put the choices recorded in a measurement, with nothing else run: the distinct answers that stood, which of them was the larger model's, and what Kev chose; it is counted against Kev (recovered where Kev missed, lost where Kev had it); a choice with only one answer, or none of them the mark, is not put",
+    choicesOf(recs[0]).answers.length === 2 &&
+      choicesOf(recs[0]).checks.length === 1 &&
+      choicesOf(recs[3]) === null &&
+      res.asked === 3 &&
+      res.kevRight === 2 &&
+      res.theirsRight === 2 &&
+      res.recovered === 1 &&
+      res.lost === 1,
+    res,
+  );
+}
+// ---- 6s: a candidate is screened before it is asked everything, and a keep is confirmed with another draw
+{
+  const { runTrial, screenOf } = await import('../training/support/trial.mjs');
+  const trainQs = tasks({ split: 'train', each: 20, kinds: ['chain'] });
+  const heldQs = tasks({ split: 'held', each: 6, kinds: ['chain'] });
+  const refOf = (list) => {
+    const m = new Map(list.map((t) => [t.id, 'ANSWER: ' + t.want]));
+    m.toSpec = new Map();
+    return m;
+  };
+  const refs = { train: refOf(trainQs), held: refOf(heldQs) };
+  // how many of the train questions (in order) each arrangement gets right; with another draw "lucky" is no better than the swarm
+  const RIGHT = { base: 10, worse: 4, lucky: 16, solid: 16 };
+  let asks = 0;
+  const fake = {
+    seed: 1,
+    b: null,
+    setBriefs(b) {
+      this.b = b;
+    },
+    setSeed(n) {
+      this.seed = n;
+    },
+    async answer(messages) {
+      asks++;
+      const ask = messages[messages.length - 1].content;
+      const tag = this.b.plan.tag;
+      const n = tag === 'lucky' && this.seed !== 1 ? RIGHT.base : RIGHT[tag];
+      const i = trainQs.findIndex((t) => t.ask === ask);
+      const h = heldQs.find((t) => t.ask === ask);
+      const t = i >= 0 ? trainQs[i] : h;
+      const right = i >= 0 ? i < n : true;
+      return { reply: 'ANSWER: ' + (right ? t.want : Number(t.want) + 1), trace: [] };
+    },
+  };
+  const as = (tag) => ({ ...briefs, plan: { ...briefs.plan, tag } });
+  const of = (split) => (split === 'train' ? trainQs : heldQs);
+  const policy = { keep: { margin: 2, confirm: true }, trials: { screen: 6, stopEarly: true } };
+  asks = 0;
+  const v1 = await runTrial({
+    swarm: fake,
+    base: as('base'),
+    cands: [
+      { name: 'worse', briefs: as('worse') },
+      { name: 'lucky', briefs: as('lucky') },
+    ],
+    of,
+    refs,
+    policy,
+  });
+  const worse = v1.cands.find((c) => c.name === 'worse');
+  const v2 = await runTrial({
+    swarm: fake,
+    base: as('base'),
+    cands: [{ name: 'solid', briefs: as('solid') }],
+    of,
+    refs,
+    policy,
+  });
+  const scr = screenOf(
+    trainQs.map((t, i) => ({ id: t.id, grade: i < 10 ? 'right' : 'wrong' })),
+    6,
+  );
+  check(
+    'a candidate is first asked a few train questions, most of them ones the swarm gets wrong; one worse there is not asked the rest. Before a change is kept it is asked again with another draw: one that won by luck is not kept, one that wins again is',
+    scr.size === 6 &&
+      [...scr].filter((id) => trainQs.findIndex((t) => t.id === id) >= 10).length === 4 &&
+      worse.screenedOut === true &&
+      !worse.train &&
+      v1.screenedOut === 1 &&
+      v1.kept === false &&
+      /it was luck/.test(v1.why) &&
+      v1.again &&
+      v1.again.net <= 0 &&
+      v2.kept === true &&
+      /won again with another draw/.test(v2.why) &&
+      fake.seed === 1,
+    { v1: v1.why, v2: v2.why, worse: worse.screen, again: v1.again },
+  );
+}
 // ---- 7: one worked answer for each different answer
 {
   reset();
@@ -2434,9 +2746,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const { steps, pickSteps, shapeOf } = await import('../training/arrange.mjs');
   const all = steps(briefs);
   const names = all.map((c) => c.name);
+  const { SERVING } = await import('../src/catalog.mjs');
   const ok = (b) =>
     b.slots.filter((x) => x.stage === 'draft').length >= 2 &&
-    ['a', 'b'].every((m) => b.slots.filter((x) => x.member === m).length <= 4);
+    ['a', 'b'].every((m) => b.slots.filter((x) => x.member === m).length <= SERVING.slots);
   check(
     'from the arrangement as it is there are many others one step away: a slot moved to the other model, a drafter or a checker added where a model has a slot to spare, one dropped, what a checker sees, how freely a drafter samples, the plan',
     all.length > 20 &&
@@ -2447,7 +2760,17 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
   check(
     'every one of them can still answer: two drafters at least, and no model asked for more slots than it has',
-    all.every((c) => ok(c.briefs)) && !names.some((n) => /to a$/.test(n)) && names.some((n) => /to b$/.test(n)),
+    // (six slots a model since 2026-11-16: a model with four in use has room for a slot moved to it, and one with six none)
+    all.every((c) => ok(c.briefs)) &&
+      names.some((n) => /to b$/.test(n)) &&
+      steps({
+        ...briefs,
+        slots: [
+          ...briefs.slots,
+          ...[1, 2].map((i) => ({ ...briefs.slots.find((s) => s.member === 'a'), id: 'pad-' + i })),
+        ],
+      }).every((c) => !/to a$/.test(c.name) || ok(c.briefs)) &&
+      SERVING.slots === 6,
     names.filter((n) => /^move/.test(n)),
   );
   const first = pickSteps(all, [], 4);

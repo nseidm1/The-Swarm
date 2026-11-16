@@ -2,6 +2,7 @@
   "about": "HOW THE TRAINER TRAINS: its own settings and its own rules, as data. The trainers read this and nothing of it is written into their code, so the way a swarm is trained can be changed, by a person or by the trainer itself, without changing a program. Each configuration keeps its own changes to it (training/states/), made by the review step from what a pass measured, each with its reason.",
   "keep": {
     "margin": 2,
+    "confirm": true,
     "about": "A change is kept only if, question by question on the same train questions, it wins this many more answers than it loses, and does no worse on the held ones."
   },
   "trials": {
@@ -9,7 +10,9 @@
     "stopEarly": true,
     "about": "How many arrangements a pass tries one change from here, how many that are several changes from here at once (wild) and how many changes each of those is (depth), and whether a trial stops once it can no longer be kept.",
     "wild": 1,
-    "depth": 2
+    "depth": 2,
+    "screen": 16,
+    "aboutScreen": "screen: how many train questions a candidate is first asked (most of them ones the swarm gets wrong); only one that is no worse there is asked the rest. 0 asks every question of every candidate."
   },
   "moves": {
     "weight": {

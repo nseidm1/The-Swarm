@@ -15,6 +15,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { missesOf, briefAsk, candidatesIn } from './support/teach.mjs';
 import {
   arg,
   has,
@@ -28,6 +29,7 @@ import {
   line,
   REPO_ROOT,
   WORK,
+  WORKC,
   RESULTS,
 } from './support/bench.mjs';
 import { readState, writeState, candHash } from './state.mjs';
@@ -56,48 +58,29 @@ const withBrief = (c) => ({
 const file = path.join(REPO_ROOT, 'training', 'candidates', slotId + '.json');
 let cands = [];
 if (fs.existsSync(file)) cands = JSON.parse(fs.readFileSync(file, 'utf8'));
+// and those the larger model wrote for this configuration (write-briefs.mjs)
+const own = path.join(WORKC, 'candidates', slotId + '.json');
+if (fs.existsSync(own))
+  try {
+    cands.push(...JSON.parse(fs.readFileSync(own, 'utf8')));
+  } catch {
+    /* half written: none */
+  }
 if (arg('teacher') === 'claude') {
   if (!has('spend-claude')) {
     console.log('A teacher spends on the Claude plan of this machine. Say --spend-claude to allow it.');
     process.exit(2);
   }
-  // what this slot got wrong the last time the swarm was measured
-  const runs = path.join(WORK, 'swarm-runs.jsonl');
-  const missed = [];
-  if (fs.existsSync(runs))
-    for (const l of fs.readFileSync(runs, 'utf8').split('\n').filter(Boolean).slice(-400)) {
-      const r = JSON.parse(l);
-      if (r.split !== 'train') continue; // the held questions are never shown to anything that writes a brief
-      const s = (r.trace || []).find((x) => x.slot === slotId);
-      if (s && r.grade !== 'right')
-        missed.push({ wanted: r.want, slotSaid: String(s.out).slice(-500), reply: String(r.reply).slice(-200) });
-    }
-  const ask =
-    'A small language model (2 to 3 billion parameters) fills one role among eight in a group that answers questions together. ' +
-    'Its role: ' +
-    slot.stage +
-    '. It is told this, and nothing else, before it is shown its input:\n\n' +
-    slot.brief +
-    '\n\nHere is what it wrote on questions the group then got wrong, with the answer that was wanted:\n' +
-    JSON.stringify(missed.slice(-8), null, 1) +
-    '\n\nWrite three different replacements for what it is told. Each must be plain instructions a small model can follow, under 110 words, ' +
-    'general (never mention these questions or their answers), and must keep the rule that the last line starts with ANSWER: and holds only the answer' +
-    (slot.stage === 'write'
-      ? ' (this role is the exception: it writes the reply a person reads and has no ANSWER line)'
-      : '') +
-    '. Reply with JSON only: [{"name":"...","brief":"..."}]';
+  const ask = briefAsk(slot, missesOf(WORK, slotId));
   try {
     const out = execFileSync('claude', ['-p', '--model', arg('claude-model', 'claude-sonnet-5-5'), ask], {
       encoding: 'utf8',
       timeout: 240000,
       maxBuffer: 4 * 2 ** 20,
     });
-    const got = JSON.parse(out.slice(out.indexOf('['), out.lastIndexOf(']') + 1));
-    cands.push(
-      ...got
-        .filter((c) => c && typeof c.brief === 'string' && c.brief.length > 40)
-        .map((c) => ({ name: 'teacher: ' + String(c.name).slice(0, 40), brief: c.brief })),
-    );
+    const got = candidatesIn(out, 'teacher');
+    if (!got.length) throw new Error('no briefs in its reply');
+    cands.push(...got);
   } catch (e) {
     console.log('The teacher gave nothing usable: ' + String(e.message).slice(0, 160));
   }
@@ -111,7 +94,11 @@ cands = cands.filter((c) => real(c) && (has('again') || !before.includes(candHas
 if (known) console.log(known + ' candidate(s) were measured by an earlier pass and not kept: passed over.');
 if (!cands.length) {
   console.log(
-    'No candidates for ' + slotId + '. Write some in training/candidates/' + slotId + '.json, or name a teacher.',
+    'No candidates for ' +
+      slotId +
+      '. Write some in training/candidates/' +
+      slotId +
+      '.json, let the larger model write some (node training/write-briefs.mjs), or name a teacher.',
   );
   process.exit(2);
 }

@@ -122,8 +122,16 @@ export const briefKey = (briefs) =>
     // from, was handed that one's measurement as its own, and scored exactly what the swarm as it was scored: every change to
     // the flow tried from 2026-11-15 to 2026-11-16 was judged on nothing. Named only where there is one, so that measurements
     // of arrangements without a flow keep their names.)
+    // (and the worked examples, where a slot is shown them: other examples are other answers. Named only then, so that
+    // measurements of arrangements that show none keep their names)
     .update(
-      JSON.stringify([briefs.slots, briefs.plan || {}, briefs.marker || '', ...(briefs.flow ? [briefs.flow] : [])]),
+      JSON.stringify([
+        briefs.slots,
+        briefs.plan || {},
+        briefs.marker || '',
+        ...(briefs.flow ? [briefs.flow] : []),
+        ...((briefs.slots || []).some((s) => s.examples > 0) ? [briefs.examples || []] : []),
+      ]),
     )
     .digest('hex')
     .slice(0, 12);

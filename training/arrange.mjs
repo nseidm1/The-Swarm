@@ -44,7 +44,18 @@ import { readPolicy } from './policy.mjs';
 export const shapeOf = (b) =>
   briefHash(
     JSON.stringify({
-      slots: b.slots.map((s) => [s.id, s.member, s.stage, s.sees || '', s.temperature ?? '', s.maxTokens ?? '']),
+      // (a drafter told what another is told, and a slot shown worked examples, say so: named only where they are, so that every
+      // arrangement tried before they existed keeps its name)
+      slots: b.slots.map((s) => [
+        s.id,
+        s.member,
+        s.stage,
+        s.sees || '',
+        s.temperature ?? '',
+        s.maxTokens ?? '',
+        ...(s.copyOf ? ['as:' + s.copyOf] : []),
+        ...(s.examples ? ['examples:' + s.examples] : []),
+      ]),
       plan: Object.fromEntries(Object.entries(b.plan || {}).sort()),
       flow: b.flow || null,
       // (an arrangement with a flow of its own is known by another name than it had before the fault above was put right: what
@@ -150,6 +161,61 @@ export function steps(b, { cap = SERVING.slots, members = [...new Set(b.slots.ma
         briefs: withSlots(b.slots.map((x) => (x.id === s.id ? { ...x, temperature: t } : x))),
       });
     }
+  // REPLACE: a drafter told what another drafter is told, on its own model (with every slot in use, the only way to have more of
+  // the best drafter is in place of the weakest)
+  for (const s of drafts)
+    for (const t of drafts)
+      if (s.id !== t.id && s.brief !== t.brief)
+        out.push({
+          name: s.id + ' drafts as ' + t.id + ' does',
+          briefs: withSlots(
+            b.slots.map((x) =>
+              x.id === s.id
+                ? Object.fromEntries(
+                    Object.entries({
+                      ...x,
+                      brief: t.brief,
+                      purpose: t.purpose,
+                      temperature: t.temperature,
+                      copyOf: t.id,
+                    }).filter(([, v]) => v !== undefined),
+                  )
+                : x,
+            ),
+          ),
+        });
+  // WORKED EXAMPLES (briefs.examples, the larger model's own answers to train questions: the trainer gathers them): a drafter shown
+  // two, or four, or none again
+  if (Array.isArray(b.examples) && b.examples.length)
+    for (const s of drafts)
+      for (const k of s.examples ? [0, s.examples === 2 ? 4 : 2] : [2])
+        out.push({
+          name: k ? s.id + ' sees ' + k + ' worked examples' : s.id + ' sees no worked examples',
+          briefs: withSlots(
+            b.slots.map((x) =>
+              x.id === s.id
+                ? Object.fromEntries(
+                    Object.entries({ ...x, examples: k || undefined }).filter(([, v]) => v !== undefined),
+                  )
+                : x,
+            ),
+          ),
+        });
+  // THE WRITER, OR NONE: the settled answer handed over as it is (src/orchestrate.mjs: writeAs), or written out by the writer again
+  out.push({
+    name:
+      (b.plan || {}).writeAs === 'settled'
+        ? 'plan: the writer writes the reply again'
+        : 'plan: the settled answer goes out as it is',
+    briefs: {
+      ...b,
+      plan: Object.fromEntries(
+        Object.entries({ ...b.plan, writeAs: (b.plan || {}).writeAs === 'settled' ? undefined : 'settled' }).filter(
+          ([, v]) => v !== undefined,
+        ),
+      ),
+    },
+  });
   for (const [key, dflt] of [
     ['onePerAnswer', false],
     ['agreeSkipsChecks', true],
@@ -316,7 +382,9 @@ export function pickSteps(all, tried, n) {
 }
 
 if (import.meta.url === 'file://' + process.argv[1]) {
-  const briefs = readBriefs();
+  // with a pool of worked examples where it has none (support/examples.mjs): where no slot is shown them this changes nothing
+  const { withExamples } = await import('./support/examples.mjs');
+  const briefs = withExamples(readBriefs(), { each: Number(arg('each', 6)) });
   const state = readState();
   const tried = state.tried._arrangement || [];
   const policy = readPolicy(state);

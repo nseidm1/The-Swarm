@@ -330,7 +330,10 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     const { RESULTS, arg } = await import('./support/bench.mjs');
     const state = readState();
     const policy = (await import('./policy.mjs')).readPolicy(state);
-    const briefs = readBriefs();
+    // with the pool of worked examples the arrangement step will have (support/examples.mjs), so that the plan ranks those moves too
+    const briefs = (await import('./support/examples.mjs')).withExamples(readBriefs(), {
+      each: Number(arg('each', 6)),
+    });
     const report = readSafe(path.join(RESULTS, 'swarm-train.json'), null);
     const mine = !!report && report.seed === state.seeds.train && (!report.cfg || report.cfg === CONFIG_ID);
     const usable =
@@ -341,10 +344,14 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       const rows = lastTrainRows(WORK, state.seeds.train, CONFIG_ID, TARGET.id);
       return rows.length ? replay(rows) : null;
     };
-    const candidates = (slotId) => {
-      const list = readSafe(path.join(ROOT, 'training', 'candidates', slotId + '.json'), []);
-      return Array.isArray(list) ? list : [];
-    };
+    // a slot's candidates: those a person wrote (training/candidates), and those the larger model wrote for this configuration
+    // (write-briefs.mjs)
+    const { WORKC } = await import('./support/bench.mjs');
+    const candidates = (slotId) =>
+      [
+        readSafe(path.join(ROOT, 'training', 'candidates', slotId + '.json'), []),
+        readSafe(path.join(WORKC, 'candidates', slotId + '.json'), []),
+      ].flatMap((x) => (Array.isArray(x) ? x : []));
     const plan = writePlan({
       ...makePlan({
         state,

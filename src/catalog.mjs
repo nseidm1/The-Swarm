@@ -111,7 +111,10 @@ export const engineUrl = (b) => ENGINE.site + '/releases/download/' + ENGINE.tag
 // anything at all; served with no thinking it answered the same question in a quarter of a second (measured 2026-11-15,
 // llama.cpp b12110). A slot has a narrow job and others to check it, so every small model is served with its thinking off
 // (`--reasoning-budget 0`, in models.json) unless its entry says otherwise.
-export const SERVING = { slots: 4, contextPerSlot: 4096 };
+// SIX SLOTS, NOT FOUR (2026-11-16): with eight slots on two models every one was in use, and the arrangements that move a slot to
+// the other model or add a second of a role could no longer be tried. A 2-3B model's context for two more conversations is a
+// few hundred megabytes. SWARM_SLOTS sets another number.
+export const SERVING = { slots: Math.max(1, Number(process.env.SWARM_SLOTS) || 6), contextPerSlot: 4096 };
 
 // THE ENTRY: one item in a list of models, in the shape The Crew's llama.cpp models have (an id, a name, what it takes, what
 // to say about it), with engine 'swarm' and its members in place of one file. Its memory is a first estimate (the two files

@@ -45,7 +45,10 @@ it is `draft, try, check, decide, write`.
 | `revise` | The drafting slots are shown the different answers, which was their own, where they part and what the checkers said, and answer again |
 | `decide` | The decision model picks the answer that stands. With `keep: n` it settles nothing: the likeliest n go on. With `sure: p` it settles the matter there only if it gives one answer a probability of p or more; otherwise nothing is settled or dropped and the flow goes on. It can stand anywhere, more than once: between the drafts and the checks, for one |
 | `repeat` | `{ steps, upTo }`: its steps again, while the answers still differ |
-| `write` | Its slots write the reply. With more than one, the decision model picks. Code goes out as settled |
+| `write` | Its slots write the reply. With more than one, the decision model picks. Code goes out as settled, and with `plan.writeAs: "settled"` any answer does |
+
+A slot with `examples: k` is shown, with its brief, the k worked examples of `briefs.examples` nearest the question (the larger model's
+own answers to train questions, gathered by the trainer).
 
 A conversation from `training/tasks-crew.mjs` is sent as a seat in The Crew is sent one: its system line reaches every slot
 as what the person set for the conversation, after the slot's own brief.

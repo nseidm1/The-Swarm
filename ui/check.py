@@ -146,6 +146,24 @@ with tempfile.TemporaryDirectory() as tmp:
     pol_d = dict(d, policy=dict(d["policy"], keep={"margin": 4}), policyLog=[{"pass": d["state"]["pass"] + 1, "set": "keep.margin", "from": 2, "to": 4, "why": "The same arrangement measured twice differed by 3 answers."}])
     pol_html = swarm_ui.plan_panel(pol_d)
     exp_html = swarm_ui.stages(dict(d, briefs=dict(d["briefs"], flow=[{"do": "draft"}, {"do": "try"}, {"do": "expect"}, {"do": "decide"}, {"do": "write"}])))
+    # what only a person can change, measured for them: another small model on the gap, and another decider on the recorded choices
+    wd = swarm_ui.work_of(root, d.get("key"))
+    wd.mkdir(parents=True, exist_ok=True)
+    n_pass = d["state"]["pass"] + 1
+    (wd / "members.json").write_text(json.dumps({"pass": n_pass, "gap": 19, "models": [{"id": "qwen", "name": "Qwen3.5 2B", "drafts": 7, "asked": 19}]}))
+    (wd / "decider-replay.json").write_text(json.dumps({"pass": n_pass, "results": [{"decider": "startlux-4b", "asked": 40, "kevRight": 31, "theirsRight": 34, "recovered": 5, "lost": 2}]}))
+    only_html = swarm_ui.plan_panel(d)
+    (wd / "members.json").write_text(json.dumps({"pass": n_pass, "gap": 19, "models": [], "why": "No other small model is on this machine to ask. Fetching one is your call (the pills)."}))
+    none_html = swarm_ui.plan_panel(d)
+    (wd / "members.json").write_text(json.dumps({"pass": n_pass - 1, "gap": 19, "models": []}))
+    (wd / "decider-replay.json").unlink()
+    old_html = swarm_ui.plan_panel(d)
+    (wd / "members.json").unlink()
+    check("the plan says what only a person can change, measured for them this pass: how many of the questions no slot drafted another small model on this machine answered, or that none is here to ask; and how another decider did on the same recorded choices, what it would have recovered and lost; a measurement of another pass is not shown; and each new step of a pass has its name in words",
+          "What only you can change" in only_html and "<b>Qwen3.5 2B</b> answered 7 of 19" in only_html and "<b>startlux-4b</b> chose the larger model&#39;s answer <b>34</b> times of 40, against 31: it would have recovered 5 and lost 2" in only_html
+          and "No other small model is on this machine to ask" in none_html and "What only you can change" not in old_html
+          and swarm_ui.step_label("07-write-briefs") == "New briefs from the larger model" and swarm_ui.step_label("08-members") == "Could another small model draft it?" and swarm_ui.step_label("08-deciders") == "Would another decider choose better?",
+          [only_html[only_html.find("What only"):only_html.find("What only") + 300] if "What only" in only_html else "", swarm_ui.step_label("07-write-briefs")])
     spec_rows = [dict(r, refToSpec=(i % 3 != 0)) for i, r in enumerate(H["swarm"])]
     check("the plan says how the swarm is being trained (the margin a change must win by, how many arrangements are tried) and what the pass's review of itself changed in that, with the reason; a flow that asks what each call should give is drawn with that step; and parity is also counted where the larger model follows the question",
           "How it is training" in pol_html and "wins <b>4</b> more answers" in pol_html and "keep.margin" in pol_html and "differed by 3 answers" in pol_html and d["policy"]["keep"]["margin"] == 2

@@ -200,6 +200,8 @@ its own changes to it in its record (`training/states/`: `policy`, and `policyLo
 | `keep.margin` | How many more answers a change must win than lose, question by question on the same train questions, to be kept |
 | `trials.arrangements`, `trials.wild`, `trials.depth` | How many arrangements a pass tries one change from here; how many that are several changes away at once; how many changes those are. Both are taken in a fixed order from what has not been tried: none is drawn by lot, and none is tried twice |
 | `trials.stopEarly` | A trial that can no longer win by the margin is stopped there |
+| `trials.screen` | How many train questions a candidate is first asked, most of them ones the swarm gets wrong. Only one that is no worse there is asked the rest (0: every question) |
+| `keep.confirm` | Before a change is kept, it and the swarm as it is are asked the train questions again with another draw; a change that does not win again was luck, and is not kept |
 | `moves.weight` | How much each kind of move (brief, plan, arrangement, flow) counts for when the plan ranks what to try |
 | `review.after`, `review.rules` | When a pass looks at itself, and what it then changes |
 
@@ -302,3 +304,20 @@ the abstracts and proposes candidates instead, on the Claude plan of the machine
 - A brief that makes its own slot look better and the reply worse is not better. `improve.mjs` grades the reply.
 - Briefs stay short. Small models do worse with long, structured instructions (arXiv 2603.16045, as an abstract).
 - A candidate never mentions a question. A brief that names one has learned the list.
+
+## What a pass can change, and what it measures for you (2026-11-16)
+
+The first long session showed the search could only re-wire selection: on 19 of 70 train questions no slot drafted the larger
+model's answer, so the best any choosing could reach was 72.8%. Eight things were added so that a pass can change what is drafted,
+and so that it gets through what is open faster:
+
+| | What it is | Where |
+|---|---|---|
+| The settled answer as it is | A move that passes the writer over (`plan.writeAs: "settled"`): the writer had changed the settled answer on 6 of 70 | `src/orchestrate.mjs`, `arrange.mjs` |
+| Briefs from the larger model | Each pass, the slots the plan finds failing get three new briefs written by the larger model itself, from their misses on train questions. No spend | `write-briefs.mjs`, `support/teach.mjs`; step `07-write-briefs` |
+| Worked examples | A drafter can be shown the 2 or 4 worked examples nearest the question: the larger model's own answers to train questions, never held ones | `support/examples.mjs`, `src/orchestrate.mjs` (`examples`) |
+| Room, and replacing | Six slots a model (`SWARM_SLOTS`), and a move that tells one drafter what another is told | `src/catalog.mjs`, `arrange.mjs` |
+| Another small model | The other small models on this machine are asked the questions no slot drafted; the page says how many each answered. Adding one stays yours | `members-probe.mjs`; step `08-members` |
+| Screening | A candidate is asked a few questions first and dropped there if it is worse (`trials.screen`) | `support/trial.mjs` |
+| Another decider | The recorded choices of a measurement are put to another decider whose weights are here; the page says what it would have recovered and lost | `decider-replay.mjs`; step `08-deciders` |
+| A second draw | A change is confirmed with another draw before it is kept (`keep.confirm`) | `support/trial.mjs` |

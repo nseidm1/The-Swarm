@@ -13,7 +13,9 @@
 //            two, and the flow goes on with those (so there can be more than one decision)
 //   repeat   { steps, upTo }: steps done again while the answers still differ
 //   write    one or more slots write the reply a person reads, from what was settled; with more than one, the decider picks.
-//            Code goes out as it was settled
+//            Code goes out as it was settled; and with plan.writeAs 'settled' so does any answer (no slot rewrites it)
+// A slot with examples: k is shown, with its brief, the k worked examples of briefs.examples nearest the question: questions like
+// it and the answers that were wanted (the larger model's own, to train questions). The trainer gathers them and tries them.
 // A step that works on a dispute (check, revise, decide, repeat) is passed over when every answer is the same one. With no flow
 // named, it is draft, try, check, decide, write.
 // What each slot is told is in briefs.json; this file is the order of things, and what happens when a slot fails (the others
@@ -39,6 +41,44 @@ const LETTERS = 'ABCDEFGHIJKLMNOP'; // an answer for each slot that drafts: four
 // the flow of an arrangement: the one it names, or the plain one
 export const DEFAULT_FLOW = [{ do: 'draft' }, { do: 'try' }, { do: 'check' }, { do: 'decide' }, { do: 'write' }];
 export const flowOf = (briefs) => (Array.isArray(briefs.flow) && briefs.flow.length ? briefs.flow : DEFAULT_FLOW);
+// WORKED EXAMPLES: the k nearest the question (by the words they share, code with code), shown as what a good answer looks like.
+// The slot still answers in its own way and with its own last line: they show the substance wanted, not a format.
+const wordsOf = (s) =>
+  new Set(
+    String(s || '')
+      .toLowerCase()
+      .match(/[a-z][a-z0-9_]{2,}/g) || [],
+  );
+export function examplesFor(slot, pool, question) {
+  const k = Math.max(0, Math.min(4, Number(slot && slot.examples) || 0));
+  if (!k || !Array.isArray(pool) || !pool.length) return '';
+  const q = wordsOf(question);
+  const code = asksForCode(question);
+  const near = pool
+    .filter((x) => x && x.ask && x.answer && x.ask !== question)
+    .map((x, i) => {
+      const w = wordsOf(x.ask);
+      let both = 0;
+      for (const t of w) if (q.has(t)) both++;
+      return { x, i, score: both / (w.size + q.size - both || 1) + (asksForCode(x.ask) === code ? 1 : 0) };
+    })
+    .sort((a, b) => b.score - a.score || a.i - b.i)
+    .slice(0, k);
+  return near.length
+    ? '\n\nWORKED EXAMPLES: questions like this one, and the answers that were wanted. They show the substance of a good answer; answer the question you are given in your own way, ending as you are told.\n' +
+        near
+          .map(
+            (n, j) =>
+              'EXAMPLE ' +
+              (j + 1) +
+              '\nQuestion:\n' +
+              n.x.ask.slice(0, 1500) +
+              '\nAnswer wanted:\n' +
+              n.x.answer.slice(0, 1800),
+          )
+          .join('\n\n')
+    : '';
+}
 const said = (m) =>
   typeof m.content === 'string'
     ? m.content
@@ -73,7 +113,11 @@ export async function answer(
   const NO_TOOLS = ' You have no tools: write your answer as plain text, and any code inside a fenced code block.';
   const sys = (slot) => ({
     role: 'system',
-    content: slot.brief + NO_TOOLS + (house ? '\n\nThe person set this for the conversation:\n' + house : ''),
+    content:
+      slot.brief +
+      NO_TOOLS +
+      examplesFor(slot, briefs.examples, question) +
+      (house ? '\n\nThe person set this for the conversation:\n' + house : ''),
   });
 
   const run = async (slot, msgs) => {
@@ -617,8 +661,13 @@ export async function answer(
   // CODE GOES OUT AS IT WAS SETTLED, and no slot is asked to write it out again: it could only change it, or (a model trained to
   // call tools) hand it over as a tool call. plan.writeCode: true asks the writer all the same.
   const asIs = decided && isCode(decided) && plan.writeCode !== true;
+  // AND WITH plan.writeAs 'settled' NO ANSWER IS REWRITTEN: the writer is passed over and the settled answer goes out with the work
+  // behind it (measured, 2026-11-16: the writer changed the settled answer on 6 of 70 questions, and it was then not the larger
+  // model's). Whether this is better is the trainer's to find, like any other setting.
+  const passOver = decided && !asIs && plan.writeAs === 'settled';
+  if (passOver) path += '+as-settled';
   if (asIs) reply = '```' + (/\bfunction\b|=>|\b(?:const|let)\s/.test(decided) ? 'js' : '') + '\n' + decided + '\n```';
-  else if (decided && writers.length) {
+  else if (decided && writers.length && !passOver) {
     const rows = await all(writers, (s) => [
       sys(s),
       ...kept.slice(0, -1),

@@ -15,6 +15,10 @@ The first version.
 - **What equivalence means.** The work of a seat on a team (The Crew): programming, and the conversation around it in Simple
   and Developer, judged on the act, the substance and the conventions. Chosen on the dashboard under the models, with Math,
   Logic and Reasoning as further choices. Each has a pencil that opens its questions, to which a person can add their own.
+- **More for training to try.** The settled answer handed over without a rewrite; briefs written by the larger model for failing
+  slots; worked examples shown to a drafter; six slots a model and a replace move; another small model probed on the questions
+  no slot drafts; candidates screened on a few questions; recorded choices replayed through another decider; a keep confirmed
+  with a second draw.
 - **Uninstall Helper.** A button beside the output spec lists what the Swarm has installed in `.work`, with sizes and what the
   configured swarm uses, and removes a piece after asking. Nothing outside `.work`, and never through a link.
 - **More deciders.** StartLux Decision 4B and 9B, run here through MLX, and three leaders that need an NVIDIA GPU, each with its

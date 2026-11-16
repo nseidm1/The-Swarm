@@ -382,7 +382,10 @@ the held questions and on the same questions put a second way; the verdict is wr
 | `training/research.mjs` | New papers from arXiv on what the last pass left open. A reading becomes a candidate, never a change |
 | `training/baseline.mjs` | One model by itself: the larger model, and each small model |
 | `training/measure.mjs` | The Swarm, and every slot on its own account |
-| `training/improve.mjs` | One slot's candidates |
+| `training/improve.mjs` | One slot's candidates: those a person wrote, and those the larger model wrote |
+| `training/write-briefs.mjs` | New briefs for the slots that are failing, written each pass by the larger model from their misses on train questions |
+| `training/members-probe.mjs` | Whether another small model on this machine drafts what no slot drafts |
+| `training/decider-replay.mjs` | Whether another decider would have chosen better, on a measurement's recorded choices |
 | `training/replay.mjs` | One measurement replayed under each way of choosing between the answers, with no model asked again |
 | `training/readers.mjs` | Checks the reader of answers in words on pairs anyone can judge, before its grades are believed |
 | `training/review.mjs` | The pass looks at itself: it measures its own run and applies the policy's rules, which change how this swarm is trained |

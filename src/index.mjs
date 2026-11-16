@@ -128,6 +128,13 @@ export async function createSwarm(opts = {}) {
     setBriefs(b) {
       briefs = b;
     },
+    // and asks with another draw (a change that wins with one draw and not another was luck): the seed the slots are asked with
+    setSeed(n) {
+      opts.seed = n;
+    },
+    get seed() {
+      return opts.seed;
+    },
     async answer(messages, o = {}) {
       last = await orchestrate(messages, {
         briefs: o.briefs || briefs,
