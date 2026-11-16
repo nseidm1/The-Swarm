@@ -1,7 +1,6 @@
 // pass.mjs - THE BEGINNING AND THE END OF A TRAINING PASS, which is where one pass hands on to the next.
 //   node training/pass.mjs begin     says what this pass will do, from what the last one left: the target, the new train
 //                                    questions, the kinds to ask more of, the slots in the order to work on them
-//   node training/pass.mjs order     the slots, worst first (session.sh reads this)
 //   node training/pass.mjs end       reads what was measured, says how near the swarm is to parity with its target, and writes
 //                                    down for the next pass: where it trails, which slots did worst, what to ask arXiv, and
 //                                    (when it is level) the next, larger target
@@ -141,9 +140,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const state = readState();
   const briefs = readBriefs();
   const targets = readTargets();
-  if (what === 'order') {
-    console.log((state.order.length ? state.order : orderOf(null, briefs.slots)).join(' '));
-  } else if (what === 'begin') {
+  if (what === 'begin') {
     const rung = targetOf(state);
     console.log('Pass ' + (state.pass + 1) + '. Target: ' + rung.name + '.');
     const last = state.history[state.history.length - 1];
@@ -207,14 +204,12 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       console.log('The swarm has not been measured on the held questions of this pass. Nothing was written.');
       process.exit(2);
     }
-    // what became of each idea: a brief that was measured and not kept is never measured again
-    const kept = new Set();
-    for (const l of fs.existsSync(path.join(RESULTS, 'briefs-history.jsonl'))
-      ? fs.readFileSync(path.join(RESULTS, 'briefs-history.jsonl'), 'utf8').split('\n').filter(Boolean)
-      : []) {
-      const r = JSON.parse(l);
-      if (r.kept && r.keptHash) kept.add(r.keptHash);
-    }
+    // what became of each idea: kept by the loop (training/loop.mjs), or tried on enough questions and dropped
+    const kept = new Set(
+      ((result('questions') || {}).moves || [])
+        .filter((m) => m.kept && String(m.id).startsWith('brief:'))
+        .map((m) => String(m.id).split(':')[2]),
+    );
     for (const i of state.ideas)
       if (i.status === 'open')
         i.status = kept.has(i.hash) ? 'kept' : (state.tried[i.slot] || []).includes(i.hash) ? 'dropped' : 'open';

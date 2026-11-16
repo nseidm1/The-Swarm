@@ -5,7 +5,7 @@
 //   training/research.md             a section for this pass: the new papers by question, to be read and marked
 // Only titles and abstracts are read, one request every three seconds, as arXiv asks. An abstract says what a paper claims, not
 // how well it holds: nothing here changes the swarm. A reading becomes an IDEA (a candidate brief for a slot, with the paper it
-// came from), and an idea changes the swarm only if improve.mjs keeps it.
+// came from), and an idea changes the swarm only if the loop (loop.mjs) keeps it.
 //   node training/research.mjs                              search, and write the section
 //   node training/research.mjs --teacher claude --spend-claude    also let a large model turn the abstracts into candidate briefs
 //   node training/research.mjs --idea 2402.05120 --slot a-critic --name "..." --brief "..."    a person's reading, entered
@@ -23,7 +23,7 @@ const state = readState();
 const briefs = readBriefs();
 const candFile = (slot) => path.join(REPO_ROOT, 'training', 'candidates', slot + '.json');
 
-// an idea is a candidate brief for a slot, with where it came from; it goes where improve.mjs finds candidates
+// an idea is a candidate brief for a slot, with where it came from; it goes where the loop (loop.mjs) finds candidates
 export function addIdea(state, { from, slot, name, brief, plan }) {
   if (!briefs.slots.find((s) => s.id === slot)) return 'no slot called ' + slot;
   if (!brief && !plan) return 'neither a brief nor a change to the plan';
@@ -123,6 +123,15 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         first(f.abstract).replace(/\|/g, '/') +
         ' | unread |\n';
   }
+  // (this machine's own notes, never committed: begun with what they are the first time)
+  if (found.length && !fs.existsSync(md))
+    fs.writeFileSync(
+      md,
+      '# Research\n\nWhat each training pass read on this machine, and what it made of it. Every entry was read as an abstract, through ' +
+        "arXiv's public API (training/research.mjs), unless it says the full text was read: a reason to try something, never a " +
+        'result. A reading that suggests a change becomes an idea, a candidate brief for one slot with the paper it came from; it ' +
+        'changes the swarm only if training (training/loop.mjs) keeps it. Mark each paper: idea, parked, set aside, or unread.\n',
+    );
   if (found.length) fs.appendFileSync(md, section);
   state.seen.push(...found.map((f) => f.id));
 

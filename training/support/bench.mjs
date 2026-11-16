@@ -330,7 +330,7 @@ let kevOnce = null;
 export async function run(
   list,
   answerOf,
-  { onRow = () => {}, ref = null, self = false, who = 'swarm', name = '', until = null } = {},
+  { onRow = () => {}, ref = null, self = false, who = 'swarm', name = '', until = null, at = null } = {},
 ) {
   // measured before, by these programs, on these questions: the rows as they were
   const before = name && who === 'swarm' ? measuredRows(name, list) : null;
@@ -362,8 +362,9 @@ export async function run(
     live({
       who,
       split: t.split,
-      n: rows.length + 1,
-      of: list.length,
+      // (at: where this question stands in a longer run that asks one at a time: training/loop.mjs)
+      n: at ? at.n : rows.length + 1,
+      of: at ? at.of : list.length,
       question: { id: t.id, kind: t.kind, ask: t.ask.slice(0, 400) },
       slots: who === 'swarm' ? {} : { [who]: { state: 'working', since: t0 } },
     });

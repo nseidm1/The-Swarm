@@ -51,7 +51,7 @@ def main(dest, config=None):
         shutil.copy(f, dest / "training" / "candidates" / f.name)
     # (training/state.json holds only what was read once a real pass has run: the rest is given here, as a pass begins with it)
     state = {"pass": 0, "target": "", "seeds": {"train": 1009, "held": 7919}, "focus": {}, "tried": {}, "order": [], "questions": [], "seen": [], "ideas": [], "history": [],
-             **json.loads((HERE / "training" / "state.json").read_text())}
+             **(json.loads((HERE / "training" / "state.json").read_text()) if (HERE / "training" / "state.json").exists() else {})}
     briefs = json.loads((HERE / "src" / "briefs.json").read_text())
     chosen = json.loads((dest / "src" / "config.json").read_text())
     target = chosen["target"]

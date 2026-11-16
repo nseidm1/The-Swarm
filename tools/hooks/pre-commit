@@ -18,14 +18,16 @@ else
   exit 0
 fi
 
-# WHAT MUST NEVER BE COMMITTED: a model file, what a run leaves in .work, a file kept beside another while it is written, and
+# WHAT MUST NEVER BE COMMITTED: a model file, what a run leaves in .work, what training records on this machine (only a finished
+# spec in specs/ goes upstream), a file kept beside another while it is written, and
 # anything over 5 MB (a repository is cloned whole, for ever). Refused by name, with what to do.
 refused=0
 git diff --cached --name-only --diff-filter=ACM -z | while IFS= read -r -d '' f; do
   [ -f "$f" ] || continue
   case "$f" in
-    .work/*|*.gguf|*.safetensors|*.part|*.tmp|*.bak|.env|.env.*)
-      echo "pre-commit: $f is not for the repository (a model file, a run's leavings, or a private setting)." >&2
+    .work/*|*.gguf|*.safetensors|*.part|*.tmp|*.bak|.env|.env.*|local/*|training/state.json|training/research.md|training/passes.md|training/states/*|training/results/*|src/learned/*|src/trained.json)
+      echo "pre-commit: $f is not for the repository (a model file, a run's leavings, training's own records, or a private setting)." >&2
+      echo "            Only finished specs go upstream: publish one from the dashboard to specs/." >&2
       echo "            Take it out of the commit: git restore --staged -- \"$f\"" >&2
       exit 1 ;;
   esac

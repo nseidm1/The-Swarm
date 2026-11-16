@@ -37,6 +37,11 @@ import { PROBE_BRIEF, EXPECT_BRIEF, expectedIn } from './behave.mjs';
 // an answer as it is shown to another slot or to the person: code in a block of its own, anything else as it is
 const fenced = (final) => (isCode(final) ? '\n```\n' + final + '\n```' : ' ' + final);
 
+// THE SLOT THAT DECIDES BESIDE THE DECIDER (plan.decideWith) is told this, where the plan gives it nothing of its own
+export const JUDGE_BRIEF =
+  'You are shown a question and different answers to it, each with its working. Decide which one is correct. Put each final ' +
+  'answer back into the question and check it; for code, think of the awkward inputs; look for the slip in the working. Do ' +
+  'not count how many answers agree. Be brief. End with one line and nothing after it: ANSWER: and the letter of the correct one.';
 const LETTERS = 'ABCDEFGHIJKLMNOP'; // an answer for each slot that drafts: four models' worth, and room over
 // the flow of an arrangement: the one it names, or the plain one
 export const DEFAULT_FLOW = [{ do: 'draft' }, { do: 'try' }, { do: 'check' }, { do: 'decide' }, { do: 'write' }];
@@ -129,11 +134,13 @@ export async function answer(
       row.out = String((r && r.text) || '');
       row.final = slot.stage === 'write' ? '' : finalOf(row.out, marker);
       // a reply that is a call to a tool is not what the writer was asked for; a checker may answer with a letter alone
-      if (slot.stage === 'probe' || slot.stage === 'expect') row.final = '';
+      if (slot.stage === 'probe' || slot.stage === 'expect' || slot.stage === 'judge') row.final = '';
       row.ok =
         slot.stage === 'write' || slot.stage === 'probe' || slot.stage === 'expect'
           ? row.out.trim().length > 0 && !isToolCall(row.out)
-          : !!row.final || (slot.stage === 'check' && !!letterOf(row.out, marker, LETTERS));
+          : slot.stage === 'judge'
+            ? !!letterOf(row.out, marker, LETTERS)
+            : !!row.final || (slot.stage === 'check' && !!letterOf(row.out, marker, LETTERS));
       if (r && r.tokens) row.tokens = r.tokens;
     } catch (e) {
       row.why = String((e && e.message) || e).slice(0, 200);
@@ -468,6 +475,39 @@ export async function answer(
       // is said); the answer most slots hold ('most': the decider is not asked); the decider only where it is sure
       // ('kev-if-confident'), or only where no answer has more than half the slots behind it ('kev-unless-majority')
       const by = step.keep || step.sure ? 'kev' : plan.decideBy || 'kev';
+      // A SMALL MODEL BESIDE THE DECIDER (plan.decideWith: { how, slot }): one slot is shown the different answers and names the
+      // one that is correct, and how its word counts is the plan's, and so is trained:
+      //   'if-close'   asked only where the decider's pick is narrow, below plan.decideMin (0.6), or where it decided nothing;
+      //                it chooses between the decider's two likeliest, and its word settles it
+      //   'together'   asked at the same time as the decider; its pick adds plan.decideWith.weight (0.35) to the decider's
+      //                probability for that answer, and the highest stands
+      //   'if-at-odds' asked only where the decider's pick is not the answer most slots hold; it chooses between the two, and its
+      //                word settles it
+      // Not for a decision that narrows ({ keep }) or settles early ({ sure }). Where the slot names nothing, the decider's word
+      // stands as it would have.
+      const withModel = !step.keep && !step.sure && by !== 'most' && plan.decideWith && plan.decideWith.how;
+      const judgeSlot = () => {
+        const base = byId[plan.decideWith.slot] || stage('check')[0] || briefs.slots[0];
+        return {
+          ...base,
+          id: 'decide-judge',
+          stage: 'judge',
+          brief: plan.decideWith.brief || JUDGE_BRIEF.replace('ANSWER:', marker),
+          maxTokens: plan.decideWith.maxTokens || base.maxTokens,
+        };
+      };
+      const judgeAmong = async (cands) => {
+        const j = judgeSlot();
+        const row = await run(j, [sys(j), ...kept.slice(0, -1), { role: 'user', content: shownTo(cands, true) }]);
+        const letter = row.ok ? letterOf(row.out, marker, LETTERS) : '';
+        const meant = letter && cands.find((d) => d.letter === letter);
+        if (!meant) return ((row.ok = false), null);
+        row.final = meant.final;
+        row.picked = letter;
+        return meant;
+      };
+      const together = withModel && plan.decideWith.how === 'together' && decide && table.length > 1;
+      const judged = together ? judgeAmong(table) : null;
       if (decide && table.length > 1 && by !== 'most') {
         onStart({ slot: 'kev-decide', member: 'kev', stage: 'decide' });
         const k = await decide({
@@ -494,6 +534,7 @@ export async function answer(
             : {}),
           probs: k.probs,
           yes: k.yes,
+          ...(k.ok && k.close ? { close: true } : {}),
         };
         trace.push(ruled);
         onStep(ruled);
@@ -529,6 +570,51 @@ export async function answer(
         return;
       }
       if (step.keep) return;
+      if (withModel && table.length > 1) {
+        const how = plan.decideWith.how;
+        const probs = (ruled && ruled.ok && ruled.probs) || {};
+        const top = Object.keys(probs).length ? Math.max(...Object.values(probs)) : ruled && ruled.ok ? 1 : 0;
+        const pickOf = (final) => table.find((d) => plain(d.final) === plain(final));
+        let word = null; // what the slot named, where it was asked
+        let said = '';
+        if (how === 'together' && judged) {
+          word = await judged;
+          if (word) {
+            // its pick adds a weight to the decider's probability for that answer; the highest stands
+            const w = plan.decideWith.weight ?? 0.35;
+            const score = (d) => (probs[d.letter] || 0) + (d.letter === word.letter ? w : 0);
+            const best = [...table].sort((x, y) => score(y) - score(x))[0];
+            said = 'With the model beside it (' + word.letter + ', +' + w + '): ' + best.letter + '.';
+            word = best;
+          }
+        } else if (how === 'if-close' && (!ruled || !ruled.ok || ruled.close || top < (plan.decideMin ?? 0.6))) {
+          // between the decider's two likeliest (all of them where it gave no probabilities)
+          const cands = Object.keys(probs).length
+            ? [...table].sort((x, y) => (probs[y.letter] || 0) - (probs[x.letter] || 0)).slice(0, 2)
+            : table;
+          word = await judgeAmong(cands);
+          if (word) said = 'Close (' + top.toFixed(2) + '): the model beside it chose ' + word.letter + '.';
+        } else if (how === 'if-at-odds' && ruled && ruled.ok && tally.length) {
+          const mine = pickOf(ruled.final);
+          const most = table.find((d) => keyOf(d) === tally[0].key);
+          if (mine && most && keyOf(mine) !== keyOf(most)) {
+            word = await judgeAmong([mine, most].sort((x, y) => x.letter.localeCompare(y.letter)));
+            if (word) said = 'At odds with most: the model beside it chose ' + word.letter + '.';
+          }
+        }
+        if (word) {
+          // the decider's row says what it did and what the slot beside it did (with no decider, the slot's own row says it)
+          if (ruled) {
+            ruled.out = ruled.out.replace(/ The answer most slots gave stands\.$/, '') + ' ' + said;
+            ruled.ok = true;
+            ruled.final = word.final;
+            ruled.withModel = how;
+          }
+          S.decided = word.final;
+          S.path = tally.length && keyOf(word) === tally[0].key ? 'decided' : 'decided-against-most';
+          return;
+        }
+      }
       if (ruled && ruled.ok && tally.length) {
         const top = ruled.probs ? Math.max(...Object.values(ruled.probs)) : 1;
         const voters = tally.reduce((n, v) => n + v.by.length, 0);

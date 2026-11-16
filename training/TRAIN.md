@@ -1,15 +1,35 @@
 # Training the Swarm
 
-What is trained, every pass:
+## Training goes question by question
+
+The larger model answers every train question first; its answer is the mark. Then each question is put to the Swarm and
+stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mjs)):
+
+1. The Swarm answers as it stands. At parity: on to the next question.
+2. Not at parity: where the answer was lost is read from the slots (no drafter had it; a slot had it and it was not chosen;
+   it was settled and the writer changed it). That orders what is tried on this question, one change at a time: another
+   brief for a slot that failed, the check and decide steps configured another way (what a checker sees, how the matter is
+   settled, a model beside the decider, the flow), the writer.
+3. A change that brings the question to parity is asked again on questions already at parity (the same kind first, then the
+   latest; 6, or `GUARD`). If none is lost it is **kept**: it is the arrangement for every question after, and an entry on
+   the ledger the spec is made from. If one is lost it is not kept, and the next change is tried.
+4. After 8 changes (`CAP`) with no parity, the question is written down as not reached, with where it was lost, and the loop
+   moves on. A change tried on 6 questions that brought none to parity is dropped, for this pass and those after.
+
+The small models are never shown the larger model's answer: only the grading is. A swarm built from the spec has no larger
+model beside it, so nothing is kept that needs one. And nothing is chosen on the held questions: a pass ends by measuring the
+Swarm on them, and that is the number reported.
+
+What is trained:
 
 | Part | How |
 |---|---|
-| The drafts, the checks, the write | What each slot is told (its brief): [`improve.mjs`](improve.mjs) |
-| The arrangement | Which model drafts and which checks, how many of each, what a checker sees, how freely a drafter samples, the plan: [`arrange.mjs`](arrange.mjs) |
+| The drafts, the checks, the write | What each slot is told (its brief): candidates in [`candidates/`](candidates), from the larger model ([`write-briefs.mjs`](write-briefs.mjs)), and from what other configurations kept |
+| The arrangement | Which model drafts and which checks, how many of each, what a checker sees, how freely a drafter samples, how the matter is settled, the flow: every arrangement one change away ([`arrange.mjs`](arrange.mjs)) |
 | The decision | Kev, a decision model, decides ([`../src/decider.mjs`](../src/decider.mjs)). It is to be fine-tuned on the questions the drafts disagreed on. Not built yet: today it decides as it was published |
 
 The two small models' weights are not changed: they stay as their makers published them. There are countless arrangements of
-them, and the one that reaches parity with the larger model is found by trying, pass after pass, never the same one twice.
+them, and the one that reaches parity with the larger model is found by trying, question after question.
 
 ## The aim: parity with a larger model, then a larger one
 
@@ -25,7 +45,7 @@ fundamentally equivalent to the larger model's: the same thing said, whatever th
 | | |
 |---|---|
 | The models to climb | The targets in [`../src/models.json`](../src/models.json), smallest first. Each says how it is served: a GGUF file by llama.cpp, or a program of its own |
-| The one being chased | `target` in [`state.json`](state.json). The first is **Nemotron 3.5 Lightning 30B**, served by TensorFold on the Mac the Swarm is first trained on |
+| The one being chased | `target` in this machine's `training/state.json`. The first is **Nemotron 3.5 Lightning 30B**, served by TensorFold on the Mac the Swarm is first trained on |
 | At parity | Every answer the Swarm gives to the held questions is equivalent to the larger model's answer. [`state.mjs`](state.mjs) `parity()`. Then the next, larger model becomes the target |
 | What it is equivalent on | Chosen on the dashboard, under the models, or `equivalence` in `src/config.json`: **The Crew** where nothing is chosen, and with it or in its place Math, Logic, Reasoning. Each is a list of kinds of question in [`equivalence.json`](equivalence.json); a pass asks the kinds of all that are chosen, and a choice takes effect when the next pass begins (a pass ends on the questions it began with, which its record names) |
 | Your own questions | The pencil at the top right of each box opens its questions: the kinds the trainer makes, and questions a person writes, saved to [`questions/<id>.json`](questions/README.md) (200 at most; for The Crew each says Simple or Developer). Every second one is held back. They are judged as a reply in a conversation, and a pass keeps the ones it began with (`own` in its record) |
@@ -97,21 +117,21 @@ names `right`, `wrong`, `unsure`, `noref`: they mean the four above, not correct
 
 ## Each pass makes the next one better
 
-A pass ends by writing down what the next one needs ([`state.json`](state.json), which is committed), and begins by reading
+A pass ends by writing down what the next one needs (`state.json`, kept on this machine and not committed), and begins by reading
 it. Running the session again is not the same pass again:
 
 | What a pass leaves | What the next pass does with it |
 |---|---|
 | The kinds of question the Swarm answered differently from the target on | Asks more of those kinds on the train questions |
-| Each slot's record: how often it had the larger model's answer, how often the decider threw that answer away, how often the writer changed it | Works on the slots worst first |
-| Every brief, and every arrangement, that was measured and not kept | Never measures it again |
-| The arrangement it kept, if it kept one | Tries the arrangements one step from that |
+| Each slot's record: how often it had the larger model's answer, how often the decider threw that answer away, how often the writer changed it | Plans from it: which changes speak to where answers were lost |
+| Every change tried on 6 questions that brought none to parity | Does not try it again |
+| The arrangement as the kept changes left it | Starts from it |
 | A search for each kind it answered differently on | Asks arXiv those, with the standing questions |
 | Every paper already seen | Reads only what is new |
 | Ideas from the reading, each with what became of it | Measures the ones still open |
 | Whether it reached parity | Names the next, larger target, and new held questions to meet it on |
 
-[`passes.md`](passes.md) is the same, for a person: what each pass measured and what it handed on.
+`passes.md` is the same, for a person (on this machine, not committed): what each pass measured and what it handed on.
 
 ## An agent's steps (2026-11-16)
 
@@ -128,8 +148,9 @@ Either way it is what is measured.
 
 ## The plan of a pass
 
-A pass does not work through a fixed list. Once it has measured the Swarm on its own train questions it writes a plan
-([`plan.mjs`](plan.mjs), to `.work/train/plan.json`), and the steps after follow it.
+The plan ([`plan.mjs`](plan.mjs), to `.work/train/<configuration>/plan.json`) says what can be tried and in what order, from
+the last measurement of the Swarm on train questions. The loop tries from it, on the question in hand, by where that
+question's answer was lost.
 
 | It finds | From | Moves that speak to it |
 |---|---|---|
@@ -144,14 +165,13 @@ A pass does not work through a fixed list. Once it has measured the Swarm on its
 | The decider not answering in time on 1 in 10 or more | the decider's timeouts | None here: the engine's wait grows with the decider (three times its slowest recent decision, up to 30 s) and asks a timed-out decision again |
 
 Every move open to the pass (each candidate in [`candidates/`](candidates), each idea the reading left, each arrangement one
-step from this one) is scored by the answers the findings it speaks to account for. Slots are worked in that order, and the
-arrangements tried are the ones with the most to win back, no two for the same reason of the same kind. What an earlier pass
-measured and did not keep is not chosen. A move the measurement does not point at can still be in the plan, marked as such,
+step from this one) is scored by the answers the findings it speaks to account for, and that is the order the loop takes
+them in within an area. What an earlier pass tried and dropped is not chosen. A move the measurement does not point at can still be in the plan, marked as such,
 when there is room: a pass tries what no pass has.
 
-The plan is written twice. First when the pass begins, from what the last pass left, so that there is one before anything
-is measured; then again from this pass's own measurement. `improve.mjs` and `arrange.mjs` mark each move as they measure
-it: being measured, then kept or not kept, with what it scored. The dashboard shows it as it stands.
+The plan is written when the pass begins, from what the last pass left, and again once the larger model has written new
+briefs. `loop.mjs` marks each move as it tries it: being tried, then kept or not kept, with how many questions it was tried
+on and how many it brought to parity. The dashboard shows it as it stands, under the questions in hand.
 
 The last three rows were added on 2026-11-16 from a measurement of 41 questions: a-steps stopped at its limit of 700
 tokens on 38 of 41 (its empty drafts were cut-off ones), one model's two drafters did the same 22 times of 25, and every one of
@@ -172,7 +192,7 @@ output spec reads the record out, and grows as a pass keeps things.
 **Across configurations** ([`support/across.mjs`](support/across.mjs)): every other configuration's record is read, never
 written. An arrangement, flow or plan change kept there, by name, is planned first here (its reason in the plan: kept in
 another configuration), and a brief kept there for a slot of the same name is a candidate for that slot (`plan.mjs`,
-`improve.mjs`). Kept here only on evidence here. Each small model measured alone against a larger model
+`loop.mjs`). Kept here only on evidence here. Each small model measured alone against a larger model
 (`results/<model>-alone-vs-<target>-held.json`) and each configuration's latest pass against it (`states/`) are shared the same
 way: the dashboard recommends a swap where a model alone beat the weakest member by 5 points or more, and a configuration
 further along against the same larger model.
@@ -190,7 +210,7 @@ Where each thing is kept, for a configuration `K` = `<a>+<b>[+<c>+<d>]+<decider>
 | The arrangement it runs, and the ledger of kept changes | `src/learned/K.json` |
 | Which pass it is, what it tried, its policy and how each pass ended | `training/states/K.json` |
 | The results of its measurements, and its histories of trials | `training/results/K/` |
-| The pass it is in: each step's status and output, its plan, its review, its reader's verdict | `.work/train/K/` |
+| The pass it is in: each step's status and output, its plan, the questions the loop has finished, its reader's verdict | `.work/train/K/` |
 | Every answer, each row marked with whose it is; answers as they are written; measurements already made | `.work/train/` (shared) |
 
 A session opens the pass where it was left (`support/steps.sh`: `open_pass`): the same pass if it had not finished, with the
@@ -199,7 +219,7 @@ steps that ended well passed over. Stopping, training another configuration and 
 ## The flow is trained too
 
 The order of steps is part of the arrangement (`flow` in `src/briefs.json`; [docs/architecture.md](../docs/architecture.md)).
-`arrange.mjs --list` shows every flow one change from the current one beside the changes to the slots: the answers sent back
+`arrange.mjs` (`flowMoves`) lists every flow one change from the current one beside the changes to the slots: the answers sent back
 to their drafters after a check, a loop of checking and revising, a decision that keeps the likeliest two before the one that
 settles, a step taken out, a loop made longer or undone, a second writer with the decider picking the reply. A flow that is
 kept is where the next pass starts, so over passes the flow can grow into shapes nobody wrote down. Each is kept by the one
@@ -222,33 +242,19 @@ Taken from how The Crew is trained, where each was learned the hard way.
 | Every question a second way | The held questions with their wording changed and what they ask unchanged (`tasks.mjs`: `reword`), each compared with the larger model's answer to the first wording |
 | A bar that is held tightens | A kind at parity on the held questions for `ratchet.passes` passes in a row is asked half as many again from the next pass, up to `ratchet.max` times |
 
-## The trainer trains by a policy, and changes it
+## The trainer trains by a policy
 
-How a swarm is trained is data: [`policy.json`](policy.json) is where every configuration starts, and each configuration keeps
-its own changes to it in its record (`training/states/`: `policy`, and `policyLog`).
+How a swarm is trained is data: [`policy.json`](policy.json) is where every configuration starts, and a configuration can
+carry its own values over it in its record (`training/states/`: `policy`), set by a person.
 
 | Setting | What it is |
 |---|---|
-| `keep.margin` | How many more answers a change must win than lose, question by question on the same train questions, to be kept |
-| `trials.arrangements`, `trials.wild`, `trials.depth` | How many arrangements a pass tries one change from here; how many that are several changes away at once; how many changes those are. Both are taken in a fixed order from what has not been tried: none is drawn by lot, and none is tried twice |
-| `trials.stopEarly` | A trial that can no longer win by the margin is stopped there |
-| `trials.screen` | How many train questions a candidate is first asked, most of them ones the swarm gets wrong. Only one that is no worse there is asked the rest (0: every question) |
-| `keep.confirm` | Before a change is kept, it and the swarm as it is are asked the train questions again with another draw; a change that does not win again was luck, and is not kept |
+| `loop.cap` | How many changes are tried on one question before it is written down as not reached (8) |
+| `loop.guard` | How many questions already at parity a change is asked again on before it is kept; it is kept only if none is lost (6) |
+| `loop.drop` | A change tried on this many questions that brought none to parity is not tried again (6) |
+| `plan.arrangements`, `plan.wild`, `plan.depth` | What the plan lists first: how many arrangements one change from here; how many that are several changes away at once; how many changes those are |
 | `moves.weight` | How much each kind of move (brief, plan, arrangement, flow) counts for when the plan ranks what to try |
-| `review.after`, `review.rules` | When a pass looks at itself, and what it then changes |
-
-[`review.mjs`](review.mjs) is the pass looking at itself. It measures: how many answers change when the same questions are
-asked again with another draw; the share of questions on which no slot had the larger model's answer, and the share on which
-one did and the reply did not; how many passes in a row kept nothing. Each rule in the policy says: when one of those passes a
-mark, change one setting, within bounds, and why. A rule is data, so a new one needs no program changed:
-
-```json
-{ "id": "noise-sets-the-margin", "when": { "metric": "noise.answers", "op": ">=", "value": 1 },
-  "then": { "set": "keep.margin", "to": "metric+1", "min": 2, "max": 6 },
-  "why": "The same arrangement measured twice differed by {metric} answers. A change must win by more than that to be kept." }
-```
-
-`node training/review.mjs --dry` says what it would change and changes nothing.
+| `ratchet.passes`, `ratchet.max` | When a bar that is held tightens |
 
 ## When something goes wrong
 
@@ -279,15 +285,15 @@ A resumed pass is the same pass only for the same models. Change a model and the
 | Script | What it does |
 |---|---|
 | [`pass.mjs`](pass.mjs) | `begin` says what this pass will do from what the last one left; `end` says how near the Swarm is to parity and writes what the next pass needs |
-| [`plan.mjs`](plan.mjs) | `make` reads where the answers were lost and writes the plan; `slots` prints the slots in its order; `show` prints it |
-| [`research.mjs`](research.mjs) | Asks arXiv the questions in the state, keeps what no pass has seen, and writes it to [`research.md`](research.md) to be read |
+| [`plan.mjs`](plan.mjs) | `make` reads where the answers were lost and writes the plan; `show` prints it |
+| [`loop.mjs`](loop.mjs) | Training itself: each train question in hand until it is at parity, changes tried on it one at a time, a change kept only if no question already at parity is lost |
+| [`research.mjs`](research.mjs) | Asks arXiv the questions in the state, keeps what no pass has seen, and writes it to `research.md` (on this machine, not committed) to be read |
 | [`baseline.mjs`](baseline.mjs) | One model by itself. The target (`--who target`) goes first: its answers are the mark. Each small model alone is then marked against them. A model that has answered these questions is not asked again |
 | [`measure.mjs`](measure.mjs) | The Swarm on the questions, and every slot on its own account |
-| [`improve.mjs`](improve.mjs) | One slot's candidates (other briefs, or changes to the plan). A candidate is kept only if it scores higher on `train` and not lower on `held` |
-| [`arrange.mjs`](arrange.mjs) | A few arrangements no pass has tried, each one step from the arrangement as it is. `--list` shows every step and which have been tried |
+| [`arrange.mjs`](arrange.mjs) | What can change: every arrangement one change from the one in hand, every flow one change away, and a few several changes away. It tries none; the loop does |
 | [`setup.mjs`](setup.mjs) | Fetches and makes ready the engine, the models and the decider the configured swarm needs, recovering by itself where it can |
 | [`kev.sh`](kev.sh) | Installs and runs the configured decider beside the Swarm, inside `.work` (Kev in `.work/kev`; StartLux in `.work/deciders`), by the recipe in its `src/models.json` entry (`serve.kind`). The session starts and stops it. A decider that needs an NVIDIA GPU is not started here: its entry carries its maker's instructions, and it is named with `SWARM_KEV` |
-| [`publish.mjs`](publish.mjs) | Writes what was measured on `held`, and how it stands against the target, to `src/trained.json`, which ships with the module |
+| [`publish.mjs`](publish.mjs) | Writes what was measured on `held`, and how it stands against the target, to `src/trained.json`, this machine's summary for a model card (not committed). A finished spec is published from the dashboard to `specs/` |
 | [`session.sh`](session.sh) | Pass after pass, one step at a time, each pass from the one before, until it is stopped. `PASSES=3` runs three and ends. A pass that stopped is resumed. Passes that are over in under a minute did no work: after five in a row it stops and says so |
 | [`support/recover.mjs`](support/recover.mjs) | The ways back, and the record of each one taken. `reap` stops what a dead session left running |
 
@@ -301,7 +307,7 @@ Two numbers from `measure.mjs` say where to work:
 Every pass asks arXiv what has been published on what the last pass left open. Only titles and abstracts are read, one
 request every three seconds, as arXiv asks. An abstract says what a paper claims, not how well it holds, so reading changes
 nothing by itself. A reading becomes an **idea**: a candidate for one slot, with the paper it came from. An idea changes the
-Swarm only if `improve.mjs` keeps it.
+Swarm only if the loop keeps it.
 
 ```bash
 node training/research.mjs
@@ -317,11 +323,11 @@ the abstracts and proposes candidates instead, on the Claude plan of the machine
 2. `node training/research.mjs`, then read the new section of `research.md` and mark each paper: idea, parked, set aside.
 3. `node training/baseline.mjs --who target --split held`, then `--split train` (its answers are the mark for everything
    after), and `--split held` for `--who a` and `--who b`.
-4. `node training/measure.mjs --split train`. Read the rows in `.work/train/swarm-runs.jsonl` before the counts: what did the
-   slot actually write where it failed? Write candidates for it in `training/candidates/<slot>.json` from what you read.
-5. `node training/plan.mjs make`, and read it. Then `node training/improve.mjs --slot <slot>` for each slot
-   `node training/plan.mjs slots` prints, then `node training/arrange.mjs`.
-6. `node training/measure.mjs --split train`, then `--split held`.
+4. `node training/plan.mjs make`, and read it.
+5. `node training/loop.mjs`. It prints each question, each change tried on it and each one kept. Read the rows in
+   `.work/train/swarm-runs.jsonl` for the questions it did not reach: what did the slot actually write where it failed? Write
+   candidates for it in `training/candidates/<slot>.json` from what you read; the next pass tries them.
+6. `node training/measure.mjs --split held`.
 7. `node training/pass.mjs end`, then `node training/publish.mjs`.
 
 ## Rules
@@ -333,7 +339,7 @@ the abstracts and proposes candidates instead, on the Claude plan of the machine
 - A count is not a finding until the replies behind it have been read.
 - The held questions choose nothing. If a change is made after looking at held results, the held seed is spent: change it in
   `state.json` and say so.
-- A brief that makes its own slot look better and the reply worse is not better. `improve.mjs` grades the reply.
+- A brief that makes its own slot look better and the reply worse is not better. The loop grades the reply.
 - Briefs stay short. Small models do worse with long, structured instructions (arXiv 2603.16045, as an abstract).
 - A candidate never mentions a question. A brief that names one has learned the list.
 
@@ -349,10 +355,8 @@ and so that it gets through what is open faster:
 | Briefs from the larger model | Each pass, the slots the plan finds failing get three new briefs written by the larger model itself, from their misses on train questions. No spend | `write-briefs.mjs`, `support/teach.mjs`; step `07-write-briefs` |
 | Worked examples | A drafter can be shown the 2 or 4 worked examples nearest the question: the larger model's own answers to train questions, never held ones | `support/examples.mjs`, `src/orchestrate.mjs` (`examples`) |
 | Room, and replacing | Six slots a model (`SWARM_SLOTS`), and a move that tells one drafter what another is told | `src/catalog.mjs`, `arrange.mjs` |
-| Another small model | The other small models on this machine are asked the questions no slot drafted; the page says how many each answered. Adding one stays yours | `members-probe.mjs`; step `08-members` |
-| Screening | A candidate is asked a few questions first and dropped there if it is worse (`trials.screen`) | `support/trial.mjs` |
-| Another decider | The recorded choices of a measurement are put to another decider whose weights are here; the page says what it would have recovered and lost | `decider-replay.mjs`; step `08-deciders` |
-| A second draw | A change is confirmed with another draw before it is kept (`keep.confirm`) | `support/trial.mjs` |
+| Another small model | The other small models on this machine are asked the questions no slot drafted; the page says how many each answered. Adding one stays yours | `members-probe.mjs`; step `12-members` |
+| Another decider | The recorded choices of a measurement are put to another decider whose weights are here; the page says what it would have recovered and lost | `decider-replay.mjs`; step `12-deciders` |
 
 ## Steering from outside (2026-11-16)
 

@@ -7,11 +7,11 @@
 //   2  CHOOSE     every move open to it is scored by how many of those answers it could win back: another brief for a slot
 //                 (training/candidates, and the ideas the reading left), a change to the plan, and every arrangement one step
 //                 from this one (arrange.mjs). A move an earlier pass measured and did not keep is not chosen again
-//   3  FOLLOW     the session runs the moves in the plan's order; improve.mjs and arrange.mjs mark each as it is measured
+//   3  FOLLOW     training goes question by question (loop.mjs) and tries from the plan, by where the question in hand was lost;
+//                 it marks each move as it is tried
 // It is written twice in a pass: first from what the last pass left (so that there is a plan before anything is measured), and
-// again once this pass has measured the swarm on its own questions. The page shows it as it stands.
+// again once the larger model has written new briefs. The page shows it as it stands.
 //   node training/plan.mjs make       write the plan           node training/plan.mjs show      print it
-//   node training/plan.mjs slots      the slots whose briefs are in the plan, in order (for session.sh)
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readSafe } from './support/recover.mjs';
@@ -285,7 +285,7 @@ export function makePlan({
       (c) => ((c.brief && c.brief !== s.brief) || c.plan) && !(tried[s.id] || []).includes(hashOf(c)),
     );
     if (!open.length) continue;
-    // (how much each kind of move counts for is the trainer's policy, which a pass's review of itself can change)
+    // (how much each kind of move counts for is the trainer's policy: training/policy.json)
     const scored = open.map((c) => {
       let x = briefAnswers(findings, s.id, s.stage, c);
       if (c.elsewhere) x = { a: x.a + 100, why: ['elsewhere:' + c.elsewhere, ...x.why] };
@@ -516,13 +516,13 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         replayed: mine ? replayOf() : null,
         // and a few that are several changes from here at once (how many and how deep: the policy)
         wild: wildMoves(briefs, {
-          n: policy.trials.wild || 0,
-          depth: policy.trials.depth || 2,
+          n: policy.plan.wild || 0,
+          depth: policy.plan.depth || 2,
           tried: (state.tried || {})._arrangement || [],
         }),
         hashOf: candHash,
         names: Object.fromEntries(Object.entries(MEMBERS).map(([k, m]) => [k, m.name])),
-        tries: Number(arg('tries', policy.trials.arrangements || 4)),
+        tries: Number(arg('tries', policy.plan.arrangements || 4)),
         weight: policy.moves.weight || {},
       }),
       config: CONFIG_ID,
@@ -551,13 +551,10 @@ if (import.meta.url === 'file://' + process.argv[1]) {
           (m.answers ? '   (could win back ' + m.answers + ')' : ''),
       );
     if (!plan.moves.length) console.log('  Nothing is left to try from here: write candidates, or read what is new.');
-  } else if (what === 'slots') {
-    const plan = readPlan();
-    console.log(plan ? [...new Set(plan.moves.filter((m) => m.slot).map((m) => m.slot))].join(' ') : '');
   } else if (what === 'show') {
     console.log(JSON.stringify(readPlan(), null, 2));
   } else {
-    console.log('plan.mjs make [--tries 4] | slots | show');
+    console.log('plan.mjs make [--tries 4] | show');
     process.exit(2);
   }
 }

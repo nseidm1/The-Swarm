@@ -30,7 +30,7 @@ answer is to be reached. That is the whole public surface, in three forms:
 | [`src/behave.mjs`](../src/behave.mjs) | Which drafts of a function do the same: the calls to try, the drafts run on them, the drafts grouped by what they returned |
 | [`src/sandbox.mjs`](../src/sandbox.mjs), [`src/sandbox-runner.mjs`](../src/sandbox-runner.mjs) | Running a function a model wrote where it can reach nothing. The only place anything a model wrote is run |
 | [`src/briefs.json`](../src/briefs.json) | What each slot is told, the plan and the flow, as every swarm starts |
-| [`src/learned.mjs`](../src/learned.mjs), `src/learned/` | What one configuration has learned against one larger model: the arrangement it now runs, and the ledger of every kept change with its evidence |
+| [`src/learned.mjs`](../src/learned.mjs), `src/learned/` (on the machine that trained, not committed) | What one configuration has learned against one larger model: the arrangement it now runs, and the ledger of every kept change with its evidence |
 | [`src/catalog.mjs`](../src/catalog.mjs) | The models that can be chosen and the ones that are: two to four small models (places `a` to `d`), the decider and the larger model, and the entry for a list of models |
 
 ## The flow
@@ -63,7 +63,7 @@ names the slots it uses; without it a step uses the slots of its own kind. A slo
 
 llama.cpp's server holds several conversations at once; each is a slot. Each member is started with four. As it ships, the
 plan has four roles on LFM2.5 and three on Bonsai 2, with one slot to spare: the arrangement is trained
-(`training/arrange.mjs`), and a spare slot is somewhere for it to put another drafter or checker.
+(`training/loop.mjs`, from the changes `training/arrange.mjs` lists), and a spare slot is somewhere for it to put another drafter or checker.
 
 A role keeps to one server slot. Its brief is the start of everything it is ever sent, so the server reads the brief once and
 keeps it: a role costs its brief the first time and only the question after that.
@@ -76,7 +76,7 @@ keeps it: a role costs its brief the first time and only the question after that
 | probe (where code is asked for) | a brief of its own and the conversation's last turns: it writes calls to try the drafts with, and is not asked for their results. Not one of the plan's slots: it shares a model's server slots |
 | run | no model: every draft is run on those calls in the sandbox (`src/behave.mjs`, `src/sandbox.mjs`), and drafts that return the same are one answer |
 | check | its brief, the earlier turns, then the question with the lettered drafts (the critic with their work, the other without). It may answer with the letter of the draft it finds correct, which counts as that draft's answer whole |
-| decide (Kev) | no brief: one `POST /v1/systemone` with the question, one worked answer for each different answer and what the checkers said as state; a choice among the answers and a yes/no for each as questions. No slot judges |
+| decide (Kev) | no brief: one `POST /v1/systemone` with the question, one worked answer for each different answer and what the checkers said as state; a choice among the answers and a yes/no for each as questions. No slot judges, unless the plan puts one beside the decider (`plan.decideWith`): a small model asked which answer is correct where the decider is close, together with it, or where it parts from most |
 | write | its brief, the earlier turns, the question, the answer settled on and the work behind it |
 
 Every slot but the writer ends with a line that starts with `ANSWER:`. That line is how answers are compared without a model

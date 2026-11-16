@@ -383,26 +383,15 @@ def load(root):
         cands = _json(root / "training" / "candidates" / (s["id"] + ".json"), [])
         if cands:
             candidates[s["id"]] = cands
-    # what the passes have changed so far: briefs kept, arrangements tried and kept
-    kept_briefs = {}
-    for r in _rows(results / "briefs-history.jsonl"):
-        if r.get("kept"):
-            kept_briefs[r.get("slot")] = kept_briefs.get(r.get("slot"), 0) + 1
-    arr = _rows(results / "arrangement-history.jsonl")
-    trained = {
-        "keptBriefs": kept_briefs,
-        "arrTried": len(tried.get("_arrangement", [])) + sum(1 for r in arr if r.get("kept")),
-        "arrKept": [r.get("name") for r in arr if r.get("kept")],
-    }
     return {
         "root": str(root),
         "key": key,
-        "trained": trained,
+        # training question by question (training/loop.mjs): this configuration's, against this larger model
+        "loop": (lambda q: q if q and q.get("target") == (target or {}).get("id") else None)(_json(results / "questions.json", None)),
         "sample": (root / ".sample").exists(),
         "briefs": briefs,
         # how this swarm is trained now: the settings every swarm starts with, and over them this configuration's own changes
         "policy": _merge(_json(root / "training" / "policy.json", {}), state.get("policy") or {}),
-        "policyLog": state.get("policyLog") or [],
         "learned": {"ledger": (learned or {}).get("ledger") or [], "passes": (learned or {}).get("passes") or [], "startedFrom": started_from.get("version")},
         "state": state,
         # asking: the kinds the pass under way asks, where this configuration's record says (a choice takes effect with the next pass)
@@ -602,7 +591,7 @@ def spec(d):
         # not measured. The arrangement above is the one these changes made.
         "learned": {
             "changesKept": len(d["learned"]["ledger"]),
-            "rule": "a change is kept only if the swarm then gives more answers equivalent to the larger model's on the questions it was chosen on, and no fewer on the held ones",
+            "rule": "training goes question by question: a change is kept only if it brings a train question to parity with the larger model's answer and none of the questions already at parity that are asked again with it is lost",
             "ledger": d["learned"]["ledger"],
             "passes": d["learned"]["passes"],
         },
@@ -631,3 +620,24 @@ def spec(d):
             "questions": {"kinds": sorted(set(r["kind"] for r in held)), "heldSeed": d["state"].get("seeds", {}).get("held")},
         },
     }
+
+
+# A FINISHED SPEC, AS IT IS PUBLISHED (specs/<configuration>.json): only one at parity on the held questions, and without what is
+# true only while it trains (the pass in hand). This is the one thing training leaves that goes upstream.
+def publishable(sp):
+    """'' when the spec can be published, else why not, in a sentence."""
+    t = sp.get("trainedAgainst") or {}
+    if t.get("state") == "at parity":
+        return ""
+    if t.get("progressPercent") is None:
+        return "Only a finished spec is published, and this one has not been measured on the held questions."
+    return "Only a finished spec is published: at parity on the held questions. This one is %s%% of the way." % t["progressPercent"]
+
+
+def published_text(sp):
+    out = {k: v for k, v in sp.items() if k != "inProgress"}
+    return json.dumps(out, indent=2, ensure_ascii=False) + "\n"
+
+
+def published_file(root, sp):
+    return Path(root) / "specs" / (str(sp["spec"]["configuration"]) + ".json")

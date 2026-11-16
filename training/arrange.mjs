@@ -1,11 +1,8 @@
 // arrange.mjs - THE ARRANGEMENT ITSELF IS TRAINED, NOT ONLY WHAT EACH SLOT IS TOLD. Which model drafts and which checks, how many
-// slots draft, whether a checker sees the work or only the answers, how freely a drafter samples: there are countless ways to lay
-// two small models out, and the one that reaches parity with the larger model is found by trying them. Every pass tries a few it has
-// never tried, and keeps one only by the same rule a brief is kept by:
-//   1  each new arrangement, and the arrangement as it is, on the TRAIN questions (the models are started once)
-//   2  the best of them against the arrangement as it is, on the HELD questions
-//   3  kept only if it scored higher on train AND did not score lower on held
-// An arrangement that was measured and not kept is never measured again (state.json), so pass after pass the search moves on.
+// slots draft, whether a checker sees the work or only the answers, how freely a drafter samples, how the check and decide steps
+// are configured: there are countless ways to lay small models out. This file says WHAT CAN CHANGE: every arrangement one change
+// from the one in hand (steps), every flow one change from this one (flowMoves), and a few several changes away (wildMoves).
+// It tries none of them. Training does, question by question (training/loop.mjs), and the plan orders them (training/plan.mjs).
 // What can change (each is one step from the arrangement as it is; a kept step is where the next pass starts from):
 //   move      a slot to the other model
 //   add       a drafter or a checker, on a model with a slot to spare (a copy of a role, sampled more freely)
@@ -16,29 +13,9 @@
 //             narrows before the one that settles, a second writer with the decider picking the reply, a step taken out
 //   plan      one worked answer for each different answer; the checks passed over when the drafts agree; drafts of code
 //             compared by what they do, or as text
-//   node training/arrange.mjs                 try a few (--tries 4)
-//   node training/arrange.mjs --list          every step from here, and which have been tried
-import fs from 'node:fs';
-import path from 'node:path';
-import {
-  arg,
-  has,
-  openSwarm,
-  needReference,
-  swarmName,
-  finished,
-  questions,
-  run,
-  count,
-  line,
-  RESULTS,
-} from './support/bench.mjs';
-import { readState, writeState, briefHash } from './state.mjs';
-import { mark, readPlan } from './support/plan-file.mjs';
-import { readBriefs, saveLearned, SERVING } from '../src/index.mjs';
+import { briefHash } from './state.mjs';
+import { SERVING } from '../src/index.mjs';
 import { flowOf } from '../src/orchestrate.mjs';
-import { runTrial } from './support/trial.mjs';
-import { readPolicy } from './policy.mjs';
 
 // an arrangement is known by its shape, not its words: who is where, at what stage, seeing what, how hot; and the plan
 export const shapeOf = (b) =>
@@ -237,6 +214,34 @@ export function steps(b, { cap = SERVING.slots, members = [...new Set(b.slots.ma
   for (const way of ['kev', 'most', 'kev-if-confident', 'kev-unless-majority'])
     if (((b.plan || {}).decideBy || 'kev') !== way)
       out.push({ name: 'plan: decide by ' + way, briefs: { ...b, plan: { ...b.plan, decideBy: way } } });
+  // A SMALL MODEL BESIDE THE DECIDER (src/orchestrate.mjs: plan.decideWith): asked where the decider is close, asked with it every
+  // time, or asked where the decider parts from most; on the model of a checker, or of another model of the swarm; or none again
+  const dw = (b.plan || {}).decideWith;
+  const HOW = {
+    'if-close': 'a model settles it where the decider is close',
+    together: 'a model decides with the decider',
+    'if-at-odds': 'a model settles it where the decider parts from most',
+  };
+  const withPlan = (decideWith) => ({
+    ...b,
+    plan: Object.fromEntries(Object.entries({ ...b.plan, decideWith }).filter(([, v]) => v !== undefined)),
+  });
+  for (const [how, label] of Object.entries(HOW))
+    if (!dw || dw.how !== how) out.push({ name: 'plan: ' + label, briefs: withPlan({ ...(dw || {}), how }) });
+  if (dw) {
+    out.push({ name: 'plan: the decider decides alone', briefs: withPlan(undefined) });
+    // the model beside it: each model of the swarm, by the slot it is asked as (a checker of that model where there is one)
+    const now = (b.slots.find((s) => s.id === dw.slot) || b.slots.find((s) => s.stage === 'check') || b.slots[0])
+      .member;
+    for (const m of members.filter((x) => x !== now)) {
+      const s = b.slots.find((x) => x.member === m && x.stage === 'check') || b.slots.find((x) => x.member === m);
+      if (s)
+        out.push({
+          name: 'plan: the model beside the decider is ' + m + ' (as ' + s.id + ')',
+          briefs: withPlan({ ...dw, slot: s.id }),
+        });
+    }
+  }
   // an arrangement must still be able to answer: two drafters at least, and no model asked for more slots than it has
   return out
     .filter(
@@ -383,7 +388,7 @@ export function flowMoves(b) {
 // SEVERAL CHANGES AT ONCE. One step at a time cannot reach an arrangement whose parts only help together (a loop is worth little
 // with checkers that say nothing; a narrowing decision is worth little before answers are run). So a pass also tries a few
 // arrangements that are `depth` changes from this one, taken in a fixed order from all there are. How many, and how deep,
-// is the trainer's policy (trials.wild, trials.depth), which its review of itself raises when nothing has been kept for a while.
+// is the trainer's policy (plan.wild, plan.depth: training/policy.json).
 export function wildMoves(b, { n = 1, depth = 2, tried = [] } = {}) {
   // IN A FIXED ORDER, AND ALL OF THEM IN THE END. Not drawn by lot: every arrangement `depth` changes from this one is in one
   // list (the changes in the order steps() gives them, the first change slowest to turn), and a pass takes the first `n` that
@@ -405,161 +410,4 @@ export function wildMoves(b, { n = 1, depth = 2, tried = [] } = {}) {
   };
   walk(b, [], depth);
   return out;
-}
-
-// which to try this pass: ones never tried, a different kind of step first so that a pass does not spend itself on one idea
-export function pickSteps(all, tried, n) {
-  const fresh = all.filter((c) => !tried.includes(c.hash));
-  const kind = (c) => c.name.split(' ')[0].replace(/:$/, '');
-  const out = [];
-  const seen = new Set();
-  for (const c of fresh) if (!seen.has(kind(c)) && out.length < n) (seen.add(kind(c)), out.push(c));
-  for (const c of fresh) if (!out.includes(c) && out.length < n) out.push(c);
-  return out;
-}
-
-if (import.meta.url === 'file://' + process.argv[1]) {
-  // with a pool of worked examples where it has none (support/examples.mjs): where no slot is shown them this changes nothing
-  const { withExamples } = await import('./support/examples.mjs');
-  const briefs = withExamples(readBriefs(), { each: Number(arg('each', 6)) });
-  const state = readState();
-  const tried = state.tried._arrangement || [];
-  const policy = readPolicy(state);
-  const all = [
-    ...steps(briefs),
-    ...wildMoves(briefs, { n: policy.trials.wild || 0, depth: policy.trials.depth || 2, tried }),
-  ];
-  if (has('list')) {
-    for (const c of all) console.log((tried.includes(c.hash) ? 'tried  ' : '       ') + c.name);
-    console.log(
-      '\n' +
-        all.length +
-        ' steps from the arrangement as it is; ' +
-        all.filter((c) => tried.includes(c.hash)).length +
-        ' tried.',
-    );
-    process.exit(0);
-  }
-  const each = Number(arg('each', 6));
-  // the plan chose which steps to try, from where the answers were lost (plan.mjs). A step is known by its name: if a brief was
-  // kept since the plan was written the same step is still the same step. With no plan, a few of different kinds.
-  const plan = readPlan();
-  const planned =
-    plan && plan.pass === state.pass + 1
-      ? plan.moves
-          .filter((m) => m.kind === 'arrangement')
-          .map((m) => all.find((c) => c.name === m.what && !tried.includes(c.hash)))
-          .filter(Boolean)
-      : [];
-  let cands = planned.length
-    ? planned
-    : pickSteps(all, tried, Number(arg('tries', readPolicy().trials.arrangements || 4)));
-  // WHAT A PERSON ASKED FOR (support/steer.mjs): a move pinned on the page is measured first, even one pinned after the plan was
-  // written; a move skipped is not measured
-  {
-    const { readSteer } = await import('./support/steer.mjs');
-    const { WORKC } = await import('./support/bench.mjs');
-    const steer = readSteer(WORKC);
-    const pinned = steer.pin
-      .map((id) => all.find((c) => 'arrange:' + c.hash === id && !tried.includes(c.hash)))
-      .filter(Boolean);
-    cands = [...pinned, ...cands.filter((c) => !pinned.includes(c))].filter(
-      (c) => !steer.skip.includes('arrange:' + c.hash),
-    );
-    if (pinned.length) console.log('Pinned on the page, measured first: ' + pinned.map((c) => c.name).join('; '));
-  }
-  const mine = (m) => m.kind === 'arrangement';
-  mark((m) => mine(m) && cands.some((c) => c.name === m.what), 'running');
-  if (!cands.length) {
-    console.log(
-      'Every step from this arrangement has been tried and not kept. It moves on when a brief changes, or a step is kept.',
-    );
-    process.exit(0);
-  }
-  // parity is measured against the larger model's answers: it must have answered both sets of questions already
-  const refs = {
-    train: needReference(questions('train', each), 'train'),
-    held: needReference(questions('held', each), 'held'),
-  };
-  const swarm = await openSwarm(briefs);
-  let verdict;
-  try {
-    verdict = await runTrial({
-      swarm,
-      base: briefs,
-      cands,
-      of: (split) => questions(split, each),
-      refs,
-      policy: readPolicy(),
-    });
-    if (verdict.kept) {
-      const best = verdict.winner;
-      saveLearned(
-        { ...best.briefs, version: (briefs.version || 1) + 1 },
-        {
-          pass: state.pass + 1,
-          kind: /^flow: /.test(best.name) ? 'flow' : /^plan: /.test(best.name) ? 'plan' : 'arrangement',
-          what: best.name.replace(/^flow: /, ''),
-          why: verdict.why,
-          train: { before: verdict.now, after: verdict.best.train, wins: best.pair.wins, losses: best.pair.losses },
-          held: { before: verdict.heldNow, after: verdict.heldBest },
-        },
-      );
-    }
-    delete verdict.winner;
-  } finally {
-    await swarm.stop();
-  }
-  console.log(
-    '\nThe arrangement: ' +
-      (verdict.kept ? 'KEPT "' + verdict.best.name + '"' : 'left as it is') +
-      ' (' +
-      verdict.why +
-      ')',
-  );
-  const c2 = (c) => c && { right: c.right, wrong: c.wrong };
-  delete verdict.cands;
-  fs.mkdirSync(RESULTS, { recursive: true });
-  fs.appendFileSync(
-    path.join(RESULTS, 'arrangement-history.jsonl'),
-    JSON.stringify({
-      at: new Date().toISOString(),
-      pass: state.pass + 1,
-      each,
-      tried: cands.map((c) => ({ name: c.name, train: c2(c.train) })),
-      kept: verdict.kept,
-      why: verdict.why,
-      name: verdict.best && verdict.best.name,
-      now: c2(verdict.now),
-      heldNow: c2(verdict.heldNow),
-      heldBest: c2(verdict.heldBest),
-    }) + '\n',
-  );
-  finished();
-  const fresh = readState();
-  const keptName = verdict.kept ? verdict.best.name : '';
-  for (const c of cands)
-    mark((m) => mine(m) && m.what === c.name, c.name === keptName ? 'kept' : c.train ? 'not kept' : 'planned', {
-      result: c.train
-        ? {
-            now: c2(verdict.now),
-            train: c2(c.train),
-            why:
-              verdict.best && verdict.best.name === c.name
-                ? verdict.why
-                : c.train.stopped
-                  ? 'stopped: it could no longer win by ' + verdict.margin
-                  : c.pair && c.pair.net >= verdict.margin
-                    ? 'won on train, but another arrangement won by more'
-                    : 'did not win ' + verdict.margin + ' more answers than it lost on train',
-          }
-        : undefined,
-    });
-  fresh.tried._arrangement = [
-    ...new Set([
-      ...(fresh.tried._arrangement || []),
-      ...cands.filter((c) => c.train && c.name !== keptName).map((c) => c.hash),
-    ]),
-  ];
-  writeState(fresh);
 }

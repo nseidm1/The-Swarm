@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "about": "What each slot is told. This file is what training changes: training/improve.mjs replaces one slot's brief when a candidate measures better on questions it was not chosen on. The plan (who drafts, who checks, who writes) is here too. No slot decides: that is Kev, a decision model (src/decider.mjs).",
+  "about": "What each slot is told. This file is where every swarm starts; what training keeps for a configuration (training/loop.mjs: a change that brings a question to parity and loses none already there) is written to src/learned/. The plan (who drafts, who checks, who writes) is here too. No slot decides: that is Kev, a decision model (src/decider.mjs).",
   "marker": "ANSWER:",
   "plan": {
     "agreeSkipsChecks": true,

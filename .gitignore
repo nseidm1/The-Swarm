@@ -1,6 +1,16 @@
 # What a run makes: model files, training rows, logs
 .work/
 
+# WHAT TRAINING LEAVES ON THIS MACHINE. Only finished specs go upstream (specs/); everything a session writes as it trains stays
+# here: the pass it is on, what it read on arXiv, what each configuration tried and kept, every measurement, the trained summary
+training/state.json
+training/research.md
+training/passes.md
+training/states/
+training/results/
+src/learned/
+src/trained.json
+
 # Python's own leavings
 __pycache__/
 *.pyc
@@ -10,9 +20,10 @@ __pycache__/
 *.bak
 *.part
 
-# Anything private to one machine
+# Anything private to one machine: its secrets, and how it serves the dashboard (local/tailscale.sh: its tailnet)
 .env
 .env.*
+local/
 
 # Dependencies (only the formatter)
 node_modules/

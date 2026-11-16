@@ -1254,143 +1254,33 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     p,
   );
 }
-// ---- 6i: THE TRAINER'S OWN SETTINGS AND RULES ARE DATA, and a pass that looks at itself changes them, each change with its reason
+// ---- 6i: THE TRAINER'S OWN SETTINGS ARE DATA: what every configuration starts with, and a configuration's own over them
 {
-  const { readPolicy, setPolicy, basePolicy } = await import('../training/policy.mjs');
-  const { metricsOf, changesFor, valueOf } = await import('../training/review.mjs');
-  const { readState, STATES_DIR, STATE_FILE } = await import('../training/state.mjs');
-  const { runTrial } = await import('../training/support/trial.mjs');
+  const { readPolicy, basePolicy } = await import('../training/policy.mjs');
   const base = basePolicy();
-  const noisy = metricsOf({
-    report: { compared: 56, right: 31, wrong: 25, unsure: 0, lost: 6 },
-    learned: { ledger: [] },
-    state: { pass: 2 },
-    noise: 3,
-  });
-  const ch = changesFor(base, noisy);
-  const steady = changesFor(
-    base,
-    metricsOf({
-      report: { compared: 56, right: 50, wrong: 6, lost: 1 },
-      learned: { ledger: [{ pass: 2 }] },
-      state: { pass: 2 },
-      noise: 0,
-    }),
-  );
-  const custom = changesFor(
-    {
-      ...base,
-      review: {
-        rules: [
-          {
-            id: 'mine',
-            when: { metric: 'swarm.equivalentShare', op: '<', value: 0.9 },
-            then: { set: 'trials.arrangements', to: 'current*2', max: 6 },
-            why: 'only {metric%}',
-          },
-        ],
-      },
-    },
-    noisy,
-  );
+  const { configText } = await import('../src/catalog.mjs');
   check(
-    'a pass that looks at itself measures its own run (how many answers change by themselves, whether answers are lost in drafting or in choosing, how long nothing has been kept) and the rules, which are data, say what to change in how it trains and why: within bounds, and a rule added to the data works without any program changing',
-    Math.abs(noisy['ceiling.noSlotHadItShare'] - 19 / 56) < 1e-9 &&
-      noisy['pass.keptNothingFor'] === 2 &&
-      ch.find((c) => c.set === 'keep.margin').to === 4 &&
-      /moved by 3 answers/.test(ch.find((c) => c.set === 'keep.margin').why) &&
-      ch.find((c) => c.set === 'moves.weight.flow').to === 1.5 &&
-      /34%/.test(ch.find((c) => c.set === 'moves.weight.flow').why) &&
-      ch.find((c) => c.set === 'trials.arrangements').to === 6 &&
-      steady.length === 1 &&
-      steady[0].set === 'keep.margin' &&
-      steady[0].to === 1 &&
-      custom.length === 1 &&
-      custom[0].to === 6 &&
-      custom[0].why === 'only 55%' &&
-      valueOf('metric+1', 0, 3) === 4 &&
-      valueOf('current*1.4', 500, 0) === 700 &&
-      valueOf('nonsense', 1, 1) === undefined,
-    { ch, steady },
+    "the configuration is written as the repository's formatter writes it (a short list on one line), so one chosen on the page and committed passes the format check",
+    configText({ a: 'x', equivalence: ['crew', 'math'] }) === '{\n  "a": "x",\n  "equivalence": ["crew", "math"]\n}\n',
+    configText({ a: 'x', equivalence: ['crew', 'math'] }),
   );
-  const e = setPolicy('keep.margin', 4, { why: 'three answers changed by themselves', rule: 'noise-sets-the-margin' });
-  const now = readPolicy();
-  const again = setPolicy('keep.margin', 4, { why: 'x' });
-  const st = readState();
+  const mine = readPolicy({ policy: { loop: { cap: 12 } } });
   check(
-    "a change to how a swarm is trained is made on that configuration's own record, with what it was, what it is, which rule and why; the settings every swarm starts from are untouched; and setting a thing to what it already is changes nothing",
-    base.keep.margin === 2 &&
-      now.keep.margin === 4 &&
-      now.trials.arrangements === base.trials.arrangements &&
-      e.from === 2 &&
-      e.to === 4 &&
-      again === null &&
-      st.policyLog.length === 1 &&
-      st.policyLog[0].rule === 'noise-sets-the-margin' &&
-      basePolicy().keep.margin === 2,
-    { e, log: st.policyLog },
-  );
-  fs.rmSync(STATES_DIR, { recursive: true, force: true });
-  fs.rmSync(STATE_FILE, { force: true });
-  fs.rmSync(STATE_FILE + '.bak', { force: true });
-  // the one rule for keeping a change: question by question, by the margin, stopped when it cannot win, the baseline measured once
-  const qs = tasks({ split: 'train', each: 6 })
-    .filter((t) => t.type === 'value')
-    .slice(0, 6);
-  const hs = tasks({ split: 'held', each: 6 })
-    .filter((t) => t.type === 'value')
-    .slice(0, 6);
-  const refs = {
-    train: new Map(qs.map((t) => [t.id, 'ANSWER: ' + t.want])),
-    held: new Map(hs.map((t) => [t.id, 'ANSWER: ' + t.want])),
-  };
-  let asked = 0;
-  // a stand-in swarm: an arrangement is right on the questions its name says (r = right on so many of the first)
-  const fakeSwarm = {
-    cur: null,
-    setBriefs(b) {
-      this.cur = b;
-    },
-    async answer(msgs) {
-      asked++;
-      const all = [...qs, ...hs];
-      const i = all.findIndex((t) => t.ask === msgs[0].content);
-      const t = all[i];
-      const n = i < qs.length ? i : i - qs.length;
-      return { reply: 'ANSWER: ' + (n < this.cur.r ? t.want : 'no'), trace: [], path: 'x' };
-    },
-  };
-  const B = (r, tag) => ({ slots: [{ id: 's', brief: tag }], r });
-  const trial = (margin, cands) =>
-    runTrial({
-      swarm: fakeSwarm,
-      base: B(3, 'base'),
-      cands,
-      of: (s) => (s === 'train' ? qs : hs),
-      refs,
-      policy: { keep: { margin }, trials: { stopEarly: true } },
-    });
-  const t1 = await trial(2, [
-    { name: 'one better', briefs: B(4, 'c1') },
-    { name: 'worse', briefs: B(0, 'c2') },
-  ]);
-  const askedAfterFirst = asked;
-  const t2 = await trial(2, [{ name: 'three better', briefs: B(6, 'c3') }]);
-  const t3 = await trial(1, [{ name: 'one better', briefs: B(4, 'c1') }]);
-  check(
-    'a change is kept only if it wins by the margin the policy sets, question by question; one that wins by less is not kept, and is kept when the margin is less; a trial that can no longer win is stopped partway; and the swarm as it is, once measured, is not measured again',
-    t1.kept === false &&
-      /no candidate won 2 more/.test(t1.why) &&
-      t1.cands[1].train.stopped === true &&
-      t1.cands[1].train.rows.length < 6 &&
-      t2.kept === true &&
-      t2.best.pair.wins === 3 &&
-      t2.best.pair.losses === 0 &&
-      /won 3 answers and lost 0/.test(t2.why) &&
-      t3.kept === true &&
-      asked <= askedAfterFirst + 30 &&
-      askedAfterFirst <= 6 + 6 + 6,
-    { t1: t1.why, stopped: t1.cands[1].train.rows.length, t2: t2.why, asked, askedAfterFirst },
+    "how the trainer trains is data: the loop's limits (changes tried on a question, questions asked again before a keep, when a change is dropped), what the plan lists first, and how much each kind of move counts for; a configuration's own setting stands over the one every configuration starts with, and leaves the rest as they are; nothing of the old way is left in it (no margin, no screen, no review rules)",
+    base.questions.each === 6 &&
+      base.loop.cap === 8 &&
+      base.loop.guard === 6 &&
+      base.loop.drop === 6 &&
+      base.plan.arrangements >= 1 &&
+      base.moves.weight.brief === 1 &&
+      base.ratchet.passes >= 1 &&
+      mine.loop.cap === 12 &&
+      mine.loop.guard === 6 &&
+      readPolicy({}).loop.cap === 8 &&
+      !('keep' in base) &&
+      !('review' in base) &&
+      !('trials' in base),
+    { base: Object.keys(base), mine: mine.loop },
   );
 }
 // ---- 6j: several changes at once, drawn by lot, and the same lot for the same pass
@@ -1810,8 +1700,6 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
 {
   const { parity: par, percentOf } = await import('../training/state.mjs');
   const { makePlan } = await import('../training/plan.mjs');
-  const { metricsOf, changesFor } = await import('../training/review.mjs');
-  const { basePolicy } = await import('../training/policy.mjs');
   const { steps } = await import('../training/arrange.mjs');
   const rows = (right, wrong) => [
     ...Array(right).fill({ grade: 'right', kind: 'fix' }),
@@ -1833,18 +1721,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     steps: steps(briefs),
     tries: 2,
   });
-  const flat = metricsOf({
-    report,
-    learned: { ledger: [], passes: [{ percent: 50 }, { percent: 62.5 }, { percent: 62.5 }, { percent: 60 }] },
-    state: { pass: 4 },
-  });
-  const rising = metricsOf({
-    report,
-    learned: { ledger: [], passes: [{ percent: 50 }, { percent: 62.5 }] },
-    state: { pass: 2 },
-  });
   check(
-    'how far the swarm is toward parity is a percentage of the answers that are equivalent, rounded down so that 100 is said only when every answer is; a pass states its gap (how much is on the table and not chosen, how much no slot had); and a percentage that has not risen for two passes widens the search',
+    'how far the swarm is toward parity is a percentage of the answers that are equivalent, rounded down so that 100 is said only when every answer is; a pass states its gap (how much is on the table and not chosen, how much no slot had)',
     par(rows(9, 3)).percent === 75 &&
       par(rows(1999, 1)).percent === 99.9 &&
       par(rows(3, 0)).percent === 100 &&
@@ -1855,13 +1733,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       plan.gap.reachableByChoosing === 66 &&
       plan.gap.toClose === 25 &&
       plan.gap.choosing === 6 &&
-      plan.gap.drafting === 19 &&
-      flat['progress.percent'] === 60 &&
-      flat['progress.passesWithoutGain'] === 2 &&
-      rising['progress.passesWithoutGain'] === 0 &&
-      changesFor(basePolicy(), flat).some((c) => c.rule === 'no-progress-widens-the-search') &&
-      !changesFor(basePolicy(), rising).some((c) => c.rule === 'no-progress-widens-the-search'),
-    { gap: plan.gap, flat },
+      plan.gap.drafting === 19,
+    { gap: plan.gap },
   );
 }
 // ---- 6o: what the first long session showed (2026-11-16): every change to the flow had been judged on nothing
@@ -1869,8 +1742,6 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const { briefKey } = await import('../training/support/recover.mjs');
   const { swarmName } = await import('../training/support/bench.mjs');
   const { shapeOf, steps } = await import('../training/arrange.mjs');
-  const { changesFor } = await import('../training/review.mjs');
-  const { basePolicy } = await import('../training/policy.mjs');
   const withFlow = {
     ...briefs,
     flow: [
@@ -1937,14 +1808,6 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { sure: sure.path, unsure: unsure.trace.map((t) => t.stage) },
   );
   // a rule changes how a pass trains once in that pass
-  const m = { 'ceiling.noSlotHadItShare': 0.35, 'pass.keptNothingFor': 0 };
-  const first = changesFor(basePolicy(), m);
-  const again = changesFor(basePolicy(), m, { done: first.map((c) => c.rule) });
-  check(
-    'a rule that adds a little to a setting does so once in a pass, however often the pass looks at itself',
-    first.some((c) => c.rule === 'drafts-are-the-limit') && !again.some((c) => c.rule === 'drafts-are-the-limit'),
-    { first: first.map((c) => c.rule), again: again.map((c) => c.rule) },
-  );
 }
 // ---- 6p: the work of a seat on a team: conversation, and what it means for two replies to be equivalent
 {
@@ -2259,7 +2122,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const cuda = kevSh('karpo-31b', 'serve', '8999');
   // one llama.cpp serves: named to the decider script with its file and flags; not served before its file is fetched and checked
   const llamaEnv = envOf('jeffan-4b');
-  const llamaServe = kevSh('jeffan-4b', 'serve', '8999');
+  // (only where its file is not here: where it is, serve would start it, and wait on it)
+  const llamaHere = fs.existsSync(path.join('.work', 'deciders', 'jeffan-4b', '.complete'));
+  const llamaServe = llamaHere ? { status: 1, stdout: '' } : kevSh('jeffan-4b', 'serve', '8999');
   const quoted = spawnSync(
     'bash',
     [
@@ -2325,8 +2190,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       /D_KIND='llama'/.test(llamaEnv) &&
       /D_FILE='Jeffan-4B-2010-Q4_K_M\.gguf'/.test(llamaEnv) &&
       /D_ARGS='-c 8192 -b 8192 -ub 8192 -np 1 --cache-ram 0'/.test(llamaEnv) &&
-      (fs.existsSync(path.join('.work', 'deciders', 'jeffan-4b', '.complete')) ||
-        (llamaServe.status === 1 && /is not installed here/.test(llamaServe.stdout))),
+      (llamaHere || (llamaServe.status === 1 && /is not installed here/.test(llamaServe.stdout))),
     { n: ds.length, cuda: cuda.stdout.slice(0, 120), llama: llamaServe.stdout.slice(0, 120) },
   );
 }
@@ -2560,86 +2424,6 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       res.recovered === 1 &&
       res.lost === 1,
     res,
-  );
-}
-// ---- 6s: a candidate is screened before it is asked everything, and a keep is confirmed with another draw
-{
-  const { runTrial, screenOf } = await import('../training/support/trial.mjs');
-  const trainQs = tasks({ split: 'train', each: 20, kinds: ['chain'] });
-  const heldQs = tasks({ split: 'held', each: 6, kinds: ['chain'] });
-  const refOf = (list) => {
-    const m = new Map(list.map((t) => [t.id, 'ANSWER: ' + t.want]));
-    m.toSpec = new Map();
-    return m;
-  };
-  const refs = { train: refOf(trainQs), held: refOf(heldQs) };
-  // how many of the train questions (in order) each arrangement gets right; with another draw "lucky" is no better than the swarm
-  const RIGHT = { base: 10, worse: 4, lucky: 16, solid: 16 };
-  let asks = 0;
-  const fake = {
-    seed: 1,
-    b: null,
-    setBriefs(b) {
-      this.b = b;
-    },
-    setSeed(n) {
-      this.seed = n;
-    },
-    async answer(messages) {
-      asks++;
-      const ask = messages[messages.length - 1].content;
-      const tag = this.b.plan.tag;
-      const n = tag === 'lucky' && this.seed !== 1 ? RIGHT.base : RIGHT[tag];
-      const i = trainQs.findIndex((t) => t.ask === ask);
-      const h = heldQs.find((t) => t.ask === ask);
-      const t = i >= 0 ? trainQs[i] : h;
-      const right = i >= 0 ? i < n : true;
-      return { reply: 'ANSWER: ' + (right ? t.want : Number(t.want) + 1), trace: [] };
-    },
-  };
-  const as = (tag) => ({ ...briefs, plan: { ...briefs.plan, tag } });
-  const of = (split) => (split === 'train' ? trainQs : heldQs);
-  const policy = { keep: { margin: 2, confirm: true }, trials: { screen: 6, stopEarly: true } };
-  asks = 0;
-  const v1 = await runTrial({
-    swarm: fake,
-    base: as('base'),
-    cands: [
-      { name: 'worse', briefs: as('worse') },
-      { name: 'lucky', briefs: as('lucky') },
-    ],
-    of,
-    refs,
-    policy,
-  });
-  const worse = v1.cands.find((c) => c.name === 'worse');
-  const v2 = await runTrial({
-    swarm: fake,
-    base: as('base'),
-    cands: [{ name: 'solid', briefs: as('solid') }],
-    of,
-    refs,
-    policy,
-  });
-  const scr = screenOf(
-    trainQs.map((t, i) => ({ id: t.id, grade: i < 10 ? 'right' : 'wrong' })),
-    6,
-  );
-  check(
-    'a candidate is first asked a few train questions, most of them ones the swarm gets wrong; one worse there is not asked the rest. Before a change is kept it is asked again with another draw: one that won by luck is not kept, one that wins again is',
-    scr.size === 6 &&
-      [...scr].filter((id) => trainQs.findIndex((t) => t.id === id) >= 10).length === 4 &&
-      worse.screenedOut === true &&
-      !worse.train &&
-      v1.screenedOut === 1 &&
-      v1.kept === false &&
-      /it was luck/.test(v1.why) &&
-      v1.again &&
-      v1.again.net <= 0 &&
-      v2.kept === true &&
-      /won again with another draw/.test(v2.why) &&
-      fake.seed === 1,
-    { v1: v1.why, v2: v2.why, worse: worse.screen, again: v1.again },
   );
 }
 // ---- 6t: a person steers the plan: areas leaned on or left out, moves pinned first or skipped; and the decider inside loops
@@ -3379,7 +3163,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
 }
 // ---- 7c: the arrangement itself is trained: every layout one step from this one, and none tried twice
 {
-  const { steps, pickSteps, shapeOf } = await import('../training/arrange.mjs');
+  const { steps, shapeOf } = await import('../training/arrange.mjs');
   const all = steps(briefs);
   const names = all.map((c) => c.name);
   const { SERVING } = await import('../src/catalog.mjs');
@@ -3408,25 +3192,6 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       }).every((c) => !/to a$/.test(c.name) || ok(c.briefs)) &&
       SERVING.slots === 6,
     names.filter((n) => /^move/.test(n)),
-  );
-  const first = pickSteps(all, [], 4);
-  const next = pickSteps(
-    all,
-    first.map((c) => c.hash),
-    4,
-  );
-  check(
-    'a pass tries a few of different kinds, and the next pass tries others: nothing is measured twice',
-    first.length === 4 &&
-      new Set(first.map((c) => c.name.split(' ')[0])).size === 4 &&
-      next.length === 4 &&
-      !next.some((c) => first.some((f) => f.hash === c.hash)) &&
-      pickSteps(
-        all,
-        all.map((c) => c.hash),
-        4,
-      ).length === 0,
-    [first.map((c) => c.name), next.map((c) => c.name)],
   );
   const added = all.find((c) => /^add a second a-critic on b$/.test(c.name));
   reset();
@@ -4188,6 +3953,228 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { withoutRest, withAll },
   );
 }
+// ---- 6u: a small model beside the decider in the decide step (plan.decideWith)
+{
+  const { answer: orchestrate } = await import('../src/orchestrate.mjs');
+  const { steps } = await import('../training/arrange.mjs');
+  // two drafters on a say 42, one on b says 41; a checker on b is the slot the model beside the decider is asked as
+  const base = {
+    marker: 'ANSWER:',
+    flow: [{ do: 'draft' }, { do: 'decide' }],
+    plan: { writeAs: 'settled' },
+    slots: [
+      { id: 'a1', member: 'a', stage: 'draft', brief: 'Answer.' },
+      { id: 'a2', member: 'a', stage: 'draft', brief: 'Answer another way.' },
+      { id: 'b1', member: 'b', stage: 'draft', brief: 'Answer.' },
+      { id: 'b-check', member: 'b', stage: 'check', brief: 'Check.' },
+    ],
+  };
+  const run = async ({ how, weight, kev, judge }) => {
+    const judged = [];
+    const got = await orchestrate(Q, {
+      briefs: {
+        ...base,
+        plan: { ...base.plan, ...(how ? { decideWith: { how, ...(weight ? { weight } : {}) } } : {}) },
+      },
+      ask: async (slot, msgs) => {
+        if (slot.stage === 'judge') {
+          const shown = msgs[msgs.length - 1].content;
+          judged.push({ member: slot.member, shown });
+          const block = shown
+            .split(/\n\n(?=Answer [A-Z]:)/)
+            .find((x) => judge !== null && new RegExp('Its final answer: ' + judge + '$').test(x.trim()));
+          const want = block ? block.match(/^Answer ([A-Z]):/)[1] : '';
+          return { text: want ? 'Put back, it holds.\nANSWER: ' + want : 'I cannot tell.' };
+        }
+        return { text: slot.member === 'a' ? 'six sevens\nANSWER: 42' : 'six sevens\nANSWER: 41' };
+      },
+      decide: async ({ answers }) => {
+        const L = (f) => answers.find((x) => x.final === f).letter;
+        const probs = Object.fromEntries(Object.entries(kev.probs).map(([f, p]) => [L(f), p]));
+        return { ok: true, letter: L(kev.pick), final: kev.pick, probs, close: !!kev.close };
+      },
+    });
+    return {
+      decided: got.decided,
+      judged,
+      row: got.trace.find((r) => r.slot === 'decide-judge'),
+      kevRow: got.trace.find((r) => r.slot === 'kev-decide'),
+    };
+  };
+  const closeCall = await run({
+    how: 'if-close',
+    kev: { pick: '41', probs: { 41: 0.55, 42: 0.45 }, close: true },
+    judge: '42',
+  });
+  const sureCall = await run({ how: 'if-close', kev: { pick: '41', probs: { 41: 0.9, 42: 0.1 } }, judge: '42' });
+  const silent = await run({
+    how: 'if-close',
+    kev: { pick: '41', probs: { 41: 0.55, 42: 0.45 }, close: true },
+    judge: null,
+  });
+  const withIt = await run({ how: 'together', kev: { pick: '41', probs: { 41: 0.6, 42: 0.4 } }, judge: '42' });
+  const light = await run({
+    how: 'together',
+    weight: 0.1,
+    kev: { pick: '41', probs: { 41: 0.6, 42: 0.4 } },
+    judge: '42',
+  });
+  const odds = await run({ how: 'if-at-odds', kev: { pick: '41', probs: { 41: 0.8, 42: 0.2 } }, judge: '42' });
+  const agrees = await run({ how: 'if-at-odds', kev: { pick: '42', probs: { 41: 0.2, 42: 0.8 } }, judge: '41' });
+  const alone = await run({ kev: { pick: '41', probs: { 41: 0.55, 42: 0.45 }, close: true }, judge: '42' });
+  const names = steps(base).map((c) => c.name);
+  const on = steps({ ...base, plan: { ...base.plan, decideWith: { how: 'together' } } }).map((c) => c.name);
+  check(
+    "a small model can stand beside the decider in the decide step: where the decider is close it chooses between the decider's two likeliest and settles it (not asked where the decider is sure; where it names nothing the decider's pick stands); asked with the decider, its pick adds its weight to the decider's probability; where the decider parts from most it chooses between the two; it is asked as the slot the plan names (a checker by default), and the search can add, change and take it away",
+    closeCall.decided === '42' &&
+      closeCall.row &&
+      closeCall.row.stage === 'judge' &&
+      closeCall.row.member === 'b' &&
+      closeCall.row.final === '42' &&
+      /the model beside it chose/.test(closeCall.kevRow.out) &&
+      closeCall.judged.length === 1 &&
+      (closeCall.judged[0].shown.match(/Answer [A-Z]:/g) || []).length === 2 &&
+      sureCall.decided === '41' &&
+      !sureCall.judged.length &&
+      silent.decided === '41' &&
+      silent.judged.length === 1 &&
+      withIt.decided === '42' &&
+      withIt.judged.length === 1 &&
+      light.decided === '41' &&
+      odds.decided === '42' &&
+      odds.judged.length === 1 &&
+      agrees.decided === '42' &&
+      !agrees.judged.length &&
+      alone.decided === '41' &&
+      !alone.judged.length &&
+      names.includes('plan: a model settles it where the decider is close') &&
+      names.includes('plan: a model decides with the decider') &&
+      names.includes('plan: a model settles it where the decider parts from most') &&
+      on.includes('plan: the decider decides alone') &&
+      on.includes('plan: the model beside the decider is a (as a1)') &&
+      !on.includes('plan: a model decides with the decider'),
+    {
+      closeCall: closeCall.decided,
+      sure: sureCall.decided,
+      silent: silent.decided,
+      withIt: withIt.decided,
+      light: light.decided,
+      odds: odds.decided,
+      agrees: agrees.decided,
+      on,
+    },
+  );
+}
+
+// ---- 6v: training question by question (training/loop.mjs): a question stays in hand until it is at parity
+{
+  const { runLoop, orderFor, lostAt, guardOf, tallyOf } = await import('../training/loop.mjs');
+  // a made-up swarm: what it answers right depends on which changes its arrangement carries (briefs.has)
+  const list = ['q1', 'q2', 'q3', 'q4', 'q5'].map((id, i) => ({ id, kind: i < 3 ? 'math' : 'fix' }));
+  const rightWith = {
+    q1: () => true, // at parity as it stands
+    q2: (has) => has.includes('better-draft') && !has.includes('breaks-q1'), // a change brings it there
+    q3: (has) => has.includes('breaks-q1') || has.includes('side-model'), // the first change that works loses q1
+    q4: () => false, // nothing brings it there
+    q5: () => null, // the larger model gave no answer
+  };
+  const POOL = [
+    { key: 'noop', name: 'noop', area: 'briefs', slot: 'a1', kind: 'brief', order: 0 },
+    { key: 'better-draft', name: 'better-draft', area: 'briefs', slot: 'a1', kind: 'brief', order: 1 },
+    { key: 'breaks-q1', name: 'breaks-q1', area: 'decider', kind: 'arrangement', order: 2 },
+    { key: 'side-model', name: 'side-model', area: 'decider', kind: 'arrangement', order: 3 },
+  ];
+  const poolOf = (b) =>
+    POOL.filter((m) => !b.has.includes(m.key)).map((m) => ({
+      ...m,
+      id: m.key,
+      briefs: { ...b, has: [...b.has, m.key] },
+    }));
+  const asked = [];
+  const kept = [];
+  const written = [];
+  const attempt = async (b, t, at) => {
+    asked.push({ id: t.id, has: b.has.join('+'), attempt: at.attempt, guard: at.guard || '' });
+    const ok = rightWith[t.id](b.has);
+    const lostIn = t.id === 'q3' ? { stage: 'draft', same: true } : { stage: 'draft', same: false };
+    return { id: t.id, grade: ok === null ? 'noref' : ok ? 'right' : 'wrong', trace: [lostIn] };
+  };
+  const opts = {
+    list,
+    poolOf,
+    attempt,
+    keep: async (b, e) => kept.push({ v: b.version, ...e }),
+    cap: 3,
+    guard: 6,
+    drop: 2,
+  };
+  const st = await runLoop({
+    ...opts,
+    briefs: { version: 1, has: [] },
+    onQuestion: (q, row, cur) => written.push(JSON.parse(JSON.stringify(cur))),
+  });
+  const q = Object.fromEntries(st.questions.map((x) => [x.id, x]));
+  const t = tallyOf(st);
+  // stopped after two questions, and carried on from what was written down: nothing finished is asked again
+  const keptFirst = kept.map((k) => k.what).join();
+  const before = asked.length;
+  const again = await runLoop({ ...opts, briefs: { version: 2, has: ['better-draft'] }, resume: written[1] });
+  const reAsked = asked.slice(before).filter((x) => !x.guard && (x.id === 'q1' || x.id === 'q2'));
+  check(
+    'training goes question by question: a question at parity as the swarm stands is passed; one that is not stays in hand while changes are tried on it one at a time, ordered by where its answer was lost, and the change that brings it to parity is asked again on the questions already there and kept only if none is lost; a change that reaches parity here and loses one is not kept, and the next is tried; after the cap the question is written down as not reached and the loop moves on; a question the larger model did not answer is not compared; a change that keeps failing is dropped; what is kept is the arrangement for every question after; and a loop that stopped carries on without asking a finished question again',
+    q.q1.state === 'at parity' &&
+      q.q1.attempts.length === 1 &&
+      q.q2.state === 'reached' &&
+      q.q2.lostAt === 'drafting' &&
+      q.q2.attempts.map((a) => a.move).join() === ',noop,better-draft' &&
+      q.q2.attempts[2].kept === true &&
+      q.q2.attempts[2].guard.asked === 1 &&
+      q.q3.state === 'reached' &&
+      q.q3.lostAt === 'choosing' &&
+      q.q3.attempts[1].move === 'breaks-q1' &&
+      q.q3.attempts[1].grade === 'right' &&
+      q.q3.attempts[1].lostOn === 'q2' &&
+      !q.q3.attempts[1].kept &&
+      q.q3.attempts[2].move === 'side-model' &&
+      q.q3.attempts[2].kept === true &&
+      q.q4.state === 'not reached' &&
+      q.q4.attempts.length <= 4 &&
+      q.q5.state === 'not compared' &&
+      keptFirst === 'better-draft,side-model' &&
+      kept[1].v === 3 &&
+      /brought q3 to parity/.test(kept[1].why) &&
+      st.briefs.has.join() === 'better-draft,side-model' &&
+      asked.filter((x) => x.id === 'q4' && !x.guard).every((x) => /better-draft/.test(x.has) || x.attempt === 0) &&
+      st.moves.noop.tried === 2 &&
+      !orderFor(poolOf({ has: [] }), { moves: st.moves, drop: 2 }).some((m) => m.key === 'noop') &&
+      orderFor(poolOf({ has: [] }), { lost: 'choosing' })[0].area === 'decider' &&
+      orderFor(poolOf({ has: [] }), { lost: 'drafting' })[0].area === 'briefs' &&
+      orderFor(poolOf({ has: [] }), { lost: 'drafting', pin: ['side-model'] })[0].key === 'side-model' &&
+      lostAt({
+        trace: [
+          { stage: 'draft', same: true },
+          { stage: 'write', same: false },
+        ],
+      }) === 'writing' &&
+      guardOf([{ t: { id: 'x', kind: 'fix' } }, { t: { id: 'y', kind: 'math' } }], { kind: 'math' }, 1)[0].t.id ===
+        'y' &&
+      t.atParity === 1 &&
+      t.reached === 2 &&
+      t.notReached === 1 &&
+      t.notCompared === 1 &&
+      t.kept === 2 &&
+      !reAsked.length &&
+      again.questions.length === 5,
+    {
+      states: st.questions.map((x) => x.id + ':' + x.state),
+      kept: kept.map((k) => k.what),
+      tally: t,
+      q3: q.q3.attempts,
+      reAsked,
+    },
+  );
+}
+
 await swarm.stop();
 lfm.close();
 bonsai.close();

@@ -1,5 +1,5 @@
 // teach.mjs - WHAT A TEACHER IS SHOWN WHEN IT WRITES BRIEFS FOR A SLOT, and how its answer is read. One prompt for every teacher:
-// the larger model the swarm is chasing (write-briefs.mjs: on this machine, at no cost) and Claude (improve.mjs --teacher claude,
+// the larger model the swarm is chasing (write-briefs.mjs: on this machine, at no cost) and Claude (a teacher named to the session,
 // on the owner's plan). Only TRAIN questions are shown: the held ones are never shown to anything that writes a brief.
 import fs from 'node:fs';
 import path from 'node:path';

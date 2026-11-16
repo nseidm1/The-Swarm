@@ -21,7 +21,8 @@ export const AREAS = [
   {
     id: 'decider',
     name: 'Decider placement',
-    about: 'Where the decision model stands, and how it settles: early if sure, narrowing to two, by vote',
+    about:
+      'Where the decision model stands, and how it settles: early if sure, narrowing to two, by vote, with a model beside it',
   },
   {
     id: 'loops',
@@ -36,7 +37,10 @@ export function areaOf(kind, name = '') {
   const n = String(name);
   if (/^several: /.test(n)) return 'several';
   if (/^flow: (a narrowing loop|ask the decider first|a tournament)/.test(n)) return 'loops';
-  if (/^flow: .*(keep the likeliest|settle it if the decider|decision)/.test(n) || /^plan: decide by /.test(n))
+  if (
+    /^flow: .*(keep the likeliest|settle it if the decider|decision)/.test(n) ||
+    /^plan: (decide by |a model (settles|decides)|the decider decides alone|the model beside the decider)/.test(n)
+  )
     return 'decider';
   if (/^flow: /.test(n)) return 'flow';
   return 'slots';

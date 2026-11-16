@@ -1,5 +1,5 @@
 // state.mjs - WHAT ONE TRAINING SESSION LEAVES FOR THE NEXT. A session that starts from nothing learns the same things again; this
-// file is how it does not. It is committed, and every trainer reads it (what was read, in training/state.json; the rest, for
+// file is how it does not. It stays on this machine (never committed: only finished specs go upstream), and every trainer reads it (what was read, in training/state.json; the rest, for
 // each configuration against each larger model, in training/states/):
 //   pass        how many sessions have ended
 //   target      the larger model the swarm is being brought to parity with (a rung of training/targets.json)

@@ -1,5 +1,7 @@
 #!/bin/bash
 # session.sh - ONE TRAINING PASS, one step at a time (two at once would share the machine and spoil each other's times).
+# A PASS IS ONE TIME THROUGH THE TRAIN QUESTIONS, ONE QUESTION AT A TIME (training/loop.mjs): the larger model's answers are the
+# mark, each question stays in hand until the swarm is at parity on it, and the pass ends by measuring on questions held back.
 # IT IS BUILT TO GET TO THE END. Hours on one machine with several models loaded will go wrong somewhere, so: what a dead session
 # left running is stopped first; a model server that stops is started again; a step that fails is run again and carries on from
 # the answers it had; a pass that stopped is resumed, not begun again; and a step that cannot be put right is written down and
@@ -13,8 +15,9 @@
 #   PASSES=3 bash training/session.sh          three, each starting from the one before, and then it ends
 #   TEACHER=claude bash training/session.sh    let a large model turn the reading and the failures into candidate briefs
 #                                              (spends on this machine's Claude plan; without it, candidates are written by hand)
-#   EACH=8 bash training/session.sh            questions of each kind (default 6: 72 held questions)
-#   TRIES=6 bash training/session.sh           arrangements tried each pass (default 4)
+#   EACH=8 bash training/session.sh            questions of each kind (default: the policy's, 6)
+#   CAP=12 bash training/session.sh            changes tried on one question before it is left as not reached (default 8)
+#   GUARD=10 bash training/session.sh          questions already at parity asked again before a change is kept (default 6)
 #   SWARM_KEV=http://127.0.0.1:8009 ...        a Kev already running somewhere, in place of the one this session loads itself
 # Before it: nothing. It fetches and makes ready what the configured swarm needs (training/setup.mjs): the engine, the models,
 # the decider. Which models those are is in src/config.json (the page's pills change it).
@@ -32,7 +35,8 @@ pick_node() {
 }
 NODE=$(pick_node) || { echo "No Node 20 or later was found (the one on the PATH is $(node -v 2>/dev/null || echo missing)). The trainers need it to run a model's code safely."; exit 1; }
 echo "$(date +%H:%M:%S) Node: $NODE ($("$NODE" -v))"
-EACH=${EACH:-6}
+# how many questions of each kind: the one named (EACH), else the trainer's policy (training/policy.json: questions.each)
+EACH=${EACH:-$("$NODE" -e "import('./training/policy.mjs').then(p=>console.log((p.readPolicy().questions||{}).each||6))" 2>/dev/null || echo 6)}
 # THE MODELS LIVE AS LONG AS THE SESSION. Nothing is loaded before it and nothing is left loaded after it. The two small models and
 # the larger one are started and stopped by each step that uses them; Kev, which every swarm step needs, is started here and
 # unloaded when the session ends, however it ends (finished, stopped from the page, or interrupted). A Kev that someone named
@@ -137,34 +141,21 @@ while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
   for K in $("$NODE" -e "import('./src/catalog.mjs').then(c=>console.log(Object.keys(c.MEMBERS).join(' ')))"); do
     run "03-$K-alone" training/baseline.mjs --who "$K" --split held --each "$EACH"
   done
-  # the swarm as it is, on this pass's train questions: where each slot is failing
-  run 05-swarm-train  training/measure.mjs --split train --each "$EACH"
-  # THE PLAN, AGAIN, now that this pass has measured the swarm on its own questions: where the answers were lost decides what is
-  # tried and in what order
-  # THE PASS LOOKS AT ITSELF: is the measurement steady, where are answers lost, has anything been kept lately? The policy's rules
-  # then change how this swarm is trained (the margin a change must win by, what the plan favours, how many arrangements are
-  # tried): data, on this configuration's record, each change with its reason. No program is changed
-  run 05-review       training/review.mjs --at 05-swarm-train --noise "${NOISE:-12}" --each "$EACH"
-  run 06-plan         training/plan.mjs make ${TRIES:+--tries "$TRIES"}
-  # NEW BRIEFS FOR THE SLOTS THAT ARE FAILING, written by the larger model itself from what they got wrong (write-briefs.mjs; no
-  # spend), and the plan made again with them in it
+  # NEW BRIEFS FOR THE SLOTS THAT FAILED LAST TIME, written by the larger model itself from what they got wrong (write-briefs.mjs; no
+  # spend): more for the loop to try. Then the plan, with them in it: the plan says WHAT can be tried and in what order
   run 07-write-briefs training/write-briefs.mjs
   run 07-plan         training/plan.mjs make ${TRIES:+--tries "$TRIES"}
+  # TRAINING, QUESTION BY QUESTION (training/loop.mjs). Each train question is put to the swarm and stays in hand until its reply
+  # is at parity with the larger model's: where it is not, changes are tried one at a time on that question (another brief, the
+  # check and decide steps configured another way, the writer), by where its answer was lost; a change that brings it to parity
+  # and loses no question already there is kept, and is the arrangement for every question after. CAP changes at most (8).
+  # This is the whole of training: there is no measuring everything, then trying, then measuring again.
+  run 10-questions    training/loop.mjs --each "$EACH" ${CAP:+--cap "$CAP"} ${GUARD:+--guard "$GUARD"}
   # what the swarm cannot try on its own, measured for a person to decide: whether another small model on this machine drafts what
   # no slot drafts (members-probe.mjs), and whether another decider whose weights are here would have chosen better (decider-replay.mjs)
-  run 08-members      training/members-probe.mjs --each "$EACH"
-  run 08-deciders     training/decider-replay.mjs --installed
-  # the slots the plan names, in its order (with a teacher, every slot: it writes candidates the plan could not have known)
-  for S in $([ -n "$TEACHER" ] && "$NODE" training/pass.mjs order || "$NODE" training/plan.mjs slots); do
-    if [ -n "$TEACHER" ]; then run "10-improve-$S" training/improve.mjs --slot "$S" --each "$EACH" --teacher "$TEACHER" --spend-claude
-    elif [ -f "training/candidates/$S.json" ] || [ -f ".work/train/$KEY/candidates/$S.json" ]; then run "10-improve-$S" training/improve.mjs --slot "$S" --each "$EACH"; fi
-  done
-  # then the arrangement itself: a few layouts no pass has tried (which model drafts and which checks, how many, what a checker
-  # sees, how freely a drafter samples), kept by the same rule a brief is
-  run 15-arrange      training/arrange.mjs --each "$EACH" ${TRIES:+--tries "$TRIES"}
-  run 16-review       training/review.mjs --at 15-arrange
-  # the swarm as it now is: train again (the order of slots for the next pass comes from this), then held (what is reported)
-  run 20-swarm-train  training/measure.mjs --split train --each "$EACH"
+  run 12-members      training/members-probe.mjs --each "$EACH"
+  run 12-deciders     training/decider-replay.mjs --installed
+  # the swarm as the loop left it, on questions it was never trained on: this is what is reported
   run 21-swarm-held   training/measure.mjs --split held --each "$EACH"
   # and every held question put a second way: equivalence that holds for one wording only is not fundamental
   run 21-swarm-reworded training/measure.mjs --split reworded --each "$EACH"

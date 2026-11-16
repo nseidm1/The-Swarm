@@ -105,7 +105,7 @@ with tempfile.TemporaryDirectory() as tmp:
     plan = get(base + "/fragment/plan")[1]
     arr_stopped = swarm_ui.arrangement(data.load(root))
     was_rs = swarm_ui.run_state
-    swarm_ui.run_state = lambda: {"pid": 1, "at": "2026-11-16 12:00:00", "passes": 0, "each": 6, "first": 1, "running": True}
+    swarm_ui.run_state = lambda: {"pid": 1, "at": "2026-11-16 12:00:00", "passes": 0, "first": 1, "running": True}
     plan_live = get(base + "/fragment/plan")[1]
     arr_live = swarm_ui.arrangement(data.load(root))
     swarm_ui.run_state = was_rs
@@ -129,6 +129,14 @@ with tempfile.TemporaryDirectory() as tmp:
     check("a decision placed between the drafts and the checks is drawn where it is, and says what it does there: it settles the matter only if it is sure",
           early.count('class="stage"') == 6 and "draft → decide (only if sure) → try → check → decide → write" in early and "Settles it here if it is sure; otherwise the flow goes on" in early
           and early.index("Settles it here") < early.index("Decides which answer stands"), early.count('class="stage"'))
+    # a small model beside the decider (plan.decideWith): said in the decide column that settles, not in one that settles early
+    first_check = next(x for x in d["briefs"]["slots"] if x["stage"] == "check")
+    beside = swarm_ui.stages(dict(d, briefs=dict(d["briefs"], flow=[{"do": "draft"}, {"do": "decide", "sure": 0.75}, {"do": "check"}, {"do": "decide"}, {"do": "write"}],
+                                                plan=dict(d["briefs"].get("plan") or {}, decideWith={"how": "if-close"}))))
+    alone_html = swarm_ui.stages(dict(d, briefs=dict(d["briefs"], plan={k: v for k, v in (d["briefs"].get("plan") or {}).items() if k != "decideWith"})))
+    check("where the plan puts a small model beside the decider, the decide column that settles says so: which model, asked as which slot (a checker by default), and when it is asked; a decision that settles early has none, and without one the column says nothing of it",
+          beside.count("Beside it:") == 1 and ("model %s, asked as %s" % (first_check["member"], first_check["id"])) in beside and swarm_ui.DECIDE_WITH["if-close"] in beside
+          and beside.index("Settles it here") < beside.index("Beside it:") and "Beside it:" not in alone_html, beside.count("Beside it:"))
     # THE MEASUREMENT AS IT IS MADE: the strip says the most that is known at each moment, and what kind of knowledge it is
     H, T = d["splits"]["held"], d["splits"]["train"]
     part = dict(d, splits=dict(d["splits"], held=dict(H, swarm=H["swarm"][:5], parity=data.parity(H["swarm"][:5]), expected=12)))
@@ -168,7 +176,7 @@ with tempfile.TemporaryDirectory() as tmp:
     check("the page reads this configuration's own record of its training over the folder's: its pass, what it tried, and what became of each idea here",
           own["state"]["pass"] == 7 and own["state"]["ideas"][0]["status"] == "dropped" and own["state"]["ideas"][1]["status"] == "open" and d["state"]["pass"] == 4, own["state"]["pass"])
     # how it is training is on the page, and so is what the pass changed in it and why
-    pol_d = dict(d, policy=dict(d["policy"], keep={"margin": 4}), policyLog=[{"pass": d["state"]["pass"] + 1, "set": "keep.margin", "from": 2, "to": 4, "why": "The same arrangement measured twice differed by 3 answers."}])
+    pol_d = dict(d, policy=dict(d["policy"], loop=dict(d["policy"]["loop"], cap=12)))
     pol_html = swarm_ui.plan_panel(pol_d)
     exp_html = swarm_ui.stages(dict(d, briefs=dict(d["briefs"], flow=[{"do": "draft"}, {"do": "try"}, {"do": "expect"}, {"do": "decide"}, {"do": "write"}])))
     # what only a person can change, measured for them: another small model on the gap, and another decider on the recorded choices
@@ -187,11 +195,11 @@ with tempfile.TemporaryDirectory() as tmp:
     check("the plan says what only a person can change, measured for them this pass: how many of the questions no slot drafted another small model on this machine answered, or that none is here to ask; and how another decider did on the same recorded choices, what it would have recovered and lost; a measurement of another pass is not shown; and each new step of a pass has its name in words",
           "What only you can change" in only_html and "<b>Qwen3.5 2B</b> answered 7 of 19" in only_html and "<b>startlux-4b</b> chose the larger model&#39;s answer <b>34</b> times of 40, against 31: it would have recovered 5 and lost 2" in only_html
           and "No other small model is on this machine to ask" in none_html and "What only you can change" not in old_html
-          and swarm_ui.step_label("07-write-briefs") == "New briefs from the larger model" and swarm_ui.step_label("08-members") == "Could another small model draft it?" and swarm_ui.step_label("08-deciders") == "Would another decider choose better?",
+          and swarm_ui.step_label("07-write-briefs") == "New briefs from the larger model" and swarm_ui.step_label("12-members") == "Could another small model draft it?" and swarm_ui.step_label("12-deciders") == "Would another decider choose better?",
           [only_html[only_html.find("What only"):only_html.find("What only") + 300] if "What only" in only_html else "", swarm_ui.step_label("07-write-briefs")])
     spec_rows = [dict(r, refToSpec=(i % 3 != 0)) for i, r in enumerate(H["swarm"])]
-    check("the plan says how the swarm is being trained (the margin a change must win by, how many arrangements are tried) and what the pass's review of itself changed in that, with the reason; a flow that asks what each call should give is drawn with that step; and parity is also counted where the larger model follows the question",
-          "How it is training" in pol_html and "wins <b>4</b> more answers" in pol_html and "keep.margin" in pol_html and "differed by 3 answers" in pol_html and d["policy"]["keep"]["margin"] == 2
+    check("the plan says how the swarm is being trained, from its policy: how many changes are tried on a question, how many questions already at parity a change is asked again on before it is kept, when a change is dropped, and what the plan lists first; a flow that asks what each call should give is drawn with that step; and parity is also counted where the larger model follows the question",
+          "How it is training" in pol_html and "or <b>12</b> changes have been tried on it" in pol_html and "asked again on <b>6</b> questions already there" in pol_html and "wins" not in pol_html and d["policy"]["loop"]["cap"] == 8
           and "Says what each call should give" in exp_html and exp_html.count('class="stage"') == 5
           and data.parity(spec_rows)["onSpec"]["compared"] == 8 and "follows the question" in swarm_ui.score_strip(dict(d, splits=dict(d["splits"], held=dict(H, swarm=spec_rows, parity=data.parity(spec_rows))))), pol_html[:200])
     spec_html = get(base + "/fragment/spec")[1]
@@ -396,8 +404,8 @@ with tempfile.TemporaryDirectory() as tmp:
           and "Choose any move" in dlg and 'id="steer-find"' in dlg and "Decider loops" in dlg and ">queued<" in dlg and 'data-steer="pin" data-id="arrange:aaa111"' in dlg
           and bad == [400, 400, 400, 400] and unp == 200 and json.loads((wdp / "steer.json").read_text())["pin"] == [], [f_ok, p_ok, k_ok, bad, sv])
     check("each subsection of the plan (the gap, what the measurement showed, how it is training, steer it, the moves...) folds under its heading, folded to begin with and saying in a line what it holds while folded, and kept open or folded on the device like the training card's",
-          all(('data-keep="plan-%s">' % k) in after_u for k in ("steer-it", "how-it-is-training", "moves-in-the-order-they-are-measured")) and after_u.count('<details class="psec"') == after_u.count("<h4>")
-          and " open>" not in after_u.split('class="psec"')[1][:80] and after_u.count('class="pmeta"') >= 3 and "a change must win by" in after_u and "Decider loops only · 1 skipped · nothing queued" in after_u and "2 moves · 0 measured · 0 kept" in after_u
+          all(('data-keep="plan-%s">' % k) in after_u for k in ("steer-it", "how-it-is-training", "moves-in-plan-order")) and after_u.count('<details class="psec"') == after_u.count("<h4>")
+          and " open>" not in after_u.split('class="psec"')[1][:80] and after_u.count('class="pmeta"') >= 3 and "up to 8 changes a question" in after_u and "Decider loops only · 1 skipped · nothing queued" in after_u and "2 moves · 0 tried · 0 kept" in after_u
           and after_u.rstrip().endswith("</div>") and swarm_ui.fold_sections('<div class="panel"><p>x</p></div>', "p") == '<div class="panel"><p>x</p></div>', after_u.count("<h4>"))
     (wdp / "steer.json").unlink()
     if had_plan is None:
@@ -612,7 +620,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and (s_ip["trainSoFar"] is None or "not parity" in s_ip["trainIs"]) and "This pass, under way" in dlg and "a brief tried" in dlg, [n_train, len(d1["splits"]["train"]["swarm"]), s_ip and s_ip["moves"]])
     # ON A PHONE, THE TRAINING COLUMN IS A TILE BESIDE THE TITLE, opening the column whole in a sheet (and nothing changes elsewhere)
     mt = get(base + "/fragment/mtile")[1]
-    check("on a phone the training column is a tile beside the title: what the session is doing (idle, stopped, or running with its clock and where it is) and the passes in a line; tapping it moves the column itself (Training, Passes, Ideas waiting to be measured) into a sheet and back when closed, so what redraws it still does; the column is not left below the footer there, and nothing changes at a wider screen",
+    check("on a phone the training column is a tile beside the title: what the session is doing (idle, stopped, or running with its clock and where it is) and the passes in a line; tapping it moves the column itself (Training, Passes, Ideas waiting to be tried) into a sheet and back when closed, so what redraws it still does; the column is not left below the footer there, and nothing changes at a wider screen",
           'id="mtile"' in tg0 and 'class="mtile"' in tg0 and "Training</span>" in mt and ("Idle" in mt or "Stopped" in mt or "data-since" in mt) and 'id="mtrain"' in tg0 and 'id="mtrain-body"' in tg0
           and ".mtile{display:none}" in tg0 and ".shell>.rail{display:none}" in tg0 and "$('#mtrain-body').append(r)" in tg0 and "document.querySelector('.shell').append(r)" in tg0
           and "swap('/fragment/mtile','#mtile')" in tg0 and tg0.index('id="mtile"') < tg0.index('id="chips"'), mt[:200])
@@ -637,7 +645,7 @@ with tempfile.TemporaryDirectory() as tmp:
         rd = __import__("subprocess").run([node_, "-e", "import(process.argv[1]).then(m=>{const s=m.readSpec(process.argv[2]);console.log(s.spec.recipeSha256===m.recipeSha256(s.recipe)?'same':'differs')}).catch(e=>console.log('refused: '+e.message))",
                                             (Path(swarm_ui.__file__).resolve().parent.parent / "src" / "spec.mjs").as_uri(), str(sp_file)], capture_output=True, text=True)
         check("the module reads the spec the page writes, and computes its hash the same way", rd.stdout.strip() == "same", rd.stdout + rd.stderr[:300])
-    check("an idea waiting to be measured opens the paper it came from", 'class="idea" href="https://arxiv.org/abs/' in html and 'target="_blank"' in html and "arXiv 26" in html)
+    check("an idea waiting to be tried opens the paper it came from", 'class="idea" href="https://arxiv.org/abs/' in html and 'target="_blank"' in html and "arXiv 26" in html)
     node = swarm_ui.node_for_training()
     if node:
         parsed = __import__("subprocess").run([node, "--check", "-"], input="async function page(){\n" + swarm_ui.JS + "\n}", capture_output=True, text=True)
@@ -672,6 +680,30 @@ with tempfile.TemporaryDirectory() as tmp:
         'echo "10:00:00 START 00-begin" > "$OUT/status.txt"; echo "10:00:01 END   00-begin exit 0 0 min" >> "$OUT/status.txt"\n'
         'echo "10:00:01 START 02-target" >> "$OUT/status.txt"; echo "asked $PASSES $EACH teacher=[$TEACHER]" > "$OUT/02-target.out"\nsleep 60\n')
     os.environ.update(NODE="bash", SWARM_LLAMA_SERVER="stand-in", TEACHER="claude")
+    # ONLY A FINISHED SPEC IS PUBLISHED (specs/): refused short of parity, written whole at parity, without the pass in hand
+    def pub(headers=None):
+        req = urllib.request.Request(base + "/spec/publish", data=b"{}", headers=headers if headers is not None else {"x-swarm": "1"})
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                return r.status, r.read().decode()
+        except urllib.error.HTTPError as x:
+            return x.code, x.read().decode()
+    pf = data.published_file(root, spec)
+    srv, base = serve(root)
+    short_code, short_said = pub()
+    short_none = not pf.exists()
+    foreign_code = pub({})[0]
+    was_pub = data.publishable
+    data.publishable = lambda sp_: ""
+    ok_code, ok_html = pub()
+    data.publishable = was_pub
+    written = json.loads(pf.read_text()) if pf.exists() else {}
+    check("only a finished spec is published to specs/: short of parity the button is greyed out saying why and a request is refused, writing nothing; at parity it writes specs/<configuration>.json whole, without the pass in hand, and the dialog then says where it is; a request not from the page is refused",
+          'id="spec-publish"' in sp and ("Only a finished spec is published" in sp) == (spec["trainedAgainst"]["state"] != "at parity")
+          and short_code == 409 and "Only a finished spec is published" in short_said and short_none and foreign_code == 403
+          and ok_code == 200 and pf.name == d["key"] + ".json" and written.get("spec", {}).get("recipeSha256") == spec["spec"]["recipeSha256"] and "inProgress" not in written
+          and "Published as <code>specs/%s</code>" % pf.name in ok_html, [short_code, short_said[:80], foreign_code, ok_code])
+    srv.shutdown()
     srv, base = serve(fake)
 
     def post(path, body=b"{}", headers=None):
@@ -685,17 +717,30 @@ with tempfile.TemporaryDirectory() as tmp:
     page0 = get(base + "/")[1]
     check("where training can be started the page has a Run training button that can be pressed, no count of passes to choose, and says it goes on until it is stopped",
           'id="run-go" type="button">Run training' in page0 and 'id="run-stop"' not in page0 and 'id="run-passes"' not in page0 and "Until stopped" in page0 and "until <b>Stop training</b> is pressed" in page0 and 'class="facts"' not in page0
-          and swarm_ui.step_label("10-improve-a-critic") == "Try other briefs for a-critic" and swarm_ui.step_label("06-plan") == "Plan what to try" and swarm_ui.step_label("99-new") == "new")
+          and swarm_ui.step_label("10-questions") == "Train, question by question" and swarm_ui.step_label("07-plan") == "Plan what to try" and swarm_ui.step_label("99-new") == "new")
+    lp_none = swarm_ui.loop_panel(dict(d, loop=None))
+    lp = swarm_ui.loop_panel(dict(d, loop={"pass": 3, "of": 84, "questions": 5, "atParity": 3, "reached": 1, "notReached": 1, "kept": 1, "cap": 8, "asked": 19, "list": [
+        {"id": "q-easy", "kind": "math", "state": "at parity", "attempts": [{"move": "", "grade": "right"}]},
+        {"id": "q-won", "kind": "fix", "state": "reached", "lostAt": "choosing", "attempts": [{"move": "", "grade": "wrong"}, {"move": "plan: decide by most", "grade": "wrong"},
+            {"move": "plan: a model decides with the decider", "grade": "right", "guard": {"asked": 2, "lost": 1}, "lostOn": "q-easy"},
+            {"move": "a-critic: check the edge cases", "grade": "right", "kept": True, "guard": {"asked": 3, "lost": 0}}]},
+        {"id": "q-stuck", "kind": "day", "state": "not reached", "lostAt": "drafting", "attempts": [{"move": "", "grade": "wrong"}, {"move": "b-direct: say the weekday last", "grade": "wrong"}]}]}))
+    check("the plan part of the page begins with training question by question: how many questions were at parity as the swarm stood, brought there by a change, or not reached; and each question that needed a change, with where it was lost and what was tried on it in order: what did nothing, what reached parity here but lost a question already there, and what was kept; before a pass has begun it says how it works",
+          "Not begun" in lp_none and "stays in hand" in lp_none
+          and "5 of 84 questions · 3 at parity as it stood · 1 brought to parity · 1 not reached · 1 kept" in lp and "asked 19 times" in lp and "q-easy</code> <span" not in lp
+          and lp.index("q-stuck") < lp.index("q-won") and "lost in choosing · 3 tried" in lp and "lost <code>q-easy</code>, already at parity" in lp and "3 already at parity asked again, none lost" in lp
+          and ">kept</span> a-critic: check the edge cases" in lp and "Not reached" in lp and "Brought to parity" in lp
+          and swarm_ui.plan_block(dict(d, loop=None)).index("Question by question") < swarm_ui.plan_block(dict(d, loop=None)).index("The plan for pass"), lp[:300])
     refused = post("/run/start", headers={"content-type": "text/plain"})[0]
     foreign = post("/run/start", headers={"x-swarm": "1", "origin": "https://elsewhere.example"})[0]
     check("a pass cannot be started by anything but this page: a request without the page's own header, or from another site, is refused", refused == 403 and foreign == 403 and not (fake / ".work" / "train" / "ui-run.json").exists(), [refused, foreign])
-    code, panel = post("/run/start", json.dumps({"each": 4}).encode())
+    code, panel = post("/run/start")
     time.sleep(1.0)
     panel = get(base + "/fragment/run")[1]
     st = json.loads((fake / ".work" / "train" / "ui-run.json").read_text())
-    check("pressed, it starts a session that goes on pass after pass until it is stopped (no number of passes is given it), and the page shows it running: each step as it starts and ends, and the last lines of the step it is on",
+    check("pressed, it starts a session that goes on until it is stopped (no number of passes is given it, and no number of questions: that is the trainer's policy), and the page shows it running: each step as it starts and ends, and the last lines of the step it is on",
           code == 200 and 'data-running="1"' in panel and "Stop training" in panel and 'data-since="' in panel and "<b>Running " in panel and "<small>since " in panel and swarm_ui._span(45) == "45 s" and swarm_ui._span(750) == "12 min 30 s" and swarm_ui._span(7500) == "2 h 5 min" and "timeZoneName" in html and 'title="00-begin"' in panel and "under a minute" in panel and ">0 min<" not in panel and ">Pass 3<" in panel and "asked" not in panel
-          and "Goes on until stopped" in panel and "Begin the pass" in panel and "Larger model: the held questions" in panel and 'title="02-target"' in panel and 'class="facts"' not in panel and "asked 0 4" in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text(), panel[:400])
+          and "Goes on until stopped" in panel and "Begin the pass" in panel and "Larger model: the held questions" in panel and 'title="02-target"' in panel and 'class="facts"' not in panel and 'id="run-each"' not in page0 and "asked 0 " in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text(), panel[:400])
     check("a teacher is never started from the button, whatever the page was started with", "teacher=[]" in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text())
     # what every slot is doing now: written by a trainer, shown only while a session runs and only while it is fresh
     (fake / ".work" / "train" / "live.json").write_text(json.dumps({"at": time.time() * 1000, "trainer": "measure", "who": "swarm", "split": "train", "n": 3, "of": 42,
@@ -728,13 +773,13 @@ with tempfile.TemporaryDirectory() as tmp:
     check("a step that failed and is being run again shows as one step with its try, a step done before a stop is shown as done earlier, and the ways back this session has taken are listed (and no other session's)",
           "try 2" in rp and "done earlier" in rp and rp.count('title="02-target"') == 1 and "Recovered<span>1 time this session" in rp and "started again, and asked again" in rp and "from another session" not in rp, rp[-600:])
     # the card reads a resumed pass as it is: one step running, the one the stop cut short to come again, the rest in order
-    stx = "\n".join(["07:00:00 START 00-begin", "07:00:01 END   00-begin exit 0 0 min", "07:00:01 START 15-arrange", "08:00:00 RESUMED this pass had stopped: carrying on",
-                      "08:00:00 SKIP  00-begin", "08:00:01 START 07-write-briefs", "08:00:30 END   07-write-briefs exit 0 0 min", "08:00:31 START 10-improve-a-steps"])
+    stx = "\n".join(["07:00:00 START 00-begin", "07:00:01 END   00-begin exit 0 0 min", "07:00:01 START 12-members", "08:00:00 RESUMED this pass had stopped: carrying on",
+                      "08:00:00 SKIP  00-begin", "08:00:01 START 07-write-briefs", "08:00:30 END   07-write-briefs exit 0 0 min", "08:00:31 START 10-questions"])
     psteps, porder = swarm_ui.pass_steps(stx)
     ahead = swarm_ui.steps_ahead(psteps, ["a", "b"], ["a-steps", "a-critic"])
     check("the training card reads a resumed pass as it is: the step running now is the only one running; a step the stop cut short is not running, it is to come and carries on; what is to come is in the order the session runs it; and the decider is named with what it is doing",
-          psteps["10-improve-a-steps"]["state"] == "now" and psteps["15-arrange"]["state"] == "stopped" and psteps["00-begin"]["state"] == "earlier" and psteps["07-write-briefs"]["state"] == "done"
-          and ahead.index("10-improve-a-critic") < ahead.index("15-arrange") < ahead.index("16-review") < ahead.index("22-end") and "00-begin" not in ahead and "07-write-briefs" not in ahead and "03-a-alone" in ahead
+          psteps["10-questions"]["state"] == "now" and psteps["12-members"]["state"] == "stopped" and psteps["00-begin"]["state"] == "earlier" and psteps["07-write-briefs"]["state"] == "done"
+          and ahead.index("12-members") < ahead.index("12-deciders") < ahead.index("21-swarm-held") < ahead.index("22-end") and "10-questions" not in ahead and "00-begin" not in ahead and "07-write-briefs" not in ahead and "03-a-alone" in ahead
           and swarm_ui.decider_state(False) in ("not running", "ready", "busy") and swarm_ui.decider_state(True) in ("starting", "ready", "busy"), [psteps, ahead[:6]])
     post("/run/start")
     check("pressed again while one runs, nothing more is started", json.loads((fake / ".work" / "train" / "ui-run.json").read_text())["pid"] == st["pid"])

@@ -53,6 +53,13 @@ export function readConfig() {
 // the places of a configuration that hold a small model, in order
 export const placesOf = (config) => PLACES.filter((k) => config[k]);
 // set one or more of a, b, decider, target; an id that is not in models.json is refused
+// the configuration as it is written to its file: as the repository's formatter would write it (a short list on one line), so a
+// configuration chosen on the page and committed passes the format check
+export const configText = (c) =>
+  JSON.stringify(c, null, 2).replace(/\[\n\s+("[^"\n]*"(?:,\n\s+"[^"\n]*")*)\n\s+\]/g, (all, inner) => {
+    const one = '[' + inner.split(/,\n\s+/).join(', ') + ']';
+    return one.length <= 80 ? one : all;
+  }) + '\n';
 export function writeConfig(patch) {
   const next = { ...readConfig() };
   for (const [k, list] of [
@@ -85,7 +92,7 @@ export function writeConfig(patch) {
     /* none */
   }
   // written whole or not at all
-  fs.writeFileSync(CONFIG_FILE + '.tmp', JSON.stringify({ ...(about ? { about } : {}), ...next }, null, 2) + '\n');
+  fs.writeFileSync(CONFIG_FILE + '.tmp', configText({ ...(about ? { about } : {}), ...next }));
   fs.renameSync(CONFIG_FILE + '.tmp', CONFIG_FILE);
   return next;
 }

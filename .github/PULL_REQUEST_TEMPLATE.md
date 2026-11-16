@@ -11,7 +11,7 @@
 - [ ] `npm test` passes
 - [ ] A check was added or changed that fails without this change
 - [ ] `npm run format:check` passes
-- [ ] For a change to `src/briefs.json`: it was kept by `training/improve.mjs`, and the row in `training/results/briefs-history.jsonl` is in this pull request
+- [ ] For a change to `src/briefs.json`: it was kept by `training/loop.mjs`, and its entry on the ledger (`src/learned/`) is in this pull request
 
 ## What was not checked
 

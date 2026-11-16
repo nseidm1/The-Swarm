@@ -124,6 +124,8 @@ table.spec{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px}t
 table.spec th{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--mist);white-space:nowrap}dialog h4{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--teal2);margin:20px 0 6px}
 .tail{margin:0;padding:12px;border-radius:14px;background:var(--soft);font:11.5px/1.5 ui-monospace,Menlo,monospace;color:var(--fog);white-space:pre-wrap;overflow-wrap:anywhere;overflow:auto}
 .idea{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:center;color:inherit;text-decoration:none;border-radius:12px;padding:4px;margin:-4px}
+.loopq li.lq{display:block;padding:6px 0;border-top:1px solid var(--line)}.loopq li.lq:first-child{border-top:0}.loopq summary{cursor:pointer;list-style:none;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.loopq summary .pill{margin-left:auto}
+.tries{margin:6px 0 2px 18px;padding:0;font-size:12.5px;color:var(--fog)}.tries li{margin:3px 0}.loopwrap{margin-bottom:14px}
 .ideas{display:grid;gap:4px}.ideas li{display:block}.ideas .idea{display:block;padding:8px 10px;margin:0 -10px}
 .ideas .idea b{display:block;font-size:13.5px;font-weight:700;line-height:1.35;white-space:normal;overflow:visible;text-transform:none;letter-spacing:0}
 .ideas .idea b::first-letter{text-transform:uppercase}
@@ -327,7 +329,6 @@ textarea{width:100%;min-height:80px;background:var(--soft);border:0;border-radiu
 .state.on{color:var(--teal)}.state.on i{background:var(--teal2);animation:p 1.2s infinite}.state.warn{color:#9a5b00}.state.warn i{background:var(--sun)}
 .panel.run{display:grid;gap:14px;padding:18px}.panel.run>*{margin:0}
 .run .meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--mist);font-weight:600}.run .meta b{color:var(--fog);font-weight:800}
-.run .meta label{display:inline-flex;align-items:center;gap:6px}.run .meta select{font:inherit;font-weight:800;color:var(--fog);background:var(--soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23365a52' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center/10px 6px;border:0;border-radius:8px;padding:4px 30px 4px 12px;cursor:pointer;-webkit-appearance:none;appearance:none}
 .run .sec{display:grid;gap:8px;padding-top:14px;border-top:1px solid var(--line2)}
 .run .nowline{margin:0;color:var(--teal);font-size:15px;overflow-wrap:anywhere}.run .nowline b{font-weight:800}
 .run details.done summary{cursor:pointer;color:var(--mist);font-size:12.5px;font-weight:700;list-style:none}.run details.done summary::before{content:'✓ ';color:var(--right)}
@@ -410,7 +411,7 @@ document.addEventListener('click',async(ev)=>{
     document.querySelectorAll('.q').forEach(x=>{x.hidden=f.dataset.filter!=='all'&&x.dataset.cmp!==f.dataset.filter;});return;}
   if(ev.target.id==='run-go'||ev.target.id==='run-stop'){const b=ev.target;b.disabled=true;
     if(b.id==='run-go')document.querySelectorAll('[data-pick]').forEach(x=>x.disabled=true);
-    const body=b.id==='run-go'?JSON.stringify({each:Number($('#run-each').value)}):'{}';
+    const body='{}';
     await swap(b.id==='run-go'?'/run/start':'/run/stop','#run',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body});await swap('/fragment/mtile','#mtile');watch();return;}
 });
 // A MODEL CHOSEN: written down, and everything that depends on it drawn again in place
@@ -489,6 +490,7 @@ document.addEventListener('click',async(ev)=>{
   if(ev.target.id==='spec-close'||ev.target.id==='spec'){$('#spec').close();return;}
   if(ev.target.closest('#score-open')){await swap('/fragment/scorefull','#big-body');$('#big').showModal();return;}
   if(ev.target.id==='big-close'||ev.target.id==='big'){$('#big').close();return;}
+  if(ev.target.id==='spec-publish'){const r=await fetch('/spec/publish',{method:'POST',headers:{'x-swarm':'1'}});if(r.ok){$('#spec-body').innerHTML=await r.text();}else{ev.target.title=await r.text();}return;}
   if(ev.target.id==='spec-save'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([$('#spec-json').textContent],{type:'application/json'}));a.download='swarm-spec.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);return;}
   if(ev.target.id==='spec-copy'){try{await navigator.clipboard.writeText($('#spec-json').textContent);ev.target.textContent='Copied';}catch(e){ev.target.textContent='Select it below';}}
 });
@@ -915,8 +917,46 @@ def steer_dialog(d):
             '<span class="muted small">queued</span>' if m["id"] in sv["pin"] else '<button type="button" class="btn top qadd" data-steer="pin" data-id="%s">Queue</button>' % e(m["id"])) for m in items)
         groups.append('<h4>%s <span class="muted small" style="font-weight:600;letter-spacing:0;text-transform:none">%d · %s</span></h4><ul class="movepick">%s</ul>' % (e(name), len(items), e(about), lis))
     return ('<div class="spec-head"><div><div class="kicker">Steer it</div><h3 style="font-size:22px;margin-top:4px">Choose any move</h3></div><button class="btn stop top" id="steer-close" type="button">Close</button></div>'
-            '<p class="muted small" style="margin:8px 0 10px">Every move open to this pass. A queued move is measured first when its step begins, and kept only on evidence.</p>'
+            '<p class="muted small" style="margin:8px 0 10px">Every move open to this pass. A queued move is tried first on each question that is not at parity, and kept only on evidence.</p>'
             '<input type="search" id="steer-find" placeholder="Find a move: decider, revise, a-critic, temperature..." aria-label="Find a move">%s' % "".join(groups))
+
+
+LOOP_STATE = {"at parity": ("At parity as it stood", "up"), "reached": ("Brought to parity", "up"), "not reached": ("Not reached", "down"), "not compared": ("Not compared", "planned")}
+
+
+def loop_panel(d):
+    """TRAINING, QUESTION BY QUESTION (training/loop.mjs): how many questions were at parity as the swarm stood, how many a change
+    brought there, how many were left; and each question that needed a change, with what was tried on it in order."""
+    lp = d.get("loop")
+    if not lp:
+        return ('<div class="panel plan"><div class="plan-head"><h3>Question by question</h3><span class="muted small">Not begun</span></div>'
+                '<p class="muted" style="margin:8px 0 0">Each train question is put to the swarm and stays in hand until its reply is at parity with the larger model&#39;s. '
+                "Where it is not, changes are tried on that question one at a time, by where its answer was lost: another brief, the check and decide steps configured another way, the writer. "
+                "A change that brings it to parity and loses no question already there is kept.</p></div>")
+    head = "%d of %d questions · %d at parity as it stood · %d brought to parity · %d not reached · %d kept" % (
+        lp.get("questions", 0), lp.get("of", 0), lp.get("atParity", 0), lp.get("reached", 0), lp.get("notReached", 0), lp.get("kept", 0))
+    rows = []
+    for q in [x for x in lp.get("list", []) if len(x.get("attempts", [])) > 1][::-1][:40]:
+        word, cls = LOOP_STATE.get(q.get("state"), (q.get("state", ""), "planned"))
+        tries = "".join(
+            '<li><span class="k %s">%s</span> %s%s</li>' % (
+                "up" if a.get("kept") else "", "kept" if a.get("kept") else "parity here" if a.get("grade") == "right" else "no",
+                e(a.get("move", "")),
+                (" · lost <code>%s</code>, already at parity" % e(a["lostOn"])) if a.get("lostOn") else
+                (" · %d already at parity asked again, none lost" % a["guard"]["asked"]) if a.get("kept") and (a.get("guard") or {}).get("asked") else "")
+            for a in q["attempts"][1:])
+        rows.append('<li class="lq"><details><summary><code>%s</code> <span class="muted small">%s · lost in %s · %d tried</span> <span class="pill %s">%s</span></summary><ol class="tries">%s</ol></details></li>'
+                    % (e(q["id"]), e(q.get("kind", "")), e(q.get("lostAt", "")), len(q["attempts"]) - 1, cls, e(word), tries))
+    return ('<div class="panel plan"><div class="plan-head"><h3>Question by question</h3><span class="muted small">pass %s · %s</span></div>'
+            '<p class="muted small" style="margin:4px 0 8px">A question stays in hand until it is at parity, or %s changes have been tried on it. The swarm has been asked %s times.</p>'
+            '<ul class="moves loopq">%s</ul></div>'
+            % (e(str(lp.get("pass", ""))), e(head), e(str(lp.get("cap", 8))), e(str(lp.get("asked", 0))),
+               "".join(rows) or '<li class="muted small">No question has needed a change yet.</li>'))
+
+
+def plan_block(d):
+    """What the plan part of the page holds: the questions in hand, then the plan they are tried from."""
+    return '<div class="loopwrap">%s</div>%s' % (loop_panel(d), plan_panel(d))
 
 
 def plan_panel(d):
@@ -926,15 +966,15 @@ def plan_panel(d):
     if not p:
         return (
             '<div class="panel plan"><div class="plan-head"><h3>The plan for pass %d</h3><span class="muted small">Not written yet</span></div>'
-            '<p class="muted" style="margin:8px 0 0">A pass writes its plan when it begins, from what the last pass left, and writes it again once it has measured the swarm on its own questions: '
-            "where the answers were lost decides which slots are told something else, which arrangements are tried, and in what order.</p></div>" % n
+            '<p class="muted" style="margin:8px 0 0">A pass writes its plan when it begins, from what the last pass left: '
+            "where the answers were lost decides what is listed first. Training then tries from it, question by question.</p></div>" % n
         )
     moves = p.get("moves") or []
     done = [m for m in moves if m.get("status") in ("kept", "not kept")]
     kept = [m for m in moves if m.get("status") == "kept"]
-    based = {"this-pass": "From this pass's measurement of the swarm on its train questions", "last-pass": "From what the last pass measured. It is written again when this pass has measured the swarm",
-             "nothing": "Nothing is measured yet, so the checkers come first and one arrangement of each kind. It is written again when this pass has measured the swarm"}.get(p.get("basedOn"), "")
-    out = ['<div class="panel plan"><div class="plan-head"><h3>The plan for pass %d</h3><span class="muted small">%d moves · %d measured · %d kept</span></div><p class="muted small" style="margin:4px 0 0">%s.</p>'
+    based = {"this-pass": "From this pass's measurement of the swarm on its train questions", "last-pass": "From what the last pass measured on its train questions",
+             "nothing": "Nothing is measured yet, so the checkers come first and one arrangement of each kind"}.get(p.get("basedOn"), "")
+    out = ['<div class="panel plan"><div class="plan-head"><h3>The plan for pass %d</h3><span class="muted small">%d moves · %d tried · %d kept</span></div><p class="muted small" style="margin:4px 0 0">%s.</p>'
            % (n, len(moves), len(done), len(kept), e(based))]
     g = p.get("gap")
     if g:
@@ -973,21 +1013,18 @@ def plan_panel(d):
             for r in rep.get("results") or []:
                 out.append('<p class="small" style="margin:0 0 6px">Put the same choices as the decider, <b>%s</b> chose the larger model&#39;s answer <b>%d</b> times of %d, against %d: it would have recovered %d and lost %d. Worth a real pass if it recovers more than it loses.</p>'
                            % (e(r["decider"]), r.get("theirsRight", 0), r.get("asked", 0), r.get("kevRight", 0), r.get("recovered", 0), r.get("lost", 0)))
-    # HOW IT IS TRAINING, which is itself changed by the pass: the margin in force, and what its review of itself changed and why
+    # HOW IT IS TRAINING: the loop's own limits, and what the plan lists first (training/policy.json, and this configuration's own)
     pol = d.get("policy") or {}
-    log = [x for x in d.get("policyLog") or [] if x.get("pass") == n]
-    out.append('<h4>How it is training</h4><p class="small" style="margin:0">A change is kept if, question by question, it wins <b>%s</b> more answers than it loses on train and does no worse on held. '
-               "This pass tries <b>%s</b> arrangements one change from here and <b>%s</b> that are %s changes from here at once.</p>"
-               % (e(str((pol.get("keep") or {}).get("margin", "?"))), e(str((pol.get("trials") or {}).get("arrangements", "?"))), e(str((pol.get("trials") or {}).get("wild", 0))), e(str((pol.get("trials") or {}).get("depth", 2)))))
-    if log:
-        out.append('<ul class="finds" style="margin-top:8px">%s</ul>' % "".join(
-            '<li><span class="n" style="background:#fdf0cf;color:#8a5a00">changed</span><span><code>%s</code>: %s → <b>%s</b>. %s</span></li>'
-            % (e(x.get("set", "")), e(json.dumps(x.get("from"))), e(json.dumps(x.get("to"))), e(x.get("why", ""))) for x in log))
+    lpol, ppol = pol.get("loop") or {}, pol.get("plan") or {}
+    out.append('<h4>How it is training</h4><p class="small" style="margin:0">A question stays in hand until it is at parity, or <b>%s</b> changes have been tried on it. '
+               "A change that brings it to parity is asked again on <b>%s</b> questions already there, and is kept only if none is lost. "
+               "A change tried on <b>%s</b> questions that brought none to parity is dropped. The plan lists <b>%s</b> arrangements one change from here first, and <b>%s</b> that are %s changes from here at once.</p>"
+               % (e(str(lpol.get("cap", 8))), e(str(lpol.get("guard", 6))), e(str(lpol.get("drop", 6))), e(str(ppol.get("arrangements", "?"))), e(str(ppol.get("wild", 0))), e(str(ppol.get("depth", 2)))))
     out.append(steer_section(d, p))
     sv = read_steer(d)
-    out.append('<h4>Moves, in the order they are measured</h4>')
+    out.append('<h4>Moves, in plan order</h4>')
     if not moves:
-        out.append('<p class="muted small" style="margin:0">Nothing is left to try from here: every candidate and every arrangement one step away has been measured and not kept.</p>')
+        out.append('<p class="muted small" style="margin:0">Nothing is left to try from here: every candidate and every arrangement one step away has been tried and dropped.</p>')
     rows = []
     live = session_live()
     for x in moves:
@@ -1003,13 +1040,15 @@ def plan_panel(d):
         if r and r.get("train") and r.get("now"):
             res = "<small><b style=\"display:inline;font-size:inherit\">Measured:</b> %d equivalent, %d different on train (as it was: %d, %d). %s.</small>" % (
                 r["train"].get("right", 0), r["train"].get("wrong", 0), r["now"].get("right", 0), r["now"].get("wrong", 0), e(str(r.get("why", "")).capitalize()))
+        elif r and r.get("questions"):
+            res = "<small><b style=\"display:inline;font-size:inherit\">Tried:</b> %s.</small>" % e(str(r.get("why", "")).capitalize())
         mid = x.get("id", "")
         pinned, skipped = mid in sv["pin"], mid in sv["skip"]
         acts = ""
         if st == "planned" and mid and STEER_ID.match(mid):
             acts = '<span class="acts">%s%s</span>' % (
-                '<button type="button" data-steer="unpin" data-id="%s">Unqueue</button>' % e(mid) if pinned else '<button type="button" data-steer="pin" data-id="%s" title="Measure it first when its step begins">Next</button>' % e(mid),
-                '<button type="button" data-steer="unskip" data-id="%s">Unskip</button>' % e(mid) if skipped else '<button type="button" data-steer="skip" data-id="%s" title="Never measure it">Skip</button>' % e(mid))
+                '<button type="button" data-steer="unpin" data-id="%s">Unqueue</button>' % e(mid) if pinned else '<button type="button" data-steer="pin" data-id="%s" title="Try it first on each question that is not at parity">Next</button>' % e(mid),
+                '<button type="button" data-steer="unskip" data-id="%s">Unskip</button>' % e(mid) if skipped else '<button type="button" data-steer="skip" data-id="%s" title="Never try it">Skip</button>' % e(mid))
         if x.get("pinned"):
             reason = "Queued by you. " + reason
         rows.append('<li class="%s%s"><span class="o">%s</span><span class="k %s">%s</span><span class="mv"><b>%s</b><small>%s</small><small>%s</small>%s</span><span class="mside"><span class="pill %s">%s</span>%s</span></li>'
@@ -1020,7 +1059,7 @@ def plan_panel(d):
         out.append('<ul class="moves">%s</ul>' % "".join(rows))
     o = p.get("open") or {}
     if o.get("arrangements") is not None:
-        out.append('<p class="muted small" style="margin:12px 0 0">%d arrangements one step from this one are untried, %d have been measured and not kept. A move is kept only if it does better on the train questions and no worse on the held ones.</p>'
+        out.append('<p class="muted small" style="margin:12px 0 0">%d arrangements one step from this one are open, %d have been tried and dropped. A move is kept only if it brings a question to parity and loses none already there.</p>'
                    % (o.get("arrangements", 0), o.get("arrangementsTried", 0)))
     out.append("</div>")
     # WHAT EACH SUBSECTION SAYS, IN A LINE, shown while it is folded (they begin folded: the plan reads as a list of its parts)
@@ -1041,13 +1080,12 @@ def plan_panel(d):
         bits += ["%s: %d against %d" % (r["decider"], r.get("theirsRight", 0), r.get("kevRight", 0)) for r in rep.get("results") or []]
     if bits:
         meta["what-only-you-can-change"] = " · ".join(bits)
-    meta["how-it-is-training"] = "a change must win by %s · %s arrangements and %s at once a pass%s" % (
-        (pol.get("keep") or {}).get("margin", "?"), (pol.get("trials") or {}).get("arrangements", "?"), (pol.get("trials") or {}).get("wild", 0), (" · %d setting%s changed this pass" % (len(log), "" if len(log) == 1 else "s")) if log else "")
+    meta["how-it-is-training"] = "up to %s changes a question · asked again on %s before a keep" % (lpol.get("cap", 8), lpol.get("guard", 6))
     fl = {k: v for k, v in sv["focus"].items() if v}
     meta["steer-it"] = " · ".join([", ".join("%s %s" % (dict((a, nm) for a, nm, _ in STEER_AREAS).get(k, k), v) for k, v in fl.items()) or "as planned"]
                                    + ["%d queued" % len(sv["pin"])] * bool(sv["pin"]) + ["%d skipped" % len(sv["skip"])] * bool(sv["skip"]) + ["nothing queued"] * (not sv["pin"]))
     running = [x for x in moves if x.get("status") == "running"]
-    meta["moves-in-the-order-they-are-measured"] = "%d move%s · %d measured · %d kept%s" % (len(moves), "" if len(moves) == 1 else "s", len(done), len(kept),
+    meta["moves-in-plan-order"] = "%d move%s · %d tried · %d kept%s" % (len(moves), "" if len(moves) == 1 else "s", len(done), len(kept),
                                                                                           ((" · now: %s" if live else " · stopped partway: %s") % running[0].get("what", "")) if running else "")
     return fold_sections("".join(out), "plan", meta=meta, start_open=False)
 
@@ -1195,6 +1233,14 @@ def _flow_words(step):
 STEP_TITLE = {"expect": "Expect", "draft": "Draft", "try": "Try", "check": "Check", "revise": "Revise", "decide": "Decide", "write": "Write"}
 
 
+# how a small model beside the decider is asked (src/orchestrate.mjs: plan.decideWith.how), in the page's words
+DECIDE_WITH = {
+    "if-close": "it settles the matter where the decider is close (its pick narrow or under 0.6), choosing between its two likeliest",
+    "together": "it is asked at the same time, and its pick adds to the decider's probability for that answer",
+    "if-at-odds": "it settles the matter where the decider's pick is not the answer most slots hold",
+}
+
+
 def flow_of(d):
     """The flow of the arrangement as it is: the one it names, or the plain one (src/orchestrate.mjs)."""
     flow = d["briefs"].get("flow")
@@ -1247,6 +1293,15 @@ def stages(d, row=None, mark=""):
         elif do == "decide":
             keep = step.get("keep")
             cards = [kev_card(d, row, nth, "Keeps the likeliest %d answers" % keep if keep else "Settles it here if it is sure; otherwise the flow goes on" if step.get("sure") else "Decides which answer stands")]
+            # a small model beside the decider (plan.decideWith), where the plan has one: when it is asked, as which slot, and on
+            # an input, what it said
+            dw = (d["briefs"].get("plan") or {}).get("decideWith") or {}
+            if dw.get("how") in DECIDE_WITH and not keep and not step.get("sure"):
+                base = by_id.get(dw.get("slot")) or next((x for x in slots if x["stage"] == "check"), slots[0])
+                j = next((x for x in (row or {}).get("trace", []) if x.get("slot") == "decide-judge"), None) if row else None
+                said = (" It said: %s" % e((j.get("out") or "").strip()[-240:])) if j else (" It was not asked on this input." if row else "")
+                cards.append('<p class="muted small besideline" style="margin:0"><b>Beside it:</b> model %s, asked as %s: %s.%s</p>'
+                             % (e(base.get("member", "")), e(base["id"]), e(DECIDE_WITH[dw["how"]]), said))
         elif do == "write":
             w = of(step, "write")
             cards = [slot_card(x, d, row, "write", 0) for x in w]
@@ -1458,7 +1513,7 @@ def arrangement(d):
             plan_line = '<p class="tryline"><b>Next in the plan</b> · %s <a href="#strategy">the plan</a></p>' % e(nxt.get("what", ""))
     one = ('<div class="panel arr">%s<div class="now" id="now"><i></i><span>Nothing is running. No model is loaded.</span></div>%s%s</div>'
            % (head, plan_line, avatars(d)))
-    return '%s<h2 id="strategy">The plan being carried out</h2><div id="plan">%s</div>' % (one, plan_panel(d))
+    return '%s<h2 id="strategy">The plan being carried out</h2><div id="plan">%s</div>' % (one, plan_block(d))
 
 
 def _old_target_panel(d, t, serve, ladder):
@@ -1619,8 +1674,9 @@ def cannot_run():
     return ""
 
 
-def start_run(each, passes=0):
-    """Training is continuous: pass after pass, each from the one before, until Stop training is pressed (passes=0)."""
+def start_run(passes=0):
+    """Training is continuous: question by question, pass after pass, until Stop training is pressed (passes=0). How many questions a
+    pass asks is the trainer's policy (training/policy.json: questions.each), which the session reads; it is not chosen here."""
     st = run_state()
     if st and st["running"]:
         return
@@ -1631,10 +1687,10 @@ def start_run(each, passes=0):
     first = int(data.load(root)["state"].get("pass", 0)) + 1
     (root / ".work" / "train").mkdir(parents=True, exist_ok=True)
     log = open(root / ".work" / "train" / "ui-run.log", "ab")
-    env = dict(os.environ, PASSES=str(passes), EACH=str(each), NODE=node_for_training())
+    env = dict(os.environ, PASSES=str(passes), NODE=node_for_training())
     env.pop("TEACHER", None)  # a teacher spends on a Claude plan: never started from a button
     p = subprocess.Popen(["bash", "training/session.sh"], cwd=str(root), env=env, stdout=log, stderr=log, stdin=subprocess.DEVNULL, start_new_session=True)
-    _run_file().write_text(json.dumps({"pid": p.pid, "at": time.strftime("%Y-%m-%d %H:%M:%S"), "passes": passes, "each": each, "first": first}))
+    _run_file().write_text(json.dumps({"pid": p.pid, "at": time.strftime("%Y-%m-%d %H:%M:%S"), "passes": passes, "first": first}))
 
 
 def stop_run():
@@ -1706,9 +1762,8 @@ def decider_state(running=False):
 
 # THE STEPS OF A PASS, in the order training/session.sh runs them ('*' is filled in: each small model alone, each slot whose
 # briefs the plan tries)
-SESSION_ORDER = ["00-begin", "00-plan", "00-reader", "01-research", "02-target", "02-target-train", "02-target-self", "03-*-alone", "05-swarm-train", "05-review",
-                 "06-plan", "07-write-briefs", "07-plan", "08-members", "08-deciders", "10-improve-*", "15-arrange", "16-review",
-                 "20-swarm-train", "21-swarm-held", "21-swarm-reworded", "22-end", "23-publish"]
+SESSION_ORDER = ["00-begin", "00-plan", "00-reader", "01-research", "02-target", "02-target-train", "02-target-self", "03-*-alone",
+                 "07-write-briefs", "07-plan", "10-questions", "12-members", "12-deciders", "21-swarm-held", "21-swarm-reworded", "22-end", "23-publish"]
 
 
 def pass_steps(status_text):
@@ -1747,8 +1802,6 @@ def steps_ahead(steps, members, slots):
     for k in SESSION_ORDER:
         if k == "03-*-alone":
             want += ["03-%s-alone" % m for m in members]
-        elif k == "10-improve-*":
-            want += ["10-improve-" + s for s in slots]
         else:
             want.append(k)
     return [n for n in want if n not in steps or steps[n]["state"] in ("stopped",)]
@@ -1776,14 +1829,12 @@ def run_panel():
             dname = (data.load(ARGS.root).get("decider") or {}).get("name") or "The decider"
         except Exception:  # noqa: BLE001
             dname = "The decider"
-        out.append('<p class="meta"><span>%s</span><span><b>%d</b> questions of each kind</span><span>%s <b>%s</b></span></p>'
-                   % ("Goes on until stopped" if not st.get("passes") else "<b>%d</b> passes" % st["passes"], st["each"], e(dname), e(decider_state(True))))
+        out.append('<p class="meta"><span>%s</span><span>question by question</span><span>%s <b>%s</b></span></p>'
+                   % ("Goes on until stopped" if not st.get("passes") else "<b>%d</b> passes" % st["passes"], e(dname), e(decider_state(True))))
     else:
         why = cannot_run()
-        each = "".join('<option value="%d"%s>%d</option>' % (n, " selected" if n == 6 else "", n) for n in (2, 4, 6, 8, 10))
         out.append('<button class="btn top wide" id="run-go" type="button"%s>Run training</button>' % (" disabled" if why else ""))
-        out.append('<p class="meta"><label>Questions of each kind <select id="run-each" aria-label="Questions of each kind">%s</select></label></p>' % each)
-        out.append('<p class="muted small">Until stopped: training goes on, pass after pass, each from what the last one learned, until <b>Stop training</b> is pressed.</p>')
+        out.append('<p class="muted small">Until stopped: each question the larger model has answered is put to the swarm and stays in hand until the swarm is at parity on it. Training goes on, question after question, until <b>Stop training</b> is pressed.</p>')
         if why:
             out.append(note("warn", e(why)))
         elif not installed and not os.environ.get("SWARM_KEV"):
@@ -1859,9 +1910,11 @@ def run_panel():
                 if st.get("running") and lv.get("n") and time.time() * 1000 - lv.get("at", 0) < 120000:
                     bits.append("%s question %s of %s" % (e(lv.get("split", "")), e(str(lv["n"])), e(str(lv.get("of", "?")))))
                 keep = ""
-                if now.startswith(("10-improve", "15-arrange")):
-                    m_ = ((dd or {}).get("policy") or {}).get("keep", {}).get("margin", 2)
-                    keep = "Kept only if it wins %s more answers than it loses on the train questions, does no worse on the held ones, and wins again with another draw." % e(str(m_))
+                if now.startswith("10-questions"):
+                    lp = lv.get("loop") or {}
+                    if lp.get("attempt"):
+                        bits.append("change %s of %s at most%s" % (e(str(lp["attempt"])), e(str(lp.get("cap", "?"))), ", asked again on a question already at parity" if lp.get("guard") else ""))
+                    keep = "A question stays in hand until the swarm is at parity on it. A change is kept only if it brings the question to parity and loses none of the questions already there that are asked again with it."
                 live = bool(st.get("running"))
                 out.append('<details class="sec" data-keep="run-now"><summary><h5>%s<span>step %d of %d%s</span></h5><p class="smeta">%s</p></summary><div class="secb"><p class="nowline" title="%s"><b>%s</b></p>%s%s</div></details>' % (
                     "Now" if live else "Stopped in", len(finished) + 1, total,
@@ -1924,16 +1977,14 @@ def run_panel():
 
 
 STEP_WORDS = [("reader", "Check the reader of answers in words"), ("swarm-reworded", "The swarm: the held questions, a second way"), ("begin", "Begin the pass"), ("research", "Read what is new on arXiv"), ("target-train", "Larger model: the train questions"), ("target-self", "Larger model against itself"), ("target", "Larger model: the held questions"),
-              ("swarm-held", "The swarm: the held questions"), ("swarm-train", "The swarm: the train questions"), ("review", "Review how it is training"), ("plan", "Plan what to try"), ("write-briefs", "New briefs from the larger model"),
+              ("swarm-held", "The swarm: the held questions"), ("plan", "Plan what to try"), ("write-briefs", "New briefs from the larger model"),
               ("members", "Could another small model draft it?"), ("deciders", "Would another decider choose better?"),
-              ("arrange", "Try other arrangements"), ("end", "Verdict"), ("publish", "Write it up")]
+              ("questions", "Train, question by question"), ("end", "Verdict"), ("publish", "Write it up")]
 
 
 def step_label(name):
     """A step of a pass, in words: what the session's own name for it (00-begin, 10-improve-a-critic) stands for."""
     key = name.split("-", 1)[1] if "-" in name and name.split("-", 1)[0].isdigit() else name
-    if key.startswith("improve-"):
-        return "Try other briefs for " + key[len("improve-"):]
     if key in ("a-alone", "b-alone", "c-alone", "d-alone"):
         return "%s alone" % data.MEMBER_NAMES.get(key[0], key[0])
     return next((words for k, words in STEP_WORDS if key == k), key)
@@ -1978,7 +2029,7 @@ def _epoch_local(stamp):
 
 
 def rail(d):
-    """Beside the dashboard: the pass in hand, the passes so far, and the ideas waiting to be measured."""
+    """Beside the dashboard: the pass in hand, the passes so far, and the ideas waiting to be tried."""
     st = d["state"]
     names = {t["id"]: t["name"].split(" ")[0] for t in d["targets"]}
     hist = st.get("history", [])[-5:][::-1]
@@ -2009,7 +2060,7 @@ def rail(d):
     return (
         '<aside class="rail"><div id="training"><h2>Training</h2><div id="run">%s</div></div>'
         '<div><h2>Passes</h2><div class="panel"><details class="fold" data-keep="rail-passes"><summary><span class="fmeta">%s</span></summary><div class="foldb"><ul class="feed">%s</ul></div></details></div></div>'
-        '<div><h2>Ideas waiting to be measured</h2><div class="panel"><ul class="feed ideas">%s</ul></div></div></aside>' % (run_panel(), e(pmeta), passes, waiting)
+        '<div><h2>Ideas waiting to be tried</h2><div class="panel"><ul class="feed ideas">%s</ul></div></div></aside>' % (run_panel(), e(pmeta), passes, waiting)
     )
 
 
@@ -2418,9 +2469,15 @@ def ledger_rows(entries, newest_first=True):
         ev = lambda z: ("%d → %d" % ((z.get("before") or {}).get("right", 0), (z.get("after") or {}).get("right", 0))) if z.get("before") and z.get("after") else "not recorded"  # noqa: E731
         where = " · ".join(v for v in [("<code>%s</code>" % e(x["slot"])) if x.get("slot") else "", "pass %s" % e(str(x.get("pass", ""))) if x.get("pass") else "", e(str(x.get("at", ""))[:10]),
                                         '<a href="https://arxiv.org/abs/%s" target="_blank" rel="noopener">arXiv %s</a>' % (e(x["from"]), e(x["from"])) if x.get("from") else ""] if v)
+        qn = x.get("question") or {}
+        # kept question by question (training/loop.mjs): the question it brought to parity, and how many already there held
+        evid = ("Brought <code>%s</code> to parity (lost in %s; change %s tried on it) · %s" % (
+                    e(str(qn.get("id", ""))), e(str(qn.get("lostAt", ""))), e(str(qn.get("attempt", ""))),
+                    ("%d already at parity asked again, none lost" % qn["guard"]) if qn.get("guard") else "none was at parity before it")
+                ) if qn else ('Equivalent answers on train: <b style="display:inline;font-size:inherit">%s</b> · on held: <b style="display:inline;font-size:inherit">%s</b>' % (ev(tr), ev(he)))
         out.append('<li class="kept"><span class="o">%s</span><span class="k %s">%s</span><span class="mv"><b>%s</b><small>%s</small>'
-                   '<small>Equivalent answers on train: <b style="display:inline;font-size:inherit">%s</b> · on held: <b style="display:inline;font-size:inherit">%s</b></small></span><span class="pill up">Kept</span></li>'
-                   % (e(str(x.get("n", ""))), e(x.get("kind", "")), e(_kind(x)), e(_what(x)), where, ev(tr), ev(he)))
+                   '<small>%s</small></span><span class="pill up">Kept</span></li>'
+                   % (e(str(x.get("n", ""))), e(x.get("kind", "")), e(_kind(x)), e(_what(x)), where, evid))
     return "".join(out)
 
 
@@ -2447,6 +2504,18 @@ def spec_panel(d):
     """The output spec, for a person to read and to copy: what the configured swarm is, and where it stands against its target."""
     sp = data.spec(d)
     t = sp["trainedAgainst"]
+    # ONLY A FINISHED SPEC GOES UPSTREAM (specs/): published from here, and only at parity on the held questions
+    why_not = data.publishable(sp)
+    pf = data.published_file(d["root"], sp)
+    publish_button = ('<button class="btn top" id="spec-publish" type="button"%s>Publish to specs/</button>'
+                      % ((' disabled title="%s"' % e(why_not)) if why_not else ' title="Write it to specs/, the one place training leaves something to commit"'))
+    published_line = ""
+    if pf.exists():
+        try:
+            same = json.loads(pf.read_text()).get("spec", {}).get("recipeSha256") == sp["spec"]["recipeSha256"]
+        except (OSError, ValueError):
+            same = False
+        published_line = (" Published as <code>specs/%s</code>%s." % (e(pf.name), "" if same else ", from an earlier recipe: publishing again replaces it"))
     row = lambda k, v: "<tr><th>%s</th><td>%s</td></tr>" % (e(k), v)  # noqa: E731
     mem = lambda m: "%s <span class='muted'>· %s · %sB · %s</span><br><code>%s @ %s</code><br><code>%s</code> <span class='muted'>%.2f GB</span><br><code>sha256 %s</code>" % (  # noqa: E731
         e(m.get("name", "")), e(m.get("by", "")), e(str(m.get("params", ""))), e(m.get("license", "")), e(m.get("repo", "")), e(str(m.get("rev", ""))[:12]), e(m.get("file", "")), m.get("bytes", 0) / 2**30, e(m.get("sha256", "")))
@@ -2484,18 +2553,18 @@ def spec_panel(d):
                + "".join(row(k.capitalize(), "<code>%s</code>" % e(v)) for k, v in st_.items())))
     return (
         '<div class="spec-head"><div><div class="kicker">Output spec</div><h3 style="font-size:24px">%s</h3><div class="muted small">%s</div></div>'
-        '<div style="display:flex;gap:8px"><button class="btn top" id="spec-copy" type="button">Copy as JSON</button><button class="btn top" id="spec-save" type="button">Save as a file</button><button class="btn stop top" id="spec-close" type="button">Close</button></div></div>'
-        '<p class="verdict %s" style="margin:14px 0 2px">%s against %s.</p><p class="muted small" style="margin:0 0 12px">%s</p>'
+        '<div style="display:flex;gap:8px"><button class="btn top" id="spec-copy" type="button">Copy as JSON</button><button class="btn top" id="spec-save" type="button">Save as a file</button>%s<button class="btn stop top" id="spec-close" type="button">Close</button></div></div>'
+        '<p class="verdict %s" style="margin:14px 0 2px">%s against %s.</p><p class="muted small" style="margin:0 0 12px">%s%s</p>'
         "%s%s<h4>What it is</h4><table class='spec'>%s%s%s%s%s%s%s%s</table>"
         "<h4>The flow</h4><p class='small' style='margin:0'>%s <span class='muted'>(%s)</span></p>"
         "<h4>The arrangement (briefs v%s)</h4><table class='spec'><tr><th>Slot</th><th>Stage</th><th>What it is for</th><th>Model</th></tr>%s"
         "<tr><td><code>kev-decide</code></td><td>decide</td><td>Decides which answer stands</td><td>%s</td></tr></table>"
         '<h4>As JSON</h4><pre class="tail" id="spec-json" style="max-height:320px">%s</pre>'
         % (
-            e(sp["id"]), e(sp["what"]),
+            e(sp["id"]), e(sp["what"]), publish_button,
             state_cls, e(("%s%% of the way to parity" % fmt_pct(t["progressPercent"])) if t.get("progressPercent") is not None and t["state"] != "at parity"
                          else ("In training: pass %d under way" % ip["pass"]) if t["state"] == "not measured" and ip else t["state"].capitalize()), e(t["target"].get("name") or ""),
-            e(t["parityMeans"]),
+            e(t["parityMeans"]), published_line,
             under + learned_block(d), host,
             row("In", e(sp["interface"]["in"])), row("Out", e(sp["interface"]["out"])),
             row("Offered as", "<br>".join(e(x) for x in sp["interface"]["as"])),
@@ -2600,7 +2669,7 @@ def tidy_panel(d, said=""):
 
 def mtile(d):
     """ON A PHONE, THE TRAINING COLUMN IS A TILE beside the title (the column itself sits below everything else at that width): what
-    the session is doing now, in two lines, and a tap to open the column whole (Training, Passes, Ideas waiting to be measured)."""
+    the session is doing now, in two lines, and a tap to open the column whole (Training, Passes, Ideas waiting to be tried)."""
     st = run_state()
     hist = [h for h in (d.get("state") or {}).get("history") or [] if h.get("compared")]
     if st and st.get("running"):
@@ -2622,7 +2691,7 @@ def page(d):
         '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
         '<title>The Swarm</title><style>%s</style></head><body><div class="shell">'
         '<main id="top"><header><div><div class="kicker">The Swarm · training overview</div><h1>Training Dashboard</h1></div>'
-        '<button type="button" class="mtile" id="mtile" aria-label="Open training, passes and ideas waiting to be measured">%s</button>'
+        '<button type="button" class="mtile" id="mtile" aria-label="Open training, passes and ideas waiting to be tried">%s</button>'
         '<div class="chips" id="chips">%s</div></header>%s%s'
         '<div id="body">%s</div>'
         '%s</main>%s</div><dialog id="mtrain" class="sheet"><div class="spec-head"><div><div class="kicker">The Swarm</div><h3 style="font-size:22px;margin-top:4px">Training</h3></div><button class="btn stop top" id="mtrain-close" type="button">Close</button></div><div id="mtrain-body"></div></dialog><dialog id="spec"><div id="spec-body"></div></dialog><dialog id="qedit"><div id="qedit-body"></div></dialog><dialog id="tidy"><div id="tidy-body"></div></dialog><dialog id="steerd"><div id="steerd-body"></div></dialog><dialog id="recd"><div id="recd-body"></div></dialog>'
@@ -2706,7 +2775,7 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/fragment/steer":
             return self._send(steer_dialog(d))
         if u.path == "/fragment/plan":
-            return self._send(plan_panel(d))
+            return self._send(plan_block(d))
         if u.path == "/fragment/list":
             return self._send(qlist(d, split))
         if u.path == "/fragment/question":
@@ -2715,13 +2784,27 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):  # noqa: N802
         path = urlparse(self.path).path
-        if path not in ("/run/start", "/run/stop", "/config", "/questions", "/uninstall", "/steer"):
+        if path not in ("/run/start", "/run/stop", "/config", "/questions", "/uninstall", "/steer", "/spec/publish"):
             return self._send("Not here.", 404, "text/plain; charset=utf-8")
         # only this page may start or stop a pass: another website can send a plain form to this address, but it cannot
         # send this header, and a request that names another origin is refused
         origin = self.headers.get("origin", "")
         if self.headers.get("x-swarm") != "1" or (origin and urlparse(origin).netloc != self.headers.get("host", "")):
             return self._send("Not from this page.", 403, "text/plain; charset=utf-8")
+        if path == "/spec/publish":
+            # A FINISHED SPEC, WRITTEN WHERE IT IS COMMITTED (specs/<configuration>.json). Refused short of parity: what training
+            # leaves on the way stays on this machine
+            d = data.load(ARGS.root)
+            sp = data.spec(d)
+            why_not = data.publishable(sp)
+            if why_not:
+                return self._send(why_not, 409, "text/plain; charset=utf-8")
+            f = data.published_file(ARGS.root, sp)
+            f.parent.mkdir(parents=True, exist_ok=True)
+            tmp = f.with_suffix(".json.tmp")
+            tmp.write_text(data.published_text(sp))
+            tmp.replace(f)
+            return self._send(spec_panel(d))
         if path == "/steer":
             # what a person asks the plan to do: written to this configuration's steering record, which the trainers read when a
             # plan is written and when a step that measures moves begins. Allowed while a session runs
@@ -2760,7 +2843,7 @@ class Handler(BaseHTTPRequestHandler):
             tmp = wd / "steer.json.tmp"
             tmp.write_text(json.dumps({**sv, "at": time.strftime("%Y-%m-%dT%H:%M:%S")}, indent=2) + "\n")
             tmp.replace(wd / "steer.json")
-            return self._send(plan_panel(data.load(ARGS.root)))
+            return self._send(plan_block(data.load(ARGS.root)))
         if path == "/uninstall":
             # one piece the Uninstall Helper lists, by its id: never while a session runs, never a decider's files while one is loaded
             if (run_state() or {}).get("running"):
@@ -2841,15 +2924,12 @@ class Handler(BaseHTTPRequestHandler):
                     now[k] = small[i]
                 else:
                     now.pop(k, None)
-            (root / "src" / "config.json").write_text(json.dumps(now, indent=2) + "\n")
+            # (a short list on one line, as the repository's formatter writes it: src/catalog.mjs configText)
+            text = re.sub(r'\[\n\s+("[^"\n]*"(?:,\n\s+"[^"\n]*")*)\n\s+\]', lambda m: "[" + ", ".join(re.split(r",\n\s+", m.group(1))) + "]", json.dumps(now, indent=2))
+            (root / "src" / "config.json").write_text(text + "\n")
             return self._send(main_body(data.load(ARGS.root)))
         if path == "/run/start":
-            try:
-                body = json.loads(self.rfile.read(min(int(self.headers.get("content-length", 0)), 2000)) or b"{}")
-                each = max(2, min(10, int(body.get("each", 6))))
-            except (ValueError, TypeError, AttributeError):
-                return self._send("Not understood.", 400, "text/plain; charset=utf-8")
-            start_run(each)
+            start_run()
         else:
             stop_run()
         return self._send(run_panel())

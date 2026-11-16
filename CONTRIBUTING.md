@@ -28,9 +28,11 @@ node bin/swarm.mjs ask "Today is Monday. What day is it in 100 days?" --trace --
 2. **A stand-in, never the real thing.** A check does not fetch a model, start one, or reach a real service.
 3. **`npm test` and `npm run format:check` passing.**
 4. **A measurement, for anything that claims to make the Swarm more often right.** A change to what a slot is told
-   (`src/briefs.json`) is made by `training/improve.mjs`, which keeps it only if it holds on questions it was not chosen on.
+   (`src/briefs.json`) is made by `training/loop.mjs`, which keeps it only if it brings a question to parity and loses none already there.
    A brief edited by hand, with no measurement, will be asked for one.
-5. **Words that are true.** A number in the README or on a model card has a source in `training/results/`.
+5. **Words that are true.** A number in the README or on a model card has a source: a published spec in `specs/`, or a run
+   the README names. Training's own records (`training/results/`, `training/states/`, `src/learned/`) are not committed: only
+   finished specs are.
 
 ## Conventions
 
