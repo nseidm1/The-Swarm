@@ -79,7 +79,8 @@ export function weightsHere(d) {
 }
 async function started(id) {
   const port = await freePort(8031);
-  const env = { ...process.env, DECIDER_ID: id };
+  // (not written to the port file: that names the session's own decider, which the page and the trainers look for there)
+  const env = { ...process.env, DECIDER_ID: id, DECIDER_NO_PORT_FILE: '1' };
   const p = spawn('bash', [path.join(REPO_ROOT, 'training', 'kev.sh'), 'serve', String(port)], {
     env,
     stdio: 'ignore',

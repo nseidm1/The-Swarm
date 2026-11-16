@@ -13,7 +13,8 @@
 #   bash training/kev.sh serve [port]     start it at 127.0.0.1:8009 (or the port given)
 #   bash training/kev.sh stop
 # Then name it to the swarm:   SWARM_KEV=http://127.0.0.1:8009 bash training/session.sh
-# DECIDER_ID picks one other than the configured decider; KEV_RUN still picks a Kev size directly.
+# DECIDER_ID picks one other than the configured decider; KEV_RUN still picks a Kev size directly. DECIDER_NO_PORT_FILE=1 starts
+# one without writing the port file: a decider started beside the session's own (decider-replay.mjs) must not take its place there.
 cd "$(dirname "$0")/.." || exit 1
 ROOT=$PWD
 NODE=${NODE:-node}
@@ -49,7 +50,7 @@ case "$D_KIND" in
         PORT=${1:-8009}
         [ -x "$K/uvenv/bin/uv" ] || { echo "Kev is not installed here. First: bash training/kev.sh install"; exit 1; }
         cd "$K/src" || exit 1
-        echo "$PORT" > "$PORT_FILE"
+        [ -n "$DECIDER_NO_PORT_FILE" ] || echo "$PORT" > "$PORT_FILE"
         exec $UV run --extra serve python -m kev.serve --run "$RUN" --host 127.0.0.1 --port "$PORT"
         ;;
       stop) pkill -f "kev[.]serve .*--port $(cat "$PORT_FILE" 2>/dev/null || echo 8009)" && echo "Kev stopped." || echo "Kev was not running." ;;
@@ -81,7 +82,7 @@ snapshot_download('$D_WEIGHTS', revision='$D_WEIGHTS_REV', local_dir='$M')" || e
       serve)
         PORT=${1:-8009}
         [ -x "$H/venv/bin/startlux-decide" ] && [ -f "$M/.complete" ] || { echo "$D_NAME is not installed here. First: bash training/kev.sh install"; exit 1; }
-        echo "$PORT" > "$PORT_FILE"
+        [ -n "$DECIDER_NO_PORT_FILE" ] || echo "$PORT" > "$PORT_FILE"
         exec $ARM "$H/venv/bin/startlux-decide" serve --model "$M" --backend mlx --host 127.0.0.1 --port "$PORT" --name "$D_ID"
         ;;
       stop) pkill -f "startlux-decide serve .*--port $(cat "$PORT_FILE" 2>/dev/null || echo 8009)" && echo "$D_NAME stopped." || echo "$D_NAME was not running." ;;

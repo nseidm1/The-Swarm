@@ -24,6 +24,7 @@ import re
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -169,7 +170,17 @@ a.idea:hover{background:var(--soft)}a.idea:focus-visible{outline:2px solid var(-
 .cand{margin-top:6px;font-size:12.5px;color:var(--mist);border-left:3px solid var(--sun);padding-left:8px}
 .target{border-left:4px solid var(--tgt)}.target h3{color:var(--tgt)}
 button.strip{display:block;width:100%;text-align:left;border:0;font:inherit;color:inherit;cursor:pointer}button.strip:hover{box-shadow:0 14px 34px rgba(11,93,87,.16)}
-button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.strip .meta{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0;color:var(--mist)}.strip .meta b{color:var(--fog)}.strip .more{color:var(--teal);font-weight:800}
+button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.strip .meta{display:flex;flex-wrap:wrap;gap:6px;margin:0;color:var(--mist)}
+.strip .meta>span{display:inline-block;padding:4px 11px;border-radius:999px;background:var(--soft);font-size:12.5px;font-weight:600;line-height:1.35;max-width:100%}
+.strip .meta>span b{color:var(--fog);font-weight:800}.strip .meta>span.ok{background:#d7f3e9;color:var(--right)}.strip .meta>span.ok b{color:var(--right)}
+.strip .meta>span.no{background:#fde1db;color:var(--wrong)}.strip .meta>span.no b{color:var(--wrong)}.strip .meta>span.alone{background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
+.strip .meta>span.more{background:transparent;color:var(--teal);font-weight:800;padding-left:4px}
+.strip .mem{display:grid;gap:6px;margin:4px 0 14px;padding:12px 14px;border-radius:14px;background:linear-gradient(90deg,#e8f6f1,transparent)}
+.strip .mrow{display:grid;grid-template-columns:minmax(0,15em) minmax(60px,1fr) auto;gap:10px;align-items:center;font-size:13px;font-weight:700}
+.strip .ml{overflow-wrap:anywhere}.strip .mt{height:10px;border-radius:999px;background:var(--soft);overflow:hidden}.strip .mt i{display:block;height:100%;border-radius:999px;background:var(--teal2)}
+.strip .mrow.big .mt i{width:100%;background:var(--tgt);opacity:.75}.strip .mv{font-variant-numeric:tabular-nums;white-space:nowrap}.strip .mv b{color:var(--fog)}
+.strip .msay{font-size:12.5px;color:var(--mist);font-weight:600}.strip .msay b{color:var(--teal);font-size:15px}
+@media (max-width:560px){.strip .mrow{grid-template-columns:minmax(0,1fr) auto}.strip .mrow .mt{grid-column:1/-1;grid-row:2}}
 .prog{display:block;height:8px;border-radius:999px;background:var(--soft);overflow:hidden;margin:10px 0 10px;position:relative}.prog i{display:block;height:100%;float:left}
 .prog .eq{background:var(--right)}.prog .ch{background:var(--sun)}.pct{font-variant-numeric:tabular-nums}.gapkey{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12.5px;color:var(--mist)}.gapkey i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px}
 dialog#big{border:0;border-radius:26px;padding:26px;max-width:min(1180px,96vw);width:100%;max-height:92vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:#f4fbf9}dialog#big::backdrop{background:rgba(11,40,38,.45)}
@@ -219,8 +230,17 @@ textarea{width:100%;min-height:80px;background:var(--soft);border:0;border-radiu
 .run .meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--mist);font-weight:600}.run .meta b{color:var(--fog);font-weight:800}
 .run .meta label{display:inline-flex;align-items:center;gap:6px}.run .meta select{font:inherit;font-weight:800;color:var(--fog);background:var(--soft);border:0;border-radius:8px;padding:3px 6px;cursor:pointer}
 .run .sec{display:grid;gap:8px;padding-top:14px;border-top:1px solid var(--line2)}
-.run .sec>h5{margin:0;display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mist)}
-.run .sec>h5 span{letter-spacing:0;text-transform:none;font-weight:600;font-size:12px}
+.run .nowline{margin:0;color:var(--teal);font-size:15px;overflow-wrap:anywhere}.run .nowline b{font-weight:800}
+.run details.done summary{cursor:pointer;color:var(--mist);font-size:12.5px;font-weight:700;list-style:none}.run details.done summary::before{content:'✓ ';color:var(--right)}
+.run details.done[open] summary{margin-bottom:6px}.run .label{margin:2px 0 0;font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--mist)}
+.steps.next li>span:first-child{color:var(--mist)}.steps.next li>span:nth-child(2){color:var(--fog)}
+.run details.sec>summary{list-style:none;cursor:pointer;border-radius:8px}.run details.sec>summary::-webkit-details-marker{display:none}
+.run details.sec>summary:focus-visible{outline:2px solid var(--teal2);outline-offset:3px}.run details.sec[open]>summary{margin-bottom:8px}
+.run details.sec>summary>h5::after{content:'';flex:none;width:6px;height:6px;margin:0 2px 2px 4px;border-right:2px solid var(--mist);border-bottom:2px solid var(--mist);transform:rotate(45deg);transition:transform .15s}
+.run details.sec:not([open])>summary>h5::after{transform:rotate(-45deg)}.run details.sec>summary>h5 span{margin-left:auto}
+.run .secb{display:grid;gap:8px}.run details.sec{display:block}
+.run .sec>h5,.run .sec>summary>h5{margin:0;display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mist)}
+.run .sec>h5 span,.run .sec>summary>h5 span{letter-spacing:0;text-transform:none;font-weight:600;font-size:12px}
 .steps{margin:0;padding:0;list-style:none;display:grid;gap:6px;font-size:13px;font-variant-numeric:tabular-nums;line-height:1.35}
 .steps li{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:8px;align-items:baseline}.steps li>span:first-child{color:var(--right);font-weight:800;text-align:center}
 /* the third thing in a row is how long it took, kept on one line; a row of two (what was learned, what was recovered) has no such
@@ -244,7 +264,12 @@ textarea{width:100%;min-height:80px;background:var(--soft);border:0;border-radiu
 
 JS = """
 const $=(s,r=document)=>r.querySelector(s);
-async function swap(url,into,opts){const r=await fetch(url,opts);$(into).innerHTML=await r.text();if(typeof sinceTick==='function')sinceTick();}
+// A SECTION FOLDED STAYS FOLDED: open or closed is kept on this device, and put back each time a part of the page is drawn again
+const keepOpen=(root)=>{try{(root||document).querySelectorAll('details[data-keep]').forEach(d=>{const v=localStorage.getItem('swarm.open.'+d.dataset.keep);if(v!==null)d.open=v==='1';});}catch(e){}};
+// (saved on a click of its heading, and not on every toggle: a section that loads open fires one too, which would put "open" back)
+document.addEventListener('click',(ev)=>{const sm=ev.target.closest('details[data-keep]>summary');if(!sm)return;const d=sm.parentElement;setTimeout(()=>{try{localStorage.setItem('swarm.open.'+d.dataset.keep,d.open?'1':'0');}catch(e){}},0);});
+document.addEventListener('DOMContentLoaded',()=>keepOpen());
+async function swap(url,into,opts){const r=await fetch(url,opts);$(into).innerHTML=await r.text();keepOpen($(into));if(typeof sinceTick==='function')sinceTick();}
 document.addEventListener('click',async(ev)=>{
   const q=ev.target.closest('.q');
   if(q){document.querySelectorAll('.q[aria-current]').forEach(x=>x.removeAttribute('aria-current'));q.setAttribute('aria-current','true');
@@ -547,18 +572,31 @@ def score_strip(d):
         for k, rows in sp["alone"].items():
             pa = data.parity(rows) if rows else None
             if pa:
-                out.append("<span>%s alone <b>%s%%</b> · %d of %d</span>" % (e(data.MEMBER_NAMES[k]), fmt_pct(pa["percent"]), pa["equivalent"], pa["compared"]))
+                out.append('<span class="alone">%s alone <b>%s%%</b> · %d of %d</span>' % (e(data.MEMBER_NAMES[k]), fmt_pct(pa["percent"]), pa["equivalent"], pa["compared"]))
         return "".join(out)
+
+    # THE MEMORY IT TAKES, against the larger model's: what the swarm is for, a small footprint that answers as the large one does
+    fp = d.get("footprint")
+    mem = ""
+    if fp:
+        ab = lambda n: ("%.1f" % n).rstrip("0").rstrip(".")  # noqa: E731
+        mem = ('<span class="mem" title="Estimates from what is on record: the small models\' files with their contexts, the decider\'s listed size, and the larger model\'s listed size. Not measured.">'
+               '<span class="mrow"><span class="ml">The swarm</span><span class="mt"><i style="width:%s%%"></i></span><span class="mv"><b>%s GB</b></span></span>'
+               '<span class="mrow big"><span class="ml">%s</span><span class="mt"><i></i></span><span class="mv"><b>%s GB</b></span></span>'
+               '<span class="msay"><b>%s%%</b> of the larger model&#39;s memory%s · estimated%s</span></span>'
+               % (min(100.0, fp["share"]), ab(fp["swarm"]), e(tname), ab(fp["target"]), fmt_pct(fp["share"]),
+                  (", %s× smaller" % ab(fp["times"])) if fp.get("times") and fp["times"] >= 1.1 else "",
+                  (": %s GB of small models and their contexts, %s GB for the decider" % (ab(fp["small"]), ab(fp["decider"]))) if fp.get("decider") else ""))
 
     def strip(cls, verdict, meta, more=True, pct=None):
         tag = ('<button type="button" class="panel strip" id="score-open" title="Open the whole measurement">', "</button>") if more else ('<div class="panel strip">', "</div>")
         bar = '<span class="prog" title="%s%% of these answers are equivalent"><i class="eq" style="width:%s%%"></i></span>' % (fmt_pct(pct), pct) if pct is not None else ""
-        return '%s<p class="verdict %s">%s</p>%s<p class="meta">%s%s</p>%s' % (
-            tag[0], cls, e(verdict), bar, meta, '<span class="more">Open the whole measurement</span>' if more else "", tag[1])
+        return '%s<p class="verdict %s">%s</p>%s%s<p class="meta">%s%s</p>%s' % (
+            tag[0], cls, e(verdict), bar, mem, meta, '<span class="more">Open the whole measurement</span>' if more else "", tag[1])
 
     def counts(q):
         spec = q.get("onSpec") or {}
-        return "<span><b>%d</b> equivalent</span><span><b>%d</b> different</span><span><b>%d</b> no answer</span>%s" % (
+        return '<span class="ok"><b>%d</b> equivalent</span><span class="no"><b>%d</b> different</span><span><b>%d</b> no answer</span>%s' % (
             q["equivalent"], q["differ"], q["none"],
             '<span title="Parity is equivalence with the larger model whatever it answers. This is the same count on the questions where its own answer does what the question says">where %s follows the question <b>%s%%</b> · %d of %d</span>'
             % (e(tname.split(" ")[0]), fmt_pct(data.percent(spec["equivalent"], spec["compared"])), spec["equivalent"], spec["compared"]) if spec.get("compared") and spec["compared"] < q["compared"] else "")
@@ -1137,6 +1175,80 @@ def kev_base():
         return ""
 
 
+def decider_state(running=False):
+    """What the decider is doing, in a word: ready (it answers), busy (it is there, and slow to answer because it is deciding),
+    starting (a session is running and it is not there yet), or not running. Read from the address the session's decider is at
+    (SWARM_KEV, or training/kev.sh's port file)."""
+    base = os.environ.get("SWARM_KEV", "")
+    if not base:
+        try:
+            base = "http://127.0.0.1:%d" % int((Path(ARGS.root) / ".work" / "kev" / "port").read_text().strip())
+        except (OSError, ValueError):
+            return "starting" if running else "not running"
+    try:
+        with urllib.request.urlopen(base.rstrip("/") + "/v1/models", timeout=1.5) as r:
+            if r.status == 200:
+                return "ready"
+    except Exception:  # noqa: BLE001
+        pass
+    u = urlparse(base)
+    try:
+        with socket.create_connection((u.hostname or "127.0.0.1", u.port or 80), timeout=0.5):
+            return "busy"
+    except OSError:
+        return "starting" if running else "not running"
+
+
+# THE STEPS OF A PASS, in the order training/session.sh runs them ('*' is filled in: each small model alone, each slot whose
+# briefs the plan tries)
+SESSION_ORDER = ["00-begin", "00-plan", "00-reader", "01-research", "02-target", "02-target-train", "03-*-alone", "05-swarm-train", "05-review",
+                 "06-plan", "07-write-briefs", "07-plan", "08-members", "08-deciders", "10-improve-*", "15-arrange", "16-review",
+                 "20-swarm-train", "21-swarm-held", "21-swarm-reworded", "22-end", "23-publish"]
+
+
+def pass_steps(status_text):
+    """A pass's status file read as steps: {name: {state, at, end, tries}}, in the order they began. state: done, failed, earlier
+    (done before a stop, passed over now), now (running), stopped (begun before the session stopped and not ended: it is run
+    again, carrying on from what it had)."""
+    steps, order = {}, []
+    lines = status_text.splitlines()
+    resumed = max([i for i, l in enumerate(lines) if " RESUMED " in l] or [-1])
+    for i, line in enumerate(lines):
+        parts = line.split()
+        if len(parts) >= 3 and parts[1] == "START":
+            tries = steps[parts[2]]["tries"] + 1 if parts[2] in steps else 1
+            steps[parts[2]] = {"at": parts[0], "end": None, "tries": tries, "line": i}
+            if parts[2] not in order:
+                order.append(parts[2])
+        elif len(parts) >= 3 and parts[1] == "SKIP":
+            steps[parts[2]] = {"at": parts[0], "end": "exit 0 done earlier", "tries": 1, "line": i, "earlier": True}
+            if parts[2] not in order:
+                order.append(parts[2])
+        elif len(parts) >= 5 and parts[1] == "END" and parts[2] in steps:
+            steps[parts[2]]["end"] = " ".join(parts[3:])
+    for x in steps.values():
+        if x["end"] is None:
+            x["state"] = "now" if x["line"] > resumed else "stopped"
+        elif x.get("earlier"):
+            x["state"] = "earlier"
+        else:
+            x["state"] = "done" if (x["end"].startswith("exit 0") or x["end"].startswith("exit 2")) else "failed"
+    return steps, order
+
+
+def steps_ahead(steps, members, slots):
+    """The steps of this pass still to come, in order: those not ended (a step that stopped is run again)."""
+    want = []
+    for k in SESSION_ORDER:
+        if k == "03-*-alone":
+            want += ["03-%s-alone" % m for m in members]
+        elif k == "10-improve-*":
+            want += ["10-improve-" + s for s in slots]
+        else:
+            want.append(k)
+    return [n for n in want if n not in steps or steps[n]["state"] in ("stopped",)]
+
+
 def run_panel():
     st = run_state()
     try:
@@ -1155,8 +1267,12 @@ def run_panel():
         out.append('<div class="state on running" data-running="1"><i></i><span data-since="%d"><b>Running %s</b><small>since %s</small></span></div>'
                    % (int(began * 1000), e(_span(time.time() - began)), e(time.strftime("%H:%M %Z", time.localtime(began)))))
         out.append('<button class="btn stop top wide" id="run-stop" type="button">Stop training</button>')
-        out.append('<p class="meta"><span>%s</span><span><b>%d</b> questions of each kind</span><span>Kev <b>%s</b></span></p>'
-                   % ("Goes on until stopped" if not st.get("passes") else "<b>%d</b> passes" % st["passes"], st["each"], "loaded" if kev else "loading"))
+        try:
+            dname = (data.load(ARGS.root).get("decider") or {}).get("name") or "The decider"
+        except Exception:  # noqa: BLE001
+            dname = "The decider"
+        out.append('<p class="meta"><span>%s</span><span><b>%d</b> questions of each kind</span><span>%s <b>%s</b></span></p>'
+                   % ("Goes on until stopped" if not st.get("passes") else "<b>%d</b> passes" % st["passes"], st["each"], e(dname), e(decider_state(True))))
     else:
         why = cannot_run()
         each = "".join('<option value="%d"%s>%d</option>' % (n, " selected" if n == 6 else "", n) for n in (2, 4, 6, 8, 10))
@@ -1189,62 +1305,98 @@ def run_panel():
                 rows += '<li class="%s"><span>%s</span><span>%s<small style="display:block;color:var(--mist);font-weight:600">%s</small>%s</span><span></span></li>' % (
                     "" if x["state"] == "ready" else "bad" if x["state"] == "failed" else "cur", "✓" if x["state"] == "ready" else "✕" if x["state"] == "failed" else "▸", e(x["what"]), e(str(what)),
                     '<span class="track" style="display:block;height:5px;border-radius:3px;background:var(--soft);margin-top:4px"><i style="display:block;height:100%%;border-radius:3px;background:var(--teal2);width:%.1f%%"></i></span>' % pct if pct is not None and x["state"] != "ready" else "")
-            out.append('<div class="sec"><h5>Making ready</h5><ul class="steps">%s</ul></div>' % rows)
-    # the steps of the newest pass this page started
+            out.append('<details class="sec" data-keep="run-making" open><summary><h5>Making ready</h5></summary><div class="secb"><ul class="steps">%s</ul></div></details>' % rows)
+    # NOW, THIS PASS, AND WHERE IT IS HEADING: the step running and what it is trying; the pass, its finished steps folded and
+    # the ones to come in order; and what the pass is for, toward parity
     if st:
-        root = Path(ARGS.root)
-        dirs = sorted((d for d in wdir.glob("pass-*") if d.is_dir() and d.name[5:].isdigit() and int(d.name[5:]) >= st.get("first", 0)), key=lambda d: int(d.name[5:]))
+        dirs = sorted((d2 for d2 in wdir.glob("pass-*") if d2.is_dir() and d2.name[5:].isdigit() and int(d2.name[5:]) >= st.get("first", 0)), key=lambda d2: int(d2.name[5:]))
         if dirs:
             cur = dirs[-1]
-            steps, order = {}, []
-            for line in (cur / "status.txt").read_text().splitlines() if (cur / "status.txt").exists() else []:
-                parts = line.split()
-                if len(parts) >= 3 and parts[1] == "START":
-                    # a step that failed and is being run again shows as one step, with how many times it has been tried
-                    tries = steps[parts[2]]["tries"] + 1 if parts[2] in steps else 1
-                    steps[parts[2]] = {"at": parts[0], "end": None, "tries": tries}
-                    if parts[2] not in order:
-                        order.append(parts[2])
-                elif len(parts) >= 3 and parts[1] == "SKIP":
-                    # done before this session stopped, and passed over now that it has been resumed
-                    steps[parts[2]] = {"at": parts[0], "end": "exit 0 done earlier", "tries": 1}
-                    if parts[2] not in order:
-                        order.append(parts[2])
-                elif len(parts) >= 5 and parts[1] == "END" and parts[2] in steps:
-                    steps[parts[2]]["end"] = " ".join(parts[3:])
-            items = []
-            for name in order:
+            steps, order = pass_steps((cur / "status.txt").read_text() if (cur / "status.txt").exists() else "")
+            try:
+                dd = data.load(ARGS.root)
+            except Exception:  # noqa: BLE001
+                dd = None
+            plan = read_plan(dd) if dd else None
+            moves = (plan or {}).get("moves") or []
+            slots = list(dict.fromkeys(m["slot"] for m in moves if m.get("kind") == "brief" and m.get("slot")))
+            ahead = steps_ahead(steps, list((dd or {}).get("members", {}).keys()) or ["a", "b"], slots)
+            now = next((n for n in order if steps[n]["state"] == "now"), None)
+            finished = [n for n in order if steps[n]["state"] in ("done", "failed", "earlier")]
+            total = len(finished) + len([n for n in ahead if n != now]) + (1 if now else 0)
+
+            def row(name):
                 x = steps[name]
-                done = x["end"] is not None
-                bad = done and not (x["end"].startswith("exit 0") or x["end"].startswith("exit 2"))
-                if done:
-                    took = x["end"].split(" ", 2)[2] if len(x["end"].split(" ", 2)) > 2 else ""
-                    how = "nothing to do" if x["end"].startswith("exit 2") else "under a minute" if took.startswith("0 min") else took
-                    if bad:
-                        how = "failed · " + how
-                else:
-                    how = _span(_since_clock(x["at"]))
-                items.append('<li class="%s" title="%s"><span>%s</span><span>%s</span><span>%s</span></li>' % (
-                    "bad" if bad else "" if done else "cur", e(name), "✕" if bad else "✓" if done else "▸", e(step_label(name)),
-                    e(how + (" · try %d" % x["tries"] if x.get("tries", 1) > 1 else ""))))
+                bad = x["state"] == "failed"
+                took = x["end"].split(" ", 2)[2] if x["end"] and len(x["end"].split(" ", 2)) > 2 else ""
+                how = "done earlier" if x["state"] == "earlier" else "nothing to do" if x["end"].startswith("exit 2") else "under a minute" if took.startswith("0 min") else took
+                if bad:
+                    how = "failed · " + how
+                return '<li class="%s" title="%s"><span>%s</span><span>%s</span><span>%s</span></li>' % (
+                    "bad" if bad else "", e(name), "✕" if bad else "✓", e(step_label(name)), e(how + (" · try %d" % x["tries"] if x.get("tries", 1) > 1 else "")))
+            # NOW: the step, what it is trying, how far, and what decides it
+            if now:
+                x = steps[now]
+                trying = [m for m in moves if m.get("status") == "running"]
+                bits = []
+                if trying:
+                    names = list(dict.fromkeys(m.get("what", "") for m in trying))
+                    if all(n.startswith("the larger model") for n in names):
+                        bits.append("%d brief%s the larger model wrote for %s, tried one after another" % (len(trying), "" if len(trying) == 1 else "s", e(trying[0].get("slot") or "the slot")))
+                    else:
+                        bits.append("Trying: " + "; ".join(e(n) for n in names[:2]) + (" and %d more" % (len(names) - 2) if len(names) > 2 else ""))
+                try:
+                    lv = json.loads((Path(ARGS.root) / ".work" / "train" / "live.json").read_text())
+                except (OSError, ValueError):
+                    lv = {}
+                if lv.get("n") and time.time() * 1000 - lv.get("at", 0) < 120000:
+                    bits.append("%s question %s of %s" % (e(lv.get("split", "")), e(str(lv["n"])), e(str(lv.get("of", "?")))))
+                keep = ""
+                if now.startswith(("10-improve", "15-arrange")):
+                    m_ = ((dd or {}).get("policy") or {}).get("keep", {}).get("margin", 2)
+                    keep = "Kept only if it wins %s more answers than it loses on the train questions, does no worse on the held ones, and wins again with another draw." % e(str(m_))
+                out.append('<details class="sec" data-keep="run-now" open><summary><h5>Now<span>step %d of %d · %s</span></h5></summary><div class="secb"><p class="nowline" title="%s"><b>%s</b></p>%s%s</div></details>' % (
+                    len(finished) + 1, total, e(_span(_since_clock(x["at"]))) + (" · try %d" % x["tries"] if x.get("tries", 1) > 1 else ""), e(now), e(step_label(now)),
+                    '<p class="small" style="margin:0">%s</p>' % " · ".join(bits) if bits else "", '<p class="muted small" style="margin:0">%s</p>' % keep if keep else ""))
+            # THIS PASS: what is done (folded), then what comes next, in order
             nth = int(cur.name[5:]) - int(st.get("first", cur.name[5:])) + 1 if cur.name[5:].isdigit() else 1
-            out.append('<div class="sec"><h5>Pass %s<span>%s</span></h5><ul class="steps">%s</ul></div>' % (
-                e(cur.name[5:]), ("number %d of this session" % nth) if nth > 1 else "", "".join(items) or "<li><span></span><span class='muted'>starting</span><span></span></li>"))
+            nxt = [n for n in ahead if n != now]
+            done_html = ('<details class="done" data-keep="run-done"><summary>%d done</summary><ul class="steps">%s</ul></details>' % (len(finished), "".join(row(n) for n in finished))) if finished else ""
+            next_html = ('<p class="label">Next</p><ul class="steps next">%s</ul>' % "".join(
+                '<li title="%s"><span>·</span><span>%s%s</span><span></span></li>' % (e(n), e(step_label(n)), '<small style="display:block;color:var(--mist);font-weight:600">carries on where the stop left it</small>' if n in steps and steps[n]["state"] == "stopped" else "")
+                for n in nxt)) if nxt else ""
+            out.append('<details class="sec" data-keep="run-pass" open><summary><h5>Pass %s<span>%d of %d steps done%s</span></h5></summary><div class="secb">%s%s%s</div></details>' % (
+                e(cur.name[5:]), len(finished), total, (" · number %d of this session" % nth) if nth > 1 else "", done_html, next_html,
+                "" if (finished or now or nxt) else "<ul class='steps'><li><span></span><span class='muted'>starting</span><span></span></li></ul>"))
+            # HEADING: how far toward parity, what this pass is for, and what the next pass asks
+            if dd:
+                hp = dd["splits"]["held"]["parity"]
+                head = []
+                if hp:
+                    head.append("<b>%s%%</b> of the way to parity: %d of %d held answers equivalent." % (fmt_pct(hp["percent"]), hp["equivalent"], hp["compared"]))
+                g = (plan or {}).get("gap")
+                if g:
+                    head.append("On this pass's train questions choosing better could reach %s%%; the %d answers no slot drafted need better drafts, which is what new briefs and worked examples are for." % (fmt_pct(g["reachableByChoosing"]), g["drafting"]))
+                q = dd.get("equivalence") or {}
+                want = [k for t in q.get("targets", []) if t["id"] in q.get("chosen", []) for k in t.get("kinds", [])]
+                head.append("This pass ends by asking the held questions again and writing its verdict. The next one asks new train questions, %d kinds (%s)." % (
+                    len(set(want)), e(", ".join(t["name"] for t in q.get("targets", []) if t["id"] in q.get("chosen", [])) or "as chosen")))
+                out.append('<details class="sec" data-keep="run-heading" open><summary><h5>Heading</h5></summary><div class="secb">%s</div></details>' % "".join('<p class="small" style="margin:0">%s</p>' % h for h in head))
     # THE WAYS BACK THIS SESSION HAS TAKEN: a pass that needed twelve restarts is not the same evidence as one that needed none
     if st:
         began = _epoch_local(st.get("at", ""))
         took = [r for r in data._rows(Path(ARGS.root) / ".work" / "train" / "recovery.jsonl") if _epoch(r.get("at")) >= began - 2]
         if took:
             rows = "".join('<li><span>↺</span><span>%s<small style="display:block;color:var(--mist);font-weight:600">%s</small></span><span></span></li>' % (e(str(r.get("what", ""))), e(str(r.get("did", "")))) for r in took[-5:])
-            out.append('<div class="sec"><h5>Recovered<span>%d time%s this session</span></h5><ul class="steps">%s</ul></div>' % (len(took), "" if len(took) == 1 else "s", rows))
+            out.append('<details class="sec" data-keep="run-recovered" open><summary><h5>Recovered<span>%d time%s this session</span></h5></summary><div class="secb"><ul class="steps">%s</ul></div></details>' % (len(took), "" if len(took) == 1 else "s", rows))
         # what this session has taught the swarm so far: each change as it is kept (the output spec holds them all)
         try:
             led = [x for x in data.load(ARGS.root)["learned"]["ledger"] if _epoch(x.get("at")) >= began - 2]
         except Exception:  # the panel is drawn even where the folder cannot be read
             led = []
-        out.append('<div class="sec"><h5>Learned this session<span>%s</span></h5>%s' % ("%d kept" % len(led) if led else "", "" if led else '<p class="muted small">Nothing kept yet. Each change is listed here as it is kept.</p></div>'))
+        out.append('<details class="sec" data-keep="run-learned" open><summary><h5>Learned this session<span>%s</span></h5></summary><div class="secb">%s' % ("%d kept" % len(led) if led else "", "" if led else '<p class="muted small">Nothing kept yet. Each change is listed here as it is kept.</p></div></details>'))
         if led:
-            out.append('<ul class="steps">%s</ul></div>' % "".join(
+            out.append('<ul class="steps">%s</ul></div></details>' % "".join(
                 '<li><span>✓</span><span><b>%s</b><small style="display:block" class="muted">%s%s · train %s → %s equivalent</small></span></li>'
                 % (e(_what(x)), e(_kind(x)), (" · " + e(x["slot"])) if x.get("slot") else "",
                    e(str(((x.get("train") or {}).get("before") or {}).get("right", "?"))), e(str(((x.get("train") or {}).get("after") or {}).get("right", "?")))) for x in led[::-1]))

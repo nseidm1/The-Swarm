@@ -91,7 +91,12 @@ with tempfile.TemporaryDirectory() as tmp:
     strip = get(base + "/fragment/score")[1]
     check("parity stays one small strip whether or not anything is measured: the verdict and a line of counts, with the charts behind it in a dialog and never on the page itself",
           'id="score-open"' in top and "held questions" in top and "LFM2.5 2.6B alone" in top and "<svg" not in top.split('id="score"')[1] and 'class="kpis"' not in html and 'class="kpis"' in full
-          and 'id="big"' in html and "/fragment/scorefull" in html and strip.startswith('<button type="button" class="panel strip"') and len(strip) < 1200, len(strip))
+          and 'id="big"' in html and "/fragment/scorefull" in html and strip.startswith('<button type="button" class="panel strip"') and len(strip) < 1800, len(strip))
+    fp = data.footprint({"a": {"bytes": 2**30}, "b": {"bytes": 2**30}}, {"memGb": 5}, {"memGb": 18})
+    check("the strip says what the swarm is for: the memory it takes against the larger model's, as two bars, the share and how many times smaller, estimated and said to be; each count is a chip of its own, equivalent and different in their colours",
+          fp == {"small": 3.5, "decider": 5, "swarm": 8.5, "target": 18, "share": 47.2, "times": 2.1} and data.footprint({}, {}, {"memGb": 18}) is None
+          and 'class="mem"' in strip and "The swarm</span>" in strip and "of the larger model&#39;s memory" in strip and "estimated" in strip and "Not measured." in strip and "× smaller" in strip
+          and '<span class="ok"><b>' in strip and '<span class="no"><b>' in strip and 'class="alone"' in strip, strip[:600])
     plan = get(base + "/fragment/plan")[1]
     check("the plan of the pass in hand is on the page as it stands: what the measurement showed, each move in order with the slot, the model, the technique, the paper it came from and why it was chosen, and what became of it",
           "The plan for pass 5" in html and "What the measurement showed" in plan and "no slot had the larger model" in plan.lower().replace("&#x27;", "'") and plan.count("<li class=") == 5 and "Being measured" in plan and ">Kept<" in plan and ">Not kept<" in plan
@@ -416,8 +421,20 @@ with tempfile.TemporaryDirectory() as tmp:
     (fake / ".work" / "train" / "recovery.jsonl").write_text(json.dumps({"at": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() + 1)), "what": "LFM2.5 2.6B", "did": "its server was gone or hung: started again, and asked again"}) + "\n"
                                                            + json.dumps({"at": "2020-01-01T00:00:00", "what": "old", "did": "from another session"}) + "\n")
     rp = get(base + "/fragment/run")[1]
+    check("each section of the training card folds under its heading (open to begin with; the finished steps folded), and open or folded is kept on the device and put back each time the card is drawn again; it is saved on a click of the heading, not on every toggle",
+          all(('data-keep="run-%s" open' % k) in rp for k in ("pass", "recovered", "learned")) and 'data-keep="run-done"' in rp and 'data-keep="run-done" open' not in rp
+          and "keepOpen($(into))" in html and "swarm.open." in html and "closest('details[data-keep]>summary')" in html and "addEventListener('toggle'" not in html, [k for k in ("pass", "recovered", "learned", "done") if ('data-keep="run-' + k) in rp])
     check("a step that failed and is being run again shows as one step with its try, a step done before a stop is shown as done earlier, and the ways back this session has taken are listed (and no other session's)",
-          "try 2" in rp and "done earlier" in rp and rp.count("02-target") == 1 and "Recovered<span>1 time this session" in rp and "started again, and asked again" in rp and "from another session" not in rp, rp[-600:])
+          "try 2" in rp and "done earlier" in rp and rp.count('title="02-target"') == 1 and "Recovered<span>1 time this session" in rp and "started again, and asked again" in rp and "from another session" not in rp, rp[-600:])
+    # the card reads a resumed pass as it is: one step running, the one the stop cut short to come again, the rest in order
+    stx = "\n".join(["07:00:00 START 00-begin", "07:00:01 END   00-begin exit 0 0 min", "07:00:01 START 15-arrange", "08:00:00 RESUMED this pass had stopped: carrying on",
+                      "08:00:00 SKIP  00-begin", "08:00:01 START 07-write-briefs", "08:00:30 END   07-write-briefs exit 0 0 min", "08:00:31 START 10-improve-a-steps"])
+    psteps, porder = swarm_ui.pass_steps(stx)
+    ahead = swarm_ui.steps_ahead(psteps, ["a", "b"], ["a-steps", "a-critic"])
+    check("the training card reads a resumed pass as it is: the step running now is the only one running; a step the stop cut short is not running, it is to come and carries on; what is to come is in the order the session runs it; and the decider is named with what it is doing",
+          psteps["10-improve-a-steps"]["state"] == "now" and psteps["15-arrange"]["state"] == "stopped" and psteps["00-begin"]["state"] == "earlier" and psteps["07-write-briefs"]["state"] == "done"
+          and ahead.index("10-improve-a-critic") < ahead.index("15-arrange") < ahead.index("16-review") < ahead.index("22-end") and "00-begin" not in ahead and "07-write-briefs" not in ahead and "03-a-alone" in ahead
+          and swarm_ui.decider_state(False) in ("not running", "ready", "busy") and swarm_ui.decider_state(True) in ("starting", "ready", "busy"), [psteps, ahead[:6]])
     post("/run/start")
     check("pressed again while one runs, nothing more is started", json.loads((fake / ".work" / "train" / "ui-run.json").read_text())["pid"] == st["pid"])
     code, after = post("/run/stop")

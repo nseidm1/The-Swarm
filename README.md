@@ -477,6 +477,9 @@ programming questions (six of each of seven kinds), on one Apple silicon Mac, 20
 | 4 | 25 of 42 | 59.5% | nothing |
 | 5 | 25 of 42 | 59.5% | nothing |
 
+- **Memory: about 8.6 GB for the swarm against about 18 GB for Nemotron, 47.8% of it** (2.1× smaller). An estimate from what
+  is on record, not a measurement: the two small models' files with their contexts (3.6 GB) and Kev 4B's listed size (5 GB),
+  against Nemotron's listed size. This is what the Swarm is for: the larger model's answers in a fraction of its memory.
 - **Each small model alone, on the same questions:** LFM2.5 2.6B 38% (16 of 42), Bonsai 2 2B 30.9% (13 of 42). The swarm of
   the two is ahead of either.
 - **Put a second way** (the same questions, worded otherwise): 27 of 42, every pass.

@@ -131,6 +131,20 @@ def machine():
     return out
 
 
+def footprint(members, decider, target):
+    """THE POINT OF THE SWARM, IN ONE NUMBER: the memory the swarm takes against the memory the larger model takes. Estimates, from
+    what is on record: each small model's file with its contexts (the same estimate as src/catalog.mjs's entry: the files, a
+    quarter more, and a gigabyte of context), the decider's listed size, and the larger model's listed size. None of it measured."""
+    files = sum(((m or {}).get("bytes") or 0) for m in (members or {}).values()) / 2**30
+    small = round(files * 1.25 + 1, 1) if files else None
+    dec = (decider or {}).get("memGb")
+    tgt = (target or {}).get("memGb") or (round(target["bytes"] / 2**30 * 1.1, 1) if (target or {}).get("bytes") else None)
+    if small is None or not tgt:
+        return None
+    swarm = round(small + (dec or 0), 1)
+    return {"small": small, "decider": dec, "swarm": swarm, "target": tgt, "share": round(100.0 * swarm / tgt, 1), "times": round(tgt / swarm, 1) if swarm else None}
+
+
 def load(root):
     root = Path(root)
     briefs = _json(root / "src" / "briefs.json", {"slots": [], "plan": {}, "version": 0})
@@ -282,6 +296,7 @@ def load(root):
         "machine": machine(),
         "members": members,
         "decider": decider,
+        "footprint": footprint(members, decider, target),
         "cfg": cfg,
         "splits": splits,
         "record": record,
