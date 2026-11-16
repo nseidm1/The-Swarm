@@ -415,6 +415,11 @@ with tempfile.TemporaryDirectory() as tmp:
     (wdr / "members.json").write_text(json.dumps({"pass": 5, "gap": 19, "of": 70, "models": [], "notHere": [{"id": "qwen35-2b", "name": "Qwen3.5 2B", "bytes": 1280835840}, {"id": "qwen3-4b", "name": "Qwen3 4B", "bytes": 2497280256}]}))
     dr = data.load(root)
     rs = swarm_ui.recommendations(dr)
+    # (a judge apart from the decider is recommended only where one can run on this machine beside it: on a Mac, yes; on a
+    # Linux machine with no GPU, as CI is, no decision model runs at all. The checks follow the same rule, on any machine)
+    cap_ = max(6.0, float((dr.get("decider") or {}).get("memGb") or 0))
+    judge_here = int(any(m["id"] != (dr.get("decider") or {}).get("id") and (not m.get("runsOn") or set(m["runsOn"]) & set(dr.get("machine") or []))
+                         and float(m.get("memGb") or 99) <= cap_ for m in dr["registry"]["deciders"]))
     sec = swarm_ui.config_section(dr)
     pop = get(base + "/fragment/recs")[1]
     was_cfg = json.loads((root / "src" / "config.json").read_text())
@@ -422,8 +427,8 @@ with tempfile.TemporaryDirectory() as tmp:
     now_cfg = json.loads((root / "src" / "config.json").read_text())
     check("beside Configuration, a note says when the evidence recommends a change to it, and opens them: each with what it rests on (measured: another decider that recovered more recorded choices than it lost; untested: a third small model where no slot drafted the answer and no other model was here to ask), and a button that makes the change as a pill does; a decider that lost more than it recovered is not recommended; with no evidence there is no note",
           ('id="rec-open"' not in none_yet or "1 recommendation<" in none_yet) and [r["id"] for r in rs if not r["id"].startswith("judge:")] == ["decider:startlux-4b", "member:qwen35-2b"] and [r["strength"] for r in rs if not r["id"].startswith("judge:")] == ["measured", "untested"]
-          and "3 recommendations" in sec and 'id="recd"' in html and "Decide with StartLux Decision 4B" in pop and "recovered 4" in pop and "Untested" in pop and "Qwen3.5 2B" in pop and "kev-9b" not in pop and "Kev 9B" not in pop
-          and pop.count("data-rec-apply") == 3 and ap == 200 and now_cfg.get("decider") == "startlux-4b" and "stopPropagation" in html, [r["id"] for r in rs])
+          and ("%d recommendations" % (2 + judge_here)) in sec and 'id="recd"' in html and "Decide with StartLux Decision 4B" in pop and "recovered 4" in pop and "Untested" in pop and "Qwen3.5 2B" in pop and "kev-9b" not in pop and "Kev 9B" not in pop
+          and pop.count("data-rec-apply") == 2 + judge_here and any(r["id"].startswith("judge:") for r in rs) == bool(judge_here) and ap == 200 and now_cfg.get("decider") == "startlux-4b" and "stopPropagation" in html, [r["id"] for r in rs])
     # WHAT THE CONFIGURATION'S OWN ANSWERS SAY, AS THEY ARRIVE (ui/data.py session_evidence), and what is recommended from it
     def row(i, right=True):
         tr = [{"slot": "a-direct", "member": "a", "stage": "draft", "letter": "A", "final": "x" if right else "y", "tokens": 700, "ms": 6000},
@@ -573,7 +578,7 @@ with tempfile.TemporaryDirectory() as tmp:
     j_off = send("/config", {"judge": ""})[0]
     j_cfg3 = json.loads((root / "src" / "config.json").read_text())
     check("equivalence can be judged by a decision model apart from the decider: a pill beside Decides, the decider itself where none is chosen (and recommended once answers are being judged, a model that fits beside the decider); choosing one saves it, says so in the folded line and the spec, and the recommendation goes; choosing the decider, or none, is the decider itself again; an unknown one is refused",
-          any(r["id"].startswith("judge:") for r in j_before) and j_ok == 200 and j_cfg.get("judge") == "startlux-4b" and "judged by StartLux Decision 4B" in j_meta
+          any(r["id"].startswith("judge:") for r in j_before) == bool(judge_here) and j_ok == 200 and j_cfg.get("judge") == "startlux-4b" and "judged by StartLux Decision 4B" in j_meta
           and 'value="startlux-4b" selected' in j_picks.split('data-pick="judge"')[1].split("</select>")[0] and j_spec["trainedAgainst"]["judgedBy"] == "StartLux Decision 4B"
           and not any(r["id"].startswith("judge:") for r in j_recs) and j_same == 200 and "judge" not in j_cfg2 and j_bad == 400 and j_off == 200 and "judge" not in j_cfg3
           and "(the decider itself)" in data.spec(data.load(root))["trainedAgainst"]["judgedBy"], [j_ok, j_cfg.get("judge"), j_same, j_bad, j_off])
