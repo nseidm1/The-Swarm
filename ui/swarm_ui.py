@@ -621,16 +621,21 @@ def kind_bars(kinds):
 
 
 def scoreboard(d):
-    held = d["splits"]["held"]
+    """THE WHOLE MEASUREMENT, opened from the parity card in every state: on the held questions where the swarm has answered them
+    (parity is said there); where it has not yet, on this pass's train questions, said to be those and not parity; and where it
+    has answered nothing, what there is (the memory, and the larger model's answers in input against output)."""
     tgt = d["target"]
     tname = tgt["name"] if tgt else "the larger model"
     short = tname.split(" ")[0]
-    p = held["parity"]
-    if not held["swarm"] or not p:
+    which = "held" if d["splits"]["held"]["swarm"] and d["splits"]["held"]["parity"] else "train" if d["splits"]["train"]["swarm"] and d["splits"]["train"]["parity"] else ""
+    if not which:
         return (
-            '<div class="panel"><p class="verdict">Not measured yet.</p><p class="muted" style="margin:0">No pass has put the swarm and %s to the same held questions. '
-            "Press <b>Run training</b>, or run <code>bash training/session.sh</code>; this page fills in as it goes.</p></div>" % e(tname)
-        )
+            '<div class="panel"><p class="verdict">Not measured yet.</p><p class="muted" style="margin:0">No pass has put the swarm and %s to the same questions yet. '
+            "Press <b>Run training</b>, or run <code>bash training/session.sh</code>; this fills in as it goes.</p></div>" % e(tname)
+        ) + memory_panel(d) + io_section(d)
+    held = d["splits"][which]
+    p = held["parity"]
+    word = "held" if which == "held" else "train"
     off = p["compared"] - p["equivalent"]
     out = ['<div class="kpis">']
     out.append(kpi("Toward parity with " + short, "%s<small>%%</small>" % fmt_pct(p["percent"]), "at parity" if p["level"] else "%d of %d equivalent" % (p["equivalent"], p["compared"]), "scale", "#0b5d57", "#d9f2ec", "up" if p["level"] else ""))
@@ -638,15 +643,18 @@ def scoreboard(d):
     out.append(kpi("Different answers", "%d <small>of %d</small>" % (p["differ"], p["compared"]), "%d gave none" % p["none"], "target", "#f2644b", "#fde1db"))
     out.append(kpi("Seconds a reply", "%s <small>s</small>" % p["seconds"], "the swarm", "clock", "#c98a06", "#fdf0cf"))
     out.append("</div>")
+    if which == "train":
+        out.insert(0, '<div class="panel tnote"><p class="small" style="margin:0"><b>The held questions are not answered yet in this pass.</b> What follows is the swarm on this pass&#39;s %d train questions so far: they choose what to try. Parity is said on the held questions, which the swarm has never been chosen on, at the end of the pass.</p></div>' % p["compared"])
 
-    # pass by pass: how many answers are equivalent, against all of them (which is parity)
-    hist = [h for h in d["state"].get("history", []) if h.get("compared")]
+    # pass by pass: how many answers are equivalent, against all of them (which is parity); the passes were measured on held questions
+    hist = [h for h in d["state"].get("history", []) if h.get("compared")] if which == "held" else []
     labels = ["pass %s" % h["pass"] for h in hist] + ["now"]
     sw = [h["equivalent"] * p["compared"] / h["compared"] for h in hist] + [p["equivalent"]]
-    verdict = '<p class="verdict %s" style="margin-top:12px">%s</p><p class="muted small" style="margin:0">Parity is every answer fundamentally equivalent to %s\'s. On %d held questions the swarm\'s answer was equivalent on %d, different on %d, and it gave none on %d. Whether either was right is not what is measured.</p>' % (
-        "level" if p["level"] else "behind", e(verdict_words(p, tname)), e(tname), p["compared"], p["equivalent"], p["differ"], p["none"])
+    words = verdict_words(p, tname) if which == "held" else "%s%% on this pass's train questions so far: %d of %d equivalent to %s's." % (fmt_pct(p["percent"]), p["equivalent"], p["compared"], tname)
+    verdict = ('<p class="verdict %s" style="margin-top:12px">%s</p><p class="muted small" style="margin:0">Parity is every answer fundamentally equivalent to %s&#39;s. On %d %s questions the swarm&#39;s answer was equivalent on %d, different on %d, and it gave none on %d. Whether either was right is not what is measured.</p>'
+               % (("level" if p["level"] else "behind") if which == "held" else "", e(words), e(tname), p["compared"], word, p["equivalent"], p["differ"], p["none"]))
     out.append(
-        '<div class="charts"><div class="panel tint"><div class="chart-head"><div><h3>Toward parity, pass by pass</h3><div class="muted small">Held answers equivalent to %s\'s. Parity is all %d</div></div>'
+        '<div class="charts"><div class="panel tint"><div class="chart-head"><div><h3>Toward parity, pass by pass</h3><div class="muted small">' + word.capitalize() + ' answers equivalent to %s\'s. Parity is all %d</div></div>'
         '<div class="legend"><span><i style="background:#0b5d57"></i>The swarm</span><span><i style="background:#9aa8a5"></i>Parity</span></div></div><div class="plot">%s</div>%s</div>'
         % (e(short), p["compared"], line_chart(labels, [("Parity: every answer", "#9aa8a5", True, [p["compared"]] * len(labels)), ("The swarm", "#0b5d57", False, sw)], p["compared"]), verdict)
     )
@@ -676,7 +684,7 @@ def scoreboard(d):
         if pa:
             bars.append(bar(data.MEMBER_NAMES[k] + " alone", "muted", pa))
     out.append(
-        '<div class="charts"><div class="panel"><div class="chart-head"><div><h3>How far along each kind of question is</h3><div class="muted small">The share of held answers of that kind that are equivalent to %s&#39;s, furthest behind first. Teal: all of them</div></div></div><div class="kb">%s</div></div>'
+        '<div class="charts"><div class="panel"><div class="chart-head"><div><h3>How far along each kind of question is</h3><div class="muted small">The share of ' + word + ' answers of that kind that are equivalent to %s&#39;s, furthest behind first. Teal: all of them</div></div></div><div class="kb">%s</div></div>'
         '<div class="panel"><h3>Each alone, beside the swarm</h3><div class="muted small" style="margin-bottom:14px">Equivalent to %s&#39;s answer · different · none</div><div class="score">%s</div></div></div>'
         % (e(short), kind_bars(kinds), e(short), "".join(bars))
     )
@@ -745,10 +753,11 @@ def score_strip(d):
                 % (cls, e(tname), e(verdict), fmt_pct(q["percent"]), "".join(rows), ticks, e(label), e(tname.split(" ")[0])))
 
     def strip(cls, verdict, meta, more=True, pct=None, chart=""):
-        tag = ('<button type="button" class="panel strip" id="score-open" title="Open the whole measurement">', "</button>") if more else ('<div class="panel strip">', "</div>")
+        # (the whole card opens the whole measurement, in every state: it shows what there is)
+        tag = ('<button type="button" class="panel strip" id="score-open" title="Open the whole measurement">', "</button>")
         top = chart or ('<p class="verdict %s">%s</p>' % (cls, e(verdict)))
         return '%s%s%s<p class="meta">%s%s</p>%s' % (
-            tag[0], top, mem, meta, '<span class="more">Open the whole measurement</span>' if more else "", tag[1])
+            tag[0], top, mem, meta, '<span class="more">Open the whole measurement</span>', tag[1])
 
     def follows(q):
         spec = q.get("onSpec") or {}
@@ -778,7 +787,7 @@ def score_strip(d):
     if answered or alone_of(held):
         return strip("", "%s has answered %d held question%s. The swarm has not answered yet." % (tname, answered, "" if answered == 1 else "s"),
                      (alone_of(held) or "<span>Each small model alone is next</span>") + "<span>Its answers are the mark everything else is compared with</span>", more=False)
-    return scoreboard(d)
+    return strip("", "Not measured yet.", "<span>No pass has put the swarm and %s to the same questions yet</span>" % e(tname), more=False)
 
 
 FOUND = {"elsewhere": "kept in another configuration", "drafts-short": "no slot had the answer", "weak-draft": "a weak drafter", "check-worse": "a checker turning answers away", "decider-threw": "the decider chose another",

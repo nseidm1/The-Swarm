@@ -137,10 +137,16 @@ with tempfile.TemporaryDirectory() as tmp:
     nothing = dict(d, splits={k: dict(v, swarm=[], parity=None, target={}, alone={m: [] for m in v["alone"]}) for k, v in d["splits"].items()})
     s_part, s_train, s_alone, s_none, s_full = (swarm_ui.score_strip(x) for x in (part, only_train, only_alone, nothing, d))
     check("the parity strip says the most that is known at each moment and never more: nothing; then what the larger model and each small model alone have done; then how the train questions are going; then the held answers as they come, said not to be the verdict; and the verdict only when all are answered",
-          "Not measured yet" in s_none and "has answered 12 held questions. The swarm has not answered yet" in s_alone and "alone" in s_alone and 'id="score-open"' not in s_alone
+          "Not measured yet" in s_none and "has answered 12 held questions. The swarm has not answered yet" in s_alone and "alone" in s_alone
           and "% on this pass" in s_train and "train questions" in s_train and "Parity is said on the held questions" in s_train and "of the way to parity" not in s_train and "at parity with" not in s_train
           and "Being measured: " in s_part and "% so far. 5 of 12 held answers in" in s_part and "The verdict is given when all 12 are answered" in s_part and "of the way to parity" not in s_part
           and ("of the way to parity with" in s_full or "at parity with" in s_full) and "Being measured" not in s_full, s_part[:300])
+    b_train, b_none = swarm_ui.scoreboard(only_train), swarm_ui.scoreboard(nothing)
+    check("the whole parity card opens the whole measurement in every state, and the measurement shows what there is: the held answers where they are in; this pass's train answers before them, said to be those and not parity; and before anything, that nothing is measured, with the memory",
+          all(x.startswith('<button type="button" class="panel strip" id="score-open"') for x in (s_none, s_alone, s_train, s_part, s_full))
+          and "The held questions are not answered yet in this pass" in b_train and "train questions so far" in b_train and "Train answers equivalent" in b_train and "held answers of that kind" not in b_train
+          and "Not measured yet" in b_none and "Memory saved" in b_none and "Toward parity, pass by pass" not in b_none
+          and "Held answers equivalent" in swarm_ui.scoreboard(d), [s_none[:80], b_train[:160]])
     ckd = root / ".work" / "train" / "checkpoints"
     ckd.mkdir(parents=True, exist_ok=True)
     extra = dict(H["swarm"][0], id="held-live-1", grade="right")
