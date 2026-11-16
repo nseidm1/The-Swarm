@@ -113,6 +113,19 @@ it. Running the session again is not the same pass again:
 
 [`passes.md`](passes.md) is the same, for a person: what each pass measured and what it handed on.
 
+## An agent's steps (2026-11-16)
+
+The Crew's seats work through an agent (Pi) with tools: read a file, list a folder, write a file, edit one. The `agent` kind
+([`tasks-tools.mjs`](tasks-tools.mjs)) asks for the next step at a point in such work: the request, and what the agent has done
+and seen so far, sent with the tools. The larger model, each small model alone and the swarm are all asked with the tools
+(the servers with `--jinja`, so calls are read and written in each model's template), and every step is written down as text
+(`CALL read {"path":"src/math.js"}`). Two steps are equivalent when they are the same tool on the same file, the same words
+written, the same change made (each side's old and new text found in the other's), or both a reply in words.
+
+The swarm takes these steps as the configuration says (`"tools"` in `src/config.json`): decided by the swarm, or taken by the
+one small model it names.
+Either way it is what is measured.
+
 ## The plan of a pass
 
 A pass does not work through a fixed list. Once it has measured the Swarm on its own train questions it writes a plan

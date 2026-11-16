@@ -63,5 +63,6 @@ export function fromSpec(spec) {
     slots: (r.serving && r.serving.slots) || undefined,
     contextPerSlot: (r.serving && r.serving.contextPerSlot) || undefined,
     decider: r.decider || null,
+    tools: (r.serving && r.serving.tools) || 'lead',
   };
 }

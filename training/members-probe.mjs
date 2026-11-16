@@ -78,7 +78,15 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         asked++;
         let reply = '';
         try {
-          reply = String((await r.member.ask('alone', messagesOf(t), { maxTokens: 700, seed: 1 })).text || '');
+          reply = String(
+            (
+              await r.member.ask('alone', messagesOf(t), {
+                maxTokens: 700,
+                seed: 1,
+                ...(t.tools ? { tools: t.tools } : {}),
+              })
+            ).text || '',
+          );
         } catch {
           reply = '';
         }

@@ -215,6 +215,9 @@ export async function openSwarm(briefs = readBriefs(), { seed = Number(arg('seed
     modelsDir: modelsDir(),
     kev,
     onRecover: note,
+    // (an agent's step is asked with tools, whichever way the configuration has it decided: the servers read and write calls in
+    // each model's own template. Builds of llama.cpp that already do so by default are not changed by it)
+    jinja: true,
   });
   // every slot, as it starts and as it ends
   const answer = swarm.answer.bind(swarm);
@@ -242,14 +245,21 @@ export async function openAlone(which) {
   }
   if (/^https?:/.test(which)) {
     const m = attachMember({ key: 'ref', name: arg('label', 'reference'), sampling: {} }, which, 1);
-    return { ask: (messages) => m.ask('alone', messages, { maxTokens: 700 }), stop: () => {} };
+    return {
+      ask: (messages, o = {}) => m.ask('alone', messages, { maxTokens: 700, ...(o.tools ? { tools: o.tools } : {}) }),
+      stop: () => {},
+    };
   }
   const at = arg('attach-' + which);
   if (at) {
     const m = attachMember(MEMBERS[which], at, 1);
-    return { ask: (messages) => m.ask('alone', messages, { maxTokens: 700 }), stop: () => {} };
+    return {
+      ask: (messages, o = {}) => m.ask('alone', messages, { maxTokens: 700, ...(o.tools ? { tools: o.tools } : {}) }),
+      stop: () => {},
+    };
   }
   const r = await startMember(MEMBERS[which], {
+    jinja: true, // (a step in an agent's work is asked with tools: the server reads and writes calls in the model's own template)
     onRecover: note,
     llamaServer: llamaServer(),
     modelsDir: modelsDir(),
@@ -257,7 +267,11 @@ export async function openAlone(which) {
     contextPerSlot: 8192,
   });
   if (!r.ok) throw new Error(r.why);
-  return { ask: (messages) => r.member.ask('alone', messages, { maxTokens: 700 }), stop: r.member.stop };
+  return {
+    ask: (messages, o = {}) =>
+      r.member.ask('alone', messages, { maxTokens: 700, ...(o.tools ? { tools: o.tools } : {}) }),
+    stop: r.member.stop,
+  };
 }
 
 // WHAT THE LARGER MODEL ANSWERED, for these questions: id -> its whole reply. The swarm is trained toward these, so nothing can
@@ -484,4 +498,13 @@ export function save(label, body) {
 export function rowsTo(file, rows) {
   fs.mkdirSync(WORK, { recursive: true });
   fs.appendFileSync(path.join(WORK, file), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+}
+
+// A QUESTION PUT TO THE SWARM, as it is meant to be put: a step in an agent's work (a question with tools) is a turn with tools
+// (swarm.answerTools: decided by the swarm or the lead's own, as the configuration says), written down as its step; any other is
+// answered as messages
+export async function askSwarm(swarm, t, messages) {
+  if (!t.tools) return swarm.answer(messages);
+  const got = await swarm.answerTools(messages, { tools: t.tools });
+  return { ...got, reply: got.text };
 }

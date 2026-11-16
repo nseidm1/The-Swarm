@@ -307,8 +307,8 @@ with tempfile.TemporaryDirectory() as tmp:
     row2 = get(base + "/fragment/equiv")[1]
     check("under the models, a box to tick for each body of work the swarm can be brought to equivalence on: The Crew ticked where nothing was chosen, then Math, Logic and Reasoning, each saying what it is; ticking writes the choice down in the list's own order beside the models, and the row is drawn again in place with what a pass will now ask; none, or one that is not listed, is refused and nothing is written",
           row.startswith('<fieldset class="equiv" id="equiv">') and row.count('data-equiv="') == 4 and row.count(" checked") == 1 and 'data-equiv="crew" checked' in row and "<b>The Crew</b>" in row and "<b>Math</b>" in row and "<b>Logic</b>" in row and "<b>Reasoning</b>" in row
-          and "13 kinds of question in a pass" in row and 'id="equiv"' in html and html.index('id="picks"') < html.index('id="equiv"') < html.index('id="body"')
-          and e_ok == 200 and e_cfg["equivalence"] == ["crew", "reasoning"] and e_cfg["a"] == d["members"]["a"]["id"] and not row2.startswith("<fieldset") and row2.count(" checked") == 2 and "16 kinds of question in a pass" in row2
+          and "14 kinds of question in a pass" in row and 'id="equiv"' in html and html.index('id="picks"') < html.index('id="equiv"') < html.index('id="body"')
+          and e_ok == 200 and e_cfg["equivalence"] == ["crew", "reasoning"] and e_cfg["a"] == d["members"]["a"]["id"] and not row2.startswith("<fieldset") and row2.count(" checked") == 2 and "17 kinds of question in a pass" in row2
           and send("/config", {"equivalence": []})[0] == 400 and send("/config", {"equivalence": ["crew", "poetry"]})[0] == 400 and send("/config", {"equivalence": "crew"})[0] == 400
           and json.loads((root / "src" / "config.json").read_text())["equivalence"] == ["crew", "reasoning"] and send("/config", {"equivalence": ["crew"]})[0] == 200, [e_ok, e_cfg.get("equivalence"), row.count(" checked")])
     pens = swarm_ui.equiv(data.load(root))
@@ -321,7 +321,7 @@ with tempfile.TemporaryDirectory() as tmp:
     check("each body of work has a little pencil at its top right that opens its questions: the kinds the trainer makes (not edited) and the questions a person wrote, one row each, with Simple or Developer for The Crew; saving writes them whole (blank ones dropped, a mode only where it means something), the box then says how many there are, and the next opening shows them; an unknown body of work, more than 200, or a list that is not one is refused",
           pens.count('class="pencil"') == 4 and 'data-qedit="crew"' in pens and "Edit the questions for The Crew" in pens and 'id="qedit"' in html
           and "Questions: The Crew" in panel_q and "Made by the trainer" in panel_q and "Simple: a piece of writing" in panel_q and "Developer: their own project" in panel_q and "Write a function: arrays" in panel_q and panel_q.count('class="qrow"') == 1 and "0 of 200" in panel_q
-          and q_ok == 200 and q_file == {"questions": [{"ask": "Move my dentist to Friday."}, {"ask": "Is a sleep a fix?", "mode": "developer"}]} and "2 of your own" in q_row and "14 kinds of question in a pass" in q_row
+          and q_ok == 200 and q_file == {"questions": [{"ask": "Move my dentist to Friday."}, {"ask": "Is a sleep a fix?", "mode": "developer"}]} and "2 of your own" in q_row and "15 kinds of question in a pass" in q_row
           and panel_q2.count('class="qrow"') == 3 and "Move my dentist to Friday." in panel_q2 and '<option value="developer" selected>' in panel_q2 and "2 of 200" in panel_q2
           and m_ok == 200 and m_file == {"questions": [{"ask": "What is 17 times 23?"}]} and "data-q-mode" not in get(base + "/fragment/questions?id=math")[1].split("<template")[0]
           and send("/questions", {"id": "poetry", "questions": []})[0] == 400 and send("/questions", {"id": "crew", "questions": "x"})[0] == 400 and send("/questions", {"id": "crew", "questions": [{"ask": "q"}] * 201})[0] == 400
@@ -511,6 +511,33 @@ with tempfile.TemporaryDirectory() as tmp:
           and "As a model chooser lists it" in sp and "What it is told" in sp and 'id="spec-save"' in sp and "Commercial use" in sp and "swarm-spec.json" in html
           and spec["trainedAgainst"]["state"] in ("at parity", "not at parity") and spec["trainedAgainst"]["equivalent"] == p["equivalent"] and len(spec["arrangement"]["slots"]) == len(d["briefs"]["slots"])
           and spec["members"]["a"]["sha256"] == d["members"]["a"]["sha256"] and spec["interface"]["out"] == "one reply" and "fundamentally equivalent" in spec["trainedAgainst"]["parityMeans"], sp[:200])
+    # TURNS WITH TOOLS: who takes an agent's turn is a toggle in Configuration, saved beside the models, said in the folded line, and
+    # part of the spec's recipe and of what it says it can do
+    tg0 = get(base + "/")[1]
+    lead_spec = data.spec(data.load(root))
+    ida, idb = d["members"]["a"]["id"], d["members"]["b"]["id"]
+    nb = d["members"]["b"]["name"]
+    b_ok = send("/config", {"tools": idb})[0]
+    b_cfg = json.loads((root / "src" / "config.json").read_text())
+    b_row, b_meta, b_spec = get(base + "/fragment/tools")[1], get(base + "/fragment/cfgmeta")[1], data.spec(data.load(root))
+    t_ok = send("/config", {"tools": "swarm"})[0]
+    t_bad = send("/config", {"tools": "sometimes"})[0]
+    t_out = send("/config", {"tools": "qwen3-4b"})[0]  # a small model, but not one in this swarm
+    t_cfg = json.loads((root / "src" / "config.json").read_text())
+    t_row, t_meta = get(base + "/fragment/tools")[1], get(base + "/fragment/cfgmeta")[1]
+    sw_spec = data.spec(data.load(root))
+    l_ok = send("/config", {"tools": "lead"})[0]
+    l_cfg = json.loads((root / "src" / "config.json").read_text())
+    check("who takes an agent's turn (a request with tools) is a choice in Configuration: the swarm, or any one of its small models by name (the list is the swarm's own small models, and is drawn again when a pill changes); the model in place a where nothing is chosen; saved by the model's id, said in the folded line, part of the spec's recipe and of what it says it can do; a model not in the swarm, or any other word, is refused",
+          'id="tools"' in tg0 and 'data-tools="swarm"' in tg0 and ('class="seg on" data-tools="%s"' % ida) in tg0 and ('data-tools="%s"' % idb) in tg0 and ("%s alone" % nb) in tg0
+          and "%s alone" % d["members"]["a"]["name"] in tg0 and "swap('/fragment/tools','#tools')" in tg0 and tg0.count("swap('/fragment/tools','#tools')") >= 3
+          and b_ok == 200 and b_cfg.get("tools") == idb and ('class="seg on" data-tools="%s"' % idb) in b_row and ("%s alone" % nb) in b_meta and not b_row.startswith("<fieldset")
+          and b_spec["recipe"]["serving"]["tools"] == idb and nb in b_spec["interface"]["capabilities"]["tools"] and lead_spec["recipe"]["serving"]["tools"] == ida
+          and t_ok == 200 and t_bad == 400 and t_out == 400 and t_cfg.get("tools") == "swarm" and 'class="seg on" data-tools="swarm"' in t_row and "the swarm decides" in t_meta
+          and sw_spec["recipe"]["serving"]["tools"] == "swarm" and sw_spec["spec"]["recipeSha256"] != lead_spec["spec"]["recipeSha256"]
+          and sw_spec["interface"]["capabilities"]["toolsMode"] == "swarm" and "decided by the swarm" in sw_spec["interface"]["capabilities"]["tools"] and not any("tools goes to" in x for x in sw_spec["interface"]["notYet"])
+          and l_ok == 200 and l_cfg.get("tools") == ida and data.tools_of("no-longer-here", d["members"]) == "a" and data.tools_of(idb, d["members"]) == "b",
+          [b_ok, t_ok, t_bad, t_out, l_ok, b_cfg.get("tools"), t_cfg.get("tools"), l_cfg.get("tools")])
     # EVERYTHING NEEDED TO MAKE IT AGAIN, AND TO OFFER IT AS A MODEL: every slot with what it is told, the decider's recipe, the
     # engine's pinned builds, a card in the shape The Crew's chooser lists its models, what it needs of a machine, what it can and
     # cannot do as a model, and a hash of the recipe that src/spec.mjs computes the same way

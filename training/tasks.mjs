@@ -18,6 +18,7 @@ import { CODE_KINDS } from './tasks-code.mjs';
 import fs from 'node:fs';
 import { CREW_KINDS, CREW_KIND_NAMES, ownQuestion } from './tasks-crew.mjs';
 import { codeEquivalent, openEquivalent, talkEquivalent, codeOf, codeWhole } from './support/equivalent.mjs';
+import { TOOL_KINDS, sameStep } from './tasks-tools.mjs';
 
 const rng = (seed) => () => {
   seed |= 0;
@@ -389,6 +390,7 @@ const ALL = {
   trace: KINDS.trace,
   ...Object.fromEntries(Object.entries(KINDS).filter(([k]) => k !== 'trace')),
   ...CREW_KINDS,
+  ...TOOL_KINDS,
 };
 // the programming kinds, and with them the conversation a seat on a team carries: what a pass asks, unless its record says otherwise
 export const CODE_KIND_NAMES = [...Object.keys(CODE_KINDS), 'trace'];
@@ -481,7 +483,8 @@ export const reworded = (list) =>
   list
     .map((t) => {
       // a conversation carries its own second wording (tasks-crew.mjs): the last message put another way, the rest as it was
-      const ask = t.type === 'talk' ? t.again : reword(t.ask);
+      // (a step in an agent's work is put another way only where its last turn is the person's own)
+      const ask = t.type === 'talk' || t.type === 'tool' ? t.again : reword(t.ask);
       return {
         ...t,
         id: t.id + '~2',
@@ -545,6 +548,24 @@ export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, foc
           equivalent: (refReply, reply, ctx) => talkEquivalent(made, refReply, reply, ctx),
           // a reply in a conversation can be two words ("You're welcome!"): anything said at all
           usable: (reply) => String(reply || '').trim().length > 1,
+          show: (reply) =>
+            String(reply || '')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .slice(0, 160),
+          wrap: (final) => final,
+        });
+      else if (made.type === 'tool')
+        // A STEP IN AN AGENT'S WORK (tasks-tools.mjs): sent with its tools; the next step is the answer, the larger model's the mark
+        out.push({
+          ...base,
+          mode: made.mode,
+          system: made.system,
+          turns: made.turns,
+          tools: made.tools,
+          again: made.again,
+          equivalent: async (refReply, reply) => sameStep(refReply, reply),
+          usable: (reply) => String(reply || '').trim().length > 0,
           show: (reply) =>
             String(reply || '')
               .replace(/\s+/g, ' ')

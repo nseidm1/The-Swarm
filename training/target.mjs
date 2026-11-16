@@ -78,6 +78,7 @@ export function servingOf(rung, { llamaServer = '', modelsDir = '' } = {}) {
       '1',
       '-a',
       'target',
+      '--jinja', // (a step in an agent's work is asked with tools)
       ...(rung.serve || []),
     ],
     missing: !file
@@ -176,7 +177,7 @@ export async function openTarget(
       await start();
     }
   }
-  const once = async (messages, maxTokens, draw) => {
+  const once = async (messages, maxTokens, draw, tools) => {
     const r = await fetch(base + '/v1/chat/completions', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -189,11 +190,17 @@ export async function openTarget(
         ...(draw ? { seed: 1000 + draw } : {}),
         stream: false,
         stop: ['<unk>'], // some servers run on into <unk> after the answer has ended: stopped there
+        ...(tools ? { tools } : {}),
       }),
     });
     if (!r.ok) throw new Error(rung.name + ' answered ' + r.status + ': ' + (await r.text()).slice(0, 160));
     const j = await r.json();
     const m = (j.choices && j.choices[0] && j.choices[0].message) || {};
+    // a step in an agent's work: its calls, written down as the swarm's are (src/tools.mjs actionText)
+    if (tools && Array.isArray(m.tool_calls) && m.tool_calls.length)
+      return m.tool_calls
+        .map((c) => 'CALL ' + ((c.function || {}).name || '') + ' ' + ((c.function || {}).arguments || '{}'))
+        .join('\n');
     // and anything of it that still gets through is cut
     return String(m.content || '')
       .replace(/(?:<unk>\s*)+[\s\S]*$/, '')
@@ -207,14 +214,14 @@ export async function openTarget(
     // asked as plainly as a model can be asked: the question, and nothing of the swarm's own.
     // usable(text): does the reply hold an answer? Where the trainer can say (a function that runs, a value), a reply that does
     // not is asked for again the same way an empty one is.
-    async ask(messages, { maxTokens = 4096, usable = (t) => t.length > 0 } = {}) {
+    async ask(messages, { maxTokens = 4096, usable = (t) => t.length > 0, tools = null } = {}) {
       let text = '';
       let first = '';
       let revived = 0;
       let waited = 0;
       for (let draw = 0; draw <= 2; draw++) {
         try {
-          text = await once(messages, maxTokens, draw);
+          text = await once(messages, maxTokens, draw, tools);
         } catch (e) {
           const why = String((e && e.message) || e);
           // THE SERVER SAYS IT IS BUSY PUTTING ITSELF RIGHT (TensorFold: 500 "server restarting: retry shortly"; any server:

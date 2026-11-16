@@ -16,16 +16,17 @@
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { MEMBERS, SERVING, ENTRY, SERVED_NAME } from './catalog.mjs';
+import { MEMBERS, SERVING, ENTRY, SERVED_NAME, TOOLS, toolsOf } from './catalog.mjs';
 import { attachMember, startMember, modelFile } from './members.mjs';
 import { answer as orchestrate } from './orchestrate.mjs';
 import { serve as serveHttp } from './server.mjs';
 import { kevDecider } from './decider.mjs';
 import { fromSpec, readSpec, recipeSha256 } from './spec.mjs';
+import { answerTools } from './tools.mjs';
 import { behaviours } from './behave.mjs';
 import { readLearned, saveLearned, notePass, learnedFile, LEARNED_DIR } from './learned.mjs';
 
-export { MEMBERS, SERVING, ENTRY, SERVED_NAME, modelFile };
+export { MEMBERS, SERVING, ENTRY, SERVED_NAME, TOOLS, toolsOf, modelFile };
 export { DECIDER, TARGET, REGISTRY, readConfig, writeConfig, CONFIG_ID } from './catalog.mjs';
 export const BRIEFS_FILE = fileURLToPath(new URL('./briefs.json', import.meta.url));
 // THE ARRANGEMENT THE SWARM RUNS: what this configuration has learned against its larger model (learned.mjs), or, where it has
@@ -73,6 +74,12 @@ export async function createSwarm(opts = {}) {
   let briefs = opts.briefs || (S && S.briefs) || readBriefs(opts.briefsFile);
   const slots = opts.slots || (S && S.slots) || SERVING.slots;
   if (S && S.contextPerSlot && !opts.contextPerSlot) opts = { ...opts, contextPerSlot: S.contextPerSlot };
+  // TURNS WITH TOOLS (tools.mjs): "swarm" decides them; otherwise one small model takes them alone (named by its id, or its place;
+  // "lead": opts.lead, else place a). opts.tools, else the spec's, else the configuration's
+  const setting = opts.tools || (S && S.tools) || TOOLS;
+  const toolLead =
+    setting === 'swarm' ? opts.lead || 'a' : toolsOf(setting === 'lead' ? opts.lead || 'a' : setting, MEM);
+  const toolMode = setting === 'swarm' ? 'swarm' : 'lead';
   const members = {};
   const started = [];
   const stop = async () => {
@@ -86,7 +93,9 @@ export async function createSwarm(opts = {}) {
       members[key] = attachMember(MEM[key], at, slots);
       continue;
     }
-    const r = await startMember(MEM[key], { ...opts, slots, file: opts.files && opts.files[key] });
+    // (a server that takes turns with tools reads and writes calls in its model's own template: --jinja)
+    const jinja = opts.jinja !== undefined ? opts.jinja : toolMode === 'swarm' || key === toolLead;
+    const r = await startMember(MEM[key], { ...opts, jinja, slots, file: opts.files && opts.files[key] });
     if (!r.ok) {
       await stop();
       throw new Error(r.why);
@@ -107,11 +116,11 @@ export async function createSwarm(opts = {}) {
       : opts.runCode === false || process.env.SWARM_RUN_CODE === '0'
         ? null
         : behaviours;
-  const ask = (slot, messages) => {
+  const ask = (slot, messages, extra = {}) => {
     const m = members[slot.member];
     if (!m) throw new Error('no member called ' + slot.member);
     const { maxTokens, temperature, top_p, top_k } = slot;
-    const params = { maxTokens, timeoutMs: opts.timeoutMs };
+    const params = { maxTokens, timeoutMs: opts.timeoutMs, ...extra };
     for (const [k, v] of Object.entries({ temperature, top_p, top_k })) if (v !== undefined) params[k] = v;
     // opts.seed: the same slot asked the same thing draws the same answer. A program that serves people leaves it off; the
     // trainers set it, because a measurement that changes by itself from one run to the next cannot say whether a change helped
@@ -152,12 +161,59 @@ export async function createSwarm(opts = {}) {
       });
       return last;
     },
+    // A TURN WITH TOOLS: decided by the swarm (tools: "swarm"), or the lead's alone (tools: "lead"), as an action either way
+    toolMode,
+    toolLead,
+    async answerTools(messages, o = {}) {
+      if (toolMode !== 'swarm') {
+        const t1 = Date.now();
+        const r = await members[toolLead].ask('alone', messages, {
+          maxTokens: 700,
+          tools: o.tools,
+          ...(o.tool_choice !== undefined ? { tool_choice: o.tool_choice } : {}),
+        });
+        const { actionOf, actionText } = await import('./tools.mjs');
+        const action = actionOf({ content: r.content, tool_calls: r.calls }, o.tools);
+        last = {
+          ok: !action.bad,
+          path: 'tools-lead',
+          text: action.bad ? '' : actionText(action),
+          decided: action.bad ? '' : actionText(action),
+          reply: action.reply || '',
+          action,
+          calls: (r.calls || []).filter(() => !action.bad),
+          trace: [
+            {
+              slot: 'lead',
+              member: toolLead,
+              stage: 'draft',
+              ms: Date.now() - t1,
+              tokens: r.tokens,
+              ok: !action.bad,
+              final: action.bad ? '' : actionText(action),
+              out: action.bad ? 'Left out: ' + action.bad : actionText(action),
+            },
+          ],
+          ms: Date.now() - t1,
+        };
+        return last;
+      }
+      last = await answerTools(messages, {
+        tools: o.tools,
+        tool_choice: o.tool_choice,
+        briefs: o.briefs || briefs,
+        ask,
+        decide,
+        lead: opts.lead || 'a',
+      });
+      return last;
+    },
     // one member alone, told nothing: what the swarm is measured against, and where a turn with tools goes
     alone: (key, messages, params) => members[key].ask('alone', messages, params),
     last: () => last,
     alive: async () => (await Promise.all(Object.values(members).map((m) => m.alive()))).every(Boolean),
     async serve(o = {}) {
-      const s = await serveHttp(swarm, { lead: opts.lead || 'a', ...o });
+      const s = await serveHttp(swarm, { lead: toolLead, ...o });
       servers.push(s);
       return s;
     },

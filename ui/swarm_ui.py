@@ -71,6 +71,8 @@ dialog#recd{border:0;border-radius:26px;padding:26px;max-width:min(760px,94vw);w
 .hostcard{padding:14px 16px;border-radius:16px;border:1px solid var(--line2);background:#fafdfc}.hostcard p{margin:6px 0 0;font-size:13.5px;line-height:1.5}.hcbadge{display:inline-block;margin-top:6px;padding:2px 10px;border-radius:999px;background:#fdf0cf;color:#8a5a00;font-size:12px;font-weight:700}
 .hcon{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.hcon span{padding:2px 10px;border-radius:999px;background:var(--soft);font-size:12px;font-weight:700;color:var(--teal)}
 details.told{margin-top:4px}details.told summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--teal)}details.told div{margin-top:4px;white-space:pre-wrap;font-size:12.5px;color:var(--fog)}.spec .bad{color:var(--wrong)}
+.tgl{display:inline-flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:999px;background:var(--soft)}.tgl .seg{border:0;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--mist);padding:7px 14px;border-radius:999px;cursor:pointer}
+.tgl .seg.on{background:#fff;color:var(--teal);box-shadow:0 1px 4px rgba(11,93,87,.15)}.tgl .seg:focus-visible{outline:3px solid var(--teal2)}fieldset.tools{margin-top:12px}
 .rech{list-style:none;margin:8px 0 0;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mist)}
 @media (max-width:560px){.rec{grid-template-columns:minmax(0,1fr)}}
 details.cfg{margin-top:18px}details.cfg>summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}details.cfg>summary .cfgh{font-size:10.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--teal2)}
@@ -395,8 +397,13 @@ document.addEventListener('click',async(ev)=>{
 // A MODEL CHOSEN: written down, and everything that depends on it drawn again in place
 document.addEventListener('change',async(ev)=>{const s=ev.target.closest('[data-pick]');if(!s)return;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({[s.dataset.pick]:s.value})});
-  if(r.ok){$('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/chips','#chips');await swap('/fragment/run','#run');liveTick();}else{alert(await r.text());await swap('/fragment/picks','#picks');}});
+  if(r.ok){$('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/chips','#chips');await swap('/fragment/run','#run');liveTick();}else{alert(await r.text());await swap('/fragment/picks','#picks');}});
 // WHAT IT IS TO BE EQUIVALENT ON: the boxes ticked are written down, and the row drawn again in place
+// TURNS WITH TOOLS: who takes an agent's turn, saved as a pill's choice is, and the row and the folded line drawn again in place
+document.addEventListener('click',async(ev)=>{const b=ev.target.closest('[data-tools]');if(!b||b.classList.contains('on'))return;
+  const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({tools:b.dataset.tools})});
+  if(!r.ok){alert(await r.text());return;}
+  await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');});
 document.addEventListener('change',async(ev)=>{const b=ev.target.closest('[data-equiv]');if(!b)return;
   const want=[...document.querySelectorAll('[data-equiv]:checked')].map(x=>x.dataset.equiv);
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({equivalence:want})});
@@ -420,7 +427,7 @@ document.addEventListener('click',async(ev)=>{
   const a=ev.target.closest('[data-rec-apply]');if(!a)return;a.disabled=true;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:a.dataset.recApply});
   if(!r.ok){alert(await r.text());a.disabled=false;return;}
-  $('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/recslot','#rec-slot');await swap('/fragment/chips','#chips');await swap('/fragment/run','#run');$('#recd').close();
+  $('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/recslot','#rec-slot');await swap('/fragment/chips','#chips');await swap('/fragment/run','#run');$('#recd').close();
 });
 // STEER IT: focus an area, queue or skip a move, choose any move; each choice written down and the plan drawn again in place
 const steerPost=async(body)=>{const r=await fetch('/steer',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify(body)});if(!r.ok){alert(await r.text());return false;}$('#plan').innerHTML=await r.text();keepOpen($('#plan'));return true;};
@@ -592,7 +599,7 @@ def donut(parts, total, label):
     return "".join(out)
 
 
-KIND_WORDS = {"write-arrays": "Write a function: arrays", "write-strings": "Write a function: strings", "write-numbers": "Write a function: numbers",
+KIND_WORDS = {"agent": "An agent's next step, with tools", "write-arrays": "Write a function: arrays", "write-strings": "Write a function: strings", "write-numbers": "Write a function: numbers",
               "write-parsing": "Write a function: parsing", "fix": "Correct a function", "bug": "Say what is wrong", "trace": "Say what a program prints",
               "answer": "Simple: an everyday question", "request": "Simple: something it cannot do, or needs to ask about", "piece": "Simple: a piece of writing", "talk": "Simple: conversation",
               "practice": "Developer: a question of good practice", "shown": "Developer: their own project",
@@ -1997,7 +2004,8 @@ def cfg_meta(d):
     mem = " + ".join(m["name"] for m in d["members"].values() if m)
     q = d.get("equivalence") or {}
     on = ", ".join(t["name"] for t in q.get("targets", []) if t["id"] in q.get("chosen", []))
-    return "%s · decided by %s · against %s%s" % (mem, (d.get("decider") or {}).get("name", "?"), (d.get("target") or {}).get("name", "?"), (" · equivalent on " + on) if on else "")
+    return "%s · decided by %s · against %s%s · tools: %s" % (mem, (d.get("decider") or {}).get("name", "?"), (d.get("target") or {}).get("name", "?"), (" · equivalent on " + on) if on else "",
+                                                     "the swarm decides" if d.get("tools") == "swarm" else "%s alone" % ((d.get("members") or {}).get(d.get("tools")) or {}).get("name", "one model"))
 
 
 def evidence_of(d, name):
@@ -2224,7 +2232,24 @@ def config_section(d):
     n = len([r for r in recommendations(d) if r.get("apply")])
     badge = ('<button type="button" class="recbadge" id="rec-open" title="Open the recommended configuration changes"><i></i>%d recommendation%s</button>' % (n, "" if n == 1 else "s")) if n else ""
     return ('<details class="cfg fold" data-keep="cfg" open><summary><span class="cfgh">Configuration</span><span id="rec-slot">%s</span><span class="fmeta" id="cfg-meta">%s</span></summary>'
-            '<div class="foldb">%s%s</div></details>' % (badge, e(cfg_meta(d)), pills(d), equiv(d)))
+            '<div class="foldb">%s%s%s</div></details>' % (badge, e(cfg_meta(d)), pills(d), equiv(d), tools_toggle(d)))
+
+
+def tools_toggle(d, inner=False):
+    """TURNS WITH TOOLS: who takes a turn in an agent's work (a request that carries tools): the swarm, every drafter proposing the
+    next step and the decider picking where they differ (src/tools.mjs), or the model in place a alone, as it came. It is part
+    of how the swarm is served, saved in src/config.json; a session that is running keeps what it began with."""
+    cur = d.get("tools") or "a"
+    on = cur == "swarm"
+    mem = [(k, m) for k, m in (d.get("members") or {}).items() if m]
+    # one choice for the swarm, and one for each small model in it, by its name: the list follows the pills
+    seg = lambda val, label, sel: '<button type="button" class="seg%s" data-tools="%s" aria-pressed="%s">%s</button>' % (" on" if sel else "", e(val), "true" if sel else "false", label)  # noqa: E731
+    segs = seg("swarm", "Decided by the swarm", on) + "".join(seg(m["id"], "%s alone" % e(m["name"]), cur == k) for k, m in mem)
+    who = next((m["name"] for k, m in mem if k == cur), "one small model")
+    body = ('<legend>Turns with tools</legend><div class="tgl">%s</div><p class="muted small">%s</p>'
+            % (segs, e("An agent's turn (a request that carries tools, as The Crew's Pi sends): every drafter proposes the next step, a call to a tool that was not offered or with arguments that are not an object is left out, and the decider picks where they differ. Measured by the agent-step questions, against the larger model's own step."
+                       if on else "An agent's turn (a request that carries tools) goes to %s alone, as it came, and its reply comes straight back: the swarm drafts and decides only replies in words. Choose another small model to take them, or have the swarm decide them." % who)))
+    return body if inner else '<fieldset class="equiv tools" id="tools">%s</fieldset>' % body
 
 
 def equiv(d, inner=False):
@@ -2544,6 +2569,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(e(cfg_meta(d)))
         if u.path == "/fragment/equiv":
             return self._send(equiv(d, inner=True))
+        if u.path == "/fragment/tools":
+            return self._send(tools_toggle(d, inner=True))
         if u.path == "/fragment/tidy":
             return self._send(tidy_panel(d))
         if u.path == "/fragment/questions":
@@ -2657,7 +2684,7 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(asked, dict):
                 return self._send("Not understood.", 400, "text/plain; charset=utf-8")
             # (what it is to be equivalent on can be changed while a session runs: a pass ends on the questions it began with)
-            if (run_state() or {}).get("running") and set(asked) - {"equivalence"}:
+            if (run_state() or {}).get("running") and set(asked) - {"equivalence", "tools"}:
                 return self._send("A session is running: stop it before changing a model.", 409, "text/plain; charset=utf-8")
             root = Path(ARGS.root)
             reg = data._json(root / "src" / "models.json", {})
@@ -2668,6 +2695,15 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(want, list) or not want or any(i not in known for i in want):
                     return self._send("Tick at least one, from the ones listed.", 400, "text/plain; charset=utf-8")
                 now["equivalence"] = [i for i in known if i in want]
+            if "tools" in asked:
+                # "swarm", or one of the small models in the swarm by its id (written down by its id, so it stays that model)
+                mine_ids = [now.get(k) for k in ("a", "b", "c", "d") if now.get(k)]
+                want = asked["tools"]
+                if want == "lead":
+                    want = now.get("a")
+                if want != "swarm" and want not in mine_ids:
+                    return self._send("Turns with tools are decided by the swarm or given to one of its small models.", 400, "text/plain; charset=utf-8")
+                now["tools"] = want
             for key, lst in (("a", "small"), ("b", "small"), ("c", "small"), ("d", "small"), ("decider", "deciders"), ("target", "targets")):
                 if key in asked:
                     if key in ("c", "d") and asked[key] in ("", None):

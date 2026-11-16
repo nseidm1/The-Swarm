@@ -102,7 +102,9 @@ function member(m, base, slots, stop = () => {}, { revive = null, onRecover = ()
         if (!pinned.has(slotId)) pinned.set(slotId, pinned.size % slots);
         banned = banned || findBanned();
         const noCall = await banned;
-        const { maxTokens = 400, signal, timeoutMs, ...sampling } = params;
+        // A TURN WITH TOOLS (tools.mjs): the tools offered are sent, nothing is forbidden, and a call comes back as calls
+        const { maxTokens = 400, signal, timeoutMs, tools, tool_choice, ...sampling } = params;
+        const withTools = Array.isArray(tools) && tools.length > 0;
         const once = async () => {
           const r = await fetch(self.base + '/v1/chat/completions', {
             method: 'POST',
@@ -114,7 +116,11 @@ function member(m, base, slots, stop = () => {}, { revive = null, onRecover = ()
               cache_prompt: true,
               id_slot: pinned.get(slotId),
               max_tokens: maxTokens,
-              ...(noCall.length ? { logit_bias: noCall.map((id) => [id, false]) } : {}),
+              ...(withTools
+                ? { tools, ...(tool_choice !== undefined ? { tool_choice } : {}) }
+                : noCall.length
+                  ? { logit_bias: noCall.map((id) => [id, false]) }
+                  : {}),
               ...m.sampling,
               ...sampling,
             }),
@@ -123,8 +129,16 @@ function member(m, base, slots, stop = () => {}, { revive = null, onRecover = ()
           const j = await r.json();
           const msg = (j.choices && j.choices[0] && j.choices[0].message) || {};
           // a server that puts everything a model wrote under its reasoning, and nothing under its answer, has still been answered
+          const calls = withTools && Array.isArray(msg.tool_calls) && msg.tool_calls.length ? msg.tool_calls : null;
           return {
-            text: String(msg.content || msg.reasoning_content || ''),
+            // (a call is written down as text the way tools.mjs writes an action, so that whatever reads text reads it)
+            text: calls
+              ? calls
+                  .map((c) => 'CALL ' + ((c.function || {}).name || '') + ' ' + ((c.function || {}).arguments || '{}'))
+                  .join('\n')
+              : String(msg.content || msg.reasoning_content || ''),
+            content: String(msg.content || ''),
+            ...(calls ? { calls } : {}),
             tokens: (j.usage && j.usage.completion_tokens) || 0,
             ms: Date.now() - t0,
           };
@@ -185,7 +199,8 @@ export async function startMember(m, opts = {}) {
   const UNKNOWN_FLAG = /invalid argument|unknown argument|unrecognized|error while handling argument/i;
   const NO_MEMORY =
     /out of memory|failed to allocate|insufficient memory|cannot allocate|bad_alloc|exit 137|exit -?9\b/i;
-  let serve = m.serve || [];
+  // a swarm that decides turns with tools needs the server to read and write calls in the model's own template (--jinja)
+  let serve = [...(opts.jinja ? ['--jinja'] : []), ...(m.serve || [])];
   const tryWith = async () => {
     const port = await freePort();
     const base = 'http://127.0.0.1:' + port;

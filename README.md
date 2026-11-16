@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/dashboard.png" alt="The training dashboard: Configuration, with a note of two recommended changes, the pills that choose the small models, the decision model and the larger model, and the boxes for what the swarm is to be equivalent on; parity with Nemotron 3.5 Lightning 30B as a panel, 59.5% of the way, with each small model alone beside the swarm; the memory saved, 52.2%; and beside them the training card, its sections folded to a line each, and the passes so far" width="860">
+  <img src="docs/images/dashboard.png" alt="The training dashboard: Configuration, with a note of two recommended changes, the pills that choose the small models, the decision model and the larger model, the boxes for what the swarm is to be equivalent on, and Turns with tools (decided by the swarm, or given to one of its small models by name); parity with Nemotron 3.5 Lightning 30B as a panel, 59.5% of the way, with each small model alone beside the swarm; the memory saved, 52.2%; and beside them the training card, stopped in step 17 of 25 of pass 6, its sections folded to a line each, then the passes so far and the ideas waiting to be measured" width="860">
 </p>
 
 <p align="center"><em>The training dashboard in pass 6 of a real session, stopped at step 17 of 25 (LFM2.5 2.6B and Bonsai 2 2B, decided by Kev 4B, against Nemotron 3.5 Lightning 30B; 2026-11-16).</em></p>
@@ -55,7 +55,7 @@ to, change or take out ([`training/questions/`](training/questions/README.md)). 
 is measured on questions it was never chosen on.
 
 <p align="center">
-  <img src="docs/images/dashboard-questions.png" alt="The questions for The Crew: a list of your own questions to add, change or take out, each sent to a Simple or a Developer seat, and the thirteen kinds the trainer makes: four kinds of function to write, correcting one, saying what is wrong, saying what a program prints, four kinds of Simple conversation and two of Developer" width="620">
+  <img src="docs/images/dashboard-questions.png" alt="The questions for The Crew: a list of your own questions to add, change or take out, each sent to a Simple or a Developer seat, and the fourteen kinds the trainer makes: four kinds of function to write, correcting one, saying what is wrong, saying what a program prints, four kinds of Simple conversation, two of Developer, and an agent's next step with tools" width="620">
 </p>
 
 > **Status: pre-release, training under way.** Five training passes have finished on one configuration (LFM2.5 2.6B and
@@ -186,13 +186,13 @@ How it behaves when things go its way, and when they do not:
 | Every draft reaches the same answer (for a function: every draft does the same on the calls tried) | Nothing is in dispute: the checks and the decider are passed over |
 | The drafts cannot be tried (not JavaScript, no calls could be read, a Node older than 20, or `runCode: false`) | They are compared as text |
 | A slot runs out of room before it answers | It is asked once more for its answer alone (a checker: the letter of the answer it finds correct) |
-| A model has a token for opening a tool call | The server is asked for it once and it is forbidden in every request, so the model cannot answer with a call |
+| A model has a token for opening a tool call | The server is asked for it once and it is forbidden in every request without tools, so the model cannot answer a question with a call |
 | A slot fails | The others carry on |
 | Kev is not running, or does not answer | The answer most slots gave stands |
 | The writer answers with a call to a tool | That is not sent: the answer that was settled goes out as it stands |
 | Nothing can be written | The answer and its work are the reply |
 | Nothing answers at all | `ok: false` and no reply. Nothing is made up |
-| The request carries tools | It goes to the model in place `a` alone, untouched. The Swarm does not yet drive tools |
+| The request carries tools (an agent's turn) | With `"tools": "swarm"`: every drafter proposes the next step with the tools offered; a call to a tool not offered, or with arguments that are not an object, is left out; the same steps are one; the decider picks where they differ; it goes back as `tool_calls`, streamed or not ([`src/tools.mjs`](src/tools.mjs)). Otherwise to the one small model the setting names, alone and untouched (the model in place `a` where nothing is chosen) |
 
 [docs/architecture.md](docs/architecture.md) has the files, what each slot is sent, and each kind of failure.
 
@@ -206,6 +206,7 @@ The Swarm is made of a few choices, kept in [`src/config.json`](src/config.json)
 | `a`, `b`, and optionally `c`, `d` | The small models: two at least, four at most | 15, from Liquid AI, Prism ML, Alibaba, Google, IBM, Mistral AI, NVIDIA and Hugging Face (1.2B to 4B) |
 | `decider` | The decision model | Kev in four sizes (0.8B, 4B, 9B, 27B); StartLux Decision 4B and 9B (Apple silicon, through MLX; weights for non-commercial use only); and, listed for comparison and greyed out on a Mac, the leaders that need an NVIDIA GPU: karpo-decision 31B, Jeffan 9B, KnowLine 4B. Each shows its score on the community [Decision Index](https://huggingface.co/spaces/multimodalart/jev-decision-index) (2026-11-12), best first. Every one takes the same request (`POST /v1/systemone`) |
 | `target` | The larger model to be brought to parity with | 13, from 8B to 30B |
+| `tools` | Who takes an agent's turn (a request that carries tools): `"swarm"`, every drafter proposing the next step and the decider picking; or the id of one of its small models, which takes them alone, as they came (by its id, so it stays that model when places move up) | The model in place `a` where nothing is chosen, or where the one named is no longer in the swarm. `SWARM_TOOLS` sets it too |
 
 Every file is pinned: a repository, a revision, a size and a SHA-256, and a file is kept only if it matches.
 
@@ -272,7 +273,7 @@ its training ([`src/spec.mjs`](src/spec.mjs)):
 | `recipe` | What a swarm is built from: each small model's pinned file (repository, revision, size, SHA-256, how it is served), the decider and its serving recipe, the engine's pinned builds, slots and context, and the arrangement: the flow and every slot with what it is told. Hashed: `spec.recipeSha256` |
 | `card` | One item for a model chooser, in the shape The Crew's catalogue lists its models (`id`, `name`, `size`, `params`, `memGb`, `pace`, `badge`, `plain`), with `engine: "swarm"`, what it is equivalent on and where it stands |
 | `requirements` | What it needs of a machine: platforms (where the decider runs), memory, disk, engine, Node, every licence, and whether it may be used commercially |
-| `interface` | What it is as a model: its endpoints, what it can and cannot do (tools go to the model in place `a` alone), and how to start it |
+| `interface` | What it is as a model: its endpoints, what it can and cannot do (who takes a turn with tools: the swarm, or which of its small models), and how to start it |
 | `trainedAgainst`, `learned` | Where it stands against the larger model, kind by kind, and every change it kept with the evidence |
 
 ```js
@@ -289,8 +290,9 @@ From a terminal: `node bin/swarm.mjs serve --spec swarm-spec.json`.
 `spec.requirements` fit the machine (and, for a paid product, only where `commercialUse` is true: a configuration decided by
 StartLux is not); fetch what `recipe` pins; start the decider by `recipe.decider.serve`; then `serveSwarm({ ...card, spec })`,
 the same call shape a llama.cpp model is started with. It answers at an OpenAI-compatible address as one model. What it is
-good for is what it was measured on (`card.equivalentOn`): a seat's replies and single checked steps. An agent that works by
-tools, as The Crew's Pi does, gets the model in place `a` alone until the swarm drives tools.
+good for is what it was measured on (`card.equivalentOn`): a seat's replies, single checked steps and, with turns with tools
+decided by the swarm, an agent's steps (as The Crew's Pi takes them). With them given to one small model, an agent gets that
+model alone.
 
 ## Configuration
 
@@ -336,10 +338,10 @@ line what it holds while folded; open or folded is kept on the device.
 <p align="center"><em>The plan of a pass, its measurement and its moves open: briefs the larger model wrote for the slots that were failing come first, then the arrangements, each with Next and Skip.</em></p>
 
 <p align="center">
-  <img src="docs/images/dashboard-measurement.png" alt="The whole measurement, opened from the parity strip: at parity or not yet, equivalent and different answers, seconds a reply, equivalent answers pass by pass, which step settled each answer, equivalent answers by kind of question, and each small model alone beside the swarm" width="860">
+  <img src="docs/images/dashboard-measurement.png" alt="The whole measurement, opened from the parity panel: at parity or not yet, equivalent and different answers, seconds a reply, equivalent answers pass by pass, which step settled each answer, equivalent answers by kind of question, and each small model alone beside the swarm" width="860">
 </p>
 
-<p align="center"><em>The whole measurement, opened from the parity strip.</em></p>
+<p align="center"><em>The whole measurement, opened from the parity panel.</em></p>
 
 <p align="center">
   <img src="docs/images/dashboard-input-output.png" alt="Input against output: the list of questions, one input with what the larger model answered, what every slot wrote and settled on, the swarm's output, and the larger model's output beside it" width="860">
@@ -348,21 +350,21 @@ line what it holds while folded; open or folded is kept on the device.
 <p align="center"><em>Input against output, in the whole measurement: one input, with what every slot wrote and both outputs.</em></p>
 
 <p align="center">
-  <img src="docs/images/dashboard-spec.png" alt="The output spec of one configuration: whether it is at parity with the larger model; what it has learned, each kept change with its kind, where it came from and the equivalent answers it won on train and on held; where each pass left it; then what it is, its flow and its slots" width="860">
+  <img src="docs/images/dashboard-spec.png" alt="The output spec of one configuration: how far it is toward parity; what it has learned, each kept change with the answers it won; as a model chooser lists it, the card with its badge; what it needs of a machine (platforms, memory, disk, engine, Node, the decider, licences, commercial use); what it can do as a model (chat, streaming, tools, images, context); how to make it (the recipe's hash, the format, and how to start the decider, a program, a host and a terminal); then what it is, its models with their pinned files, the decider, its standing kind by kind, the flow and every slot with what it is told" width="860">
 </p>
 
-<p align="center"><em>The output spec: what this configuration has learned, and the proof of each thing.</em></p>
+<p align="center"><em>The output spec: everything needed to make this swarm again and offer it as a model, with what it has learned and the proof of each thing. Copy it, or save it as a file.</em></p>
 
 | Part | What it shows |
 |---|---|
-| Configuration | What the swarm is made of, in one section that folds to a line (LFM2.5 2.6B + Bonsai 2 2B, decided by Kev 4B, against Nemotron 3.5 Lightning 30B, equivalent on The Crew). **The pills**: **Small model 1**, **Small model 2** (and a third and fourth, once added: the next empty place has a pill to add one, a filled one can be removed), **Decides**, **Larger model**, each a list of the models that can be chosen, grouped by who made them. Choosing one redraws the page for that swarm, in place. **Equivalent on**: one box to tick for each body of work the swarm is brought to equivalence on (**The Crew**, ticked where nothing is chosen; Math, Logic, Reasoning); a pass asks the kinds of every one ticked, and the pencil on each opens its questions. Beside the heading, a note when there are [recommended changes](#recommended-changes) |
-| Output spec | The record of this configuration against this larger model, which grows as it is trained. Every change a pass keeps (a brief, a change to the plan, an arrangement, a flow) is added as it is kept, with the answers it won on the questions it was chosen on and on the held ones; then where each pass left it, the flow and every slot as they now stand, each model with its pinned file, and what goes in and comes out. To read, and to copy as JSON |
-| Uninstall Helper | Everything the Swarm has put in `.work`, with the room each takes and whether the configured swarm uses it, and a button to take out each. It never touches anything outside `.work`, what training has learned, or anything while a session runs |
-| Training | **Run training** fetches and makes ready whatever the chosen models need, then trains pass after pass until **Stop training** is pressed. Its sections say where the session is: making ready (what is being fetched and how far), **Now** (the step and the question it is on), **Pass** (the steps done and what is next), **Heading** (where the percentage stands and could go), **Recovered** (faults it came back from) and **Learned this session**. Below it: the passes so far, and the ideas waiting to be measured, each opening the paper it came from |
-| Parity with the larger model | Two panels and a line of chips. **Toward parity** (amber short of parity, green at it): the share of held answers equivalent to the larger model's, large, with the verdict in a sentence, the swarm's answers as a bar (equivalent, different, no answer) and each small model alone beside it on one scale. **Memory saved**: the larger model's memory as one bar and the swarm's beside it, made of its parts (each small model, their contexts, the decider), with the saving, estimated. Then chips: held questions, where the larger model follows the question, seconds a reply. It opens the whole measurement |
-| The arrangement being trained | One section, drawn as faces: the swarm as it stands (briefs, slots, kept changes), what is running, and what the plan is trying now. Then a roster of the models, each a face in its colour (two of one family are told apart by size: L2.6, L1.2); the larger model's chip carries its live dot and opens its card (how it is served, the configurations at parity with it). Then the flow in one row of stations (Draft › Check › Decide › Write, a loop drawn round the steps it repeats); the sandbox, which no model fills, is a marker between the stations it runs between. Each slot is a face of its model in the step it stands in, with its whole name: a ring for its record (its answers equivalent to the larger model's, of those judged; an answer not yet compared is left out, not counted as different), a dot and a halo for what it is doing now (working, answered, failed, idle), and a badge while the plan is trying a brief on it. Choosing a face opens that slot's card below the row: what it is told, its record, what is being tried on it |
-| The plan being carried out | What this pass's measurement showed, and every move the pass chose because of it, in order: the slot and model, the technique, the paper it came from, why it was chosen, and what became of it (planned, being measured, kept, not kept). **What only you can change**: whether another small model on this machine drafts what no slot drafts, and how another decider did on the same recorded choices. **Steer it**: lean the search on an area (briefs, slots, flow, decider placement, decider loops, several at once: less, as planned, more, only), put any move first or skip one, or choose from every move open to the pass. Steering decides what is tried, never what is kept |
-| The whole measurement (opened from the parity strip) | Equivalent answers pass by pass, which step settled each answer, each kind of question, each small model alone; **the memory the swarm takes against the larger model's**, as a bar for each on one scale, the swarm's made of its parts (each small model, their contexts, the decider), estimated; and **input against output**: any question asked, its input and what the larger model answered, what every slot wrote and settled on, the Swarm's output and the larger model's beside it |
+| Output spec, Uninstall Helper | Two buttons at the top. **Output spec** (with how many changes it has kept): everything needed to make this swarm again and offer it as a model ([from its spec](#from-its-spec)): how far it is toward parity, what it has learned, the card a model chooser would list, what it needs of a machine, what it can do as a model, how to make it, its models with their pinned files, its decider, the flow, and every slot with what it is told. To read, to copy as JSON, or to save as a file. **Uninstall Helper**: everything the Swarm has put in `.work`, with the room each takes and whether the configured swarm uses it, and a button to take out each; never anything outside `.work`, what training has learned, or anything while a session runs |
+| Configuration | What the swarm is made of, in one section that folds to a line (its models, its decider, its larger model, what it is equivalent on, and who takes turns with tools). **The pills**: **Small model 1**, **Small model 2** (and a third and fourth, once added: the next empty place has a pill to add one, a filled one can be removed), **Decides** (best first by its Decision Index score; one this machine cannot run is greyed out with what it needs), **Larger model**, each grouped by who made it. Choosing one redraws the page for that swarm, in place. **Equivalent on**: one box to tick for each body of work (**The Crew**, ticked where nothing is chosen; Math, Logic, Reasoning); a pass asks the kinds of every one ticked, and the pencil on each opens its questions. **Turns with tools**: decided by the swarm, or given to one of its small models alone, each listed by name and following the pills. Beside the heading, a note when there are [recommended changes](#recommended-changes) |
+| Parity with the larger model | Two panels and a line of chips. **Toward parity** (amber short of parity, green at it): the share of held answers equivalent to the larger model's, large, with the verdict in a sentence, the swarm's answers as a bar (equivalent, different, no answer) and each small model alone beside it on one scale. **Memory saved**: the larger model's memory as one bar and the swarm's beside it, made of its parts (each small model, their contexts, the decider), with the saving, estimated. Then chips (held questions, where the larger model follows the question, seconds a reply) and **Open the whole measurement** |
+| The arrangement being trained | One section, drawn as faces: the swarm as it stands (briefs, slots, kept changes), what is running, and what the plan is trying now (or what it stopped while trying). Then a roster of the models, each a face in its colour (two of one family are told apart by size: L2.6, L1.2); the larger model's chip carries its live dot and opens its card (how it is served, the configurations at parity with it). Then the flow in one row of stations (Draft › Check › Decide › Write, a loop drawn round the steps it repeats); the sandbox, which no model fills, is a marker between the stations it runs between. Each slot is a face of its model in the step it stands in, with its whole name: a ring for its record (its answers equivalent to the larger model's, of those judged), a dot and a halo for what it is doing now (working, answered, failed, idle), and a badge while the plan is trying a brief on it. Choosing a face opens that slot's card below the row: what it is told, its record, what is being tried on it |
+| The plan being carried out | The plan for the pass in hand, in subsections that each fold to a line of what they hold (folded to begin with): **The gap, on the train questions** (how many answers to close, by choosing better or by better drafts); **What the measurement showed** (each finding, with the answers it accounts for); **Questions** (more of the kinds the last pass answered differently on); **What only you can change**; **How it is training** (the policy, and what the pass changed in it); **Steer it** (lean the search on an area: briefs, slots, flow, decider placement, decider loops, several at once; less, as planned, more, only; and choose any move); and **Moves, in the order they are measured**: each with its slot and model, its technique, the paper it came from, why it was chosen, and what became of it (planned, being measured, stopped partway, kept, not kept), a planned one with **Next** and **Skip**. Steering decides what is tried, never what is kept |
+| Training | **Run training** (with how many questions of each kind) fetches and makes ready whatever the chosen models need, then trains pass after pass until **Stop training** is pressed. Its sections each fold to a line: making ready (what is being fetched and how far), **Now** (the step, and the question it is on; **Stopped in** once stopped, with no clock running), **Pass** (the steps done and what is next), **Heading** (where the percentage stands and could go), **Recovered** (faults it came back from) and **Learned this session** |
+| Passes, Ideas waiting to be measured | Below the training card. **Passes** folds to a line (how many, the latest, the best, where it began) and opens to each pass's share. **Ideas waiting to be measured**: what the reading on arXiv left, each opening the paper it came from |
+| The whole measurement (opened from the parity panel) | Equivalent answers pass by pass, which step settled each answer, each kind of question, each small model alone; **the memory the swarm takes against the larger model's**; and **input against output**: any question asked, its input and what the larger model answered, what every slot wrote and settled on, the Swarm's output and the larger model's beside it |
 
 ### Recommended changes
 
@@ -528,11 +530,11 @@ npm test
 python3 ui/check.py
 ```
 
-One hundred and twenty-four checks of the module and the trainers, and fifty-seven of the dashboard. Stand-in servers take the place of the
+One hundred and thirty-two checks of the module and the trainers, and seventy-five of the dashboard. Stand-in servers take the place of the
 models, Kev and Hugging Face, so nothing is fetched, started or installed, and both finish in well under a minute. They cover what
 goes in and comes out, which slots run, what happens when a slot, a model or everything fails, that two functions are judged
 equivalent by running them, that model-written code can reach nothing, and that each fault in [Recovery](#recovery) is
-recovered from: a stand-in server is made to die, to refuse a flag, to run out of memory and to answer with nothing.
+recovered from: a stand-in server is made to die, to refuse a flag, to run out of memory and to answer with nothing. Stand-ins also answer turns with tools, so the swarm's steps, the ones left out and the decider's pick are checked as an agent would ask for them.
 
 How well the models do is not a check. It is a measurement.
 
@@ -586,7 +588,7 @@ What has not:
 
 Known limits:
 
-- **No tools.** A request with tools is answered by one model, not the Swarm.
+- **Turns with tools are new.** The swarm decides an agent's turns only with `"tools": "swarm"`. Tried on this machine with the three small models (2026-11-16): on "What does src/math.js export?" LFM2.5 2.6B's drafters read the file, Bonsai 2 2B's listed the folder, and LFM2.5 1.2B's replied that they had no files to look at; most read the file, and that was the step. Not yet measured against the larger model: the agent-step questions are asked from the next pass.
 - **Slow by design.** A question the drafts disagree about takes four stages.
 - **Only JavaScript is run.** Drafts in any other language are compared as text, and so are seldom found to agree.
 - **Doing the same on the calls tried is not being the same.** Drafts are one answer when they agree on about ten calls a small model wrote. Two functions that part only on a case nobody tried are taken for one.

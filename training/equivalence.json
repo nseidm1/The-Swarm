@@ -5,7 +5,7 @@
     {
       "id": "crew",
       "name": "The Crew",
-      "about": "The work of a seat on a team: programming, and the conversation around it in Simple and in Developer",
+      "about": "The work of a seat on a team: programming, the conversation around it in Simple and in Developer, and an agent's steps with tools",
       "kinds": [
         "write-arrays",
         "write-strings",
@@ -19,7 +19,8 @@
         "piece",
         "talk",
         "practice",
-        "shown"
+        "shown",
+        "agent"
       ]
     },
     {

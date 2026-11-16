@@ -21,6 +21,7 @@ import {
   needReference,
   swarmName,
   finished,
+  askSwarm,
 } from './support/bench.mjs';
 import { plain } from '../src/read.mjs';
 import { messagesOf } from './tasks.mjs';
@@ -112,7 +113,8 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     const rows = await run(
       list,
       async (t) => {
-        const got = await swarm.answer(messagesOf(t));
+        // a step in an agent's work is a turn with tools: decided by the swarm or the lead's own, as the configuration says
+        const got = await askSwarm(swarm, t, messagesOf(t));
         return {
           reply: got.reply,
           decided: got.decided,

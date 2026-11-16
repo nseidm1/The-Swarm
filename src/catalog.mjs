@@ -12,6 +12,11 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 export const SERVED_NAME = 'the-swarm';
+// TURNS WITH TOOLS (src/tools.mjs; "tools" in src/config.json, the dashboard's Configuration): "swarm" decides them, every drafter
+// proposing the next action and the decider picking where they differ; or one of the small models takes them alone, named by its
+// id (so that it is the same model when the places move up). Where nothing is chosen, or the one named is no longer in the swarm,
+// it is the model in place a, as before ("lead" says that too). SWARM_TOOLS sets it too.
+//   toolsOf(setting, members) -> 'swarm' | the place of the one model that takes them
 const here = (name) => fileURLToPath(new URL('./' + name, import.meta.url));
 export const MODELS_FILE = here('models.json');
 export const CONFIG_FILE = process.env.SWARM_CONFIG || here('config.json');
@@ -88,6 +93,14 @@ export function writeConfig(patch) {
 const CONFIG = readConfig();
 const small = (id) => REGISTRY.small.find((m) => m.id === id);
 export const MEMBERS = Object.fromEntries(placesOf(CONFIG).map((k) => [k, { ...small(CONFIG[k]), key: k }]));
+export function toolsOf(setting, members = MEMBERS) {
+  const places = Object.keys(members);
+  if (setting === 'swarm') return 'swarm';
+  if (places.includes(setting)) return setting;
+  const byId = places.find((k) => (members[k] || {}).id === setting);
+  return byId || (places.includes('a') ? 'a' : places[0] || 'a');
+}
+export const TOOLS = process.env.SWARM_TOOLS || CONFIG.tools || 'lead';
 export const DECIDER = REGISTRY.deciders.find((m) => m.id === CONFIG.decider);
 export const TARGET = REGISTRY.targets.find((m) => m.id === CONFIG.target);
 // the swarm as it is configured, in a word: results are kept apart by this, so that one arrangement's are never read as another's

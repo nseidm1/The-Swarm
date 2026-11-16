@@ -8,7 +8,19 @@
 // --noise n: ask the swarm n train questions again with another draw, to see how many answers change by themselves.
 import fs from 'node:fs';
 import path from 'node:path';
-import { arg, has, RESULTS, WORK, WORKC, openSwarm, questions, run, needReference, paired } from './support/bench.mjs';
+import {
+  arg,
+  has,
+  RESULTS,
+  WORK,
+  WORKC,
+  openSwarm,
+  questions,
+  run,
+  needReference,
+  paired,
+  askSwarm,
+} from './support/bench.mjs';
 import { messagesOf } from './tasks.mjs';
 import { readState } from './state.mjs';
 import { readPolicy, setPolicy, at as valueAt } from './policy.mjs';
@@ -125,7 +137,9 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       const ref = needReference(sample, 'train');
       const swarm = await openSwarm(undefined, { seed: 2 });
       try {
-        const again = await run(sample, async (t) => ({ reply: (await swarm.answer(messagesOf(t))).reply }), { ref });
+        const again = await run(sample, async (t) => ({ reply: (await askSwarm(swarm, t, messagesOf(t))).reply }), {
+          ref,
+        });
         const p = paired(was, again);
         // what a change is judged by is the NET of answers won and lost. Answers that change both ways with another draw cancel
         // in that; what does not cancel is how far a score moves by itself, and that is what a change must beat

@@ -45,18 +45,30 @@ function standIn() {
       s.now--;
       const out = s.script(body);
       if (out === null) return res.writeHead(500).end('{"error":"stand-in failure"}');
+      // (a script may answer a turn with tools as a model would: { tool_calls } or { content })
       if (body.tools)
         return res.writeHead(200, { 'content-type': 'application/json' }).end(
           JSON.stringify({
             choices: [
               {
-                message: {
-                  role: 'assistant',
-                  content: '',
-                  tool_calls: [
-                    { id: 'c1', type: 'function', function: { name: body.tools[0].function.name, arguments: '{}' } },
-                  ],
-                },
+                message:
+                  out && typeof out === 'object'
+                    ? {
+                        role: 'assistant',
+                        content: out.content || '',
+                        ...(out.tool_calls ? { tool_calls: out.tool_calls } : {}),
+                      }
+                    : {
+                        role: 'assistant',
+                        content: '',
+                        tool_calls: [
+                          {
+                            id: 'c1',
+                            type: 'function',
+                            function: { name: body.tools[0].function.name, arguments: '{}' },
+                          },
+                        ],
+                      },
               },
             ],
           }),
@@ -1974,7 +1986,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   check(
     'what the swarm is to be equivalent on is chosen from a list kept as data: The Crew (programming and the conversation around it) where nothing is chosen, and with it or in its place Math, Logic and Reasoning; a pass asks the kinds of all that are chosen, and a name that is not on the list is passed over',
     EQUIVALENCE.targets.map((t) => t.id).join() === 'crew,math,logic,reasoning' &&
-      NAMES.join() === [...CODE_KIND_NAMES, ...CREW_KIND_NAMES].join() &&
+      NAMES.join() === [...CODE_KIND_NAMES, ...CREW_KIND_NAMES, 'agent'].join() &&
       kindsFor(['crew']).join() === NAMES.join() &&
       kindsFor([]).join() === NAMES.join() &&
       kindsFor(['nothing']).join() === NAMES.join() &&
@@ -2666,6 +2678,193 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+// ---- 6x: A TURN WITH TOOLS, DECIDED BY THE SWARM (tools.mjs; "tools": "swarm" in the configuration). Every drafter proposes the
+// next action; a call the caller did not offer, or with arguments that are not an object, is left out; the same ones are one; where
+// they differ the decider picks; and it goes back as tool_calls, streamed or not. With "lead", the lead's own turn, as before.
+{
+  const { actionOf, actionText, parseAction, sameAction } = await import('../src/tools.mjs');
+  const TOOLS_ = [
+    {
+      type: 'function',
+      function: { name: 'read', parameters: { type: 'object', properties: { path: { type: 'string' } } } },
+    },
+    {
+      type: 'function',
+      function: { name: 'ls', parameters: { type: 'object', properties: { path: { type: 'string' } } } },
+    },
+  ];
+  const call = (name, args) => ({
+    tool_calls: [
+      {
+        id: 'x',
+        type: 'function',
+        function: { name, arguments: typeof args === 'string' ? args : JSON.stringify(args) },
+      },
+    ],
+  });
+  const AGENT = [
+    { role: 'system', content: 'You are a coding agent. Use the tools.' },
+    { role: 'user', content: 'What does src/a.js export?' },
+  ];
+  const kevAsked = [];
+  const decide = async (input) => (
+    kevAsked.push(input),
+    { ok: true, letter: 'B', final: input.answers[1].final, ms: 1 }
+  );
+  reset();
+  // drafters on a: read src/a.js (twice, one with ./), on b: one calls a tool not offered, one lists the folder
+  lfm.s.script = (b) =>
+    b.tools
+      ? call('read', b.messages.length && b.temperature > 0.5 ? { path: './src/a.js' } : { path: 'src/a.js' })
+      : 'ANSWER: 42';
+  let nb = 0;
+  bonsai.s.script = (b) =>
+    b.tools ? (nb++ % 2 ? call('ls', { path: 'src' }) : call('rm', { path: 'src' })) : 'ANSWER: 42';
+  const sw = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, tools: 'swarm', decide });
+  const got = await sw.answerTools(AGENT, { tools: TOOLS_ });
+  const left = got.trace.filter((r) => !r.ok).map((r) => r.out);
+  const banNone = [...lfm.s.calls, ...bonsai.s.calls].filter((b) => b.tools).every((b) => !b.logit_bias);
+  // over the address, as an agent would ask: not streamed and streamed
+  const srvT = await sw.serve({ port: 0 });
+  const post = (o) =>
+    fetch(srvT.base + '/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ messages: AGENT, tools: TOOLS_, ...o }),
+    });
+  const plainR = await (await post({})).json();
+  const streamed = await (await post({ stream: true })).text();
+  // all drafters agree: no decider asked
+  reset();
+  lfm.s.script = (b) => (b.tools ? call('read', { path: 'src/a.js' }) : 'ANSWER: 42');
+  bonsai.s.script = (b) => (b.tools ? call('read', { path: ' src/a.js ' }) : 'ANSWER: 42');
+  const before = kevAsked.length;
+  const agreed = await sw.answerTools(AGENT, { tools: TOOLS_ });
+  // every drafter replies in words: a reply
+  lfm.s.script = bonsai.s.script = (b) => (b.tools ? { content: 'It exports add and sub.' } : 'ANSWER: 42');
+  const worded = await sw.answerTools(AGENT, { tools: TOOLS_ });
+  await srvT.close();
+  await sw.stop();
+  // with "lead": the lead's turn, as it came
+  reset();
+  lfm.s.script = (b) => (b.tools ? call('ls', { path: '.' }) : 'ANSWER: 42');
+  const lead = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, tools: 'lead' });
+  const lg = await lead.answerTools(AGENT, { tools: TOOLS_ });
+  const bonsaiAsked = bonsai.s.calls.length;
+  await lead.stop();
+  // given to another of the small models, by its id: that one alone takes the turn
+  reset();
+  bonsai.s.script = (b) => (b.tools ? call('ls', { path: 'src' }) : 'ANSWER: 42');
+  const byB = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, tools: MEMBERS.b.id });
+  const bg = await byB.answerTools(AGENT, { tools: TOOLS_ });
+  const lfmAskedB = lfm.s.calls.length;
+  const gone = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, tools: 'not-in-this-swarm' });
+  const goneLead = gone.toolLead;
+  await byB.stop();
+  await gone.stop();
+  check(
+    'a turn with tools is decided by the swarm when the configuration says so, or taken by the one small model it names (by its id; the model in place a where the one named is not in the swarm): every drafter proposes the next step with the tools offered (nothing forbidden), a call to a tool not offered is left out, the same step is one however its path is written, the decider picks where steps differ and is not asked where they agree, a reply in words is a reply; it goes back as tool_calls, streamed or not; with "lead" the lead alone takes the turn',
+    got.ok &&
+      got.path === 'tools-decided' &&
+      got.calls.length === 1 &&
+      got.calls[0].function.name === 'ls' &&
+      kevAsked[0].answers.length === 2 &&
+      left.some((x) => /rm, which is not one of the tools offered/.test(x)) &&
+      banNone &&
+      plainR.choices[0].finish_reason === 'tool_calls' &&
+      plainR.choices[0].message.tool_calls[0].function.name === 'ls' &&
+      plainR.choices[0].message.content === null &&
+      /"tool_calls":\[\{"index":0/.test(streamed) &&
+      /"finish_reason":"tool_calls"/.test(streamed) &&
+      /\[DONE\]/.test(streamed) &&
+      agreed.path === 'tools-agreed' &&
+      kevAsked.length === before + 0 + 0 + (agreed.path === 'tools-agreed' ? 0 : 1) &&
+      worded.ok &&
+      worded.calls.length === 0 &&
+      worded.reply === 'It exports add and sub.' &&
+      lg.ok &&
+      lg.path === 'tools-lead' &&
+      lg.calls[0].function.name === 'ls' &&
+      bonsaiAsked === 0 &&
+      byB.toolLead === 'b' &&
+      bg.ok &&
+      bg.trace[0].member === 'b' &&
+      bg.calls[0].function.name === 'ls' &&
+      lfmAskedB === 0 &&
+      goneLead === 'a' &&
+      sameAction(
+        parseAction('CALL read {"path":"./src/a.js"}'),
+        parseAction(actionText(actionOf(call('read', { path: 'src/a.js' }).valueOf(), TOOLS_))),
+      ) &&
+      !sameAction(parseAction('CALL read {"path":"src/b.js"}'), parseAction('CALL read {"path":"src/a.js"}')) &&
+      actionOf(call('read', 'not json'), TOOLS_).bad &&
+      sameAction(parseAction('It is add.'), parseAction('Add and sub.')) &&
+      !sameAction(parseAction('It is add.'), parseAction('CALL ls {}')),
+    {
+      path: got.path,
+      calls: got.calls,
+      left,
+      plain: plainR.choices && plainR.choices[0],
+      agreed: agreed.path,
+      worded: worded.reply,
+      lead: lg.path,
+    },
+  );
+}
+// ---- 6y: AN AGENT'S STEP AS A QUESTION (tasks-tools.mjs): asked with its tools, put to the swarm as a turn with tools, and graded
+// equivalent when the swarm takes the larger model's step
+{
+  const { tasks: make2, reworded: again2 } = await import('../training/tasks.mjs');
+  const { sameStep, AGENT_TOOLS } = await import('../training/tasks-tools.mjs');
+  const { askSwarm } = await import('../training/support/bench.mjs');
+  const held = make2({ split: 'held', each: 6, kinds: ['agent'] });
+  const train = make2({ split: 'train', each: 6, kinds: ['agent'] });
+  const g = async (r, s) => (await held[0].equivalent(r, s)).grade;
+  const asked = [];
+  const fake = {
+    answer: async () => ({ reply: 'words' }),
+    answerTools: async (m, o) => (
+      asked.push(o.tools.length),
+      {
+        ok: true,
+        text: 'CALL read {"path":"src/math.js"}',
+        decided: 'CALL read {"path":"src/math.js"}',
+        path: 'tools-agreed',
+        trace: [],
+      }
+    ),
+  };
+  const viaSwarm = await askSwarm(fake, held[0], [{ role: 'user', content: held[0].ask }]);
+  const viaWords = await askSwarm(fake, { ask: 'x' }, [{ role: 'user', content: 'x' }]);
+  check(
+    "an agent's next step is a kind of question for The Crew: made from a seed (other files and names on held and train), sent with the tools an agent has and what it has done and seen so far, put to the swarm as a turn with tools, and equivalent when it is the larger model's step: the same tool on the same file, the same words written, the same change made, or a reply where it replied; a step put another way only where the person spoke last",
+    held.length === 6 &&
+      held.every((t) => t.type === 'tool' && t.tools === AGENT_TOOLS && t.turns.length >= 1) &&
+      held.some((t) => t.turns.some((x) => x.role === 'tool')) &&
+      JSON.stringify(held.map((t) => t.ask)) !== JSON.stringify(train.map((t) => t.ask)) &&
+      (await g('CALL read {"path":"src/math.js"}', 'CALL read {"path": "./src/math.js"}')) === 'right' &&
+      (await g('CALL read {"path":"src/math.js"}', 'CALL read {"path":"src/cart.js"}')) === 'wrong' &&
+      (await g('CALL read {"path":"src/math.js"}', 'CALL ls {"path":"src"}')) === 'wrong' &&
+      (await g(
+        'CALL edit {"path":"a.js","old":"function add","new":"function sum"}',
+        'CALL edit {"path":"a.js","old":"add","new":"sum"}',
+      )) === 'right' &&
+      (await g(
+        'CALL edit {"path":"a.js","old":"add","new":"sum"}',
+        'CALL edit {"path":"a.js","old":"add","new":"total"}',
+      )) === 'wrong' &&
+      (await g('It does: it returns 0.', 'Yes, an empty list gives 0.')) === 'right' &&
+      (await g('It does.', 'CALL read {"path":"a.js"}')) === 'wrong' &&
+      (await g('', 'CALL read {"path":"a.js"}')) === 'unsure' &&
+      sameStep('CALL write {"path":"x.txt","content":"hello"}', 'CALL write {"path":"x.txt","content":" hello "}')
+        .grade === 'right' &&
+      viaSwarm.reply === 'CALL read {"path":"src/math.js"}' &&
+      asked[0] === AGENT_TOOLS.length &&
+      viaWords.reply === 'words' &&
+      again2(held).every((t) => t.turns[t.turns.length - 1].role === 'user'),
+    { n: held.length, viaSwarm: viaSwarm.reply },
+  );
+}
 // ---- 6w: A SWARM FROM ITS SPEC: the output spec holds what a swarm is made of, so a program can make the swarm it describes (a
 // chooser like The Crew's offers spec.card and starts it with serveSwarm({ ...card, spec })); a spec changed since it was written,
 // or not one at all, is refused

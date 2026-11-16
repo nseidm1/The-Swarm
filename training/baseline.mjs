@@ -62,10 +62,10 @@ try {
     list,
     async (t) => ({
       reply: (
-        await model.ask(
-          messagesOf(t),
-          self ? { usable: (text) => (t.usable ? t.usable(text) : !!t.show(text)) } : undefined,
-        )
+        await model.ask(messagesOf(t), {
+          ...(self ? { usable: (text) => (t.usable ? t.usable(text) : !!t.show(text)) } : {}),
+          ...(t.tools ? { tools: t.tools } : {}),
+        })
       ).text,
     }),
     {

@@ -15,6 +15,9 @@ The first version.
 - **What equivalence means.** The work of a seat on a team (The Crew): programming, and the conversation around it in Simple
   and Developer, judged on the act, the substance and the conventions. Chosen on the dashboard under the models, with Math,
   Logic and Reasoning as further choices. Each has a pencil that opens its questions, to which a person can add their own.
+- **Turns with tools, decided by the swarm (a toggle).** With `"tools": "swarm"` an agent's turn is drafted by every drafter,
+  malformed calls left out, and the decider picks; it goes back as `tool_calls`. Training asks an agent's next step as a kind of
+  question for The Crew, and grades it against the larger model's step.
 - **The output spec makes the swarm again.** It holds every slot's words, the decider's recipe, the engine's builds, a card
   for a model chooser, what it needs of a machine (licences and commercial use among it) and what it can do as a model, with a
   hash of the recipe. `createSwarm({ spec })`, `serveSwarm({ ...card, spec })` and `swarm serve --spec` make that swarm.

@@ -11,7 +11,7 @@
 //      asked the rest. Most candidates lose; each one that loses costs a few questions, not seventy
 //   CONFIRMED WITH ANOTHER DRAW (keep.confirm): before a change is kept, it and the swarm as it is are asked the train questions
 //      again with another draw. A change that won with one draw and does not win with another was luck, and is not kept
-import { run, count, line, paired, swarmName } from './bench.mjs';
+import { run, count, line, paired, swarmName, askSwarm } from './bench.mjs';
 import { messagesOf } from '../tasks.mjs';
 
 // the questions a candidate is screened on: the swarm's misses first (in a fixed order), then some it gets right
@@ -35,7 +35,7 @@ export async function runTrial({ swarm, base, cands, of, refs, policy, width = 2
     const rows = await run(
       list,
       async (t) => {
-        const got = await swarm.answer(messagesOf(t));
+        const got = await askSwarm(swarm, t, messagesOf(t));
         return {
           reply: got.reply,
           decided: got.decided,

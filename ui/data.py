@@ -154,6 +154,18 @@ def footprint(members, decider, target):
             "parts": parts, "targetName": (target or {}).get("name", "")}
 
 
+def tools_of(setting, members):
+    """Who takes an agent's turn: 'swarm', or the place of the one small model named (by its id, or its place). Where nothing is
+    named, or the one named is no longer in the swarm, the model in place a (src/catalog.mjs toolsOf)."""
+    places = [k for k in ("a", "b", "c", "d") if (members or {}).get(k)]
+    if setting == "swarm":
+        return "swarm"
+    if setting in places:
+        return setting
+    by_id = next((k for k in places if members[k].get("id") == setting), None)
+    return by_id or ("a" if "a" in places else (places[0] if places else "a"))
+
+
 def session_evidence(rows, slots):
     """WHAT A MEASUREMENT SAYS ABOUT THE CONFIGURATION, AS IT IS MADE (the rows of the swarm on its questions, for one configuration):
       slots     each slot: answers, failures, how often it stopped at its token limit, its median time
@@ -392,6 +404,9 @@ def load(root):
         "decider": decider,
         "footprint": footprint(members, decider, target),
         "cfg": cfg,
+        # turns with tools: decided by the swarm, or the place of the one small model that takes them alone (src/tools.mjs; "tools"
+        # in src/config.json names it by its id: src/catalog.mjs toolsOf, the same rule)
+        "tools": tools_of(chosen.get("tools"), members),
         "splits": splits,
         "record": record,
         "evidence": evidence,
@@ -444,7 +459,10 @@ def spec(d):
     serving = dict(SERVING, memoryGbEstimate=fp.get("swarm") or round(sum(gb((m or {}).get("bytes", 0)) for m in d["members"].values()) * 1.25 + 1, 1),
                    memoryIs="an estimate: the small models' files, their contexts and the decider; not measured")
     run_briefs = {k: v for k, v in b.items() if k != "about"}  # what createSwarm runs, exactly
-    recipe = {"members": members, "decider": dec, "engine": engine, "serving": {k: serving[k] for k in ("slots", "contextPerSlot")}, "briefs": run_briefs}
+    tools = d.get("tools") or "a"
+    one = (members.get(tools) or {}) if tools != "swarm" else {}
+    recipe = {"members": members, "decider": dec, "engine": engine,
+              "serving": {**{k: serving[k] for k in ("slots", "contextPerSlot")}, "tools": "swarm" if tools == "swarm" else one.get("id", tools)}, "briefs": run_briefs}
     sha = recipe_sha256(recipe)
     lic = list(dict.fromkeys(x for x in [m.get("license") for m in members.values()] + [dec.get("license")] if x))
     secs = [r["seconds"] for r in held if isinstance(r.get("seconds"), (int, float))]
@@ -501,12 +519,15 @@ def spec(d):
             "capabilities": {
                 "chat": True,
                 "stream": "the reply is whole before any of it is sent, then sent as events",
-                "tools": "not driven by the swarm: a request that carries tools goes to %s (place a) alone, untouched" % (members.get("a") or {}).get("name", "the model in place a"),
+                "tools": ("decided by the swarm: every drafter proposes the next step with the tools offered, a call to a tool not offered or with arguments that are not an object is left out, and the decider picks where the steps differ; it goes back as tool_calls"
+                          if tools == "swarm" else
+                          "given to %s (place %s) alone, untouched: the swarm does not decide them (the configuration can turn that on)" % (one.get("name", "one small model"), tools)),
+                "toolsMode": tools,
                 "images": False,
                 "contextTokens": SERVING.get("contextPerSlot"),
             },
-            "goodFor": "replies a person reads and single steps that can be checked: what it was measured on (%s)" % (", ".join(x["name"] for x in on) or "its questions"),
-            "notYet": ["a request that carries tools goes to the model in place a alone (an agent that works by tools, as The Crew's Pi does, gets that one model)", "the reply is whole before any of it is sent"],
+            "goodFor": ("replies a person reads, single steps that can be checked, and an agent's turns with tools: what it was measured on (%s)" if tools == "swarm" else "replies a person reads and single steps that can be checked: what it was measured on (%s)") % (", ".join(x["name"] for x in on) or "its questions"),
+            "notYet": ([] if tools == "swarm" else ["a request that carries tools goes to %s alone (an agent that works by tools, as The Crew's Pi does, gets that one model)" % one.get("name", "one small model")]) + ["the reply is whole before any of it is sent"],
             "start": {
                 "decider": "bash training/kev.sh serve (the recipe is recipe.decider.serve); or name one already running with SWARM_KEV",
                 "program": "createSwarm({ spec, kev: 'http://127.0.0.1:8009', modelsDir })",
