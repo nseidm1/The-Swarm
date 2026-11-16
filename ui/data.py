@@ -77,13 +77,15 @@ def parity(rows):
     """The same rule as training/state.mjs parity(). PARITY IS EQUIVALENCE, NOT A SHARE: at parity when every answer is
     fundamentally equivalent to the larger model's. Rows are marked against the larger model already: right = equivalent,
     wrong = a different answer, unsure = none, noref = the larger model gave none (not counted). None when nothing to compare."""
-    out = {"equivalent": 0, "differ": 0, "none": 0}
+    out = {"equivalent": 0, "differ": 0, "none": 0, "undecided": 0}
     for r in rows:
         g = r.get("grade")
         if g == "right":
             out["equivalent"] += 1
         elif g == "wrong":
             out["differ"] += 1
+            # (of those, the ones the reader could not decide: graded different, counted apart; support/equivalent.mjs UNDECIDED)
+            out["undecided"] += 1 if r.get("undecided") else 0
         elif g == "unsure":
             out["none"] += 1
     out["compared"] = out["equivalent"] + out["differ"] + out["none"]
@@ -274,6 +276,8 @@ def load(root):
             break
         members[k] = m
     decider = pick(registry["deciders"], chosen.get("decider"))
+    # the judge of equivalence, apart from the decider (src/catalog.mjs JUDGE): None where the decider reads equivalence itself
+    judge = next((m for m in registry["deciders"] if chosen.get("judge") and m["id"] == chosen.get("judge") and m["id"] != (decider or {}).get("id")), None)
     target = pick(registry["targets"], chosen.get("target"))
     targets = sorted(registry["targets"], key=lambda t: t.get("params", 0))
     global MEMBER_NAMES
@@ -345,6 +349,9 @@ def load(root):
             "swarm": swarm,
             "target": {r["id"]: r for r in tgt},
             "alone": {k: newest(base_all, split, "%s-alone-vs-%s" % ((m or {}).get("id"), (target or {}).get("id"))) or newest(base_all, split, k + "-alone") for k, m in members.items()},
+            # THE LARGER MODEL AGAINST ITSELF (training/baseline.mjs --self): asked again, another draw, graded against its own first
+            # answers by the same readers. How often it is equivalent to itself is the noise floor under parity
+            "self": newest(base_all, split, "%s-self" % (target or {}).get("id")) if target else [],
             "parity": parity(swarm) if swarm else None,
             # how many questions there are to answer (the larger model answers them all first): fewer answers than this is a
             # measurement still being made
@@ -402,6 +409,7 @@ def load(root):
         "machine": machine(),
         "members": members,
         "decider": decider,
+        "judge": judge,
         "footprint": footprint(members, decider, target),
         "cfg": cfg,
         # turns with tools: decided by the swarm, or the place of the one small model that takes them alone (src/tools.mjs; "tools"
@@ -571,6 +579,13 @@ def spec(d):
             "passes": d["state"].get("pass", 0),
             "equivalentOn": on,
             "secondsPerReply": spr,
+            # how often the larger model's own second answer is equivalent to its first: the noise floor under parity; and how many of
+            # the swarm's different answers the reader could not decide
+            "selfAgreement": ({k: sa[k] for k in ("equivalent", "compared", "percent")} if (sa := parity(d["splits"]["held"].get("self") or [])) else None),
+            "selfAgreementIs": "the larger model asked each held question again (another draw) and judged against its own first answers by the same readers: a share of differences no swarm could close, since the mark itself would not give them again",
+            "undecided": (p or {}).get("undecided", 0),
+            # who reads whether answers in words are equivalent: a decision model apart from the swarm's decider, or the decider itself
+            "judgedBy": (d.get("judge") or {}).get("name") or "%s (the decider itself)" % (d.get("decider") or {}).get("name", "the decider"),
             "lastPass": {k: last.get(k) for k in ("pass", "at", "target", "level", "equivalent", "compared")} if last else None,
             "questions": {"kinds": sorted(set(r["kind"] for r in held)), "heldSeed": d["state"].get("seeds", {}).get("held")},
         },

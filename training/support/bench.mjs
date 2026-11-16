@@ -111,6 +111,9 @@ const liveSlot = (id, what) => {
 
 // WHERE KEV IS: named (--kev, or SWARM_KEV), or the one training/kev.sh started on this machine (it writes its port down), if
 // that one answers. '' when there is none: the trainers then say so, because a pass without Kev trains another arrangement.
+// WHO READS EQUIVALENCE: the judge the session started apart from the decider (SWARM_JUDGE; src/catalog.mjs JUDGE), else the
+// decider itself
+export const judgeAddress = (kev) => process.env.SWARM_JUDGE || kev;
 export async function kevAddress() {
   const named = arg('kev', process.env.SWARM_KEV || '');
   if (named) return named;
@@ -388,7 +391,7 @@ export async function run(
             }
           : got.why
             ? { grade: 'unsure' }
-            : await t.equivalent(theirs, got.reply, { kev, mark: readerMark(WORKC, t.type) });
+            : await t.equivalent(theirs, got.reply, { kev: judgeAddress(kev), mark: readerMark(WORKC, t.type) });
     const row = {
       cfg: who === 'swarm' ? CONFIG_ID : undefined,
       target: targetOf().id,
@@ -407,6 +410,7 @@ export async function run(
     if (mark.grade === 'wrong' && mark.input !== undefined)
       row.partsOn = { input: mark.input, theirs: mark.theirs, ours: mark.ours };
     if (mark.why) row.markWhy = mark.why;
+    if (mark.undecided) row.undecided = true; // (support/equivalent.mjs UNDECIDED: graded different, counted apart)
     // a reply in a conversation: which part of equivalence it was lost on (the act, the substance, the conduct)
     if (mark.part) row.part = mark.part;
     if (mark.faults) row.faults = mark.faults;
@@ -444,10 +448,12 @@ export async function run(
 // QUESTION BY QUESTION: on the same questions, how many answers a change wins (equivalent now, not before) and how many it loses
 export function paired(before, after) {
   const was = new Map(before.map((r) => [r.id, r.grade === 'right']));
+  // (a reading the reader was undecided on, before or after, is neither a win nor a loss: a change is not kept on a coin toss)
+  const unsure = new Set(before.filter((r) => r.undecided).map((r) => r.id));
   let wins = 0;
   let losses = 0;
   for (const r of after) {
-    if (!was.has(r.id)) continue;
+    if (!was.has(r.id) || r.undecided || unsure.has(r.id)) continue;
     const now = r.grade === 'right';
     if (now && !was.get(r.id)) wins++;
     if (!now && was.get(r.id)) losses++;

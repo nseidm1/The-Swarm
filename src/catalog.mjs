@@ -102,6 +102,11 @@ export function toolsOf(setting, members = MEMBERS) {
 }
 export const TOOLS = process.env.SWARM_TOOLS || CONFIG.tools || 'lead';
 export const DECIDER = REGISTRY.deciders.find((m) => m.id === CONFIG.decider);
+// THE JUDGE OF EQUIVALENCE ("judge" in src/config.json): a decision model apart from the decider, which reads whether the swarm's
+// answers in words say what the larger model's say. Where none is named (or it is the decider), the decider reads them, and the
+// swarm's own decider grades the answers it chose. null then.
+export const JUDGE =
+  (CONFIG.judge && CONFIG.judge !== CONFIG.decider && REGISTRY.deciders.find((m) => m.id === CONFIG.judge)) || null;
 export const TARGET = REGISTRY.targets.find((m) => m.id === CONFIG.target);
 // the swarm as it is configured, in a word: results are kept apart by this, so that one arrangement's are never read as another's
 export const configId = (config) => [...placesOf(config).map((k) => config[k]), config.decider].join('+');

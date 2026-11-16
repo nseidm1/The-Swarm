@@ -75,6 +75,10 @@ export async function codeEquivalent(refReply, reply, { name, inputs }) {
 
 // an answer in words: Kev says whether the two say fundamentally the same thing (decided at one half). With no Kev there is
 // nothing to say it, and the question is not compared.
+// AN UNDECIDED READING IS SAID TO BE ONE. A probability this close to the reader's line (either side) is not a yes or a no: the
+// pair is graded different (the side that cannot claim parity that is not there) and marked undecided, so that it is counted
+// apart and never decides whether a change is kept.
+export const UNDECIDED = 0.1;
 export async function openEquivalent(
   question,
   refReply,
@@ -112,7 +116,9 @@ export async function openEquivalent(
     const p = Number(a && typeof a === 'object' ? a.noul : a);
     if (!Number.isFinite(p)) return { grade: 'noref', why: 'Kev gave no probability' };
     // the mark above which it is taken to say yes: one half, unless the check of the reader found a better one (readers.mjs)
-    return { grade: p >= (Number.isFinite(mark) ? mark : 0.5) ? 'right' : 'wrong', p };
+    const line = Number.isFinite(mark) ? mark : 0.5;
+    if (Math.abs(p - line) < UNDECIDED) return { grade: 'wrong', undecided: true, p, why: 'the reader was undecided' };
+    return { grade: p >= line ? 'right' : 'wrong', p };
   } catch (e) {
     return { grade: 'noref', why: 'Kev did not answer: ' + String((e && e.message) || e).slice(0, 80) };
   }
@@ -222,6 +228,8 @@ export async function talkEquivalent(
       p: 0,
       why: a2 >= 0.5 ? 'it asked where the larger model answered' : 'it answered where the larger model asked',
     };
+  if (Math.abs(same - line) < UNDECIDED)
+    return { grade: 'wrong', part: 'substance', undecided: true, p: same, why: 'the reader was undecided' };
   if (same < line) return { grade: 'wrong', part: 'substance', p: same };
   const about = { limit: task.limit, claims: task.claims, simple: task.mode === 'simple' };
   const theirs = faultsOf(refReply, about);

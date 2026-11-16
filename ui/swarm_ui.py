@@ -358,6 +358,19 @@ details.fold:not([open])>summary::after,details.fold.shutting>summary::after{tra
 @media (max-width:560px){.picks .pick,.picks .pick.target,.picks .group.small.n4 .pick{flex:1 1 100%}}
 @media (max-width:1000px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.charts,.two,.io,.versus{grid-template-columns:minmax(0,1fr)}
 .stages{grid-auto-columns:minmax(170px,46%)}.qlist{max-height:260px}}
+.mtile{display:none}
+@media (max-width:560px){header{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:stretch}header>.chips{grid-column:1/-1}
+  .mtile{display:flex;flex-direction:column;justify-content:center;gap:3px;position:relative;min-width:0;padding:10px 30px 10px 14px;border:0;border-radius:18px;background:#fff;
+    box-shadow:0 6px 18px rgba(11,93,87,.10);font:inherit;color:inherit;text-align:left;cursor:pointer}
+  .mtile:active{transform:scale(.98)}.mtile:focus-visible{outline:3px solid var(--teal2)}
+  .mt-k{font-size:10.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+  .mt-state{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:7px;align-items:center}.mt-state i{width:8px;height:8px;border-radius:50%;background:var(--unsure)}
+  .mt-state.on i{background:var(--teal2);animation:p 1.2s infinite}.mt-state b{font-size:14.5px;line-height:1.2;color:var(--fog);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mt-state small{grid-column:2;font-size:11.5px;font-weight:600;color:var(--mist)}.mt-sub{font-size:11.5px;font-weight:700;color:var(--mist);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mt-go{position:absolute;right:12px;top:50%;width:8px;height:8px;border-top:2.5px solid var(--unsure);border-right:2.5px solid var(--unsure);transform:translateY(-50%) rotate(45deg)}
+  .shell>.rail{display:none}
+  dialog.sheet{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;margin:0;border-radius:0;padding:18px 16px 32px;background:#ecf7f4}
+  dialog.sheet .rail{display:grid;padding:0;background:none;grid-template-columns:minmax(0,1fr)}dialog.sheet #training>h2{display:none}}
 @media (max-width:560px){.stages{grid-auto-columns:minmax(170px,82%)}.kpis{grid-template-columns:minmax(0,1fr)}main{padding:18px 16px 40px}h1{font-size:27px}.panel{padding:16px;border-radius:20px}}
 """
 
@@ -392,7 +405,7 @@ document.addEventListener('click',async(ev)=>{
   if(ev.target.id==='run-go'||ev.target.id==='run-stop'){const b=ev.target;b.disabled=true;
     if(b.id==='run-go')document.querySelectorAll('[data-pick]').forEach(x=>x.disabled=true);
     const body=b.id==='run-go'?JSON.stringify({each:Number($('#run-each').value)}):'{}';
-    await swap(b.id==='run-go'?'/run/start':'/run/stop','#run',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body});watch();return;}
+    await swap(b.id==='run-go'?'/run/start':'/run/stop','#run',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body});await swap('/fragment/mtile','#mtile');watch();return;}
 });
 // A MODEL CHOSEN: written down, and everything that depends on it drawn again in place
 document.addEventListener('change',async(ev)=>{const s=ev.target.closest('[data-pick]');if(!s)return;
@@ -475,8 +488,8 @@ document.addEventListener('click',async(ev)=>{
 });
 // while a pass runs, its steps are asked for again every few seconds; when it ends the rest of the page is read again once
 let timer=null;
-function watch(){if(timer)return;timer=setInterval(async()=>{const was=!!$('#run [data-running]');await swap('/fragment/run','#run');
-  if(!$('#run [data-running]')){clearInterval(timer);timer=null;if(was){await swap('/fragment/body','#body');await swap('/fragment/picks','#picks');}}
+function watch(){if(timer)return;timer=setInterval(async()=>{const was=!!$('#run [data-running]');await swap('/fragment/run','#run');await swap('/fragment/mtile','#mtile');
+  if(!$('#run [data-running]')){clearInterval(timer);timer=null;if(was){await swap('/fragment/body','#body');await swap('/fragment/picks','#picks');await swap('/fragment/mtile','#mtile');}}
   else{await swap('/fragment/score','#score');if($('#plan'))await swap('/fragment/plan','#plan');
     await swap('/fragment/chips','#chips');
     if($('#spec').open){const y=$('#spec').scrollTop;await swap('/fragment/spec','#spec-body');$('#spec').scrollTop=y;}}},4000);}
@@ -485,9 +498,21 @@ if($('#run [data-running]'))watch();
 const STEP={measure:'Measuring the swarm',improve:'Trying a brief',arrange:'Trying an arrangement',baseline:'One model alone'};
 function paint(el,cls,text){el.className='live '+cls;const sp=el.querySelector('span');if(sp.textContent!==text){sp.textContent=text;el.title=text;}}
 // WHEN THE SESSION BEGAN, in the time zone of the person looking, and how long it has run in all: written again every tick
-function sinceTick(){const el=$('[data-since]');if(!el)return;const t=Number(el.dataset.since),s=Math.max(0,Math.floor((Date.now()-t)/1000));
+function sinceTick(){document.querySelectorAll('[data-since]').forEach(el=>{const t=Number(el.dataset.since),s=Math.max(0,Math.floor((Date.now()-t)/1000));
   const span=s<60?s+' s':s<3600?Math.floor(s/60)+' min '+s%60+' s':Math.floor(s/3600)+' h '+Math.floor(s%3600/60)+' min';
-  el.querySelector('b').textContent='Running '+span;el.querySelector('small').textContent='since '+new Date(t).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',timeZoneName:'short'});}
+  const at=new Date(t).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+  const atShort=new Date(t).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
+  el.querySelector('b').textContent=el.dataset.short?span:'Running '+span;el.querySelector('small').textContent=el.dataset.short?'since '+atShort:'since '+at;});
+  // the phone's tile: where the session is, from the training column's own Pass and Now ("Pass 1 · step 10 of 26")
+  const w=$('#mtile [data-where]');if(w){const pass=document.querySelector('[data-keep="run-pass"] h5'),now=document.querySelector('[data-keep="run-now"] h5 span');
+    const p=pass?(pass.childNodes[0]||{}).textContent||'':'',n=now?now.textContent.split(' · ')[0]:'';const txt=[p.trim(),n.trim()].filter(Boolean).join(' · ');if(txt&&w.textContent!==txt)w.textContent=txt;}}
+// ON A PHONE: the training column opens from the tile beside the title, in a sheet; it is the same column, moved, and moved back
+document.addEventListener('click',(ev)=>{
+  if(ev.target.closest('#mtile')){const r=document.querySelector('.rail');if(r)$('#mtrain-body').append(r);$('#mtrain').showModal();return;}
+  if(ev.target.id==='mtrain-close')$('#mtrain').close();
+});
+document.addEventListener('close',(ev)=>{if(ev.target.id!=='mtrain')return;const r=$('#mtrain-body .rail');if(r)document.querySelector('.shell').append(r);},true);
+matchMedia('(min-width:561px)').addEventListener('change',(m)=>{if(m.matches&&$('#mtrain').open)$('#mtrain').close();});
 async function liveTick(){
   sinceTick();
   let n={};try{n=await (await fetch('/api/live')).json();}catch(e){return;}
@@ -683,6 +708,9 @@ def scoreboard(d):
         pa = data.parity(rows) if rows else None
         if pa:
             bars.append(bar(data.MEMBER_NAMES[k] + " alone", "muted", pa))
+    ps = data.parity(held.get("self") or []) if which == "held" else None
+    if ps:
+        bars.append(bar(short + ", asked again (the noise floor)", "muted", ps))
     out.append(
         '<div class="charts"><div class="panel"><div class="chart-head"><div><h3>How far along each kind of question is</h3><div class="muted small">The share of ' + word + ' answers of that kind that are equivalent to %s&#39;s, furthest behind first. Teal: all of them</div></div></div><div class="kb">%s</div></div>'
         '<div class="panel"><h3>Each alone, beside the swarm</h3><div class="muted small" style="margin-bottom:14px">Equivalent to %s&#39;s answer · different · none</div><div class="score">%s</div></div></div>'
@@ -709,7 +737,20 @@ def verdict_words(p, tname):
     """The verdict on the held questions, in the one sentence it is given in everywhere."""
     if p["level"]:
         return "100%%: at parity with %s. All %d held answers are equivalent." % (tname, p["compared"])
-    return "%s%% of the way to parity with %s: %d of %d held answers are equivalent." % (fmt_pct(p["percent"]), tname, p["equivalent"], p["compared"])
+    return "%s%% of the way to parity with %s: %d of %d held answers are equivalent%s." % (
+        fmt_pct(p["percent"]), tname, p["equivalent"], p["compared"],
+        (" (%d of the different ones the reader could not decide)" % p["undecided"]) if p.get("undecided") else "")
+
+
+def noise_floor(d, tname):
+    """The larger model against itself, in a phrase, where it has been measured: how often its own second answer is equivalent to
+    its first. A swarm cannot be expected to agree with it more often than it agrees with itself."""
+    ps = data.parity(d["splits"]["held"].get("self") or [])
+    if not ps:
+        return ""
+    return ('<span title="Asked each held question again (another draw) and judged against its own first answers, by the same readers. '
+            'Parity beyond this is not to be expected: the mark itself would not give those answers again">%s against itself <b>%s%%</b> · %d of %d</span>'
+            % (e(tname.split(" ")[0]), fmt_pct(ps["percent"]), ps["equivalent"], ps["compared"]))
 
 
 def score_strip(d):
@@ -744,6 +785,10 @@ def score_strip(d):
             pa = data.parity(rr) if rr else None
             if pa:
                 rows.append('<span class="memrow alone"><span class="ml">%s alone</span>%s<span class="mv">%s</span></span>' % (e(data.MEMBER_NAMES[k]), bar(pa), e(how_far(pa["equivalent"], pa["compared"]))))
+        ps = data.parity(sp.get("self") or [])
+        if ps:
+            rows.append('<span class="memrow alone self" title="The larger model asked each question again, and judged against its own first answers: the noise floor under parity">'
+                        '<span class="ml">%s, asked again</span>%s<span class="mv">%s</span></span>' % (e(tname.split(" ")[0]), bar(ps), e(how_far(ps["equivalent"], ps["compared"]))))
         step = 10 if n > 30 else 5 if n > 12 else 2
         ticks = "".join('<span style="left:%.2f%%">%d</span>' % (100.0 * t / n, t) for t in list(range(0, n, step)) + [n] if t == n or n - t >= step / 2)
         return ('<span class="memc parc %s"><span class="memh"><span><b>Toward parity with %s</b><small>%s</small></span>'
@@ -774,7 +819,7 @@ def score_strip(d):
                          chart=parity_chart("", v, p, held, "held answers"))
         v = verdict_words(p, tname)
         return strip("level" if p["level"] else "behind", v,
-                     "<span><b>%d</b> held questions</span>" % p["compared"] + follows(p) + "<span><b>%s</b> s a reply</span>" % e(str(p["seconds"])),
+                     "<span><b>%d</b> held questions</span>" % p["compared"] + noise_floor(d, tname) + follows(p) + "<span><b>%s</b> s a reply</span>" % e(str(p["seconds"])),
                      chart=parity_chart("level" if p["level"] else "behind", v, p, held, "held answers"))
     pt = train["parity"]
     if train["swarm"] and pt:
@@ -1655,7 +1700,7 @@ def decider_state(running=False):
 
 # THE STEPS OF A PASS, in the order training/session.sh runs them ('*' is filled in: each small model alone, each slot whose
 # briefs the plan tries)
-SESSION_ORDER = ["00-begin", "00-plan", "00-reader", "01-research", "02-target", "02-target-train", "03-*-alone", "05-swarm-train", "05-review",
+SESSION_ORDER = ["00-begin", "00-plan", "00-reader", "01-research", "02-target", "02-target-train", "02-target-self", "03-*-alone", "05-swarm-train", "05-review",
                  "06-plan", "07-write-briefs", "07-plan", "08-members", "08-deciders", "10-improve-*", "15-arrange", "16-review",
                  "20-swarm-train", "21-swarm-held", "21-swarm-reworded", "22-end", "23-publish"]
 
@@ -1872,7 +1917,7 @@ def run_panel():
     return "".join(out)
 
 
-STEP_WORDS = [("reader", "Check the reader of answers in words"), ("swarm-reworded", "The swarm: the held questions, a second way"), ("begin", "Begin the pass"), ("research", "Read what is new on arXiv"), ("target-train", "Larger model: the train questions"), ("target", "Larger model: the held questions"),
+STEP_WORDS = [("reader", "Check the reader of answers in words"), ("swarm-reworded", "The swarm: the held questions, a second way"), ("begin", "Begin the pass"), ("research", "Read what is new on arXiv"), ("target-train", "Larger model: the train questions"), ("target-self", "Larger model against itself"), ("target", "Larger model: the held questions"),
               ("swarm-held", "The swarm: the held questions"), ("swarm-train", "The swarm: the train questions"), ("review", "Review how it is training"), ("plan", "Plan what to try"), ("write-briefs", "New briefs from the larger model"),
               ("members", "Could another small model draft it?"), ("deciders", "Would another decider choose better?"),
               ("arrange", "Try other arrangements"), ("end", "Verdict"), ("publish", "Write it up")]
@@ -1979,12 +2024,15 @@ def pills(d):
                 mine = bool(chosen and m["id"] == chosen.get("id"))
                 # a decider: its score on the Decision Index, and whether it can run on this machine at all (one that cannot is
                 # listed, so that it can be compared, and cannot be chosen here)
-                score = (" · index %s%s" % (m["index"]["score"], " (an older checkpoint)" if "older" in m["index"].get("as", "") else "")) if key == "decider" and m.get("index") else ""
-                here = key != "decider" or not m.get("runsOn") or any(x in d.get("machine", []) for x in m["runsOn"])
+                score = (" · index %s%s" % (m["index"]["score"], " (an older checkpoint)" if "older" in m["index"].get("as", "") else "")) if key in ("decider", "judge") and m.get("index") else ""
+                here = key not in ("decider", "judge") or not m.get("runsOn") or any(x in d.get("machine", []) for x in m["runsOn"])
                 opts += '<option value="%s"%s%s>%s%s%s%s</option>' % (
                     e(m["id"]), " selected" if mine else "", "" if here or mine else " disabled", e(m["name"]), "" if mine else score, "" if mine else weigh(m),
                     "" if here else " · needs %s" % e(m.get("needs", "another machine")))
             opts += "</optgroup>"
+        if group == "judge":
+            # the decider itself, where no judge apart from it is chosen (the swarm's own decider then grades the answers it chose)
+            opts = '<option value=""%s>The decider itself</option>' % ("" if chosen else " selected") + opts
         if group == "optional":
             # a place that can be left empty: "none" takes the model out of the swarm (or, on an empty place, is what it shows)
             opts = '<option value=""%s>%s</option>' % ("" if chosen else " selected", "Remove it from the swarm" if chosen else "Add a model") + opts
@@ -2001,10 +2049,12 @@ def pills(d):
             break
     n_small = 2 + more.count('class="pick ')
     return (
-        '<div class="picks" id="picks"><div class="group small n%d" style="flex-basis:%dpx">%s%s%s</div><div class="group against" style="flex-basis:495px">%s%s</div></div>'
+        '<div class="picks" id="picks"><div class="group small n%d" style="flex-basis:%dpx">%s%s%s</div><div class="group against" style="flex-basis:740px">%s%s%s</div></div>'
         # (each group asks for the room its pills need, so the two share a row exactly when both fit)
         % (n_small, 195 * n_small - 10, pill("a", "Small model 1", reg["small"], d["members"]["a"]), pill("b", "Small model 2", reg["small"], d["members"]["b"]), more,
-           pill("decider", "Decides", sorted(reg["deciders"], key=lambda m: -(m.get("index") or {}).get("score", 0)), d["decider"]), pill("target", "Larger model", sorted(reg["targets"], key=lambda t: -t.get("params", 0)), d["target"]))
+           pill("decider", "Decides", sorted(reg["deciders"], key=lambda m: -(m.get("index") or {}).get("score", 0)), d["decider"]),
+           pill("judge", "Judges equivalence", sorted([m for m in reg["deciders"] if m["id"] != (d.get("decider") or {}).get("id")], key=lambda m: -(m.get("index") or {}).get("score", 0)), d.get("judge"), "judge"),
+           pill("target", "Larger model", sorted(reg["targets"], key=lambda t: -t.get("params", 0)), d["target"]))
     )
 
 
@@ -2013,7 +2063,7 @@ def cfg_meta(d):
     mem = " + ".join(m["name"] for m in d["members"].values() if m)
     q = d.get("equivalence") or {}
     on = ", ".join(t["name"] for t in q.get("targets", []) if t["id"] in q.get("chosen", []))
-    return "%s · decided by %s · against %s%s · tools: %s" % (mem, (d.get("decider") or {}).get("name", "?"), (d.get("target") or {}).get("name", "?"), (" · equivalent on " + on) if on else "",
+    return "%s · decided by %s%s · against %s%s · tools: %s" % (mem, (d.get("decider") or {}).get("name", "?"), (" · judged by %s" % d["judge"]["name"]) if d.get("judge") else "", (d.get("target") or {}).get("name", "?"), (" · equivalent on " + on) if on else "",
                                                      "the swarm decides" if d.get("tools") == "swarm" else "%s alone" % ((d.get("members") or {}).get(d.get("tools")) or {}).get("name", "one model"))
 
 
@@ -2197,6 +2247,20 @@ def recommendations(d):
                     "why": "%s. An answer cut off is lost however good it was going to be. The plan now finds this and measures each with more room (a token limit raised by half), keeping it only if it wins."
                            % "; ".join("%s stopped at its limit of %s on %d of %d" % (k, lim.get(k, "?"), o["capped"], o["n"]) for k, o in sorted(capped, key=lambda x: -x[1]["capped"] / x[1]["n"])[:4]),
                     "note": "training does this itself"})
+    # A JUDGE APART FROM THE DECIDER: while the swarm's own decider reads whether its answers are equivalent, it grades the answers
+    # it chose. The one recommended runs on this machine and is no heavier than the decider (or about 6 GB), the best of those on
+    # the Decision Index: it is served beside the decider for the whole of training
+    if not d.get("judge") and cur_dec and ev.get("answers", 0) > 0:
+        here_ok = lambda m: not m.get("runsOn") or any(x in d.get("machine", []) for x in m["runsOn"])  # noqa: E731
+        cap = max(6.0, float((d.get("decider") or {}).get("memGb") or 0))
+        other = next((m for m in sorted(reg.get("deciders", []), key=lambda m: -(m.get("index") or {}).get("score", 0))
+                      if m["id"] != cur_dec and here_ok(m) and float(m.get("memGb") or 99) <= cap), None)
+        if other:
+            out.append({"id": "judge:" + other["id"], "strength": "untested", "apply": {"judge": other["id"]}, "n": 0,
+                        "title": "Judge equivalence with %s, apart from the decider" % other["name"],
+                        "why": "Whether the swarm&#39;s answers in words say what the larger model&#39;s say is read by %s, the decider that chose them. A judge apart from it cannot favour the answers its own choices made. The reader is checked before each pass all the same (paraphrases and near-misses)." % e((d.get("decider") or {}).get("name", "the decider")),
+                        "cost": "about %s GB more while training (it is not part of the swarm that is served)" % e(str(other.get("memGb") or "?")),
+                        "note": " · ".join(x for x in [other.get("license", ""), other.get("needs", "")] if x)})
     # (5) WHAT EACH COSTS, and (6) HOW STRONG: measured on fewer than 20 answers is early
     cur_gb = sum(gb_of(mine[k]) for k in places)
     dmem = lambda i: float(next((m.get("memGb") or 0 for m in reg.get("deciders", []) if m["id"] == i), 0) or 0)  # noqa: E731
@@ -2509,17 +2573,37 @@ def tidy_panel(d, said=""):
     )
 
 
+def mtile(d):
+    """ON A PHONE, THE TRAINING COLUMN IS A TILE beside the title (the column itself sits below everything else at that width): what
+    the session is doing now, in two lines, and a tap to open the column whole (Training, Passes, Ideas waiting to be measured)."""
+    st = run_state()
+    hist = [h for h in (d.get("state") or {}).get("history") or [] if h.get("compared")]
+    if st and st.get("running"):
+        began = _epoch_local(st["at"])
+        head = '<span class="mt-state on" data-since="%d" data-short="1"><i></i><b>%s</b><small>since %s</small></span>' % (
+            int(began * 1000), e(_span(time.time() - began)), e(time.strftime("%H:%M", time.localtime(began))))
+    elif st and st.get("stopped"):
+        head = '<span class="mt-state"><i></i><b>Stopped</b><small>at %s</small></span>' % e(st["stopped"][:5])
+    else:
+        head = '<span class="mt-state"><i></i><b>Idle</b><small>no models loaded</small></span>'
+    sub = ("%d pass%s · latest %s%%" % (len(hist), "" if len(hist) == 1 else "es", fmt_pct(hist[-1].get("percent") or data.percent(hist[-1]["equivalent"], hist[-1]["compared"])))) if hist else "not measured yet"
+    # (while a session runs, the second line is where it is: the page writes it from the training column's own Pass and Now)
+    return ('<span class="mt-k">Training</span>%s<span class="mt-sub"%s>%s</span><span class="mt-go" aria-hidden="true"></span>' % (head, ' data-where="1"' if st and st.get("running") else "", e(sub)))
+
+
 def page(d):
     banner = '<div class="banner">Sample data, made up to show the layout. It is not a measurement of anything.</div>' if d["sample"] else ""
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
         '<title>The Swarm</title><style>%s</style></head><body><div class="shell">'
-        '<main id="top"><header><div><div class="kicker">The Swarm · training overview</div><h1>Training Dashboard</h1></div><div class="chips" id="chips">%s</div></header>%s%s'
+        '<main id="top"><header><div><div class="kicker">The Swarm · training overview</div><h1>Training Dashboard</h1></div>'
+        '<button type="button" class="mtile" id="mtile" aria-label="Open training, passes and ideas waiting to be measured">%s</button>'
+        '<div class="chips" id="chips">%s</div></header>%s%s'
         '<div id="body">%s</div>'
-        '%s</main>%s</div><dialog id="spec"><div id="spec-body"></div></dialog><dialog id="qedit"><div id="qedit-body"></div></dialog><dialog id="tidy"><div id="tidy-body"></div></dialog><dialog id="steerd"><div id="steerd-body"></div></dialog><dialog id="recd"><div id="recd-body"></div></dialog>'
+        '%s</main>%s</div><dialog id="mtrain" class="sheet"><div class="spec-head"><div><div class="kicker">The Swarm</div><h3 style="font-size:22px;margin-top:4px">Training</h3></div><button class="btn stop top" id="mtrain-close" type="button">Close</button></div><div id="mtrain-body"></div></dialog><dialog id="spec"><div id="spec-body"></div></dialog><dialog id="qedit"><div id="qedit-body"></div></dialog><dialog id="tidy"><div id="tidy-body"></div></dialog><dialog id="steerd"><div id="steerd-body"></div></dialog><dialog id="recd"><div id="recd-body"></div></dialog>'
         '<dialog id="big"><div class="spec-head"><div><div class="kicker">Parity with the larger model</div><h3 style="font-size:22px;margin-top:4px">The whole measurement</h3></div>'
         '<button class="btn stop top" id="big-close" type="button">Close</button></div><div id="big-body"></div></dialog><script>%s</script></body></html>'
-        % (CSS, chips(d), config_section(d), banner, main_body(d), footer(), rail(d), JS)
+        % (CSS, mtile(d), chips(d), config_section(d), banner, main_body(d), footer(), rail(d), JS)
     )
 
 
@@ -2576,6 +2660,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(('<button type="button" class="recbadge" id="rec-open" title="Open the recommended configuration changes"><i></i>%d recommendation%s</button>' % (n, "" if n == 1 else "s")) if n else "")
         if u.path == "/fragment/cfgmeta":
             return self._send(e(cfg_meta(d)))
+        if u.path == "/fragment/mtile":
+            return self._send(mtile(d))
         if u.path == "/fragment/equiv":
             return self._send(equiv(d, inner=True))
         if u.path == "/fragment/tools":
@@ -2713,14 +2799,16 @@ class Handler(BaseHTTPRequestHandler):
                 if want != "swarm" and want not in mine_ids:
                     return self._send("Turns with tools are decided by the swarm or given to one of its small models.", 400, "text/plain; charset=utf-8")
                 now["tools"] = want
-            for key, lst in (("a", "small"), ("b", "small"), ("c", "small"), ("d", "small"), ("decider", "deciders"), ("target", "targets")):
+            for key, lst in (("a", "small"), ("b", "small"), ("c", "small"), ("d", "small"), ("decider", "deciders"), ("judge", "deciders"), ("target", "targets")):
                 if key in asked:
-                    if key in ("c", "d") and asked[key] in ("", None):
-                        now.pop(key, None)  # taken out of the swarm
+                    if key in ("c", "d", "judge") and asked[key] in ("", None):
+                        now.pop(key, None)  # taken out of the swarm (or, the judge: the decider reads equivalence itself)
                         continue
                     if not any(m.get("id") == asked[key] for m in reg.get(lst, [])):
                         return self._send("There is no %s called that." % key, 400, "text/plain; charset=utf-8")
                     now[key] = asked[key]
+            if now.get("judge") and now.get("judge") == now.get("decider"):
+                now.pop("judge", None)  # (a judge that is the decider is the decider itself)
             # no place is left empty between two that are filled: the ones after it move up
             small = [now[k] for k in ("a", "b", "c", "d") if now.get(k)]
             for i, k in enumerate(("a", "b", "c", "d")):

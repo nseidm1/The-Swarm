@@ -22,6 +22,7 @@ import {
   swarmName,
   finished,
   askSwarm,
+  judgeAddress,
 } from './support/bench.mjs';
 import { plain } from '../src/read.mjs';
 import { messagesOf } from './tasks.mjs';
@@ -131,7 +132,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       },
     );
     const c = count(rows);
-    const rep = await slotReport(rows, byId, { kev: swarm.kev, briefs: swarm.briefs });
+    const rep = await slotReport(rows, byId, { kev: judgeAddress(swarm.kev), briefs: swarm.briefs });
     console.log('\n' + line(label + ' (' + split + ')', c));
     console.log(
       'paths: ' +

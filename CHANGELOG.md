@@ -15,6 +15,10 @@ The first version.
 - **What equivalence means.** The work of a seat on a team (The Crew): programming, and the conversation around it in Simple
   and Developer, judged on the act, the substance and the conventions. Chosen on the dashboard under the models, with Math,
   Logic and Reasoning as further choices. Each has a pencil that opens its questions, to which a person can add their own.
+- **Parity reads meaning, and says how sure it is.** The reader is checked on paraphrases and near-misses (one fact changed)
+  before it is believed; an undecided reading is counted apart and decides nothing; the larger model answers twice, and how
+  often it agrees with itself is shown as the noise floor; a judge apart from the decider can read equivalence; and an agent
+  step's written text is compared without case or end punctuation.
 - **Turns with tools, decided by the swarm (a toggle).** With `"tools": "swarm"` an agent's turn is drafted by every drafter,
   malformed calls left out, and the decider picks; it goes back as `tool_calls`. Training asks an agent's next step as a kind of
   question for The Crew, and grades it against the larger model's step.

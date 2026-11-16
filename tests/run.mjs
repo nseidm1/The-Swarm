@@ -1621,16 +1621,26 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
   // the reader of answers in words is checked on pairs anyone can judge
   const pairs = knownPairs();
+  const truth = (a2, b2) => pairs.find((p) => p.a === a2 && p.b === b2).same;
   const sound = await checkReader({
     kev: 'x',
     pairs,
-    judge: async (q, a2, b2) => ({ grade: /In short/.test(b2) ? 'right' : 'wrong' }),
+    judge: async (q, a2, b2) => ({ grade: truth(a2, b2) ? 'right' : 'wrong' }),
   });
   // one that leans to yes but leans further where the answers are the same: read well once the line is put where it tells them apart
   const leaning = await checkReader({
     kev: 'x',
     pairs,
-    judge: async (q, a2, b2) => ({ grade: 'right', p: /In short/.test(b2) ? 0.95 : 0.7 }),
+    judge: async (q, a2, b2) => ({ grade: 'right', p: truth(a2, b2) ? 0.95 : 0.7 }),
+  });
+  // one that only sees what an answer is ABOUT: it says the same to a paraphrase and to a near-miss alike. Four in five overall,
+  // and still not believed: it misreads every near-miss
+  const topical = await checkReader({
+    kev: 'x',
+    pairs,
+    judge: async (q, a2, b2) => ({
+      grade: pairs.find((p) => p.a === a2 && p.b === b2).kind !== 'different' ? 'right' : 'wrong',
+    }),
   });
   const yesMan = await checkReader({ kev: 'x', pairs, judge: async () => ({ grade: 'right' }) });
   const silent = await checkReader({ kev: 'x', pairs, judge: async () => ({ grade: 'noref' }) });
@@ -1644,12 +1654,17 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
   fs.rmSync(path.join(WORKC, 'reader.json'));
   check(
-    'a reader is checked before it is believed: given the same flaw said two ways and two different flaws, one that tells them apart is believed, one that says yes to everything is not, and neither is one that does not answer; and while it is not believed, answers in words are not compared',
+    'a reader is checked before it is believed: given paraphrases (the same answer in other words), near-misses (one fact changed) and different answers, one that tells them apart is believed, one that only sees what an answer is about is not (however it reads overall), one that says yes to everything is not, and neither is one that does not answer; and while it is not believed, answers in words are not compared',
     pairs.length >= 8 &&
       pairs.some((p) => p.same) &&
       pairs.some((p) => !p.same) &&
       sound.ok &&
       sound.right === sound.asked &&
+      pairs.filter((p) => p.kind === 'near').length >= 4 &&
+      pairs.filter((p) => p.kind === 'paraphrase').length >= 4 &&
+      topical.right / topical.asked >= 0.8 &&
+      !topical.ok &&
+      topical.kinds.near.right === 0 &&
       leaning.ok &&
       leaning.mark > 0.7 &&
       leaning.atHalf < leaning.right &&
@@ -2084,18 +2099,29 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     judge: async (task, a, b) => ({ grade: 'x', p: pairs.find((p) => p.a === a && p.b === b).same ? 0.85 : 0.2 }),
   });
   const blind = await checkReader({ kev: 'k', pairs, judge: async () => ({ grade: 'right', p: 0.9 }) });
+  const topicalTalk = await checkReader({
+    kev: 'k',
+    pairs,
+    judge: async (task, a, b) => ({
+      grade: 'x',
+      p: pairs.find((p) => p.a === a && p.b === b).kind === 'different' ? 0.2 : 0.85,
+    }),
+  });
   const { readerOk, readerMark, READER_FILE } = await import('../training/support/reader-file.mjs');
   const rdir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-reader-'));
   fs.writeFileSync(READER_FILE(rdir), JSON.stringify({ ok: true, mark: 0.75, talk: { ok: false, mark: 0.6 } }));
   check(
-    'the reader of replies in a conversation is tried on pairs anyone can judge (the same help said two ways; another fact, a refusal, a question back, a claim to have done it), half of each, and is believed apart from the reader of answers in words: one can fail its check while the other is believed, and each has its own line',
-    pairs.length === 14 &&
+    'the reader of replies in a conversation is tried on pairs anyone can judge (the same help said two ways; near-misses with one fact changed; another fact, a refusal, a question back, a claim to have done it), and is believed apart from the reader of answers in words: one can fail its check while the other is believed, and each has its own line',
+    pairs.length === 18 &&
       pairs.filter((p) => p.same).length === 7 &&
+      pairs.filter((p) => p.kind === 'near').length === 4 &&
       pairs.every((p) => p.task.system && p.task.turns.length === 1) &&
       fair.ok &&
-      fair.right === 14 &&
+      fair.right === 18 &&
       !blind.ok &&
-      blind.right === 7 &&
+      blind.right === 11 &&
+      !topicalTalk.ok &&
+      topicalTalk.kinds.near.right === 0 &&
       readerOk(rdir) &&
       readerOk(rdir, 'open') &&
       !readerOk(rdir, 'talk') &&
@@ -2863,6 +2889,73 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       viaWords.reply === 'words' &&
       again2(held).every((t) => t.turns[t.turns.length - 1].role === 'user'),
     { n: held.length, viaSwarm: viaSwarm.reply },
+  );
+}
+// ---- 6z: AN UNDECIDED READING IS SAID TO BE ONE, and decides nothing; a near-miss is made from an answer; a step's words loosely
+{
+  const { openEquivalent, talkEquivalent, UNDECIDED } = await import('../training/support/equivalent.mjs');
+  const { paired, judgeAddress } = await import('../training/support/bench.mjs');
+  const judgeWas = process.env.SWARM_JUDGE;
+  delete process.env.SWARM_JUDGE;
+  const byDecider = judgeAddress('http://decider');
+  process.env.SWARM_JUDGE = 'http://judge';
+  const byJudge = judgeAddress('http://decider');
+  if (judgeWas === undefined) delete process.env.SWARM_JUDGE;
+  else process.env.SWARM_JUDGE = judgeWas;
+  const { nearMissOf } = await import('../training/readers.mjs');
+  const { sameStep } = await import('../training/tasks-tools.mjs');
+  const said = (p) => async () => ({
+    ok: true,
+    json: async () => ({ answers: { same: { noul: p }, firstAsks: { noul: 0.1 }, secondAsks: { noul: 0.1 } } }),
+  });
+  const g = async (p, mark = 0.6) => openEquivalent('q', 'a', 'b', { kev: 'x', mark, fetchImpl: said(p) });
+  const near = await g(0.65);
+  const yes = await g(0.8);
+  const no = await g(0.3);
+  const talk = await talkEquivalent({ turns: [{ role: 'user', content: 'hi' }] }, 'a', 'b', {
+    kev: 'x',
+    mark: 0.6,
+    fetchImpl: said(0.55),
+  });
+  const pr = paired(
+    [
+      { id: 'q1', grade: 'wrong', undecided: true },
+      { id: 'q2', grade: 'wrong' },
+      { id: 'q3', grade: 'right' },
+    ],
+    [
+      { id: 'q1', grade: 'right' },
+      { id: 'q2', grade: 'right' },
+      { id: 'q3', grade: 'wrong', undecided: true },
+    ],
+  );
+  check(
+    "a reading close to the reader's line, either side, is undecided: graded different (so it cannot claim parity that is not there) and marked, in answers in words and in conversations alike; an undecided answer before or after is neither a win nor a loss when a change is weighed; a near-miss is an answer with one number changed; a step's written words are the same without case or end punctuation",
+    UNDECIDED === 0.1 &&
+      byDecider === 'http://decider' &&
+      byJudge === 'http://judge' &&
+      near.grade === 'wrong' &&
+      near.undecided === true &&
+      yes.grade === 'right' &&
+      !yes.undecided &&
+      no.grade === 'wrong' &&
+      !no.undecided &&
+      talk.grade === 'wrong' &&
+      talk.undecided === true &&
+      pr.wins === 1 &&
+      pr.losses === 0 &&
+      nearMissOf('Six minutes, or 6 at most') === 'Six minutes, or 7 at most' &&
+      nearMissOf('Ask for four at 7pm') === 'Ask for four at 8pm' &&
+      nearMissOf('none here') === null &&
+      sameStep(
+        'CALL write {"path":"notes.txt","content":"hello"}',
+        'CALL write {"path":"notes.txt","content":"Hello!"}',
+      ).grade === 'right' &&
+      sameStep(
+        'CALL write {"path":"notes.txt","content":"hello"}',
+        'CALL write {"path":"Notes.txt","content":"goodbye"}',
+      ).grade === 'wrong',
+    { near, yes, no, talk, pr },
   );
 }
 // ---- 6w: A SWARM FROM ITS SPEC: the output spec holds what a swarm is made of, so a program can make the swarm it describes (a

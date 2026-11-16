@@ -91,7 +91,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
           reply = '';
         }
         const g = reply
-          ? await t.equivalent(theirs, reply, { kev, mark: readerMark(WORKC, t.type) })
+          ? await t.equivalent(theirs, reply, { kev: process.env.SWARM_JUDGE || kev, mark: readerMark(WORKC, t.type) })
           : { grade: 'unsure' };
         if (g.grade === 'right') drafts++;
       }

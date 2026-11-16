@@ -147,6 +147,14 @@ export const TOOL_KIND_NAMES = Object.keys(TOOL_KINDS);
 
 // the same step, as the larger model and the swarm wrote it down (tools.mjs actionText): right, wrong, or unsure where the larger
 // model's own step is missing
+// (a path is compared with a leading ./ and spaces aside; any other text also without case or the punctuation that ends it:
+// "Hello!" written is "hello" written)
+const loose = (s) =>
+  flat(s)
+    .toLowerCase()
+    .replace(/["'`]/g, '')
+    .replace(/[.!?,;:]+$/, '')
+    .trim();
 const flat = (s) =>
   String(s == null ? '' : s)
     .trim()
@@ -171,10 +179,12 @@ export function sameStep(refText, text) {
     for (const key of keys) {
       const p = flat(x.args[key]);
       const q = flat(y.args[key]);
+      const lp = key === 'path' ? p.toLowerCase() : loose(p);
+      const lq = key === 'path' ? q.toLowerCase() : loose(q);
       const same =
         x.name === 'edit' && (key === 'old' || key === 'new')
-          ? !!p && !!q && (p.includes(q) || q.includes(p))
-          : p.toLowerCase() === q.toLowerCase();
+          ? !!lp && !!lq && (lp.includes(lq) || lq.includes(lp))
+          : lp === lq;
       if (!same) return { grade: 'wrong', why: 'its ' + key + ' differs' };
     }
   }

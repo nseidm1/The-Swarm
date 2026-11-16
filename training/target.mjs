@@ -214,12 +214,14 @@ export async function openTarget(
     // asked as plainly as a model can be asked: the question, and nothing of the swarm's own.
     // usable(text): does the reply hold an answer? Where the trainer can say (a function that runs, a value), a reply that does
     // not is asked for again the same way an empty one is.
-    async ask(messages, { maxTokens = 4096, usable = (t) => t.length > 0, tools = null } = {}) {
+    // firstDraw: where its draws begin (0: asked plainly first). The larger model against itself (baseline.mjs --self) begins at 3,
+    // so that its second answer is another draw than any its first could have been
+    async ask(messages, { maxTokens = 4096, usable = (t) => t.length > 0, tools = null, firstDraw = 0 } = {}) {
       let text = '';
       let first = '';
       let revived = 0;
       let waited = 0;
-      for (let draw = 0; draw <= 2; draw++) {
+      for (let draw = firstDraw; draw <= firstDraw + 2; draw++) {
         try {
           text = await once(messages, maxTokens, draw, tools);
         } catch (e) {
@@ -247,9 +249,9 @@ export async function openTarget(
           draw--;
           continue;
         }
-        if (draw === 0) first = text;
+        if (draw === firstDraw) first = text;
         if (usable(text)) return { text, draws: draw + 1 };
-        if (draw < 2)
+        if (draw < firstDraw + 2)
           onRecover(rung.name, 'its reply held no answer: asked again with another draw', { kind: 'empty' });
       }
       // none of the draws held an answer: what it said when asked plainly is what is kept, to be read; it is not a mark

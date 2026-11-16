@@ -5,6 +5,9 @@
 //   node training/baseline.mjs --who b --split held
 //   node training/baseline.mjs --who target --split held          the larger model being chased (targets.json, target.mjs)
 //   node training/baseline.mjs --who http://127.0.0.1:8080 --label large-27b --split held      any model, wherever it runs
+//   node training/baseline.mjs --who target --self --split held   THE LARGER MODEL AGAINST ITSELF: asked each question again (another
+//        draw) and graded, by the same readers, against its own first answers. How often it is equivalent to itself is the noise
+//        floor under parity: a share of differences no swarm could close, since the mark itself would not give them again
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -26,8 +29,16 @@ import { targetOf } from './state.mjs';
 import { messagesOf } from './tasks.mjs';
 
 const who = arg('who', 'a');
+const againstItself = who === 'target' && has('self');
 const label = String(
-  arg('label', who === 'target' ? targetOf().id : /^https?:/.test(who) ? 'reference' : aloneLabel(who)),
+  arg(
+    'label',
+    who === 'target'
+      ? targetOf().id + (againstItself ? '-self' : '')
+      : /^https?:/.test(who)
+        ? 'reference'
+        : aloneLabel(who),
+  ),
 ).replace(/[^\w.-]+/g, '-');
 const split = arg('split', 'train');
 const list = chosen();
@@ -53,7 +64,7 @@ try {
   /* not measured yet */
 }
 // the larger model's own answers are the reference; anything else is graded against them
-const self = who === 'target';
+const self = who === 'target' && !againstItself;
 const ref = self ? null : needReference(list, split);
 const model = await openAlone(who);
 try {
@@ -65,6 +76,7 @@ try {
         await model.ask(messagesOf(t), {
           ...(self ? { usable: (text) => (t.usable ? t.usable(text) : !!t.show(text)) } : {}),
           ...(t.tools ? { tools: t.tools } : {}),
+          ...(againstItself ? { firstDraw: 3 } : {}),
         })
       ).text,
     }),
@@ -72,7 +84,7 @@ try {
       name: [label, split, list.length ? list[0].seed : ''].join('-'),
       ref,
       self,
-      who: self ? 'target' : who,
+      who: self ? 'target' : againstItself ? 'target-self' : who,
       onRow: (r) => console.log(r.grade.padEnd(7) + r.id.padEnd(22) + String(r.reply).replace(/\s+/g, ' ').slice(-90)),
     },
   );

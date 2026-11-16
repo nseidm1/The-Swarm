@@ -46,7 +46,9 @@ mkdir -p .work/train
 cat .work/train/setup.out
 export KEV_RUN=${KEV_RUN:-$("$NODE" -e "import('./src/catalog.mjs').then(c=>console.log(c.DECIDER.run))")}
 KEV_STARTED=
-kev_down() { [ -n "$KEV_STARTED" ] && bash training/kev.sh stop > /dev/null 2>&1; KEV_STARTED=; }
+kev_down() { [ -n "$KEV_STARTED" ] && bash training/kev.sh stop > /dev/null 2>&1; KEV_STARTED=; judge_down; }
+JUDGE_PORT=
+judge_down() { [ -n "$JUDGE_PORT" ] && pkill -f -- "--port $JUDGE_PORT( |$)" > /dev/null 2>&1; JUDGE_PORT=; }
 trap kev_down EXIT
 trap 'exit 143' TERM INT
 if [ -z "$SWARM_KEV" ]; then
@@ -69,6 +71,29 @@ if [ -z "$SWARM_KEV" ]; then
     fi
   else
     echo "$(date +%H:%M:%S) NO DECIDER: it is not installed here (bash training/kev.sh install). The answer most slots gave will stand."
+  fi
+fi
+# THE JUDGE OF EQUIVALENCE, APART FROM THE DECIDER ("judge" in src/config.json; src/catalog.mjs JUDGE): started beside it, on a port
+# of its own and without taking the decider's port file, so that the swarm's own decider does not grade the answers it chose.
+# Where none is named, or it cannot be made ready here, the decider reads them, as before, and that is said.
+JUDGE_ID=$("$NODE" -e "import('./src/catalog.mjs').then(c=>console.log(c.JUDGE?c.JUDGE.id:''))")
+if [ -n "$JUDGE_ID" ] && [ -z "$SWARM_JUDGE" ]; then
+  if DECIDER_ID="$JUDGE_ID" bash training/kev.sh ready || DECIDER_ID="$JUDGE_ID" bash training/kev.sh install > .work/train/judge.log 2>&1; then
+    JUDGE_PORT=$("$NODE" training/support/recover.mjs port 8010)
+    DECIDER_ID="$JUDGE_ID" DECIDER_NO_PORT_FILE=1 bash training/kev.sh serve "$JUDGE_PORT" >> .work/train/judge.log 2>&1 &
+    for _ in $(seq 1 180); do
+      "$NODE" -e "fetch('http://127.0.0.1:$JUDGE_PORT/v1/models',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))" && break
+      sleep 5
+    done
+    if "$NODE" -e "fetch('http://127.0.0.1:$JUDGE_PORT/v1/models',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"; then
+      export SWARM_JUDGE="http://127.0.0.1:$JUDGE_PORT"
+      echo "$(date +%H:%M:%S) $JUDGE_ID judges equivalence, apart from the decider, at $SWARM_JUDGE"
+    else
+      judge_down
+      echo "$(date +%H:%M:%S) $JUDGE_ID did not come up (see .work/train/judge.log): the decider judges equivalence this session."
+    fi
+  else
+    echo "$(date +%H:%M:%S) $JUDGE_ID could not be made ready here (see .work/train/judge.log): the decider judges equivalence this session."
   fi
 fi
 # TRAINING IS CONTINUOUS. One pass follows another, each beginning from what the last one left, until it is stopped on purpose
@@ -107,6 +132,8 @@ while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
   # A model does not change, so one that has answered these questions is not asked again
   run 02-target       training/baseline.mjs --who target --split held --each "$EACH"
   run 02-target-train training/baseline.mjs --who target --split train --each "$EACH"
+  # THE LARGER MODEL AGAINST ITSELF: the held questions again, another draw, graded against its own first answers (the noise floor)
+  run 02-target-self  training/baseline.mjs --who target --self --split held --each "$EACH"
   for K in $("$NODE" -e "import('./src/catalog.mjs').then(c=>console.log(Object.keys(c.MEMBERS).join(' ')))"); do
     run "03-$K-alone" training/baseline.mjs --who "$K" --split held --each "$EACH"
   done

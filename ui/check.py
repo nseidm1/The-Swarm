@@ -271,7 +271,7 @@ with tempfile.TemporaryDirectory() as tmp:
     # ---- choosing the models, the output spec, and an idea's paper
     reg = d["registry"]
     check("five pills lead the page: the two small models, the model that decides and the larger model, each a list of the models that can be chosen, grouped by who made them, with the one chosen marked; and the output spec",
-          html.count('data-pick="') == 5 and 'class="specbtn" id="spec-open"' in html.split('id="chips"')[1].split("</header>")[0] and "spec-open" not in get(base + "/fragment/picks")[1] and "Add a model" in html and 'class="pick c add"' in html and ".picks{display:flex;flex-wrap:wrap" in html and html.count('class="group small n3"') == 1 and html.count('class="group against"') == 1 and html.count("<optgroup") >= 12 and all(m["name"] in html for m in reg["small"] + reg["targets"] + reg["deciders"]) and 'value="%s" selected' % d["members"]["a"]["id"] in html
+          html.count('data-pick="') == 6 and 'data-pick="judge"' in html and "The decider itself" in html and 'class="specbtn" id="spec-open"' in html.split('id="chips"')[1].split("</header>")[0] and "spec-open" not in get(base + "/fragment/picks")[1] and "Add a model" in html and 'class="pick c add"' in html and ".picks{display:flex;flex-wrap:wrap" in html and html.count('class="group small n3"') == 1 and html.count('class="group against"') == 1 and html.count("<optgroup") >= 12 and all(m["name"] in html for m in reg["small"] + reg["targets"] + reg["deciders"]) and 'value="%s" selected' % d["members"]["a"]["id"] in html
           and 'value="%s" selected' % d["target"]["id"] in html and 'id="spec-open"' in html and len({m["by"].split(",")[0] for m in reg["small"]}) >= 6)
 
     def send(path, body, headers=None):
@@ -421,9 +421,9 @@ with tempfile.TemporaryDirectory() as tmp:
     ap = send("/config", rs[0]["apply"])[0] if rs else 0
     now_cfg = json.loads((root / "src" / "config.json").read_text())
     check("beside Configuration, a note says when the evidence recommends a change to it, and opens them: each with what it rests on (measured: another decider that recovered more recorded choices than it lost; untested: a third small model where no slot drafted the answer and no other model was here to ask), and a button that makes the change as a pill does; a decider that lost more than it recovered is not recommended; with no evidence there is no note",
-          'id="rec-open"' not in none_yet and [r["id"] for r in rs] == ["decider:startlux-4b", "member:qwen35-2b"] and [r["strength"] for r in rs] == ["measured", "untested"]
-          and "2 recommendations" in sec and 'id="recd"' in html and "Decide with StartLux Decision 4B" in pop and "recovered 4" in pop and "Untested" in pop and "Qwen3.5 2B" in pop and "kev-9b" not in pop and "Kev 9B" not in pop
-          and pop.count("data-rec-apply") == 2 and ap == 200 and now_cfg.get("decider") == "startlux-4b" and "stopPropagation" in html, [r["id"] for r in rs])
+          ('id="rec-open"' not in none_yet or "1 recommendation<" in none_yet) and [r["id"] for r in rs if not r["id"].startswith("judge:")] == ["decider:startlux-4b", "member:qwen35-2b"] and [r["strength"] for r in rs if not r["id"].startswith("judge:")] == ["measured", "untested"]
+          and "3 recommendations" in sec and 'id="recd"' in html and "Decide with StartLux Decision 4B" in pop and "recovered 4" in pop and "Untested" in pop and "Qwen3.5 2B" in pop and "kev-9b" not in pop and "Kev 9B" not in pop
+          and pop.count("data-rec-apply") == 3 and ap == 200 and now_cfg.get("decider") == "startlux-4b" and "stopPropagation" in html, [r["id"] for r in rs])
     # WHAT THE CONFIGURATION'S OWN ANSWERS SAY, AS THEY ARRIVE (ui/data.py session_evidence), and what is recommended from it
     def row(i, right=True):
         tr = [{"slot": "a-direct", "member": "a", "stage": "draft", "letter": "A", "final": "x" if right else "y", "tokens": 700, "ms": 6000},
@@ -466,7 +466,7 @@ with tempfile.TemporaryDirectory() as tmp:
     ap2 = send("/config", next((r["apply"] for r in rs2 if r["id"].startswith("member:")), {}))[0]
     after = json.loads((root / "src" / "config.json").read_text())
     check("taking a recommended change does not undo one taken before it: with the decider changed, the third small model is still recommended, from the record of the same small models (and says so), nothing recommends going back, and taking it keeps the new decider",
-          [r["id"] for r in rs2] == ["member:qwen35-2b"] and "decided by Kev" in pop2 and ap2 == 200
+          [r["id"] for r in rs2 if not r["id"].startswith("judge:")] == ["member:qwen35-2b"] and "decided by Kev" in pop2 and ap2 == 200
           and after.get("decider") == "startlux-4b" and after.get("c") == "qwen35-2b", ([r["id"] for r in rs2], after))
     (root / "src" / "config.json").write_text(json.dumps(was_cfg, indent=2) + "\n")
     for fn in ("decider-replay.json", "members.json"):
@@ -544,6 +544,45 @@ with tempfile.TemporaryDirectory() as tmp:
           and sw_spec["interface"]["capabilities"]["toolsMode"] == "swarm" and "decided by the swarm" in sw_spec["interface"]["capabilities"]["tools"] and not any("tools goes to" in x for x in sw_spec["interface"]["notYet"])
           and l_ok == 200 and l_cfg.get("tools") == ida and data.tools_of("no-longer-here", d["members"]) == "a" and data.tools_of(idb, d["members"]) == "b",
           [b_ok, t_ok, t_bad, t_out, l_ok, b_cfg.get("tools"), t_cfg.get("tools"), l_cfg.get("tools")])
+    # THE NOISE FLOOR AND THE UNDECIDED: the larger model against itself, and the swarm's different answers the reader could not decide
+    dn = data.load(root)
+    sw_rows = [dict(r) for r in dn["splits"]["held"]["swarm"]]
+    wrong = [r for r in sw_rows if r.get("grade") == "wrong"]
+    if wrong:
+        wrong[0]["undecided"] = True
+    selfr = [dict(r, grade="right") for r in dn["splits"]["held"]["swarm"]]
+    if selfr:
+        selfr[0]["grade"] = "wrong"
+    held_n = dict(dn["splits"]["held"], swarm=sw_rows, parity=data.parity(sw_rows), self=selfr)
+    dn2 = dict(dn, splits=dict(dn["splits"], held=held_n))
+    strip_n, board_n, spec_n = swarm_ui.score_strip(dn2), swarm_ui.scoreboard(dn2), data.spec(dn2)
+    check("the larger model against itself is shown beside parity (asked again, judged against its own first answers: the noise floor), in the card, its chips, the whole measurement and the spec; and the swarm's different answers the reader could not decide are counted apart, in the verdict and the spec",
+          ("asked again" in strip_n) and "against itself" in strip_n and "the noise floor" in board_n
+          and spec_n["trainedAgainst"]["selfAgreement"] == {"equivalent": len(selfr) - 1, "compared": len(selfr), "percent": data.percent(len(selfr) - 1, len(selfr))}
+          and (not wrong or (spec_n["trainedAgainst"]["undecided"] == 1 and "the reader could not decide" in strip_n and data.parity(sw_rows)["undecided"] == 1))
+          and data.spec(dn)["trainedAgainst"]["selfAgreement"] is None, [strip_n[:120]])
+    # A JUDGE OF EQUIVALENCE APART FROM THE DECIDER: a pill beside Decides; the decider itself where none is chosen
+    j_before = swarm_ui.recommendations(data.load(root))
+    j_ok = send("/config", {"judge": "startlux-4b"})[0]
+    j_cfg = json.loads((root / "src" / "config.json").read_text())
+    dj = data.load(root)
+    j_meta, j_picks, j_spec, j_recs = get(base + "/fragment/cfgmeta")[1], get(base + "/fragment/picks")[1], data.spec(dj), swarm_ui.recommendations(dj)
+    j_same = send("/config", {"judge": dj["decider"]["id"]})[0]
+    j_cfg2 = json.loads((root / "src" / "config.json").read_text())
+    j_bad = send("/config", {"judge": "no-such-decider"})[0]
+    j_off = send("/config", {"judge": ""})[0]
+    j_cfg3 = json.loads((root / "src" / "config.json").read_text())
+    check("equivalence can be judged by a decision model apart from the decider: a pill beside Decides, the decider itself where none is chosen (and recommended once answers are being judged, a model that fits beside the decider); choosing one saves it, says so in the folded line and the spec, and the recommendation goes; choosing the decider, or none, is the decider itself again; an unknown one is refused",
+          any(r["id"].startswith("judge:") for r in j_before) and j_ok == 200 and j_cfg.get("judge") == "startlux-4b" and "judged by StartLux Decision 4B" in j_meta
+          and 'value="startlux-4b" selected' in j_picks.split('data-pick="judge"')[1].split("</select>")[0] and j_spec["trainedAgainst"]["judgedBy"] == "StartLux Decision 4B"
+          and not any(r["id"].startswith("judge:") for r in j_recs) and j_same == 200 and "judge" not in j_cfg2 and j_bad == 400 and j_off == 200 and "judge" not in j_cfg3
+          and "(the decider itself)" in data.spec(data.load(root))["trainedAgainst"]["judgedBy"], [j_ok, j_cfg.get("judge"), j_same, j_bad, j_off])
+    # ON A PHONE, THE TRAINING COLUMN IS A TILE BESIDE THE TITLE, opening the column whole in a sheet (and nothing changes elsewhere)
+    mt = get(base + "/fragment/mtile")[1]
+    check("on a phone the training column is a tile beside the title: what the session is doing (idle, stopped, or running with its clock and where it is) and the passes in a line; tapping it moves the column itself (Training, Passes, Ideas waiting to be measured) into a sheet and back when closed, so what redraws it still does; the column is not left below the footer there, and nothing changes at a wider screen",
+          'id="mtile"' in tg0 and 'class="mtile"' in tg0 and "Training</span>" in mt and ("Idle" in mt or "Stopped" in mt or "data-since" in mt) and 'id="mtrain"' in tg0 and 'id="mtrain-body"' in tg0
+          and ".mtile{display:none}" in tg0 and ".shell>.rail{display:none}" in tg0 and "$('#mtrain-body').append(r)" in tg0 and "document.querySelector('.shell').append(r)" in tg0
+          and "swap('/fragment/mtile','#mtile')" in tg0 and tg0.index('id="mtile"') < tg0.index('id="chips"'), mt[:200])
     # EVERYTHING NEEDED TO MAKE IT AGAIN, AND TO OFFER IT AS A MODEL: every slot with what it is told, the decider's recipe, the
     # engine's pinned builds, a card in the shape The Crew's chooser lists its models, what it needs of a machine, what it can and
     # cannot do as a model, and a hash of the recipe that src/spec.mjs computes the same way
