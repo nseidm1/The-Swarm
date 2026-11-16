@@ -71,7 +71,11 @@ function standIn() {
 const lfm = await standIn();
 const bonsai = await standIn();
 const briefs = readBriefs();
-const roleOf = (body) => briefs.slots.find((x) => body.messages[0].content.startsWith(x.brief));
+const { PROBE_BRIEF } = await import('../src/behave.mjs');
+// which slot a request is for, told from what it was told first (the slot that writes calls to try is not one of the plan's slots)
+const roleOf = (body) =>
+  briefs.slots.find((x) => body.messages[0].content.startsWith(x.brief)) ||
+  (body.messages[0].content.startsWith(PROBE_BRIEF) ? { id: 'probe', stage: 'probe' } : undefined);
 const reset = () => {
   for (const m of [lfm, bonsai])
     Object.assign(m.s, { calls: [], most: 0, now: 0, down: false, script: () => 'ANSWER: 42' });
@@ -519,14 +523,21 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       : 'Adding the two.\n\n```js\n' + fn + '\n```';
   bonsai.s.script = () => 'It adds.\n\n```js\n' + fn.replace('  return', '  // the sum\n  return') + '\n```';
   const got = await swarm.answer([{ role: 'user', content: 'Write add(a, b).' }]);
+  const asked = await swarm.answer([{ role: 'user', content: 'Write add(a, b).' }], {
+    briefs: { ...briefs, plan: { ...briefs.plan, writeCode: true } },
+  });
   check(
-    "where the answer is code, a slot's answer is its last code block; drafts whose code reads the same but for comments and spacing agree; and code the writer rewrote is put back as it was settled",
+    "where the answer is code, a slot's answer is its last code block; drafts whose code reads the same but for comments and spacing agree; code goes out as it was settled with no slot asked to write it again; and where the plan does ask the writer, code it rewrote is put back",
     got.ok &&
-      got.path === 'agreed+code-restored' &&
+      got.path === 'agreed' &&
       got.decided === fn &&
       got.reply === '```js\n' + fn + '\n```' &&
-      got.trace.filter((r) => r.stage === 'draft').length === 4,
-    { path: got.path, reply: got.reply },
+      !got.trace.some((r) => r.stage === 'write') &&
+      got.trace.filter((r) => r.stage === 'draft').length === 4 &&
+      asked.path === 'agreed+code-restored' &&
+      asked.reply === got.reply &&
+      asked.trace.some((r) => r.stage === 'write'),
+    { path: got.path, reply: got.reply, asked: asked.path },
   );
   check(
     'a line that settles the answer after quoted code is the answer, not the code quoted',
@@ -559,7 +570,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   };
   bonsai.s.script = (b) =>
     roleOf(b).stage === 'check' ? 'Quoting B:\n```js\n' + bad + '\n```\nOnly A holds.\n**ANSWER: (A)**' : block(bad);
-  const got = await swarm.answer([{ role: 'user', content: 'Write add(a, b).' }]);
+  // (the plan here asks the writer to write code out, which by itself it no longer does)
+  const got = await swarm.answer([{ role: 'user', content: 'Write add(a, b).' }], {
+    briefs: { ...briefs, plan: { ...briefs.plan, writeCode: true } },
+  });
   const checks = got.trace.filter((r) => r.stage === 'check');
   check(
     'a writer that answers with a call to a tool is not taken for a reply: what was settled goes out as it stands, and the path says so',
@@ -586,7 +600,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   // (with no decision model the answer most slots gave stands: three drafts and no checker for the slip, one draft and both checkers for A)
   check(
     'the checkers that named A by letter are counted with the draft that wrote it',
-    got.trace.length === 7 && typeof got.decided === 'string' && [good, bad].includes(got.decided),
+    got.trace.filter((r) => !['probe', 'run'].includes(r.stage)).length === 7 &&
+      typeof got.decided === 'string' &&
+      [good, bad].includes(got.decided),
     { decided: got.decided, path: got.path },
   );
   // a reply cut off partway through its function is no answer, and nothing is compared with it
@@ -640,6 +656,152 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     'a zero written -0 is the same number as 0, and a different number is still different',
     z.grade === 'right' && nz.grade === 'wrong',
     { z, nz },
+  );
+}
+// ---- 6d: DRAFTS OF CODE ARE ONE ANSWER WHEN THEY DO THE SAME, not when they read the same
+{
+  const { nameOf, callsIn, behaviours } = await import('../src/behave.mjs');
+  const { codeOf } = await import('../training/support/equivalent.mjs');
+  const fenced = (c) => 'So:\n\n```js\n' + c + '\n```';
+  const CALLS = 'Here are the calls:\n1. `add(1, 2)`\nadd(0, 0)\nadd(-3, 5)\nadd(2.5, 1)\nadd(7, 7)';
+  const W = [{ role: 'user', content: 'Write a JavaScript function add(a, b) that returns the sum.' }];
+  // four drafts written four ways that all add
+  reset();
+  const ways = {
+    'a-direct': 'function add(a, b) {\n  return a + b;\n}',
+    'a-steps': 'function add(a, b) {\n  const sum = a + b;\n  return sum;\n}',
+    'b-direct': 'const add = (x, y) => y + x;',
+    'b-other-way': 'function add(a, b) {\n  return b - -a;\n}',
+  };
+  lfm.s.script = (b) => fenced(ways[roleOf(b).id] || ways['a-direct']);
+  bonsai.s.script = (b) => (roleOf(b).stage === 'probe' ? CALLS : fenced(ways[roleOf(b).id] || ways['b-direct']));
+  const same = await swarm.answer(W);
+  check(
+    'four drafts of a function written four different ways, that do the same on the calls tried, are one answer: agreed, with no check, no decision and no writer, and what was tried is in the trace',
+    same.ok &&
+      same.path === 'agreed' &&
+      same.tried &&
+      same.tried.groups.length === 1 &&
+      same.tried.calls.length === 5 &&
+      !same.trace.some((r) => ['check', 'decide', 'write'].includes(r.stage)) &&
+      same.trace.find((r) => r.stage === 'run').ok &&
+      /they all do the same/.test(same.trace.find((r) => r.stage === 'run').out) &&
+      same.reply === '```js\n' + ways['a-direct'] + '\n```',
+    { path: same.path, tried: same.tried, run: same.trace.find((r) => r.stage === 'run') },
+  );
+  // one adds, two subtract in different words, one does not parse; the checkers run out of room and are asked for a letter
+  reset();
+  const bad1 = 'function add(a, b) {\n  return a - b;\n}';
+  const bad2 = 'const add = (a, b) => a - b;';
+  const broken = 'function add(a, b) {\n  return a - ;\n}';
+  const seenBy = [];
+  const checker = (b) => {
+    const last = b.messages[b.messages.length - 1].content;
+    if (/ran out of room/.test(last)) return 'ANSWER: A';
+    seenBy.push(last);
+    return 'Let me take each in turn. Answer A adds the two numbers. Answer B ... and so on, at length, without ever getting to a last line';
+  };
+  lfm.s.script = (b) =>
+    roleOf(b).stage === 'check' ? checker(b) : fenced(roleOf(b).id === 'a-direct' ? ways['a-direct'] : bad1);
+  bonsai.s.script = (b) =>
+    roleOf(b).stage === 'probe'
+      ? CALLS
+      : roleOf(b).stage === 'check'
+        ? checker(b)
+        : fenced(roleOf(b).id === 'b-direct' ? bad2 : broken);
+  const split = await swarm.answer(W);
+  const cks = split.trace.filter((r) => r.stage === 'check');
+  check(
+    'drafts that do different things are different answers however alike they read, drafts that do the same are one however different, and a draft that does not run is none: the checkers are shown one answer for each behaviour and the calls on which they part',
+    split.tried &&
+      split.tried.groups.length === 2 &&
+      split.tried.groups[0].join() === 'A' &&
+      split.tried.groups[1].join() === 'B,C' &&
+      /D did not run/.test(split.trace.find((r) => r.stage === 'run').out) &&
+      seenBy.length === 2 &&
+      seenBy.every(
+        (t) =>
+          /Answer A:/.test(t) &&
+          /Answer B:/.test(t) &&
+          !/Answer C:/.test(t) &&
+          !/Answer D:/.test(t) &&
+          /different results on:\nadd\(1, 2\) {2}-> {2}A: 3 {3}B: -1/.test(t),
+      ),
+    { groups: split.tried && split.tried.groups, shown: (seenBy[0] || '').slice(-200) },
+  );
+  check(
+    'a checker that ran out of room before it answered is asked for its answer in one line, on the same slot, and its letter counts as that answer; the answer the most slots hold by behaviour stands, and code goes out as it was settled',
+    cks.length === 2 &&
+      cks.every((c) => c.ok && c.concluded && c.picked === 'A' && c.final === ways['a-direct']) &&
+      split.decided === ways['a-direct'] &&
+      split.path === 'most' &&
+      split.reply === '```js\n' + ways['a-direct'] + '\n```' &&
+      !split.trace.some((r) => r.stage === 'write'),
+    { cks: cks.map((c) => [c.slot, c.ok, c.concluded, c.picked]), path: split.path },
+  );
+  // told not to run anything, it runs nothing
+  const plainSwarm = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, runCode: false });
+  reset();
+  lfm.s.script = (b) => fenced(ways[roleOf(b).id] || ways['a-direct']);
+  bonsai.s.script = (b) => fenced(ways[roleOf(b).id] || ways['b-direct']);
+  const off = await plainSwarm.answer(W);
+  await plainSwarm.stop();
+  check(
+    'told not to run code (runCode: false, or SWARM_RUN_CODE=0) the swarm runs nothing a model wrote and asks for no calls: drafts are compared as text, as before',
+    off.ok &&
+      off.tried === null &&
+      !off.trace.some((r) => ['probe', 'run'].includes(r.stage)) &&
+      off.path !== 'agreed' &&
+      lfm.s.calls.concat(bonsai.s.calls).every((c) => !c.messages[0].content.startsWith(PROBE_BRIEF)),
+    { path: off.path },
+  );
+  // reading the calls a slot wrote, and the function the drafts define
+  const read = callsIn(
+    '1. `add(1, 2)`\nadd(x, 2)\nadd([1, [2]], { a: 1 })\nadd("a)", 1) // text\nfoo(1)\nadd(evil(), 1)\nadd(1, 2)\nadd(3,\nconsole.log(add(true, null));',
+    'add',
+  );
+  const none = await behaviours({
+    question: 'q',
+    drafts: [
+      { letter: 'A', final: ways['a-direct'] },
+      { letter: 'B', final: bad1 },
+    ],
+    probeText: 'no calls here',
+  });
+  const two = await behaviours({
+    question: 'q',
+    drafts: [
+      { letter: 'A', final: ways['a-direct'] },
+      { letter: 'B', final: bad1 },
+    ],
+    probeText: CALLS,
+  });
+  check(
+    'the calls to try are read from what a slot wrote: whole calls to the function, with literal arguments only, each once; with too few to go on nothing is run; and a call on which two drafts part is named with what each gave',
+    read.join(' | ') === 'add(1, 2) | add([1, [2]], { a: 1 }) | add("a)", 1) | add(true, null)' &&
+      nameOf([ways['a-direct'], bad2, 'function helper() {}\nfunction add(a, b) {}'], 'Write add') === 'add' &&
+      none === null &&
+      two &&
+      two.groups.length === 2 &&
+      /add\(0, 0\)/.test(two.differ(['A', 'B'])) === false &&
+      /add\(1, 2\) {2}-> {2}A: 3 {3}B: -1/.test(two.differ(['A', 'B'])) &&
+      (await two.sigOf(ways['b-direct'])) === two.by.A &&
+      (await two.sigOf(broken)) === '',
+    { read, differ: two && two.differ(['A', 'B']) },
+  );
+  // a reply that gives the function and then shows it in use
+  const withExample =
+    'Here it is:\n\n```js\n' +
+    ways['a-direct'] +
+    '\n```\n\nFor example:\n\n```js\nconsole.log(add(1, 2)); // 3\n```\n\nIt adds.';
+  check(
+    'the code in a reply is the block that defines the function, not a block after it that only shows it in use: for a slot inside the swarm and for the grader alike',
+    finalOf(withExample, 'ANSWER:', true) === ways['a-direct'] &&
+      codeOf(withExample, 'add') === ways['a-direct'] &&
+      codeOf(withExample) === ways['a-direct'] &&
+      codeOf('```js\nfunction helper() {}\n```\n```js\nlet x = 1;\n```', 'add') === 'function helper() {}' &&
+      codeOf('```\nlet x = 1;\n```') === 'let x = 1;',
+    finalOf(withExample, 'ANSWER:', true),
   );
 }
 // ---- 7: one worked answer for each different answer

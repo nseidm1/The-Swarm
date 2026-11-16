@@ -23,11 +23,17 @@ const toolCode = (s) => {
   }
   return null;
 };
+// does this code DEFINE something (a function, a class)? A reply that gives a function and then shows it in use ends with a block
+// that only calls it: the answer is the block that defines, not the last one.
+const DEFINES =
+  /(?:^|\n)\s*(?:export\s+)?(?:async\s+)?function\s*\*?\s*[\w$]+\s*\(|(?:^|\n)\s*(?:const|let|var)\s+[\w$]+\s*=\s*(?:async\s*)?(?:function\b|\([^)]*\)\s*=>|[\w$]+\s*=>)|(?:^|\n)\s*class\s+[\w$]+|(?:^|\n)\s*def\s+\w+\s*\(/;
+export const defines = (code) => DEFINES.test(String(code || ''));
 const lastBlock = (text, marker = MARKER, wantsCode = false) => {
   const s = String(text || '');
   const blocks = [...s.matchAll(/```[a-zA-Z]*\n([\s\S]*?)```/g)].filter((m) => m[1].trim());
   if (!blocks.length) return toolCode(s);
-  const b = blocks[blocks.length - 1];
+  // where code is asked for: the last block that defines something; a block after it that only uses it is an example
+  const b = (wantsCode && [...blocks].reverse().find((m) => defines(m[1]))) || blocks[blocks.length - 1];
   if (!wantsCode) {
     const after = s.slice(b.index + b[0].length).toUpperCase();
     const at = after.lastIndexOf(marker.toUpperCase());

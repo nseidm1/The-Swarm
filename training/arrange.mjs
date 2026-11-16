@@ -12,7 +12,8 @@
 //   drop      a drafter (never below two) or a checker
 //   sees      a checker shown the work, or only the answers
 //   heat      a drafter's temperature, up or down
-//   plan      one worked answer for each different answer; the checks passed over when the drafts agree
+//   plan      one worked answer for each different answer; the checks passed over when the drafts agree; drafts of code
+//             compared by what they do, or as text
 //   node training/arrange.mjs                 try a few (--tries 4)
 //   node training/arrange.mjs --list          every step from here, and which have been tried
 import fs from 'node:fs';
@@ -100,6 +101,7 @@ export function steps(b, { cap = SERVING.slots, members = ['a', 'b'] } = {}) {
   for (const [key, dflt] of [
     ['onePerAnswer', false],
     ['agreeSkipsChecks', true],
+    ['byBehaviour', true], // drafts of code agree by what they do (run on the same calls), or by how they read
   ]) {
     const now = b.plan && b.plan[key] !== undefined ? b.plan[key] : dflt;
     out.push({ name: 'plan: ' + key + ' ' + !now, briefs: { ...b, plan: { ...b.plan, [key]: !now } } });

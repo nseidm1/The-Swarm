@@ -4,7 +4,8 @@
   "marker": "ANSWER:",
   "plan": {
     "agreeSkipsChecks": true,
-    "keepTurns": 6
+    "keepTurns": 6,
+    "byBehaviour": true
   },
   "slots": [
     {

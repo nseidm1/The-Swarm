@@ -46,6 +46,7 @@ export async function slotReport(rows, tasksById, { kev = '' } = {}) {
     let anyRight = false;
     let draftRight = false;
     for (const s of r.trace || []) {
+      if (s.stage === 'probe' || s.stage === 'run') continue; // they try the drafts; they do not answer
       const o = (slots[s.slot] = slots[s.slot] || { stage: s.stage, ran: 0, right: 0, silent: 0, ms: 0 });
       o.ran++;
       o.ms += s.ms;
@@ -91,7 +92,13 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       list,
       async (t) => {
         const got = await swarm.answer([{ role: 'user', content: t.ask }]);
-        return { reply: got.reply, decided: got.decided, path: got.path, trace: got.trace };
+        return {
+          reply: got.reply,
+          decided: got.decided,
+          path: got.path,
+          trace: got.trace,
+          tried: got.tried || undefined,
+        };
       },
       {
         ref,

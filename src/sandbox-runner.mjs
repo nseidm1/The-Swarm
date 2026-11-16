@@ -1,14 +1,15 @@
-// sandbox-runner.mjs - RUNS A FUNCTION A MODEL WROTE, AND SAYS WHAT IT RETURNED. Started by exec.mjs in a process of its own with
+// sandbox-runner.mjs - RUNS A FUNCTION A MODEL WROTE, AND SAYS WHAT IT RETURNED. Started by sandbox.mjs in a process of its own with
 // Node's permissions on: it cannot read or write a file (but this one), start a program, or open a worker. The code itself runs in
 // a context that has no require, no process and no import, and each call is stopped after a moment. What comes back is data.
-//   stdin:  { code, name, inputs: [[args...], ...], callMs }
+//   stdin:  { code, name, inputs: [[args...], ...], callMs }   or   { code, name, calls: ['name(1, 2)', ...] }: calls written
+//           out as text (a model wrote those too), which are read inside the same place the code runs in and nowhere else
 //   stdout: { ok: true, out: [ { v: <JSON text of what it returned> } | { e: true } ] }  |  { ok: false, why }
 import vm from 'node:vm';
 
 let raw = '';
 process.stdin.setEncoding('utf8');
 for await (const chunk of process.stdin) raw += chunk;
-const { code, name, inputs, callMs = 400 } = JSON.parse(raw);
+const { code, name, inputs = [], calls = null, callMs = 400 } = JSON.parse(raw);
 const say = (o) => process.stdout.write(JSON.stringify(o));
 // NOTHING OF THIS PROCESS IS HANDED TO THE CODE. The place it runs in is made from an object with no prototype, so there is no
 // chain to climb out by; its console, the reading of its arguments and the writing-down of what it returned are all made INSIDE
@@ -43,6 +44,15 @@ try {
           box,
           { timeout: callMs },
         );
+        out.push({ v: typeof v === 'string' ? v : '__undefined__' });
+      } catch {
+        out.push({ e: true });
+      }
+    }
+    // calls written out as text: each is read and run inside the box, as one expression, and what it gave comes back as text
+    for (const call of calls || []) {
+      try {
+        const v = vm.runInContext('__text((' + String(call) + '))', box, { timeout: callMs });
         out.push({ v: typeof v === 'string' ? v : '__undefined__' });
       } catch {
         out.push({ e: true });

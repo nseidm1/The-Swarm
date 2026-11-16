@@ -6,30 +6,37 @@
 //   open   an answer in words (what is wrong with this function?) cannot be run. A decision model (Kev) is asked one yes/no: do
 //          these two say fundamentally the same thing? Wording, order and length do not count; a different claim does.
 // A model's code is never run in this process. It runs in a process of its own with Node's permissions on (no files, no programs,
-// no workers), in a context with no require and no process, and each call is stopped after a moment (sandbox-runner.mjs).
+// no workers), in a context with no require and no process, and each call is stopped after a moment (src/sandbox.mjs).
 import vm from 'node:vm';
-import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { outputsOf, sandboxReady, bare } from '../../src/sandbox.mjs';
+import { defines } from '../../src/read.mjs';
 
-const RUNNER = fileURLToPath(new URL('./sandbox-runner.mjs', import.meta.url));
-const FLAG = Number(process.versions.node.split('.')[0]) >= 22 ? '--permission' : '--experimental-permission';
+export { outputsOf, sandboxReady };
 
-// the code in a reply: its last fenced block; or, with no fence, from the first line that starts a function to the end
-export function codeOf(reply) {
+// the code in a reply: the last fenced block that defines the function asked for (or, not knowing its name, that defines
+// anything); failing that its last fenced block; or, with no fence, from the first line that starts a function to the end. A
+// reply that gives the function and then shows it in use ends with a block that only calls it: that block is not the answer.
+export function codeOf(reply, name = '') {
   const s = String(reply || '');
   const blocks = [...s.matchAll(/```[a-zA-Z]*\n([\s\S]*?)```/g)].map((m) => m[1].trim()).filter(Boolean);
-  if (blocks.length) return blocks[blocks.length - 1];
+  if (blocks.length) {
+    const back = [...blocks].reverse();
+    const named =
+      name &&
+      back.find((b) =>
+        new RegExp('function\\s*\\*?\\s*' + name + '\\s*\\(|(?:const|let|var)\\s+' + name + '\\s*=').test(b),
+      );
+    return named || back.find((b) => defines(b)) || blocks[blocks.length - 1];
+  }
   const at = s.search(
     /^\s*(?:export\s+)?(?:async\s+)?function\s+\w+\s*\(|^\s*(?:const|let|var)\s+\w+\s*=\s*(?:async\s*)?(?:\(|\w+\s*=>|function)/m,
   );
   return at < 0 ? '' : s.slice(at).trim();
 }
-const bare = (code) => String(code).replace(/^\s*export\s+(default\s+)?/gm, '');
-
 // IS THE CODE IN A REPLY WHOLE? It names the function asked for and it parses. Nothing is run: it is only compiled. A reply cut
 // off partway through a function (a server that stopped early) has code in it, and is no answer.
 export function codeWhole(reply, name) {
-  const code = bare(codeOf(reply));
+  const code = bare(codeOf(reply, name));
   if (!code || (name && !new RegExp('\\b' + name + '\\b').test(code))) return false;
   try {
     new vm.Script(code);
@@ -39,44 +46,8 @@ export function codeWhole(reply, name) {
   }
 }
 
-// what a function returns for each input: [{ v } | { e }] or null when it cannot be run at all (no code, no such function, it does
-// not parse, or it runs away)
-const seen = new Map();
-export function outputsOf(code, name, inputs, { timeoutMs = 8000 } = {}) {
-  const key = name + '\n' + code + '\n' + JSON.stringify(inputs);
-  if (seen.has(key)) return seen.get(key);
-  const p = new Promise((done) => {
-    if (!code) return done(null);
-    const child = spawn(process.execPath, [FLAG, '--allow-fs-read=' + RUNNER, '--max-old-space-size=128', RUNNER], {
-      stdio: ['pipe', 'pipe', 'ignore'],
-    });
-    let out = '';
-    const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);
-    child.stdout.on('data', (c) => (out += c));
-    child.on('error', () => done(null));
-    child.on('close', () => {
-      clearTimeout(timer);
-      try {
-        const r = JSON.parse(out);
-        done(r.ok && r.out.length === inputs.length ? r.out : null);
-      } catch {
-        done(null);
-      }
-    });
-    child.stdin.end(JSON.stringify({ code: bare(code), name, inputs }));
-  });
-  seen.set(key, p);
-  return p;
-}
-
-// CAN A FUNCTION BE RUN HERE AT ALL? Asked once, with a function that returns 1. If not (Node older than 20 has no permissions to
-// run it under), every comparison of code would come back "nothing to compare" and a whole pass would measure nothing while
-// looking as if it had. So it stops, and says why.
-let ready = null;
-export function sandboxReady() {
-  ready = ready || outputsOf('function one() { return 1; }', 'one', [[]]).then((o) => !!(o && o[0] && o[0].v === '1'));
-  return ready;
-}
+// If a function cannot be run here at all (Node older than 20 has no permissions to run it under), every comparison of code would
+// come back "nothing to compare" and a whole pass would measure nothing while looking as if it had. So it stops, and says why.
 export const SANDBOX_NEEDS =
   'A function a model wrote cannot be run safely here: this is Node ' +
   process.versions.node +
@@ -86,9 +57,9 @@ export const SANDBOX_NEEDS =
 // noref (the larger model's reply has none: nothing to be equivalent to). `at` is the first input they part on.
 export async function codeEquivalent(refReply, reply, { name, inputs }) {
   if (!(await sandboxReady())) throw new Error(SANDBOX_NEEDS);
-  const ref = await outputsOf(codeOf(refReply), name, inputs);
+  const ref = await outputsOf(codeOf(refReply, name), name, inputs);
   if (!ref) return { grade: 'noref' };
-  const mine = await outputsOf(codeOf(reply), name, inputs);
+  const mine = await outputsOf(codeOf(reply, name), name, inputs);
   if (!mine) return { grade: 'unsure' };
   const at = ref.findIndex((r, i) => (r.e ? !mine[i].e : mine[i].e || mine[i].v !== r.v));
   return at < 0

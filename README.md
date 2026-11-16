@@ -111,9 +111,10 @@ node bin/swarm.mjs serve --port 8090
 | Stage | Slots | What they do |
 |---|---|---|
 | Draft | `a-direct`, `a-steps`, `b-direct`, `b-other-way` | Answer the question, each told to go about it differently, all at once |
-| Check | `a-critic`, `b-recompute` | Shown the drafts. One looks for the first line where each goes wrong; one puts each final answer back into the question |
+| Try (where a function is asked for) | the sandbox | The drafts are run on the same calls, which one model writes while the others draft. Drafts that return the same are one answer, however differently they are written; one that does not run is none |
+| Check | `a-critic`, `b-recompute` | Shown one draft for each different answer, and the calls on which they part. One looks for the first line where each goes wrong; one puts each final answer back into the question. Each names the answer it finds correct by its letter |
 | Decide | Kev | Picks which answer stands. [Kev](https://github.com/jaredpalmer/kev) is a decision model that writes nothing: it is given the question, each different answer and what the checkers said, and returns a probability for each answer |
-| Write | `a-writer` | Writes the reply a person reads, from what was settled |
+| Write | `a-writer` | Writes the reply a person reads, from what was settled. Code goes out exactly as it was settled, and is not written out again |
 
 `a` and `b` are the two places a small model sits in; a slot is named for its place, not for the model in it. What each slot
 is told is one file, [`src/briefs.json`](src/briefs.json): that file, and the arrangement of the slots, are what training
@@ -123,10 +124,12 @@ How it behaves when things go its way, and when they do not:
 
 | Situation | What happens |
 |---|---|
-| Every draft reaches the same answer | Nothing is in dispute: the checks and the decider are passed over |
+| Every draft reaches the same answer (for a function: every draft does the same on the calls tried) | Nothing is in dispute: the checks and the decider are passed over |
+| The drafts cannot be tried (not JavaScript, no calls could be read, a Node older than 20, or `runCode: false`) | They are compared as text |
+| A checker runs out of room before it answers | It is asked once more for one line: the letter of the answer it finds correct |
 | A slot fails | The others carry on |
 | Kev is not running, or does not answer | The answer most slots gave stands |
-| The writer changes code that was settled | The settled code is sent instead |
+| The writer answers with a call to a tool | That is not sent: the answer that was settled goes out as it stands |
 | Nothing can be written | The answer and its work are the reply |
 | Nothing answers at all | `ok: false` and no reply. Nothing is made up |
 | The request carries tools | It goes to the model in place `a` alone, untouched. The Swarm does not yet drive tools |
@@ -201,6 +204,7 @@ Settings are read from the environment. Each trainer also takes the flag shown.
 | `SWARM_KEV` | `--kev` | The address of a Kev that is already running | The one the session starts |
 | `SWARM_TARGET_BASE` | | The address of a larger model that is already running | The session starts the one configured |
 | `SWARM_CONFIG` | | Another file in place of `src/config.json` | |
+| `SWARM_RUN_CODE` | | `0`: the Swarm runs nothing a model wrote, and compares drafts of code as text (`createSwarm({ runCode: false })` in a program) | On: drafts of a function are run, in a sandbox, to see which do the same |
 | `NODE` | | The Node the session runs the trainers with | The newest of 20 or later it finds |
 | `PASSES` | | How many passes a session runs, each from the one before | `1` |
 | `EACH` | `--each` | Questions of each kind | `6` (42 held questions) |
@@ -335,7 +339,7 @@ npm test
 python3 ui/check.py
 ```
 
-Seventy-one checks of the module and the trainers, and thirty-four of the dashboard. Stand-in servers take the place of the
+Seventy-seven checks of the module and the trainers, and thirty-four of the dashboard. Stand-in servers take the place of the
 models, Kev and Hugging Face, so nothing is fetched, started or installed, and both finish in well under a minute. They cover what
 goes in and comes out, which slots run, what happens when a slot, a model or everything fails, that two functions are judged
 equivalent by running them, that model-written code can reach nothing, and that each fault in [Recovery](#recovery) is
@@ -371,6 +375,8 @@ Known limits:
 
 - **No tools.** A request with tools is answered by one model, not the Swarm.
 - **Slow by design.** A question the drafts disagree about takes four stages.
+- **Only JavaScript is run.** Drafts in any other language are compared as text, and so are seldom found to agree.
+- **Doing the same on the calls tried is not being the same.** Drafts are one answer when they agree on about ten calls a small model wrote. Two functions that part only on a case nobody tried are taken for one.
 - **The reply is whole before it is sent.** A streamed reply is the finished one, in pieces.
 - **Small JavaScript questions only.** Larger programs, other languages, long writing and conversation are not measured.
 - **Few families of question.** Eleven kinds of function, with details that change. The train and held questions are

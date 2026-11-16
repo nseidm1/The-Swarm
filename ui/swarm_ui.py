@@ -695,13 +695,21 @@ def versus(d, row, trow, tname):
     )
     g = row.get("grade")
     mark = '<span class="grade %s">%s</span>' % (e(g), e(WORD.get(g, ""))) if g in WORD else ""
+    # where the drafts were run on the same calls: what that found, and the calls
+    ran = next((t for t in row.get("trace") or [] if t.get("stage") == "run"), None)
+    tried = ""
+    if ran:
+        calls = (row.get("tried") or {}).get("calls") or []
+        tried = '<div class="muted small" style="margin:10px 0 0"><b style="color:var(--fog)">Drafts run on the same calls.</b> %s%s</div>' % (
+            e(str(ran.get("out", ""))), (" Calls: <code>%s</code>" % "</code> <code>".join(e(str(c)) for c in calls[:8])) if calls else "")
     left = (
-        '<div class="pane"><div class="head"><h3 class="who-swarm">The swarm</h3><span class="muted small">%s%s</span></div>%s'
+        '<div class="pane"><div class="head"><h3 class="who-swarm">The swarm</h3><span class="muted small">%s%s</span></div>%s%s'
         '<div class="reply"><div class="lab">Output %s</div>%s</div></div>'
         % (
             ("path: " + e(str(row.get("path", "")))) if row.get("path") else "",
             " · %s s" % row["seconds"] if row.get("seconds") is not None else "",
             stages(d, row),
+            tried,
             mark,
             e(row.get("reply") or row.get("why") or "No reply."),
         )

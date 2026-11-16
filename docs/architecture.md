@@ -21,10 +21,12 @@ answer is to be reached. That is the whole public surface, in three forms:
 |---|---|
 | [`src/index.mjs`](../src/index.mjs) | The black box: makes the swarm, and the two calls a host program needs |
 | [`src/server.mjs`](../src/server.mjs) | The swarm at an address |
-| [`src/orchestrate.mjs`](../src/orchestrate.mjs) | The order of things: draft, check, decide, write, and what happens when a slot fails. Knows nothing of servers |
+| [`src/orchestrate.mjs`](../src/orchestrate.mjs) | The order of things: draft (and, for code, try), check, decide, write, and what happens when a slot fails. Knows nothing of servers |
 | [`src/members.mjs`](../src/members.mjs) | One model behind a llama.cpp server with several slots; never more conversations at once than slots |
 | [`src/decider.mjs`](../src/decider.mjs) | The decide step by a decision model: the request Kev is sent, how its answer is read, and when it counts as a decision |
 | [`src/read.mjs`](../src/read.mjs) | Reading the answer out of what a slot wrote, and telling when two answers are the same |
+| [`src/behave.mjs`](../src/behave.mjs) | Which drafts of a function do the same: the calls to try, the drafts run on them, the drafts grouped by what they returned |
+| [`src/sandbox.mjs`](../src/sandbox.mjs), [`src/sandbox-runner.mjs`](../src/sandbox-runner.mjs) | Running a function a model wrote where it can reach nothing. The only place anything a model wrote is run |
 | [`src/briefs.json`](../src/briefs.json) | What each slot is told, and the plan. The trained part |
 | [`src/catalog.mjs`](../src/catalog.mjs) | The two model files, pinned, and the entry for a list of models |
 
@@ -42,6 +44,8 @@ keeps it: a role costs its brief the first time and only the question after that
 | Stage | Is sent |
 |---|---|
 | draft | its brief, the conversation's last turns |
+| probe (where code is asked for) | a brief of its own and the conversation's last turns: it writes calls to try the drafts with, and is not asked for their results. Not one of the plan's slots: it shares a model's server slots |
+| run | no model: every draft is run on those calls in the sandbox (`src/behave.mjs`, `src/sandbox.mjs`), and drafts that return the same are one answer |
 | check | its brief, the earlier turns, then the question with the lettered drafts (the critic with their work, the other without). It may answer with the letter of the draft it finds correct, which counts as that draft's answer whole |
 | decide (Kev) | no brief: one `POST /v1/systemone` with the question, one worked answer for each different answer and what the checkers said as state; a choice among the answers and a yes/no for each as questions. No slot judges |
 | write | its brief, the earlier turns, the question, the answer settled on and the work behind it |

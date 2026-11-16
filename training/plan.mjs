@@ -153,6 +153,7 @@ const TECHNIQUE = [
   [/at temperature/, 'How freely a drafter samples'],
   [/^plan: onePerAnswer/, 'One worked answer for each different answer'],
   [/^plan: agreeSkipsChecks/, 'Whether agreeing drafts are still checked'],
+  [/^plan: byBehaviour/, 'Whether drafts of code agree by what they do'],
 ];
 const techniqueOf = (name) => (TECHNIQUE.find(([re]) => re.test(name)) || [, 'A change to the arrangement'])[1];
 

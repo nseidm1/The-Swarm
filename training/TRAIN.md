@@ -79,6 +79,7 @@ each slot's on the way, is then marked by whether it is equivalent to it:
 | equivalent | It settled on an answer fundamentally equivalent to the larger model's |
 | different | It settled on another answer |
 | none | It settled on nothing |
+| (inside the swarm) | Where a function is asked for the swarm runs its own drafts on the same calls and counts drafts that do the same as one answer (`src/behave.mjs`). That is how its slots agree; it is not how it is graded. The grade is always against the larger model's function, on the question's own inputs |
 | not compared | The larger model gave no answer (nothing, a function cut off partway, a sentence cut off after a word), so there is nothing to be equivalent to |
 
 A candidate is chosen by equivalent answers minus different ones. (In the code and the result files these marks keep the short

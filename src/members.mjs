@@ -189,7 +189,7 @@ export async function startMember(m, opts = {}) {
     child.stdout.on('data', take);
     child.stderr.on('data', take);
     child.on('error', (e) => (exited = { code: -1, why: e.message }));
-    child.on('close', (code) => (exited = exited || { code }));
+    child.on('close', (code, signal) => (exited = exited || { code, signal }));
     const stop = () => {
       try {
         child.kill();
@@ -207,7 +207,22 @@ export async function startMember(m, opts = {}) {
     return {
       ok: false,
       why: exited
-        ? m.name + "'s server stopped (exit " + exited.code + '): ' + (exited.why || tail.slice(-3).join(' / '))
+        ? m.name +
+          "'s server stopped (" +
+          // stopped by a signal it did not send itself: on a machine short of memory that is the system taking it back
+          (exited.signal
+            ? 'stopped by ' + exited.signal + ', as the system does when memory is short'
+            : 'exit ' + exited.code) +
+          '): ' +
+          // the lines that say what went wrong, where there are any, and not merely the last it happened to write
+          (exited.why ||
+            tail
+              .filter((l) =>
+                /error|fail|unable|cannot|could not|abort|denied|in use|invalid|unknown|not found/i.test(l),
+              )
+              .slice(-3)
+              .join(' / ') ||
+            tail.slice(-3).join(' / '))
         : m.name + "'s server did not answer within " + Math.round(waitMs / 60000) + ' minutes',
     };
   };

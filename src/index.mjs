@@ -5,6 +5,7 @@
 //   const swarm = await createSwarm({ llamaServer, modelsDir });      // starts both models
 //   const swarm = await createSwarm({ attach: { a: 'http://127.0.0.1:8081', b: 'http://127.0.0.1:8082' } });
 //   const swarm = await createSwarm({ ..., kev: 'http://127.0.0.1:8009' });   // a decision model for the decide step (decider.mjs)
+//   const swarm = await createSwarm({ ..., runCode: false });   // never run a draft: compare drafts of code as text (behave.mjs)
 //   const { reply } = await swarm.answer([{ role: 'user', content: 'What is 17 x 23?' }]);
 //   const { base, port } = await swarm.serve();                       // the same thing, as a server that speaks like llama.cpp
 //   await swarm.stop();
@@ -19,6 +20,7 @@ import { attachMember, startMember, modelFile } from './members.mjs';
 import { answer as orchestrate } from './orchestrate.mjs';
 import { serve as serveHttp } from './server.mjs';
 import { kevDecider } from './decider.mjs';
+import { behaviours } from './behave.mjs';
 
 export { MEMBERS, SERVING, ENTRY, SERVED_NAME, modelFile };
 export { DECIDER, TARGET, REGISTRY, readConfig, writeConfig, CONFIG_ID } from './catalog.mjs';
@@ -61,6 +63,15 @@ export async function createSwarm(opts = {}) {
   // the decision model for the decide step, where one is named (opts.kev, or SWARM_KEV): an address that answers /v1/systemone
   const kevBase = opts.kev !== undefined ? opts.kev : process.env.SWARM_KEV || '';
   const decide = opts.decide || (kevBase ? kevDecider({ base: kevBase, timeoutMs: opts.kevTimeoutMs }) : null);
+  // WHERE CODE IS ASKED FOR, THE DRAFTS ARE RUN to see which of them do the same (behave.mjs): in a process of their own that can
+  // reach nothing (sandbox.mjs). opts.runCode: false, or SWARM_RUN_CODE=0, and nothing a model wrote is ever run: the drafts are
+  // compared as text.
+  const behave =
+    opts.behave !== undefined
+      ? opts.behave
+      : opts.runCode === false || process.env.SWARM_RUN_CODE === '0'
+        ? null
+        : behaviours;
   const ask = (slot, messages) => {
     const m = members[slot.member];
     if (!m) throw new Error('no member called ' + slot.member);
@@ -85,6 +96,7 @@ export async function createSwarm(opts = {}) {
         briefs: o.briefs || briefs,
         ask,
         decide,
+        behave,
         onStep: o.onStep,
         onStart: o.onStart,
       });
