@@ -20,6 +20,7 @@ It reads what the trainers wrote (ui/data.py) and measures nothing. Only the Pyt
 
 import argparse
 import json
+import re
 import os
 import shutil
 import signal
@@ -110,13 +111,19 @@ a.idea:hover{background:var(--soft)}a.idea:focus-visible{outline:2px solid var(-
 .slot summary{cursor:pointer;list-style:none}.slot summary::-webkit-details-marker{display:none}
 .slot .id{font-weight:800;letter-spacing:-.01em;font-size:15px}.purpose{font-size:13px;font-weight:600;color:var(--fog);opacity:.85;margin:1px 0 3px}
 .live{display:flex;gap:7px;align-items:flex-start;margin-top:7px;padding-top:7px;border-top:1px solid rgba(20,33,31,.10);font-size:12px;font-weight:700;color:var(--mist);overflow-wrap:anywhere}
+/* what a slot is doing changes every second or two: it has two lines and never more or fewer, so a card is the same height
+   whatever it says and nothing below it moves. The whole of it is in the title, for a pointer held over it */
+.live span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:17px;height:34px;min-width:0}
+#now span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .live i{width:8px;height:8px;border-radius:50%;background:var(--unsure);flex:none;margin-top:4px}.live.on{color:var(--teal)}.live.on i{background:var(--teal2);animation:p 1.2s infinite}
 .live.done{color:var(--fog)}.live.done i{background:var(--right)}.live.bad{color:var(--wrong)}.live.bad i{background:var(--wrong)}
 .now{display:flex;gap:8px;align-items:flex-start;background:var(--soft);border-radius:14px;padding:10px 14px;margin-bottom:16px;font-size:13px;font-weight:600;color:var(--mist);overflow-wrap:anywhere}
 .now i{width:9px;height:9px;border-radius:50%;background:var(--unsure);flex:none;margin-top:5px}.now.on{color:var(--fog)}.now.on i{background:var(--teal2);animation:p 1.2s infinite}.slot .sub{font-size:12px;color:var(--mist);display:flex;flex-wrap:wrap;gap:2px 10px}
 .slot .body{margin-top:8px;padding-top:8px;border-top:1px solid rgba(20,33,31,.10);font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
-.slot .final{display:inline-block;margin-top:5px;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:800;background:var(--panel)}
-.final.ok{background:#d7f3e9;color:var(--right)}.final.no{background:#fde1db;color:var(--wrong)}
+.slot .final{display:flex;align-items:center;gap:8px;margin-top:10px;padding:7px 10px;border-radius:10px;font-size:12px;font-weight:700;line-height:1.35;background:rgba(255,255,255,.7);min-width:0}
+.final .what{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.final .what.code{font:600 11.5px/1.35 ui-monospace,Menlo,monospace}
+.final .len{flex:none;font-size:10.5px;font-weight:800;letter-spacing:.03em;opacity:.8;white-space:nowrap}.final .mark{flex:none;width:7px;height:7px;border-radius:50%;background:var(--unsure)}
+.final.ok{background:#d7f3e9;color:var(--right)}.final.ok .mark{background:var(--right)}.final.no{background:#fde1db;color:var(--wrong)}.final.no .mark{background:var(--wrong)}
 .cand{margin-top:6px;font-size:12.5px;color:var(--mist);border-left:3px solid var(--sun);padding-left:8px}
 .target{border-left:4px solid var(--tgt)}.target h3{color:var(--tgt)}
 button.strip{display:block;width:100%;text-align:left;border:0;font:inherit;color:inherit;cursor:pointer}button.strip:hover{box-shadow:0 14px 34px rgba(11,93,87,.16)}
@@ -218,7 +225,7 @@ function watch(){if(timer)return;timer=setInterval(async()=>{const was=!!$('#run
 if($('#run [data-running]'))watch();
 // WHAT EVERY SLOT IS DOING NOW: asked for every second and a half while a session runs, and written onto the cards in place
 const STEP={measure:'Measuring the swarm',improve:'Trying a brief',arrange:'Trying an arrangement',baseline:'One model alone'};
-function paint(el,cls,text){el.className='live '+cls;el.querySelector('span').textContent=text;}
+function paint(el,cls,text){el.className='live '+cls;const sp=el.querySelector('span');if(sp.textContent!==text){sp.textContent=text;el.title=text;}}
 // WHEN THE SESSION BEGAN, in the time zone of the person looking, and how long it has run in all: written again every tick
 function sinceTick(){const el=$('[data-since]');if(!el)return;const t=Number(el.dataset.since),s=Math.max(0,Math.floor((Date.now()-t)/1000));
   const span=s<60?s+' s':s<3600?Math.floor(s/60)+' min '+s%60+' s':Math.floor(s/3600)+' h '+Math.floor(s%3600/60)+' min';
@@ -228,8 +235,9 @@ async function liveTick(){
   let n={};try{n=await (await fetch('/api/live')).json();}catch(e){return;}
   const now=$('#now');
   if(now){const q=n.question;now.className='now'+(q?' on':'');
-    now.querySelector('span').textContent=q?(STEP[n.trainer]||'Working')+' · '+(n.who==='swarm'?'the swarm':n.whoName+' alone')+' · '+n.split+' question '+n.n+' of '+n.of+' · '+q.ask.replace(/\\s+/g,' ').slice(0,150)
-      :n.running?'A session is running. Between steps: models are loading or unloading.':'Nothing is running. No model is loaded.';}
+    const nowText=q?(STEP[n.trainer]||'Working')+' · '+(n.who==='swarm'?'the swarm':n.whoName+' alone')+' · '+n.split+' question '+n.n+' of '+n.of+' · '+q.ask.replace(/\\s+/g,' ').slice(0,150)
+      :n.running?'A session is running. Between steps: models are loading or unloading.':'Nothing is running. No model is loaded.';
+    now.querySelector('span').textContent=nowText;now.title=nowText;}
   const slots=n.slots||{},totals=n.totals||{};
   // a slot's clock starts again with every question (a turn). Beside it: which turn this is, and how long this slot has been
   // engaged altogether in the step in hand.
@@ -566,6 +574,20 @@ def short(final):
     return lines[0][:60] + (" … (%d lines)" % len(lines) if len(lines) > 1 else "")
 
 
+def final_chip(final, ok):
+    """What a slot settled on, as one line on its card: a mark (equivalent to the larger model's answer, or not), the answer or
+    the first line of the code, and for code how long it is. One line always: the whole of it is in the card when it is opened."""
+    final = str(final or "").strip()
+    cls = "" if ok is None else (" ok" if ok else " no")
+    said = "Equivalent to the larger model's answer" if ok else "Not equivalent to the larger model's answer" if ok is not None else "Not compared"
+    if not final:
+        return '<div class="final%s" title="%s"><span class="mark"></span><span class="what">gave no answer</span></div>' % (cls, e(said))
+    lines = final.split("\n")
+    code = len(lines) > 1 or bool(re.search(r"\bfunction\b|=>|[{};]", lines[0]))
+    return '<div class="final%s" title="%s"><span class="mark"></span><span class="what%s">%s</span>%s</div>' % (
+        cls, e(said), " code" if code else "", e(lines[0][:120]), '<span class="len">%d lines</span>' % len(lines) if len(lines) > 1 else "")
+
+
 def card(cls, title, purpose, slot_id, sub, extra, body, live=True, opened=False):
     return (
         '<details class="slot %s"%s><summary><div class="id">%s</div><div class="purpose">%s</div><div class="sub">%s</div>%s%s</summary>%s</details>'
@@ -606,7 +628,7 @@ def slot_card(s, d, row=None, stage=None, nth=0, last=False, purpose=None):
             sub.append("<span>%d ms</span>" % t.get("ms", 0))
             if s["stage"] != "write":
                 ok = mark_of(t, row)
-                fin = '<div><span class="final%s">%s</span></div>' % ("" if ok is None else (" ok" if ok else " no"), e(short(t.get("final")) or "gave no answer"))
+                fin = final_chip(t.get("final"), ok)
             body = '<div class="body">%s</div>' % e(t.get("out") or t.get("why") or "")
     return card(s["member"], data.MEMBER_NAMES.get(s["member"], s["member"]), purpose or s.get("purpose") or s["stage"], s["id"], sub, fin, body, live=row is None, opened=row is not None and s["stage"] == "write")
 
@@ -624,7 +646,7 @@ def kev_card(d, row=None, nth=0, purpose="Decides which answer stands"):
     fin = ""
     if t.get("final"):
         ok = mark_of(t, row)
-        fin = '<div><span class="final%s">%s</span></div>' % ("" if ok is None else (" ok" if ok else " no"), e(short(t["final"])))
+        fin = final_chip(t["final"], ok)
     bars = "".join('<div><span>%s</span><span style="background:rgba(255,255,255,.6);border-radius:4px"><i style="width:%.0f%%"></i></span><span class="muted">%.2f</span></div>' % (e(k), 100 * float(p), float(p))
                    for k, p in sorted((t.get("probs") or {}).items()))
     return card("kev", (d.get("decider") or {}).get("name", "Kev"), purpose, "kev-decide", ["<span>kev-decide</span>", "<span>%d ms</span>" % t.get("ms", 0)], fin,
