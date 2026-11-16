@@ -32,8 +32,27 @@ export const BRIEFS_FILE = fileURLToPath(new URL('./briefs.json', import.meta.ur
 export const readBriefs = (file) => {
   if (file) return JSON.parse(fs.readFileSync(file, 'utf8'));
   const learned = readLearned();
-  return learned ? learned.briefs : JSON.parse(fs.readFileSync(BRIEFS_FILE, 'utf8'));
+  return learned ? learned.briefs : withPlaces(JSON.parse(fs.readFileSync(BRIEFS_FILE, 'utf8')), Object.keys(MEMBERS));
 };
+// THE STARTING ARRANGEMENT FOR THE PLACES THAT ARE FILLED. briefs.json is written for two. A third or fourth small model begins as
+// two more DRAFTERS (told what the first model's plain drafter and the second's other-way drafter are told): drafting is where
+// another model's different mistakes count, and what else it should do is for training to find. Slots on a place that is not
+// filled are left out.
+export function withPlaces(briefs, places) {
+  const slots = briefs.slots.filter((s) => places.includes(s.member));
+  const drafters = briefs.slots.filter((s) => s.stage === 'draft');
+  for (const p of places) {
+    if (slots.some((s) => s.member === p) || !drafters.length) continue;
+    const like = [drafters[0], drafters[drafters.length - 1]].filter((s, i, all) => all.indexOf(s) === i);
+    for (const s of like)
+      slots.splice(
+        slots.reduce((at, x, i) => (x.stage === 'draft' ? i + 1 : at), 0),
+        0,
+        { ...s, id: p + '-' + s.id.replace(/^[a-z]-/, ''), member: p },
+      );
+  }
+  return { ...briefs, slots };
+}
 export { readLearned, saveLearned, notePass, learnedFile, LEARNED_DIR };
 // what was measured of the swarm (training/publish.mjs writes it): for a model card to show
 export const readTrained = () => {

@@ -1,8 +1,8 @@
 // catalog.mjs - WHAT THE SWARM IS MADE OF NOW, AND THE ONE ENTRY IT IS TO A PROGRAM THAT LISTS MODELS.
-// The swarm is two small models (in places `a` and `b`), a model that decides, and a larger model it is being brought to parity
+// The swarm is two to four small models (in places `a`, `b`, and `c` and `d` where they are filled), a model that decides, and a larger model it is being brought to parity
 // with. Which models those are is CHOSEN (config.json), from the ones listed in models.json: every file there is pinned the way a
 // careful program pins any download (a repository, a revision, a size and a SHA-256).
-//   MEMBERS    { a, b }: the two small models, each served by llama.cpp with several slots
+//   MEMBERS    { a, b[, c, d] }: the small models, each served by llama.cpp with several slots
 //   DECIDER    the decision model (Kev) for the decide step
 //   TARGET     the larger model
 //   ENGINE     the llama.cpp build that runs the small models (and a target that is a GGUF file)
@@ -18,6 +18,10 @@ export const CONFIG_FILE = process.env.SWARM_CONFIG || here('config.json');
 export const REGISTRY = JSON.parse(fs.readFileSync(MODELS_FILE, 'utf8'));
 export const ENGINE = REGISTRY.engine;
 
+// THE PLACES A SMALL MODEL CAN SIT IN. Two at least (a swarm is more than one model), and up to four: every small model added
+// makes mistakes of its own, which more slots on the same models do not, and all of them together still take a fraction of the
+// larger model's memory. What they cost is time: the model servers share one machine.
+export const PLACES = ['a', 'b', 'c', 'd'];
 export function readConfig() {
   let c = {};
   try {
@@ -26,25 +30,45 @@ export function readConfig() {
     /* the first of each */
   }
   const pick = (list, id) => list.find((m) => m.id === id) || list[0];
-  return {
+  const out = {
     a: pick(REGISTRY.small, c.a).id,
     b: pick(REGISTRY.small, c.b || (REGISTRY.small[1] || {}).id).id,
-    decider: pick(REGISTRY.deciders, c.decider).id,
-    target: pick(REGISTRY.targets, c.target).id,
   };
+  // a third and a fourth small model, where they are named and are models that can be chosen (no place is left empty between)
+  for (const k of PLACES.slice(2)) {
+    if (!REGISTRY.small.find((m) => m.id === c[k])) break;
+    out[k] = c[k];
+  }
+  out.decider = pick(REGISTRY.deciders, c.decider).id;
+  out.target = pick(REGISTRY.targets, c.target).id;
+  return out;
 }
+// the places of a configuration that hold a small model, in order
+export const placesOf = (config) => PLACES.filter((k) => config[k]);
 // set one or more of a, b, decider, target; an id that is not in models.json is refused
 export function writeConfig(patch) {
   const next = { ...readConfig() };
   for (const [k, list] of [
-    ['a', REGISTRY.small],
-    ['b', REGISTRY.small],
+    ...PLACES.map((p) => [p, REGISTRY.small]),
     ['decider', REGISTRY.deciders],
     ['target', REGISTRY.targets],
   ]) {
     if (patch[k] === undefined) continue;
+    // a third or fourth place can be emptied (null or ''); the first two cannot
+    if ((patch[k] === null || patch[k] === '') && PLACES.indexOf(k) >= 2) {
+      delete next[k];
+      continue;
+    }
     if (!list.find((m) => m.id === patch[k])) throw new Error('no ' + k + ' called ' + patch[k]);
+    if (PLACES.indexOf(k) >= 2 && !next[PLACES[PLACES.indexOf(k) - 1]])
+      throw new Error('place ' + PLACES[PLACES.indexOf(k) - 1] + ' is empty: fill it first');
     next[k] = patch[k];
+  }
+  // no place is left empty between two that are filled: the ones after it move up
+  const small = PLACES.map((p) => next[p]).filter(Boolean);
+  for (const [i, p] of PLACES.entries()) {
+    if (small[i]) next[p] = small[i];
+    else delete next[p];
   }
   let about = '';
   try {
@@ -60,11 +84,12 @@ export function writeConfig(patch) {
 
 const CONFIG = readConfig();
 const small = (id) => REGISTRY.small.find((m) => m.id === id);
-export const MEMBERS = { a: { ...small(CONFIG.a), key: 'a' }, b: { ...small(CONFIG.b), key: 'b' } };
+export const MEMBERS = Object.fromEntries(placesOf(CONFIG).map((k) => [k, { ...small(CONFIG[k]), key: k }]));
 export const DECIDER = REGISTRY.deciders.find((m) => m.id === CONFIG.decider);
 export const TARGET = REGISTRY.targets.find((m) => m.id === CONFIG.target);
 // the swarm as it is configured, in a word: results are kept apart by this, so that one arrangement's are never read as another's
-export const CONFIG_ID = [CONFIG.a, CONFIG.b, CONFIG.decider].join('+');
+export const configId = (config) => [...placesOf(config).map((k) => config[k]), config.decider].join('+');
+export const CONFIG_ID = configId(CONFIG);
 
 export const fileUrl = (m, base = 'https://huggingface.co') => base + '/' + m.repo + '/resolve/' + m.rev + '/' + m.file;
 export const engineBuild = (platform = process.platform, arch = process.arch) =>
@@ -84,23 +109,26 @@ export const SERVING = { slots: 4, contextPerSlot: 4096 };
 // to say about it), with engine 'swarm' and its members in place of one file. Its memory is a first estimate (the two files
 // read into memory, and the contexts), to be replaced by a measurement.
 const gb = (n) => Math.round((n / 2 ** 30) * 10) / 10;
+const all = Object.values(MEMBERS);
+const names = all.map((m) => m.name);
 export const ENTRY = {
-  id: 'swarm-' + CONFIG.a + '+' + CONFIG.b,
+  id: 'swarm-' + all.map((m) => m.id).join('+'),
   engine: 'swarm',
   family: 'Swarm',
   name: 'The Swarm',
-  size: 'Two small models',
-  params: Math.round((MEMBERS.a.params + MEMBERS.b.params) * 10) / 10,
-  memGb: Math.round(((gb(MEMBERS.a.bytes) + gb(MEMBERS.b.bytes)) * 1.25 + 1) * 10) / 10,
+  size: ['Two', 'Three', 'Four'][all.length - 2] + ' small models',
+  params: Math.round(all.reduce((n, m) => n + m.params, 0) * 10) / 10,
+  memGb: Math.round((all.reduce((n, m) => n + gb(m.bytes), 0) * 1.25 + 1) * 10) / 10,
   pace: 'steady',
   badge: 'Swarm',
-  members: [MEMBERS.a, MEMBERS.b],
+  members: all,
   decider: DECIDER,
-  bytes: MEMBERS.a.bytes + MEMBERS.b.bytes,
+  bytes: all.reduce((n, m) => n + m.bytes, 0),
   plain:
-    'Two small models (' +
-    MEMBERS.a.name +
+    ['Two', 'Three', 'Four'][all.length - 2] +
+    ' small models (' +
+    names.slice(0, -1).join(', ') +
     ' and ' +
-    MEMBERS.b.name +
+    names[names.length - 1] +
     ') that draft, check each other and settle on one answer. Trained toward parity with a much larger model: to answer as it answers, in a fraction of its memory.',
 };

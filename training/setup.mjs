@@ -253,10 +253,13 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   }
   const ok = [];
   ok.push(await engine(check));
-  ok.push(await model(MEMBERS.a, 'Small model 1 (' + MEMBERS.a.name + ')', check));
-  ok.push(
-    MEMBERS.b.id === MEMBERS.a.id ? true : await model(MEMBERS.b, 'Small model 2 (' + MEMBERS.b.name + ')', check),
-  );
+  // every small model the swarm is made of (the same model in two places is one file)
+  const fetched = new Set();
+  for (const [i, m] of Object.values(MEMBERS).entries()) {
+    if (fetched.has(m.id)) continue;
+    fetched.add(m.id);
+    ok.push(await model(m, 'Small model ' + (i + 1) + ' (' + m.name + ')', check));
+  }
   ok.push(decider(check));
   ok.push(await target(check));
   for (const s of steps)

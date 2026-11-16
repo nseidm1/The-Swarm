@@ -152,6 +152,20 @@ with tempfile.TemporaryDirectory() as tmp:
     check("a swarm that has learned nothing says so, and runs the arrangement every swarm starts from", bare["learned"]["ledger"] == [] and "Nothing yet" in swarm_ui.learned_block(dict(d, learned={"ledger": [], "passes": []})))
     check("what a slot is doing is two lines and never more or fewer, and the line above the arrangement is one: a card is the same height whatever it says, so nothing below moves as a pass runs",
           "-webkit-line-clamp:2" in html and "height:34px" in html and "#now span{white-space:nowrap" in html and "el.title=text" in html)
+    # a page that goes away before its answer does is not a fault, and is not printed as one
+    import io
+    import socket
+    import contextlib
+    noise = io.StringIO()
+    with contextlib.redirect_stderr(noise):
+        for _ in range(6):
+            sk = socket.create_connection(("127.0.0.1", srv.server_address[1]))
+            sk.sendall(b"GET / HTTP/1.1\r\nHost: x\r\n\r\n")
+            sk.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, __import__("struct").pack("ii", 1, 0))
+            sk.close()  # gone at once, with the page still being written
+        time.sleep(0.8)
+    check("a page that is closed or reloaded before its answer has been sent leaves nothing printed as an error, and the next request is answered as usual",
+          "Traceback" not in noise.getvalue() and "BrokenPipe" not in noise.getvalue() and get(base + "/api/live")[0] == 200, noise.getvalue()[-300:])
     check("the page ends with a footer: whose product it is, its licence, and that the page is served from this machine",
           '<footer class="foot">' in html and "A Family Office product" in html and "apache.org/licenses/LICENSE-2.0" in html and "github.com/nseidm1/The-Swarm" in html and "Copyright 2026 Family Office" in html and "<svg" in html.split('<footer class="foot">')[1].split("</footer>")[0])
     check("it shows the arrangement being trained: every slot of both models by stage, what each is told, what is being tried, and the larger model alongside",
@@ -163,7 +177,7 @@ with tempfile.TemporaryDirectory() as tmp:
     # ---- choosing the models, the output spec, and an idea's paper
     reg = d["registry"]
     check("five pills lead the page: the two small models, the model that decides and the larger model, each a list of the models that can be chosen, grouped by who made them, with the one chosen marked; and the output spec",
-          html.count('data-pick="') == 4 and html.count("<optgroup") >= 12 and all(m["name"] in html for m in reg["small"] + reg["targets"] + reg["deciders"]) and 'value="%s" selected' % d["members"]["a"]["id"] in html
+          html.count('data-pick="') == 5 and "Small model 3: add one" in html and html.count("<optgroup") >= 12 and all(m["name"] in html for m in reg["small"] + reg["targets"] + reg["deciders"]) and 'value="%s" selected' % d["members"]["a"]["id"] in html
           and 'value="%s" selected' % d["target"]["id"] in html and 'id="spec-open"' in html and len({m["by"].split(",")[0] for m in reg["small"]}) >= 6)
 
     def send(path, body, headers=None):
@@ -182,6 +196,23 @@ with tempfile.TemporaryDirectory() as tmp:
     check("a model that is not one of those that can be chosen is refused, and so is a choice that does not come from this page",
           send("/config", {"a": "no-such-model"})[0] == 400 and send("/config", {"a": d["members"]["a"]["id"]}, {"content-type": "application/json"})[0] == 403 and json.loads((root / "src" / "config.json").read_text())["a"] == other["id"])
     send("/config", {"a": d["members"]["a"]["id"]})
+    # a third and a fourth small model: added from the page, each with a part to begin with, and taken out again
+    third, fourth = [m for m in reg["small"] if m["id"] not in (d["members"]["a"]["id"], d["members"]["b"]["id"])][:2]
+    c3, with3 = send("/config", {"c": third["id"]})
+    d3 = data.load(root)
+    picks3 = get(base + "/fragment/picks")[1]
+    c4, with4 = send("/config", {"d": fourth["id"]})
+    cfg4 = json.loads((root / "src" / "config.json").read_text())
+    cback, _ = send("/config", {"c": ""})
+    cfg_up = json.loads((root / "src" / "config.json").read_text())
+    send("/config", {"c": ""})
+    cfg_two = json.loads((root / "src" / "config.json").read_text())
+    check("a third and a fourth small model can be added from the page: each has a pill, begins as two drafting slots of its own, is part of what the configuration is called and of its spec; taking one out moves the next up; and with them out it is the two it was",
+          c3 == 200 and list(d3["members"]) == ["a", "b", "c"] and d3["cfg"].count("+") == 3 and third["id"] in d3["cfg"] and with3.count('class="slot c"') == 2 and "c-direct" in with3 and third["name"] in with3
+          and "Small model 3" in picks3 and "Small model 4: add one" in picks3 and "Remove it from the swarm" in picks3 and len(data.spec(d3)["members"]) == 3
+          and c4 == 200 and cfg4.get("c") == third["id"] and cfg4.get("d") == fourth["id"] and with4.count('class="slot d"') == 2
+          and cback == 200 and cfg_up.get("c") == fourth["id"] and "d" not in cfg_up and "c" not in cfg_two and "d" not in cfg_two and cfg_two["a"] == d["members"]["a"]["id"]
+          and send("/config", {"d": fourth["id"]})[0] == 200 and json.loads((root / "src" / "config.json").read_text()).get("c") == fourth["id"] and send("/config", {"c": ""})[0] == 200, [c3, c4, cfg4, cfg_up, cfg_two])
     code_s, sp = get(base + "/fragment/spec")
     spec = data.spec(data.load(root))
     check("the output spec says what the swarm as it stands is: what goes in and comes out, each model with its pinned file and SHA-256, the decider, every slot and what it is for, and where it stands against the larger model, to read and to copy as JSON",

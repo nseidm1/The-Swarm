@@ -59,7 +59,7 @@ header{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:flex-end;justify-co
 .chip b{color:var(--fog);font-weight:800}.chip.level{background:#d7f3e9;color:var(--right)}.chip.behind{background:#fdebd0;color:#9a5b00}.chip.level b,.chip.behind b{color:inherit}
 .picks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:18px}
 .pick{background:var(--panel);border-radius:18px;padding:9px 14px 10px;box-shadow:var(--shadow);display:grid;gap:1px;border:0;text-align:left;font:inherit;color:var(--fog);border-left:4px solid var(--lfm);min-width:0}
-.pick.b{border-left-color:var(--bon)}.pick.decider{border-left-color:var(--kev)}.pick.target{border-left-color:var(--tgt)}.pick.spec{border-left-color:var(--sun);cursor:pointer}
+.pick.b{border-left-color:var(--bon)}.pick.c{border-left-color:#7a5cc4}.pick.d{border-left-color:#2f7fb8}.pick.add{border-left-color:var(--line);box-shadow:none;background:transparent;outline:1.5px dashed var(--line)}.pick.decider{border-left-color:var(--kev)}.pick.target{border-left-color:var(--tgt)}.pick.spec{border-left-color:var(--sun);cursor:pointer}
 .pick small{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mist)}.pick b{font-size:15px;font-weight:800}
 .pick select{background:none;border:0;padding:0;font:inherit;font-size:15px;font-weight:800;color:var(--fog);width:100%;cursor:pointer;min-width:0;text-overflow:ellipsis}
 .pick select:disabled{opacity:.55;cursor:default}
@@ -105,7 +105,7 @@ a.idea:hover{background:var(--soft)}a.idea:focus-visible{outline:2px solid var(-
 .stage.loop{border-top:3px solid var(--coral);padding-top:8px;border-radius:3px}.flowline{margin:0 0 12px;font-size:12.5px;color:var(--mist)}.flowline b{color:var(--fog)}
 .stage>.t{font-size:10.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--mist);margin-bottom:8px}
 .slot{background:#e4f4f0;border-left:4px solid var(--lfm);border-radius:16px;padding:10px 12px;margin-bottom:10px}
-.slot.b{background:#fdf3d7;border-left-color:var(--bon)}.slot.kev{background:#fde8e2;border-left-color:var(--kev)}.slot.run{background:#e9ecf8;border-left-color:var(--tgt)}
+.slot.b{background:#fdf3d7;border-left-color:var(--bon)}.slot.c{background:#ece6f8;border-left-color:#7a5cc4}.slot.d{background:#e2eff8;border-left-color:#2f7fb8}.slot.kev{background:#fde8e2;border-left-color:var(--kev)}.slot.run{background:#e9ecf8;border-left-color:var(--tgt)}
 .probs{display:grid;gap:3px;margin-top:6px;font-size:12.5px}
 .probs div{display:grid;grid-template-columns:18px minmax(0,1fr) 38px;gap:6px;align-items:center}.probs i{display:block;height:7px;border-radius:4px;background:var(--kev)}
 .slot summary{cursor:pointer;list-style:none}.slot summary::-webkit-details-marker{display:none}
@@ -486,7 +486,7 @@ def score_strip(d):
 
 
 FOUND = {"drafts-short": "no slot had the answer", "weak-draft": "a weak drafter", "check-worse": "a checker turning answers away", "decider-threw": "the decider chose another",
-         "writer-changed": "the writer changed the answer", "silent": "a slot that said nothing"}
+         "writer-changed": "the writer changed the answer", "silent": "a slot that said nothing", "replay": "the last measurement replayed: it would have won answers"}
 STATUS = {"planned": "Planned", "running": "Being measured", "kept": "Kept", "not kept": "Not kept"}
 
 
@@ -1101,7 +1101,7 @@ def run_panel():
     return "".join(out)
 
 
-STEP_WORDS = [("begin", "Begin the pass"), ("research", "Read what is new on arXiv"), ("target-train", "Larger model: the train questions"), ("target", "Larger model: the held questions"),
+STEP_WORDS = [("reader", "Check the reader of answers in words"), ("swarm-reworded", "The swarm: the held questions, a second way"), ("begin", "Begin the pass"), ("research", "Read what is new on arXiv"), ("target-train", "Larger model: the train questions"), ("target", "Larger model: the held questions"),
               ("swarm-held", "The swarm: the held questions"), ("swarm-train", "The swarm: the train questions"), ("review", "Review how it is training"), ("plan", "Plan what to try"),
               ("arrange", "Try other arrangements"), ("end", "Verdict"), ("publish", "Write it up")]
 
@@ -1111,7 +1111,7 @@ def step_label(name):
     key = name.split("-", 1)[1] if "-" in name and name.split("-", 1)[0].isdigit() else name
     if key.startswith("improve-"):
         return "Try other briefs for " + key[len("improve-"):]
-    if key in ("a-alone", "b-alone"):
+    if key in ("a-alone", "b-alone", "c-alone", "d-alone"):
         return "%s alone" % data.MEMBER_NAMES.get(key[0], key[0])
     return next((words for k, words in STEP_WORDS if key == k), key)
 
@@ -1197,11 +1197,23 @@ def pills(d):
                     continue
                 opts += '<option value="%s"%s>%s%s%s</option>' % (e(m["id"]), " selected" if chosen and m["id"] == chosen.get("id") else "", e(m["name"]), " · %sB" % m["params"] if m.get("params") else "", gb(m))
             opts += "</optgroup>"
-        return '<label class="pick %s"><small>%s</small><select data-pick="%s"%s aria-label="%s">%s</select></label>' % (key, e(label), key, " disabled" if running else "", e(label), opts)
+        if group == "optional":
+            # a place that can be left empty: "none" takes the model out of the swarm (or, on an empty place, is what it shows)
+            opts = '<option value=""%s>%s</option>' % ("" if chosen else " selected", "Remove it from the swarm" if chosen else "None: choose one to add") + opts
+        return '<label class="pick %s%s"><small>%s</small><select data-pick="%s"%s aria-label="%s">%s</select></label>' % (
+            key, " add" if group == "optional" and not chosen else "", e(label), key, " disabled" if running else "", e(label), opts)
 
+    # a third and a fourth small model: each place that is filled, and the next one, empty, to add to
+    more = ""
+    for i, k in enumerate(("c", "d")):
+        if k in d["members"]:
+            more += pill(k, "Small model %d" % (i + 3), reg["small"], d["members"][k], "optional")
+        else:
+            more += pill(k, "Small model %d: add one" % (i + 3), reg["small"], None, "optional")
+            break
     return (
-        '<div class="picks" id="picks">%s%s%s%s<button class="pick spec" id="spec-open" type="button"><small>The swarm as it stands</small><b>Output spec%s</b></button></div>'
-        % (pill("a", "Small model 1", reg["small"], d["members"]["a"]), pill("b", "Small model 2", reg["small"], d["members"]["b"]),
+        '<div class="picks" id="picks">%s%s%s%s%s<button class="pick spec" id="spec-open" type="button"><small>The swarm as it stands</small><b>Output spec%s</b></button></div>'
+        % (pill("a", "Small model 1", reg["small"], d["members"]["a"]), pill("b", "Small model 2", reg["small"], d["members"]["b"]), more,
            pill("decider", "Decides", reg["deciders"], d["decider"]), pill("target", "Larger model: the target", sorted(reg["targets"], key=lambda t: -t.get("params", 0)), d["target"]),
            (" · %d learned" % len(d["learned"]["ledger"])) if d["learned"]["ledger"] else "")
     )
@@ -1235,7 +1247,10 @@ def learned_block(d):
     stood = ""
     if passes:
         stood = '<p class="small" style="margin:10px 0 0"><b>Where each pass left it against %s:</b> %s</p>' % (
-            e(tname), " · ".join("pass %s: %s of %s equivalent%s" % (e(str(p.get("pass"))), e(str(p.get("equivalent", "?"))), e(str(p.get("compared", "?"))), " (parity)" if p.get("level") else "") for p in passes))
+            e(tname), " · ".join("pass %s: %s of %s equivalent%s%s%s" % (
+                e(str(p.get("pass"))), e(str(p.get("equivalent", "?"))), e(str(p.get("compared", "?"))), " (parity)" if p.get("level") else "",
+                (", lost %d and won %d since the pass before" % (len((p.get("flips") or {}).get("lost", [])), len((p.get("flips") or {}).get("won", [])))) if p.get("flips") else "",
+                (", %d of %d put a second way" % (p["reworded"]["equivalent"], p["reworded"]["compared"])) if p.get("reworded") else "") for p in passes))
     return ('<h4>What it has learned (%d kept)</h4><p class="muted small" style="margin:0 0 6px">Every change below was measured and kept: more answers equivalent to %s&#39;s on the questions it was chosen on, and no fewer on the held ones. '
             "The arrangement in this spec is the one these changes made.</p>%s%s" % (len(led), e(tname), body, stood))
 
@@ -1267,7 +1282,7 @@ def spec_panel(d):
             row("In", e(sp["interface"]["in"])), row("Out", e(sp["interface"]["out"])),
             row("Offered as", "<br>".join(e(x) for x in sp["interface"]["as"])),
             row("Not yet", "<br>".join(e(x) for x in sp["interface"]["notYet"])),
-            row("Small model 1 (place a)", mem(sp["members"]["a"])), row("Small model 2 (place b)", mem(sp["members"]["b"])),
+            "".join(row("Small model %d (place %s)" % (i + 1, k), mem(m)) for i, (k, m) in enumerate(sp["members"].items())), "",
             row("Decides", "%s <span class='muted'>· %s · %s</span><br><code>%s</code>" % (e(sp["decider"].get("name") or ""), e(sp["decider"].get("by") or ""), e(sp["decider"].get("license") or ""), e(sp["decider"].get("run") or ""))),
             row("Against %s" % e(t["target"].get("name") or ""), ("%d held questions: %d equivalent, %d different, %d no answer<ul style='margin:6px 0 0;padding-left:18px'>%s</ul>" % (t["heldQuestions"], t["equivalent"], t["different"], t["noAnswer"], kinds)) if t["state"] != "not measured" else "Not measured: no pass has put this swarm and this target to the same held questions.")
             + row("Served", "%d slots on each small model, %d tokens of context a slot; about %s GB of memory (an estimate); engine %s %s" % (sp["serving"]["slots"], sp["serving"]["contextPerSlot"], sp["serving"]["memoryGbEstimate"], e(sp["engine"].get("name") or ""), e(sp["engine"].get("version") or ""))),
@@ -1316,12 +1331,18 @@ def page(d):
 class Handler(BaseHTTPRequestHandler):
     def _send(self, body, code=200, kind="text/html; charset=utf-8"):
         raw = body.encode("utf-8")
-        self.send_response(code)
-        self.send_header("content-type", kind)
-        self.send_header("content-length", str(len(raw)))
-        self.send_header("cache-control", "no-store")
-        self.end_headers()
-        self.wfile.write(raw)
+        try:
+            self.send_response(code)
+            self.send_header("content-type", kind)
+            self.send_header("content-length", str(len(raw)))
+            self.send_header("cache-control", "no-store")
+            self.end_headers()
+            self.wfile.write(raw)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            # THE PAGE WENT AWAY BEFORE ITS ANSWER DID. The page asks what every slot is doing every second and a half; a tab that is
+            # closed, reloaded or put to sleep leaves one of those requests with nobody to answer. That is not a fault of anything, and
+            # is not printed as one.
+            self.close_connection = True
 
     def do_GET(self):  # noqa: N802
         u = urlparse(self.path)
@@ -1386,11 +1407,21 @@ class Handler(BaseHTTPRequestHandler):
             root = Path(ARGS.root)
             reg = data._json(root / "src" / "models.json", {})
             now = data._json(root / "src" / "config.json", {})
-            for key, lst in (("a", "small"), ("b", "small"), ("decider", "deciders"), ("target", "targets")):
+            for key, lst in (("a", "small"), ("b", "small"), ("c", "small"), ("d", "small"), ("decider", "deciders"), ("target", "targets")):
                 if key in asked:
+                    if key in ("c", "d") and asked[key] in ("", None):
+                        now.pop(key, None)  # taken out of the swarm
+                        continue
                     if not any(m.get("id") == asked[key] for m in reg.get(lst, [])):
                         return self._send("There is no %s called that." % key, 400, "text/plain; charset=utf-8")
                     now[key] = asked[key]
+            # no place is left empty between two that are filled: the ones after it move up
+            small = [now[k] for k in ("a", "b", "c", "d") if now.get(k)]
+            for i, k in enumerate(("a", "b", "c", "d")):
+                if i < len(small):
+                    now[k] = small[i]
+                else:
+                    now.pop(k, None)
             (root / "src" / "config.json").write_text(json.dumps(now, indent=2) + "\n")
             return self._send(main_body(data.load(ARGS.root)))
         if path == "/run/start":

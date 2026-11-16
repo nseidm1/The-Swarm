@@ -35,7 +35,7 @@ import { PROBE_BRIEF, EXPECT_BRIEF, expectedIn } from './behave.mjs';
 // an answer as it is shown to another slot or to the person: code in a block of its own, anything else as it is
 const fenced = (final) => (isCode(final) ? '\n```\n' + final + '\n```' : ' ' + final);
 
-const LETTERS = 'ABCDEFGH';
+const LETTERS = 'ABCDEFGHIJKLMNOP'; // an answer for each slot that drafts: four models' worth, and room over
 // the flow of an arrangement: the one it names, or the plain one
 export const DEFAULT_FLOW = [{ do: 'draft' }, { do: 'try' }, { do: 'check' }, { do: 'decide' }, { do: 'write' }];
 export const flowOf = (briefs) => (Array.isArray(briefs.flow) && briefs.flow.length ? briefs.flow : DEFAULT_FLOW);
@@ -420,7 +420,11 @@ export async function answer(
       const table = distinct();
       const tally = votes();
       let ruled = null;
-      if (decide && table.length > 1) {
+      // HOW THE MATTER IS SETTLED is part of the plan (plan.decideBy), and so is trained: the decider always ('kev', where nothing
+      // is said); the answer most slots hold ('most': the decider is not asked); the decider only where it is sure
+      // ('kev-if-confident'), or only where no answer has more than half the slots behind it ('kev-unless-majority')
+      const by = step.keep ? 'kev' : plan.decideBy || 'kev';
+      if (decide && table.length > 1 && by !== 'most') {
         onStart({ slot: 'kev-decide', member: 'kev', stage: 'decide' });
         const k = await decide({
           question,
@@ -460,6 +464,21 @@ export async function answer(
         return;
       }
       if (step.keep) return;
+      if (ruled && ruled.ok && tally.length) {
+        const top = ruled.probs ? Math.max(...Object.values(ruled.probs)) : 1;
+        const voters = tally.reduce((n, v) => n + v.by.length, 0);
+        const left =
+          by === 'kev-if-confident' && top < (plan.decideMin ?? 0.6)
+            ? 'it gave its choice ' + top.toFixed(2)
+            : by === 'kev-unless-majority' && tally[0].by.length * 2 > voters
+              ? 'more than half the slots hold one answer'
+              : '';
+        if (left) {
+          ruled.out += ' Not taken (' + left + '): the answer most slots hold stands.';
+          ruled.ok = false;
+          ruled.set = 'aside';
+        }
+      }
       if (ruled && ruled.ok) {
         S.decided = ruled.final;
         const chosen = table.find((d) => plain(d.final) === plain(S.decided));

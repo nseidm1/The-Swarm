@@ -130,5 +130,10 @@
         "why": "Nothing was kept for {metric} passes. The arrangements tried at once are made further from this one."
       }
     ]
+  },
+  "ratchet": {
+    "passes": 3,
+    "max": 2,
+    "about": "A bar that is held tightens: a kind of question the swarm has been at parity on, on the held questions, for this many passes in a row is asked more of (half as many again, each time, up to max times)."
   }
 }

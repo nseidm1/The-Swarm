@@ -51,21 +51,21 @@ export const shapeOf = (b) =>
   );
 
 // every arrangement one step from this one: [{ name, briefs }]
-export function steps(b, { cap = SERVING.slots, members = ['a', 'b'] } = {}) {
+export function steps(b, { cap = SERVING.slots, members = [...new Set(b.slots.map((s) => s.member))].sort() } = {}) {
   // the flow first: with nothing measured to point anywhere, a pass tries the order of steps before it tries who sits where
   const out = [...flowMoves(b)];
   const used = (m, slots = b.slots) => slots.filter((s) => s.member === m).length;
-  const other = (m) => members.find((x) => x !== m);
   const withSlots = (slots) => ({ ...b, slots });
   const drafts = b.slots.filter((s) => s.stage === 'draft');
   const checks = b.slots.filter((s) => s.stage === 'check');
   for (const s of b.slots) {
-    // move: to the other model, where it has a slot to spare
-    if (used(other(s.member)) < cap)
-      out.push({
-        name: 'move ' + s.id + ' to ' + other(s.member),
-        briefs: withSlots(b.slots.map((x) => (x.id === s.id ? { ...x, member: other(s.member) } : x))),
-      });
+    // move: to another model (any of them), where it has a slot to spare
+    for (const m of members)
+      if (m !== s.member && used(m) < cap)
+        out.push({
+          name: 'move ' + s.id + ' to ' + m,
+          briefs: withSlots(b.slots.map((x) => (x.id === s.id ? { ...x, member: m } : x))),
+        });
   }
   const writers = b.slots.filter((s) => s.stage === 'write');
   for (const s of [...drafts, ...checks, ...(writers.length === 1 ? writers : [])]) {
@@ -155,6 +155,10 @@ export function steps(b, { cap = SERVING.slots, members = ['a', 'b'] } = {}) {
     const now = b.plan && b.plan[key] !== undefined ? b.plan[key] : dflt;
     out.push({ name: 'plan: ' + key + ' ' + !now, briefs: { ...b, plan: { ...b.plan, [key]: !now } } });
   }
+  // how the matter is settled (training/replay.mjs says, from the last measurement, what each would have won)
+  for (const way of ['kev', 'most', 'kev-if-confident', 'kev-unless-majority'])
+    if (((b.plan || {}).decideBy || 'kev') !== way)
+      out.push({ name: 'plan: decide by ' + way, briefs: { ...b, plan: { ...b.plan, decideBy: way } } });
   // an arrangement must still be able to answer: two drafters at least, and no model asked for more slots than it has
   return out
     .filter(
@@ -224,7 +228,7 @@ export function flowMoves(b) {
       put('the ' + label(s) + which + ' before the ' + label(prev), [...f.slice(0, i - 1), s, prev, ...f.slice(i + 1)]);
     // the answers go back to ONE model's drafters only: the other's stand as they are
     if (s.do === 'revise' && !s.slots)
-      for (const m of ['a', 'b']) {
+      for (const m of [...new Set(b.slots.map((x) => x.member))].sort()) {
         const mine = b.slots.filter((x) => x.stage === 'draft' && x.member === m).map((x) => x.id);
         if (mine.length && mine.length < b.slots.filter((x) => x.stage === 'draft').length)
           put('only the drafters on ' + m + ' answer again' + which, [

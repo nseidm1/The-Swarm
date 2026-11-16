@@ -1410,6 +1410,285 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { w1: w1.map((c) => c.name), broke, n: steps(briefs).length },
   );
 }
+// ---- 6k: MORE THAN TWO SMALL MODELS: two to four places, each a model of its own
+{
+  const { readConfig, writeConfig, placesOf, configId, REGISTRY, CONFIG_FILE } = await import('../src/catalog.mjs');
+  const { withPlaces } = await import('../src/index.mjs');
+  const { steps, wildMoves } = await import('../training/arrange.mjs');
+  const { answer: orchestrate } = await import('../src/orchestrate.mjs');
+  const start = readConfig();
+  const [m3, m4] = REGISTRY.small.filter((m) => m.id !== start.a && m.id !== start.b);
+  const refuse = (patch) => {
+    try {
+      writeConfig(patch);
+      return false;
+    } catch {
+      return true;
+    }
+  };
+  const noGap = refuse({ d: m4.id });
+  const three = writeConfig({ c: m3.id });
+  const four = writeConfig({ d: m4.id });
+  const up = writeConfig({ c: null });
+  const noA = refuse({ a: null });
+  const two = writeConfig({ c: '' });
+  check(
+    'a swarm is two to four small models: a third and a fourth can be added (in order, no place left empty), each is part of what the configuration is called, taking one out moves the next up, the first two cannot be emptied, and with the others out it is the two it was',
+    CONFIG_FILE.startsWith(WORK_DIR) &&
+      noGap &&
+      placesOf(three).join() === 'a,b,c' &&
+      configId(three) === [start.a, start.b, m3.id, start.decider].join('+') &&
+      placesOf(four).join() === 'a,b,c,d' &&
+      up.c === m4.id &&
+      up.d === undefined &&
+      noA &&
+      two.c === undefined &&
+      configId(two) === configId(start) &&
+      JSON.stringify(readConfig()) === JSON.stringify(start),
+    { three, four, up, two },
+  );
+  const b3 = withPlaces(briefs, ['a', 'b', 'c']);
+  const b4 = withPlaces(briefs, ['a', 'b', 'c', 'd']);
+  const mine = b3.slots.filter((x) => x.member === 'c');
+  const all3 = steps(b3);
+  let broke = '';
+  const seen = [];
+  for (const c of [
+    { name: 'as it is', briefs: b3 },
+    { name: 'four', briefs: b4 },
+    ...all3,
+    ...wildMoves(b3, { n: 4, depth: 3, seed: 9 }),
+  ]) {
+    try {
+      const got = await orchestrate(Q, {
+        briefs: c.briefs,
+        ask: async (slot) => (
+          c.name === 'as it is' && seen.push(slot.member),
+          { text: slot.member === 'c' ? 'ANSWER: 41' : 'ANSWER: 42' }
+        ),
+      });
+      if (!got.ok || got.decided !== '42') broke = broke || c.name;
+    } catch (e) {
+      broke = broke || c.name + ': ' + e.message;
+    }
+  }
+  check(
+    'a third small model begins as two drafters of its own, after the other drafters and told what theirs are told; slots on a place that is not filled are left out; the search moves slots to and from every model; and every arrangement it can reach with three models, by one change or several, still answers',
+    mine.length === 2 &&
+      mine.every((x) => x.stage === 'draft') &&
+      mine.map((x) => x.id).join() === 'c-direct,c-other-way' &&
+      mine[0].brief === briefs.slots.find((x) => x.id === 'a-direct').brief &&
+      b3.slots.filter((x) => x.stage === 'draft').length === 6 &&
+      b4.slots.filter((x) => x.stage === 'draft').length === 8 &&
+      withPlaces(b3, ['a', 'b']).slots.length === briefs.slots.length &&
+      all3.some((c) => /^move a-critic to c$/.test(c.name)) &&
+      all3.some((c) => /^move c-direct to a$|^move c-direct to b$/.test(c.name)) &&
+      all3.some((c) => /c-direct checks instead of drafting/.test(c.name)) &&
+      all3.length > steps(briefs).length &&
+      broke === '' &&
+      seen.includes('c'),
+    { mine: mine.map((x) => x.id), n: all3.length, broke },
+  );
+}
+// ---- 6l: taken from how The Crew is trained: watch before acting, check the reader, name every flip, ask it two ways, tighten what holds
+{
+  const { replay, WAYS } = await import('../training/replay.mjs');
+  const { knownPairs, checkReader } = await import('../training/readers.mjs');
+  const { reword, reworded } = await import('../training/tasks.mjs');
+  const { flipsBetween } = await import('../training/pass.mjs');
+  const { makePlan } = await import('../training/plan.mjs');
+  const { steps } = await import('../training/arrange.mjs');
+  const { run: runRows, reference } = await import('../training/support/bench.mjs');
+  // one measurement, replayed under each way of choosing between the answers
+  const d = (slot, final, same, does) => ({ slot, stage: 'draft', final, same, does });
+  const rows = [
+    // three hold a slip, one has it; the decider (unsure) chose the slip: only "the best on the table" would have won
+    {
+      id: 1,
+      grade: 'wrong',
+      trace: [
+        d('a1', 'x', false, 's1'),
+        d('a2', 'x', false, 's1'),
+        d('b1', 'x', false, 's1'),
+        d('b2', 'y', true, 's2'),
+        { stage: 'decide', final: 'x', same: false, probs: { A: 0.4, D: 0.35 } },
+      ],
+    },
+    // two and two; the decider, sure, chose rightly
+    {
+      id: 2,
+      grade: 'right',
+      trace: [
+        d('a1', 'p', true, 't1'),
+        d('a2', 'p', true, 't1'),
+        d('b1', 'q', false, 't2'),
+        d('b2', 'q', false, 't2'),
+        { stage: 'decide', final: 'p', same: true, probs: { A: 0.9, C: 0.1 } },
+      ],
+    },
+    // three have it, one does not; the decider, unsure, chose the one
+    {
+      id: 3,
+      grade: 'wrong',
+      trace: [
+        d('a1', 'm', true, 'u1'),
+        d('a2', 'm', true, 'u1'),
+        d('b1', 'm', true, 'u1'),
+        d('b2', 'n', false, 'u2'),
+        { stage: 'decide', final: 'n', same: false, probs: { A: 0.45, D: 0.55 } },
+      ],
+    },
+    // all agree: nobody was asked to choose
+    {
+      id: 4,
+      grade: 'right',
+      trace: [d('a1', 'k', true, 'v1'), d('a2', 'k', true, 'v1'), d('b1', 'k', true, 'v1'), d('b2', 'k', true, 'v1')],
+    },
+    { id: 5, grade: 'noref', trace: [d('a1', 'z', null, 'w1')] },
+  ];
+  const r = replay(rows);
+  const plan = makePlan({ state: { pass: 0, tried: {} }, briefs, steps: steps(briefs), replayed: r, tries: 3 });
+  const ways = plan.moves.filter((m) => /^plan: decide by /.test(m.what));
+  check(
+    'one measurement can be replayed to say what the reply would have been under another way of choosing between the answers, with no model asked again: the decider always is what happened; the others are counted from what each slot answered and whether it was equivalent; and the plan tries first the way replay says would have won',
+    r.compared === 4 &&
+      r.actual === 2 &&
+      r.ways.kev === 2 &&
+      r.ways.most === 3 &&
+      r.ways['kev-if-confident'] === 3 &&
+      r.ways['kev-unless-majority'] === 3 &&
+      r.ceiling === 4 &&
+      r.slots.b2 === 2 &&
+      Object.keys(WAYS).length === 4 &&
+      ways.length >= 1 &&
+      ways[0].answers === 1 &&
+      ways[0].why.includes('replay') &&
+      plan.replayed.actual === 2 &&
+      !plan.moves.some((m) => m.what === 'plan: decide by kev'),
+    { r, ways: ways.map((m) => [m.what, m.answers]) },
+  );
+  // the plan's ways of choosing, in the swarm itself
+  reset();
+  lfm.s.script = (b) =>
+    roleOf(b).stage === 'write' ? 'It is 42.' : roleOf(b).id === 'a-direct' ? 'ANSWER: 41' : 'ANSWER: 42';
+  bonsai.s.script = () => 'ANSWER: 42';
+  let asked = 0;
+  const forSlip = async ({ answers }) => (
+    asked++,
+    { ok: true, letter: answers[0].letter, final: answers[0].final, probs: { A: 0.55, B: 0.45 }, ms: 1 }
+  );
+  const sw = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, decide: forSlip });
+  const go = async (decideBy) => sw.answer(Q, { briefs: { ...briefs, plan: { ...briefs.plan, decideBy } } });
+  const [always, most, sure, major] = [
+    await go('kev'),
+    await go('most'),
+    await go('kev-if-confident'),
+    await go('kev-unless-majority'),
+  ];
+  await sw.stop();
+  check(
+    'how the matter is settled is a setting of the plan: the decider always; the answer most slots hold, with the decider not asked; the decider only where it is sure; the decider only where no answer has more than half the slots behind it',
+    always.decided === '41' &&
+      most.decided === '42' &&
+      !most.trace.some((t) => t.stage === 'decide') &&
+      sure.decided === '42' &&
+      /Not taken \(it gave its choice 0\.55\)/.test(sure.trace.find((t) => t.stage === 'decide').out) &&
+      major.decided === '42' &&
+      /more than half/.test(major.trace.find((t) => t.stage === 'decide').out) &&
+      asked === 3 &&
+      most.path === 'most',
+    { always: always.decided, most: most.decided, sure: sure.decided, major: major.decided, asked },
+  );
+  // the reader of answers in words is checked on pairs anyone can judge
+  const pairs = knownPairs();
+  const sound = await checkReader({
+    kev: 'x',
+    pairs,
+    judge: async (q, a2, b2) => ({ grade: /In short/.test(b2) ? 'right' : 'wrong' }),
+  });
+  // one that leans to yes but leans further where the answers are the same: read well once the line is put where it tells them apart
+  const leaning = await checkReader({
+    kev: 'x',
+    pairs,
+    judge: async (q, a2, b2) => ({ grade: 'right', p: /In short/.test(b2) ? 0.95 : 0.7 }),
+  });
+  const yesMan = await checkReader({ kev: 'x', pairs, judge: async () => ({ grade: 'right' }) });
+  const silent = await checkReader({ kev: 'x', pairs, judge: async () => ({ grade: 'noref' }) });
+  const open = tasks({ split: 'held', each: 1 }).find((t) => t.type === 'open');
+  fs.writeFileSync(path.join(WORK_DIR, 'reader.json'), JSON.stringify({ ok: false }));
+  const unread = await runRows(
+    [open],
+    async () => ({ reply: 'The loop starts at one, so the first item is never counted at all.' }),
+    { ref: new Map([[open.id, 'The bug is that the loop starts at one and so misses the first item.']]), who: 'a' },
+  );
+  fs.rmSync(path.join(WORK_DIR, 'reader.json'));
+  check(
+    'a reader is checked before it is believed: given the same flaw said two ways and two different flaws, one that tells them apart is believed, one that says yes to everything is not, and neither is one that does not answer; and while it is not believed, answers in words are not compared',
+    pairs.length >= 8 &&
+      pairs.some((p) => p.same) &&
+      pairs.some((p) => !p.same) &&
+      sound.ok &&
+      sound.right === sound.asked &&
+      leaning.ok &&
+      leaning.mark > 0.7 &&
+      leaning.atHalf < leaning.right &&
+      !yesMan.ok &&
+      yesMan.missed.length > 0 &&
+      !silent.ok &&
+      silent.asked === 0 &&
+      unread[0].grade === 'noref' &&
+      /failed its own check/.test(unread[0].markWhy || ''),
+    { sound, yesMan: [yesMan.right, yesMan.asked], unread: unread[0].grade },
+  );
+  // no flip goes unnamed
+  const fl = flipsBetween({ heldRight: ['q1', 'q2', 'q3'], heldAsked: ['q1', 'q2', 'q3', 'q4'] }, [
+    { id: 'q1', grade: 'right' },
+    { id: 'q2', grade: 'wrong' },
+    { id: 'q3', grade: 'unsure' },
+    { id: 'q4', grade: 'right' },
+    { id: 'q5', grade: 'right' },
+  ]);
+  check(
+    'an answer that was equivalent at the end of the last pass and is not now is named, and so is one won: a total that did not move (three, and three) can hide two lost and one won; a question that was not asked then is neither',
+    fl.lost.join() === 'q2,q3' && fl.won.join() === 'q4',
+    fl,
+  );
+  // every question a second way, and a bar that is held asked more of
+  const held = tasks({ split: 'held', each: 2 });
+  const second = reworded(held);
+  const w = held.find((t) => t.kind === 'write-arrays');
+  const body = w.ask.replace(/^Write a JavaScript function `[^`]+` that /, '');
+  const refs = reference(second);
+  const more = tasks({ split: 'held', each: 2, tiers: { fix: 2 } });
+  check(
+    "every held question has a second wording that changes how it is put and nothing of what it asks, and is compared with the larger model's answer to the first; and a kind that is asked more of keeps the questions it had and adds to them",
+    second.length === held.length &&
+      second.every(
+        (t, i) =>
+          t.ask !== held[i].ask &&
+          t.refId === held[i].id &&
+          t.id === held[i].id + '~2' &&
+          t.split === 'reworded' &&
+          t.name === held[i].name,
+      ) &&
+      reword(w.ask).endsWith(body) &&
+      reword(w.ask).startsWith('I need a function in JavaScript') &&
+      reword('How long is a piece of string?') === null &&
+      refs instanceof Map &&
+      more.filter((t) => t.kind === 'fix').length === 4 &&
+      more.filter((t) => t.kind === 'bug').length === 2 &&
+      more
+        .filter((t) => t.kind === 'fix')
+        .slice(0, 2)
+        .map((t) => t.ask)
+        .join() ===
+        held
+          .filter((t) => t.kind === 'fix')
+          .map((t) => t.ask)
+          .join(),
+    { n: second.length, sample: reword(w.ask).slice(0, 70) },
+  );
+}
 // ---- 7: one worked answer for each different answer
 {
   reset();

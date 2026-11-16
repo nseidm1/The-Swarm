@@ -11,7 +11,8 @@ import path from 'node:path';
 import { REPO_ROOT, RESULTS, WORK, aloneLabel } from './support/bench.mjs';
 import { MEMBERS, DECIDER, CONFIG_ID, writeConfig } from '../src/catalog.mjs';
 import { readState, writeState, seedState, readTargets, targetOf, parity, STANDING } from './state.mjs';
-import { readBriefs, notePass } from '../src/index.mjs';
+import { readBriefs, notePass, readLearned } from '../src/index.mjs';
+import { readPolicy } from './policy.mjs';
 
 // what to ask arXiv when the swarm trails on a kind of question
 export const ASK_FOR = {
@@ -79,7 +80,7 @@ export function endPass(state, { swarmRows, train, briefs, targets, now = new Da
     target: rung.id,
     briefs: briefs.version,
     config: CONFIG_ID, // which small models and decider this was: parity is a configuration's, not the target's
-    members: [MEMBERS.a.name, MEMBERS.b.name],
+    members: Object.values(MEMBERS).map((m) => m.name),
     decider: DECIDER.name,
     level: !!(p && p.level),
   };
@@ -116,6 +117,17 @@ export function endPass(state, { swarmRows, train, briefs, targets, now = new Da
     }
   }
   return { next, done, parity: p, rung, climbed };
+}
+
+// the held questions asked at the end of both passes: those that were equivalent and are not now (lost), and the other way (won)
+export function flipsBetween(before, rows) {
+  const was = new Set(before.heldRight || []);
+  const askedThen = new Set(before.heldAsked || before.heldRight || []);
+  const both = rows.filter((r) => askedThen.has(r.id));
+  return {
+    lost: both.filter((r) => was.has(r.id) && r.grade !== 'right').map((r) => r.id),
+    won: both.filter((r) => !was.has(r.id) && r.grade === 'right').map((r) => r.id),
+  };
 }
 
 if (import.meta.url === 'file://' + process.argv[1]) {
@@ -206,6 +218,51 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       parity: p,
       climbed,
     } = endPass(state, { swarmRows, train: result('swarm-train'), briefs, targets });
+    // NO FLIP GOES UNNAMED: an answer that was equivalent at the end of the last pass and is not now, and the other way. A total
+    // that rose by one can hide one that was lost.
+    const before = ((readLearned() || {}).passes || [])
+      .filter((x) => Array.isArray(x.heldRight) && x.heldSeed === state.seeds.held)
+      .pop();
+    done.heldSeed = state.seeds.held;
+    done.heldRight = swarmRows.filter((r) => r.grade === 'right').map((r) => r.id);
+    if (before) done.flips = { ...flipsBetween(before, swarmRows), since: before.pass };
+    done.heldAsked = swarmRows.map((r) => r.id);
+    // EVERY HELD QUESTION A SECOND WAY: equivalent there too?
+    const second = newest(
+      rowsOf(
+        'swarm-runs.jsonl',
+        (r) =>
+          r.split === 'reworded' &&
+          r.seed === state.seeds.held &&
+          r.label === 'swarm' &&
+          r.cfg === CONFIG_ID &&
+          r.target === targetOf().id,
+      ),
+    );
+    const p2 = second.length ? parity(second) : null;
+    if (p2) done.reworded = { compared: p2.compared, equivalent: p2.equivalent };
+    // A BAR THAT IS HELD TIGHTENS: a kind at parity on the held questions for so many passes in a row (the policy: ratchet) is
+    // asked more of from the next pass on
+    const ratchet = readPolicy(state).ratchet || {};
+    const kinds = {};
+    for (const r of swarmRows) {
+      if (r.grade === 'noref') continue;
+      const k = (kinds[r.kind] = kinds[r.kind] || { n: 0, right: 0 });
+      k.n++;
+      if (r.grade === 'right') k.right++;
+    }
+    next.streak = { ...(state.streak || {}) };
+    next.tiers = { ...(state.tiers || {}) };
+    done.tightened = [];
+    for (const [kind, k] of Object.entries(kinds)) {
+      next.streak[kind] = k.n && k.right === k.n ? (next.streak[kind] || 0) + 1 : 0;
+      if (next.streak[kind] >= (ratchet.passes || 3) && (next.tiers[kind] || 0) < (ratchet.max ?? 2)) {
+        next.tiers[kind] = (next.tiers[kind] || 0) + 1;
+        next.streak[kind] = 0;
+        done.tightened.push(kind);
+      }
+    }
+    next.history[next.history.length - 1] = done;
     writeState(next);
     notePass(done, briefs); // on this swarm's own record, beside what it has learned (src/learned.mjs)
     if (climbed) {
@@ -237,14 +294,33 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       : rung.name + ' gave no answers to these questions, so there is nothing to be at parity with.\n';
     md +=
       '\nEach small model alone, the same way: ' +
-      MEMBERS.a.name +
-      ' ' +
-      alone('a') +
-      '; ' +
-      MEMBERS.b.name +
-      ' ' +
-      alone('b') +
+      Object.entries(MEMBERS)
+        .map(([k, x]) => x.name + ' ' + alone(k))
+        .join('; ') +
       '.\n';
+    if (done.flips)
+      md +=
+        '\nSince pass ' +
+        done.flips.since +
+        ', on the same held questions: ' +
+        (done.flips.lost.length ? 'LOST ' + done.flips.lost.join(', ') : 'none lost') +
+        '; ' +
+        (done.flips.won.length ? 'won ' + done.flips.won.join(', ') : 'none won') +
+        '.\n';
+    if (done.reworded)
+      md +=
+        '\nThe held questions put a second way: ' +
+        done.reworded.equivalent +
+        ' of ' +
+        done.reworded.compared +
+        ' equivalent.\n';
+    if (done.tightened && done.tightened.length)
+      md +=
+        '\nHeld at parity for ' +
+        (ratchet.passes || 3) +
+        ' passes, and asked more of from the next pass: ' +
+        done.tightened.join(', ') +
+        '.\n';
     if (p && p.trailing.length)
       md +=
         '\nNot equivalent on: ' +

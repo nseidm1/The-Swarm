@@ -176,6 +176,7 @@ const TECHNIQUE = [
   [/at temperature/, 'How freely a drafter samples'],
   [/^plan: onePerAnswer/, 'One worked answer for each different answer'],
   [/^plan: agreeSkipsChecks/, 'Whether agreeing drafts are still checked'],
+  [/^plan: decide by/, 'How the matter is settled'],
   [/^plan: byBehaviour/, 'Whether drafts of code agree by what they do'],
 ];
 const techniqueOf = (name) => (TECHNIQUE.find(([re]) => re.test(name)) || [, 'A change to the arrangement'])[1];
@@ -193,6 +194,7 @@ export function makePlan({
   names = {},
   tries = 4,
   wild = [],
+  replayed = null,
   weight = {},
   now = new Date(),
 }) {
@@ -234,7 +236,13 @@ export function makePlan({
   // arrangements: the ones that speak to the findings first; then one of each kind of step, so a pass does not spend itself on one idea
   const fresh = steps.filter((c) => !(tried._arrangement || []).includes(c.hash));
   const scoredSteps = fresh.map((c, i) => {
-    const x = stepAnswers(findings, briefs, c.name);
+    let x = stepAnswers(findings, briefs, c.name);
+    // a way of choosing between the answers is not guessed at: the last measurement, replayed, says what it would have won
+    const way = /^plan: decide by (.+)$/.exec(c.name);
+    if (way && replayed) {
+      const gain = (replayed.ways[way[1]] ?? 0) - replayed.actual;
+      x = { a: Math.max(0, gain), why: gain > 0 ? ['replay'] : [] };
+    } else if (way) x = { a: 0, why: [] };
     const kindOf = /^flow: /.test(c.name) ? 'flow' : /^plan: /.test(c.name) ? 'plan' : 'arrangement';
     return { c, i, ...x, a: Math.round(x.a * (weight[kindOf] ?? 1) * 10) / 10 };
   });
@@ -279,6 +287,10 @@ export function makePlan({
       ? { compared: report.compared, equivalent: report.right, differ: report.wrong, none: report.unsure || 0 }
       : null,
     findings,
+    // what the last measurement would have been under each way of choosing between the answers (training/replay.mjs)
+    replayed: replayed
+      ? { compared: replayed.compared, actual: replayed.actual, ceiling: replayed.ceiling, ways: replayed.ways }
+      : null,
     focus: Object.entries(state.focus || {}).map(([kind, more]) => ({ kind, more })),
     moves,
     open: {
@@ -305,6 +317,12 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     const mine = !!report && report.seed === state.seeds.train && (!report.cfg || report.cfg === CONFIG_ID);
     const usable =
       report && (!report.cfg || report.cfg === CONFIG_ID) && (!report.target || report.target === TARGET.id);
+    const { replay, lastTrainRows } = await import('./replay.mjs');
+    const { WORK } = await import('./support/bench.mjs');
+    const replayOf = () => {
+      const rows = lastTrainRows(WORK, state.seeds.train, CONFIG_ID, TARGET.id);
+      return rows.length ? replay(rows) : null;
+    };
     const candidates = (slotId) => {
       const list = readSafe(path.join(ROOT, 'training', 'candidates', slotId + '.json'), []);
       return Array.isArray(list) ? list : [];
@@ -317,6 +335,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         reportIsThisPass: mine,
         candidates,
         steps: steps(briefs),
+        replayed: mine ? replayOf() : null,
         // and a few that are several changes from here at once (how many and how deep: the policy)
         wild: wildMoves(briefs, {
           n: policy.trials.wild || 0,
@@ -325,7 +344,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
           tried: (state.tried || {})._arrangement || [],
         }),
         hashOf: candHash,
-        names: { a: MEMBERS.a.name, b: MEMBERS.b.name },
+        names: Object.fromEntries(Object.entries(MEMBERS).map(([k, m]) => [k, m.name])),
         tries: Number(arg('tries', policy.trials.arrangements || 4)),
         weight: policy.moves.weight || {},
       }),

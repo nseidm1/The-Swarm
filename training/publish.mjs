@@ -46,8 +46,8 @@ const out = {
   atParityWith: [...new Set(state.history.filter((h) => h.level).map((h) => names[h.target] || h.target))],
   swarm: brief(swarm),
   paths: swarm && swarm.paths,
-  swarmOf: { a: MEMBERS.a.id, b: MEMBERS.b.id, decider: DECIDER.id },
-  alone: { a: brief(read(aloneLabel('a'))), b: brief(read(aloneLabel('b'))) },
+  swarmOf: { ...Object.fromEntries(Object.entries(MEMBERS).map(([k, m]) => [k, m.id])), decider: DECIDER.id },
+  alone: Object.fromEntries(Object.keys(MEMBERS).map((k) => [k, brief(read(aloneLabel(k)))])),
 };
 fs.writeFileSync(path.join(REPO_ROOT, 'src', 'trained.json'), JSON.stringify(out, null, 2) + '\n');
 const say = (n, r) =>
@@ -59,5 +59,4 @@ const say = (n, r) =>
   );
 if (out.target) console.log('Parity with ' + out.target.name + ': every answer fundamentally equivalent to its answer');
 say('the swarm', out.swarm);
-say(MEMBERS.a.name + ' alone', out.alone.a);
-say(MEMBERS.b.name + ' alone', out.alone.b);
+for (const [k, m] of Object.entries(MEMBERS)) say(m.name + ' alone', out.alone[k]);

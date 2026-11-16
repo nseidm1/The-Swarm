@@ -15,7 +15,8 @@ import { CONFIG_ID } from '../../src/catalog.mjs';
 import { note, checkpoint, briefKey } from './recover.mjs';
 import { spawn } from 'node:child_process';
 import { attachMember, startMember } from '../../src/members.mjs';
-import { tasks, KIND_NAMES } from '../tasks.mjs';
+import { tasks, KIND_NAMES, reworded } from '../tasks.mjs';
+import { readerOk, readerMark } from './reader-file.mjs';
 import { readState, targetOf } from '../state.mjs';
 import { openTarget } from '../target.mjs';
 
@@ -54,7 +55,17 @@ export const aloneLabel = (place) => MEMBERS[place].id + '-alone-vs-' + targetOf
 export const questions = (split, each = Number(arg('each', 6))) => {
   const kinds = String(arg('kinds', '')).split(',').filter(Boolean);
   const state = readState();
-  return tasks({ split, each, kinds: kinds.length ? kinds : KIND_NAMES, seed: state.seeds[split], focus: state.focus });
+  const of = (s) =>
+    tasks({
+      split: s,
+      each,
+      kinds: kinds.length ? kinds : KIND_NAMES,
+      seed: state.seeds[s],
+      focus: state.focus,
+      tiers: state.tiers || {},
+    });
+  // the held questions, each put a second way (tasks.mjs: reword); they are compared with the larger model's answer to the first
+  return split === 'reworded' ? reworded(of('held')) : of(split);
 };
 export const chosen = () => {
   const list = questions(arg('split', 'train'));
@@ -244,15 +255,16 @@ export async function openAlone(which) {
 export function reference(list) {
   const label = targetOf().id;
   const file = path.join(WORK, 'baseline-runs.jsonl');
-  const ids = new Set(list.map((t) => t.id));
+  // (a question put a second way is compared with the larger model's answer to it put the first way)
+  const ids = new Map(list.map((t) => [t.refId || t.id, t.id]));
   const ref = new Map();
   const toSpec = new Map();
   if (fs.existsSync(file))
     for (const l of fs.readFileSync(file, 'utf8').split('\n').filter(Boolean)) {
       const r = JSON.parse(l);
       if (r.label === label && ids.has(r.id)) {
-        ref.set(r.id, String(r.reply || ''));
-        toSpec.set(r.id, r.toSpec);
+        ref.set(ids.get(r.id), String(r.reply || ''));
+        toSpec.set(ids.get(r.id), r.toSpec);
       }
     }
   ref.toSpec = toSpec; // whether its own answer does what the question says (tasks: toSpec)
@@ -341,9 +353,14 @@ export async function run(
       // a reply of the larger model's that holds no answer (cut off, empty) is nothing to be equivalent to: not compared
       mark = !holds(theirs)
         ? { grade: 'noref' }
-        : got.why
-          ? { grade: 'unsure' }
-          : await t.equivalent(theirs, got.reply, { kev });
+        : t.type === 'open' && !readerOk(WORK)
+          ? {
+              grade: 'noref',
+              why: 'the reader of answers in words failed its own check this pass (training/readers.mjs)',
+            }
+          : got.why
+            ? { grade: 'unsure' }
+            : await t.equivalent(theirs, got.reply, { kev, mark: readerMark(WORK) });
     const row = {
       cfg: who === 'swarm' ? CONFIG_ID : undefined,
       target: targetOf().id,

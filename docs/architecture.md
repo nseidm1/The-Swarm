@@ -29,7 +29,7 @@ answer is to be reached. That is the whole public surface, in three forms:
 | [`src/sandbox.mjs`](../src/sandbox.mjs), [`src/sandbox-runner.mjs`](../src/sandbox-runner.mjs) | Running a function a model wrote where it can reach nothing. The only place anything a model wrote is run |
 | [`src/briefs.json`](../src/briefs.json) | What each slot is told, the plan and the flow, as every swarm starts |
 | [`src/learned.mjs`](../src/learned.mjs), `src/learned/` | What one configuration has learned against one larger model: the arrangement it now runs, and the ledger of every kept change with its evidence |
-| [`src/catalog.mjs`](../src/catalog.mjs) | The two model files, pinned, and the entry for a list of models |
+| [`src/catalog.mjs`](../src/catalog.mjs) | The models that can be chosen and the ones that are: two to four small models (places `a` to `d`), the decider and the larger model, and the entry for a list of models |
 
 ## The flow
 

@@ -79,7 +79,7 @@ export async function openEquivalent(
   question,
   refReply,
   reply,
-  { kev = '', timeoutMs = 20000, fetchImpl = fetch } = {},
+  { kev = '', timeoutMs = 20000, fetchImpl = fetch, mark = 0.5 } = {},
 ) {
   if (!String(refReply || '').trim()) return { grade: 'noref' };
   if (!String(reply || '').trim()) return { grade: 'unsure' };
@@ -111,7 +111,8 @@ export async function openEquivalent(
     const a = (j.answers || j).same;
     const p = Number(a && typeof a === 'object' ? a.noul : a);
     if (!Number.isFinite(p)) return { grade: 'noref', why: 'Kev gave no probability' };
-    return { grade: p >= 0.5 ? 'right' : 'wrong', p };
+    // the mark above which it is taken to say yes: one half, unless the check of the reader found a better one (readers.mjs)
+    return { grade: p >= (Number.isFinite(mark) ? mark : 0.5) ? 'right' : 'wrong', p };
   } catch (e) {
     return { grade: 'noref', why: 'Kev did not answer: ' + String((e && e.message) || e).slice(0, 80) };
   }

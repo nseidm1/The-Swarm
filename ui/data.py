@@ -94,6 +94,22 @@ def _merge(a, b):
     return out
 
 
+def _with_places(briefs, places):
+    """The same as src/index.mjs withPlaces: a third or fourth small model begins as two more drafters; slots on a place that is
+    not filled are left out."""
+    slots = [s for s in briefs.get("slots", []) if s.get("member") in places]
+    drafters = [s for s in briefs.get("slots", []) if s.get("stage") == "draft"]
+    for p in places:
+        if any(s.get("member") == p for s in slots) or not drafters:
+            continue
+        like = [drafters[0]] + ([drafters[-1]] if drafters[-1] is not drafters[0] else [])
+        at = max([i + 1 for i, x in enumerate(slots) if x.get("stage") == "draft"] or [0])
+        for s in like:
+            slots.insert(at, dict(s, id=p + "-" + re.sub(r"^[a-z]-", "", s["id"]), member=p))
+            at += 1
+    return dict(briefs, slots=slots)
+
+
 def load(root):
     root = Path(root)
     briefs = _json(root / "src" / "briefs.json", {"slots": [], "plan": {}, "version": 0})
@@ -103,12 +119,18 @@ def load(root):
     chosen = _json(root / "src" / "config.json", {})
     pick = lambda lst, i, n=0: next((m for m in lst if m.get("id") == i), lst[n] if len(lst) > n else None)  # noqa: E731
     members = {"a": pick(registry["small"], chosen.get("a")), "b": pick(registry["small"], chosen.get("b"), 1)}
+    # a third and a fourth small model, where they are named (no place is left empty between)
+    for k in ("c", "d"):
+        m = next((x for x in registry["small"] if x.get("id") == chosen.get(k)), None)
+        if not m:
+            break
+        members[k] = m
     decider = pick(registry["deciders"], chosen.get("decider"))
     target = pick(registry["targets"], chosen.get("target"))
     targets = sorted(registry["targets"], key=lambda t: t.get("params", 0))
     global MEMBER_NAMES
     MEMBER_NAMES = {k: (m or {}).get("name", "not chosen") for k, m in members.items()}
-    cfg = "+".join([(members["a"] or {}).get("id", ""), (members["b"] or {}).get("id", ""), (decider or {}).get("id", "")])
+    cfg = "+".join([(m or {}).get("id", "") for m in members.values()] + [(decider or {}).get("id", "")])
     # what this configuration remembers of its training (training/state.mjs): the folder's record of what was read, and over
     # it this configuration's own (which pass, the seeds, what was tried, how each pass ended, what became of each idea here)
     mine = _json(root / "training" / "states" / ("%s--%s.json" % (re.sub(r"[^\w.+-]+", "_", cfg), re.sub(r"[^\w.+-]+", "_", str((target or {}).get("id", ""))))), None)
@@ -128,6 +150,8 @@ def load(root):
     started_from = briefs
     if learned:
         briefs = learned["briefs"]
+    else:
+        briefs = _with_places(briefs, list(members))
 
     def newest(rows, split, label):
         """the newest answer to each question of this pass's split, by one answerer"""
@@ -238,7 +262,7 @@ def spec(d):
     last = (d["state"].get("history") or [None])[-1]
     return {
         "name": "The Swarm",
-        "id": "swarm-%s+%s" % (a.get("id"), bb.get("id")),
+        "id": "swarm-" + "+".join((m or {}).get("id", "") for m in d["members"].values()),
         "what": "Two small models that answer as one, trained toward parity with a larger model: an answer fundamentally equivalent to the one the larger model gives.",
         "interface": {
             "in": "messages, as a chat model takes them (role and content)",
@@ -246,10 +270,10 @@ def spec(d):
             "as": ["createSwarm().answer(messages)", "an address that answers /health, /v1/models and /v1/chat/completions (streamed or not)", "serveSwarm(entry, engine, opts): the call a llama.cpp model is started with"],
             "notYet": ["a request that carries tools goes to the model in place a alone", "the reply is whole before any of it is sent"],
         },
-        "members": {"a": file_of(a), "b": file_of(bb)},
+        "members": {k: file_of(m or {}) for k, m in d["members"].items()},
         "decider": {k: (d["decider"] or {}).get(k) for k in ("id", "name", "by", "params", "run", "rev", "license")},
         "engine": {"name": d["registry"]["engine"].get("name"), "version": d["registry"]["engine"].get("version"), "build": d["registry"]["engine"].get("tag")},
-        "serving": dict(SERVING, memoryGbEstimate=round((gb(a.get("bytes", 0)) + gb(bb.get("bytes", 0))) * 1.25 + 1, 1), memoryIs="an estimate: the two files and their contexts; the decider is beside it"),
+        "serving": dict(SERVING, memoryGbEstimate=round(sum(gb((m or {}).get("bytes", 0)) for m in d["members"].values()) * 1.25 + 1, 1), memoryIs="an estimate: the small models' files and their contexts; the decider is beside it"),
         "arrangement": {
             "briefsVersion": b.get("version"),
             "plan": b.get("plan", {}),

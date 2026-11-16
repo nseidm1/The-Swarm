@@ -101,6 +101,8 @@ while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
   run 00-begin        training/pass.mjs begin
   # THE PLAN, before anything is measured: from what the last pass left
   run 00-plan         training/plan.mjs make ${TRIES:+--tries "$TRIES"}
+  # the reader of answers in words is checked on pairs anyone can judge, before its grades are believed (training/readers.mjs)
+  run 00-reader       training/readers.mjs
   # what has been published on what the last pass left open
   if [ -n "$TEACHER" ]; then run 01-research training/research.mjs --teacher "$TEACHER" --spend-claude
   else run 01-research training/research.mjs; fi
@@ -109,8 +111,9 @@ while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
   # A model does not change, so one that has answered these questions is not asked again
   run 02-target       training/baseline.mjs --who target --split held --each "$EACH"
   run 02-target-train training/baseline.mjs --who target --split train --each "$EACH"
-  run 03-a-alone   training/baseline.mjs --who a --split held --each "$EACH"
-  run 04-b-alone training/baseline.mjs --who b --split held --each "$EACH"
+  for K in $("$NODE" -e "import('./src/catalog.mjs').then(c=>console.log(Object.keys(c.MEMBERS).join(' ')))"); do
+    run "03-$K-alone" training/baseline.mjs --who "$K" --split held --each "$EACH"
+  done
   # the swarm as it is, on this pass's train questions: where each slot is failing
   run 05-swarm-train  training/measure.mjs --split train --each "$EACH"
   # THE PLAN, AGAIN, now that this pass has measured the swarm on its own questions: where the answers were lost decides what is
@@ -132,6 +135,8 @@ while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
   # the swarm as it now is: train again (the order of slots for the next pass comes from this), then held (what is reported)
   run 20-swarm-train  training/measure.mjs --split train --each "$EACH"
   run 21-swarm-held   training/measure.mjs --split held --each "$EACH"
+  # and every held question put a second way: equivalence that holds for one wording only is not fundamental
+  run 21-swarm-reworded training/measure.mjs --split reworded --each "$EACH"
   run 22-end          training/pass.mjs end
   run 23-publish      training/publish.mjs
   echo "$(date +%H:%M:%S) DONE" >> "$OUT/status.txt"

@@ -394,13 +394,49 @@ export const SEEDS = { train: 1009, held: 7919 };
 //   usable(reply)                                       does this reply hold an answer at all (a whole function, a value, a sentence)?
 //   show(reply)                                         the answer in a reply, short, for a person to read
 //   wrap(final)                                         what one slot settled on, put as a reply, so that it can be compared too
-export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, focus = {} } = {}) {
+// EVERY QUESTION A SECOND WAY. Equivalence that holds for one wording of a question and not for another is not fundamental. The
+// second wording changes how the question is put and nothing of what it asks: the description of what the function does is
+// word for word the same. A question with no second wording is left out.
+export function reword(ask) {
+  const s = String(ask);
+  const fix = 'This function is meant to do the following, and it is wrong.\n\nWhat it should do: ';
+  if (s.startsWith(fix)) {
+    const body =
+      'There is a mistake in the function below.\n\nIt is supposed to work like this: ' + s.slice(fix.length);
+    if (body.endsWith('Give the corrected function, in one code block, with the same name.'))
+      return body.replace(
+        /Give the corrected function, in one code block, with the same name\.$/,
+        'Put it right. Reply with the whole corrected function, keeping its name, in one code block.',
+      );
+    if (/In one or two sentences, what is the bug\? Do not rewrite the function\.$/.test(body))
+      return body.replace(
+        /In one or two sentences, what is the bug\? Do not rewrite the function\.$/,
+        'Say what the mistake is, in a sentence or two. Do not write the function out again.',
+      );
+    return null;
+  }
+  const write = /^Write a JavaScript function (`[^`]+`) that /.exec(s);
+  if (write) return 'I need a function in JavaScript, ' + write[1] + '. It ' + s.slice(write[0].length);
+  if (s.startsWith('What does this print?\n\n'))
+    return (
+      'Read this short JavaScript program and say what number it prints.\n\n' +
+      s.slice('What does this print?\n\n'.length)
+    );
+  return null;
+}
+export const reworded = (list) =>
+  list.map((t) => ({ ...t, id: t.id + '~2', split: 'reworded', refId: t.id, ask: reword(t.ask) })).filter((t) => t.ask);
+
+export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, focus = {}, tiers = {} } = {}) {
   const from = seed !== undefined ? seed : SEEDS[split] !== undefined ? SEEDS[split] : Date.now() % 1e6;
   const out = [];
   kinds.forEach((kind) => {
     const r = rng(from + Object.keys(ALL).indexOf(kind) * 131);
     const t = tools(r);
-    const n = each + (split === 'train' ? Number(focus[kind]) || 0 : 0);
+    // A BAR THAT IS HELD TIGHTENS: a kind the swarm has been at parity on for several passes is asked more of (tiers), on train
+    // and held alike. The questions it was at parity on stay; more are added after them.
+    const n =
+      each + (split === 'train' ? Number(focus[kind]) || 0 : 0) + (Number(tiers[kind]) || 0) * Math.ceil(each / 2);
     for (let i = 0; i < n; i++) {
       const made = ALL[kind](t, i);
       const base = {

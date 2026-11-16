@@ -160,6 +160,18 @@ rule: higher on train and not lower on held.
 
 A longer flow costs time, not memory: the same two small models and the same decider answer more turns.
 
+## Five rules a pass keeps
+
+Taken from how The Crew is trained, where each was learned the hard way.
+
+| Rule | What a pass does |
+|---|---|
+| Watch before acting | [`replay.mjs`](replay.mjs): from the Swarm's last measurement on the train questions it counts what each way of choosing between the answers would have won (`plan.decideBy`: `kev`, `most`, `kev-if-confident`, `kev-unless-majority`), and the plan ranks those ways by that count. Only a change to how answers are chosen can be replayed; a change to a brief or the flow makes different answers and is tried for real |
+| A reader is checked before it is believed | [`readers.mjs`](readers.mjs): Kev is given the same flaw said two ways and two different flaws. Under four in five right, answers in words are not compared this pass |
+| No flip goes unnamed | `pass.mjs end` names the held questions lost and won since the pass before, in `passes.md` and on the Swarm's record |
+| Every question a second way | The held questions with their wording changed and what they ask unchanged (`tasks.mjs`: `reword`), each compared with the larger model's answer to the first wording |
+| A bar that is held tightens | A kind at parity on the held questions for `ratchet.passes` passes in a row is asked half as many again from the next pass, up to `ratchet.max` times |
+
 ## The trainer trains by a policy, and changes it
 
 How a swarm is trained is data: [`policy.json`](policy.json) is where every configuration starts, and each configuration keeps
