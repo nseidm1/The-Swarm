@@ -116,6 +116,33 @@ node bin/swarm.mjs serve --port 8090
 | Decide | Kev | Picks which answer stands. [Kev](https://github.com/jaredpalmer/kev) is a decision model that writes nothing: it is given the question, each different answer and what the checkers said, and returns a probability for each answer |
 | Write | `a-writer` | Writes the reply a person reads, from what was settled. Code goes out exactly as it was settled, and is not written out again |
 
+**The order of these steps is not fixed.** It is the arrangement's *flow*, and training changes it the way it changes
+everything else, one step at a time and only on evidence. A flow can send the answers back to the slots that wrote them
+(with the other answers, where they part, and what the checkers said), loop checking and revising while the answers still
+differ, decide more than once (a first decision that keeps the likeliest two, a check of those, then the decision that
+settles), and have more than one slot write the reply with the decider picking between them. The plain flow above is where
+it starts:
+
+```json
+"flow": [
+  { "do": "draft" }, { "do": "try" },
+  { "do": "repeat", "upTo": 2, "steps": [{ "do": "check" }, { "do": "revise" }] },
+  { "do": "decide", "keep": 2 }, { "do": "check" }, { "do": "decide" },
+  { "do": "write" }
+]
+```
+
+Every arrangement of two small models and a decision model, however long its flow, holds the same few gigabytes: a
+fraction of what the larger model takes. Finding the one that answers as the larger model answers is what the trainers are for.
+
+**What is learned belongs to one configuration.** `src/briefs.json` is where every swarm starts. What training finds is
+true of these two small models and this decider against this larger model, so it is kept in a file of its own
+(`src/learned/<small 1>+<small 2>+<decider>--<larger model>.json`): the arrangement as it now stands, which is what the
+swarm runs, and a ledger of every change that was kept with the evidence it was kept on. Choose other models and that
+swarm starts from `briefs.json` and keeps its own record. The output spec is that file read out. What a configuration
+remembers of its training (which pass it is, what it tried and did not keep) is its own in the same way; only what was
+read on arXiv is shared, since a paper read once need not be read again.
+
 `a` and `b` are the two places a small model sits in; a slot is named for its place, not for the model in it. What each slot
 is told is one file, [`src/briefs.json`](src/briefs.json): that file, and the arrangement of the slots, are what training
 changes.
@@ -240,14 +267,20 @@ The pictures here and at the top of this page show it on made-up sample data. Th
 
 <p align="center"><em>One input, with what every slot wrote and both outputs.</em></p>
 
+<p align="center">
+  <img src="docs/images/dashboard-spec.png" alt="The output spec of one configuration: whether it is at parity with the larger model; what it has learned, each kept change with its kind, where it came from and the equivalent answers it won on train and on held; where each pass left it; then what it is, its flow and its slots" width="860">
+</p>
+
+<p align="center"><em>The output spec: what this configuration has learned, and the proof of each thing.</em></p>
+
 | Part | What it shows |
 |---|---|
-| Five pills | **Small model 1**, **Small model 2**, **Decides**, **Larger model**: each a list of the models that can be chosen, grouped by who made them. Choosing one redraws the page for that swarm, in place. **Output spec**: what the swarm as it stands is: what goes in and comes out, each model with its pinned file, every slot and what it is for, and where it stands against the larger model. To read, and to copy as JSON |
-| Training | **Run training** fetches and makes ready whatever the chosen models need, then runs a pass. It shows what is being fetched and how far, each step as it starts and ends, and **Stop training**. Beside it: the passes so far, and the ideas waiting to be measured, each opening the paper it came from |
-| Parity with the larger model | One strip, the same size before and after anything is measured: at parity or not yet, and the counts. It opens the whole measurement: equivalent answers pass by pass, which step settled each answer, equivalent answers by kind of question, and each small model alone |
-| The arrangement being trained | Every slot as a card: the model that fills it, what it is for, and what it is doing at this moment while a session runs: how long it has worked on this turn, which turn it is, and how long it has been engaged in all in the step in hand. Open a card for what the slot is told and what is being tried in its place. The larger model alongside, with the configurations of small models a pass has measured at parity with it |
+| Five pills | **Small model 1**, **Small model 2**, **Decides**, **Larger model**: each a list of the models that can be chosen, grouped by who made them. Choosing one redraws the page for that swarm, in place. **Output spec**: the record of this configuration against this larger model, which grows as it is trained. Every change a pass keeps (a brief, a change to the plan, an arrangement, a flow) is added as it is kept, with the answers it won on the questions it was chosen on and on the held ones; then where each pass left it, the flow and every slot as they now stand, each model with its pinned file, and what goes in and comes out. To read, and to copy as JSON |
+| Training | **Run training** fetches and makes ready whatever the chosen models need, then runs a pass. It shows what is being fetched and how far, each step as it starts and ends, and **Stop training**. As a pass goes it lists what it has kept so far. Beside it: the passes so far, and the ideas waiting to be measured, each opening the paper it came from |
+| Parity with the larger model | One strip, the same size at every moment, saying the most that is known so far and what kind of knowledge it is: what the larger model and each small model alone have done; then how the train questions are going; then the held answers as they come; and the verdict (at parity, or not yet and by how many) only when every held question is answered. Answers are read as the trainers write them down, not when a step ends. It opens the whole measurement: equivalent answers pass by pass, which step settled each answer, equivalent answers by kind of question, and each small model alone |
+| The arrangement being trained | The flow, one column for each step in order, a loop marked as one. Every slot as a card: the model that fills it, what it is for, and what it is doing at this moment while a session runs: how long it has worked on this turn, which turn it is, and how long it has been engaged in all in the step in hand. Open a card for what the slot is told and what is being tried in its place. The larger model alongside, with the configurations of small models a pass has measured at parity with it |
 | The plan being carried out | What this pass's measurement showed, and every move the pass chose because of it, in order: the slot and model, the technique, the paper it came from, why it was chosen, and what became of it (planned, being measured, kept, not kept) |
-| Input against output (once the swarm has answered) | Any question asked: the input and what the larger model answered, what every slot wrote and settled on (green where it is equivalent), the Swarm's output, and the larger model's output beside it |
+| Input against output (appears as soon as the swarm has answered) | Any question asked: the input and what the larger model answered, what every slot wrote and settled on (green where it is equivalent), the Swarm's output, and the larger model's output beside it |
 
 **No model is loaded outside a session.** A session loads what it needs and unloads it when it ends, however it ends. Only
 this page can start or stop one: a request from another site is refused. To see the page before a pass has run,
@@ -287,7 +320,7 @@ the Swarm answers again; the verdict is written.
 | `training/baseline.mjs` | One model by itself: the larger model, and each small model |
 | `training/measure.mjs` | The Swarm, and every slot on its own account |
 | `training/improve.mjs` | One slot's candidates |
-| `training/arrange.mjs` | Arrangements one step from the current one: a slot moved to the other model, a drafter or checker added or dropped, what a checker sees, how freely a drafter samples |
+| `training/arrange.mjs` | Arrangements one step from the current one. The flow: answers sent back to their drafters, a loop of checking and revising, a decision that narrows before the one that settles, a second writer, a step taken out. The slots: one moved to the other model, a drafter or checker added or dropped, what a checker sees, how freely a drafter samples |
 | `training/kev.sh` | Installs and runs Kev beside the Swarm |
 | `training/publish.mjs` | Writes what was measured to `src/trained.json`, which ships with the module |
 
@@ -339,7 +372,7 @@ npm test
 python3 ui/check.py
 ```
 
-Seventy-seven checks of the module and the trainers, and thirty-four of the dashboard. Stand-in servers take the place of the
+Eighty-five checks of the module and the trainers, and forty of the dashboard. Stand-in servers take the place of the
 models, Kev and Hugging Face, so nothing is fetched, started or installed, and both finish in well under a minute. They cover what
 goes in and comes out, which slots run, what happens when a slot, a model or everything fails, that two functions are judged
 equivalent by running them, that model-written code can reach nothing, and that each fault in [Recovery](#recovery) is
@@ -419,6 +452,8 @@ Known limits:
 | `ui/` | The dashboard (Python, standard library only), its sample data and its checks |
 | `tools/hooks/` | The commit hook: it formats what is being committed, and refuses model files, a run's leavings and anything over 5 MB |
 | `docs/` | The architecture, and the pictures above |
+| `src/learned/` | What each configuration has learned against its larger model: its arrangement, and the ledger of kept changes |
+| `training/states/` | What each configuration remembers of its training: its pass, what it tried and did not keep, how each pass ended. What was read on arXiv is kept once, in `training/state.json` |
 | `.work/` | Made when it runs, never committed: model files, the engine, Kev, training rows |
 
 ## Documentation

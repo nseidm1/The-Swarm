@@ -94,6 +94,53 @@ with tempfile.TemporaryDirectory() as tmp:
           and "19 equivalent, 4 different on train (as it was: 17, 6)" in plan and "Open a slot to read what it is told" not in html and "/fragment/plan" in html, plan[:300])
     check("a slot's card says how long it has worked on this turn, which turn it is, and how long it has been engaged in all this step, since its clock starts again with every question",
           "s this turn" in html and "in all this step" in html and "totals" in html and "turn '+(t.turns+1)" in html)
+    grown = dict(d, briefs=dict(d["briefs"], flow=[{"do": "draft"}, {"do": "try"}, {"do": "repeat", "upTo": 2, "steps": [{"do": "check"}, {"do": "revise"}]}, {"do": "decide", "keep": 2}, {"do": "check"}, {"do": "decide"}, {"do": "write"}]))
+    plain_flow, grown_flow = swarm_ui.stages(dict(d, briefs={k: v for k, v in d["briefs"].items() if k != "flow"})), swarm_ui.stages(grown)
+    check("the arrangement is drawn from its flow, one column for each step in order: the plain flow as draft, try, check, decide, write; a grown one with its loop marked, the answers going back to the drafters, a decision that keeps two and one that settles",
+          plain_flow.count('class="stage"') == 5 and "draft → try → check → decide → write" in plain_flow and "This is the plain flow" in plain_flow and "The sandbox" in plain_flow
+          and grown_flow.count('class="stage"') == 6 and grown_flow.count('class="stage loop"') == 2 and "up to 2 times" in grown_flow and "Answers again, shown the other answers" in grown_flow
+          and "Keeps the likeliest 2 answers" in grown_flow and "Decides which answer stands" in grown_flow and "repeat up to 2 times (check, revise)" in grown_flow and "A pass changed it" in grown_flow,
+          grown_flow.count('class="stage'))
+    # THE MEASUREMENT AS IT IS MADE: the strip says the most that is known at each moment, and what kind of knowledge it is
+    H, T = d["splits"]["held"], d["splits"]["train"]
+    part = dict(d, splits=dict(d["splits"], held=dict(H, swarm=H["swarm"][:5], parity=data.parity(H["swarm"][:5]), expected=12)))
+    only_train = dict(d, splits=dict(d["splits"], held=dict(H, swarm=[], parity=None)))
+    only_alone = dict(d, splits=dict(d["splits"], held=dict(H, swarm=[], parity=None), train=dict(T, swarm=[], parity=None)))
+    nothing = dict(d, splits={k: dict(v, swarm=[], parity=None, target={}, alone={m: [] for m in v["alone"]}) for k, v in d["splits"].items()})
+    s_part, s_train, s_alone, s_none, s_full = (swarm_ui.score_strip(x) for x in (part, only_train, only_alone, nothing, d))
+    check("the parity strip says the most that is known at each moment and never more: nothing; then what the larger model and each small model alone have done; then how the train questions are going; then the held answers as they come, said not to be the verdict; and the verdict only when all are answered",
+          "Not measured yet" in s_none and "has answered 12 held questions. The swarm has not answered yet" in s_alone and "alone" in s_alone and 'id="score-open"' not in s_alone
+          and "On this pass" in s_train and "train questions" in s_train and "Parity is said on the held questions" in s_train and "At parity" not in s_train and "Not at parity" not in s_train
+          and "Being measured: 5 of 12 held answers so far" in s_part and "The verdict is given when all 12 are answered" in s_part and "Not at parity" not in s_part
+          and ("Not at parity with" in s_full or "At parity with" in s_full) and "Being measured" not in s_full, s_part[:300])
+    ckd = root / ".work" / "train" / "checkpoints"
+    ckd.mkdir(parents=True, exist_ok=True)
+    extra = dict(H["swarm"][0], id="held-live-1", grade="right")
+    extra.pop("label", None)
+    (ckd / ("measure-swarm-%s-held-%s.jsonl" % (d["cfg"], d["state"]["seeds"]["held"]))).write_text(json.dumps(extra) + "\n")
+    (ckd / ("try-swarm-%s-held-%s.jsonl" % (d["cfg"], d["state"]["seeds"]["held"]))).write_text(json.dumps(dict(extra, id="held-trial-1")) + "\n")
+    live_d = data.load(root)
+    ids = [r["id"] for r in live_d["splits"]["held"]["swarm"]]
+    for f in ckd.glob("*.jsonl"):
+        f.unlink()
+    check("an answer is on the page the moment a trainer has written it down, before its step has ended; an answer of a candidate being tried is not taken for the swarm's; and input against output has a place that is filled as soon as the swarm has answered",
+          "held-live-1" in ids and "held-trial-1" not in ids and 'id="io-wrap"' in html and "/fragment/io" in html and swarm_ui.io_section(nothing) == "" and 'id="io"' in swarm_ui.io_section(d), ids[-3:])
+    # what a configuration remembers of its training is its own
+    sd = root / "training" / "states"
+    sd.mkdir(parents=True, exist_ok=True)
+    (sd / ("%s--%s.json" % (d["cfg"], d["target"]["id"]))).write_text(json.dumps({"pass": 7, "tried": {"a-critic": ["x"]}, "history": [], "ideaStatus": {d["state"]["ideas"][0]["hash"]: "dropped"}}))
+    own = data.load(root)
+    (sd / ("%s--%s.json" % (d["cfg"], d["target"]["id"]))).unlink()
+    check("the page reads this configuration's own record of its training over the folder's: its pass, what it tried, and what became of each idea here",
+          own["state"]["pass"] == 7 and own["state"]["ideas"][0]["status"] == "dropped" and own["state"]["ideas"][1]["status"] == "open" and d["state"]["pass"] == 4, own["state"]["pass"])
+    spec_html = get(base + "/fragment/spec")[1]
+    sp = data.spec(d)
+    check("the output spec is the record of what this configuration has learned against this larger model: every change that was kept, newest first, with where it came from and the answers it won on train and on held; where each pass left it; the flow; and a count of them on its pill",
+          len(d["learned"]["ledger"]) == 2 and sp["learned"]["changesKept"] == 2 and "What it has learned (2 kept)" in spec_html and spec_html.index("go back to the drafters") < spec_html.index("the shortest brief that still asks for a test")
+          and "arxiv.org/abs/2603.16045" in spec_html and "13 → 15" in spec_html and "6 → 7" in spec_html and "Where each pass left it" in spec_html and "pass 4: 9 of 12 equivalent" in spec_html
+          and "The flow" in spec_html and "Output spec · 2 learned" in html and d["briefs"].get("version") == 3 and sp["arrangement"]["flow"][0]["do"] == "draft", sp["learned"]["changesKept"])
+    bare = data.load(Path(tmp) / "empty")
+    check("a swarm that has learned nothing says so, and runs the arrangement every swarm starts from", bare["learned"]["ledger"] == [] and "Nothing yet" in swarm_ui.learned_block(dict(d, learned={"ledger": [], "passes": []})))
     check("the page ends with a footer: whose product it is, its licence, and that the page is served from this machine",
           '<footer class="foot">' in html and "A Family Office product" in html and "apache.org/licenses/LICENSE-2.0" in html and "github.com/nseidm1/The-Swarm" in html and "Copyright 2026 Family Office" in html and "<svg" in html.split('<footer class="foot">')[1].split("</footer>")[0])
     check("it shows the arrangement being trained: every slot of both models by stage, what each is told, what is being tried, and the larger model alongside",
@@ -120,7 +167,7 @@ with tempfile.TemporaryDirectory() as tmp:
     code_ok, drawn = send("/config", {"a": other["id"]})
     after = json.loads((root / "src" / "config.json").read_text())
     check("choosing a model writes it down and draws again everything that depends on it, in place: the slots in that place carry the new model's name, and results of another arrangement are not shown as this one's",
-          code_ok == 200 and after["a"] == other["id"] and other["name"] in drawn and "Not measured yet" in drawn and after["b"] == d["members"]["b"]["id"], after)
+          code_ok == 200 and after["a"] == other["id"] and other["name"] in drawn and ("Not measured yet" in drawn or "The swarm has not answered yet" in drawn) and "At parity with" not in drawn and "Not at parity with" not in drawn and after["b"] == d["members"]["b"]["id"], after)
     check("a model that is not one of those that can be chosen is refused, and so is a choice that does not come from this page",
           send("/config", {"a": "no-such-model"})[0] == 400 and send("/config", {"a": d["members"]["a"]["id"]}, {"content-type": "application/json"})[0] == 403 and json.loads((root / "src" / "config.json").read_text())["a"] == other["id"])
     send("/config", {"a": d["members"]["a"]["id"]})

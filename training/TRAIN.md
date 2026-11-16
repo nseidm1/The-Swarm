@@ -135,6 +135,31 @@ it: being measured, then kept or not kept, with what it scored. The dashboard sh
 A score in the plan says where to look first. It is not a measurement: a move is kept by the one rule, higher on train and
 not lower on held.
 
+## What is kept, and where
+
+A change that is kept is written to this configuration's own record, `src/learned/<a>+<b>+<decider>--<target>.json`
+([`src/learned.mjs`](../src/learned.mjs)): the arrangement as it now stands, and an entry on its ledger saying what changed,
+where it came from, and the answers equivalent to the larger model's before and after, on train and on held. `pass.mjs end`
+adds where the pass left it. `src/briefs.json` is never changed by training: it is where every swarm starts. The dashboard's
+output spec reads the record out, and grows as a pass keeps things.
+
+What a configuration remembers of its training is its own too (`training/states/<a>+<b>+<decider>--<target>.json`): which
+pass it is, the questions' seeds, what it measured and did not keep, the order of its slots, how each pass ended, and what
+became of each idea there. `training/state.json` holds only what was read: the questions put to arXiv, the papers seen and
+the ideas they turned into. Choose other models and that swarm starts at pass 1 with nothing tried; come back and this one is
+as it was left. A swarm that reaches parity starts a new record against the next, larger model.
+
+## The flow is trained too
+
+The order of steps is part of the arrangement (`flow` in `src/briefs.json`; [docs/architecture.md](../docs/architecture.md)).
+`arrange.mjs --list` shows every flow one change from the current one beside the changes to the slots: the answers sent back
+to their drafters after a check, a loop of checking and revising, a decision that keeps the likeliest two before the one that
+settles, a step taken out, a loop made longer or undone, a second writer with the decider picking the reply. A flow that is
+kept is where the next pass starts, so over passes the flow can grow into shapes nobody wrote down. Each is kept by the one
+rule: higher on train and not lower on held.
+
+A longer flow costs time, not memory: the same two small models and the same decider answer more turns.
+
 ## When something goes wrong
 
 | What goes wrong | What is done about it |
@@ -214,6 +239,7 @@ the abstracts and proposes candidates instead, on the Claude plan of the machine
 - No model is loaded outside a session. `session.sh` loads Kev when it starts and unloads it when it ends, however it ends;
   each step loads and unloads the small models and the target it uses. By hand: `bash training/kev.sh serve`, and `stop` after.
 - One trainer at a time. Two share the machine and spoil each other's times.
+- Do not run the checks (`npm test`) beside a session: they stop nothing of it, but they take its processor.
 - A count is not a finding until the replies behind it have been read.
 - The held questions choose nothing. If a change is made after looking at held results, the held seed is spent: change it in
   `state.json` and say so.

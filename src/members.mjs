@@ -209,9 +209,14 @@ export async function startMember(m, opts = {}) {
       why: exited
         ? m.name +
           "'s server stopped (" +
-          // stopped by a signal it did not send itself: on a machine short of memory that is the system taking it back
+          // stopped by a signal it did not send itself: SIGKILL is what the system sends when memory is short; any other
+          // was sent by something on the machine (another program, a person)
           (exited.signal
-            ? 'stopped by ' + exited.signal + ', as the system does when memory is short'
+            ? 'stopped by ' +
+              exited.signal +
+              (exited.signal === 'SIGKILL'
+                ? ', as the system does when memory is short'
+                : ': something on this machine stopped it')
             : 'exit ' + exited.code) +
           '): ' +
           // the lines that say what went wrong, where there are any, and not merely the last it happened to write

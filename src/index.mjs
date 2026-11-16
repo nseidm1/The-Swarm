@@ -21,11 +21,19 @@ import { answer as orchestrate } from './orchestrate.mjs';
 import { serve as serveHttp } from './server.mjs';
 import { kevDecider } from './decider.mjs';
 import { behaviours } from './behave.mjs';
+import { readLearned, saveLearned, notePass, learnedFile, LEARNED_DIR } from './learned.mjs';
 
 export { MEMBERS, SERVING, ENTRY, SERVED_NAME, modelFile };
 export { DECIDER, TARGET, REGISTRY, readConfig, writeConfig, CONFIG_ID } from './catalog.mjs';
 export const BRIEFS_FILE = fileURLToPath(new URL('./briefs.json', import.meta.url));
-export const readBriefs = (file = BRIEFS_FILE) => JSON.parse(fs.readFileSync(file, 'utf8'));
+// THE ARRANGEMENT THE SWARM RUNS: what this configuration has learned against its larger model (learned.mjs), or, where it has
+// learned nothing yet, the arrangement every swarm starts from (briefs.json). A file named is read as it is.
+export const readBriefs = (file) => {
+  if (file) return JSON.parse(fs.readFileSync(file, 'utf8'));
+  const learned = readLearned();
+  return learned ? learned.briefs : JSON.parse(fs.readFileSync(BRIEFS_FILE, 'utf8'));
+};
+export { readLearned, saveLearned, notePass, learnedFile, LEARNED_DIR };
 // what was measured of the swarm (training/publish.mjs writes it): for a model card to show
 export const readTrained = () => {
   try {

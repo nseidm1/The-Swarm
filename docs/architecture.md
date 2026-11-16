@@ -27,8 +27,28 @@ answer is to be reached. That is the whole public surface, in three forms:
 | [`src/read.mjs`](../src/read.mjs) | Reading the answer out of what a slot wrote, and telling when two answers are the same |
 | [`src/behave.mjs`](../src/behave.mjs) | Which drafts of a function do the same: the calls to try, the drafts run on them, the drafts grouped by what they returned |
 | [`src/sandbox.mjs`](../src/sandbox.mjs), [`src/sandbox-runner.mjs`](../src/sandbox-runner.mjs) | Running a function a model wrote where it can reach nothing. The only place anything a model wrote is run |
-| [`src/briefs.json`](../src/briefs.json) | What each slot is told, and the plan. The trained part |
+| [`src/briefs.json`](../src/briefs.json) | What each slot is told, the plan and the flow, as every swarm starts |
+| [`src/learned.mjs`](../src/learned.mjs), `src/learned/` | What one configuration has learned against one larger model: the arrangement it now runs, and the ledger of every kept change with its evidence |
 | [`src/catalog.mjs`](../src/catalog.mjs) | The two model files, pinned, and the entry for a list of models |
+
+## The flow
+
+What happens in what order is a list of steps in `src/briefs.json` (`flow`), run over the answers that stand. With none named
+it is `draft, try, check, decide, write`.
+
+| Step | What it does |
+|---|---|
+| `draft` | Its slots answer the question, all at once. Each slot's latest answer stands |
+| `try` | Where code is asked for: the answers are run on the same calls, and those that do the same are one answer |
+| `check` | Its slots are shown one answer for each different answer and where they part, and name the one they find correct |
+| `revise` | The drafting slots are shown the different answers, which was their own, where they part and what the checkers said, and answer again |
+| `decide` | The decision model picks the answer that stands. With `keep: n` it settles nothing: the likeliest n go on |
+| `repeat` | `{ steps, upTo }`: its steps again, while the answers still differ |
+| `write` | Its slots write the reply. With more than one, the decision model picks. Code goes out as settled |
+
+A step that works on a dispute (`check`, `revise`, `decide`, `repeat`) is passed over when every answer is the same one. If no
+step settles it, the one answer stands where there is one, and otherwise the answer most slots hold. `slots: [ids]` on a step
+names the slots it uses; without it a step uses the slots of its own kind. A slot may be used by more than one step.
 
 ## Slots
 

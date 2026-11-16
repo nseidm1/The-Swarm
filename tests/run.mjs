@@ -783,11 +783,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       none === null &&
       two &&
       two.groups.length === 2 &&
-      /add\(0, 0\)/.test(two.differ(['A', 'B'])) === false &&
-      /add\(1, 2\) {2}-> {2}A: 3 {3}B: -1/.test(two.differ(['A', 'B'])) &&
+      /add\(0, 0\)/.test(two.differ([two.by.A, two.by.B], { as: ['A', 'B'] })) === false &&
+      /add\(1, 2\) {2}-> {2}A: 3 {3}B: -1/.test(two.differ([two.by.A, two.by.B], { as: ['A', 'B'] })) &&
       (await two.sigOf(ways['b-direct'])) === two.by.A &&
       (await two.sigOf(broken)) === '',
-    { read, differ: two && two.differ(['A', 'B']) },
+    { read, differ: two && two.differ([two.by.A, two.by.B], { as: ['A', 'B'] }) },
   );
   // a reply that gives the function and then shows it in use
   const withExample =
@@ -803,6 +803,313 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       codeOf('```\nlet x = 1;\n```') === 'let x = 1;',
     finalOf(withExample, 'ANSWER:', true),
   );
+}
+// ---- 6e: THE FLOW: the order of steps is part of the arrangement, and is not fixed
+{
+  const { flowOf, DEFAULT_FLOW } = await import('../src/orchestrate.mjs');
+  const { steps, flowMoves, shapeOf } = await import('../training/arrange.mjs');
+  const withFlow = (flow, more = {}) => ({ ...briefs, ...more, flow });
+  const lastOf = (b) => b.messages[b.messages.length - 1].content;
+  const revising = (b) => /Weigh them/.test(lastOf(b));
+  // the answers go back to those who wrote them, who then agree
+  reset();
+  const back = [];
+  lfm.s.script = (b) => {
+    const r = roleOf(b);
+    if (r.stage === 'write') return 'It is 42.';
+    if (revising(b)) return (back.push([r.id, lastOf(b)]), 'On reflection.\nANSWER: 42');
+    return r.id === 'a-direct' ? 'ANSWER: 41' : 'work\nANSWER: 42';
+  };
+  bonsai.s.script = (b) => {
+    const r = roleOf(b);
+    if (revising(b)) return (back.push([r.id, lastOf(b)]), 'ANSWER: 42');
+    return r.id === 'b-direct'
+      ? 'ANSWER: 48'
+      : r.stage === 'check'
+        ? 'A slips at the first line.\nANSWER: 42'
+        : 'because\nANSWER: 42';
+  };
+  const once = await swarm.answer(Q, {
+    briefs: withFlow([{ do: 'draft' }, { do: 'check' }, { do: 'revise' }, { do: 'decide' }, { do: 'write' }]),
+  });
+  const mine = back.find(([id]) => id === 'a-direct');
+  check(
+    'a flow can send the answers back to the slots that wrote them: each is shown the different answers, which was its own and what the checkers said, and answers again; when they then agree nothing is left to decide',
+    once.ok &&
+      once.path === 'converged' &&
+      once.decided === '42' &&
+      once.reply === 'It is 42.' &&
+      once.trace.filter((r) => r.stage === 'revise').length === 4 &&
+      back.length === 4 &&
+      mine &&
+      /Yours was Answer A\./.test(mine[1]) &&
+      /What those who checked them said/.test(mine[1]) &&
+      /A slips at the first line/.test(mine[1]) &&
+      !once.trace.some((r) => r.stage === 'decide'),
+    { path: once.path, revise: once.trace.filter((r) => r.stage === 'revise').length },
+  );
+  // a loop: check and revise again while the answers differ
+  reset();
+  let rounds = 0;
+  lfm.s.script = (b) => {
+    const r = roleOf(b);
+    if (r.stage === 'write') return 'It is 42.';
+    if (revising(b)) return r.id === 'a-direct' && rounds < 4 ? (rounds++, 'ANSWER: 41') : (rounds++, 'ANSWER: 42');
+    return r.id === 'a-direct' ? 'ANSWER: 41' : 'ANSWER: 42';
+  };
+  bonsai.s.script = (b) => (revising(b) ? (rounds++, 'ANSWER: 42') : 'ANSWER: 42');
+  const loop = [
+    { do: 'draft' },
+    { do: 'repeat', upTo: 3, steps: [{ do: 'check' }, { do: 'revise' }] },
+    { do: 'decide' },
+    { do: 'write' },
+  ];
+  const looped = await swarm.answer(Q, { briefs: withFlow(loop) });
+  const rv = looped.trace.filter((r) => r.stage === 'revise');
+  check(
+    'a flow can loop: its steps are done again while the answers still differ, each round marked, and no more once they are the same',
+    looped.ok &&
+      looped.path === 'converged' &&
+      rv.length === 8 &&
+      rv.filter((r) => r.round === 1).length === 4 &&
+      rv.filter((r) => r.round === 2).length === 4 &&
+      !rv.some((r) => r.round === 3) &&
+      looped.trace.filter((r) => r.stage === 'check').length === 4,
+    { path: looped.path, rounds: rv.map((r) => r.round) },
+  );
+  // more than one decision: the likeliest two are kept, checked again, and then one is picked
+  reset();
+  const seenCheck = [];
+  lfm.s.script = (b) => {
+    const r = roleOf(b);
+    if (r.stage === 'check') return (seenCheck.push(lastOf(b)), 'ANSWER: 42');
+    return r.stage === 'write' ? 'It is 42.' : r.id === 'a-direct' ? 'ANSWER: 41' : 'ANSWER: 42';
+  };
+  bonsai.s.script = (b) => {
+    const r = roleOf(b);
+    if (r.stage === 'check') return (seenCheck.push(lastOf(b)), 'ANSWER: 42');
+    return r.id === 'b-direct' ? 'ANSWER: 48' : 'ANSWER: 42';
+  };
+  const asked = [];
+  const judge = async ({ question, answers }) => {
+    asked.push({ question, finals: answers.map((x) => x.final) });
+    // the first time it leans to 48, then 42, with 41 last; asked again of the two it picks 42
+    const probs = Object.fromEntries(
+      answers.map((x) => [
+        x.letter,
+        x.final === '48' ? 0.45 : x.final === '42' ? (answers.length === 2 ? 0.7 : 0.4) : 0.15,
+      ]),
+    );
+    const top = answers.slice().sort((x, y) => probs[y.letter] - probs[x.letter])[0];
+    return { ok: true, letter: top.letter, final: top.final, probs, ms: 1 };
+  };
+  const judged = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, decide: judge });
+  const twice = await judged.answer(Q, {
+    briefs: withFlow([{ do: 'draft' }, { do: 'decide', keep: 2 }, { do: 'check' }, { do: 'decide' }, { do: 'write' }]),
+  });
+  check(
+    'a flow can hold more than one decision: the first keeps the likeliest two answers and settles nothing, the checkers are then shown only those two, and the second picks between them',
+    twice.ok &&
+      asked.length === 2 &&
+      asked[0].finals.join() === '41,42,48' &&
+      asked[1].finals.join() === '42,48' &&
+      twice.decided === '42' &&
+      /narrowed/.test(twice.path) &&
+      seenCheck.length === 2 &&
+      seenCheck.every(
+        (t) => !/Its final answer: 41/.test(t) && /Its final answer: 42/.test(t) && /Its final answer: 48/.test(t),
+      ) &&
+      twice.trace.filter((r) => r.stage === 'decide').length === 2 &&
+      /Kept the 2 likeliest/.test(twice.trace.find((r) => r.stage === 'decide').out),
+    { asked, path: twice.path },
+  );
+  // more than one reply written, and the decider picks
+  reset();
+  lfm.s.script = (b) => (roleOf(b).stage === 'write' ? 'The product is 42.' : 'ANSWER: 42');
+  bonsai.s.script = (b) =>
+    roleOf(b) && roleOf(b).stage === 'write' ? 'It is 42, since six sevens are 42.' : 'ANSWER: 42';
+  const writerB = { ...briefs.slots.find((x) => x.stage === 'write'), id: 'b-writer', member: 'b' };
+  const pickReply = async ({ question, answers }) =>
+    /Which reply/.test(question)
+      ? { ok: true, letter: 'B', final: answers[1].final, probs: { A: 0.3, B: 0.7 }, ms: 1 }
+      : judge({ question, answers });
+  const two = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, decide: pickReply });
+  const wrote = await two.answer(Q, { briefs: { ...briefs, slots: [...briefs.slots, writerB] } });
+  await two.stop();
+  await judged.stop();
+  check(
+    'where more than one slot writes the reply, every reply is written and the decider picks which one is sent',
+    wrote.ok &&
+      wrote.trace.filter((r) => r.stage === 'write').length === 2 &&
+      wrote.reply === 'It is 42, since six sevens are 42.' &&
+      /\+picked/.test(wrote.path) &&
+      wrote.path.startsWith('agreed'),
+    { path: wrote.path, reply: wrote.reply },
+  );
+  // the arrangement search can change the flow, one step at a time, and from there again
+  const names = (b) => flowMoves(b).map((c) => c.name);
+  const first = flowMoves(briefs);
+  const loopMove = first.find((c) => /check and revise again/.test(c.name));
+  const second = flowMoves(loopMove.briefs);
+  const all = steps(briefs);
+  check(
+    'the search over arrangements reaches the flow: answers sent back, a loop, a decision that narrows first, a step taken out, a second writer; from a flow it has kept it goes on (a longer loop, the loop undone, back to the plain flow); and a flow is part of what makes two arrangements different',
+    flowOf(briefs) === DEFAULT_FLOW &&
+      names(briefs).length === 4 &&
+      names(briefs).some((n) => /go back to the drafters/.test(n)) &&
+      names(briefs).some((n) => /decide twice/.test(n)) &&
+      names(briefs).some((n) => /no check/.test(n)) &&
+      !names(briefs).some((n) => /plain one/.test(n)) &&
+      second.some((c) => /3 times at most/.test(c.name) && c.briefs.flow.find((x) => x.do === 'repeat').upTo === 3) &&
+      second.some(
+        (c) => /undone/.test(c.name) && c.briefs.flow.map((x) => x.do).join() === 'draft,try,check,revise,decide,write',
+      ) &&
+      second.some((c) => /plain one/.test(c.name) && c.briefs.flow === undefined) &&
+      shapeOf(loopMove.briefs) !== shapeOf(briefs) &&
+      all.some((c) => /add a second a-writer on b/.test(c.name)) &&
+      all.filter((c) => /^flow: /.test(c.name)).length === 4 &&
+      /^flow: /.test(all[0].name) &&
+      first.every((c) => c.briefs.flow[0].do === 'draft'),
+    { first: names(briefs), second: second.map((c) => c.name) },
+  );
+}
+// ---- 6f: WHAT ONE SWARM HAS LEARNED is kept for that swarm, with the proof of each thing
+{
+  const {
+    readLearned,
+    saveLearned,
+    notePass,
+    learnedFile,
+    LEARNED_DIR,
+    readBriefs: readNow,
+    BRIEFS_FILE,
+  } = await import('../src/index.mjs');
+  const base = JSON.parse(fs.readFileSync(BRIEFS_FILE, 'utf8'));
+  const before = readNow();
+  const noneYet = readLearned();
+  const better = {
+    ...base,
+    version: 2,
+    slots: base.slots.map((x) => (x.id === 'a-critic' ? { ...x, brief: 'A better brief.' } : x)),
+  };
+  const ev = {
+    train: { before: { right: 10, wrong: 8 }, after: { right: 12, wrong: 6 } },
+    held: { before: { right: 5, wrong: 7 }, after: { right: 5, wrong: 7 } },
+  };
+  saveLearned(better, {
+    pass: 1,
+    kind: 'brief',
+    slot: 'a-critic',
+    what: 'a better brief',
+    from: '2601.00001',
+    why: 'higher on train, not lower on held',
+    ...ev,
+  });
+  const grown = {
+    ...better,
+    version: 3,
+    flow: [{ do: 'draft' }, { do: 'check' }, { do: 'revise' }, { do: 'decide' }, { do: 'write' }],
+  };
+  saveLearned(grown, {
+    pass: 2,
+    kind: 'flow',
+    what: 'the answers go back to the drafters after the check',
+    why: 'higher on train, not lower on held',
+    ...ev,
+  });
+  notePass({ pass: 2, at: '2026-11-15', equivalent: 9, compared: 12, level: false }, grown);
+  const mine = readLearned();
+  // another pair of small models, or another larger model, has learned nothing of this
+  const other = readLearned('some+other+pair', 'another-target');
+  saveLearned(
+    base,
+    { pass: 1, kind: 'plan', what: 'x', ...ev },
+    { config: 'some+other+pair', target: 'another-target' },
+  );
+  // a file half written: the last good copy
+  fs.writeFileSync(learnedFile(), '{"briefs": {"slots": [');
+  const afterCrash = readLearned();
+  check(
+    'what a swarm learns is kept for that configuration against that larger model, apart from every other: the arrangement as it now stands is what it runs, each kept change is on its ledger in order with the evidence it was kept on, where each pass left it is beside them, and a file half written is read from its last good copy',
+    noneYet === null &&
+      before.version === base.version &&
+      !before.flow &&
+      mine.ledger.length === 2 &&
+      mine.ledger[0].n === 1 &&
+      mine.ledger[1].kind === 'flow' &&
+      mine.ledger[0].from === '2601.00001' &&
+      mine.ledger[0].train.after.right === 12 &&
+      typeof mine.ledger[0].at === 'string' &&
+      mine.passes.length === 1 &&
+      mine.passes[0].equivalent === 9 &&
+      readNow().version === 3 &&
+      readNow().flow.length === 5 &&
+      other === null &&
+      readLearned('some+other+pair', 'another-target').ledger.length === 1 &&
+      readLearned().ledger.length === 2 &&
+      afterCrash &&
+      afterCrash.ledger.length === 2 &&
+      LEARNED_DIR.startsWith(WORK_DIR) &&
+      readNow(BRIEFS_FILE).version === base.version,
+    { ledger: mine.ledger.map((x) => [x.n, x.kind, x.what]), dir: LEARNED_DIR },
+  );
+  // put back: the checks after this one start from briefs.json, as the ones before did
+  fs.rmSync(LEARNED_DIR, { recursive: true, force: true });
+}
+// ---- 6g: WHAT A CONFIGURATION REMEMBERS OF ITS TRAINING is its own; what was read is everyone's
+{
+  const { readState, writeState, seedState, stateFileOf, STATES_DIR, STATE_FILE } =
+    await import('../training/state.mjs');
+  const { TARGET } = await import('../src/catalog.mjs');
+  const start = readState();
+  const idea = { pass: 1, from: '2601.00001', slot: 'a-critic', name: 'an idea', hash: 'h1' };
+  writeState({
+    ...start,
+    pass: 3,
+    tried: { 'a-critic': ['x', 'y'], _arrangement: ['s1'] },
+    order: ['a-critic'],
+    history: [{ pass: 3 }],
+    seen: ['2601.00001'],
+    ideas: [
+      { ...idea, status: 'dropped' },
+      { ...idea, hash: 'h2', status: 'open' },
+    ],
+  });
+  const mine = readState();
+  const shared = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+  // the same folder, another larger model: nothing tried, the same reading
+  const otherFile = stateFileOf('another-target');
+  const seeded = seedState('another-target', { seeds: { train: 5, held: 6 }, tried: {}, order: [], history: [] });
+  const again = seedState('another-target', { seeds: { train: 9, held: 9 } });
+  const other = JSON.parse(fs.readFileSync(otherFile, 'utf8'));
+  check(
+    'what a configuration remembers of its training is kept for that configuration against that larger model (which pass it is, what was tried and not kept, the order of slots, how each pass ended, what became of each idea), while what was read is kept once for all; another target starts with nothing tried and is not written over once it has a record',
+    start.pass === 0 &&
+      mine.pass === 3 &&
+      mine.tried['a-critic'].length === 2 &&
+      mine.history.length === 1 &&
+      mine.ideas.length === 2 &&
+      mine.ideas[0].status === 'dropped' &&
+      mine.ideas[1].status === 'open' &&
+      shared.pass === undefined &&
+      shared.tried === undefined &&
+      shared.seen.join() === '2601.00001' &&
+      shared.ideas.length === 2 &&
+      shared.ideas[0].status === undefined &&
+      fs.existsSync(stateFileOf(TARGET.id)) &&
+      seeded === true &&
+      again === false &&
+      other.pass === 0 &&
+      other.seeds.held === 6 &&
+      Object.keys(other.tried).length === 0 &&
+      STATES_DIR.startsWith(WORK_DIR) &&
+      STATE_FILE.startsWith(WORK_DIR),
+    { mine: { pass: mine.pass, ideas: mine.ideas.map((i) => i.status) }, shared: Object.keys(shared) },
+  );
+  // put back: the checks after this one find no record, as the ones before did
+  fs.rmSync(STATES_DIR, { recursive: true, force: true });
+  fs.rmSync(STATE_FILE, { force: true });
+  fs.rmSync(STATE_FILE + '.bak', { force: true });
 }
 // ---- 7: one worked answer for each different answer
 {
@@ -1396,6 +1703,31 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       ),
     status,
   );
+  // THE CHECKS STOP NOTHING: a process that looks exactly like one of this folder's model servers is found, and is left running
+  {
+    const { spawn } = await import('node:child_process');
+    const root = path.resolve(path.dirname(FAKE), '..');
+    const decoy = spawn(
+      process.execPath,
+      ['-e', 'setTimeout(() => {}, 30000)', 'llama-server', path.join(root, '.work', 'models', 'decoy.gguf')],
+      { stdio: 'ignore' },
+    );
+    await new Promise((r) => setTimeout(r, 400));
+    const found = reap({ keepKev: true }).some((r) => r.pid === String(decoy.pid));
+    await new Promise((r) => setTimeout(r, 300));
+    let alive = true;
+    try {
+      process.kill(decoy.pid, 0);
+    } catch {
+      alive = false;
+    }
+    decoy.kill();
+    check(
+      "the checks stop no real process: run beside a live session, what looks like one of this folder's model servers is found and left running (the recovery code the checks exercise would otherwise stop the session's own servers)",
+      process.env.SWARM_NO_REAP === '1' && found && alive,
+      { found, alive },
+    );
+  }
   check(
     "what a dead session left running is found by what it was started with, and nothing of anyone else's is counted",
     Array.isArray(reap({ dry: true })) && reap({ dry: true }).every((r) => /\.work|--name target/.test(r.cmd)),

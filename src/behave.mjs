@@ -81,7 +81,7 @@ const said = (o) => (o.e ? 'it fails' : short(o.v));
 
 // drafts: [{ letter, final }] -> null (they could not be tried: compare them as text), or
 //   { name, calls, by: { letter: signature | '' (it does not run) }, groups: [[letters]], summary,
-//     differ(letters) -> text: the calls on which those drafts part, and what each gave,
+//     differ(sigs, { as }) -> text: the calls on which those behaviours part, and what each gave,
 //     sigOf(code) -> the signature of another piece of code on the same calls ('' when it does not run) }
 export async function behaviours({
   question = '',
@@ -113,6 +113,9 @@ export async function behaviours({
     if (g) g.push(d.letter);
     else groups.push([d.letter]);
   }
+  // what each behaviour gave, by its signature: answers written later are known by theirs
+  const outsBySig = new Map();
+  for (const d of ran) outsBySig.set(by[d.letter], outs[d.letter]);
   const dead = drafts.filter((d) => !outs[d.letter]).map((d) => d.letter);
   return {
     name,
@@ -130,20 +133,26 @@ export async function behaviours({
         : groups.length + ' behaviours (' + groups.map((g) => g.join(', ')).join(' | ') + ')') +
       (dead.length ? '. ' + dead.join(', ') + ' did not run' : '') +
       '.',
-    differ(letters, { most = 5 } = {}) {
-      const mine = letters.filter((l) => outs[l]);
+    // where answers part: `sigs` are what each did (by[letter], or sigOf(code)); `as` the letters to call them by
+    differ(sigs, { most = 5, as = sigs } = {}) {
+      const rows = sigs.map((s) => outsBySig.get(s)).filter(Boolean);
+      const names = as.filter((_, i) => outsBySig.get(sigs[i]));
+      if (rows.length < 2) return '';
       const lines = [];
       calls.forEach((c, i) => {
         if (!keep[i] || lines.length >= most) return;
-        const vals = mine.map((l) => said(outs[l][i]));
-        if (new Set(vals).size > 1) lines.push(c + '  ->  ' + mine.map((l, k) => l + ': ' + vals[k]).join('   '));
+        const vals = rows.map((o) => said(o[i]));
+        if (new Set(vals).size > 1) lines.push(c + '  ->  ' + names.map((l, k) => l + ': ' + vals[k]).join('   '));
       });
       return lines.length
         ? 'Each answer was run on the same calls. They give different results on:\n' + lines.join('\n')
         : '';
     },
     async sigOf(code) {
-      return sigFor(await run(code, name, calls));
+      const o = await run(code, name, calls);
+      const sig = sigFor(o);
+      if (sig) outsBySig.set(sig, o);
+      return sig;
     },
   };
 }

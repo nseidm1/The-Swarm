@@ -156,6 +156,10 @@ export function checkpoint(name) {
 // were started with (a model file under this folder's .work, Kev from this folder's .work/kev, a target served under the name the
 // trainers give it), so that nothing of anyone else's is touched. Not done while a session of this folder is still alive.
 export function reap({ dry = false, keepKev = false } = {}) {
+  // THE CHECKS STOP NOTHING. They run this very code (a step that fails is followed by a reap), and on a machine where a real
+  // session is at work that would stop the session's own model servers. It did, on 2026-11-15: ten recoveries in one session,
+  // every one of them caused by the checks being run beside it. SWARM_NO_REAP=1 (tests/env.mjs sets it) looks and never stops.
+  if (process.env.SWARM_NO_REAP === '1') dry = true;
   let ps = '';
   try {
     ps = execFileSync('ps', ['-axo', 'pid=,command='], { encoding: 'utf8' });

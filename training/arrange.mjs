@@ -12,6 +12,8 @@
 //   drop      a drafter (never below two) or a checker
 //   sees      a checker shown the work, or only the answers
 //   heat      a drafter's temperature, up or down
+//   flow      the order of steps itself: answers sent back to their drafters, a loop of checking and revising, a decision that
+//             narrows before the one that settles, a second writer with the decider picking the reply, a step taken out
 //   plan      one worked answer for each different answer; the checks passed over when the drafts agree; drafts of code
 //             compared by what they do, or as text
 //   node training/arrange.mjs                 try a few (--tries 4)
@@ -32,9 +34,9 @@ import {
   RESULTS,
 } from './support/bench.mjs';
 import { readState, writeState, briefHash } from './state.mjs';
-import { writeSafe } from './support/recover.mjs';
 import { mark, readPlan } from './support/plan-file.mjs';
-import { BRIEFS_FILE, readBriefs, SERVING } from '../src/index.mjs';
+import { readBriefs, saveLearned, SERVING } from '../src/index.mjs';
+import { flowOf } from '../src/orchestrate.mjs';
 
 // an arrangement is known by its shape, not its words: who is where, at what stage, seeing what, how hot; and the plan
 export const shapeOf = (b) =>
@@ -42,12 +44,14 @@ export const shapeOf = (b) =>
     JSON.stringify({
       slots: b.slots.map((s) => [s.id, s.member, s.stage, s.sees || '', s.temperature ?? '', s.maxTokens ?? '']),
       plan: Object.fromEntries(Object.entries(b.plan || {}).sort()),
+      flow: b.flow || null,
     }),
   );
 
 // every arrangement one step from this one: [{ name, briefs }]
 export function steps(b, { cap = SERVING.slots, members = ['a', 'b'] } = {}) {
-  const out = [];
+  // the flow first: with nothing measured to point anywhere, a pass tries the order of steps before it tries who sits where
+  const out = [...flowMoves(b)];
   const used = (m, slots = b.slots) => slots.filter((s) => s.member === m).length;
   const other = (m) => members.find((x) => x !== m);
   const withSlots = (slots) => ({ ...b, slots });
@@ -61,8 +65,9 @@ export function steps(b, { cap = SERVING.slots, members = ['a', 'b'] } = {}) {
         briefs: withSlots(b.slots.map((x) => (x.id === s.id ? { ...x, member: other(s.member) } : x))),
       });
   }
-  for (const s of [...drafts, ...checks]) {
-    // add: a copy of this role on a model with a slot to spare, sampled more freely so that it is not the same voice twice
+  const writers = b.slots.filter((s) => s.stage === 'write');
+  for (const s of [...drafts, ...checks, ...(writers.length === 1 ? writers : [])]) {
+    // add (a second writer means two replies are written, and the decider picks between them): a copy of this role on a model with a slot to spare, sampled more freely so that it is not the same voice twice
     for (const m of members) {
       if (used(m) >= cap) continue;
       const id = s.id + '-' + m + '-2';
@@ -114,6 +119,64 @@ export function steps(b, { cap = SERVING.slots, members = ['a', 'b'] } = {}) {
         members.every((m) => used(m, c.briefs.slots) <= cap),
     )
     .map((c) => ({ ...c, hash: shapeOf(c.briefs) }));
+}
+
+// THE FLOW IS PART OF THE ARRANGEMENT: what happens in what order, how often, and what settles it (src/orchestrate.mjs). Every flow
+// one change from this one: the answers sent back to those who wrote them, a loop of checking and revising, a decision that
+// narrows before the one that settles, a step taken out, a loop made longer or undone. A kept change is where the next pass
+// starts from, so pass after pass the flow can grow into shapes nobody wrote down.
+const ORD = ['first', 'second', 'third', 'fourth', 'fifth'];
+export function flowMoves(b) {
+  const f = flowOf(b);
+  const out = [];
+  const put = (name, flow) => out.push({ name: 'flow: ' + name, briefs: { ...b, flow } });
+  const without = (i) => [...f.slice(0, i), ...f.slice(i + 1)];
+  f.forEach((s, i) => {
+    const nth = f.slice(0, i).filter((x) => x.do === s.do).length;
+    const many = f.filter((x) => x.do === s.do).length > 1;
+    const which = many ? ' (the ' + ORD[Math.min(nth, 4)] + ')' : '';
+    const next = f[i + 1];
+    if (s.do === 'check') {
+      if (!(next && next.do === 'revise'))
+        put('the answers go back to the drafters after the check' + which, [
+          ...f.slice(0, i + 1),
+          { do: 'revise' },
+          ...f.slice(i + 1),
+        ]);
+      put('check and revise again while the answers differ, twice at most' + which, [
+        ...f.slice(0, i),
+        { do: 'repeat', upTo: 2, steps: [{ do: 'check' }, { do: 'revise' }] },
+        ...f.slice(i + (next && next.do === 'revise' ? 2 : 1)),
+      ]);
+      put('no check' + which, without(i));
+    }
+    if (s.do === 'revise') put('no revising' + which, without(i));
+    if (s.do === 'decide' && s.keep) put('no narrowing' + which, without(i));
+    if (s.do === 'decide' && !s.keep && !f.some((x) => x.do === 'decide' && x.keep))
+      put('decide twice: keep the likeliest two, check those again, then decide', [
+        ...f.slice(0, i),
+        { do: 'decide', keep: 2 },
+        { do: 'check' },
+        ...f.slice(i),
+      ]);
+    if (s.do === 'repeat') {
+      const upTo = s.upTo || 2;
+      if (upTo < 3)
+        put('the loop' + which + ' ' + (upTo + 1) + ' times at most', [
+          ...f.slice(0, i),
+          { ...s, upTo: upTo + 1 },
+          ...f.slice(i + 1),
+        ]);
+      put('the loop' + which + ' undone: its steps once', [...f.slice(0, i), ...(s.steps || []), ...f.slice(i + 1)]);
+    }
+  });
+  if (b.flow)
+    out.push({
+      name: 'flow: the plain one (draft, try, check, decide, write)',
+      briefs: (({ flow, ...rest }) => rest)(b),
+    });
+  // a flow must still begin with a draft and be able to settle on something
+  return out.filter((c) => !c.briefs.flow || (c.briefs.flow[0] && c.briefs.flow[0].do === 'draft'));
 }
 
 // which to try this pass: ones never tried, a different kind of step first so that a pass does not spend itself on one idea
@@ -205,7 +268,23 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         heldBest,
       };
       if (kept)
-        writeSafe(BRIEFS_FILE, JSON.stringify({ ...best.briefs, version: (briefs.version || 1) + 1 }, null, 2) + '\n');
+        saveLearned(
+          { ...best.briefs, version: (briefs.version || 1) + 1 },
+          {
+            pass: state.pass + 1,
+            kind: /^flow: /.test(best.name) ? 'flow' : /^plan: /.test(best.name) ? 'plan' : 'arrangement',
+            what: best.name.replace(/^flow: /, ''),
+            why: 'higher on train, not lower on held',
+            train: {
+              before: { right: now.right, wrong: now.wrong },
+              after: { right: best.train.right, wrong: best.train.wrong },
+            },
+            held: {
+              before: { right: heldNow.right, wrong: heldNow.wrong },
+              after: { right: heldBest.right, wrong: heldBest.wrong },
+            },
+          },
+        );
     }
   } finally {
     await swarm.stop();

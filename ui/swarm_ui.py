@@ -99,10 +99,12 @@ a.idea:hover{background:var(--soft)}a.idea:focus-visible{outline:2px solid var(-
 .bar .track i{display:block;height:100%}.r{background:var(--right)}.w{background:var(--wrong)}.u{background:var(--unsure);opacity:.55}
 .bar .n{font-size:12.5px;color:var(--mist);text-align:right;white-space:nowrap}
 .who-swarm{color:var(--teal)}.who-target{color:var(--tgt)}
-.stages{display:grid;grid-template-columns:1.25fr 1fr .9fr .9fr;gap:14px}
+.pane,.panel{min-width:0}.stages{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(178px,1fr);gap:14px;align-items:start;overflow-x:auto;padding-bottom:6px}
+.stage .again{display:block;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:none;color:var(--coral);margin-top:2px}
+.stage.loop{border-top:3px solid var(--coral);padding-top:8px;border-radius:3px}.flowline{margin:0 0 12px;font-size:12.5px;color:var(--mist)}.flowline b{color:var(--fog)}
 .stage>.t{font-size:10.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--mist);margin-bottom:8px}
 .slot{background:#e4f4f0;border-left:4px solid var(--lfm);border-radius:16px;padding:10px 12px;margin-bottom:10px}
-.slot.b{background:#fdf3d7;border-left-color:var(--bon)}.slot.kev{background:#fde8e2;border-left-color:var(--kev)}
+.slot.b{background:#fdf3d7;border-left-color:var(--bon)}.slot.kev{background:#fde8e2;border-left-color:var(--kev)}.slot.run{background:#e9ecf8;border-left-color:var(--tgt)}
 .probs{display:grid;gap:3px;margin-top:6px;font-size:12.5px}
 .probs div{display:grid;grid-template-columns:18px minmax(0,1fr) 38px;gap:6px;align-items:center}.probs i{display:block;height:7px;border-radius:4px;background:var(--kev)}
 .slot summary{cursor:pointer;list-style:none}.slot summary::-webkit-details-marker{display:none}
@@ -173,8 +175,8 @@ textarea{width:100%;min-height:80px;background:var(--soft);border:0;border-radiu
 @media (max-width:1200px){.picks{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:560px){.picks{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:1000px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.charts,.two,.io,.versus{grid-template-columns:minmax(0,1fr)}
-.stages{grid-template-columns:repeat(2,minmax(0,1fr))}.qlist{max-height:260px}}
-@media (max-width:560px){.stages,.kpis{grid-template-columns:minmax(0,1fr)}main{padding:18px 16px 40px}h1{font-size:27px}.panel{padding:16px;border-radius:20px}}
+.stages{grid-auto-columns:minmax(170px,46%)}.qlist{max-height:260px}}
+@media (max-width:560px){.stages{grid-auto-columns:minmax(170px,82%)}.kpis{grid-template-columns:minmax(0,1fr)}main{padding:18px 16px 40px}h1{font-size:27px}.panel{padding:16px;border-radius:20px}}
 """
 
 JS = """
@@ -210,7 +212,9 @@ document.addEventListener('click',async(ev)=>{
 let timer=null;
 function watch(){if(timer)return;timer=setInterval(async()=>{const was=!!$('#run [data-running]');await swap('/fragment/run','#run');
   if(!$('#run [data-running]')){clearInterval(timer);timer=null;if(was){await swap('/fragment/body','#body');await swap('/fragment/picks','#picks');}}
-  else{await swap('/fragment/score','#score');if($('#plan'))await swap('/fragment/plan','#plan');}},4000);}
+  else{await swap('/fragment/score','#score');if($('#plan'))await swap('/fragment/plan','#plan');
+    if($('#io-wrap')&&!$('#io'))await swap('/fragment/io','#io-wrap');
+    if($('#spec').open){const y=$('#spec').scrollTop;await swap('/fragment/spec','#spec-body');$('#spec').scrollTop=y;}}},4000);}
 if($('#run [data-running]'))watch();
 // WHAT EVERY SLOT IS DOING NOW: asked for every second and a half while a session runs, and written onto the cards in place
 const STEP={measure:'Measuring the swarm',improve:'Trying a brief',arrange:'Trying an arrangement',baseline:'One model alone'};
@@ -414,26 +418,48 @@ def scoreboard(d):
 
 
 def score_strip(d):
-    """Parity in one line, the same size whether or not anything is measured. The whole measurement opens from it."""
-    held = d["splits"]["held"]
+    """Parity in one strip, the same size at every moment, saying the most that is known so far and what kind of knowledge it is:
+    the verdict when the held questions are all answered; before that, how the held or the train questions are going as the
+    answers come; before that, what the larger model and each small model alone have done. The whole measurement opens from it."""
+    held, train = d["splits"]["held"], d["splits"]["train"]
     tgt = d["target"]
     tname = tgt["name"] if tgt else "the larger model"
     p = held["parity"]
-    if not held["swarm"] or not p:
-        return scoreboard(d)
-    off = p["compared"] - p["equivalent"]
-    alone = []
-    for k, rows in held["alone"].items():
-        pa = data.parity(rows) if rows else None
-        if pa:
-            alone.append("<span>%s alone <b>%d</b></span>" % (e(data.MEMBER_NAMES[k]), pa["equivalent"]))
-    return (
-        '<button type="button" class="panel strip" id="score-open" title="Open the whole measurement"><p class="verdict %s">%s</p>'
-        '<p class="meta"><span><b>%d</b> held questions</span><span><b>%d</b> equivalent</span><span><b>%d</b> different</span><span><b>%d</b> no answer</span>%s<span><b>%s</b> s a reply</span>'
-        '<span class="more">Open the whole measurement</span></p></button>'
-        % ("level" if p["level"] else "behind", e(("At parity with " if p["level"] else "Not at parity with ") + tname + ("." if p["level"] else ": %d of %d answers are not equivalent." % (off, p["compared"]))),
-           p["compared"], p["equivalent"], p["differ"], p["none"], "".join(alone), e(str(p["seconds"])))
-    )
+
+    def alone_of(sp):
+        out = []
+        for k, rows in sp["alone"].items():
+            pa = data.parity(rows) if rows else None
+            if pa:
+                out.append("<span>%s alone <b>%d</b> of %d</span>" % (e(data.MEMBER_NAMES[k]), pa["equivalent"], pa["compared"]))
+        return "".join(out)
+
+    def strip(cls, verdict, meta, more=True):
+        tag = ('<button type="button" class="panel strip" id="score-open" title="Open the whole measurement">', "</button>") if more else ('<div class="panel strip">', "</div>")
+        return '%s<p class="verdict %s">%s</p><p class="meta">%s%s</p>%s' % (
+            tag[0], cls, e(verdict), meta, '<span class="more">Open the whole measurement</span>' if more else "", tag[1])
+
+    counts = lambda q: "<span><b>%d</b> equivalent</span><span><b>%d</b> different</span><span><b>%d</b> no answer</span>" % (q["equivalent"], q["differ"], q["none"])  # noqa: E731
+    if held["swarm"] and p:
+        done, want = len(held["swarm"]), held["expected"] or len(held["swarm"])
+        off = p["compared"] - p["equivalent"]
+        if done < want:
+            # the held questions are being answered now: what there is, and that it is not yet the verdict
+            return strip("", "Being measured: %d of %d held answers so far, %d equivalent to %s's." % (done, want, p["equivalent"], tname),
+                         counts(p) + alone_of(held) + "<span><b>%s</b> s a reply</span><span>The verdict is given when all %d are answered</span>" % (e(str(p["seconds"])), want))
+        return strip("level" if p["level"] else "behind", ("At parity with " if p["level"] else "Not at parity with ") + tname + ("." if p["level"] else ": %d of %d answers are not equivalent." % (off, p["compared"])),
+                     "<span><b>%d</b> held questions</span>" % p["compared"] + counts(p) + alone_of(held) + "<span><b>%s</b> s a reply</span>" % e(str(p["seconds"])))
+    pt = train["parity"]
+    if train["swarm"] and pt:
+        done, want = len(train["swarm"]), train["expected"] or len(train["swarm"])
+        return strip("", "On this pass's train questions%s: %d of %d answers equivalent to %s's." % (" so far" if done < want else "", pt["equivalent"], pt["compared"], tname),
+                     ("<span><b>%d</b> of %d answered</span>" % (done, want) if done < want else "") + counts(pt) + alone_of(held)
+                     + "<span><b>%s</b> s a reply</span><span>These choose what to try. Parity is said on the held questions, at the end of the pass</span>" % e(str(pt["seconds"])), more=False)
+    answered = len(held["target"])
+    if answered or alone_of(held):
+        return strip("", "%s has answered %d held question%s. The swarm has not answered yet." % (tname, answered, "" if answered == 1 else "s"),
+                     (alone_of(held) or "<span>Each small model alone is next</span>") + "<span>Its answers are the mark everything else is compared with</span>", more=False)
+    return scoreboard(d)
 
 
 FOUND = {"drafts-short": "no slot had the answer", "weak-draft": "a weak drafter", "check-worse": "a checker turning answers away", "decider-threw": "the decider chose another",
@@ -548,8 +574,9 @@ def card(cls, title, purpose, slot_id, sub, extra, body, live=True, opened=False
     )
 
 
-def slot_card(s, d, row=None):
-    """A slot: the model that fills it, what it is for in the arrangement, and (with a row) what it wrote for that input."""
+def slot_card(s, d, row=None, stage=None, nth=0, last=False, purpose=None):
+    """A slot: the model that fills it, what it is for in the arrangement, and (with a row) what it wrote for that input.
+    stage, nth, last: which of its turns on that input (a slot can be used in more than one step, and again in a loop)."""
     rec = d["record"].get(s["id"])
     mates = [x["id"] for x in d["briefs"]["slots"] if x["member"] == s["member"]]
     sub = ["<span>%s</span>" % e(s["id"]), "<span>slot %d</span>" % (mates.index(s["id"]) + 1)]
@@ -569,7 +596,10 @@ def slot_card(s, d, row=None):
             )
         body += "</div>"
     else:
-        t = next((x for x in row.get("trace", []) if x["slot"] == s["id"]), None)
+        turns = [x for x in row.get("trace", []) if x["slot"] == s["id"] and (stage is None or x.get("stage") == stage)]
+        t = (turns[-1] if last else turns[nth] if nth < len(turns) else None) if turns else None
+        if t and t.get("round"):
+            sub.append("<span>round %d</span>" % t["round"])
         if not t:
             sub.append("<span>not used on this input</span>")
         else:
@@ -578,40 +608,110 @@ def slot_card(s, d, row=None):
                 ok = mark_of(t, row)
                 fin = '<div><span class="final%s">%s</span></div>' % ("" if ok is None else (" ok" if ok else " no"), e(short(t.get("final")) or "gave no answer"))
             body = '<div class="body">%s</div>' % e(t.get("out") or t.get("why") or "")
-    return card(s["member"], data.MEMBER_NAMES.get(s["member"], s["member"]), s.get("purpose") or s["stage"], s["id"], sub, fin, body, live=row is None, opened=row is not None and s["stage"] == "write")
+    return card(s["member"], data.MEMBER_NAMES.get(s["member"], s["member"]), purpose or s.get("purpose") or s["stage"], s["id"], sub, fin, body, live=row is None, opened=row is not None and s["stage"] == "write")
 
 
-def kev_card(d, row=None):
-    """The decision model: the only decider (src/decider.mjs)."""
+def kev_card(d, row=None, nth=0, purpose="Decides which answer stands"):
+    """The decision model: the only decider (src/decider.mjs). nth: which of its decisions on that input."""
     if row is None:
-        return card("kev", (d.get("decider") or {}).get("name", "Kev"), "Decides which answer stands", "kev-decide", ["<span>kev-decide</span>", "<span>a decision model</span>"], "",
+        return card("kev", (d.get("decider") or {}).get("name", "Kev"), purpose, "kev-decide", ["<span>kev-decide</span>", "<span>a decision model</span>"], "",
                     '<div class="body">One request, no writing: it is given the question, one worked answer for each different answer and what the checkers said, '
                     "and returns a probability for each answer. No slot judges. If Kev is not running, the answer most slots gave stands. Kev is itself to be trained on the questions the drafts disagreed on.</div>")
-    t = next((x for x in row.get("trace", []) if x["slot"] == "kev-decide"), None)
+    turns = [x for x in row.get("trace", []) if x["slot"] == "kev-decide" and x.get("of") != "replies"]
+    t = turns[nth] if nth < len(turns) else None
     if not t:
-        return card("kev", (d.get("decider") or {}).get("name", "Kev"), "Decides which answer stands", "kev-decide", ["<span>kev-decide</span>", "<span>not asked on this input</span>"], "", "", live=False)
+        return card("kev", (d.get("decider") or {}).get("name", "Kev"), purpose, "kev-decide", ["<span>kev-decide</span>", "<span>not asked on this input</span>"], "", "", live=False)
     fin = ""
     if t.get("final"):
         ok = mark_of(t, row)
         fin = '<div><span class="final%s">%s</span></div>' % ("" if ok is None else (" ok" if ok else " no"), e(short(t["final"])))
     bars = "".join('<div><span>%s</span><span style="background:rgba(255,255,255,.6);border-radius:4px"><i style="width:%.0f%%"></i></span><span class="muted">%.2f</span></div>' % (e(k), 100 * float(p), float(p))
                    for k, p in sorted((t.get("probs") or {}).items()))
-    return card("kev", (d.get("decider") or {}).get("name", "Kev"), "Decides which answer stands", "kev-decide", ["<span>kev-decide</span>", "<span>%d ms</span>" % t.get("ms", 0)], fin,
+    return card("kev", (d.get("decider") or {}).get("name", "Kev"), purpose, "kev-decide", ["<span>kev-decide</span>", "<span>%d ms</span>" % t.get("ms", 0)], fin,
                 '<div class="body">%s%s</div>' % (e(t.get("out", "")), '<div class="probs">%s</div>' % bars if bars else ""), live=False, opened=True)
 
 
+def _flow_words(step):
+    if step.get("do") == "repeat":
+        return "repeat up to %d times (%s)" % (int(step.get("upTo", 2)), ", ".join(_flow_words(x) for x in step.get("steps", [])))
+    return step.get("do", "") + (" (keep %d)" % step["keep"] if step.get("keep") else "")
+
+
+STEP_TITLE = {"draft": "Draft", "try": "Try", "check": "Check", "revise": "Revise", "decide": "Decide", "write": "Write"}
+
+
+def flow_of(d):
+    """The flow of the arrangement as it is: the one it names, or the plain one (src/orchestrate.mjs)."""
+    flow = d["briefs"].get("flow")
+    return flow if isinstance(flow, list) and flow else [{"do": k} for k in ("draft", "try", "check", "decide", "write")]
+
+
+def run_card(d, row=None, nth=0):
+    """The sandbox: where the answers to a request for a function are run on the same calls (src/behave.mjs)."""
+    if row is None:
+        return card("run", "The sandbox", "Runs the answers on the same calls", "run", ["<span>run</span>", "<span>no model</span>"], "",
+                    '<div class="body">Where a function is asked for, one model writes calls to try while the others draft. Every answer is run on them, where it can reach nothing. '
+                    "Answers that return the same are one answer, however differently they are written; one that does not run is none.</div>")
+    turns = [x for x in row.get("trace", []) if x.get("stage") == "run"]
+    t = turns[nth] if nth < len(turns) else None
+    if not t:
+        return card("run", "The sandbox", "Runs the answers on the same calls", "run", ["<span>run</span>", "<span>nothing to run on this input</span>"], "", "", live=False)
+    return card("run", "The sandbox", "Runs the answers on the same calls", "run", ["<span>run</span>", "<span>%d ms</span>" % t.get("ms", 0)], "", '<div class="body">%s</div>' % e(t.get("out", "")), live=False, opened=True)
+
+
 def stages(d, row=None):
-    out = ['<div class="stages">']
-    for key, title in data.STAGES:
-        out.append('<div class="stage"><div class="t">%s</div>' % title)
-        if key == "decide":
-            out.append(kev_card(d, row))
-        for s in d["briefs"]["slots"]:
-            if s["stage"] == key:
-                out.append(slot_card(s, d, row))
-        out.append("</div>")
-    out.append("</div>")
-    return "".join(out)
+    """The arrangement as its flow has it: one column for each step, in order, a loop marked as one. A slot stands in every step
+    that uses it."""
+    slots = d["briefs"]["slots"]
+    by_id = {x["id"]: x for x in slots}
+
+    def of(step, dflt):
+        return [by_id[i] for i in step.get("slots", []) if i in by_id] if step.get("slots") else [x for x in slots if x["stage"] == dflt]
+
+    seen = {}  # how many columns of each kind have gone before: which of a slot's turns a column shows
+
+    def column(step, loop=None):
+        do = step.get("do")
+        nth = seen.get(do, 0)
+        seen[do] = nth + 1
+        cards = []
+        if do == "draft":
+            cards = [slot_card(x, d, row, "draft", nth) for x in of(step, "draft")]
+        elif do == "try":
+            cards = [run_card(d, row, nth)]
+        elif do == "check":
+            cards = [slot_card(x, d, row, "check", nth, last=bool(loop)) for x in of(step, "check")]
+        elif do == "revise":
+            cards = [slot_card(x, d, row, "revise", nth, last=bool(loop), purpose="Answers again, shown the other answers") for x in of(step, "draft")]
+        elif do == "decide":
+            keep = step.get("keep")
+            cards = [kev_card(d, row, nth, "Keeps the likeliest %d answers" % keep if keep else "Decides which answer stands")]
+        elif do == "write":
+            w = of(step, "write")
+            cards = [slot_card(x, d, row, "write", 0) for x in w]
+            if len(w) > 1:
+                cards.append('<p class="muted small" style="margin:0">More than one reply is written, and the decider picks which is sent.</p>')
+        else:
+            return ""
+        again = '<span class="again">again while the answers differ, up to %d times</span>' % loop if loop else ""
+        return '<div class="stage%s"><div class="t">%s%s</div>%s</div>' % (" loop" if loop else "", e(STEP_TITLE.get(do, do)), again, "".join(cards))
+
+    out = []
+    for step in flow_of(d):
+        if step.get("do") == "repeat":
+            out.extend(column(x, int(step.get("upTo", 2))) for x in step.get("steps", []))
+        else:
+            out.append(column(step))
+
+    def words(step):
+        if step.get("do") == "repeat":
+            return "repeat up to %d times (%s)" % (int(step.get("upTo", 2)), ", ".join(words(x) for x in step.get("steps", [])))
+        return step.get("do", "") + (" (keep %d)" % step["keep"] if step.get("keep") else "")
+
+    line = '<p class="flowline"><b>The flow:</b> %s. %s</p>' % (
+        e(" → ".join(words(x) for x in flow_of(d))),
+        "This is the plain flow; a pass can change it." if not d["briefs"].get("flow") else "A pass changed it from the plain flow, and can change it again.")
+    return (line if row is None else "") + '<div class="stages">%s</div>' % "".join(out)
 
 
 def at_parity(d, t):
@@ -657,7 +757,8 @@ def arrangement(d):
         )
     else:
         right = '<div class="panel target"><h3>No larger model is named.</h3><p class="muted">Choose one above.</p></div>'
-    return '<div class="cols two">%s%s</div><h2 id="strategy">The plan being carried out</h2><div id="plan">%s</div>' % (left, right, plan_panel(d))
+    # the flow can grow to many steps: it has the whole width, one row, and the larger model sits under it
+    return '<div style="display:grid;grid-template-columns:minmax(0,1fr);gap:18px">%s%s</div><h2 id="strategy">The plan being carried out</h2><div id="plan">%s</div>' % (left, right, plan_panel(d))
 
 
 WORD = {"right": "equivalent", "wrong": "different", "unsure": "no answer", "noref": "not compared"}
@@ -921,6 +1022,17 @@ def run_panel():
         if took:
             rows = "".join('<li><span>↺</span><span>%s<small style="display:block;color:var(--mist);font-weight:600">%s</small></span><span></span></li>' % (e(str(r.get("what", ""))), e(str(r.get("did", "")))) for r in took[-5:])
             out.append('<div class="muted small">Recovered %d time%s this session</div><ul class="steps">%s</ul>' % (len(took), "" if len(took) == 1 else "s", rows))
+        # what this session has taught the swarm so far: each change as it is kept (the output spec holds them all)
+        try:
+            led = [x for x in data.load(ARGS.root)["learned"]["ledger"] if _epoch(x.get("at")) >= began - 2]
+        except Exception:  # the panel is drawn even where the folder cannot be read
+            led = []
+        out.append('<div class="muted small" style="margin-top:12px">Learned this session: %s</div>' % ("%d kept" % len(led) if led else "nothing kept yet"))
+        if led:
+            out.append('<ul class="steps">%s</ul>' % "".join(
+                '<li><span>✓</span><span><b>%s</b><small style="display:block" class="muted">%s%s · train %s → %s equivalent</small></span></li>'
+                % (e(x.get("what", "")), e(KIND_WORD.get(x.get("kind"), "")), (" · " + e(x["slot"])) if x.get("slot") else "",
+                   e(str(((x.get("train") or {}).get("before") or {}).get("right", "?"))), e(str(((x.get("train") or {}).get("after") or {}).get("right", "?")))) for x in led[::-1]))
     out.append("</div>")
     return "".join(out)
 
@@ -998,10 +1110,44 @@ def pills(d):
         return '<label class="pick %s"><small>%s</small><select data-pick="%s"%s aria-label="%s">%s</select></label>' % (key, e(label), key, " disabled" if running else "", e(label), opts)
 
     return (
-        '<div class="picks" id="picks">%s%s%s%s<button class="pick spec" id="spec-open" type="button"><small>The swarm as it stands</small><b>Output spec</b></button></div>'
+        '<div class="picks" id="picks">%s%s%s%s<button class="pick spec" id="spec-open" type="button"><small>The swarm as it stands</small><b>Output spec%s</b></button></div>'
         % (pill("a", "Small model 1", reg["small"], d["members"]["a"]), pill("b", "Small model 2", reg["small"], d["members"]["b"]),
-           pill("decider", "Decides", reg["deciders"], d["decider"]), pill("target", "Larger model: the target", sorted(reg["targets"], key=lambda t: -t.get("params", 0)), d["target"]))
+           pill("decider", "Decides", reg["deciders"], d["decider"]), pill("target", "Larger model: the target", sorted(reg["targets"], key=lambda t: -t.get("params", 0)), d["target"]),
+           (" · %d learned" % len(d["learned"]["ledger"])) if d["learned"]["ledger"] else "")
     )
+
+
+KIND_WORD = {"brief": "Brief", "plan": "Plan", "arrangement": "Arrangement", "flow": "Flow"}
+
+
+def ledger_rows(entries, newest_first=True):
+    """What was kept, each with the evidence it was kept on: answers equivalent to the larger model's, before and after."""
+    out = []
+    for x in (entries[::-1] if newest_first else entries):
+        tr, he = x.get("train") or {}, x.get("held") or {}
+        ev = lambda z: ("%d → %d" % ((z.get("before") or {}).get("right", 0), (z.get("after") or {}).get("right", 0))) if z.get("before") and z.get("after") else "not recorded"  # noqa: E731
+        where = " · ".join(v for v in [("<code>%s</code>" % e(x["slot"])) if x.get("slot") else "", "pass %s" % e(str(x.get("pass", ""))) if x.get("pass") else "", e(str(x.get("at", ""))[:10]),
+                                        '<a href="https://arxiv.org/abs/%s" target="_blank" rel="noopener">arXiv %s</a>' % (e(x["from"]), e(x["from"])) if x.get("from") else ""] if v)
+        out.append('<li class="kept"><span class="o">%s</span><span class="k %s">%s</span><span class="mv"><b>%s</b><small>%s</small>'
+                   '<small>Equivalent answers on train: <b style="display:inline;font-size:inherit">%s</b> · on held: <b style="display:inline;font-size:inherit">%s</b></small></span><span class="pill up">Kept</span></li>'
+                   % (e(str(x.get("n", ""))), e(x.get("kind", "")), e(KIND_WORD.get(x.get("kind"), x.get("kind", ""))), e(x.get("what", "")), where, ev(tr), ev(he)))
+    return "".join(out)
+
+
+def learned_block(d):
+    """WHAT THIS SWARM HAS LEARNED, for the spec: every kept change with its evidence, newest first, and where each pass left it."""
+    led, passes = d["learned"]["ledger"], d["learned"]["passes"]
+    tname = (d["target"] or {}).get("name", "the larger model")
+    if not led:
+        body = '<p class="muted small" style="margin:0">Nothing yet. It runs the arrangement every swarm starts from. Each change a pass keeps is added here as it is kept, with the answers it won.</p>'
+    else:
+        body = '<ul class="moves">%s</ul>' % ledger_rows(led)
+    stood = ""
+    if passes:
+        stood = '<p class="small" style="margin:10px 0 0"><b>Where each pass left it against %s:</b> %s</p>' % (
+            e(tname), " · ".join("pass %s: %s of %s equivalent%s" % (e(str(p.get("pass"))), e(str(p.get("equivalent", "?"))), e(str(p.get("compared", "?"))), " (parity)" if p.get("level") else "") for p in passes))
+    return ('<h4>What it has learned (%d kept)</h4><p class="muted small" style="margin:0 0 6px">Every change below was measured and kept: more answers equivalent to %s&#39;s on the questions it was chosen on, and no fewer on the held ones. '
+            "The arrangement in this spec is the one these changes made.</p>%s%s" % (len(led), e(tname), body, stood))
 
 
 def spec_panel(d):
@@ -1018,7 +1164,8 @@ def spec_panel(d):
         '<div class="spec-head"><div><div class="kicker">Output spec</div><h3 style="font-size:24px">%s</h3><div class="muted small">%s</div></div>'
         '<div style="display:flex;gap:8px"><button class="btn top" id="spec-copy" type="button">Copy as JSON</button><button class="btn stop top" id="spec-close" type="button">Close</button></div></div>'
         '<p class="verdict %s" style="margin:14px 0 2px">%s against %s.</p><p class="muted small" style="margin:0 0 12px">%s</p>'
-        "<table class='spec'>%s%s%s%s%s%s%s%s</table>"
+        "%s<h4>What it is</h4><table class='spec'>%s%s%s%s%s%s%s%s</table>"
+        "<h4>The flow</h4><p class='small' style='margin:0'>%s <span class='muted'>(%s)</span></p>"
         "<h4>The arrangement (briefs v%s)</h4><table class='spec'><tr><th>Slot</th><th>Stage</th><th>What it is for</th><th>Model</th></tr>%s"
         "<tr><td><code>kev-decide</code></td><td>decide</td><td>Decides which answer stands</td><td>%s</td></tr></table>"
         '<h4>As JSON</h4><pre class="tail" id="spec-json" style="max-height:320px">%s</pre>'
@@ -1026,6 +1173,7 @@ def spec_panel(d):
             e(sp["id"]), e(sp["what"]),
             state_cls, e(t["state"].capitalize()), e(t["target"].get("name") or ""),
             e(t["parityMeans"]),
+            learned_block(d),
             row("In", e(sp["interface"]["in"])), row("Out", e(sp["interface"]["out"])),
             row("Offered as", "<br>".join(e(x) for x in sp["interface"]["as"])),
             row("Not yet", "<br>".join(e(x) for x in sp["interface"]["notYet"])),
@@ -1033,19 +1181,25 @@ def spec_panel(d):
             row("Decides", "%s <span class='muted'>· %s · %s</span><br><code>%s</code>" % (e(sp["decider"].get("name") or ""), e(sp["decider"].get("by") or ""), e(sp["decider"].get("license") or ""), e(sp["decider"].get("run") or ""))),
             row("Against %s" % e(t["target"].get("name") or ""), ("%d held questions: %d equivalent, %d different, %d no answer<ul style='margin:6px 0 0;padding-left:18px'>%s</ul>" % (t["heldQuestions"], t["equivalent"], t["different"], t["noAnswer"], kinds)) if t["state"] != "not measured" else "Not measured: no pass has put this swarm and this target to the same held questions.")
             + row("Served", "%d slots on each small model, %d tokens of context a slot; about %s GB of memory (an estimate); engine %s %s" % (sp["serving"]["slots"], sp["serving"]["contextPerSlot"], sp["serving"]["memoryGbEstimate"], e(sp["engine"].get("name") or ""), e(sp["engine"].get("version") or ""))),
+            e(" → ".join(_flow_words(x) for x in sp["arrangement"]["flow"])), e(sp["arrangement"]["flowIs"]),
             e(str(sp["arrangement"]["briefsVersion"])), slots, e(sp["decider"].get("id") or ""),
             e(json.dumps(sp, indent=2)),
         )
     )
 
 
+def io_section(d):
+    """Input against output, once the swarm has answered anything (and '' until then)."""
+    first = next((k for k in ("held", "train") if d["splits"][k]["swarm"]), "")
+    return ('<h2 id="input">Input against output</h2><div class="io" id="io">%s</div>' % qlist(d, first)) if first else ""
+
+
 def main_body(d):
     """Everything that depends on which models are chosen: drawn again, in place, when one is changed."""
-    first = next((k for k in ("held", "train") if d["splits"][k]["swarm"]), "")
     return (
         '<h2>Parity with the larger model</h2><div id="score">%s</div>'
         '<h2 id="arrangement">The arrangement being trained, and the larger model alongside</h2>%s%s'
-        % (score_strip(d), arrangement(d), ('<h2 id="input">Input against output</h2><div class="io" id="io">%s</div>' % qlist(d, first)) if first else "")
+        % (score_strip(d), arrangement(d), '<div id="io-wrap">%s</div>' % io_section(d))
     )
 
 
@@ -1112,6 +1266,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(score_strip(d))
         if u.path == "/fragment/scorefull":
             return self._send(scoreboard(d))
+        if u.path == "/fragment/io":
+            return self._send(io_section(d))
         if u.path == "/fragment/plan":
             return self._send(plan_panel(d))
         if u.path == "/fragment/list":

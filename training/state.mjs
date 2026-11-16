@@ -1,5 +1,6 @@
 // state.mjs - WHAT ONE TRAINING SESSION LEAVES FOR THE NEXT. A session that starts from nothing learns the same things again; this
-// file is how it does not. training/state.json is committed, and every trainer reads it:
+// file is how it does not. It is committed, and every trainer reads it (what was read, in training/state.json; the rest, for
+// each configuration against each larger model, in training/states/):
 //   pass        how many sessions have ended
 //   target      the larger model the swarm is being brought to parity with (a rung of training/targets.json)
 //   seeds       what the questions are made from. The train seed changes every pass (new questions each time, so a brief cannot
@@ -15,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { REGISTRY, readConfig } from '../src/catalog.mjs';
+import { REGISTRY, readConfig, CONFIG_ID } from '../src/catalog.mjs';
 import { writeSafe, readSafe } from './support/recover.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -43,11 +44,54 @@ const fresh = () => ({
   ideas: [],
   history: [],
 });
+// WHAT IS REMEMBERED IS REMEMBERED FOR ONE CONFIGURATION. What was READ belongs to everyone (the questions put to arXiv, the
+// papers seen, the ideas they turned into): that stays in training/state.json. Everything else is true of these two small models
+// and this decider against this larger model, and of no other: which pass it is, the questions' seeds, the kinds to ask more of,
+// what was measured and not kept, the order of slots, how each pass ended, and what became of each idea HERE. That is kept in a
+// file of that configuration's own (training/states/<a>+<b>+<decider>--<target>.json), so a swarm of other models starts with
+// nothing tried, and coming back to this one finds it as it was left.
+const SHARED = ['questions', 'seen', 'ideas'];
+export const STATES_DIR = process.env.SWARM_STATES_DIR || path.join(HERE, 'states');
+const safe = (s) => String(s).replace(/[^\w.+-]+/g, '_');
+export const stateFileOf = (target = readConfig().target, config = CONFIG_ID) =>
+  path.join(STATES_DIR, safe(config) + '--' + safe(target) + '.json');
 // read whole, or from the last good copy: a session stopped in the middle of writing it does not cost the next one its memory
 export function readState() {
-  return { ...fresh(), ...(readSafe(STATE_FILE, {}) || {}) };
+  const shared = readSafe(STATE_FILE, {}) || {};
+  const mine = readSafe(stateFileOf(), null);
+  // (a folder from before this was kept apart has it all in the one file: that is where a configuration with no file starts)
+  const s = { ...fresh(), ...shared, ...(mine || {}) };
+  const became = (mine && mine.ideaStatus) || null;
+  s.ideas = (shared.ideas || []).map((i) => ({ ...i, status: became ? became[i.hash] || 'open' : i.status || 'open' }));
+  delete s.ideaStatus;
+  return s;
 }
-export const writeState = (s) => writeSafe(STATE_FILE, JSON.stringify(s, null, 2) + '\n');
+export function writeState(s) {
+  const mine = Object.fromEntries(Object.entries(s).filter(([k]) => !SHARED.includes(k)));
+  mine.config = CONFIG_ID;
+  mine.target = readConfig().target;
+  mine.ideaStatus = Object.fromEntries(
+    (s.ideas || []).filter((i) => i.status && i.status !== 'open').map((i) => [i.hash, i.status]),
+  );
+  fs.mkdirSync(STATES_DIR, { recursive: true });
+  writeSafe(stateFileOf(), JSON.stringify(mine, null, 2) + '\n');
+  // what was read, for everyone: an idea's fate is not part of it
+  const shared = {
+    questions: s.questions || [],
+    seen: s.seen || [],
+    ideas: (s.ideas || []).map(({ status, ...i }) => i),
+  };
+  writeSafe(STATE_FILE, JSON.stringify(shared, null, 2) + '\n');
+}
+// where a configuration that has reached parity begins against the next, larger model: a new record, with held questions nothing
+// has been chosen on. Not written over one that is already there.
+export function seedState(target, init) {
+  const f = stateFileOf(target);
+  if (fs.existsSync(f)) return false;
+  fs.mkdirSync(STATES_DIR, { recursive: true });
+  writeSafe(f, JSON.stringify({ ...init, config: CONFIG_ID, target, pass: 0 }, null, 2) + '\n');
+  return true;
+}
 // the larger models, smallest first: the ladder the swarm climbs (src/models.json)
 export const readTargets = () => [...REGISTRY.targets].sort((x, y) => x.params - y.params);
 // the one being chased: the one configured (src/config.json)

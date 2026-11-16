@@ -31,9 +31,8 @@ import {
   RESULTS,
 } from './support/bench.mjs';
 import { readState, writeState, candHash } from './state.mjs';
-import { writeSafe } from './support/recover.mjs';
 import { mark } from './support/plan-file.mjs';
-import { BRIEFS_FILE, readBriefs } from '../src/index.mjs';
+import { readBriefs, saveLearned } from '../src/index.mjs';
 
 const slotId = arg('slot', '');
 const briefs = readBriefs();
@@ -162,7 +161,18 @@ try {
     if (kept) {
       const next = withBrief(best);
       next.version = (briefs.version || 1) + 1;
-      writeSafe(BRIEFS_FILE, JSON.stringify(next, null, 2) + '\n');
+      // kept: the arrangement as it now is, and the entry that says what changed and on what evidence (src/learned.mjs)
+      const c2 = (c) => ({ right: c.right, wrong: c.wrong });
+      saveLearned(next, {
+        pass: state.pass + 1,
+        kind: best.brief ? 'brief' : 'plan',
+        slot: slotId,
+        what: best.name,
+        from: best.from || undefined,
+        why: 'higher on train, not lower on held',
+        train: { before: c2(now), after: c2(best.train) },
+        held: { before: c2(heldNow), after: c2(heldBest) },
+      });
     }
   }
 } finally {

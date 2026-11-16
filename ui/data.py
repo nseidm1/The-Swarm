@@ -99,7 +99,25 @@ def load(root):
     global MEMBER_NAMES
     MEMBER_NAMES = {k: (m or {}).get("name", "not chosen") for k, m in members.items()}
     cfg = "+".join([(members["a"] or {}).get("id", ""), (members["b"] or {}).get("id", ""), (decider or {}).get("id", "")])
+    # what this configuration remembers of its training (training/state.mjs): the folder's record of what was read, and over
+    # it this configuration's own (which pass, the seeds, what was tried, how each pass ended, what became of each idea here)
+    mine = _json(root / "training" / "states" / ("%s--%s.json" % (re.sub(r"[^\w.+-]+", "_", cfg), re.sub(r"[^\w.+-]+", "_", str((target or {}).get("id", ""))))), None)
+    if isinstance(mine, dict):
+        became = mine.get("ideaStatus")
+        state = {**state, **{k: v for k, v in mine.items() if k not in ("questions", "seen", "ideas", "ideaStatus")}}
+        if isinstance(became, dict):
+            state["ideas"] = [dict(i, status=became.get(i.get("hash"), "open")) for i in state.get("ideas", [])]
+    state["ideas"] = [dict(i, status=i.get("status", "open")) for i in state.get("ideas", [])]
     seeds = state.get("seeds", {})
+    # WHAT THIS CONFIGURATION HAS LEARNED against this larger model (src/learned.mjs): the arrangement as it now stands, every
+    # change that was kept with its evidence, and where it stood at the end of each pass. With none, it runs briefs.json.
+    safe = lambda x: re.sub(r"[^\w.+-]+", "_", str(x))  # noqa: E731
+    learned = _json(root / "src" / "learned" / ("%s--%s.json" % (safe(cfg), safe((target or {}).get("id", "")))), None)
+    if not (isinstance(learned, dict) and isinstance(learned.get("briefs"), dict) and learned["briefs"].get("slots")):
+        learned = None
+    started_from = briefs
+    if learned:
+        briefs = learned["briefs"]
 
     def newest(rows, split, label):
         """the newest answer to each question of this pass's split, by one answerer"""
@@ -114,6 +132,22 @@ def load(root):
 
     swarm_all = _rows(root / ".work" / "train" / "swarm-runs.jsonl")
     base_all = _rows(root / ".work" / "train" / "baseline-runs.jsonl")
+    # ANSWERS AS THEY ARE WRITTEN. A trainer writes every answer down the moment it has it (its checkpoint) and files them with
+    # the rest only when its step ends, which for the swarm is many minutes later. So the answers of the step in hand are read
+    # from its checkpoint: the page shows a measurement as it is made, not when it is over. (A candidate being tried is not the
+    # swarm as it stands: its checkpoint is named try-, and is left out.)
+    cks = root / ".work" / "train" / "checkpoints"
+    if cks.is_dir():
+        for f in sorted(cks.glob("*.jsonl"), key=lambda p: p.stat().st_mtime):
+            name = f.name[: -len(".jsonl")]
+            if name.startswith("try-"):
+                continue
+            if name.startswith("measure-"):
+                swarm_all += [dict(r, label="swarm") for r in _rows(f)]
+            else:
+                m = re.match(r"^(.*)-(?:held|train)-[^-]*$", name)
+                if m:
+                    base_all += [dict(r, label=m.group(1)) for r in _rows(f)]
     splits = {}
     for split in ("held", "train"):
         # the swarm's rows for THIS configuration against THIS target: another arrangement's are never read as this one's
@@ -124,6 +158,9 @@ def load(root):
             "target": {r["id"]: r for r in tgt},
             "alone": {k: newest(base_all, split, "%s-alone-vs-%s" % ((m or {}).get("id"), (target or {}).get("id"))) or newest(base_all, split, k + "-alone") for k, m in members.items()},
             "parity": parity(swarm) if swarm else None,
+            # how many questions there are to answer (the larger model answers them all first): fewer answers than this is a
+            # measurement still being made
+            "expected": len(tgt) or None,
         }
     # each slot's own record on the train questions (what the trainers work from), else on the held ones
     record = {}
@@ -159,6 +196,7 @@ def load(root):
         "trained": trained,
         "sample": (root / ".sample").exists(),
         "briefs": briefs,
+        "learned": {"ledger": (learned or {}).get("ledger") or [], "passes": (learned or {}).get("passes") or [], "startedFrom": started_from.get("version")},
         "state": state,
         "targets": targets,
         "target": target,
@@ -199,8 +237,17 @@ def spec(d):
         "arrangement": {
             "briefsVersion": b.get("version"),
             "plan": b.get("plan", {}),
-            "order": ["draft (all at once)", "check (when the drafts disagree)", "decide (the decision model)", "write"],
+            "flow": b.get("flow") or [{"do": k} for k in ("draft", "try", "check", "decide", "write")],
+            "flowIs": "the one this swarm has learned" if b.get("flow") else "the plain one every swarm starts from",
             "slots": [{k: s.get(k) for k in ("id", "member", "stage", "purpose", "maxTokens", "temperature", "sees") if s.get(k) is not None} | {"model": (d["members"].get(s["member"]) or {}).get("id")} for s in b.get("slots", [])],
+        },
+        # WHAT IT HAS LEARNED: every change that was kept, in order, with the evidence it was kept on. Nothing is here that was
+        # not measured. The arrangement above is the one these changes made.
+        "learned": {
+            "changesKept": len(d["learned"]["ledger"]),
+            "rule": "a change is kept only if the swarm then gives more answers equivalent to the larger model's on the questions it was chosen on, and no fewer on the held ones",
+            "ledger": d["learned"]["ledger"],
+            "passes": d["learned"]["passes"],
         },
         "trainedAgainst": {
             "target": {k: (d["target"] or {}).get(k) for k in ("id", "name", "by", "params", "engine")},

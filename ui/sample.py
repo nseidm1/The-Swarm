@@ -125,6 +125,23 @@ def main(dest):
         "open": {"arrangements": 23, "arrangementsTried": 5},
     }
     (dest / ".work" / "train" / "plan.json").write_text(json.dumps(plan, indent=2) + "\n")
+    # what this made-up swarm has "learned": two changes kept by earlier passes, with made-up evidence, and where each pass left it
+    reg = json.loads((dest / "src" / "models.json").read_text())
+    cho = json.loads((dest / "src" / "config.json").read_text())
+    cfg = "+".join([cho.get("a") or reg["small"][0]["id"], cho.get("b") or reg["small"][1]["id"], cho.get("decider") or reg["deciders"][0]["id"]])
+    briefs = json.loads((dest / "src" / "briefs.json").read_text())
+    learned = {
+        "config": cfg, "target": target, "briefs": dict(briefs, version=3, flow=[{"do": "draft"}, {"do": "try"}, {"do": "check"}, {"do": "revise"}, {"do": "decide"}, {"do": "write"}]),
+        "ledger": [
+            {"n": 1, "at": "2026-11-11T10:00:00.000Z", "pass": 2, "kind": "brief", "slot": "b-direct", "what": "the shortest brief that still asks for a test", "from": "2603.16045",
+             "why": "higher on train, not lower on held", "train": {"before": {"right": 13, "wrong": 10}, "after": {"right": 15, "wrong": 8}}, "held": {"before": {"right": 6, "wrong": 6}, "after": {"right": 7, "wrong": 5}}},
+            {"n": 2, "at": "2026-11-12T10:00:00.000Z", "pass": 3, "kind": "flow", "what": "the answers go back to the drafters after the check",
+             "why": "higher on train, not lower on held", "train": {"before": {"right": 15, "wrong": 8}, "after": {"right": 17, "wrong": 6}}, "held": {"before": {"right": 8, "wrong": 4}, "after": {"right": 9, "wrong": 3}}},
+        ],
+        "passes": [{"pass": i + 1, "at": "2026-11-%02d" % (10 + i), "equivalent": n, "compared": 12, "level": False} for i, n in enumerate([5, 6, 8, 9])],
+    }
+    (dest / "src" / "learned").mkdir(parents=True, exist_ok=True)
+    (dest / "src" / "learned" / ("%s--%s.json" % (cfg, target))).write_text(json.dumps(learned, indent=2) + "\n")
     (dest / "training" / "state.json").write_text(json.dumps(state, indent=2) + "\n")
     print("Made-up data written to %s. Show it with: python3 ui/swarm_ui.py --root %s" % (dest, dest))
 

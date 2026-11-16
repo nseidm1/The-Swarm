@@ -127,7 +127,24 @@ function stepAnswers(findings, briefs, name) {
   const stage = about && about.stage;
   for (const f of findings) {
     let w = 0;
-    if (f.id === 'drafts-short') {
+    if (/^flow: /.test(name)) {
+      // a change to the order of steps: sending answers back or looping gives a draft that was wrong a second go; narrowing
+      // before deciding gives the decider less to get wrong; dropping a check that turns answers away stops it doing so
+      const again = /go back to the drafters|check and revise again|times at most/.test(name);
+      if (again)
+        w =
+          f.id === 'drafts-short'
+            ? 0.9
+            : f.stage === 'draft'
+              ? 0.6
+              : f.stage === 'check' || f.stage === 'decide'
+                ? 0.4
+                : 0;
+      else if (/decide twice|narrow/.test(name)) w = f.stage === 'decide' ? 1 : 0;
+      else if (/^flow: no check/.test(name)) w = f.stage === 'check' ? 0.6 : 0;
+    } else if (/^add a second/.test(name) && stage === 'write') {
+      w = f.stage === 'write' ? 1 : 0;
+    } else if (f.id === 'drafts-short') {
       if (/^add a second/.test(name) && stage === 'draft') w = 1;
       else if (/at temperature/.test(name)) w = 0.6;
       else if (/^move /.test(name) && stage === 'draft') w = 0.5;
@@ -146,6 +163,10 @@ function stepAnswers(findings, briefs, name) {
   return { a: Math.round(a * 10) / 10, why };
 }
 const TECHNIQUE = [
+  [/^flow: .*(go back to the drafters|no revising)/, 'Answers go back to those who wrote them'],
+  [/^flow: .*(again while|the loop)/, 'A loop of checking and revising'],
+  [/^flow: .*(decide twice|narrowing)/, 'More than one decision'],
+  [/^flow: /, 'The order of steps'],
   [/^add a second/, 'One more voice'],
   [/^drop /, 'One voice fewer'],
   [/^move /, 'The other model in this role'],

@@ -10,8 +10,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { REPO_ROOT, RESULTS, WORK, aloneLabel } from './support/bench.mjs';
 import { MEMBERS, DECIDER, CONFIG_ID, writeConfig } from '../src/catalog.mjs';
-import { readState, writeState, readTargets, targetOf, parity, STANDING } from './state.mjs';
-import { readBriefs } from '../src/index.mjs';
+import { readState, writeState, seedState, readTargets, targetOf, parity, STANDING } from './state.mjs';
+import { readBriefs, notePass } from '../src/index.mjs';
 
 // what to ask arXiv when the swarm trails on a kind of question
 export const ASK_FOR = {
@@ -207,7 +207,12 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       climbed,
     } = endPass(state, { swarmRows, train: result('swarm-train'), briefs, targets });
     writeState(next);
-    if (climbed) writeConfig({ target: climbed.id }); // at parity: the next, larger model is the one configured from here on
+    notePass(done, briefs); // on this swarm's own record, beside what it has learned (src/learned.mjs)
+    if (climbed) {
+      // against the next, larger model this swarm starts a record of its own, on held questions nothing has been chosen on
+      seedState(climbed.id, { seeds: next.seeds, focus: {}, tried: {}, order: [], history: [] });
+      writeConfig({ target: climbed.id });
+    } // at parity: the next, larger model is the one configured from here on
     const alone = (n) => {
       const r = result(aloneLabel(n) + '-held');
       return r && r.compared ? r.right + ' of ' + r.compared + ' equivalent' : 'not measured';

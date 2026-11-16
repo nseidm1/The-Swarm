@@ -5,3 +5,11 @@ import os from 'node:os';
 import path from 'node:path';
 export const WORK_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-work-'));
 process.env.SWARM_WORK_DIR = WORK_DIR;
+// AND A CHECK NEVER STOPS A REAL PROCESS. The checks run the trainers' own recovery code, which stops model servers a dead session
+// left behind; run beside a live session that would stop the session's servers (training/support/recover.mjs: reap).
+process.env.SWARM_NO_REAP = '1';
+// AND A CHECK NEVER READS OR WRITES WHAT A REAL SWARM HAS LEARNED (src/learned.mjs): the checks start from briefs.json, always.
+process.env.SWARM_LEARNED_DIR = path.join(WORK_DIR, 'learned');
+// nor what a real configuration remembers of its training (training/state.mjs)
+process.env.SWARM_STATES_DIR = path.join(WORK_DIR, 'states');
+process.env.SWARM_STATE = path.join(WORK_DIR, 'state.json');
