@@ -108,7 +108,7 @@ export async function createSwarm(opts = {}) {
   // /v1/systemone, whichever decision model it is. (opts.kev and SWARM_KEV, the names from when Kev was the only one, still work)
   const named = opts.decider !== undefined ? opts.decider : opts.kev;
   const deciderBase = named !== undefined ? named : process.env.SWARM_DECIDER || process.env.SWARM_KEV || '';
-  const decide =
+  const decideRaw =
     opts.decide ||
     (deciderBase ? deciderAt({ base: deciderBase, timeoutMs: opts.deciderTimeoutMs ?? opts.kevTimeoutMs }) : null);
   // WHERE CODE IS ASKED FOR, THE DRAFTS ARE RUN to see which of them do the same (behave.mjs): in a process of their own that can
@@ -120,6 +120,32 @@ export async function createSwarm(opts = {}) {
       : opts.runCode === false || process.env.SWARM_RUN_CODE === '0'
         ? null
         : behaviours;
+  const reuse =
+    opts.reuse && opts.seed !== undefined
+      ? { map: new Map(), hits: 0, misses: 0, savedMs: 0, limit: opts.reuse === true ? 4000 : Number(opts.reuse) }
+      : null;
+  // the decider is reused the same way: the same choices put to it the same way are decided as they were (only a decision it made)
+  const decide =
+    reuse && decideRaw
+      ? async (input) => {
+          const key = 'decide|' + JSON.stringify(input);
+          const had = reuse.map.get(key);
+          if (had) {
+            reuse.hits++;
+            reuse.decided = (reuse.decided || 0) + 1;
+            reuse.savedMs += had.ms;
+            return JSON.parse(JSON.stringify(had.r));
+          }
+          reuse.misses++;
+          const t0 = Date.now();
+          const r = await decideRaw(input);
+          if (r && r.ok) {
+            reuse.map.set(key, { r: JSON.parse(JSON.stringify(r)), ms: Date.now() - t0 });
+            if (reuse.map.size > reuse.limit) reuse.map.delete(reuse.map.keys().next().value);
+          }
+          return r;
+        }
+      : decideRaw;
   const ask = (slot, messages, extra = {}) => {
     const m = members[slot.member];
     if (!m) throw new Error('no member called ' + slot.member);
@@ -134,7 +160,28 @@ export async function createSwarm(opts = {}) {
         opts.seed + '|' + slot.id + '|' + messages.length + '|' + String((last && last.content) || ''),
       );
     }
-    return m.ask(slot.id, messages, params);
+    if (!reuse) return m.ask(slot.id, messages, params);
+    // REUSED WHERE NOTHING CHANGED (opts.reuse, the trainers only): with a seed, the same slot on the same model asked the same
+    // thing with the same sampling draws the same answer, so a try that changes one slot need not ask the others again. Keyed by
+    // all of that; only an answer that came back is kept; what it took is counted as saved
+    const key = JSON.stringify([slot.member, params, messages]);
+    const had = reuse.map.get(key);
+    if (had) {
+      reuse.hits++;
+      reuse.savedMs += had.ms;
+      reuse.map.delete(key);
+      reuse.map.set(key, had);
+      return Promise.resolve({ ...had.r });
+    }
+    reuse.misses++;
+    const t0 = Date.now();
+    return m.ask(slot.id, messages, params).then((r) => {
+      if (r && (r.text || r.content || r.calls)) {
+        reuse.map.set(key, { r: { ...r }, ms: Date.now() - t0 });
+        if (reuse.map.size > reuse.limit) reuse.map.delete(reuse.map.keys().next().value);
+      }
+      return r;
+    });
   };
   let last = null;
   const swarm = {
@@ -219,6 +266,12 @@ export async function createSwarm(opts = {}) {
     // one member alone, told nothing: what the swarm is measured against, and where a turn with tools goes
     alone: (key, messages, params) => members[key].ask('alone', messages, params),
     last: () => last,
+    // what reuse saved: answers given again without asking, and the milliseconds they first took
+    get reused() {
+      return reuse
+        ? { hits: reuse.hits, misses: reuse.misses, savedMs: reuse.savedMs, decided: reuse.decided || 0 }
+        : null;
+    },
     alive: async () => (await Promise.all(Object.values(members).map((m) => m.alive()))).every(Boolean),
     async serve(o = {}) {
       const s = await serveHttp(swarm, { lead: toolLead, ...o });

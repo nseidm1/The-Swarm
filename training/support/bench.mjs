@@ -209,7 +209,7 @@ const checkpoints = [];
 // a trainer that has finished and written down what it found has no more use for its checkpoints
 export const finished = () => checkpoints.splice(0).forEach((c) => c.done());
 
-export async function openSwarm(briefs = readBriefs(), { seed = Number(arg('seed', 1)) } = {}) {
+export async function openSwarm(briefs = readBriefs(), { seed = Number(arg('seed', 1)), reuse = false } = {}) {
   const attach = {};
   if (arg('attach-a')) attach.a = arg('attach-a');
   if (arg('attach-b')) attach.b = arg('attach-b');
@@ -222,6 +222,7 @@ export async function openSwarm(briefs = readBriefs(), { seed = Number(arg('seed
   const swarm = await createSwarm({
     briefs,
     seed, // a measurement that changes by itself cannot say whether a change helped
+    reuse, // the loop: a slot asked exactly what it was asked before answers as it did, without being asked again
     attach,
     llamaServer: llamaServer(),
     modelsDir: modelsDir(),

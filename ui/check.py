@@ -83,25 +83,22 @@ with tempfile.TemporaryDirectory() as tmp:
           "None yet" in none_yet and "Small X + Small Y" in listed and "Small P" not in listed and "Small R" not in listed and "at parity with <b>" not in html and "chasing" not in html
           and not any(n in none_yet + listed for n in others), listed)
     top = html.split("<main")[1].split('id="arrangement"')[0]
-    full = get(base + "/fragment/scorefull")[1]
     pc = held["parity"]["percent"]
-    check("it shows how far the swarm is toward parity with the larger model, by name, as a percentage with a bar and the count behind it; 100 is said only when every answer is equivalent; and it says that being right is not what is measured",
-          ("%s%% of the way to parity with Nemotron" % swarm_ui.fmt_pct(pc) in html or "100%: at parity with Nemotron" in html) and 'class="memc parc' in top and 'class="mbar stack"' in top and "of the way to parity</span>" not in html.split('id="chips"')[1].split("</header>")[0]
-          and "Toward parity with Nemotron" in full and "The swarm" in full and "LFM2.5 2.6B alone" in full and "fundamentally equivalent" in full and "Whether either was right is not what is measured" in full
-          and data.parity([{"grade": "right"}] * 999 + [{"grade": "wrong"}])["percent"] == 99.9 and data.parity([{"grade": "right"}] * 3)["percent"] == 100 and data.parity([{"grade": "right"}] * 1999 + [{"grade": "wrong"}])["percent"] < 100
+    check("the percentage arithmetic stays exact: 100 is said only when every answer is equivalent, and a share is never rounded up to it",
+          data.parity([{"grade": "right"}] * 999 + [{"grade": "wrong"}])["percent"] == 99.9 and data.parity([{"grade": "right"}] * 3)["percent"] == 100 and data.parity([{"grade": "right"}] * 1999 + [{"grade": "wrong"}])["percent"] < 100
           and swarm_ui.fmt_pct(75.0) == "75" and swarm_ui.fmt_pct(62.5) == "62.5")
     strip = get(base + "/fragment/score")[1]
-    check("parity stays one small strip whether or not anything is measured: the verdict and a line of counts, with the charts behind it in a dialog and never on the page itself",
-          'id="score-open"' in top and "held questions" in top and "LFM2.5 2.6B alone" in top and "<svg" not in top.split('id="score"')[1] and 'class="kpis"' not in html and 'class="kpis"' in full
-          and 'id="big"' in html and "/fragment/scorefull" in html and strip.startswith('<button type="button" class="panel strip"') and len(strip) < 6000, len(strip))
+    check("the page says how far training has come, question by question: a percentage training complete, with a bar of the questions at parity (as the swarm stood, brought there by a change), and no parity verdict, held-question card or whole-measurement dialog any more",
+          "Training progress" in html and 'class="panel trainprog"' in top and "training complete" in top and 'class="mbar stack"' in strip
+          and 'id="score-open"' not in html and 'id="big"' not in html and "/fragment/scorefull" not in html and get(base + "/fragment/scorefull")[0] == 404 and "Parity with the larger model" not in html, strip[:300])
     fp = data.footprint({"a": {"bytes": 2**30}, "b": {"bytes": 2**30}}, {"memGb": 5}, {"memGb": 18})
-    check("the strip says what the swarm is for: the memory it takes against the larger model's, in the same chart as the whole measurement (a bar for each on one scale, the swarm's made of its parts, a scale and a key), the share and how many times smaller, estimated and said to be; and parity in the same design above it: the share large, the swarm's answers as a bar (equivalent, different, no answer) with each small model alone beside it on one scale, and a key; the other numbers are chips",
+    check("the training card says what the swarm is for: the memory it takes against the larger model's, in the memory chart (a bar for each on one scale, the swarm's made of its parts, a scale and a key), the share and how many times smaller, estimated and said to be; and parity in the same design above it: the share large, the swarm's answers as a bar (equivalent, different, no answer) with each small model alone beside it on one scale, and a key; the other numbers are chips",
           {k: fp[k] for k in ("small", "decider", "swarm", "target", "share", "times")} == {"small": 3.5, "decider": 5, "swarm": 8.5, "target": 18, "share": 47.2, "times": 2.1}
           and fp["saved"] == 52.8 and fp["savedGb"] == 9.5
           and [x["kind"] for x in fp["parts"]] == ["model", "model", "contexts", "decider"] and abs(sum(x["gb"] for x in fp["parts"]) - fp["swarm"]) < 0.05 and data.footprint({}, {}, {"memGb": 18}) is None
           and 'class="memc compact"' in strip and "The swarm</span>" in strip and "memory saved" in strip and "GB less" in strip and "not measured" in strip and "Not measured." in strip and "× smaller" in strip
           and 'class="memleg"' in strip and 'class="mbar stack"' in strip and strip.count("<i style=\"width:") >= 5 and "<svg" not in strip
-          and 'class="memc parc behind"' in strip and "Toward parity with Nemotron" in strip and 'class="pe"' in strip and 'class="pd"' in strip and 'class="memrow alone"' in strip and "held answers" in strip, strip[:600])
+          , strip[:600])
     plan = get(base + "/fragment/plan")[1]
     arr_stopped = swarm_ui.arrangement(data.load(root))
     was_rs = swarm_ui.run_state
@@ -113,7 +110,7 @@ with tempfile.TemporaryDirectory() as tmp:
           "Being measured" in plan_live and "Stopped partway" not in plan_live and 'id="qtrack"' in arr_live and "Being tried now" not in arr_live
           and "Stopped partway" in plan and ">Being measured<" not in plan and "stopped partway: " in plan and 'id="qtrack"' in arr_stopped and "Stopped while trying" not in arr_stopped and "Being tried now" not in arr_stopped and 'class="tb' not in arr_stopped, plan[:200])
     check("the plan of the pass in hand is on the page as it stands: what the measurement showed, each move in order with the slot, the model, the technique, the paper it came from and why it was chosen, and what became of it",
-          "The plan for pass 5" in html and "What the measurement showed" in plan and "no slot had the larger model" in plan.lower().replace("&#x27;", "'") and plan.count("<li class=") == 5 and "Stopped partway" in plan and ">Kept<" in plan and ">Not kept<" in plan
+          "Pass 5, question by question" in html and "What the measurement showed" in plan and "no slot had the larger model" in plan.lower().replace("&#x27;", "'") and plan.count("<li class=") == 5 and "Stopped partway" in plan and ">Kept<" in plan and ">Not kept<" in plan
           and "arxiv.org/abs/2609.14412" in plan and "a-steps (draft, LFM2.5 2.6B)" in plan and "Chosen because of: no slot had the answer" in plan and "The measurement does not point at it" in plan
           and "19 equivalent, 4 different on train (as it was: 17, 6)" in plan and "Open a slot to read what it is told" not in html and "/fragment/plan" in html, plan[:300])
     check("a slot's card says how long it has worked on this turn, which turn it is, and how long it has been engaged in all this step, since its clock starts again with every question",
@@ -137,24 +134,14 @@ with tempfile.TemporaryDirectory() as tmp:
     check("where the plan puts a small model beside the decider, the decide column that settles says so: which model, asked as which slot (a checker by default), and when it is asked; a decision that settles early has none, and without one the column says nothing of it",
           beside.count("Beside it:") == 1 and ("model %s, asked as %s" % (first_check["member"], first_check["id"])) in beside and swarm_ui.DECIDE_WITH["if-close"] in beside
           and beside.index("Settles it here") < beside.index("Beside it:") and "Beside it:" not in alone_html, beside.count("Beside it:"))
-    # THE MEASUREMENT AS IT IS MADE: the strip says the most that is known at each moment, and what kind of knowledge it is
     H, T = d["splits"]["held"], d["splits"]["train"]
-    part = dict(d, splits=dict(d["splits"], held=dict(H, swarm=H["swarm"][:5], parity=data.parity(H["swarm"][:5]), expected=12)))
-    only_train = dict(d, splits=dict(d["splits"], held=dict(H, swarm=[], parity=None)))
-    only_alone = dict(d, splits=dict(d["splits"], held=dict(H, swarm=[], parity=None), train=dict(T, swarm=[], parity=None)))
-    nothing = dict(d, splits={k: dict(v, swarm=[], parity=None, target={}, alone={m: [] for m in v["alone"]}) for k, v in d["splits"].items()})
-    s_part, s_train, s_alone, s_none, s_full = (swarm_ui.score_strip(x) for x in (part, only_train, only_alone, nothing, d))
-    check("the parity strip says the most that is known at each moment and never more: nothing; then what the larger model and each small model alone have done; then how the train questions are going; then the held answers as they come, said not to be the verdict; and the verdict only when all are answered",
-          "Not measured yet" in s_none and "has answered 12 held questions. The swarm has not answered yet" in s_alone and "alone" in s_alone
-          and "% on this pass" in s_train and "train questions" in s_train and "Parity is said on the held questions" in s_train and "of the way to parity" not in s_train and "at parity with" not in s_train
-          and "Being measured: " in s_part and "% so far. 5 of 12 held answers in" in s_part and "The verdict is given when all 12 are answered" in s_part and "of the way to parity" not in s_part
-          and ("of the way to parity with" in s_full or "at parity with" in s_full) and "Being measured" not in s_full, s_part[:300])
-    b_train, b_none = swarm_ui.scoreboard(only_train), swarm_ui.scoreboard(nothing)
-    check("the whole parity card opens the whole measurement in every state, and the measurement shows what there is: the held answers where they are in; this pass's train answers before them, said to be those and not parity; and before anything, that nothing is measured, with the memory",
-          all(x.startswith('<button type="button" class="panel strip" id="score-open"') for x in (s_none, s_alone, s_train, s_part, s_full))
-          and "The held questions are not answered yet in this pass" in b_train and "train questions so far" in b_train and "Train answers equivalent" in b_train and "held answers of that kind" not in b_train
-          and "Not measured yet" in b_none and "Memory saved" in b_none and "Toward parity, pass by pass" not in b_none
-          and "Held answers equivalent" in swarm_ui.scoreboard(d), [s_none[:80], b_train[:160]])
+    # TRAINING COMPLETE, AS IT GOES: nothing yet; questions at parity as the swarm stood and brought there; one back in hand after a swap
+    p_none = swarm_ui.progress_strip(dict(d, loop=None))
+    p_some = swarm_ui.progress_strip(dict(d, loop={"of": 10, "changes": [{"what": "x"}], "list": [{"id": "a", "state": "at parity"}, {"id": "b", "state": "reached"}, {"id": "c", "state": "at parity"}, {"id": "d", "state": "reopened"}]}))
+    check("training complete says how far training has come and never more: before anything, that training starts at question 1; then the share of the pass's questions at parity (as the swarm stood, brought there by a change), with any back in hand after a swap, the found arrangements and what the spec kept",
+          "0%</b><span>training complete" in p_none and "Training starts at question 1" in p_none
+          and "30%</b><span>training complete" in p_some and "<b>3</b> of 10 train questions at parity" in p_some and "<b>2</b> as the swarm stood, <b>1</b> brought there" in p_some
+          and "1 back in hand after a swap" in p_some and "change kept into the spec this pass" in p_some and "found arrangement" in p_some, p_some[:400])
     ckd = root / ".work" / "train" / "checkpoints"
     ckd.mkdir(parents=True, exist_ok=True)
     extra = dict(H["swarm"][0], id="held-live-1", grade="right")
@@ -165,8 +152,8 @@ with tempfile.TemporaryDirectory() as tmp:
     ids = [r["id"] for r in live_d["splits"]["held"]["swarm"]]
     for f in ckd.glob("*.jsonl"):
         f.unlink()
-    check("an answer is on the page the moment a trainer has written it down, before its step has ended; an answer of a candidate being tried is not taken for the swarm's; and input against output is in the whole measurement (not on the page), beside a picture of the memory the swarm takes against the larger model's",
-          "held-live-1" in ids and "held-trial-1" not in ids and 'id="io"' not in html and 'id="io"' in full and "Input against output" in full and "Memory saved: the swarm against the larger model" in full and swarm_ui.io_section(nothing) == "" and 'id="io"' in swarm_ui.io_section(d), ids[-3:])
+    check("an answer is on the page the moment a trainer has written it down, before its step has ended; an answer of a candidate being tried is not taken for the swarm's",
+          "held-live-1" in ids and "held-trial-1" not in ids and 'id="io"' not in html, ids[-3:])
     # what a configuration remembers of its training is its own
     sd = root / "training" / "states"
     sd.mkdir(parents=True, exist_ok=True)
@@ -199,9 +186,9 @@ with tempfile.TemporaryDirectory() as tmp:
           [only_html[only_html.find("What only"):only_html.find("What only") + 300] if "What only" in only_html else "", swarm_ui.step_label("07-write-briefs")])
     spec_rows = [dict(r, refToSpec=(i % 3 != 0)) for i, r in enumerate(H["swarm"])]
     check("the plan says how the swarm is being trained, from its policy: how many changes are tried on a question, how many questions already at parity a change is asked again on before it is kept, when a change is dropped, and what the plan lists first; a flow that asks what each call should give is drawn with that step; and parity is also counted where the larger model follows the question",
-          "How it is training" in pol_html and "or after <b>12</b> changes" in pol_html and "until it is at parity" in pol_html and "on top of the <b>3</b> that brought it closest" in pol_html and "or after" not in swarm_ui.plan_panel(d) and "asked again on <b>6</b> questions already there" in pol_html and "wins" not in pol_html and d["policy"]["loop"]["cap"] is None and d["policy"]["loop"]["beam"] == 3
+          "How it is training" in pol_html and "or after <b>12</b> changes" in pol_html and "until it is at parity" in pol_html and "with up to <b>3</b> such arrangements open at a time" in pol_html and "The loop&#39;s policy" in pol_html and "or after" not in swarm_ui.plan_panel(d) and "asked again on <b>6</b> questions already there" in pol_html and "wins" not in pol_html and d["policy"]["loop"]["cap"] is None and d["policy"]["loop"]["beam"] == 3
           and "Says what each call should give" in exp_html and exp_html.count('class="stage"') == 5
-          and data.parity(spec_rows)["onSpec"]["compared"] == 8 and "follows the question" in swarm_ui.score_strip(dict(d, splits=dict(d["splits"], held=dict(H, swarm=spec_rows, parity=data.parity(spec_rows))))), pol_html[:200])
+          and data.parity(spec_rows)["onSpec"]["compared"] == 8, pol_html[:200])
     spec_html = get(base + "/fragment/spec")[1]
     sp = data.spec(d)
     check("the output spec is the record of what this configuration has learned against this larger model: every change that was kept, newest first, with where it came from and the answers it won on train and on held; where each pass left it; the flow; and a count of them on its pill",
@@ -248,7 +235,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and rr.get("a-writer", {}).get("judged") == 1, rr)
     check("the models and what the swarm is equivalent on are one section, Configuration, that folds (open to begin with) and folded says in a line what the swarm is; the line is drawn again when either changes",
           '<details class="cfg fold" data-keep="cfg" open>' in html and html.index('data-keep="cfg"') < html.index('id="picks"') < html.index('id="equiv"') and 'id="cfg-meta"' in html
-          and " · decided by " in html.split('id="cfg-meta">')[1][:200] and get(base + "/fragment/cfgmeta")[0] == 200 and "swap('/fragment/cfgmeta','#cfg-meta')" in html, html.split('id="cfg-meta">')[1][:160])
+          and " decides · against " in html.split('id="cfg-meta">')[1][:200] and get(base + "/fragment/cfgmeta")[0] == 200 and "swap('/fragment/cfgmeta','#cfg-meta')" in html, html.split('id="cfg-meta">')[1][:160])
     check("a page that is closed or reloaded before its answer has been sent leaves nothing printed as an error, and the next request is answered as usual",
           "Traceback" not in noise.getvalue() and "BrokenPipe" not in noise.getvalue() and get(base + "/api/live")[0] == 200, noise.getvalue()[-300:])
     # ONE NUMBER, SAID ONE WAY: every place on the page that says how far the swarm is says the same percentage, from the same count
@@ -257,15 +244,9 @@ with tempfile.TemporaryDirectory() as tmp:
     far = swarm_ui.how_far(P["equivalent"], P["compared"])
     spec_now = get(base + "/fragment/spec")[1]
     alone_pct = ["%s%%" % swarm_ui.fmt_pct(data.parity(r)["percent"]) for r in held["alone"].values() if r]
-    check("every place that says how far the swarm is toward parity says the same percentage, worked out in one place from the same count: the strip (the header no longer repeats it), the whole measurement, the bars of each alone, the passes and the spec; and each small model alone is said the same way",
-          ("%s of the way to parity with" % same) in top and "of the way to parity" not in html.split('id="chips"')[1].split("</header>")[0]
-          and ("%s<small>%%</small>" % swarm_ui.fmt_pct(P["percent"])) in full and ("%s of the way to parity with" % same) in full and far in full and ("%s of the way to parity against" % same) in spec_now
-          and ("<b>%s</b> of the way to parity." % same) in spec_now and all(a in top and a in full for a in alone_pct) and swarm_ui.how_far(25, 42) == "59.5% · 25 of 42"
-          and data.percent(25, 42) == 59.5 and "Not at parity" not in html + full + spec_now and "Not yet" not in full, [same, far, alone_pct])
-    kb = swarm_ui.kind_bars({"write-parsing": {"n": 8, "s": 1}, "trace": {"n": 8, "s": 8}, "fix": {"n": 8, "s": 5}, "something-new": {"n": 2, "s": 1}})
-    check("each kind of question is a row: its name in words, a bar, and the percentage and count behind it, the furthest behind first, all of one kind equivalent marked as such; a kind with no name of its own is shown as it is",
-          kb.count("<li") == 4 and kb.index("Write a function: parsing") < kb.index("Correct a function") < kb.index("Say what a program prints") and "<b>12.5%</b> · 1 of 8" in kb and "<b>100%</b> · 8 of 8" in kb
-          and 'class="full"' in kb and 'class="low"' in kb and "something-new" in kb and "<svg" not in kb and "WRITE-PARSING" not in full, kb[:200])
+    check("where the spec says how far the swarm is toward parity on the held questions it says one percentage, worked out in one place from the same count; and each small model alone is said the same way",
+          ("%s of the way to parity against" % same) in spec_now and ("<b>%s</b> of the way to parity." % same) in spec_now and swarm_ui.how_far(25, 42) == "59.5% · 25 of 42"
+          and data.percent(25, 42) == 59.5 and "Not at parity" not in html + spec_now, [same, far, alone_pct])
     check("a row of the training card with no duration (a thing learned, a recovery) wraps inside the card: only a duration is kept on one line",
           ".steps li>span:nth-child(3){" in html and ".steps li>span:last-child{" not in html and ".steps li>span{min-width:0;overflow-wrap:anywhere}" in html)
     check("the page ends with a footer: whose product it is, its licence, and that the page is served from this machine",
@@ -294,7 +275,7 @@ with tempfile.TemporaryDirectory() as tmp:
     code_ok, drawn = send("/config", {"a": other["id"]})
     after = json.loads((root / "src" / "config.json").read_text())
     check("choosing a model writes it down and draws again everything that depends on it, in place: the slots in that place carry the new model's name, and results of another arrangement are not shown as this one's",
-          code_ok == 200 and after["a"] == other["id"] and other["name"] in drawn and ("Not measured yet" in drawn or "The swarm has not answered yet" in drawn) and "At parity with" not in drawn and "Not at parity with" not in drawn and after["b"] == d["members"]["b"]["id"], after)
+          code_ok == 200 and after["a"] == other["id"] and other["name"] in drawn and "training complete" in drawn and "At parity with" not in drawn and "Not at parity with" not in drawn and after["b"] == d["members"]["b"]["id"], after)
     check("a model that is not one of those that can be chosen is refused, and so is a choice that does not come from this page",
           send("/config", {"a": "no-such-model"})[0] == 400 and send("/config", {"a": d["members"]["a"]["id"]}, {"content-type": "application/json"})[0] == 403 and json.loads((root / "src" / "config.json").read_text())["a"] == other["id"])
     send("/config", {"a": d["members"]["a"]["id"]})
@@ -405,7 +386,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and bad == [400, 400, 400, 400] and unp == 200 and json.loads((wdp / "steer.json").read_text())["pin"] == [], [f_ok, p_ok, k_ok, bad, sv])
     check("each subsection of the plan (the gap, what the measurement showed, how it is training, steer it, the moves...) folds under its heading, folded to begin with and saying in a line what it holds while folded, and kept open or folded on the device like the training card's",
           all(('data-keep="plan-%s">' % k) in after_u for k in ("steer-it", "how-it-is-training", "moves-in-plan-order")) and after_u.count('<details class="psec"') == after_u.count("<h4>")
-          and " open>" not in after_u.split('class="psec"')[1][:80] and after_u.count('class="pmeta"') >= 3 and "until parity, in rounds on the 3 closest" in after_u and "Decider loops only · 1 skipped · nothing queued" in after_u and "2 moves · 0 tried · 0 kept" in after_u
+          and " open>" not in after_u.split('class="psec"')[1][:80] and after_u.count('class="pmeta"') >= 3 and "until parity, best first, building on the 3 closest" in after_u and "Decider loops only · 1 skipped · nothing queued" in after_u and "2 moves · 0 tried by the loop · 0 kept" in after_u
           and after_u.rstrip().endswith("</div>") and swarm_ui.fold_sections('<div class="panel"><p>x</p></div>', "p") == '<div class="panel"><p>x</p></div>', after_u.count("<h4>"))
     (wdp / "steer.json").unlink()
     if had_plan is None:
@@ -552,7 +533,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and "%s alone" % d["members"]["a"]["name"] in tg0 and "swap('/fragment/tools','#tools')" in tg0 and tg0.count("swap('/fragment/tools','#tools')") >= 3
           and b_ok == 200 and b_cfg.get("tools") == idb and ('class="seg on" data-tools="%s"' % idb) in b_row and ("%s alone" % nb) in b_meta and not b_row.startswith("<fieldset")
           and b_spec["recipe"]["serving"]["tools"] == idb and nb in b_spec["interface"]["capabilities"]["tools"] and lead_spec["recipe"]["serving"]["tools"] == ida
-          and t_ok == 200 and t_bad == 400 and t_out == 400 and t_cfg.get("tools") == "swarm" and 'class="seg on" data-tools="swarm"' in t_row and "the swarm decides" in t_meta
+          and t_ok == 200 and t_bad == 400 and t_out == 400 and t_cfg.get("tools") == "swarm" and 'class="seg on" data-tools="swarm"' in t_row and "tools: the swarm" in t_meta
           and sw_spec["recipe"]["serving"]["tools"] == "swarm" and sw_spec["spec"]["recipeSha256"] != lead_spec["spec"]["recipeSha256"]
           and sw_spec["interface"]["capabilities"]["toolsMode"] == "swarm" and "decided by the swarm" in sw_spec["interface"]["capabilities"]["tools"] and not any("tools goes to" in x for x in sw_spec["interface"]["notYet"])
           and l_ok == 200 and l_cfg.get("tools") == ida and data.tools_of("no-longer-here", d["members"]) == "a" and data.tools_of(idb, d["members"]) == "b",
@@ -568,12 +549,11 @@ with tempfile.TemporaryDirectory() as tmp:
         selfr[0]["grade"] = "wrong"
     held_n = dict(dn["splits"]["held"], swarm=sw_rows, parity=data.parity(sw_rows), self=selfr)
     dn2 = dict(dn, splits=dict(dn["splits"], held=held_n))
-    strip_n, board_n, spec_n = swarm_ui.score_strip(dn2), swarm_ui.scoreboard(dn2), data.spec(dn2)
-    check("the larger model against itself is shown beside parity (asked again, judged against its own first answers: the noise floor), in the card, its chips, the whole measurement and the spec; and the swarm's different answers the reader could not decide are counted apart, in the verdict and the spec",
-          ("asked again" in strip_n) and "against itself" in strip_n and "the noise floor" in board_n
-          and spec_n["trainedAgainst"]["selfAgreement"] == {"equivalent": len(selfr) - 1, "compared": len(selfr), "percent": data.percent(len(selfr) - 1, len(selfr))}
-          and (not wrong or (spec_n["trainedAgainst"]["undecided"] == 1 and "the reader could not decide" in strip_n and data.parity(sw_rows)["undecided"] == 1))
-          and data.spec(dn)["trainedAgainst"]["selfAgreement"] is None, [strip_n[:120]])
+    spec_n = data.spec(dn2)
+    check("the larger model against itself is in the spec (asked again, judged against its own first answers: the noise floor); and the swarm's different answers the reader could not decide are counted apart",
+          spec_n["trainedAgainst"]["selfAgreement"] == {"equivalent": len(selfr) - 1, "compared": len(selfr), "percent": data.percent(len(selfr) - 1, len(selfr))}
+          and (not wrong or (spec_n["trainedAgainst"]["undecided"] == 1 and data.parity(sw_rows)["undecided"] == 1))
+          and data.spec(dn)["trainedAgainst"]["selfAgreement"] is None, spec_n["trainedAgainst"].get("selfAgreement"))
     # A JUDGE OF EQUIVALENCE APART FROM THE DECIDER: a pill beside Decides; the decider itself where none is chosen
     j_before = swarm_ui.recommendations(data.load(root))
     j_ok = send("/config", {"judge": "startlux-4b"})[0]
@@ -586,7 +566,7 @@ with tempfile.TemporaryDirectory() as tmp:
     j_off = send("/config", {"judge": ""})[0]
     j_cfg3 = json.loads((root / "src" / "config.json").read_text())
     check("equivalence can be judged by a decision model apart from the decider: a pill beside Decides, the decider itself where none is chosen (and recommended once answers are being judged, a model that fits beside the decider); choosing one saves it, says so in the folded line and the spec, and the recommendation goes; choosing the decider, or none, is the decider itself again; an unknown one is refused",
-          any(r["id"].startswith("judge:") for r in j_before) == bool(judge_here) and j_ok == 200 and j_cfg.get("judge") == "startlux-4b" and "judged by StartLux Decision 4B" in j_meta
+          any(r["id"].startswith("judge:") for r in j_before) == bool(judge_here) and j_ok == 200 and j_cfg.get("judge") == "startlux-4b" and "StartLux Decision 4B judges" in j_meta
           and 'value="startlux-4b" selected' in j_picks.split('data-pick="judge"')[1].split("</select>")[0] and j_spec["trainedAgainst"]["judgedBy"] == "StartLux Decision 4B"
           and not any(r["id"].startswith("judge:") for r in j_recs) and j_same == 200 and "judge" not in j_cfg2 and j_bad == 400 and j_off == 200 and "judge" not in j_cfg3
           and "(the decider itself)" in data.spec(data.load(root))["trainedAgainst"]["judgedBy"], [j_ok, j_cfg.get("judge"), j_same, j_bad, j_off])
@@ -664,7 +644,7 @@ with tempfile.TemporaryDirectory() as tmp:
     empty.mkdir()
     srv, base = serve(empty)
     code, html = get(base + "/")
-    check("with nothing measured and nothing configured the page still opens, and says nothing has been measured", code == 200 and "Not measured yet" in html and "No larger model is named" in html)
+    check("with nothing measured and nothing configured the page still opens, and says training starts at question 1", code == 200 and "Training starts at question 1" in html and "No larger model is named" in html)
     srv.shutdown()
     # ---- the Run training button, with a stand-in for the session (it writes its steps and waits): no model is started
     srv, base = serve(empty)
@@ -707,7 +687,8 @@ with tempfile.TemporaryDirectory() as tmp:
     tgt_id = d["target"]["id"]
     made_c = {"training/state.json": "{}", "training/states/x.json": "{}", "src/learned/x.json": "{}", ".work/train/loop.json": "{}", ".work/train/swarm-runs.jsonl": "",
               ".work/train/baseline-runs.jsonl": "{}", "training/results/%s/%s-held.json" % (d["key"], tgt_id): "{}",
-              "training/results/%s/swarm-train.json" % d["key"]: "{}", "training/results/%s/m-alone-vs-%s-held.json" % (d["key"], tgt_id): "{}"}
+              "training/results/%s/swarm-train.json" % d["key"]: "{}", "training/results/%s/m-alone-vs-%s-held.json" % (d["key"], tgt_id): "{}",
+              ".work/library/%s.json" % d["key"]: '{"arrangements":[{"names":["x"],"what":"x","from":{"question":"q"},"reached":["q"]}]}', ".work/library/%s-policy.json" % d["key"]: '{"policy":{}}'}
     for rel, txt in made_c.items():
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
         (root / rel).write_text(txt)
@@ -726,9 +707,10 @@ with tempfile.TemporaryDirectory() as tmp:
     arch = sorted((root / ".work" / "archive").glob("clear-*"))
     gone = [rel for rel in made_c if not (root / rel).exists()]
     kept_c = [rel for rel in made_c if (root / rel).exists()]
-    check("Clear training state starts training again from pass 1: training's records (its state, each configuration's record, what it kept, its measurements and loop) are moved aside to .work/archive, nothing deleted; each model's own answers and their summaries are kept; the training card says so; it is refused while training runs; and the button sits beside Run training",
+    check("Clear training state starts training again from pass 1: training's records (its state, each configuration's record, what it kept, its measurements and loop) are moved aside to .work/archive, nothing deleted; each model's own answers and their summaries are kept, and so are the found arrangements and the loop's policy (tried first after); the training card says so; it is refused while training runs; and the button sits beside Run training",
           busy_code == 409 and len(arch) == 1 and "Cleared: training starts again from pass 1" in clear_html
-          and sorted(kept_c) == sorted([".work/train/baseline-runs.jsonl", "training/results/%s/%s-held.json" % (d["key"], tgt_id), "training/results/%s/m-alone-vs-%s-held.json" % (d["key"], tgt_id)])
+          and sorted(kept_c) == sorted([".work/train/baseline-runs.jsonl", "training/results/%s/%s-held.json" % (d["key"], tgt_id), "training/results/%s/m-alone-vs-%s-held.json" % (d["key"], tgt_id),
+                                        ".work/library/%s.json" % d["key"], ".work/library/%s-policy.json" % d["key"]]) and "the 1 found arrangement" in clear_html
           and all((arch[0] / rel).exists() for rel in gone) and 'id="run-clear"' in swarm_ui.run_panel(), [busy_code, kept_c, gone])
     srv.shutdown()
     srv, base = serve(fake)
@@ -776,7 +758,63 @@ with tempfile.TemporaryDirectory() as tmp:
     check("each change in the fold says how it was chosen and how close it came: its round and place among those open, each reason, and where the answer was lost before and after it, with how many slots had it and the decider's probability; while a change is tried the page shows the same live, with what was tried on the question before it",
           "why: round 2, 4 of 37 open; no slot had the answer: this makes other drafts; the first area for an answer lost in drafting (slots)" in tm
           and "came out: lost in choosing, 2 slots had the answer, the decider 35% on it (before it: lost in drafting, 0 slots had the answer)" in tm
-          and swarm_ui.method_line({"move": "x"}) == "" and "box.className='qmethod'" in page and "Why it is tried now" in page and "Tried on this question before it" in page, tm[:400])
+          and swarm_ui.method_line({"move": "x"}) == "" and "fold.className='qmethod'" in page and "Why it is tried now" in page and "Tried on this question before it" in page, tm[:400])
+    pb = swarm_ui.policy_block({"loopPolicy": {"order": ["pin", "evidence", "momentum", "learned", "area", "cost", "fresh", "plan"], "batch": 2, "beam": 3, "momentumRecent": 3,
+                                               "learnedMinTried": 3, "partialCredit": True, "skipWriterUnlessWriting": True, "reviewEvery": 6, "trialQuestions": 6},
+                                "trial": {"taken": [{"knob": "batch", "from": 8, "to": 2, "why": "build on what came closer sooner"}], "done": 2, "of": 6},
+                                "policyLog": [{"event": "put back", "taken": [{"knob": "beam", "from": 3, "to": 6}], "verdict": {"during": 0.05, "before": 0.1, "reachedDuring": 2, "duringN": 6, "reachedBefore": 4, "beforeN": 6}},
+                                              {"event": "on trial", "taken": [{"knob": "batch", "from": 8, "to": 2}], "ideas": ["reuse the checks too"]}]})
+    check("the loop's policy is on the page: how the search is ranked and bounded now, what is on trial and how far, and each proposal of the larger model with what became of it (kept, put back with the measure against before, its ideas that need code); before a pass has run this version it says what will happen",
+          "ranked by pinned → the question&#x27;s record → like a kept change → what has worked" in pb and "2 changes from the closest before looking again" in pb
+          and "<b>On trial:</b> batch 8 → 2 (build on what came closer sooner) · 2 of 6 questions" in pb and ">put back</span>" in pb and "0.05 against 0.1 before (reached 2 of 6, against 4 of 6)" in pb
+          and "ideas that need code: reuse the checks too" in pb and pb.index("put back") > pb.index("On trial") and "A pass that runs this version writes it here" in swarm_ui.policy_block(None)
+          and "line('Policy on trial:'" in page, pb[:300])
+    tb = swarm_ui.tries_list({"list": [{"id": "q-c", "kind": "fix", "state": "reached", "lostAt": "choosing", "broke": {"q-other": 3}, "attempts": [{"move": "", "grade": "wrong"},
+        {"move": "x", "grade": "right", "lostOn": "q-other", "nearParity": True, "method": {"place": 1, "open": 4, "from": {"lost": "choosing", "had": 1}, "reasons": []}},
+        {"move": "y", "on": ["x"], "grade": "right", "kept": True, "method": {"place": 1, "open": 3, "from": {"lost": "choosing", "had": 1, "parity": True, "broke": "q-other"}, "reasons": []}}]}]})
+    pf_root = Path(tempfile.mkdtemp())
+    (pf_root / ".work" / "train" / "k1").mkdir(parents=True)
+    (pf_root / ".work" / "train" / "k1" / "loop-policy.json").write_text(json.dumps({"policy": {"batch": 5, "order": ["pin"]}, "log": [{"event": "on trial", "during": "q12"}]}))
+    pf = swarm_ui.loop_policy_of({"root": str(pf_root), "key": "k1", "loop": {"list": [], "loopPolicy": {"batch": 8}}})
+    check("a conflict between two questions is on the page: the question it broke and how often, in the fold and while it runs; a change built on a parity that broke one says so; and the loop's policy is read from the file the loop writes as it goes, newer than the record of finished questions",
+          "broke q-other 3×" in tb and "at parity here, but it broke q-other when that was asked again" in tb and "line('Conflict:'" in page and "'broke one'" in page
+          and pf["loopPolicy"]["batch"] == 5 and pf["policyLog"][0]["during"] == "q12" and swarm_ui.loop_policy_of({"root": str(pf_root), "key": "none", "loop": {"loopPolicy": {"batch": 8}}})["loopPolicy"]["batch"] == 8, tb[:300])
+    sgb = swarm_ui.policy_block({"loopPolicy": {"order": ["pin"], "suggestEvery": 20}, "suggest": {"asked": 3, "seconds": 126, "tried": 11, "kept": 1, "closer": 4, "failed": 0},
+                                 "suggestLog": [{"picks": ["e + f", "g"], "came": ["closer", "no closer"]}]})
+    check("what the larger model's suggestions of what to try have cost and come to is on the page, with the last ones, and live while it runs; the policy says after how many failed tries it is asked",
+          "<b>Suggestions of the larger model:</b> asked 3 times (about 42 s each); 11 tried: 1 kept, 4 came closer. The last: e + f (closer); g (no closer)." in sgb
+          and "the larger model suggests what to try after 20 failed tries" in sgb and "line('Suggestions:'" in page and "'suggested, no'" in page, sgb[:300])
+    pn = swarm_ui.plan_now(dict(d, loop={"of": 10, "tries": 57, "changes": [{"kind": "library"}, {"kind": "several", "swapped": "q1"}], "list": [{"id": "a", "state": "at parity"}, {"id": "b", "state": "reached"}],
+                                          "suggest": {"asked": 2, "seconds": 80, "tried": 6, "kept": 1, "closer": 2}, "trial": {"taken": [{"knob": "beam", "from": 3, "to": 5}], "done": 12, "of": 40, "unit": "tries"}}))
+    vz = swarm_ui.viz_block(d)
+    check("the plan section says what the loop is doing, from the loop: whether it runs and which question is in hand, this pass so far (finished, tried, kept, from the library, suggested, swaps), the found arrangements, what is on trial, the suggestions, and the steps each question goes through; the system is drawn below it, every part with a code to name it by, the ones the loop moves through marked live",
+          "<th>Now</th>" in pn and "2 of 10 questions finished" in pn and "57 changes tried; <b>2</b> kept (1 of them found arrangements, 1 suggested by the larger model, 1 swap)" in pn
+          and "On trial: beam 3 → 5 · 12 of 40 tries done" in pn and "Asked 2 times, about 40 s each; 6 tried: 1 kept, 2 came closer" in pn and pn.count("<li") == 6 and "Try the found arrangements, the most successful first" in pn
+          and all(">%s</span>" % c in vz for c in ("A1", "A2", "A3", "B1", "B2", "B3", "B4", "B5", "B6", "C1", "C6", "D1", "D2", "D3", "E1", "E2"))
+          and all('data-part="%s"' % k in vz for k in ("ask", "library", "search", "suggest", "guard", "keep", "review"))
+          and 'id="system">Visualizing the System' in html and html.index('id="strategy"') < html.index('id="system"') and "#viz [data-part]" in html, pn[:300])
+    wb = swarm_ui.learned_block(dict(d, learned=dict(d["learned"], wins=[
+        {"what": "move b-direct to c", "kind": "arrangement", "at": "2026-11-17T01:49", "pass": 1, "question": {"id": "q-a", "lostAt": "choosing", "attempt": 28}, "run": "clear-20261117-104329", "inArrangement": False},
+        {"what": "several: x + y", "kind": "several", "at": "2026-11-17T15:46", "pass": 1, "question": {"id": "q-b", "lostAt": "drafting", "attempt": 3}, "inArrangement": True}])))
+    check("the spec holds every win, cumulative across Clear training state: each change that brought a question to parity, from every run, numbered in order, the ones the arrangement carries now marked, the rest said to be found (and when their run was set aside)",
+          "Everything it has found (2 wins, every run)" in wb and wb.count('<li class="kept">') == 2 and ">In the arrangement<" in wb and ">Found · a run set aside 2026-11-17 10:43<" in wb
+          and "it never takes a win out of here" in wb and "<b>1</b> is in the arrangement" in wb and wb.index("x + y") < wb.index("move b-direct to c"), wb[:300])
+    lb_root = Path(tempfile.mkdtemp())
+    (lb_root / ".work" / "library").mkdir(parents=True)
+    (lb_root / ".work" / "library" / "k2.json").write_text(json.dumps({"arrangements": [{"names": ["a"], "what": "move a to c", "from": {"question": "q1"}, "reached": ["q1"], "tried": 3},
+                                                                                         {"names": ["b", "c"], "what": "several: b + c", "from": {"question": "q2"}, "reached": ["q2", "q5"]}]}))
+    lbk = swarm_ui.library_block({"root": str(lb_root), "key": "k2"})
+    check("the found arrangements are on the page, the most successful first, with how many questions each brought to parity and where it was found; with none, the page says what will be kept there; a question a swap put back in hand is shown as back in hand",
+          "Found arrangements (2)" in lbk and lbk.index("several: b + c") < lbk.index("move a to c") and "found on <code>q2</code>" in lbk and "tried 3 times since" in lbk
+          and "None yet" in swarm_ui.library_block({"root": str(lb_root), "key": "none"}) and swarm_ui.PIP["reopened"] == "ro" and swarm_ui.LOOP_STATE["reopened"][0] == "Back in hand", lbk[:300])
+    looped = swarm_ui.arrangement(dict(d, briefs=dict(d["briefs"], flow=[{"do": "draft"}, {"do": "repeat", "upTo": 2, "steps": [{"do": "decide", "keep": 2}, {"do": "revise"}]}, {"do": "write"}])))
+    tu = swarm_ui.tries_list({"list": [{"id": "q-u", "kind": "talk", "state": "not reached", "unstable": True, "exhausted": True, "lostAt": "drafting", "attempts": [{"move": "", "grade": "wrong", "seconds": 40},
+        {"move": "flow: x", "grade": "wrong", "seconds": 55.5, "added": 15.5, "near": {"lost": "choosing", "had": 1, "slots": ["a-direct"]}, "method": {"place": 1, "open": 9, "from": {"lost": "drafting", "had": 0}, "reasons": []}}]}]})
+    check("training's own change count is told apart from the flow's repeat (training change N; in each answer: again ... up to N times); each change says what a run took with it and what it added; a question whose mark the larger model did not give again says so, and not that no combination came closer; the slots that had the answer are named; and the page says the pace, the unstable mark and what reuse saved while it runs",
+          "'training change '+lp.attempt" in page and "in each answer: again while the answers differ" in looped and "55.5 s a run (+15.5 s against what it was tried on)" in tu
+          and "unstable mark: the larger model did not give its own answer again" in tu and "every combination within reach tried" in tu and "1 slot had the answer (a-direct)" in tu
+          and "line('Pace:'" in page and "line('Unstable mark:'" in page and "if(qkey&&qn.dataset.k===qkey){}" in page and "if(lp.attempt&&lp.method){" in page and "fold=document.createElement('details');fold.className='qmethod'" in page and "fold.dataset.keep='qmethod'" in page and "localStorage.getItem('swarm.open.qmethod')==='1'" in page and "lp.guarded.n+' of '+lp.guarded.of" in page and "slot answers reused unchanged so far" in page and "it never moves on before" in pol_html and "The arrangements found so far are tried on it first" in pol_html and "the search widens" in pol_html,
+          [x for x in ("'training change '+lp.attempt", "line('Pace:'", "line('Unstable mark:'", "slot answers reused unchanged so far") if x not in page] + ([] if "in each answer" in looped else ["loop label"]))
     refused = post("/run/start", headers={"content-type": "text/plain"})[0]
     foreign = post("/run/start", headers={"x-swarm": "1", "origin": "https://elsewhere.example"})[0]
     check("a pass cannot be started by anything but this page: a request without the page's own header, or from another site, is refused", refused == 403 and foreign == 403 and not (fake / ".work" / "train" / "ui-run.json").exists(), [refused, foreign])

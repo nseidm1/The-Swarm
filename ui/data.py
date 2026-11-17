@@ -316,6 +316,12 @@ def load(root):
     if not (isinstance(learned, dict) and isinstance(learned.get("briefs"), dict) and learned["briefs"].get("slots")):
         learned = None
     started_from = briefs
+    # EVERY WIN, CUMULATIVE (training/loop.mjs: .work/library/<configuration>-wins.jsonl, kept by Clear training state): each kept change
+    # with the question it brought to parity, from every run of this configuration, oldest first; marked where the arrangement as it
+    # stands now carries it (the current run's own record says so)
+    wins = _rows(root / ".work" / "library" / ("%s--%s-wins.jsonl" % (safe(cfg), safe((target or {}).get("id", "")))))
+    now_keys = {(x.get("what"), (x.get("question") or {}).get("id")) for x in (learned or {}).get("ledger") or []}
+    wins = [dict(w, inArrangement=(w.get("what"), (w.get("question") or {}).get("id")) in now_keys) for w in sorted(wins, key=lambda w: w.get("at", ""))]
     if learned:
         briefs = learned["briefs"]
     else:
@@ -400,7 +406,7 @@ def load(root):
         "briefs": briefs,
         # how this swarm is trained now: the settings every swarm starts with, and over them this configuration's own changes
         "policy": _merge(_json(root / "training" / "policy.json", {}), state.get("policy") or {}),
-        "learned": {"ledger": (learned or {}).get("ledger") or [], "passes": (learned or {}).get("passes") or [], "startedFrom": started_from.get("version")},
+        "learned": {"ledger": (learned or {}).get("ledger") or [], "passes": (learned or {}).get("passes") or [], "startedFrom": started_from.get("version"), "wins": wins},
         "state": state,
         # asking: the kinds the pass under way asks, where this configuration's record says (a choice takes effect with the next pass)
         "equivalence": {"targets": equiv.get("targets", []), "chosen": picked, "asking": state.get("kinds")},
@@ -602,6 +608,9 @@ def spec(d):
             "rule": "training goes question by question: a change is kept only if it brings a train question to parity with the larger model's answer and none of the questions already at parity that are asked again with it is lost",
             "ledger": d["learned"]["ledger"],
             "passes": d["learned"]["passes"],
+            # every win of this configuration, from every run, cumulative across Clear training state: what training has found
+            "winsKept": len(d["learned"].get("wins") or []),
+            "wins": d["learned"].get("wins") or [],
         },
         "trainedAgainst": {
             "target": {k: (d["target"] or {}).get(k) for k in ("id", "name", "by", "params", "engine")},

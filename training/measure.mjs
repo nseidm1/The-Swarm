@@ -47,9 +47,16 @@ export async function slotReport(rows, tasksById, { reader = '', briefs = null }
     paths[r.path] = (paths[r.path] || 0) + 1;
     if (r.refReply === undefined || r.grade === 'noref') continue; // the larger model gave no answer to this one: nothing to be equivalent to
     const memo = new Map();
+    // (and how near it came: of code the share of inputs it gets as the larger model's does, of words the reader's probability)
+    const shareOf = new Map();
     const own = async (text) => {
       if (!text) return false;
-      if (!memo.has(text)) memo.set(text, (await t.equivalent(r.refReply, t.wrap(text), { reader })).grade === 'right');
+      if (!memo.has(text)) {
+        const g = await t.equivalent(r.refReply, t.wrap(text), { reader });
+        memo.set(text, g.grade === 'right');
+        const sh = typeof g.share === 'number' ? g.share : typeof g.p === 'number' ? g.p : null;
+        if (sh !== null) shareOf.set(text, sh);
+      }
       return memo.get(text);
     };
     const settled = await own(r.decided);
@@ -82,6 +89,7 @@ export async function slotReport(rows, tasksById, { reader = '', briefs = null }
         continue;
       }
       s.same = s.final ? await own(s.final) : null;
+      if (s.final && shareOf.has(s.final)) s.share = shareOf.get(s.final);
       if (!s.final) o.silent++;
       else if (s.same) {
         o.right++;

@@ -140,7 +140,17 @@ try {
     rows.map((r) => ({ label, ...r })),
   );
   finished();
-  save(label + '-' + split, { who: label, split, seed: list.length ? list[0].seed : null, ...c });
+  save(label + '-' + split, {
+    who: label,
+    split,
+    seed: list.length ? list[0].seed : null,
+    ...c,
+    // against itself: the questions on which its second answer was not equivalent to its first (training/loop.mjs gives them a
+    // bounded number of changes: their mark is partly a draw)
+    ...(againstItself
+      ? { disagreed: rows.filter((r) => r.grade === 'wrong' || r.grade === 'unsure').map((r) => r.id) }
+      : {}),
+  });
 } finally {
   await model.stop();
 }

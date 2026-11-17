@@ -285,6 +285,8 @@ export async function answer(
         out: tried ? tried.summary : 'The drafts could not be tried on calls: they are compared as text.',
         final: '',
         ok: !!tried,
+        // how many different behaviours the drafts showed (one: they all do the same)
+        behaviours: tried ? new Set(S.pool.map((d) => d.does)).size : 0,
       };
       trace.push(row);
       onStep(row);

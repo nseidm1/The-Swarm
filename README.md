@@ -18,10 +18,10 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/dashboard.png" alt="The training dashboard: Configuration, with a note of three recommended changes, the pills that choose the small models, the decision model, who judges equivalence and the larger model, the boxes for what the swarm is to be equivalent on, and Turns with tools (decided by the swarm, or given to one of its small models by name); parity with Nemotron 3.5 Lightning 30B as a panel, 59.5% of the way, with each small model alone and the larger model asked again beside the swarm; the memory saved, 52.2%; and beside them the training card, idle, with Run training and what it does (each question stays in hand until the swarm is at parity on it), then the passes so far and the ideas waiting to be tried" width="860">
+  <img src="docs/images/dashboard.png" alt="The training dashboard: Configuration (the pills that choose three small models, the decision model, who judges equivalence and the larger model; what the swarm is equivalent on; who takes turns with tools); Training progress, 14.2% training complete: 12 of 84 train questions at parity with Nemotron 3.5 Lightning 30B, 9 as the swarm stood and 3 brought there by a change it kept, with a bar, 10 found arrangements and 3 changes kept into the spec this pass, and the memory the swarm takes against the larger model's, 51.1% saved; the Output spec button, 11 learned; and beside them the training card, stopped, with Run training and Clear training state" width="860">
 </p>
 
-<p align="center"><em>The training dashboard in pass 6 of a real session, stopped at step 17 of 25 (LFM2.5 2.6B and Bonsai 2 2B, decided by Kev 4B, against Nemotron 3.5 Lightning 30B; 2026-11-16).</em></p>
+<p align="center"><em>The training dashboard on the morning after the first night of training question by question, the found arrangements tried first: LFM2.5 1.2B, Qwen3.5 2B and Bonsai 2 4B, decided by Jeffan 4B, against Nemotron 3.5 Lightning 30B; 2026-11-17.</em></p>
 
 The Swarm is a module from Family Office. To the program that uses it, it is one model: messages go in and one reply comes
 out. Inside, two to four small models of your choosing are each served with several slots, and every slot has a part: some draft an
@@ -46,22 +46,24 @@ the work of a seat on a team, in two parts:
   developer's words to someone who is not one). The decision model reads the act and the substance, in one request; the
   conventions are read off the words.
 
-Parity is not correctness (the larger model's answer is the mark, whatever it is). **Progress toward it is a percentage**:
-the share of the held answers that are equivalent to the larger model's. Parity is 100%, and nothing less: one answer that
-is not equivalent is a place where the two are not the same.
+Parity is not correctness (the larger model's answer is the mark, whatever it is). **Training goes question by question**:
+each train question stays in hand until the swarm's answer to it is equivalent to the larger model's, and every change that
+gets it there without losing a question already at parity is a win, kept in the spec. **Progress is % training complete**:
+the share of a pass's train questions at parity. The held questions, never trained on, check that what was learned holds.
 
 The pencil at the top right of each box opens its questions: the kinds the trainer makes, and a list of your own to add
 to, change or take out ([`training/questions/`](training/questions/README.md)). Every second one is held back, so the Swarm
 is measured on questions it was never chosen on.
 
 <p align="center">
-  <img src="docs/images/dashboard-questions.png" alt="The questions for The Crew: a list of your own questions to add, change or take out, each sent to a Simple or a Developer seat, and the fourteen kinds the trainer makes: four kinds of function to write, correcting one, saying what is wrong, saying what a program prints, four kinds of Simple conversation, two of Developer, and an agent's next step with tools" width="620">
+  <img src="docs/images/dashboard-questions.png" alt="The questions for The Crew: your own questions to add, change or take out, each sent to a Simple or a Developer seat, and the fourteen kinds of question the trainer makes, new from a seed every pass" width="620">
 </p>
 
-> **Status: pre-release, training under way.** Five training passes have finished on one configuration (LFM2.5 2.6B and
-> Bonsai 2 2B, decided by Kev 4B) against Nemotron 3.5 Lightning 30B: **59.5% of the way to parity, 25 of 42 held answers
-> equivalent**, up from 52.3% at the first pass. That is on the programming questions only; the conversation questions are
-> asked from the next pass. [Measured, not claimed](#measured-not-claimed) has the numbers, and [Status and
+> **Status: pre-release, training under way.** Training question by question, with LFM2.5 1.2B, Qwen3.5 2B and Bonsai 2
+> 4B, decided by Jeffan 4B, against Nemotron 3.5 Lightning 30B (2026-11-16 to 17): **11 wins** over four runs, every one
+> kept in the cumulative spec, and their 10 arrangements tried first on every question. The latest run stopped at 14.2%
+> training complete, 12 of 84 train questions at parity. Under the earlier training, a swarm of LFM2.5 2.6B and Bonsai 2 2B
+> reached 59.5% of the way to parity on the held questions. [Measured, not claimed](#measured-not-claimed) has the numbers, and [Status and
 > limits](#status-and-limits) what has and has not been run.
 
 ## Contents
@@ -212,7 +214,7 @@ The Swarm is made of a few choices, kept in [`src/config.json`](src/config.json)
 
 Every file is pinned: a repository, a revision, a size and a SHA-256, and a file is kept only if it matches.
 
-**Only five of these have been run here**: LFM2.5 2.6B, Bonsai 2 2B, Kev 4B, StartLux Decision 4B (as the decider, on the reader checks and the decide request only, not yet in a pass) and Nemotron 3.5 Lightning 30B. The rest are
+**Ten of these have been run here**: LFM2.5 2.6B, LFM2.5 1.2B, LFM3 1.7B, Bonsai 2 2B, Bonsai 2 4B, Qwen3.5 2B, Kev 4B, Jeffan 4B, StartLux Decision 4B (as the decider, on the reader checks and the decide request only, not yet in a pass) and Nemotron 3.5 Lightning 30B. The rest are
 listed as their makers published them and are untried. Nemotron is served by TensorFold on an Apple silicon Mac; every other
 target is a GGUF file served by llama.cpp.
 
@@ -331,50 +333,45 @@ python3 ui/swarm_ui.py
 
 It opens at `http://127.0.0.1:8787/` (`--port` changes that). It needs nothing installed.
 
-The pictures here and at the top of this page show it in pass 6 of a real session on 2026-11-16, the swarm of LFM2.5
-2.6B and Bonsai 2 2B, decided by Kev 4B, against Nemotron 3.5 Lightning 30B. Every section folds, smoothly, and says in a
+The pictures here and at the top of this page show it on 2026-11-17, after the first night of training question by
+question: the swarm of LFM2.5 1.2B, Qwen3.5 2B and Bonsai 2 4B, decided by Jeffan 4B, against Nemotron 3.5 Lightning 30B
+(the recommended changes are from an earlier configuration: this one has none to recommend). Every section folds, smoothly, and says in a
 line what it holds while folded; open or folded is kept on the device.
 
 <p align="center">
-  <img src="docs/images/dashboard-arrangement.png" alt="The arrangement being trained, as faces: the swarm as it stands (briefs v3, 8 slots on 2 models, 2 kept changes), a line saying nothing is running, and the question track, not begun, saying that each question stays in hand until the swarm is at parity on it; a roster of the models (LFM2.5 2.6B, Bonsai 2 2B, Kev 4B as the decider, and Nemotron 3.5 Lightning 30B, the mark); then the flow in one row, Draft, a marker for the sandbox, Check, Decide, Write, each slot a face in its model&#39;s colour with its whole name, its record as a ring (a-direct 37 of 69, a-steps 38 of 63) and a dot for what it is doing. While a change is tried on a slot its face has an amber ring" width="860">
+  <img src="docs/images/dashboard-arrangement.png" alt="The arrangement being trained, as faces: the swarm as it stands (briefs v4, 9 slots on 3 models, 3 kept changes); Question by question, 12 of 84 finished, a pip for each; the models; and the flow the kept changes made: draft (six slots), decide keeping two, try, check, decide, write" width="860">
 </p>
 
 <p align="center"><em>The arrangement: every slot as a face of its model, in the step of the flow it stands in. Choosing one opens what it is told.</em></p>
 
 <p align="center">
-  <img src="docs/images/dashboard-plan.png" alt="The plan being carried out. First Question by question, not begun for this configuration, saying how it works: each train question stays in hand until its reply is at parity, changes are tried on it one at a time by where its answer was lost, and one that brings it to parity and loses no question already there is kept. Then the plan for pass 6: the gap on the train questions, what the measurement showed (each finding with the answers it accounts for), and the moves in plan order, each with its slot and model, why it was chosen, and what became of it; the first three carry what an earlier whole-set trial measured, from before training went question by question" width="860">
+  <img src="docs/images/dashboard-plan.png" alt="The plan being carried out, from the loop: now, this pass so far (questions finished, changes tried and kept, from the found arrangements, suggested), the found arrangements, the policy and what is on trial, the suggestions, and the six steps each question goes through; the loop's policy open; and the ten found arrangements, each with how many questions it has brought to parity and where it was found" width="860">
 </p>
 
-<p align="center"><em>The plan of a pass, its measurement and its moves open: briefs the larger model wrote for the slots that were failing come first, then the arrangements, each with Next and Skip.</em></p>
+<p align="center"><em>The plan being carried out: what the loop is doing, the steps every question goes through, the loop's policy as the larger model has tuned it, and the found arrangements, tried first on every question.</em></p>
 
 <p align="center">
-  <img src="docs/images/dashboard-measurement.png" alt="The whole measurement, opened from the parity panel: at parity or not yet, equivalent and different answers, seconds a reply, equivalent answers pass by pass, which step settled each answer, equivalent answers by kind of question, and each small model alone beside the swarm" width="860">
+  <img src="docs/images/dashboard-system.png" alt="Visualizing the System: every part of training as a coded box, in five lanes: A once a pass (questions, the mark, the plan); B each question until it is at parity (ask, found arrangements, search, suggestions, check, keep), with a line saying it never moves on before parity; C inside one try (draft, try, check and revise, decide, write, grade); D how the search improves (policy, review, trial); E at the end of a pass (held questions, the spec)" width="860">
 </p>
 
-<p align="center"><em>The whole measurement, opened from the parity panel.</em></p>
+<p align="center"><em>Visualizing the System: every part with a code to name it by (A1 to E2), the box the loop is in marked live.</em></p>
 
 <p align="center">
-  <img src="docs/images/dashboard-input-output.png" alt="Input against output: the list of questions, one input with what the larger model answered, what every slot wrote and settled on, the swarm's output, and the larger model's output beside it" width="860">
-</p>
-
-<p align="center"><em>Input against output, in the whole measurement: one input, with what every slot wrote and both outputs.</em></p>
-
-<p align="center">
-  <img src="docs/images/dashboard-spec.png" alt="The output spec of one configuration: how far it is toward parity; what it has learned, each kept change with the answers it won; as a model chooser lists it, the card with its badge; what it needs of a machine (platforms, memory, disk, engine, Node, the decider, licences, commercial use); what it can do as a model (chat, streaming, tools, images, context); how to make it (the recipe's hash, the format, and how to start the decider, a program, a host and a terminal); then what it is, its models with their pinned files, the decider, its standing kind by kind, the flow and every slot with what it is told" width="860">
+  <img src="docs/images/dashboard-spec.png" alt="The output spec of one configuration: in training, pass 1 under way; this pass (14.2% training complete, 23 changes tried, 3 kept, 10 found arrangements in the library); everything it has found, 11 wins from every run, the 3 the arrangement carries now marked and the rest marked found, with when their run was set aside; as a model chooser lists it; what it needs of a machine; what it can do as a model; how to make it; what it is; the flow and the arrangement; and the spec as JSON" width="860">
 </p>
 
 <p align="center"><em>The output spec: everything needed to make this swarm again and offer it as a model, with what it has learned and the proof of each thing. Copy it, or save it as a file.</em></p>
 
 | Part | What it shows |
 |---|---|
-| Output spec, Uninstall Helper | Two buttons at the top. **Output spec** (with how many changes it has kept): everything needed to make this swarm again and offer it as a model ([from its spec](#from-its-spec)): how far it is toward parity, what it has learned, the card a model chooser would list, what it needs of a machine, what it can do as a model, how to make it, its models with their pinned files, its decider, the flow, and every slot with what it is told. To read, to copy as JSON, or to save as a file. **Uninstall Helper**: everything the Swarm has put in `.work`, with the room each takes and whether the configured swarm uses it, and a button to take out each; never anything outside `.work`, what training has learned, or anything while a session runs |
+| Output spec, Uninstall Helper | Two buttons at the top. **Output spec** (with how many wins training has found, from every run: Clear training state never takes one out): everything needed to make this swarm again and offer it as a model ([from its spec](#from-its-spec)): how far it is toward parity, what it has learned, the card a model chooser would list, what it needs of a machine, what it can do as a model, how to make it, its models with their pinned files, its decider, the flow, and every slot with what it is told. To read, to copy as JSON, or to save as a file. **Uninstall Helper**: everything the Swarm has put in `.work`, with the room each takes and whether the configured swarm uses it, and a button to take out each; never anything outside `.work`, what training has learned, or anything while a session runs |
 | Configuration | What the swarm is made of, in one section that folds to a line (its models, its decider, its larger model, what it is equivalent on, and who takes turns with tools). **The pills**: **Small model 1**, **Small model 2** (and a third and fourth, once added: the next empty place has a pill to add one, a filled one can be removed), **Decides** (best first by its Decision Index score; one this machine cannot run is greyed out with what it needs), **Judges equivalence** (the decider itself, or another decision model, served beside it in training), **Larger model**, each grouped by who made it. Choosing one redraws the page for that swarm, in place. **Equivalent on**: one box to tick for each body of work (**The Crew**, ticked where nothing is chosen; Math, Logic, Reasoning); a pass asks the kinds of every one ticked, and the pencil on each opens its questions. **Turns with tools**: decided by the swarm, or given to one of its small models alone, each listed by name and following the pills. Beside the heading, a note when there are [recommended changes](#recommended-changes) |
-| Parity with the larger model | Two panels and a line of chips. **Toward parity** (amber short of parity, green at it): the share of held answers equivalent to the larger model's, large, with the verdict in a sentence, the swarm's answers as a bar (equivalent, different, no answer) and each small model alone beside it on one scale, with the larger model asked again (the noise floor). The verdict says how many different answers the reader could not decide. **Memory saved**: the larger model's memory as one bar and the swarm's beside it, made of its parts (each small model, their contexts, the decider), with the saving, estimated. Then chips (held questions, where the larger model follows the question, seconds a reply) and **Open the whole measurement** |
-| The arrangement being trained | One section, drawn as faces: the swarm as it stands (briefs, slots, kept changes); **Question by question**, the swarm against each question of the pass: the question in hand and which iteration of it (as the swarm stands, change 3 of 8, or a change that reached parity being asked again on a question already there), a pip for every question so far (at parity as it stood, brought to parity by a change, not reached), the counts, and folded, what was tried on each question that needed a change; what is running, and what the plan is trying now (or what it stopped while trying). Then a roster of the models, each a face in its colour (two of one family are told apart by size: L2.6, L1.2); the larger model's chip carries its live dot and opens its card (how it is served, the configurations at parity with it). Then the flow in one row of stations (Draft › Check › Decide › Write, a loop drawn round the steps it repeats); the sandbox, which no model fills, is a marker between the stations it runs between. Each slot is a face of its model in the step it stands in, with its whole name: a ring for its record (its answers equivalent to the larger model's, of those judged), a dot and a halo for what it is doing now (working, answered, failed, idle), and a badge while the plan is trying a brief on it. Choosing a face opens that slot's card below the row: what it is told, its record, what is being tried on it |
-| The plan being carried out | The plan for the pass in hand, in subsections that each fold to a line of what they hold (folded to begin with): **The gap, on the train questions** (how many answers to close, by choosing better or by better drafts); **What the measurement showed** (each finding, with the answers it accounts for); **Questions** (more of the kinds the last pass answered differently on); **What only you can change**; **How it is training** (the loop's limits and what the plan lists first, from the policy); **Steer it** (lean the search on an area: briefs, slots, flow, decider placement, decider loops, several at once; less, as planned, more, only; and choose any move); and **Moves, in plan order**: each with its slot and model, its technique, the paper it came from, why it was chosen, and what became of it (planned, being tried, stopped partway, kept, not kept), a planned one with **Next** and **Skip**. Steering decides what is tried, never what is kept |
-| Training | **Run training** fetches and makes ready whatever the chosen models need, then trains pass after pass until **Stop training** is pressed; **Clear training state** (pressed twice) sets what training has recorded aside in `.work/archive`, keeping the models' own answers. Its sections each fold to a line: making ready (what is being fetched and how far), **Now** (the step, and the question it is on; **Stopped in** once stopped, with no clock running), **Pass** (the steps done and what is next), **Heading** (where the percentage stands and could go), **Recovered** (faults it came back from) and **Learned this session** |
+| Training progress | **% training complete**: training goes question by question and never leaves a question short of parity, so how far it has come is the share of this pass's train questions at parity with the larger model, with a bar (at parity as the swarm stood, brought there by a change it kept, back in hand after a swap, still to come), the found arrangements and the changes kept into the spec; and the memory the swarm takes against the larger model's. On a phone, the tile beside the title says the same in a line |
+| The arrangement being trained | One section, drawn as faces: the swarm as it stands (briefs, slots, kept changes); **Question by question**, the swarm against each question of the pass: the question in hand and which training change it is on (and its round), how that change was chosen (folded to a line: what it is built on, its place among those open, each reason, the pace, what was tried before it), or a change that reached parity being asked again on a question already there; a pip for every question so far (at parity as it stood, brought to parity by a change, back in hand after a swap), the counts, and folded, what was tried on each question that needed a change; what is running. Then a roster of the models, each a face in its colour (two of one family are told apart by size: L2.6, L1.2); the larger model's chip carries its live dot and opens its card (how it is served, the configurations at parity with it). Then the flow in one row of stations (Draft › Check › Decide › Write, a loop drawn round the steps it repeats); the sandbox, which no model fills, is a marker between the stations it runs between. Each slot is a face of its model in the step it stands in, with its whole name: a ring for its record (its answers equivalent to the larger model's, of those judged), a dot and a halo for what it is doing now (working, answered, failed, idle), and an amber ring while a change is being tried on it. Choosing a face opens that slot's card below the row: what it is told, its record, what is being tried on it |
+| The plan being carried out | What the loop is doing now, from the loop itself: the question in hand and which step of the loop it is on, this pass so far (finished, tried, kept, from the found arrangements, suggested, swaps), the found arrangements, the policy and what is on trial, the larger model's suggestions, and the steps every question goes through, the current one marked. Then the plan the search draws from, in subsections that each fold to a line of what they hold (folded to begin with): **The gap, on the train questions** (how many answers to close, by choosing better or by better drafts); **What the measurement showed** (each finding, with the answers it accounts for); **Questions** (more of the kinds the last pass answered differently on); **What only you can change**; **How it is training** (the loop's limits and what the plan lists first, from the policy); **Steer it** (lean the search on an area: briefs, slots, flow, decider placement, decider loops, several at once; less, as planned, more, only; and choose any move); and **Moves, in plan order**: each with its slot and model, its technique, the paper it came from, why it was chosen, and what became of it (planned, being tried, stopped partway, kept, not kept), a planned one with **Next** and **Skip**. Steering decides what is tried, never what is kept |
+| Visualizing the System | Every part of training drawn as boxes with a code to name it by (A1 to E2): once a pass (questions, the mark, the plan); each question until parity (ask, found arrangements, search, suggestions, check on questions at parity, keep); inside one try (draft, try, check and revise, decide, write, grade); always (the policy, its review, its trial); at the end of a pass. The box the loop is in now is marked, live |
+| Training | **Run training** fetches and makes ready whatever the chosen models need, then trains pass after pass until **Stop training** is pressed; **Clear training state** (pressed twice) sets what training has recorded aside in `.work/archive`, keeping the models' own answers, the found arrangements and the loop's policy (`.work/library`), so a fresh start tries first what worked. Its sections each fold to a line: making ready (what is being fetched and how far), **Now** (the step, and the question it is on; **Stopped in** once stopped, with no clock running), **Pass** (the steps done and what is next), **Heading** (where the percentage stands and could go), **Recovered** (faults it came back from) and **Learned this session** |
 | Passes, Ideas waiting to be tried | Below the training card (on a phone, a tile beside the title says what the session is doing, in two lines, and opens Training, Passes and Ideas in a sheet). **Passes** folds to a line (how many, the latest, the best, where it began) and opens to each pass's share. **Ideas waiting to be tried**: what the reading on arXiv left, each opening the paper it came from |
-| The whole measurement (opened from the parity panel) | Equivalent answers pass by pass, which step settled each answer, each kind of question, each small model alone; **the memory the swarm takes against the larger model's**; and **input against output**: any question asked, its input and what the larger model answered, what every slot wrote and settled on, the Swarm's output and the larger model's beside it |
 
 ### Recommended changes
 
@@ -445,9 +442,16 @@ same questions put a second way; the verdict is written, with every flip named.
   tried on that question one at a time, chosen from its own record: where a slot had the answer, the ways of deciding that
   the record replays as right come first; where none did, more room for a slot that was cut off. The kinds of change that
   have reached parity most often are tried sooner, learned as it goes, and a change that puts the answer on the table is
-  built on. Changes are tried in rounds: every single change first, then each combined with
-  the 3 that came closest (`loop.beam`), and so on, until parity; the question is written down as not reached and the next
-  taken only when a round brings it no closer. The
+  built on at once: changes are tried best first, from the closest arrangement open (closer counts partial credit, such as
+  more of a function's inputs right), until parity: it never moves on before, and where every arrangement open has been tried
+  the search widens. Every arrangement kept goes into a library of found arrangements, kept across passes and Clear training
+  state, and each question tries those first. A change like one kept recently is tried early. How it searches is a policy, not code: every 40 tries the larger model reviews the loop's
+  record and proposes a change to the policy, which is tried for 40 tries and kept only where the search did at least as well;
+  and after every 20 failed tries on a question it is shown that question and what was tried, and names changes to try next,
+  tried at once.
+  A question whose mark the larger model does not give again is marked, and searched until parity all the same. Each change carries how it was
+  chosen, how close it came and what a run took with it, and the page shows that while it is tried, with the pace. A slot
+  asked exactly what it was asked before answers as it did without being asked again, so a try asks only what it changed. The
   small models are never shown the larger model's answer; only the grading is.
 - **A change is kept only on evidence.** A brief, a plan, an arrangement or a flow is kept if it brings the question in hand
   to parity and, asked again on questions already at parity (the same kind first, then the latest; 6, or `GUARD`), loses
@@ -480,8 +484,9 @@ same questions put a second way; the verdict is written, with every flip named.
 - **An undecided reading is said to be one.** A reading close to the reader's line is graded different (so it cannot claim
   parity that is not there), counted apart, and never decides whether a change is kept.
 - **The larger model against itself.** It answers each held question a second time (another draw), and its two answers are
-  judged by the same readers. How often it agrees with itself is the noise floor under parity, shown beside it: a share of
-  differences no swarm could close, since the mark itself would not give them again.
+  judged by the same readers. How often it agrees with itself is the noise floor under parity, in the spec: a share of
+  differences no swarm could close, since the mark itself would not give them again. It answers the pass's train questions a
+  second time too, and the loop marks those it disagrees with itself on (and searches them until parity all the same).
 - **A judge apart from the decider.** The configuration can name a decision model to judge equivalence (**Judges
   equivalence**); the session serves it beside the decider, so the swarm's own decider does not grade the answers it chose.
   Where none is named, the decider judges, and the dashboard recommends one.
@@ -578,7 +583,25 @@ How well the models do is not a check. It is a measurement.
 
 ## Measured, not claimed
 
-One configuration so far: LFM2.5 2.6B and Bonsai 2 2B, decided by Kev 4B, against Nemotron 3.5 Lightning 30B, on 42 held
+### Training question by question, 2026-11-16 to 17
+
+LFM2.5 1.2B, Qwen3.5 2B and Bonsai 2 4B, decided by Jeffan 4B, against Nemotron 3.5 Lightning 30B, on The Crew's train
+questions (84 a pass), on one Apple silicon Mac. Its records stay on that machine; no spec of it is published yet.
+
+- **11 wins over four runs** (Clear training state began three of them again): each a change that brought a train question
+  to parity and lost none of the questions already at parity. All are in the cumulative spec, and their 10 distinct
+  arrangements are tried first on every question.
+- **The longest run:** 19 of 84 questions overnight, 11 at parity as the swarm stood and 5 brought there by a change, in 612
+  changes. One question took 560 of them: it reached parity about 300 times, each time losing a question already at parity.
+  Such a standing conflict is now swapped.
+- **The run after it, with the found arrangements tried first:** one of them brought a second question to parity; it stopped
+  at 12 of 84 (14.2% training complete).
+- **Memory: 51.1% saved, about 9.2 GB less** than Nemotron (8.8 GB against 18 GB, 2.0× smaller): an estimate from the model
+  files and the listed sizes, not a measurement.
+
+### The earlier training, 2026-11-15 to 16
+
+LFM2.5 2.6B and Bonsai 2 2B, decided by Kev 4B, against Nemotron 3.5 Lightning 30B, on 42 held
 programming questions (six of each of seven kinds), on one Apple silicon Mac, 2026-11-15 to 2026-11-16, under the earlier
 training (a change tried on the whole train set). Its records stay on that machine; none is at parity, so no spec of it is
 published. From now on a measured number is published with its spec, in [`specs/`](specs).
@@ -609,17 +632,22 @@ published. From now on a measured number is published with its spec, in [`specs/
 What has been run:
 
 - **Checks:** all of them, against stand-ins.
-- **Training, on real models:** five whole passes and most of a sixth, continuously, with LFM2.5 2.6B, Bonsai 2 2B, Kev 4B
+- **Training question by question, on real models:** a night and a morning with LFM2.5 1.2B, Qwen3.5 2B, Bonsai 2 4B,
+  Jeffan 4B and Nemotron 3.5 Lightning 30B: the loop, the found arrangements tried first, and one review of the search by the
+  larger model (its proposal went on trial). Its suggestions of what to try, swapping a standing conflict, trials counted in
+  tries and the cumulative record of wins are checked against stand-ins, and not yet seen in a real run.
+- **The earlier training, on real models:** five whole passes and most of a sixth, continuously, with LFM2.5 2.6B, Bonsai 2 2B, Kev 4B
   and Nemotron 3.5 Lightning 30B. The briefs the larger model writes, the third-model probe and the decider replay have run
   in that session; StartLux Decision 4B has been put a pass's recorded choices (38 of 46 to Kev 4B's 37).
 - **Recovery, on real models:** a stopped session resumed its pass and carried on from where it was.
 
 What has not:
 
-- **Parity.** Not reached: 59.5% after five passes.
+- **Parity.** Not reached: training question by question had 12 of 84 train questions of a pass at parity when it last
+  stopped; the earlier training reached 59.5% of the held questions after five passes.
 - **The conversation questions, Math, Logic and Reasoning, in a pass.** Built and checked; the session asks them from its
   next pass.
-- **Thirteen of the fifteen small models, three of the four Kev sizes, and twelve of the thirteen larger models.** Pinned, untried.
+- **Eleven of the seventeen small models, three of the four Kev sizes, and fourteen of the fifteen larger models.** Pinned, untried.
 - **Linux and Windows.** It has run on one Apple silicon Mac. The pull-request workflow has not run yet.
 - **The engine and larger-model downloads.** The fetch is checked against a stand-in, not against the real files.
 - **Most of recovery, on real models.** Every way back in [Recovery](#recovery) is checked against stand-in servers made to

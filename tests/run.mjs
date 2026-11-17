@@ -4123,6 +4123,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     cap: 3,
     guard: 6,
     drop: 2,
+    // (a parity that breaks a question is not built on here: this checks the plain order of single changes)
+    policy: { brokeBudget: 0 },
   };
   const st = await runLoop({
     ...opts,
@@ -4443,16 +4445,15 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const wins = await go(true);
   const never = await go(false);
   check(
-    'a question stays in hand until parity, with no limit on tries: every change is tried on it in a first round, then every change on top of those that came closest, round after round; a pair that reaches parity is kept together; and a question is left only when a whole round brings it no closer, which is written down',
+    'a question stays in hand until parity, with no limit on tries, best first: a change that comes closer is built on at once (the next change is tried on top of it); a pair that reaches parity is kept together; where every arrangement open has been tried the search widens (every arrangement tried is built on), and only when no combination at all is left can the loop do no more, which is written down',
     wins.q.state === 'reached' &&
       wins.q.rounds === 2 &&
-      wins.asked.slice(0, 4).join('|') === '|x|y|z' &&
-      wins.asked.includes('x+y') &&
+      wins.asked.join('|') === '|x|x+y' &&
       wins.kept.join() === 'several: x + y' &&
       never.q.state === 'not reached' &&
       never.q.exhausted === true &&
-      never.q.rounds === 2 &&
-      never.asked.join('|') === '|x|y|z|x+y|x+z' &&
+      never.q.widened >= 1 &&
+      never.asked.join('|') === '|x|x+y|x+z|y|z|x+y+z|y+z' &&
       closeness({ trace: [{ stage: 'draft', same: true }] }) > closeness({ trace: [{ stage: 'draft', same: false }] }),
     { wins: wins.asked, never: never.asked, q: never.q.rounds },
   );
@@ -4484,6 +4485,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     list: [{ id: 'q', kind: 'k' }],
     briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
     poolOf,
+    // every change from an arrangement before the next (batch 0), so that the second change is the second of the first ones
+    policy: { batch: 0 },
     attempt: async (bb, t, at) => (
       notes.push(at),
       bb.has.includes('x') && bb.has.includes('y') ? { grade: 'right', trace: [] } : bb.has.includes('x') ? held : none
@@ -4520,6 +4523,500 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       reasonsOf(tl, capped, { pin: ['tl'] })[0] === 'pinned on the page' &&
       nearOf({ trace: [] }).had === 0,
     { first, third },
+  );
+}
+
+// ---- 9g: unstable marks are bounded; drafts run apart aim at saying what each call should give; cost, pace and reuse
+{
+  const { runLoop, evidenceOf, orderFor, costOf, unstableOf, nearOf } = await import('../training/loop.mjs');
+  const mk = (bb, k) => ({
+    key: k,
+    id: k,
+    name: k,
+    kind: 'arrangement',
+    area: 'slots',
+    briefs: { ...bb, has: [...bb.has, k] },
+  });
+  const many = 'abcd'.split('');
+  const poolOf = (bb) => many.filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k));
+  const no = { grade: 'wrong', path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: false }] };
+  const notes = [];
+  const st = await runLoop({
+    list: [
+      { id: 'shaky', kind: 'talk' },
+      { id: 'firm', kind: 'talk' },
+    ],
+    briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+    poolOf,
+    unstable: new Set(['shaky']),
+    // a run takes 10 s as it stands, 25 s with `b`
+    attempt: async (bb, t, at) => (notes.push(at), { ...no, seconds: bb.has.includes('b') ? 25 : 10 }),
+  });
+  const [shaky, firm] = st.questions;
+  const ran = {
+    trace: [
+      { stage: 'draft', slot: 'a1', same: false, does: 'x' },
+      { stage: 'draft', slot: 'a2', same: false, does: 'y' },
+      { stage: 'run', behaviours: 2 },
+    ],
+  };
+  const same = {
+    trace: [
+      { stage: 'draft', slot: 'a1', same: false, does: 'x' },
+      { stage: 'draft', slot: 'a2', same: false, does: 'x' },
+      { stage: 'run', behaviours: 1 },
+    ],
+  };
+  const exp = {
+    name: 'say what each call should give, straight after the try',
+    kind: 'arrangement',
+    area: 'flow',
+    key: 'e',
+  };
+  const tok = { name: 'a1 at temperature 0.7', kind: 'arrangement', area: 'slots', key: 't' };
+  const evRan = evidenceOf(ran, { slots: [{ id: 'a1', stage: 'draft' }] });
+  // two kinds as good, one of which has made runs 20 s slower: the other first
+  const cheap = { name: 'plan: decide by most', kind: 'arrangement', area: 'slots', key: 'c' };
+  const dear = { name: 'a1 with a token limit of 1100', kind: 'arrangement', area: 'slots', key: 'd' };
+  const tmp = path.join(os.tmpdir(), 'self-train-' + process.pid + '.json');
+  fs.writeFileSync(tmp, JSON.stringify({ seed: 5, disagreed: ['shaky'] }));
+  const un = unstableOf(tmp, 5);
+  const unOther = unstableOf(tmp, 6);
+  fs.rmSync(tmp);
+  const withB = shaky.attempts.find((a) => a.move === 'b');
+  check(
+    'a question whose mark the larger model did not give again is marked, and searched until parity like the rest (every combination within reach, 15 here, before the loop can do no more); where the drafts were run and do different things, saying what each call should give comes first, with its reason, and not where they all do the same; each try carries its seconds, what it adds against what it was tried on, the pace and how many are still open; a kind of change that makes runs slower is learned and orders after one as good that does not; the record of unstable questions counts only for the questions it was made on',
+    shaky.unstable === true &&
+      shaky.attempts.length === firm.attempts.length &&
+      shaky.attempts.length === 16 &&
+      shaky.exhausted === true &&
+      !firm.unstable &&
+      evRan.prio(exp) === 0 &&
+      /do different things/.test(evRan.because(exp)) &&
+      evidenceOf(same, {}).prio(exp) > 0 &&
+      evRan.prio(tok) > 0 &&
+      withB.seconds === 25 &&
+      withB.added === 15 &&
+      notes.find((n) => n.attempt === 2 && n.pace).pace.seconds === 10 &&
+      notes.find((n) => n.attempt === 2).pace.left >= 1 &&
+      notes.find((n) => n.attempt === 1 && n.unstable) &&
+      costOf({ timed: 2, secs: 30 }) === 3 &&
+      costOf(undefined) === 0 &&
+      orderFor([dear, cheap], {
+        classes: {
+          'more room to answer': { tried: 2, reached: 0, secs: 40, timed: 2 },
+          'another way of deciding': { tried: 2, reached: 0 },
+        },
+      })[0].key === 'c' &&
+      un.has('shaky') &&
+      unOther.size === 0 &&
+      nearOf({ path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: true }] }).slots.join() === 'a1',
+    { shaky: shaky.attempts.length, firm: firm.attempts.length, b: withB, pace: notes[2] && notes[2].pace },
+  );
+  // a slot asked exactly what it was asked before is not asked again (with a seed, the trainers only)
+  reset();
+  const reusing = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, seed: 7, reuse: true });
+  await reusing.answer(Q);
+  const first = lfm.s.calls.length + bonsai.s.calls.length;
+  await reusing.answer(Q);
+  const second = lfm.s.calls.length + bonsai.s.calls.length - first;
+  const r = reusing.reused;
+  await reusing.stop();
+  reset();
+  const noSeed = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, reuse: true });
+  await noSeed.answer(Q);
+  await noSeed.answer(Q);
+  const unseeded = noSeed.reused;
+  await noSeed.stop();
+  check(
+    'with reuse and a seed, a slot asked exactly what it was asked before answers as it did without being asked again, and what that saved is counted; without a seed nothing is reused',
+    first > 0 && second === 0 && r.hits === first && r.savedMs >= 0 && unseeded === null,
+    { first, second, r },
+  );
+}
+
+// ---- 9h: the loop's policy is data that changes as it runs: proposed by the larger model, tried, kept or put back
+{
+  const P = await import('../training/loop-policy.mjs');
+  const { orderFor, closeness, tuned, evidenceOf, likeKept, policyTick } = await import('../training/loop.mjs');
+  const d = P.defaults();
+  // bounds and shapes: a knob that is not there, a value out of bounds, an order missing a key, are refused; the rest falls back
+  const bad = [
+    P.checkValue('nope', 1).ok,
+    P.checkValue('batch', 999).ok,
+    P.checkValue('order', ['pin']).ok,
+    P.checkValue('areas', { drafting: ['slots'] }).ok,
+  ];
+  const fallback = P.normal({ batch: 'x', beam: 4, areas: { writing: [...d.areas.writing].reverse() } });
+  const reply =
+    'Here is my view.\n```json\n{"proposals":[{"knob":"batch","value":3,"why":"build on what came closer sooner"},{"knob":"beam","value":99,"why":"wide"},{"knob":"momentumRecent","value":5,"why":"more memory"},{"knob":"partialCredit","value":false,"why":"third"}],"ideas":["reuse the checks too"]}\n```';
+  const prop = P.proposalOf(reply, d);
+  const none = P.proposalOf('no json here', d);
+  // a trial, in tries: proposed after `reviewTries` tries, tried on `trialTries`, then judged against as many tries before it
+  const run = async (during) => {
+    const st = {
+      questions: [],
+      kept: [],
+      classes: {},
+      policy: P.normal({ reviewTries: 10, trialTries: 20 }),
+      policyLog: [],
+      tryN: 0,
+      tryLog: [],
+    };
+    const asked = [];
+    const events = [];
+    const review = async (prompt) => (asked.push(prompt), '{"proposals":[{"knob":"batch","value":2,"why":"sooner"}]}');
+    const feed = [...new Array(10).fill(1), ...new Array(20).fill(during)];
+    for (const sc of feed) {
+      st.tryN++;
+      st.tryLog.push({ n: st.tryN, s: sc });
+      await policyTick(st, { review, onPolicy: async (pol, ev) => events.push([ev.event, pol.batch]) });
+    }
+    return { st, asked, events };
+  };
+  const better = await run(3);
+  const worse = await run(0);
+  const failing = {
+    questions: [],
+    kept: [],
+    classes: {},
+    policy: P.normal({ reviewTries: 10 }),
+    policyLog: [],
+    tryN: 10,
+    tryLog: [],
+  };
+  await policyTick(failing, {
+    review: async () => {
+      throw new Error('not served');
+    },
+  });
+  check(
+    "the loop's policy is data: only its knobs, within their bounds, are taken (a value out of bounds or a knob that is not there is refused, an unreadable value falls back to the default); the larger model's reply is read for at most two changes and its ideas kept; every `reviewTries` tries it is shown the record and the knobs, its proposal goes on trial for `trialTries` tries, and is kept where those tries came to at least as much as as many before (kept 10, parity that lost one 3, closer 1) and put back where they came to less; a review that cannot be made is written down and changes nothing",
+    bad.every((x) => x === false) &&
+      fallback.batch === d.batch &&
+      fallback.beam === 4 &&
+      fallback.areas.writing[0] === d.areas.writing.at(-1) &&
+      fallback.areas.drafting.join() === d.areas.drafting.join() &&
+      prop.taken.length === 2 &&
+      prop.taken[0].knob === 'batch' &&
+      prop.taken[1].knob === 'momentumRecent' &&
+      prop.refused.some((r) => r.knob === 'beam') &&
+      prop.ideas[0] === 'reuse the checks too' &&
+      prop.policy.batch === 3 &&
+      none.taken.length === 0 &&
+      !none.read &&
+      better.asked.length === 1 &&
+      /The knobs/.test(better.asked[0]) &&
+      /"tries":10/.test(better.asked[0]) &&
+      better.events.map((e) => e.join(':')).join() === 'on trial:2,kept:2' &&
+      better.st.policy.batch === 2 &&
+      worse.events.map((e) => e.join(':')).join() === 'on trial:2,put back:8' &&
+      worse.st.policy.batch === 8 &&
+      worse.st.policyLog.at(-1).verdict.during < worse.st.policyLog.at(-1).verdict.before &&
+      better.st.policyLog.at(-1).verdict.duringN === 20 &&
+      failing.policyLog.at(-1).event === 'no review' &&
+      failing.policy.batch === d.batch,
+    { prop: prop.taken, better: better.events, worse: worse.events },
+  );
+  // THE SIX: partial credit makes a nearer answer closer; learned success ranks above the fixed area order; momentum brings what
+  // is like a kept change forward; the writer is left out where the answer was not lost in the writing (unless the policy says)
+  const near = { trace: [{ stage: 'draft', same: false, share: 0.7 }] };
+  const far = { trace: [{ stage: 'draft', same: false, share: 0.2 }] };
+  const learnedPool = [
+    { name: 'a brief', kind: 'brief', stage: 'draft', area: 'briefs', key: 'br' },
+    { name: 'move b-direct to c', kind: 'arrangement', area: 'slots', key: 'mv' },
+  ];
+  const classes = {
+    'a brief from the reading': { tried: 6, reached: 0 },
+    'a slot on another model': { tried: 6, reached: 2 },
+  };
+  const areasFirstBriefs = {
+    ...d,
+    areas: { ...d.areas, drafting: ['briefs', 'slots', 'flow', 'loops', 'decider', 'several'] },
+  };
+  const byLearned = orderFor(learnedPool, { classes, policy: areasFirstBriefs }).map((m) => m.key);
+  const byArea = orderFor(learnedPool, {
+    classes,
+    policy: { ...areasFirstBriefs, order: ['pin', 'evidence', 'area', 'learned', 'momentum', 'cost', 'fresh', 'plan'] },
+  }).map((m) => m.key);
+  const kept = [{ what: 'move b-direct to c', slots: ['b-direct'], question: { id: 'q2' } }];
+  const sib = { name: 'move b-other-way to c', kind: 'arrangement', area: 'slots', key: 'sib' };
+  const other = { name: 'a1 at temperature 0.7', kind: 'arrangement', area: 'slots', key: 'oth' };
+  const second = { name: 'add a second b-direct on c', kind: 'arrangement', area: 'slots', key: 'sec' };
+  const byMomentum = orderFor([other, sib, second], { policy: d, recent: kept }).map((m) => m.key);
+  const briefsW = {
+    slots: [
+      { id: 'a1', stage: 'draft' },
+      { id: 'a-writer', stage: 'write' },
+    ],
+  };
+  const evD = evidenceOf({ trace: [{ stage: 'draft', slot: 'a1', same: false }] }, briefsW);
+  const writerMove = { name: 'move a-writer to b', kind: 'arrangement', area: 'slots', key: 'w' };
+  const decideMove = { name: 'plan: decide by most', kind: 'arrangement', area: 'decider', key: 'dm' };
+  check(
+    "partial credit: an answer that gets more of the inputs right is closer, where no slot has the answer, and only with the policy on; what a kind has learned ranks above the fixed area order once it has been tried enough, and the order of the keys is the policy's; a change like one kept recently (the same slot, or most of its words) comes first; the writer is left out where the answer was not lost in the writing, and how it is decided where no slot had the answer, unless the policy says otherwise",
+    closeness(near, null, { partial: true }) > closeness(far, null, { partial: true }) &&
+      closeness(near) === closeness(far) &&
+      byLearned[0] === 'mv' &&
+      byArea[0] === 'br' &&
+      byMomentum.indexOf('oth') === 2 &&
+      likeKept(sib, kept) &&
+      likeKept(second, kept) &&
+      !likeKept(other, kept) &&
+      tuned(evD, briefsW, d).skip(writerMove) &&
+      !tuned(evD, briefsW, { ...d, skipWriterUnlessWriting: false }).skip(writerMove) &&
+      tuned(evD, briefsW, d).skip(decideMove) &&
+      !tuned(evD, briefsW, { ...d, skipDecidingUnlessChoosing: false }).skip(decideMove),
+    { byLearned, byArea, byMomentum },
+  );
+  // decisions are reused as slot answers are: the same choices put the same way are decided as they were, without asking again
+  let calls = 0;
+  const decideOnce = async () => (calls++, { ok: true, letter: 'A', probs: { A: 0.9 } });
+  reset();
+  // (the two models disagree, so there is a decision to make)
+  lfm.s.script = () => 'ANSWER: 41';
+  const rs = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, seed: 3, reuse: true, decide: decideOnce });
+  await rs.answer(Q);
+  const c1 = calls;
+  await rs.answer(Q);
+  const reusedD = rs.reused;
+  await rs.stop();
+  check(
+    'with reuse, the decider is not asked again what it was asked before: its decision is given again, and counted',
+    c1 > 0 && calls === c1 && reusedD.decided === c1,
+    { c1, calls, reusedD },
+  );
+}
+
+// ---- 9i: the most-lost question is checked first; parity that breaks one question is built on; a long question is reviewed
+{
+  const { runLoop, guardOf } = await import('../training/loop.mjs');
+  const mk = (bb, k) => ({
+    key: k,
+    id: k,
+    name: k,
+    kind: 'arrangement',
+    area: 'slots',
+    briefs: { ...bb, has: [...bb.has, k] },
+  });
+  const reachedQs = ['r1', 'r2', 'r3'].map((id) => ({ t: { id, kind: 'k' } }));
+  const order = guardOf(reachedQs, { id: 'x', kind: 'k' }, 6)
+    .map((r) => r.t.id)
+    .join();
+  const lostFirst = guardOf(reachedQs, { id: 'x', kind: 'k' }, 6, { r1: 4 })
+    .map((r) => r.t.id)
+    .join();
+  // `x` brings `hard` to parity but breaks `other`; `x` with `y` keeps both
+  const asked = [];
+  const st = await runLoop({
+    list: [
+      { id: 'other', kind: 'k' },
+      { id: 'hard', kind: 'k' },
+    ],
+    briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+    poolOf: (bb) => ['x', 'y', 'z'].filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k)),
+    attempt: async (bb, t) => {
+      asked.push(t.id + ':' + bb.has.join('+'));
+      const right = t.id === 'other' ? !(bb.has.includes('x') && !bb.has.includes('y')) : bb.has.includes('x');
+      return right
+        ? { grade: 'right', trace: [] }
+        : { grade: 'wrong', path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: false }] };
+    },
+  });
+  const hard = st.questions[1];
+  // with no budget for it, such a parity is not built on: the pair is found another way, when the search widens (on `y`)
+  const noBudget = await runLoop({
+    list: [
+      { id: 'other', kind: 'k' },
+      { id: 'hard', kind: 'k' },
+    ],
+    briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+    poolOf: (bb) => ['x', 'y', 'z'].filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k)),
+    policy: { brokeBudget: 0 },
+    attempt: async (bb, t) =>
+      (t.id === 'other' ? !(bb.has.includes('x') && !bb.has.includes('y')) : bb.has.includes('x'))
+        ? { grade: 'right', trace: [] }
+        : { grade: 'wrong', path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: false }] },
+  });
+  // a long question: reviewed after `reviewTries` changes on it, its proposal on trial from there
+  const prompts = [];
+  const long = await runLoop({
+    list: [{ id: 'long', kind: 'k' }],
+    briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+    poolOf: (bb) =>
+      'abcdefgh'
+        .split('')
+        .filter((k) => !bb.has.includes(k))
+        .map((k) => mk(bb, k)),
+    policy: { reviewTries: 10, batch: 0 },
+    cap: 15,
+    review: async (p) => (prompts.push(p), '{"proposals":[{"knob":"beam","value":2,"why":"narrower"}]}'),
+    attempt: async () => ({ grade: 'wrong', path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: false }] }),
+  });
+  check(
+    'the question already at parity that changes have lost most is asked first when a change reaches parity; a change that brings the question to parity but breaks another is counted as a conflict and built on, so that one more change can keep both (and it is kept together); a long question is reviewed by the larger model after `reviewTries` tries, shown as in hand, and the proposal goes on trial from there',
+    order === 'r3,r2,r1' &&
+      lostFirst === 'r1,r3,r2' &&
+      hard.state === 'reached' &&
+      hard.broke.other === 1 &&
+      st.lostOn.other === 1 &&
+      st.kept.at(-1).what === 'several: x + y' &&
+      asked.indexOf('hard:x+y') === asked.indexOf('other:x') + 1 &&
+      hard.attempts.find((a) => a.move === 'x').nearParity === true &&
+      prompts.length === 1 &&
+      /"inHand":true/.test(prompts[0]) &&
+      long.policyLog[0].event === 'on trial' &&
+      long.policyLog[0].during === 'long' &&
+      long.policy.beam === 2 &&
+      noBudget.questions[1].state === 'reached' &&
+      noBudget.questions[1].broke.other === 1 &&
+      !noBudget.questions[1].attempts.some((x) => (x.on || [])[0] === 'x'),
+    { asked, broke: hard.broke, kept: st.kept.map((k) => k.what), log: long.policyLog },
+  );
+}
+
+// ---- 9j: the library of found arrangements is tried first and grows; a standing conflict is swapped; a carried trial goes on
+{
+  const { runLoop, rankLibrary, applyNames, addToLibrary } = await import('../training/loop.mjs');
+  const mk = (bb, k) => ({
+    key: k,
+    id: k,
+    name: k,
+    kind: 'arrangement',
+    area: 'slots',
+    briefs: { ...bb, has: [...bb.has, k] },
+  });
+  const poolOf = (bb) => ['p', 'q', 'r', 's'].filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k));
+  const wrong = { grade: 'wrong', path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: false }] };
+  const asked = [];
+  const written = [];
+  const lib = [{ names: ['p', 'q'], what: 'several: p + q', from: { question: 'old' }, reached: ['old'], tried: 0 }];
+  const st = await runLoop({
+    list: [
+      { id: 'easy', kind: 'k' },
+      { id: 'needs-pq', kind: 'k' },
+      { id: 'needs-r', kind: 'k' },
+    ],
+    briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+    poolOf,
+    library: lib,
+    onLibrary: async (l) => written.push(JSON.parse(JSON.stringify(l))),
+    attempt: async (bb, t) => {
+      asked.push(t.id + ':' + bb.has.join('+'));
+      const ok =
+        t.id === 'easy' ||
+        (t.id === 'needs-pq' && bb.has.includes('p') && bb.has.includes('q')) ||
+        (t.id === 'needs-r' && bb.has.includes('r'));
+      return ok ? { grade: 'right', trace: [] } : wrong;
+    },
+  });
+  const last = written.at(-1);
+  // a standing conflict: `x` brings B to parity and loses A each time; after `swapAfter` such losses it is kept, and A goes back in hand
+  const pool2 = (bb) => ['x', 'y'].filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k));
+  const order = [];
+  const sw = await runLoop({
+    list: [
+      { id: 'A', kind: 'k' },
+      { id: 'B', kind: 'k' },
+      { id: 'C', kind: 'k' },
+    ],
+    briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+    poolOf: pool2,
+    policy: { swapAfter: 2 },
+    attempt: async (bb, t, at) => {
+      if (!at.attempt && !at.guard) order.push(t.id);
+      const ok = t.id === 'A' ? !bb.has.includes('x') : t.id === 'B' ? bb.has.includes('x') : true;
+      return ok ? { grade: 'right', trace: [] } : wrong;
+    },
+  });
+  const A = sw.questions.find((x) => x.id === 'A');
+  const B = sw.questions.find((x) => x.id === 'B');
+  // a trial carried from before (a pass ended, or the state cleared, with one on) goes on in the new pass
+  const carried = await runLoop({
+    list: [{ id: 'z', kind: 'k' }],
+    briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+    poolOf,
+    policy: { beam: 5 },
+    trial: { from: { beam: 3 }, taken: [{ knob: 'beam', from: 3, to: 5 }] },
+    attempt: async () => ({ grade: 'right', trace: [] }),
+  });
+  check(
+    'the arrangements found so far are tried first on a question short of parity, the most successful first, applied on top of the swarm as it stands; one that brings it to parity and loses none is kept, and the library credits it with the question; what the search finds is added to the library; a standing conflict (the same question lost `swapAfter` times) is swapped: the change is kept, the question it loses goes back in hand and is taken next, its record replaced, not added; a trial carried from before goes on',
+    asked.indexOf('needs-pq:p+q') === asked.indexOf('needs-pq:') + 1 &&
+      st.kept[0].kind === 'library' &&
+      st.kept[0].fromLibrary.question === 'old' &&
+      last.find((e) => e.what === 'several: p + q').reached.join() === 'old,needs-pq' &&
+      last.some((e) => e.names.includes('r') && e.reached.includes('needs-r')) &&
+      rankLibrary([{ reached: ['a'] }, { reached: ['a', 'b'] }])[0].reached.length === 2 &&
+      applyNames(poolOf, { has: ['p'] }, ['p', 'q']).names.join() === 'q' &&
+      applyNames(poolOf, { has: ['p', 'q', 'r', 's'] }, ['p']) === null &&
+      addToLibrary([], ['b', 'a'], { question: 'x' }).what === 'several: b + a' &&
+      B.state === 'reached' &&
+      B.swapped === 'A' &&
+      sw.kept.at(-1).swapped === 'A' &&
+      order.join() === 'A,B,A,C' &&
+      A.again === 1 &&
+      A.lostTo === 'B' &&
+      sw.questions.filter((x) => x.id === 'A').length === 1 &&
+      carried.trial &&
+      carried.trial.taken[0].knob === 'beam' &&
+      carried.trial.from.beam === 3,
+    { asked: asked.slice(0, 8), kept: st.kept.map((k) => k.what), order, A, swapped: sw.kept.map((k) => k.swapped) },
+  );
+}
+
+// ---- 9k: after `suggestEvery` failed tries the larger model suggests what to try, tried at once; its cost and yield are counted
+{
+  const { runLoop } = await import('../training/loop.mjs');
+  const { suggestionsOf } = await import('../training/loop-policy.mjs');
+  const mk = (bb, k) => ({
+    key: k,
+    id: k,
+    name: k,
+    kind: 'arrangement',
+    area: 'slots',
+    briefs: { ...bb, has: [...bb.has, k] },
+  });
+  const prompts = [];
+  const asked = [];
+  const st = await runLoop({
+    list: [{ id: 'q', kind: 'k', ask: 'Write isEven(n).' }],
+    briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+    poolOf: (bb) => ['a', 'b', 'c', 'd', 'e', 'f'].filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k)),
+    policy: { suggestEvery: 3, batch: 0, reviewTries: 1000 },
+    review: async (p, kind) => (
+      prompts.push([kind, p]),
+      kind === 'suggest' ? '{"try":[["E","f"],["no such change"]],"why":"both are needed"}' : '{}'
+    ),
+    attempt: async (bb) => (
+      asked.push(bb.has.join('+')),
+      bb.has.includes('e') && bb.has.includes('f')
+        ? { grade: 'right', trace: [] }
+        : { grade: 'wrong', path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: false }] }
+    ),
+  });
+  const won = st.questions[0].attempts.find((a) => a.kept);
+  const unit = suggestionsOf('ok {"try":[["x","y","z","w"],"y",["y"]],"why":"w"}', ['x', 'y', 'z', 'w']);
+  check(
+    'after `suggestEvery` failed tries the larger model is shown the question, what was tried and how close it came, and the changes still open by name, and what it names (matched to that list; anything else left out) is tried at once, on top of the closest arrangement; a suggestion that brings the question to parity is kept like any change; what suggestions cost and came to is counted',
+    asked.slice(0, 5).join('|') === '|a|b|c|e+f' &&
+      prompts.length === 1 &&
+      prompts[0][0] === 'suggest' &&
+      /Write isEven/.test(prompts[0][1]) &&
+      /"open":\["d","e","f"\]|"d","e","f"/.test(prompts[0][1]) &&
+      won.suggested === true &&
+      won.kind === 'a suggestion of the larger model' &&
+      st.kept[0].what === 'several: e + f' &&
+      st.suggest.asked === 1 &&
+      st.suggest.tried === 1 &&
+      st.suggest.kept === 1 &&
+      st.suggestLog[0].picks.join() === 'e + f' &&
+      st.suggestLog[0].came.join() === 'kept' &&
+      unit.picks.length === 2 &&
+      unit.picks[0].join() === 'x,y,z' &&
+      unit.picks[1].join() === 'y' &&
+      suggestionsOf('no json', ['x']).picks.length === 0,
+    { asked, suggest: st.suggest, log: st.suggestLog, prompt: prompts[0] && prompts[0][1].slice(-400) },
   );
 }
 

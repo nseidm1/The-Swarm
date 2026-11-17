@@ -61,11 +61,16 @@ export async function codeEquivalent(refReply, reply, { name, inputs }) {
   if (!ref) return { grade: 'noref' };
   const mine = await outputsOf(codeOf(reply, name), name, inputs);
   if (!mine) return { grade: 'unsure' };
-  const at = ref.findIndex((r, i) => (r.e ? !mine[i].e : mine[i].e || mine[i].v !== r.v));
+  const differs = (r, i) => (r.e ? !mine[i].e : mine[i].e || mine[i].v !== r.v);
+  const at = ref.findIndex(differs);
+  // PARTIAL CREDIT, for the trainers only: the share of inputs on which it gives what the larger model's gives (training/loop.mjs
+  // counts a draft that matches more of them as closer, where none matches all)
+  const share = ref.length ? Math.round((ref.filter((r, i) => !differs(r, i)).length / ref.length) * 100) / 100 : 0;
   return at < 0
-    ? { grade: 'right' }
+    ? { grade: 'right', share: 1 }
     : {
         grade: 'wrong',
+        share,
         at,
         input: inputs[at],
         theirs: ref[at].e ? 'it fails' : ref[at].v,

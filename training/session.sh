@@ -139,6 +139,9 @@ while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
   run 02-target-train training/baseline.mjs --who target --split train --each "$EACH"
   # THE LARGER MODEL AGAINST ITSELF: the held questions again, another draw, graded against its own first answers (the noise floor)
   run 02-target-self  training/baseline.mjs --who target --self --split held --each "$EACH"
+  # and this pass's train questions again: where it does not give its own answer again, the mark is partly a draw, and the loop
+  # marks that question (it is searched until parity all the same: training/loop.mjs never moves on before)
+  run 02-target-self-train training/baseline.mjs --who target --self --split train --each "$EACH"
   for K in $("$NODE" -e "import('./src/catalog.mjs').then(c=>console.log(Object.keys(c.MEMBERS).join(' ')))"); do
     run "03-$K-alone" training/baseline.mjs --who "$K" --split held --each "$EACH"
   done
