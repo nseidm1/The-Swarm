@@ -1,9 +1,9 @@
 // measure.mjs - THE SWARM ON THE QUESTIONS, AND EVERY SLOT ON ITS OWN ACCOUNT. The reply a person reads is graded; so is what each
 // slot answered on the way, because a brief can only be made better where it is known to be failing:
 //   a draft or check slot    how often its own answer was the right one
-//   the decider (Kev)        how often it kept a right answer that was on the table, and how often it threw one away
+//   the decider              how often it kept a right answer that was on the table, and how often it threw one away
 //   the writer               how often the reply still said the answer that was settled on (it must not change it)
-//   the path                 agreed (every draft the same), decided (by Kev), most (Kev decided nothing), fallback
+//   the path                 agreed (every draft the same), decided (by the decider), most (it decided nothing), fallback
 // And the two numbers the whole thing is for: LOST (a slot had the right answer and the reply was wrong: the orchestration's own
 // fault) and BEYOND (no draft was right and the reply was: checking found what drafting did not).
 //   node training/measure.mjs --split train
@@ -36,7 +36,7 @@ import { CONFIG_ID, TARGET } from '../src/catalog.mjs';
 //   echo     how often a drafter's answer did the same as another drafter's on the same model (22 of 25 for one model's pair):
 //            a second slot that says what the first says adds nothing a draft could win
 //   timedOut how often the decider did not answer in time (8 of 40, every one a timeout): the answer most slots gave stood instead
-export async function slotReport(rows, tasksById, { kev = '', briefs = null } = {}) {
+export async function slotReport(rows, tasksById, { reader = '', briefs = null } = {}) {
   const capOf = Object.fromEntries(((briefs && briefs.slots) || []).map((s) => [s.id, s.maxTokens || 0]));
   const slots = {};
   const paths = {};
@@ -49,7 +49,7 @@ export async function slotReport(rows, tasksById, { kev = '', briefs = null } = 
     const memo = new Map();
     const own = async (text) => {
       if (!text) return false;
-      if (!memo.has(text)) memo.set(text, (await t.equivalent(r.refReply, t.wrap(text), { kev })).grade === 'right');
+      if (!memo.has(text)) memo.set(text, (await t.equivalent(r.refReply, t.wrap(text), { reader })).grade === 'right');
       return memo.get(text);
     };
     const settled = await own(r.decided);
@@ -132,7 +132,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       },
     );
     const c = count(rows);
-    const rep = await slotReport(rows, byId, { kev: judgeAddress(swarm.kev), briefs: swarm.briefs });
+    const rep = await slotReport(rows, byId, { reader: judgeAddress(swarm.decider), briefs: swarm.briefs });
     console.log('\n' + line(label + ' (' + split + ')', c));
     console.log(
       'paths: ' +

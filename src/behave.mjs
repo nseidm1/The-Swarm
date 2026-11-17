@@ -115,6 +115,71 @@ export function callsIn(text, name, { most = 12 } = {}) {
   return out;
 }
 
+// CALLS WHEN THE PROBING SLOT GAVE NONE (measured 2026-11-16: on 7 of 12 questions it wrote the function instead of calls, and the
+// drafts were compared as text, so drafts that do the same counted as different answers). Built with no model: the function's
+// parameters, read from the drafts; the literal examples the question itself gives ("aaabcc", [1, 2, 3]); and, for each
+// parameter, ordinary and awkward values of the kind its name says. A call that fails in every draft is dropped later.
+const DEFAULTS = [
+  [
+    /text|str|string|word|sentence|line|name|^s$|input|message|title|code|path|url|char/i,
+    ['""', '"a"', '"aaabcc"', '"Hello, World"', '"  two  words "', '"a(b)[c]{d}"'],
+  ],
+  [
+    /list|arr|array|items|numbers|nums|values|^xs$|data|elements|scores|grid|rows|matrix/i,
+    ['[]', '[1]', '[1, 2, 3, 4, 5]', '[3, 1, 2, 2, 3]', '[-2, 0, 7]'],
+  ],
+  [
+    /^n$|num|count|^k$|size|amount|index|limit|times|steps|^x$|^y$|^a$|^b$|year|day|month|width|height|length/i,
+    ['0', '1', '2', '-3', '10'],
+  ],
+];
+const ANY = ['""', '[]', '0', '"abc"', '[1, 2, 2]'];
+export function paramsOf(codes, name) {
+  for (const c of codes) {
+    const esc = name.replace(/\$/g, '\\$');
+    const m =
+      String(c).match(new RegExp('function\\s*\\*?\\s*' + esc + '\\s*\\(([^)]*)\\)')) ||
+      String(c).match(new RegExp('\\b' + esc + '\\s*=\\s*(?:async\\s*)?(?:function\\s*)?\\(([^)]*)\\)')) ||
+      String(c).match(new RegExp('\\b' + esc + '\\s*=\\s*(?:async\\s*)?([A-Za-z_$][\\w$]*)\\s*=>'));
+    if (m)
+      return m[1]
+        .split(',')
+        .map((p) => p.replace(/=.*$/, '').replace(/[{}[\].\s]/g, ''))
+        .filter(Boolean);
+  }
+  return [];
+}
+export function callsFrom(question, codes, name, { most = 10 } = {}) {
+  if (!name) return [];
+  const params = paramsOf(codes, name);
+  if (!params.length) return [];
+  // the question's own examples: strings in double quotes, and arrays of literals
+  const q = String(question || '');
+  const strings = [...q.matchAll(/"((?:[^"\\\n]|\\.){0,80})"/g)].map((m) => JSON.stringify(m[1]));
+  const arrays = [...q.matchAll(/\[[^[\]\n]{0,120}\]/g)]
+    .map((m) => m[0])
+    .filter((a) => {
+      try {
+        return Array.isArray(JSON.parse(a.replace(/'/g, '"')));
+      } catch {
+        return false;
+      }
+    });
+  const valuesFor = (p) => {
+    const kind = DEFAULTS.find(([re]) => re.test(p));
+    const own = kind && kind[1][0] === '""' ? strings : kind && kind[1][0] === '[]' ? arrays : [];
+    return [...new Set([...own, ...(kind ? kind[1] : ANY)])];
+  };
+  const vals = params.map(valuesFor);
+  const n = Math.min(most, Math.max(...vals.map((v) => v.length)));
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const call = name + '(' + vals.map((v) => v[i % v.length]).join(', ') + ')';
+    if (!out.includes(call)) out.push(call);
+  }
+  return out;
+}
+
 const short = (v) => (v.length > 60 ? v.slice(0, 57) + '...' : v);
 const said = (o) => (o.e ? 'it fails' : short(o.v));
 
@@ -134,7 +199,19 @@ export async function behaviours({
     drafts.map((d) => d.final),
     question,
   );
-  const calls = callsIn(probeText, name);
+  let calls = callsIn(probeText, name);
+  // the probing slot gave too few: calls from the question and the drafts themselves (callsFrom)
+  if (calls.length < 3)
+    calls = [
+      ...new Set([
+        ...calls,
+        ...callsFrom(
+          question,
+          drafts.map((d) => d.final),
+          name,
+        ),
+      ]),
+    ].slice(0, 12);
   if (calls.length < 3) return null;
   const outs = {};
   await Promise.all(drafts.map(async (d) => (outs[d.letter] = await run(d.final, name, calls))));

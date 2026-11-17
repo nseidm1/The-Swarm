@@ -1,5 +1,5 @@
 // readers.mjs - A READER IS CHECKED BEFORE IT IS BELIEVED. Where an answer is in words (what is wrong with this function?), whether
-// the swarm's answer and the larger model's say the same thing is decided by a model: Kev is asked one yes or no. A reader that
+// the swarm's answer and the larger model's say the same thing is decided by a model: the judge, else the decider, is asked one yes or no. A reader that
 // misreads blames or excuses the swarm for nothing, and a whole kind of question is then graded wrongly without a sign of it. So
 // before a pass believes it, the reader is given pairs anyone can judge:
 //   paraphrase   the same answer in other words (another order, other words for the same thing): it must say they say the same
@@ -257,10 +257,10 @@ export const talkPairs = () => [
 // "more likely than not" need not be where it tells them apart best: a reader that gives two different flaws 0.6 and the same
 // flaw 0.95 reads well with the line at 0.8 and badly with it at one half. So the line is put where it reads the known pairs
 // best (one number, from a dozen pairs it is not graded on afterwards), and it is believed only if it then reads four in five.
-export async function checkReader({ kev, pairs = knownPairs(), need = 0.8, judge = openEquivalent } = {}) {
+export async function checkReader({ reader, pairs = knownPairs(), need = 0.8, judge = openEquivalent } = {}) {
   const read = [];
   for (const p of pairs) {
-    const g = await judge(p.task || p.ask, p.a, p.b, { kev });
+    const g = await judge(p.task || p.ask, p.a, p.b, { reader });
     if (g.grade === 'noref') continue; // it did not answer: not a reading, right or wrong
     read.push({ ...p, p: Number.isFinite(g.p) ? g.p : g.grade === 'right' ? 1 : 0 });
   }
@@ -301,15 +301,19 @@ export { READER_FILE, readerOk };
 
 if (import.meta.url === 'file://' + process.argv[1]) {
   // (the reader is this configuration's decider: whether it is believed is kept with this configuration)
-  const { WORKC: WORK, kevAddress } = await import('./support/bench.mjs');
-  const kev = await kevAddress();
+  const { WORKC: WORK, deciderAddress } = await import('./support/bench.mjs');
+  const decider = await deciderAddress();
   fs.mkdirSync(WORK, { recursive: true });
-  if (!kev) {
+  if (!decider) {
     fs.writeFileSync(
       READER_FILE(WORK),
-      JSON.stringify({ at: new Date().toISOString(), ok: false, why: 'no Kev is running to read answers in words' }),
+      JSON.stringify({
+        at: new Date().toISOString(),
+        ok: false,
+        why: 'no decider is running to read answers in words',
+      }),
     );
-    console.log('No Kev is running: answers in words will not be compared this pass.');
+    console.log('No decider is running: answers in words will not be compared this pass.');
     process.exit(0);
   }
   // near-misses made from the larger model's own replies in conversations on record: its reply, and the same with one number
@@ -334,9 +338,9 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     own = [];
   }
   // (the reader checked is the one that will read: the judge apart from the decider where the session started one)
-  const reader = process.env.SWARM_JUDGE || kev;
-  const r = await checkReader({ kev: reader });
-  const talk = await checkReader({ kev: reader, pairs: [...talkPairs(), ...own], judge: talkEquivalent });
+  const reader = process.env.SWARM_JUDGE || decider;
+  const r = await checkReader({ reader });
+  const talk = await checkReader({ reader, pairs: [...talkPairs(), ...own], judge: talkEquivalent });
   const { JUDGE: J, DECIDER: DD } = await import('../src/catalog.mjs');
   const by = process.env.SWARM_JUDGE && J ? J.id : (DD || {}).id;
   fs.writeFileSync(READER_FILE(WORK), JSON.stringify({ at: new Date().toISOString(), by, ...r, talk }, null, 2));

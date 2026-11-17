@@ -92,9 +92,9 @@ is measured on questions it was never chosen on.
 | [Node.js](https://nodejs.org) 20 or later | Everything | The trainers run model-written code under Node's permission model, which older versions lack. The session picks a suitable Node from `nvm` by itself |
 | `llama-server` (llama.cpp 1.0.0 or later) | Serving the small models | Fetched for you (a pinned build) if it is not on the machine |
 | Python 3.9 or later | The dashboard | Standard library only |
-| `git` and `python3` | Kev, the decision model | Kev's own program is installed beside the Swarm, with a Python of its own that it fetches |
-| Memory | Running it | Both small models and their contexts (six slots each): from about 3.5 GB to about 13 GB depending on the models chosen (an estimate, not a measurement). Kev 4B adds about 5 GB. Training also loads the larger model, one step at a time |
-| Disk | Model files | 0.5 to 5 GB for each small model, about 12 GB for Kev (its program, its Python and its weights), 2.5 to 17 GB for a larger model. The dashboard's Uninstall Helper shows what is there and takes out what you do not want |
+| `git` and `python3` | The decision model, where it needs a program of its own | Kev's and StartLux's programs are installed beside the Swarm, each with a Python of its own that it fetches; a decider llama.cpp serves needs only its file |
+| Memory | Running it | Both small models and their contexts (six slots each): from about 3.5 GB to about 13 GB depending on the models chosen (an estimate, not a measurement). The decider adds its own: 1.5 GB for Kev 0.8B, about 4 GB for Jeffan 4B, more for larger ones (each is listed in the picker). Training also loads the larger model, one step at a time |
+| Disk | Model files | 0.5 to 5 GB for each small model, the decider's weights (and, for Kev or StartLux, its program and Python: about 12 GB for Kev 4B), 2.5 to 17 GB for a larger model. The dashboard's Uninstall Helper shows what is there and takes out what you do not want |
 
 There are no package dependencies. `npm install` is only needed for the formatter.
 
@@ -123,8 +123,9 @@ node training/setup.mjs
 node bin/swarm.mjs ask "Write a JavaScript function isEven(n) that returns true for even whole numbers." --trace
 ```
 
-Without a Kev running, the answer most slots gave stands. `bash training/kev.sh serve` starts one, and
-`SWARM_KEV=http://127.0.0.1:8009` names it to the commands here. (A training session does both by itself.)
+Without a decider running, the answer most slots gave stands. `bash training/decider.sh serve` starts the configured one, and
+`SWARM_DECIDER=http://127.0.0.1:8009` names it to the commands here (`SWARM_KEV`, its old name, still works). A training
+session does both by itself.
 
 Or serve it at an address, as one model:
 
@@ -139,7 +140,7 @@ node bin/swarm.mjs serve --port 8090
 | Draft | `a-direct`, `a-steps`, `b-direct`, `b-other-way` | Answer the question, each told to go about it differently, all at once |
 | Try (where a function is asked for) | the sandbox | The drafts are run on the same calls, which one model writes while the others draft. Drafts that return the same are one answer, however differently they are written; one that does not run is none |
 | Check | `a-critic`, `b-recompute` | Shown one draft for each different answer, and the calls on which they part. One looks for the first line where each goes wrong; one puts each final answer back into the question. Each names the answer it finds correct by its letter |
-| Decide | Kev | Picks which answer stands. [Kev](https://github.com/jaredpalmer/kev) is a decision model that writes nothing: it is given the question, each different answer and what the checkers said, and returns a probability for each answer. A plan can put one of the small models beside it (below) |
+| Decide | The decider | Picks which answer stands. The decider is whichever decision model the configuration names (Kev, Jeffan, StartLux Decision, and the others below): a model that writes nothing: it is given the question, each different answer and what the checkers said, and returns a probability for each answer. A plan can put one of the small models beside it (below) |
 | Write | `a-writer` | Writes the reply a person reads, from what was settled. Code goes out exactly as it was settled, and is not written out again |
 
 **The order of these steps is not fixed.** It is the arrangement's *flow*, and training changes it the way it changes
@@ -188,7 +189,7 @@ How it behaves when things go its way, and when they do not:
 | A slot runs out of room before it answers | It is asked once more for its answer alone (a checker: the letter of the answer it finds correct) |
 | A model has a token for opening a tool call | The server is asked for it once and it is forbidden in every request without tools, so the model cannot answer a question with a call |
 | A slot fails | The others carry on |
-| Kev is not running, or does not answer | The answer most slots gave stands |
+| The decider is not running, or does not answer | The answer most slots gave stands |
 | The writer answers with a call to a tool | That is not sent: the answer that was settled goes out as it stands |
 | Nothing can be written | The answer and its work are the reply |
 | Nothing answers at all | `ok: false` and no reply. Nothing is made up |
@@ -233,7 +234,7 @@ measured".
 ```js
 import { createSwarm } from 'the-swarm';
 
-const swarm = await createSwarm({ llamaServer: '/path/to/llama-server', modelsDir: '.work/models', kev: 'http://127.0.0.1:8009' });
+const swarm = await createSwarm({ llamaServer: '/path/to/llama-server', modelsDir: '.work/models', decider: 'http://127.0.0.1:8009' });
 const { reply, ok } = await swarm.answer([{ role: 'user', content: 'Write a function that reverses a string.' }]);
 await swarm.stop();
 ```
@@ -260,7 +261,7 @@ import { ENTRY, serveSwarm, readTrained } from 'the-swarm';
 
 ENTRY; // { id, engine: 'swarm', name, memGb, plain, members, decider }   one item for the list
 readTrained(); // what was measured of it, for the item's card (null until a pass has finished)
-const started = await serveSwarm(ENTRY, { file: llamaServerProgram }, { modelsDir, kev });
+const started = await serveSwarm(ENTRY, { file: llamaServerProgram }, { modelsDir, decider });
 // { ok: true, port, base, pid, args, loadMs, stop }   or   { ok: false, why }
 ```
 
@@ -281,8 +282,8 @@ its training ([`src/spec.mjs`](src/spec.mjs)):
 import { createSwarm, serveSwarm, readSpec } from 'the-swarm';
 
 const spec = readSpec('swarm-spec.json'); // refused if its recipe no longer matches its hash
-const swarm = await createSwarm({ spec, kev: 'http://127.0.0.1:8009', modelsDir });
-const started = await serveSwarm({ ...spec.card, spec }, { file: llamaServerProgram }, { modelsDir, kev });
+const swarm = await createSwarm({ spec, decider: 'http://127.0.0.1:8009', modelsDir });
+const started = await serveSwarm({ ...spec.card, spec }, { file: llamaServerProgram }, { modelsDir, decider });
 ```
 
 From a terminal: `node bin/swarm.mjs serve --spec swarm-spec.json`.
@@ -309,7 +310,7 @@ Settings are read from the environment. Each trainer also takes the flag shown.
 |---|---|---|---|
 | `SWARM_LLAMA_SERVER` | `--llama` | The `llama-server` program | The one on the `PATH`, else the one `setup.mjs` fetched |
 | `SWARM_MODELS_DIR` | `--models` | Where the model files are | `.work/models` |
-| `SWARM_KEV` | `--kev` | The address of a Kev that is already running | The one the session starts |
+| `SWARM_DECIDER` | `--decider` | The address of a decider that is already running (`SWARM_KEV` and `--kev`, the old names, still work) | The one the session starts |
 | `SWARM_TARGET_BASE` | | The address of a larger model that is already running | The session starts the one configured |
 | `SWARM_CONFIG` | | Another file in place of `src/config.json` | |
 | `SWARM_RUN_CODE` | | `0`: the Swarm runs nothing a model wrote, and compares drafts of code as text (`createSwarm({ runCode: false })` in a program) | On: drafts of a function are run, in a sandbox, to see which do the same |
@@ -320,7 +321,7 @@ Settings are read from the environment. Each trainer also takes the flag shown.
 | `GUARD` | `--guard` | Questions already at parity asked again before a change is kept | `6` (the policy's `loop.guard`) |
 | `TRIES` | `--tries` | Arrangements the plan lists first | `4` |
 | `TEACHER` | `--teacher` | `claude`: a large model writes candidate briefs. Spends on that machine's Claude plan, and is never started from the dashboard | Off |
-| `KEV_RUN`, `KEV_PORT` | | Which Kev is served, and where | The one configured, port `8009` |
+| `KEV_RUN`, `DECIDER_PORT` | | Which Kev size is served, where the decider is Kev; and the decider's port | The one configured, port `8009` |
 
 ## The dashboard
 
@@ -369,8 +370,8 @@ line what it holds while folded; open or folded is kept on the device.
 | Output spec, Uninstall Helper | Two buttons at the top. **Output spec** (with how many changes it has kept): everything needed to make this swarm again and offer it as a model ([from its spec](#from-its-spec)): how far it is toward parity, what it has learned, the card a model chooser would list, what it needs of a machine, what it can do as a model, how to make it, its models with their pinned files, its decider, the flow, and every slot with what it is told. To read, to copy as JSON, or to save as a file. **Uninstall Helper**: everything the Swarm has put in `.work`, with the room each takes and whether the configured swarm uses it, and a button to take out each; never anything outside `.work`, what training has learned, or anything while a session runs |
 | Configuration | What the swarm is made of, in one section that folds to a line (its models, its decider, its larger model, what it is equivalent on, and who takes turns with tools). **The pills**: **Small model 1**, **Small model 2** (and a third and fourth, once added: the next empty place has a pill to add one, a filled one can be removed), **Decides** (best first by its Decision Index score; one this machine cannot run is greyed out with what it needs), **Judges equivalence** (the decider itself, or another decision model, served beside it in training), **Larger model**, each grouped by who made it. Choosing one redraws the page for that swarm, in place. **Equivalent on**: one box to tick for each body of work (**The Crew**, ticked where nothing is chosen; Math, Logic, Reasoning); a pass asks the kinds of every one ticked, and the pencil on each opens its questions. **Turns with tools**: decided by the swarm, or given to one of its small models alone, each listed by name and following the pills. Beside the heading, a note when there are [recommended changes](#recommended-changes) |
 | Parity with the larger model | Two panels and a line of chips. **Toward parity** (amber short of parity, green at it): the share of held answers equivalent to the larger model's, large, with the verdict in a sentence, the swarm's answers as a bar (equivalent, different, no answer) and each small model alone beside it on one scale, with the larger model asked again (the noise floor). The verdict says how many different answers the reader could not decide. **Memory saved**: the larger model's memory as one bar and the swarm's beside it, made of its parts (each small model, their contexts, the decider), with the saving, estimated. Then chips (held questions, where the larger model follows the question, seconds a reply) and **Open the whole measurement** |
-| The arrangement being trained | One section, drawn as faces: the swarm as it stands (briefs, slots, kept changes), what is running, and what the plan is trying now (or what it stopped while trying). Then a roster of the models, each a face in its colour (two of one family are told apart by size: L2.6, L1.2); the larger model's chip carries its live dot and opens its card (how it is served, the configurations at parity with it). Then the flow in one row of stations (Draft › Check › Decide › Write, a loop drawn round the steps it repeats); the sandbox, which no model fills, is a marker between the stations it runs between. Each slot is a face of its model in the step it stands in, with its whole name: a ring for its record (its answers equivalent to the larger model's, of those judged), a dot and a halo for what it is doing now (working, answered, failed, idle), and a badge while the plan is trying a brief on it. Choosing a face opens that slot's card below the row: what it is told, its record, what is being tried on it |
-| The plan being carried out | First **Question by question**: how many train questions were at parity as the swarm stood, how many a change brought there, how many were not reached, and each question that needed a change, with where it was lost and what was tried on it in order (what did nothing, what reached parity there but lost a question already at parity, what was kept). Then the plan for the pass in hand, in subsections that each fold to a line of what they hold (folded to begin with): **The gap, on the train questions** (how many answers to close, by choosing better or by better drafts); **What the measurement showed** (each finding, with the answers it accounts for); **Questions** (more of the kinds the last pass answered differently on); **What only you can change**; **How it is training** (the loop's limits and what the plan lists first, from the policy); **Steer it** (lean the search on an area: briefs, slots, flow, decider placement, decider loops, several at once; less, as planned, more, only; and choose any move); and **Moves, in plan order**: each with its slot and model, its technique, the paper it came from, why it was chosen, and what became of it (planned, being tried, stopped partway, kept, not kept), a planned one with **Next** and **Skip**. Steering decides what is tried, never what is kept |
+| The arrangement being trained | One section, drawn as faces: the swarm as it stands (briefs, slots, kept changes); **Question by question**, the swarm against each question of the pass: the question in hand and which iteration of it (as the swarm stands, change 3 of 8, or a change that reached parity being asked again on a question already there), a pip for every question so far (at parity as it stood, brought to parity by a change, not reached), the counts, and folded, what was tried on each question that needed a change; what is running, and what the plan is trying now (or what it stopped while trying). Then a roster of the models, each a face in its colour (two of one family are told apart by size: L2.6, L1.2); the larger model's chip carries its live dot and opens its card (how it is served, the configurations at parity with it). Then the flow in one row of stations (Draft › Check › Decide › Write, a loop drawn round the steps it repeats); the sandbox, which no model fills, is a marker between the stations it runs between. Each slot is a face of its model in the step it stands in, with its whole name: a ring for its record (its answers equivalent to the larger model's, of those judged), a dot and a halo for what it is doing now (working, answered, failed, idle), and a badge while the plan is trying a brief on it. Choosing a face opens that slot's card below the row: what it is told, its record, what is being tried on it |
+| The plan being carried out | The plan for the pass in hand, in subsections that each fold to a line of what they hold (folded to begin with): **The gap, on the train questions** (how many answers to close, by choosing better or by better drafts); **What the measurement showed** (each finding, with the answers it accounts for); **Questions** (more of the kinds the last pass answered differently on); **What only you can change**; **How it is training** (the loop's limits and what the plan lists first, from the policy); **Steer it** (lean the search on an area: briefs, slots, flow, decider placement, decider loops, several at once; less, as planned, more, only; and choose any move); and **Moves, in plan order**: each with its slot and model, its technique, the paper it came from, why it was chosen, and what became of it (planned, being tried, stopped partway, kept, not kept), a planned one with **Next** and **Skip**. Steering decides what is tried, never what is kept |
 | Training | **Run training** fetches and makes ready whatever the chosen models need, then trains pass after pass until **Stop training** is pressed. Its sections each fold to a line: making ready (what is being fetched and how far), **Now** (the step, and the question it is on; **Stopped in** once stopped, with no clock running), **Pass** (the steps done and what is next), **Heading** (where the percentage stands and could go), **Recovered** (faults it came back from) and **Learned this session** |
 | Passes, Ideas waiting to be tried | Below the training card (on a phone, a tile beside the title says what the session is doing, in two lines, and opens Training, Passes and Ideas in a sheet). **Passes** folds to a line (how many, the latest, the best, where it began) and opens to each pass's share. **Ideas waiting to be tried**: what the reading on arXiv left, each opening the paper it came from |
 | The whole measurement (opened from the parity panel) | Equivalent answers pass by pass, which step settled each answer, each kind of question, each small model alone; **the memory the swarm takes against the larger model's**; and **input against output**: any question asked, its input and what the larger model answered, what every slot wrote and settled on, the Swarm's output and the larger model's beside it |
@@ -441,8 +442,10 @@ same questions put a second way; the verdict is written, with every flip named.
 - **Training goes question by question.** The larger model's answer to a train question is the mark. The question is put
   to the Swarm and stays in hand until the Swarm's reply is at parity with it. Where it is not, where the answer was lost
   is read from the slots (no drafter had it; a slot had it and it was not chosen; the writer changed it), and changes are
-  tried on that question one at a time in that order: another brief, the check and decide steps configured another way, the
-  writer. After 8 changes with no parity (`CAP`) the question is written down as not reached and the next is taken. The
+  tried on that question one at a time, chosen from its own record: where a slot had the answer, the ways of deciding that
+  the record replays as right come first; where none did, more room for a slot that was cut off. The kinds of change that
+  have reached parity most often are tried sooner, learned as it goes, and a change that puts the answer on the table is
+  built on. After 8 changes with no parity (`CAP`) the question is written down as not reached and the next is taken. The
   small models are never shown the larger model's answer; only the grading is.
 - **A change is kept only on evidence.** A brief, a plan, an arrangement or a flow is kept if it brings the question in hand
   to parity and, asked again on questions already at parity (the same kind first, then the latest; 6, or `GUARD`), loses
@@ -510,7 +513,7 @@ same questions put a second way; the verdict is written, with every flip named.
 | `training/readers.mjs` | Checks the reader of answers in words on pairs anyone can judge, before its grades are believed |
 | `training/policy.json` | How the trainer trains, as data: how many changes are tried on a question, how many questions a change is asked again on before it is kept, what the plan lists first |
 | `training/arrange.mjs` | Arrangements one step from the current one. The flow: answers sent back to their drafters, a loop of checking and revising, a decision that narrows before the one that settles, a decision that settles early only if it is sure, each of them and a check or a revision put after every step in turn, a second writer, a step taken out, two steps changing places. The slots: one moved to the other model, a drafter or checker added or dropped, what a checker sees, how freely a drafter samples |
-| `training/kev.sh` | Installs and runs the configured decider beside the Swarm, by the recipe its entry gives (Kev; StartLux through MLX); `ready` says whether it is installed |
+| `training/decider.sh` | Installs and runs the configured decider beside the Swarm, by the recipe its entry gives (Kev; StartLux through MLX; a GGUF file through llama.cpp); `ready` says whether it is installed |
 | `ui/cleanup.py` | The Uninstall Helper: what the Swarm has put in `.work` (models, the engine, each decider's program and weights, what training keeps), with sizes, and removing one piece at a time. Never anything outside `.work`, never through a link, never what training has learned, never while a session runs |
 | `training/publish.mjs` | Writes what was measured to `src/trained.json`, this machine's summary for a model card (not committed) |
 
@@ -533,7 +536,7 @@ never finish, and one that carried on regardless would measure nothing, so each 
 | The larger model's server stops | Started again, and the question asked again |
 | The larger model's server says it is restarting | Waited for, and asked again the same way |
 | The larger model's engine does not know a flag it is better served with | Served without it, and that is recorded |
-| Kev stops | Started again before the next step. Its port is found free at the start of the session |
+| The decider stops | Started again before the next step. Its port is found free at the start of the session |
 | A trainer stops partway | Every answer is written down as it comes. Run again, it asks only what is left |
 | A step of a pass fails | What it left running is stopped and it is run again, three times at most. If it still fails that is written down and the pass goes on |
 | The session itself stops (a crash, a closed lid, a power cut) | The next session resumes the same pass for the same models: steps that finished are passed over |
@@ -564,8 +567,8 @@ npm test
 python3 ui/check.py
 ```
 
-One hundred and thirty-two checks of the module and the trainers, and eighty-three of the dashboard. Stand-in servers take the place of the
-models, Kev and Hugging Face, so nothing is fetched, started or installed, and both finish in well under a minute. They cover what
+One hundred and thirty-four checks of the module and the trainers, and eighty-four of the dashboard. Stand-in servers take the place of the
+models, the decider and Hugging Face, so nothing is fetched, started or installed, and both finish in well under a minute. They cover what
 goes in and comes out, which slots run, what happens when a slot, a model or everything fails, that two functions are judged
 equivalent by running them, that model-written code can reach nothing, and that each fault in [Recovery](#recovery) is
 recovered from: a stand-in server is made to die, to refuse a flag, to run out of memory and to answer with nothing. Stand-ins also answer turns with tools, so the swarm's steps, the ones left out and the decider's pick are checked as an agent would ask for them.
@@ -632,7 +635,7 @@ Known limits:
   writing are not measured.
 - **Few families of question.** Eleven kinds of function, with details that change. The train and held questions are
   different draws from the same families, so a pass can learn a family. More families are the cure.
-- **Kev is not trained for this yet.** It decides as it was published.
+- **No decider is trained for this yet.** Each decides as it was published.
 - **A larger model that gives no usable answer is not compared.** A reply cut off partway (a function that does not parse, a
   sentence of one word) is not taken for an answer: it is asked again, and if it still holds none, its question is left out
   for everyone. The step that asks the larger model says how many of its replies hold an answer.
@@ -647,7 +650,7 @@ Known limits:
 |---|---|---|
 | "A function a model wrote cannot be run safely here: this is Node 18" | The trainers need Node 20 or later | Install a newer Node. `bash training/session.sh` and the dashboard find one in `nvm` by themselves |
 | A model "gave an EMPTY reply to every one of the questions" | It spends its whole allowance thinking. Small models are served with thinking off, but an older llama.cpp may not know the flag | Use llama.cpp 1.0.0 or later (`node training/setup.mjs` fetches it when none is on the `PATH`) |
-| "NO KEV: nothing is running to decide" | Kev is not installed or not running | `bash training/kev.sh install`. A session starts and stops it by itself |
+| "NO DECIDER: nothing is running to decide" | The decider is not installed or not running | `bash training/decider.sh install`. A session starts and stops it by itself |
 | Many questions "not compared" | The larger model gave no usable answer to them (see [Status and limits](#status-and-limits)) | Choose another larger model |
 | "... cannot be served here" for the larger model | It needs an engine this machine does not have (Nemotron needs TensorFold on an Apple silicon Mac) | Choose a larger model that llama.cpp serves |
 | "there is not room on this disk" | A model file would not fit | Free the space named and run it again: what arrived is kept |
@@ -670,7 +673,7 @@ Known limits:
 | `docs/` | The architecture, and the pictures above |
 | `src/learned/` | Not committed. What each configuration has learned against its larger model on this machine: its arrangement, and the ledger of kept changes |
 | `training/states/`, `training/results/`, `training/state.json`, `training/research.md`, `training/passes.md`, `src/trained.json` | Not committed. What training remembers on this machine: each configuration's pass, what it tried, its measurements; what was read on arXiv; the pass notes; the trained summary |
-| `.work/` | Made when it runs, never committed: model files, the engine, Kev, training rows |
+| `.work/` | Made when it runs, never committed: model files, the engine, the deciders, training rows |
 
 ## Documentation
 

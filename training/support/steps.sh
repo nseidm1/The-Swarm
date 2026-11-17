@@ -17,7 +17,7 @@ run() { # run <name> <script> [args...]
     if [ "$code" = 0 ] || [ "$code" = 2 ]; then return "$code"; fi
     [ "$attempt" = 3 ] && break
     echo "--- it stopped (exit $code): run again, carrying on from what it had written down ---" >> "$OUT/$name.out"
-    "$NODE" training/support/recover.mjs reap --keep-kev > /dev/null 2>&1
+    "$NODE" training/support/recover.mjs reap --keep-decider > /dev/null 2>&1
     "$NODE" -e "import('./training/support/recover.mjs').then(r=>r.note('$name','it stopped (exit $code): run again, carrying on',{kind:'step',attempt:$attempt}))" > /dev/null
     sleep $((attempt * ${STEP_WAIT:-5}))
   done

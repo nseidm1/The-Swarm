@@ -3,7 +3,7 @@
 // with. Which models those are is CHOSEN (config.json), from the ones listed in models.json: every file there is pinned the way a
 // careful program pins any download (a repository, a revision, a size and a SHA-256).
 //   MEMBERS    { a, b[, c, d] }: the small models, each served by llama.cpp with several slots
-//   DECIDER    the decision model (Kev) for the decide step
+//   DECIDER    the decision model for the decide step (the one src/config.json names)
 //   TARGET     the larger model
 //   ENGINE     the llama.cpp build that runs the small models (and a target that is a GGUF file)
 // The places are named for where they sit in the arrangement, not for the model in them: a slot is `a-critic`, whichever model

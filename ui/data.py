@@ -33,6 +33,14 @@ def _json(path, default):
         return default
 
 
+def _renamed(row):
+    """A row written before the decide step had a name of its own: its `kev-decide` turns read as `decide`, by `decider`."""
+    for t in (row.get("trace") or []) if isinstance(row, dict) else []:
+        if isinstance(t, dict) and t.get("slot") == "kev-decide":
+            t["slot"], t["member"] = "decide", "decider"
+    return row
+
+
 def _rows(path):
     out = []
     try:
@@ -41,7 +49,7 @@ def _rows(path):
                 line = line.strip()
                 if line:
                     try:
-                        out.append(json.loads(line))
+                        out.append(_renamed(json.loads(line)))
                     except ValueError:
                         pass
     except OSError:
@@ -565,9 +573,9 @@ def spec(d):
             "goodFor": ("replies a person reads, single steps that can be checked, and an agent's turns with tools: what it was measured on (%s)" if tools == "swarm" else "replies a person reads and single steps that can be checked: what it was measured on (%s)") % (", ".join(x["name"] for x in on) or "its questions"),
             "notYet": ([] if tools == "swarm" else ["a request that carries tools goes to %s alone (an agent that works by tools, as The Crew's Pi does, gets that one model)" % one.get("name", "one small model")]) + ["the reply is whole before any of it is sent"],
             "start": {
-                "decider": "bash training/kev.sh serve (the recipe is recipe.decider.serve); or name one already running with SWARM_KEV",
-                "program": "createSwarm({ spec, kev: 'http://127.0.0.1:8009', modelsDir })",
-                "host": "serveSwarm({ ...spec.card, spec }, { file: llamaServerProgram }, { modelsDir, kev })",
+                "decider": "bash training/decider.sh serve (the recipe is recipe.decider.serve); or name one already running with SWARM_DECIDER",
+                "program": "createSwarm({ spec, decider: 'http://127.0.0.1:8009', modelsDir })",
+                "host": "serveSwarm({ ...spec.card, spec }, { file: llamaServerProgram }, { modelsDir, decider })",
                 "terminal": "node bin/swarm.mjs serve --spec <this file> [--port 8090]",
             },
         },

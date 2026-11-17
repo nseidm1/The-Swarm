@@ -10,7 +10,7 @@
 //   node training/members-probe.mjs [--each 6] [--most 24]
 import fs from 'node:fs';
 import path from 'node:path';
-import { arg, questions, reference, llamaServer, modelsDir, kevAddress, WORK, WORKC } from './support/bench.mjs';
+import { arg, questions, reference, llamaServer, modelsDir, deciderAddress, WORK, WORKC } from './support/bench.mjs';
 import { REGISTRY, MEMBERS, CONFIG_ID, TARGET } from '../src/catalog.mjs';
 import { startMember, modelFile } from '../src/members.mjs';
 import { messagesOf } from './tasks.mjs';
@@ -55,7 +55,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   }
   const tasks = new Map(questions('train', each).map((t) => [t.id, t]));
   const ref = reference([...tasks.values()]);
-  const kev = await kevAddress();
+  const decider = await deciderAddress();
   for (const m of here) {
     const r = await startMember(m, {
       llamaServer: llamaServer(),
@@ -91,7 +91,10 @@ if (import.meta.url === 'file://' + process.argv[1]) {
           reply = '';
         }
         const g = reply
-          ? await t.equivalent(theirs, reply, { kev: process.env.SWARM_JUDGE || kev, mark: readerMark(WORKC, t.type) })
+          ? await t.equivalent(theirs, reply, {
+              reader: process.env.SWARM_JUDGE || decider,
+              mark: readerMark(WORKC, t.type),
+            })
           : { grade: 'unsure' };
         if (g.grade === 'right') drafts++;
       }

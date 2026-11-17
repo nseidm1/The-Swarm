@@ -167,9 +167,9 @@ export function checkpoint(name) {
 }
 
 // WHAT A DEAD SESSION LEFT RUNNING: model servers started from this folder, with nothing left to stop them. Found by what they
-// were started with (a model file under this folder's .work, Kev from this folder's .work/kev, a target served under the name the
+// were started with (a model file under this folder's .work, the decider from this folder's .work, a target served under the name the
 // trainers give it), so that nothing of anyone else's is touched. Not done while a session of this folder is still alive.
-export function reap({ dry = false, keepKev = false } = {}) {
+export function reap({ dry = false, keepDecider = false } = {}) {
   // THE CHECKS STOP NOTHING. They run this very code (a step that fails is followed by a reap), and on a machine where a real
   // session is at work that would stop the session's own model servers. It did, on 2026-11-15: ten recoveries in one session,
   // every one of them caused by the checks being run beside it. SWARM_NO_REAP=1 (tests/env.mjs sets it) looks and never stops.
@@ -191,12 +191,17 @@ export function reap({ dry = false, keepKev = false } = {}) {
       r.cmd.includes(path.join(ROOT, 'training', 'session.sh')) ||
       (r.cmd.includes('training/session.sh') && r.pid !== mine),
   );
-  if (live.length > 1 && !keepKev) return []; // another session of this folder is at work (one is the caller's own)
+  if (live.length > 1 && !keepDecider) return []; // another session of this folder is at work (one is the caller's own)
   const left = rows.filter(
     (r) =>
       r.pid !== mine &&
-      ((/llama-server/.test(r.cmd) && r.cmd.includes(path.join(ROOT, '.work'))) ||
-        (!keepKev && /kev[.]serve/.test(r.cmd) && r.cmd.includes(path.join(ROOT, '.work', 'kev'))) ||
+      ((/llama-server/.test(r.cmd) &&
+        r.cmd.includes(path.join(ROOT, '.work')) &&
+        !(keepDecider && r.cmd.includes(path.join(ROOT, '.work', 'deciders')))) ||
+        // the decider, whichever it is: Kev's server, StartLux's, or a decision model llama.cpp serves (above, under .work/deciders)
+        (!keepDecider &&
+          (/kev[.]serve/.test(r.cmd) || /startlux-decide serve/.test(r.cmd)) &&
+          r.cmd.includes(path.join(ROOT, '.work'))) ||
         /tensorfold serve .*--name target\b/.test(r.cmd)),
   );
   for (const r of left) {
@@ -232,7 +237,7 @@ export function freePort(from = 8009) {
 if (import.meta.url === 'file://' + process.argv[1]) {
   const cmd = process.argv[2];
   if (cmd === 'reap') {
-    const left = reap({ keepKev: process.argv.includes('--keep-kev') });
+    const left = reap({ keepDecider: process.argv.includes('--keep-decider') || process.argv.includes('--keep-kev') });
     console.log(
       left.length
         ? 'Stopped ' + left.length + ' model server' + (left.length === 1 ? '' : 's') + ' a session had left running.'

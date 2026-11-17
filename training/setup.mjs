@@ -2,7 +2,7 @@
 // button. For the swarm as src/config.json has it:
 //   the engine      llama.cpp's server: the one on this machine if there is one, else its pinned build, fetched and unpacked
 //   place a, b      the two small models' files
-//   the decider     Kev's own program and environment (its weights come the first time it is served)
+//   the decider     the configured decision model, by its recipe (training/decider.sh): its program and weights
 //   the target      the larger model's file where it is one; where it needs an engine of its own, that the engine is here
 // Every file comes from its pinned revision and is kept only if its size and SHA-256 are the ones in src/models.json.
 // IT RECOVERS BY ITSELF where it can: a download that stopped carries on from where it stopped; a file that arrives wrong is
@@ -198,21 +198,22 @@ async function model(m, what, check) {
 }
 function decider(check) {
   const what = 'The decider (' + DECIDER.name + ')';
-  if (process.env.SWARM_KEV) return (say(what, 'ready', { note: 'running at ' + process.env.SWARM_KEV }), true);
+  const named = process.env.SWARM_DECIDER || process.env.SWARM_KEV;
+  if (named) return (say(what, 'ready', { note: 'running at ' + named }), true);
   const kind = (DECIDER.serve || { kind: 'kev' }).kind;
-  const script = path.join(REPO_ROOT, 'training', 'kev.sh');
-  // (installed is the decider script's own test: training/kev.sh ready, by the decider's recipe)
+  const script = path.join(REPO_ROOT, 'training', 'decider.sh');
+  // (installed is the decider script's own test: training/decider.sh ready, by the decider's recipe)
   const ready = () => spawnSync('bash', [script, 'ready'], { encoding: 'utf8' }).status === 0;
   const later = kind === 'kev' ? 'its weights come the first time it is served' : '';
   if (ready()) return (say(what, 'ready', later ? { note: later } : {}), true);
-  // one the swarm does not start (it needs an NVIDIA GPU): it is named with SWARM_KEV, where it runs
+  // one the swarm does not start (it needs an NVIDIA GPU): it is named with SWARM_DECIDER, where it runs
   if (kind !== 'kev' && kind !== 'startlux-mlx' && kind !== 'llama')
     return (
       say(what, 'failed', {
         why:
           'it is not started by the swarm: it needs ' +
           DECIDER.needs +
-          '. Start it where it can run (its entry in src/models.json says how) and name it: SWARM_KEV=http://<host>:<port>.',
+          '. Start it where it can run (its entry in src/models.json says how) and name it: SWARM_DECIDER=http://<host>:<port>.',
       }),
       false
     );

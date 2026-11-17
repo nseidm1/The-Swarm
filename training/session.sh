@@ -18,7 +18,7 @@
 #   EACH=8 bash training/session.sh            questions of each kind (default: the policy's, 6)
 #   CAP=12 bash training/session.sh            changes tried on one question before it is left as not reached (default 8)
 #   GUARD=10 bash training/session.sh          questions already at parity asked again before a change is kept (default 6)
-#   SWARM_KEV=http://127.0.0.1:8009 ...        a Kev already running somewhere, in place of the one this session loads itself
+#   SWARM_DECIDER=http://127.0.0.1:8009 ...    a decider already running somewhere, in place of the one this session loads itself
 # Before it: nothing. It fetches and makes ready what the configured swarm needs (training/setup.mjs): the engine, the models,
 # the decider. Which models those are is in src/config.json (the page's pills change it).
 cd "$(dirname "$0")/.." || exit 1
@@ -38,9 +38,9 @@ echo "$(date +%H:%M:%S) Node: $NODE ($("$NODE" -v))"
 # how many questions of each kind: the one named (EACH), else the trainer's policy (training/policy.json: questions.each)
 EACH=${EACH:-$("$NODE" -e "import('./training/policy.mjs').then(p=>console.log((p.readPolicy().questions||{}).each||6))" 2>/dev/null || echo 6)}
 # THE MODELS LIVE AS LONG AS THE SESSION. Nothing is loaded before it and nothing is left loaded after it. The two small models and
-# the larger one are started and stopped by each step that uses them; Kev, which every swarm step needs, is started here and
-# unloaded when the session ends, however it ends (finished, stopped from the page, or interrupted). A Kev that someone named
-# (SWARM_KEV) is theirs: it is used and left alone.
+# the larger one are started and stopped by each step that uses them; the decider, which every swarm step needs, is started here
+# and unloaded when the session ends, however it ends (finished, stopped from the page, or interrupted). A decider someone named
+# (SWARM_DECIDER, or SWARM_KEV, its old name) is theirs: it is used and left alone.
 # FIRST, WHAT THE CONFIGURED SWARM NEEDS: the engine, the two small models, the decider and the larger model, fetched and made ready
 # where they are missing (training/setup.mjs). It recovers by itself where it can, and where it cannot it says what to do.
 mkdir -p .work/train
@@ -49,32 +49,33 @@ mkdir -p .work/train
 "$NODE" training/setup.mjs > .work/train/setup.out 2>&1 || { cat .work/train/setup.out; echo "$(date +%H:%M:%S) NOT READY: see above. Nothing was trained."; exit 1; }
 cat .work/train/setup.out
 export KEV_RUN=${KEV_RUN:-$("$NODE" -e "import('./src/catalog.mjs').then(c=>console.log(c.DECIDER.run))")}
-KEV_STARTED=
-kev_down() { [ -n "$KEV_STARTED" ] && bash training/kev.sh stop > /dev/null 2>&1; KEV_STARTED=; judge_down; }
+SWARM_DECIDER=${SWARM_DECIDER:-$SWARM_KEV}
+DECIDER_STARTED=
+decider_down() { [ -n "$DECIDER_STARTED" ] && bash training/decider.sh stop > /dev/null 2>&1; DECIDER_STARTED=; judge_down; }
 JUDGE_PORT=
 judge_down() { [ -n "$JUDGE_PORT" ] && pkill -f -- "--port $JUDGE_PORT( |$)" > /dev/null 2>&1; JUDGE_PORT=; }
-trap kev_down EXIT
+trap decider_down EXIT
 trap 'exit 143' TERM INT
-if [ -z "$SWARM_KEV" ]; then
-  if bash training/kev.sh ready; then
+if [ -z "$SWARM_DECIDER" ]; then
+  if bash training/decider.sh ready; then
     mkdir -p .work/train
     # its usual port, or the next one free if something else has that
-    KEV_PORT=${KEV_PORT:-$("$NODE" training/support/recover.mjs port 8009)}
-    bash training/kev.sh serve "$KEV_PORT" > .work/train/kev.log 2>&1 &
-    KEV_STARTED=1
-    export SWARM_KEV="http://127.0.0.1:$KEV_PORT"
+    DECIDER_PORT=${DECIDER_PORT:-$("$NODE" training/support/recover.mjs port 8009)}
+    bash training/decider.sh serve "$DECIDER_PORT" > .work/train/decider.log 2>&1 &
+    DECIDER_STARTED=1
+    export SWARM_DECIDER="http://127.0.0.1:$DECIDER_PORT"
     for _ in $(seq 1 180); do
-      "$NODE" -e "fetch('$SWARM_KEV/v1/models',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))" && break
+      "$NODE" -e "fetch('$SWARM_DECIDER/v1/models',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))" && break
       sleep 5
     done
-    if "$NODE" -e "fetch('$SWARM_KEV/v1/models',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"; then
-      echo "$(date +%H:%M:%S) Kev loaded for this session at $SWARM_KEV"
+    if "$NODE" -e "fetch('$SWARM_DECIDER/v1/models',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"; then
+      echo "$(date +%H:%M:%S) The decider loaded for this session at $SWARM_DECIDER"
     else
       # it did not come up: the trainers try again before each question, and say so; until it does, the answer most slots gave stands
-      echo "$(date +%H:%M:%S) Kev did not come up at $SWARM_KEV (see .work/train/kev.log). The trainers will try to start it again."
+      echo "$(date +%H:%M:%S) The decider did not come up at $SWARM_DECIDER (see .work/train/decider.log). The trainers will try to start it again."
     fi
   else
-    echo "$(date +%H:%M:%S) NO DECIDER: it is not installed here (bash training/kev.sh install). The answer most slots gave will stand."
+    echo "$(date +%H:%M:%S) NO DECIDER: it is not installed here (bash training/decider.sh install). The answer most slots gave will stand."
   fi
 fi
 # THE JUDGE OF EQUIVALENCE, APART FROM THE DECIDER ("judge" in src/config.json; src/catalog.mjs JUDGE): started beside it, on a port
@@ -82,9 +83,9 @@ fi
 # Where none is named, or it cannot be made ready here, the decider reads them, as before, and that is said.
 JUDGE_ID=$("$NODE" -e "import('./src/catalog.mjs').then(c=>console.log(c.JUDGE?c.JUDGE.id:''))")
 if [ -n "$JUDGE_ID" ] && [ -z "$SWARM_JUDGE" ]; then
-  if DECIDER_ID="$JUDGE_ID" bash training/kev.sh ready || DECIDER_ID="$JUDGE_ID" bash training/kev.sh install > .work/train/judge.log 2>&1; then
+  if DECIDER_ID="$JUDGE_ID" bash training/decider.sh ready || DECIDER_ID="$JUDGE_ID" bash training/decider.sh install > .work/train/judge.log 2>&1; then
     JUDGE_PORT=$("$NODE" training/support/recover.mjs port 8010)
-    DECIDER_ID="$JUDGE_ID" DECIDER_NO_PORT_FILE=1 bash training/kev.sh serve "$JUDGE_PORT" >> .work/train/judge.log 2>&1 &
+    DECIDER_ID="$JUDGE_ID" DECIDER_NO_PORT_FILE=1 bash training/decider.sh serve "$JUDGE_PORT" >> .work/train/judge.log 2>&1 &
     for _ in $(seq 1 180); do
       "$NODE" -e "fetch('http://127.0.0.1:$JUDGE_PORT/v1/models',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))" && break
       sleep 5

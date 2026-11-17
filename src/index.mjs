@@ -4,7 +4,7 @@
 //   import { createSwarm } from 'the-swarm';
 //   const swarm = await createSwarm({ llamaServer, modelsDir });      // starts both models
 //   const swarm = await createSwarm({ attach: { a: 'http://127.0.0.1:8081', b: 'http://127.0.0.1:8082' } });
-//   const swarm = await createSwarm({ ..., kev: 'http://127.0.0.1:8009' });   // a decision model for the decide step (decider.mjs)
+//   const swarm = await createSwarm({ ..., decider: 'http://127.0.0.1:8009' });   // a decision model for the decide step (decider.mjs)
 //   const swarm = await createSwarm({ ..., runCode: false });   // never run a draft: compare drafts of code as text (behave.mjs)
 //   const { reply } = await swarm.answer([{ role: 'user', content: 'What is 17 x 23?' }]);
 //   const { base, port } = await swarm.serve();                       // the same thing, as a server that speaks like llama.cpp
@@ -20,7 +20,7 @@ import { MEMBERS, SERVING, ENTRY, SERVED_NAME, TOOLS, toolsOf } from './catalog.
 import { attachMember, startMember, modelFile } from './members.mjs';
 import { answer as orchestrate } from './orchestrate.mjs';
 import { serve as serveHttp } from './server.mjs';
-import { kevDecider } from './decider.mjs';
+import { deciderAt } from './decider.mjs';
 import { fromSpec, readSpec, recipeSha256 } from './spec.mjs';
 import { answerTools } from './tools.mjs';
 import { behaviours } from './behave.mjs';
@@ -104,9 +104,13 @@ export async function createSwarm(opts = {}) {
     members[key].pid = r.pid;
     started.push(r.member);
   }
-  // the decision model for the decide step, where one is named (opts.kev, or SWARM_KEV): an address that answers /v1/systemone
-  const kevBase = opts.kev !== undefined ? opts.kev : process.env.SWARM_KEV || '';
-  const decide = opts.decide || (kevBase ? kevDecider({ base: kevBase, timeoutMs: opts.kevTimeoutMs }) : null);
+  // the decision model for the decide step, where one is named (opts.decider, or SWARM_DECIDER): an address that answers
+  // /v1/systemone, whichever decision model it is. (opts.kev and SWARM_KEV, the names from when Kev was the only one, still work)
+  const named = opts.decider !== undefined ? opts.decider : opts.kev;
+  const deciderBase = named !== undefined ? named : process.env.SWARM_DECIDER || process.env.SWARM_KEV || '';
+  const decide =
+    opts.decide ||
+    (deciderBase ? deciderAt({ base: deciderBase, timeoutMs: opts.deciderTimeoutMs ?? opts.kevTimeoutMs }) : null);
   // WHERE CODE IS ASKED FOR, THE DRAFTS ARE RUN to see which of them do the same (behave.mjs): in a process of their own that can
   // reach nothing (sandbox.mjs). opts.runCode: false, or SWARM_RUN_CODE=0, and nothing a model wrote is ever run: the drafts are
   // compared as text.
@@ -135,7 +139,11 @@ export async function createSwarm(opts = {}) {
   let last = null;
   const swarm = {
     members,
-    kev: kevBase || (opts.decide ? 'given' : ''),
+    decider: deciderBase || (opts.decide ? 'given' : ''),
+    // (the name from when Kev was the only decider)
+    get kev() {
+      return this.decider;
+    },
     get briefs() {
       return briefs;
     },

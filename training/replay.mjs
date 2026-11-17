@@ -34,10 +34,10 @@ function standing(row) {
 }
 // THE WAYS OF CHOOSING that can be replayed, each a setting of the plan (src/orchestrate.mjs: plan.decideBy)
 export const WAYS = {
-  kev: 'the decider always',
+  decider: 'the decider always',
   most: 'the answer most slots hold',
-  'kev-if-confident': 'the decider where it gives its choice 0.6 or more, else the answer most slots hold',
-  'kev-unless-majority': 'the answer most slots hold where more than half hold it, else the decider',
+  'decider-if-confident': 'the decider where it gives its choice 0.6 or more, else the answer most slots hold',
+  'decider-unless-majority': 'the answer most slots hold where more than half hold it, else the decider',
 };
 export function replay(rows) {
   const out = {
@@ -62,13 +62,13 @@ export function replay(rows) {
     const most = byVotes[0];
     const voters = groups.reduce((n, g) => n + g.drafts + g.checks, 0);
     // what the decider chose, where it was asked; where it was not (the answers agreed) there was one answer
-    const kev = decide ? decide.same === true : most.same;
+    const byDecider = decide ? decide.same === true : most.same;
     const top = decide && decide.probs ? Math.max(...Object.values(decide.probs)) : 1;
     const won = {
-      kev,
+      decider: byDecider,
       most: most.same,
-      'kev-if-confident': decide && top < 0.6 ? most.same : kev,
-      'kev-unless-majority': (most.drafts + most.checks) * 2 > voters ? most.same : kev,
+      'decider-if-confident': decide && top < 0.6 ? most.same : byDecider,
+      'decider-unless-majority': (most.drafts + most.checks) * 2 > voters ? most.same : byDecider,
     };
     for (const k of Object.keys(WAYS)) if (won[k]) out.ways[k]++;
   }
@@ -112,7 +112,8 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     process.exit(2);
   }
   const r = replay(rows);
-  const now = (readBriefs().plan || {}).decideBy || 'kev';
+  const { decideByOf } = await import('../src/orchestrate.mjs');
+  const now = decideByOf((readBriefs().plan || {}).decideBy);
   console.log(
     r.compared +
       ' questions. As it was: ' +

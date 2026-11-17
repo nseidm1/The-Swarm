@@ -23,7 +23,7 @@ answer is to be reached. That is the whole public surface, in three forms:
 | [`src/server.mjs`](../src/server.mjs) | The swarm at an address |
 | [`src/orchestrate.mjs`](../src/orchestrate.mjs) | The order of things: draft (and, for code, try), check, decide, write, and what happens when a slot fails. Knows nothing of servers |
 | [`src/members.mjs`](../src/members.mjs) | One model behind a llama.cpp server with several slots; never more conversations at once than slots |
-| [`src/decider.mjs`](../src/decider.mjs) | The decide step by a decision model: the request Kev is sent, how its answer is read, and when it counts as a decision |
+| [`src/decider.mjs`](../src/decider.mjs) | The decide step by a decision model: the request the decider is sent, how its answer is read, and when it counts as a decision |
 | [`src/tools.mjs`](../src/tools.mjs) | A turn with tools decided by the swarm: each drafter's step read as an action, the ones that are not calls the caller offered left out, the same ones made one, the decider where they differ |
 | [`src/spec.mjs`](../src/spec.mjs) | A swarm from its output spec: the spec read back and checked (format, version, pinned models, the recipe against its hash), and what `createSwarm({ spec })` makes from it |
 | [`src/read.mjs`](../src/read.mjs) | Reading the answer out of what a slot wrote, and telling when two answers are the same |
@@ -76,7 +76,7 @@ keeps it: a role costs its brief the first time and only the question after that
 | probe (where code is asked for) | a brief of its own and the conversation's last turns: it writes calls to try the drafts with, and is not asked for their results. Not one of the plan's slots: it shares a model's server slots |
 | run | no model: every draft is run on those calls in the sandbox (`src/behave.mjs`, `src/sandbox.mjs`), and drafts that return the same are one answer |
 | check | its brief, the earlier turns, then the question with the lettered drafts (the critic with their work, the other without). It may answer with the letter of the draft it finds correct, which counts as that draft's answer whole |
-| decide (Kev) | no brief: one `POST /v1/systemone` with the question, one worked answer for each different answer and what the checkers said as state; a choice among the answers and a yes/no for each as questions. No slot judges, unless the plan puts one beside the decider (`plan.decideWith`): a small model asked which answer is correct where the decider is close, together with it, or where it parts from most |
+| decide (the decider) | no brief: one `POST /v1/systemone` with the question, one worked answer for each different answer and what the checkers said as state; a choice among the answers and a yes/no for each as questions. No slot judges, unless the plan puts one beside the decider (`plan.decideWith`): a small model asked which answer is correct where the decider is close, together with it, or where it parts from most |
 | write | its brief, the earlier turns, the question, the answer settled on and the work behind it |
 
 Every slot but the writer ends with a line that starts with `ANSWER:`. That line is how answers are compared without a model
@@ -87,8 +87,8 @@ reading them.
 | What failed | What happens |
 |---|---|
 | One slot | The others carry on |
-| Kev (not named, or down) | The answer most slots gave stands |
-| Kev slow | Its wait grows to three times its slowest recent decision (up to 30 s); a decision that times out is asked once more with twice the wait, then the answer most slots gave stands |
+| The decider (not named, or down) | The answer most slots gave stands |
+| The decider slow | Its wait grows to three times its slowest recent decision (up to 30 s); a decision that times out is asked once more with twice the wait, then the answer most slots gave stands |
 | The writer (it fails, or answers with a call to a tool) | The answer and its work are the reply |
 | A model's server stops or hangs | It is started again, once for all the slots waiting on it, and each asks again |
 | A whole model, for good | The other model's slots carry on |

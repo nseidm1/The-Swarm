@@ -461,12 +461,12 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     });
   });
   await new Promise((ok) => ksrv.listen(0, '127.0.0.1', ok));
-  const kev = 'http://127.0.0.1:' + ksrv.address().port;
+  const reader = 'http://127.0.0.1:' + ksrv.address().port;
   const yes = await eq(bug, 'It keeps the wrong occurrence.', 'The filter keeps the other occurrence of each value.', {
-    kev,
+    reader,
   });
   kq.p = 0.1;
-  const no = await eq(bug, 'It keeps the wrong occurrence.', 'The loop is off by one.', { kev });
+  const no = await eq(bug, 'It keeps the wrong occurrence.', 'The loop is off by one.', { reader });
   ksrv.close();
   check(
     'an answer in words cannot be run, so a decision model is asked one thing: do the two say fundamentally the same? With none to ask, the question is not compared, and with no answer given there is none',
@@ -478,8 +478,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       /It keeps the wrong occurrence/.test(kq.calls[0].state.first) &&
       /DATA/.test(kq.calls[0].state.guidance) &&
       (await eq(bug, 'x', 'y', {})) === 'noref' &&
-      (await eq(bug, 'x', '', { kev })) === 'unsure' &&
-      (await openEquivalent('q', '', 'y', { kev })).grade === 'noref',
+      (await eq(bug, 'x', '', { reader })) === 'unsure' &&
+      (await openEquivalent('q', '', 'y', { reader })).grade === 'noref',
     [yes, no],
   );
   // ---- marking a run, and each slot
@@ -779,11 +779,21 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     '1. `add(1, 2)`\nadd(x, 2)\nadd([1, [2]], { a: 1 })\nadd("a)", 1) // text\nfoo(1)\nadd(evil(), 1)\nadd(1, 2)\nadd(3,\nconsole.log(add(true, null));',
     'add',
   );
+  // too few calls from the slot: calls are built from the drafts' parameters (behave.mjs callsFrom), so the drafts are still run;
+  // and where even those cannot be had (no function the drafts define), nothing is run
   const none = await behaviours({
     question: 'q',
     drafts: [
       { letter: 'A', final: ways['a-direct'] },
       { letter: 'B', final: bad1 },
+    ],
+    probeText: 'no calls here',
+  });
+  const nothing = await behaviours({
+    question: 'q',
+    drafts: [
+      { letter: 'A', final: '42' },
+      { letter: 'B', final: '41' },
     ],
     probeText: 'no calls here',
   });
@@ -796,10 +806,12 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     probeText: CALLS,
   });
   check(
-    'the calls to try are read from what a slot wrote: whole calls to the function, with literal arguments only, each once; with too few to go on nothing is run; and a call on which two drafts part is named with what each gave',
+    'the calls to try are read from what a slot wrote: whole calls to the function, with literal arguments only, each once; with too few, calls are built from the parameters of the drafts, and with none to be had nothing is run; and a call on which two drafts part is named with what each gave',
     read.join(' | ') === 'add(1, 2) | add([1, [2]], { a: 1 }) | add("a)", 1) | add(true, null)' &&
       nameOf([ways['a-direct'], bad2, 'function helper() {}\nfunction add(a, b) {}'], 'Write add') === 'add' &&
-      none === null &&
+      none &&
+      none.groups.length === 2 &&
+      nothing === null &&
       two &&
       two.groups.length === 2 &&
       /add\(0, 0\)/.test(two.differ([two.by.A, two.by.B], { as: ['A', 'B'] })) === false &&
@@ -1463,10 +1475,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     'one measurement can be replayed to say what the reply would have been under another way of choosing between the answers, with no model asked again: the decider always is what happened; the others are counted from what each slot answered and whether it was equivalent; and the plan tries first the way replay says would have won',
     r.compared === 4 &&
       r.actual === 2 &&
-      r.ways.kev === 2 &&
+      r.ways.decider === 2 &&
       r.ways.most === 3 &&
-      r.ways['kev-if-confident'] === 3 &&
-      r.ways['kev-unless-majority'] === 3 &&
+      r.ways['decider-if-confident'] === 3 &&
+      r.ways['decider-unless-majority'] === 3 &&
       r.ceiling === 4 &&
       r.slots.b2 === 2 &&
       Object.keys(WAYS).length === 4 &&
@@ -1474,7 +1486,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       ways[0].answers === 1 &&
       ways[0].why.includes('replay') &&
       plan.replayed.actual === 2 &&
-      !plan.moves.some((m) => m.what === 'plan: decide by kev'),
+      !plan.moves.some((m) => m.what === 'plan: decide by decider'),
     { r, ways: ways.map((m) => [m.what, m.answers]) },
   );
   // the plan's ways of choosing, in the swarm itself
@@ -1490,10 +1502,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const sw = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, decide: forSlip });
   const go = async (decideBy) => sw.answer(Q, { briefs: { ...briefs, plan: { ...briefs.plan, decideBy } } });
   const [always, most, sure, major] = [
-    await go('kev'),
+    await go('decider'),
     await go('most'),
-    await go('kev-if-confident'),
-    await go('kev-unless-majority'),
+    await go('decider-if-confident'),
+    await go('decider-unless-majority'),
   ];
   await sw.stop();
   check(
@@ -1513,27 +1525,27 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const pairs = knownPairs();
   const truth = (a2, b2) => pairs.find((p) => p.a === a2 && p.b === b2).same;
   const sound = await checkReader({
-    kev: 'x',
+    reader: 'x',
     pairs,
     judge: async (q, a2, b2) => ({ grade: truth(a2, b2) ? 'right' : 'wrong' }),
   });
   // one that leans to yes but leans further where the answers are the same: read well once the line is put where it tells them apart
   const leaning = await checkReader({
-    kev: 'x',
+    reader: 'x',
     pairs,
     judge: async (q, a2, b2) => ({ grade: 'right', p: truth(a2, b2) ? 0.95 : 0.7 }),
   });
   // one that only sees what an answer is ABOUT: it says the same to a paraphrase and to a near-miss alike. Four in five overall,
   // and still not believed: it misreads every near-miss
   const topical = await checkReader({
-    kev: 'x',
+    reader: 'x',
     pairs,
     judge: async (q, a2, b2) => ({
       grade: pairs.find((p) => p.a === a2 && p.b === b2).kind !== 'different' ? 'right' : 'wrong',
     }),
   });
-  const yesMan = await checkReader({ kev: 'x', pairs, judge: async () => ({ grade: 'right' }) });
-  const silent = await checkReader({ kev: 'x', pairs, judge: async () => ({ grade: 'noref' }) });
+  const yesMan = await checkReader({ reader: 'x', pairs, judge: async () => ({ grade: 'right' }) });
+  const silent = await checkReader({ reader: 'x', pairs, judge: async () => ({ grade: 'noref' }) });
   const open = tasks({ split: 'held', each: 1 }).find((t) => t.type === 'open');
   fs.mkdirSync(WORKC, { recursive: true });
   fs.writeFileSync(path.join(WORKC, 'reader.json'), JSON.stringify({ ok: false }));
@@ -1776,7 +1788,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   bonsai.s.script = () => 'ANSWER: 42';
   let conf = 0.9;
   const asked = [];
-  const kev = async ({ answers }) => (
+  const decider = async ({ answers }) => (
     asked.push(answers.length),
     {
       ok: true,
@@ -1786,7 +1798,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       ms: 1,
     }
   );
-  const sw = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, decide: kev });
+  const sw = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, decide: decider });
   const early = {
     ...briefs,
     flow: [{ do: 'draft' }, { do: 'decide', sure: 0.75 }, { do: 'check' }, { do: 'decide' }, { do: 'write' }],
@@ -1908,7 +1920,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     }
   );
   const t = tr.find((x) => x.kind === 'request');
-  const eq = (ref, mine, more = {}) => talkEquivalent(t, ref, mine, { kev: 'http://kev', fetchImpl, ...more });
+  const eq = (ref, mine, more = {}) => talkEquivalent(t, ref, mine, { reader: 'http://reader', fetchImpl, ...more });
   const ok = await eq(
     'You will need to book it yourself: ring the restaurant.',
     'I cannot book it. Phone them and ask for the table.',
@@ -1940,7 +1952,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       marked.grade === 'wrong' &&
       marked.part === 'substance' &&
       sent.length === 7 &&
-      sent[0].url === 'http://kev/v1/systemone' &&
+      sent[0].url === 'http://reader/v1/systemone' &&
       Object.keys(sent[0].body.questions).join() === 'same,firstAsks,secondAsks' &&
       sent[0].body.questions.same.type === 'noul' &&
       sent[0].body.state.message === t.ask &&
@@ -1949,7 +1961,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       (await talkEquivalent(t, 'x', 'y', {})).grade === 'noref' &&
       (await eq('x', '')).grade === 'unsure' &&
       (await eq('', 'y')).grade === 'noref' &&
-      (await t.equivalent('Ring them.', 'Phone them.', { kev: 'http://kev', fetchImpl })).grade === 'right' &&
+      (await t.equivalent('Ring them.', 'Phone them.', { reader: 'http://reader', fetchImpl })).grade === 'right' &&
       t.usable('Sure!') &&
       !t.usable(''),
     { ok, asked, other, claimed },
@@ -1957,13 +1969,13 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   // the reader of replies in a conversation is checked on pairs anyone can judge, before it is believed
   const pairs = talkPairs();
   const fair = await checkReader({
-    kev: 'k',
+    reader: 'k',
     pairs,
     judge: async (task, a, b) => ({ grade: 'x', p: pairs.find((p) => p.a === a && p.b === b).same ? 0.85 : 0.2 }),
   });
-  const blind = await checkReader({ kev: 'k', pairs, judge: async () => ({ grade: 'right', p: 0.9 }) });
+  const blind = await checkReader({ reader: 'k', pairs, judge: async () => ({ grade: 'right', p: 0.9 }) });
   const topicalTalk = await checkReader({
-    kev: 'k',
+    reader: 'k',
     pairs,
     judge: async (task, a, b) => ({
       grade: 'x',
@@ -2114,17 +2126,17 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       encoding: 'utf8',
       env: { ...process.env, DECIDER_ID: id },
     }).stdout;
-  const kevSh = (id, ...a) =>
-    spawnSync('bash', ['training/kev.sh', ...a], {
+  const deciderSh = (id, ...a) =>
+    spawnSync('bash', ['training/decider.sh', ...a], {
       encoding: 'utf8',
       env: { ...process.env, DECIDER_ID: id, NODE: process.execPath },
     });
-  const cuda = kevSh('karpo-31b', 'serve', '8999');
+  const cuda = deciderSh('karpo-31b', 'serve', '8999');
   // one llama.cpp serves: named to the decider script with its file and flags; not served before its file is fetched and checked
   const llamaEnv = envOf('jeffan-4b');
   // (only where its file is not here: where it is, serve would start it, and wait on it)
   const llamaHere = fs.existsSync(path.join('.work', 'deciders', 'jeffan-4b', '.complete'));
-  const llamaServe = llamaHere ? { status: 1, stdout: '' } : kevSh('jeffan-4b', 'serve', '8999');
+  const llamaServe = llamaHere ? { status: 1, stdout: '' } : deciderSh('jeffan-4b', 'serve', '8999');
   const quoted = spawnSync(
     'bash',
     [
@@ -2135,7 +2147,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { encoding: 'utf8' },
   ).stdout;
   check(
-    "the deciders that can be chosen go beyond Kev: each carries its score on the community Decision Index and the entry it was scored as, where it can run (an Apple silicon Mac, an NVIDIA GPU), and how the swarm starts it (Kev, StartLux through MLX) or, where the swarm cannot, its maker's own instructions; every file it fetches is pinned to a revision; and the decider script refuses to start one that needs another machine, saying what it needs",
+    "there are many deciders to choose from: each carries its score on the community Decision Index and the entry it was scored as, where it can run (an Apple silicon Mac, an NVIDIA GPU), and how the swarm starts it (Kev, StartLux through MLX) or, where the swarm cannot, its maker's own instructions; every file it fetches is pinned to a revision; and the decider script refuses to start one that needs another machine, saying what it needs",
     ds.length === 23 &&
       ds.every(
         (x) =>
@@ -2185,8 +2197,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       /D_KIND='kev'/.test(envOf('')) &&
       cuda.status === 1 &&
       /is not started by the swarm: it needs an NVIDIA GPU with 80 GB/.test(cuda.stdout) &&
-      /SWARM_KEV=/.test(cuda.stdout) &&
-      kevSh('karpo-31b', 'ready').status === 1 &&
+      /SWARM_DECIDER=/.test(cuda.stdout) &&
+      deciderSh('karpo-31b', 'ready').status === 1 &&
       /D_KIND='llama'/.test(llamaEnv) &&
       /D_FILE='Jeffan-4B-2010-Q4_K_M\.gguf'/.test(llamaEnv) &&
       /D_ARGS='-c 8192 -b 8192 -ub 8192 -np 1 --cache-ram 0'/.test(llamaEnv) &&
@@ -2333,7 +2345,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           { id: 'silent:a-steps', slot: 'a-steps' },
           { id: 'drafts-short', stage: 'draft' },
           { id: 'check-worse:a-critic', slot: 'a-critic' },
-          { id: 'decider-threw:kev-decide', slot: 'kev-decide' },
+          { id: 'decider-threw:decide', slot: 'decide' },
         ],
       },
       briefs,
@@ -2383,7 +2395,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
   // 7: another decider put the same choices
   const { choicesOf, replayWith } = await import('../training/decider-replay.mjs');
-  const recRow = (id, kevRight, rightFinal) => ({
+  const recRow = (id, nowRight, rightFinal) => ({
     id,
     ask: 'What is it?',
     trace: [
@@ -2391,10 +2403,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       { slot: 'b-direct', stage: 'draft', final: '42', out: 'w\nANSWER: 42', same: rightFinal === '42' },
       { slot: 'a-critic', stage: 'check', final: 'B', out: 'B is right' },
       {
-        slot: 'kev-decide',
+        slot: 'decide',
         stage: 'decide',
-        final: kevRight ? rightFinal : rightFinal === '41' ? '42' : '41',
-        same: kevRight,
+        final: nowRight ? rightFinal : rightFinal === '41' ? '42' : '41',
+        same: nowRight,
       },
     ],
   });
@@ -2419,7 +2431,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       choicesOf(recs[0]).checks.length === 1 &&
       choicesOf(recs[3]) === null &&
       res.asked === 3 &&
-      res.kevRight === 2 &&
+      res.nowRight === 2 &&
       res.theirsRight === 2 &&
       res.recovered === 1 &&
       res.lost === 1,
@@ -2538,9 +2550,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { role: 'system', content: 'You are a coding agent. Use the tools.' },
     { role: 'user', content: 'What does src/a.js export?' },
   ];
-  const kevAsked = [];
+  const decideAsked = [];
   const decide = async (input) => (
-    kevAsked.push(input),
+    decideAsked.push(input),
     { ok: true, letter: 'B', final: input.answers[1].final, ms: 1 }
   );
   reset();
@@ -2570,7 +2582,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   reset();
   lfm.s.script = (b) => (b.tools ? call('read', { path: 'src/a.js' }) : 'ANSWER: 42');
   bonsai.s.script = (b) => (b.tools ? call('read', { path: ' src/a.js ' }) : 'ANSWER: 42');
-  const before = kevAsked.length;
+  const before = decideAsked.length;
   const agreed = await sw.answerTools(AGENT, { tools: TOOLS_ });
   // every drafter replies in words: a reply
   lfm.s.script = bonsai.s.script = (b) => (b.tools ? { content: 'It exports add and sub.' } : 'ANSWER: 42');
@@ -2600,7 +2612,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       got.path === 'tools-decided' &&
       got.calls.length === 1 &&
       got.calls[0].function.name === 'ls' &&
-      kevAsked[0].answers.length === 2 &&
+      decideAsked[0].answers.length === 2 &&
       left.some((x) => /rm, which is not one of the tools offered/.test(x)) &&
       banNone &&
       plainR.choices[0].finish_reason === 'tool_calls' &&
@@ -2610,7 +2622,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       /"finish_reason":"tool_calls"/.test(streamed) &&
       /\[DONE\]/.test(streamed) &&
       agreed.path === 'tools-agreed' &&
-      kevAsked.length === before + 0 + 0 + (agreed.path === 'tools-agreed' ? 0 : 1) &&
+      decideAsked.length === before + 0 + 0 + (agreed.path === 'tools-agreed' ? 0 : 1) &&
       worded.ok &&
       worded.calls.length === 0 &&
       worded.reply === 'It exports add and sub.' &&
@@ -2714,12 +2726,12 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     ok: true,
     json: async () => ({ answers: { same: { noul: p }, firstAsks: { noul: 0.1 }, secondAsks: { noul: 0.1 } } }),
   });
-  const g = async (p, mark = 0.6) => openEquivalent('q', 'a', 'b', { kev: 'x', mark, fetchImpl: said(p) });
+  const g = async (p, mark = 0.6) => openEquivalent('q', 'a', 'b', { reader: 'x', mark, fetchImpl: said(p) });
   const near = await g(0.65);
   const yes = await g(0.8);
   const no = await g(0.3);
   const talk = await talkEquivalent({ turns: [{ role: 'user', content: 'hi' }] }, 'a', 'b', {
-    kev: 'x',
+    reader: 'x',
     mark: 0.6,
     fetchImpl: said(0.55),
   });
@@ -2857,8 +2869,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
         { slot: 'b-direct', member: 'b', stage: 'draft', letter: 'C', final: i < 4 ? '1' : '3', tokens: 200, ms: 1 },
         { slot: 'b-other-way', member: 'b', stage: 'draft', letter: 'D', final: '4', tokens: 200, ms: 1 },
         i % 4 === 0
-          ? { slot: 'kev-decide', member: 'kev', stage: 'decide', final: '', ok: false, timedOut: true, ms: 1 }
-          : { slot: 'kev-decide', member: 'kev', stage: 'decide', final: i < 4 ? '1' : '2', ok: true, ms: 1 },
+          ? { slot: 'decide', member: 'decider', stage: 'decide', final: '', ok: false, timedOut: true, ms: 1 }
+          : { slot: 'decide', member: 'decider', stage: 'decide', final: i < 4 ? '1' : '2', ok: true, ms: 1 },
       ],
     });
   const byId = Object.fromEntries(rows.map((r) => [r.id, task]));
@@ -2875,10 +2887,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       !rep.slots['a-direct'].capped &&
       rep.slots['a-steps'].echo === 8 &&
       rep.slots['b-direct'].echo === undefined &&
-      rep.slots['kev-decide'].timedOut === 2 &&
+      rep.slots['decide'].timedOut === 2 &&
       ids.includes('capped:a-steps') &&
       ids.includes('echo:a-steps') &&
-      ids.includes('decider-slow:kev-decide') &&
+      ids.includes('decider-slow:decide') &&
       !ids.includes('echo:b-direct') &&
       forCap &&
       /a-steps with a token limit of 1100/.test(forCap.what) &&
@@ -2971,7 +2983,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
 // ---- 7a: the decider's wait fits the decider, and a timeout is asked once more (StartLux through MLX: 5.8 s at the median, and
 // every failure in 40 decisions was the fixed 8-second wait)
 {
-  const { kevDecider } = await import('../src/decider.mjs');
+  const { deciderAt } = await import('../src/decider.mjs');
   let delay = 60;
   let calls = 0;
   const slow = http.createServer((req, res) => {
@@ -2993,17 +3005,17 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { letter: 'B', final: '2', work: '' },
   ];
   // a wait of 40 ms against a decider that takes 60: the first ask times out, the second (80 ms) is answered
-  const d1 = kevDecider({ base, timeoutMs: 40, maxTimeoutMs: 400 });
+  const d1 = deciderAt({ base, timeoutMs: 40, maxTimeoutMs: 400 });
   const r1 = await d1({ question: 'q', answers });
   const c1 = calls;
   // after decisions that took about 60 ms, the next waits three times the slowest of them (at least 40)
   const grown = d1.waitMs();
   // a decider that will not answer in time even when asked again decides nothing, and says it was asked again
   delay = 1000;
-  const d2 = kevDecider({ base, timeoutMs: 30, maxTimeoutMs: 60 });
+  const d2 = deciderAt({ base, timeoutMs: 30, maxTimeoutMs: 60 });
   const r2 = await d2({ question: 'q', answers });
   // a decider that is down is not asked again: nothing to wait for
-  const d3 = kevDecider({ base: 'http://127.0.0.1:1', timeoutMs: 30, maxTimeoutMs: 400 });
+  const d3 = deciderAt({ base: 'http://127.0.0.1:1', timeoutMs: 30, maxTimeoutMs: 400 });
   const r3 = await d3({ question: 'q', answers });
   slow.close();
   check(
@@ -3022,22 +3034,22 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { r1: [r1.ok, r1.retried, c1], grown, r2: [r2.ok, r2.retried], r3: [r3.ok, r3.retried, r3.why] },
   );
 }
-// ---- 7b: the decide step is a decision model (Kev); no slot judges
+// ---- 7b: the decide step is the decider, whichever decision model is named; no slot judges
 {
   const { requestOf, readAnswers, decisionOf } = await import('../src/decider.mjs');
-  const kev = { calls: [], reply: null, status: 200 };
+  const dec = { calls: [], reply: null, status: 200 };
   const ksrv = http.createServer((req, res) => {
     const parts = [];
     req.on('data', (c) => parts.push(c));
     req.on('end', () => {
-      kev.calls.push({ url: req.url, body: JSON.parse(Buffer.concat(parts).toString('utf8')) });
-      res.writeHead(kev.status, { 'content-type': 'application/json' }).end(JSON.stringify(kev.reply));
+      dec.calls.push({ url: req.url, body: JSON.parse(Buffer.concat(parts).toString('utf8')) });
+      res.writeHead(dec.status, { 'content-type': 'application/json' }).end(JSON.stringify(dec.reply));
     });
   });
   await new Promise((ok) => ksrv.listen(0, '127.0.0.1', ok));
-  const withKev = await createSwarm({
+  const withDecider = await createSwarm({
     attach: { a: lfm.base, b: bonsai.base },
-    kev: 'http://127.0.0.1:' + ksrv.address().port,
+    decider: 'http://127.0.0.1:' + ksrv.address().port,
   });
   const disagree = () => {
     reset();
@@ -3047,9 +3059,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     };
     bonsai.s.script = (b) => (roleOf(b).id === 'b-direct' ? 'same slip\nANSWER: 41' : 'because\nANSWER: 42');
   };
-  // as Kev's own page shows an answer: a choice with a probability for each option, and a yes/no as one number
+  // as a decision model answers (Kev's own page shows it so): a choice with a probability for each option, and a yes/no as one number
   const says = (pA, pB, okB = 0.9) => ({
-    model: 'kev-latest',
+    model: 'decider',
     answers: {
       pick: { type: 'choice', choice: pA > pB ? 'A' : 'B', confidence: 0.5, probabilities: { A: pA, B: pB } },
       ok_A: { type: 'noul', noul: 0.1 },
@@ -3059,14 +3071,14 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     latency_ms: 150,
   });
   disagree();
-  kev.reply = says(0.12, 0.88);
-  const got = await withKev.answer(Q);
-  const sent = kev.calls[0];
-  const row = got.trace.find((r) => r.slot === 'kev-decide');
+  dec.reply = says(0.12, 0.88);
+  const got = await withDecider.answer(Q);
+  const sent = dec.calls[0];
+  const row = got.trace.find((r) => r.slot === 'decide');
   check(
     'with a decision model named, the decide step is one request to it: the question, one entry for each different answer and what the checkers said as state, a choice among the answers and a yes/no for each',
     sent.url === '/v1/systemone' &&
-      sent.body.model === 'kev-latest' &&
+      sent.body.model === 'decider' &&
       /six times seven/.test(sent.body.state.question) &&
       sent.body.state.answers.length === 2 &&
       sent.body.state.checks.length === 2 &&
@@ -3087,14 +3099,14 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       got.reply === 'It is 42.',
     { decided: got.decided, row },
   );
-  // four slots said 42 and two said 41: Kev may rule against the most given answer, and its ruling stands
+  // four slots said 42 and two said 41: the decider may rule against the most given answer, and its ruling stands
   disagree();
-  kev.reply = says(0.9, 0.1);
-  const against = await withKev.answer(Q);
+  dec.reply = says(0.9, 0.1);
+  const against = await withDecider.answer(Q);
   disagree();
-  kev.reply = says(0.48, 0.52, 0.2);
-  const narrow = await withKev.answer(Q);
-  const nrow = narrow.trace.find((r) => r.slot === 'kev-decide');
+  dec.reply = says(0.48, 0.52, 0.2);
+  const narrow = await withDecider.answer(Q);
+  const nrow = narrow.trace.find((r) => r.slot === 'decide');
   check(
     'it is the only decider: it may rule against what most slots said, and a narrow lead is still its decision, kept as narrow for training',
     against.decided === '41' &&
@@ -3105,26 +3117,26 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     [against.path, against.decided, nrow],
   );
   disagree();
-  kev.status = 503;
-  const down = await withKev.answer(Q);
-  kev.status = 200;
+  dec.status = 503;
+  const down = await withDecider.answer(Q);
+  dec.status = 200;
   check(
     'when it does not answer, the answer most slots gave stands: the swarm never fails for want of it, and no slot is asked to judge',
     down.ok &&
       down.decided === '42' &&
       down.path === 'most' &&
-      /Kev answered 503/.test(down.trace.find((r) => r.slot === 'kev-decide').out) &&
+      /The decider answered 503/.test(down.trace.find((r) => r.slot === 'decide').out) &&
       !down.trace.some((r) => r.stage === 'judge'),
     down.trace.map((r) => r.slot),
   );
   reset();
-  const before = kev.calls.length;
+  const before = dec.calls.length;
   lfm.s.script = (b) => (roleOf(b).stage === 'write' ? 'It is 42.' : 'ANSWER: 42');
-  await withKev.answer(Q);
+  await withDecider.answer(Q);
   check(
     'it is not asked when every draft agrees: nothing is in dispute',
-    kev.calls.length === before,
-    kev.calls.length - before,
+    dec.calls.length === before,
+    dec.calls.length - before,
   );
   const req = requestOf({
     question: 'q',
@@ -3155,10 +3167,13 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
   check(
     'a decision model is named by its address, and a swarm made without one has none',
-    briefs.plan.decide === undefined && swarm.kev === '' && withKev.kev.startsWith('http'),
+    briefs.plan.decide === undefined &&
+      swarm.decider === '' &&
+      withDecider.decider.startsWith('http') &&
+      withDecider.kev === withDecider.decider,
     briefs.plan,
   );
-  await withKev.stop();
+  await withDecider.stop();
   ksrv.close();
 }
 // ---- 7c: the arrangement itself is trained: every layout one step from this one, and none tried twice
@@ -3596,7 +3611,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       { stdio: 'ignore' },
     );
     await new Promise((r) => setTimeout(r, 400));
-    const found = reap({ keepKev: true }).some((r) => r.pid === String(decoy.pid));
+    const found = reap({ keepDecider: true }).some((r) => r.pid === String(decoy.pid));
     await new Promise((r) => setTimeout(r, 300));
     let alive = true;
     try {
@@ -3672,7 +3687,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       'b-other-way': slot('draft', 20, 11),
       'a-critic': slot('check', 10, 3),
       'b-recompute': slot('check', 10, 7),
-      'kev-decide': slot('decide', 10, 6, { hadRight: 8, threwAway: 2 }),
+      decide: slot('decide', 10, 6, { hadRight: 8, threwAway: 2 }),
       'a-writer': slot('write', 20, 20),
     },
   };
@@ -3685,7 +3700,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       ids.includes('weak-draft:b-direct') &&
       ids.includes('check-worse:a-critic') &&
       !ids.includes('check-worse:b-recompute') &&
-      ids.includes('decider-threw:kev-decide') &&
+      ids.includes('decider-threw:decide') &&
       !ids.some((i) => i.startsWith('writer')) &&
       found.every((x, i) => !i || found[i - 1].answers >= x.answers) &&
       diagnose(null).length === 0 &&
@@ -3734,7 +3749,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       plan.moves[0].why.includes('drafts-short') &&
       plan.moves[0].from === '2601.00001' &&
       plan.moves[0].model === 'Model B' &&
-      plan.moves.find((m) => m.what === 'one for each').why.includes('decider-threw:kev-decide') &&
+      plan.moves.find((m) => m.what === 'one for each').why.includes('decider-threw:decide') &&
       arr(plan).length === 4 &&
       arr(plan).filter((m) => m.answers > 0).length >= 3 &&
       arr(plan)[0].answers >= arr(plan)[3].answers &&
@@ -3953,7 +3968,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { withoutRest, withAll },
   );
 }
-// ---- 6u: a small model beside the decider in the decide step (plan.decideWith)
+// ---- 9a: a small model beside the decider in the decide step (plan.decideWith)
 {
   const { answer: orchestrate } = await import('../src/orchestrate.mjs');
   const { steps } = await import('../training/arrange.mjs');
@@ -3969,7 +3984,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       { id: 'b-check', member: 'b', stage: 'check', brief: 'Check.' },
     ],
   };
-  const run = async ({ how, weight, kev, judge }) => {
+  const run = async ({ how, weight, decider, judge }) => {
     const judged = [];
     const got = await orchestrate(Q, {
       briefs: {
@@ -3990,38 +4005,38 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       },
       decide: async ({ answers }) => {
         const L = (f) => answers.find((x) => x.final === f).letter;
-        const probs = Object.fromEntries(Object.entries(kev.probs).map(([f, p]) => [L(f), p]));
-        return { ok: true, letter: L(kev.pick), final: kev.pick, probs, close: !!kev.close };
+        const probs = Object.fromEntries(Object.entries(decider.probs).map(([f, p]) => [L(f), p]));
+        return { ok: true, letter: L(decider.pick), final: decider.pick, probs, close: !!decider.close };
       },
     });
     return {
       decided: got.decided,
       judged,
       row: got.trace.find((r) => r.slot === 'decide-judge'),
-      kevRow: got.trace.find((r) => r.slot === 'kev-decide'),
+      deciderRow: got.trace.find((r) => r.slot === 'decide'),
     };
   };
   const closeCall = await run({
     how: 'if-close',
-    kev: { pick: '41', probs: { 41: 0.55, 42: 0.45 }, close: true },
+    decider: { pick: '41', probs: { 41: 0.55, 42: 0.45 }, close: true },
     judge: '42',
   });
-  const sureCall = await run({ how: 'if-close', kev: { pick: '41', probs: { 41: 0.9, 42: 0.1 } }, judge: '42' });
+  const sureCall = await run({ how: 'if-close', decider: { pick: '41', probs: { 41: 0.9, 42: 0.1 } }, judge: '42' });
   const silent = await run({
     how: 'if-close',
-    kev: { pick: '41', probs: { 41: 0.55, 42: 0.45 }, close: true },
+    decider: { pick: '41', probs: { 41: 0.55, 42: 0.45 }, close: true },
     judge: null,
   });
-  const withIt = await run({ how: 'together', kev: { pick: '41', probs: { 41: 0.6, 42: 0.4 } }, judge: '42' });
+  const withIt = await run({ how: 'together', decider: { pick: '41', probs: { 41: 0.6, 42: 0.4 } }, judge: '42' });
   const light = await run({
     how: 'together',
     weight: 0.1,
-    kev: { pick: '41', probs: { 41: 0.6, 42: 0.4 } },
+    decider: { pick: '41', probs: { 41: 0.6, 42: 0.4 } },
     judge: '42',
   });
-  const odds = await run({ how: 'if-at-odds', kev: { pick: '41', probs: { 41: 0.8, 42: 0.2 } }, judge: '42' });
-  const agrees = await run({ how: 'if-at-odds', kev: { pick: '42', probs: { 41: 0.2, 42: 0.8 } }, judge: '41' });
-  const alone = await run({ kev: { pick: '41', probs: { 41: 0.55, 42: 0.45 }, close: true }, judge: '42' });
+  const odds = await run({ how: 'if-at-odds', decider: { pick: '41', probs: { 41: 0.8, 42: 0.2 } }, judge: '42' });
+  const agrees = await run({ how: 'if-at-odds', decider: { pick: '42', probs: { 41: 0.2, 42: 0.8 } }, judge: '41' });
+  const alone = await run({ decider: { pick: '41', probs: { 41: 0.55, 42: 0.45 }, close: true }, judge: '42' });
   const names = steps(base).map((c) => c.name);
   const on = steps({ ...base, plan: { ...base.plan, decideWith: { how: 'together' } } }).map((c) => c.name);
   check(
@@ -4031,7 +4046,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       closeCall.row.stage === 'judge' &&
       closeCall.row.member === 'b' &&
       closeCall.row.final === '42' &&
-      /the model beside it chose/.test(closeCall.kevRow.out) &&
+      /the model beside it chose/.test(closeCall.deciderRow.out) &&
       closeCall.judged.length === 1 &&
       (closeCall.judged[0].shown.match(/Answer [A-Z]:/g) || []).length === 2 &&
       sureCall.decided === '41' &&
@@ -4066,7 +4081,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
-// ---- 6v: training question by question (training/loop.mjs): a question stays in hand until it is at parity
+// ---- 9b: training question by question (training/loop.mjs): a question stays in hand until it is at parity
 {
   const { runLoop, orderFor, lostAt, guardOf, tallyOf } = await import('../training/loop.mjs');
   // a made-up swarm: what it answers right depends on which changes its arrangement carries (briefs.has)
@@ -4172,6 +4187,217 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       q3: q.q3.attempts,
       reAsked,
     },
+  );
+}
+
+// ---- 9c: training learns how to train: changes chosen from the question's own record, kinds of change learned, partial progress built on
+{
+  const { evidenceOf, orderFor, classOf, runLoop } = await import('../training/loop.mjs');
+  const { replay } = await import('../training/replay.mjs');
+  const { callsFrom, behaviours } = await import('../src/behave.mjs');
+  const slots = [
+    { id: 'a1', member: 'a', stage: 'draft', maxTokens: 700 },
+    { id: 'a2', member: 'a', stage: 'draft', maxTokens: 700 },
+    { id: 'b1', member: 'b', stage: 'draft', maxTokens: 700 },
+    { id: 'chk', member: 'b', stage: 'check', maxTokens: 700 },
+  ];
+  const b = { slots, plan: {} };
+  const M = (name, kind = 'arrangement', area = 'slots', slot) => ({ key: name, id: name, name, kind, area, slot });
+  const pool = [
+    M('a1 with a token limit of 1100'),
+    M('b1 with a token limit of 1100'),
+    M('a1 at temperature 0.7'),
+    M('add a second a1 on b'),
+    M('add a second a1 on c'),
+    M('plan: decide by most', 'arrangement', 'decider'),
+    M('plan: decide by decider-unless-majority', 'arrangement', 'decider'),
+    M('plan: a model settles it where the decider is close', 'arrangement', 'decider'),
+    M('flow: keep the likeliest two, straight after the draft', 'arrangement', 'decider'),
+    M('flow: keep the likeliest two, straight after the try', 'arrangement', 'decider'),
+    M('a better brief', 'brief', 'briefs', 'a1'),
+    M('a brief for the one that had it', 'brief', 'briefs', 'b1'),
+  ];
+  // drafting: no slot had it, a1 was cut off at its limit
+  const drafting = {
+    path: 'decided',
+    trace: [
+      { stage: 'draft', slot: 'a1', final: 'x', same: false, tokens: 700, letter: 'A' },
+      { stage: 'draft', slot: 'a2', final: 'y', same: false, tokens: 90, letter: 'B' },
+      { stage: 'draft', slot: 'b1', final: 'z', same: false, tokens: 120, letter: 'C' },
+      { stage: 'decide', slot: 'decide', final: 'x', same: false, probs: { A: 0.5, B: 0.3, C: 0.2 } },
+    ],
+  };
+  const dEv = evidenceOf(drafting, b, { replay });
+  const dOrder = orderFor(pool, dEv).map((m) => m.name);
+  // choosing: two drafts hold the right answer, the decider took another, narrowly
+  const choosing = {
+    path: 'decided-against-most',
+    trace: [
+      { stage: 'draft', slot: 'a1', final: 'x', same: false, letter: 'A' },
+      { stage: 'draft', slot: 'a2', final: 'y', same: true, letter: 'B' },
+      { stage: 'draft', slot: 'b1', final: 'y', same: true, letter: 'B' },
+      { stage: 'decide', slot: 'decide', final: 'x', same: false, close: true, probs: { A: 0.52, B: 0.48 } },
+    ],
+  };
+  const cEv = evidenceOf(choosing, b, { replay });
+  const cOrder = orderFor(pool, cEv).map((m) => m.name);
+  // learned: a kind of change that has reached parity often comes before one that has not, all else equal
+  const learnt = orderFor([M('a better brief', 'brief', 'briefs', 'a1'), M('a2 at temperature 0.7')], {
+    lost: 'drafting',
+    classes: {
+      'a drafter sampled otherwise': { tried: 4, reached: 3 },
+      'a brief from the reading': { tried: 4, reached: 0 },
+    },
+  }).map((m) => m.name);
+  // built on: a change that put the answer on the table (drafting became choosing) is kept under the next one that reaches parity
+  const steps = [];
+  const built = await runLoop({
+    list: [{ id: 'q', kind: 'k' }],
+    briefs: { version: 1, has: [], slots, plan: {} },
+    cap: 4,
+    poolOf: (bb) =>
+      ['room', 'decide']
+        .filter((k) => !bb.has.includes(k))
+        .map((k) => ({
+          key: k,
+          id: k,
+          name: k === 'room' ? 'a1 with a token limit of 1100' : 'plan: decide by most',
+          kind: 'arrangement',
+          area: k === 'room' ? 'slots' : 'decider',
+          briefs: { ...bb, has: [...bb.has, k] },
+        })),
+    attempt: async (bb) => {
+      steps.push(bb.has.join('+'));
+      const has = (k) => bb.has.includes(k);
+      // with room a1 drafts the right answer but the decider still takes another; with room and deciding by most, parity
+      return has('room') && has('decide')
+        ? { grade: 'right', trace: [] }
+        : has('room')
+          ? { grade: 'wrong', path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: true, final: 'y' }] }
+          : {
+              grade: 'wrong',
+              path: 'decided',
+              trace: [{ stage: 'draft', slot: 'a1', same: false, final: 'x', tokens: 700 }],
+            };
+    },
+    lostOf: async (row, bb) => evidenceOf(row, bb, { replay }),
+  });
+  const q = built.questions[0];
+  // calls built from the question and the drafts, where the probing slot gave none
+  const calls = callsFrom(
+    'Write `runLength(text)`: for example "aaabcc" becomes "a3bc2".',
+    ['function runLength(text) { return text; }'],
+    'runLength',
+  );
+  const ranAll = await behaviours({
+    question: 'Write a function `double(list)` that doubles each number, for example [1, 2] becomes [2, 4].',
+    drafts: [
+      { letter: 'A', final: 'function double(list) { return list.map((x) => x * 2); }' },
+      { letter: 'B', final: 'function double(list) { const o = []; for (const x of list) o.push(x + x); return o; }' },
+      { letter: 'C', final: 'function double(list) { return list.map((x) => x * 3); }' },
+    ],
+    probeText: 'function double(list) { return list.map((x) => x * 2); }',
+  });
+  check(
+    "training learns how to train: where no slot had the answer, more room for a slot cut off at its limit comes first, then other drafts, and a change to how the matter is decided is not tried; where a slot had it, a way of deciding that the question's own record replays as right comes first, one it replays as wrong is not tried, a model beside a decider that was close comes next, and a brief for a slot that already had the answer is not tried; one of each idea before a second; the kinds of change that have reached parity more often come sooner; a change that put the answer on the table is built on, and kept with the one that then reaches parity; and where the probing slot gave no calls, calls are made from the question's own examples and the drafts' parameters, so drafts that do the same are one answer",
+    dEv.lost === 'drafting' &&
+      dOrder[0] === 'a1 with a token limit of 1100' &&
+      !dOrder.includes('b1 with a token limit of 1100') === false &&
+      dOrder.indexOf('b1 with a token limit of 1100') > dOrder.indexOf('a1 at temperature 0.7') &&
+      !dOrder.some((n) => /decide by|a model settles|keep the likeliest/.test(n)) &&
+      dOrder.indexOf('add a second a1 on c') > dOrder.indexOf('a better brief') &&
+      cEv.lost === 'choosing' &&
+      cOrder[0] === 'plan: decide by most' &&
+      cOrder.slice(0, 2).every((n) => /^plan: decide by /.test(n)) &&
+      replay([choosing]).ways['decider-unless-majority'] === 1 &&
+      cOrder[2] === 'plan: a model settles it where the decider is close' &&
+      !cOrder.includes('a brief for the one that had it') &&
+      cOrder.indexOf('flow: keep the likeliest two, straight after the try') > cOrder.indexOf('a better brief') &&
+      classOf(M('the larger model: draft', 'brief')) === 'a brief by the larger model' &&
+      classOf(M('plan: decide by most')) === 'another way of deciding' &&
+      learnt[0] === 'a2 at temperature 0.7' &&
+      q.state === 'reached' &&
+      q.attempts[1].builtOn === true &&
+      q.attempts[2].on.join() === 'a1 with a token limit of 1100' &&
+      built.kept[0].what === 'several: a1 with a token limit of 1100 + plan: decide by most' &&
+      built.classes['more room to answer'].tried === 1 &&
+      built.classes['another way of deciding'].reached === 1 &&
+      steps.join('|') === '|room|room+decide' &&
+      calls.length >= 3 &&
+      calls.includes('runLength("aaabcc")') &&
+      calls.includes('runLength("")') &&
+      ranAll &&
+      ranAll.groups.length === 2 &&
+      ranAll.groups.some((g) => g.join() === 'A,B'),
+    {
+      dOrder,
+      cOrder,
+      learnt,
+      q: q.attempts,
+      kept: built.kept.map((k) => k.what),
+      steps,
+      calls,
+      groups: ranAll && ranAll.groups,
+    },
+  );
+}
+
+// ---- 9d: the code and its checks name no one decision model: the decider is whichever the configuration names
+{
+  const { decideByOf } = await import('../src/orchestrate.mjs');
+  const { evidenceOf } = await import('../training/loop.mjs');
+  const { steps } = await import('../training/arrange.mjs');
+  const { reap } = await import('../training/support/recover.mjs');
+  const { spawn } = await import('node:child_process');
+  // a plan, or a record, from when Kev was the only decider reads as the same thing under the decider's name
+  const oldTrace = {
+    path: 'decided-against-most',
+    trace: [
+      { stage: 'draft', slot: 'a1', final: 'x', same: false, letter: 'A' },
+      { stage: 'draft', slot: 'a2', final: 'y', same: true, letter: 'B' },
+      {
+        stage: 'decide',
+        slot: 'kev-decide',
+        member: 'kev',
+        final: 'x',
+        same: false,
+        close: true,
+        probs: { A: 0.51, B: 0.49 },
+      },
+    ],
+  };
+  const ev = evidenceOf(oldTrace, {
+    slots: [
+      { id: 'a1', stage: 'draft' },
+      { id: 'a2', stage: 'draft' },
+    ],
+    plan: {},
+  });
+  const oldPlan = steps({ ...briefs, plan: { ...briefs.plan, decideBy: 'kev-if-confident' } }).map((c) => c.name);
+  // a dead session's decider is stopped whatever it is: Kev's server, StartLux's, or a decision model llama.cpp serves
+  const root = path.resolve('.');
+  const decoys = [
+    ['startlux-decide', 'serve', path.join(root, '.work', 'deciders', 'startlux', 'x')],
+    ['llama-server', '-m', path.join(root, '.work', 'deciders', 'jeffan-4b', 'j.gguf')],
+  ].map((a) => spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)', ...a], { stdio: 'ignore' }));
+  await new Promise((r) => setTimeout(r, 400));
+  const seen = reap({ dry: true }).map((r) => r.pid);
+  const kept = reap({ dry: true, keepDecider: true }).map((r) => r.pid);
+  for (const d of decoys) d.kill();
+  check(
+    "the code and its checks name no one decision model: the decide step is the decider's, whichever is configured (its slot is `decide`, its ways of settling are 'decider', 'decider-if-confident', 'decider-unless-majority'); a plan or a record from when Kev was the only decider reads the same under the new names; and a dead session's decider is stopped whatever it is (Kev, StartLux, or one llama.cpp serves), and kept where asked",
+    decideByOf() === 'decider' &&
+      decideByOf('kev') === 'decider' &&
+      decideByOf('kev-if-confident') === 'decider-if-confident' &&
+      decideByOf('most') === 'most' &&
+      ev.lost === 'choosing' &&
+      ev.prio({ name: 'plan: a model settles it where the decider is close' }) === 1 &&
+      !oldPlan.includes('plan: decide by decider-if-confident') &&
+      oldPlan.includes('plan: decide by decider') &&
+      !oldPlan.some((n) => /\bkev\b/.test(n)) &&
+      decoys.every((d) => seen.includes(String(d.pid))) &&
+      decoys.every((d) => !kept.includes(String(d.pid))),
+    { ev: ev.lost, oldPlan: oldPlan.filter((n) => /decide by/.test(n)), seen: seen.length, kept: kept.length },
   );
 }
 

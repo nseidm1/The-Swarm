@@ -172,8 +172,8 @@ export async function answerTools(messages, { tools = [], tool_choice, briefs, a
         checks: [],
       });
       trace.push({
-        slot: 'kev-decide',
-        member: 'kev',
+        slot: 'decide',
+        member: 'decider',
         stage: 'decide',
         ms: k.ms || 0,
         ok: !!k.ok,

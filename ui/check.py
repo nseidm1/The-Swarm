@@ -71,10 +71,10 @@ with tempfile.TemporaryDirectory() as tmp:
     t = d["target"]
     none_yet = swarm_ui.at_parity(d, t)
     won = dict(d, state=dict(d["state"], history=[
-        {"pass": 1, "target": t["id"], "config": "x+y+k", "members": ["Small X", "Small Y"], "decider": "Kev K", "level": True, "equivalent": 12, "compared": 12},
-        {"pass": 2, "target": t["id"], "config": "p+q+k", "members": ["Small P", "Small Q"], "decider": "Kev K", "level": True, "equivalent": 12, "compared": 12},
-        {"pass": 3, "target": t["id"], "config": "p+q+k", "members": ["Small P", "Small Q"], "decider": "Kev K", "level": False, "equivalent": 11, "compared": 12},
-        {"pass": 4, "target": "another-model", "config": "r+s+k", "members": ["Small R", "Small S"], "decider": "Kev K", "level": True, "equivalent": 12, "compared": 12},
+        {"pass": 1, "target": t["id"], "config": "x+y+k", "members": ["Small X", "Small Y"], "decider": "Decider K", "level": True, "equivalent": 12, "compared": 12},
+        {"pass": 2, "target": t["id"], "config": "p+q+k", "members": ["Small P", "Small Q"], "decider": "Decider K", "level": True, "equivalent": 12, "compared": 12},
+        {"pass": 3, "target": t["id"], "config": "p+q+k", "members": ["Small P", "Small Q"], "decider": "Decider K", "level": False, "equivalent": 11, "compared": 12},
+        {"pass": 4, "target": "another-model", "config": "r+s+k", "members": ["Small R", "Small S"], "decider": "Decider K", "level": True, "equivalent": 12, "compared": 12},
     ]))
     listed = swarm_ui.at_parity(won, t)
     others = [x["name"] for x in d["targets"] if x["id"] != t["id"]]
@@ -109,8 +109,8 @@ with tempfile.TemporaryDirectory() as tmp:
     plan_live = get(base + "/fragment/plan")[1]
     arr_live = swarm_ui.arrangement(data.load(root))
     swarm_ui.run_state = was_rs
-    check("a move a trainer marked as being measured says so only while a session runs: once the session has stopped, it says it was stopped partway, and the arrangement says what it stopped while trying rather than what is being tried now",
-          "Being measured" in plan_live and "Stopped partway" not in plan_live and "Being tried now" in arr_live
+    check("a move a trainer marked as being measured says so only while a session runs: once the session has stopped, it says it was stopped partway, and the arrangement says what it stopped while trying (while a session runs, the question track says what is being tried)",
+          "Being measured" in plan_live and "Stopped partway" not in plan_live and 'id="qtrack"' in arr_live and "Being tried now" not in arr_live
           and "Stopped partway" in plan and ">Being measured<" not in plan and "stopped partway: " in plan and "Stopped while trying" in arr_stopped and "Being tried now" not in arr_stopped, plan[:200])
     check("the plan of the pass in hand is on the page as it stands: what the measurement showed, each move in order with the slot, the model, the technique, the paper it came from and why it was chosen, and what became of it",
           "The plan for pass 5" in html and "What the measurement showed" in plan and "no slot had the larger model" in plan.lower().replace("&#x27;", "'") and plan.count("<li class=") == 5 and "Stopped partway" in plan and ">Kept<" in plan and ">Not kept<" in plan
@@ -184,7 +184,7 @@ with tempfile.TemporaryDirectory() as tmp:
     wd.mkdir(parents=True, exist_ok=True)
     n_pass = d["state"]["pass"] + 1
     (wd / "members.json").write_text(json.dumps({"pass": n_pass, "gap": 19, "models": [{"id": "qwen", "name": "Qwen3.5 2B", "drafts": 7, "asked": 19}]}))
-    (wd / "decider-replay.json").write_text(json.dumps({"pass": n_pass, "results": [{"decider": "startlux-4b", "asked": 40, "kevRight": 31, "theirsRight": 34, "recovered": 5, "lost": 2}]}))
+    (wd / "decider-replay.json").write_text(json.dumps({"pass": n_pass, "results": [{"decider": "startlux-4b", "asked": 40, "nowRight": 31, "theirsRight": 34, "recovered": 5, "lost": 2}]}))
     only_html = swarm_ui.plan_panel(d)
     (wd / "members.json").write_text(json.dumps({"pass": n_pass, "gap": 19, "models": [], "why": "No other small model is on this machine to ask. Fetching one is your call (the pills)."}))
     none_html = swarm_ui.plan_panel(d)
@@ -230,10 +230,10 @@ with tempfile.TemporaryDirectory() as tmp:
     check("the arrangement is one section, drawn as faces: a roster of the models (each small model, the decider, the larger model, whose chip carries its live dot and opens its card), then the flow as stations in order, each slot a face of its model in the step it stands in, with its record as a ring, its own live dot and its whole name; the sandbox, which no model fills, is a marker between two stations; choosing a face opens that slot's card, with what it is told, below the row",
           'class="panel arr"' in arr and "The swarm as it stands" in arr and 'class="achips"' in arr and arr.count('class="mav ') == len(d["members"]) + 2
           and set(slot_ids) <= {k for _, k in faces} and all(m == next(s["member"] for s in d["briefs"]["slots"] if s["id"] == k) for m, k in faces if k in slot_ids)
-          and "kev-decide" in [k for _, k in faces] and "target" not in [k for _, k in faces] and 'class="st mk"' not in arr
+          and "decide" in [k for _, k in faces] and "target" not in [k for _, k in faces] and 'class="st mk"' not in arr
           and re.search(r'<button type="button" class="mav tgt" data-av="target"[^>]*>.*?data-live="target"', arr) and re.search(r'class="via" data-av="run"', arr)
           and arr.index('class="via" data-av="run"') > arr.index('data-av="a-direct"') and arr.index('class="via" data-av="run"') < arr.index('data-av="a-critic"')
-          and all('data-live="%s"' % k in arr for k in slot_ids + ["target", "kev-decide", "run"]) and all('<template id="avt-%s">' % k in arr for k in slot_ids + ["target", "run"])
+          and all('data-live="%s"' % k in arr for k in slot_ids + ["target", "decide", "run"]) and all('<template id="avt-%s">' % k in arr for k in slot_ids + ["target", "run"])
           and "b&#8209;other-<wbr>way" in arr and ">b&#8209;recompute<" in arr and "text-overflow:ellipsis;white-space:nowrap;line-height:1.2" not in html
           and "--p:" in arr and "Configurations at parity with it" in arr and "What it is told" in arr and "box.innerHTML=t.innerHTML" in html
           and 'class="stage' not in arr and 'class="panel target"' not in html, faces)
@@ -272,10 +272,10 @@ with tempfile.TemporaryDirectory() as tmp:
           '<footer class="foot">' in html and "A Family Office product" in html and "apache.org/licenses/LICENSE-2.0" in html and "github.com/nseidm1/The-Swarm" in html and "Copyright 2026 Family Office" in html and "<svg" in html.split('<footer class="foot">')[1].split("</footer>")[0])
     check("it shows the arrangement being trained: every slot of both models by stage, what each is told, what is being tried, and the larger model alongside",
           all(s["id"] in html for s in d["briefs"]["slots"]) and html.count('class="slot a"') >= 4 and html.count('class="slot b"') >= 3 and "being trained" in html and "under test" not in html and "Trained every pass" not in html and 'class="side"' not in html and "Ask both" not in html and "What it is told" in html and "Being tried" in html and "arXiv 2610.21290" in html and "The larger model" in html and "tensorfold serve" in html)
-    krow = next((r for sp in d["splits"].values() for r in sp["swarm"] if any(t["slot"] == "kev-decide" for t in r["trace"])), None)
+    krow = next((r for sp in d["splits"].values() for r in sp["swarm"] if any(t["slot"] == "decide" for t in r["trace"])), None)
     kfrag = get(base + "/fragment/question?split=%s&id=%s" % (krow["split"], urllib.request.quote(krow["id"])))[1] if krow else ""
     check("every slot is shown by the model that fills it and what it is for, with a line for what it is doing now; the decision model is in the decide step, and on a question shows what it picked and the probability it gave each answer",
-          "kev-decide" in html and "Kev 4B" in html and "Decides which answer stands" in html and "Drafts it step by step" in html and html.count('data-live="') >= 9 and krow is not None and 'class="probs"' in kfrag and "Picked" in kfrag, bool(krow))
+          'data-live="decide"' in html and d["decider"]["name"] in html and "Decides which answer stands" in html and "Drafts it step by step" in html and html.count('data-live="') >= 9 and krow is not None and 'class="probs"' in kfrag and "Picked" in kfrag, bool(krow))
     # ---- choosing the models, the output spec, and an idea's paper
     reg = d["registry"]
     check("five pills lead the page: the two small models, the model that decides and the larger model, each a list of the models that can be chosen, grouped by who made them, with the one chosen marked; and the output spec",
@@ -345,7 +345,7 @@ with tempfile.TemporaryDirectory() as tmp:
     names = re.findall(r'<option value="([^"]+)"', sel)
     check("the Decides pill lists every decider best first by its Decision Index score, says the score beside each, and on a machine that cannot run one lists it greyed out with what it needs; the one chosen is shown by its name alone",
           names[0] == "karpo-31b" and 'value="karpo-31b" disabled' in sel and "needs an NVIDIA GPU with 80 GB" in sel and "StartLux Decision 4B · index 54.8 · about 5.5 GB<" in sel
-          and 'value="startlux-4b" disabled' not in sel and "(an older checkpoint)" in sel and 'value="kev-4b" selected>Kev 4B<' in sel and len(names) == len(d["registry"]["deciders"]) == 23
+          and 'value="startlux-4b" disabled' not in sel and "(an older checkpoint)" in sel and ('value="%s" selected>%s<' % (d["decider"]["id"], d["decider"]["name"])) in sel and len(names) == len(d["registry"]["deciders"]) == 23
           and 'value="karpo-31b" disabled' not in re.search(r'<select data-pick="decider".*?</select>', swarm_ui.pills(dict(d, machine=["cuda"])), re.S).group(0), names[:3])
     # the Uninstall Helper, on a made-up .work: a model file, a model that is a link to a file kept elsewhere, a decider's weights
     w = root / ".work"
@@ -419,7 +419,7 @@ with tempfile.TemporaryDirectory() as tmp:
     made_r = not wdr.exists()
     wdr.mkdir(parents=True, exist_ok=True)
     none_yet = swarm_ui.config_section(data.load(root))
-    (wdr / "decider-replay.json").write_text(json.dumps({"pass": 5, "results": [{"decider": "startlux-4b", "asked": 46, "kevRight": 37, "theirsRight": 38, "recovered": 4, "lost": 3}, {"decider": "kev-9b", "asked": 46, "kevRight": 37, "theirsRight": 35, "recovered": 1, "lost": 3}]}))
+    (wdr / "decider-replay.json").write_text(json.dumps({"pass": 5, "results": [{"decider": "startlux-4b", "asked": 46, "nowRight": 37, "theirsRight": 38, "recovered": 4, "lost": 3}, {"decider": "kev-9b", "asked": 46, "nowRight": 37, "theirsRight": 35, "recovered": 1, "lost": 3}]}))
     (wdr / "members.json").write_text(json.dumps({"pass": 5, "gap": 19, "of": 70, "models": [], "notHere": [{"id": "qwen35-2b", "name": "Qwen3.5 2B", "bytes": 1280835840}, {"id": "qwen3-4b", "name": "Qwen3 4B", "bytes": 2497280256}]}))
     dr = data.load(root)
     rs = swarm_ui.recommendations(dr)
@@ -443,8 +443,8 @@ with tempfile.TemporaryDirectory() as tmp:
               {"slot": "b-direct", "member": "b", "stage": "draft", "letter": "B", "final": "x" if right else "z", "tokens": 100, "ms": 3000},
               {"slot": "c-direct", "member": "c", "stage": "draft", "letter": "C", "final": "q", "tokens": 80, "ms": 900},
               {"slot": "c-other-way", "member": "c", "stage": "draft", "letter": "D", "final": "q", "tokens": 80, "ms": 1100},
-              {"slot": "kev-decide", "member": "kev", "stage": "decide", "ok": i % 4 != 0, "ms": 5800,
-               "out": "Decided nothing: Kev did not answer: The operation was aborted due to timeout." if i % 4 == 0 else "Picked A."}]
+              {"slot": "decide", "member": "decider", "stage": "decide", "ok": i % 4 != 0, "ms": 5800,
+               "out": "Decided nothing: The decider did not answer: The operation was aborted due to timeout." if i % 4 == 0 else "Picked A."}]
         return {"grade": "right" if right else "wrong", "decided": "x" if right else "y", "tried": {"groups": [["A", "B"], ["C", "D"]]}, "trace": tr}
     rows_ = [row(i, i < 24) for i in range(30)]
     sl = d["briefs"]["slots"] + [{"id": "c-direct", "member": "c", "stage": "draft", "maxTokens": 700}, {"id": "c-other-way", "member": "c", "stage": "draft", "maxTokens": 700}]
@@ -479,7 +479,7 @@ with tempfile.TemporaryDirectory() as tmp:
     ap2 = send("/config", next((r["apply"] for r in rs2 if r["id"].startswith("member:")), {}))[0]
     after = json.loads((root / "src" / "config.json").read_text())
     check("taking a recommended change does not undo one taken before it: with the decider changed, the third small model is still recommended, from the record of the same small models (and says so), nothing recommends going back, and taking it keeps the new decider",
-          [r["id"] for r in rs2 if not r["id"].startswith("judge:")] == ["member:qwen35-2b"] and "decided by Kev" in pop2 and ap2 == 200
+          [r["id"] for r in rs2 if not r["id"].startswith("judge:")] == ["member:qwen35-2b"] and ("decided by %s" % d["decider"]["name"].split(" ")[0]) in pop2 and ap2 == 200
           and after.get("decider") == "startlux-4b" and after.get("c") == "qwen35-2b", ([r["id"] for r in rs2], after))
     (root / "src" / "config.json").write_text(json.dumps(was_cfg, indent=2) + "\n")
     for fn in ("decider-replay.json", "members.json"):
@@ -526,7 +526,7 @@ with tempfile.TemporaryDirectory() as tmp:
     code_s, sp = get(base + "/fragment/spec")
     spec = data.spec(data.load(root))
     check("the output spec says what the swarm as it stands is: what goes in and comes out, each model with its pinned file and SHA-256, the decider, every slot and what it is for, and where it stands against the larger model, to read and to copy as JSON",
-          code_s == 200 and "Output spec" in sp and d["members"]["a"]["sha256"] in sp and d["members"]["b"]["file"] in sp and "kev-decide" in sp and ("% of the way to parity against" in sp or "At parity against" in sp) and spec["trainedAgainst"]["progressPercent"] == p["percent"] and 'id="spec-json"' in sp
+          code_s == 200 and "Output spec" in sp and d["members"]["a"]["sha256"] in sp and d["members"]["b"]["file"] in sp and "<code>decide</code>" in sp and ("% of the way to parity against" in sp or "At parity against" in sp) and spec["trainedAgainst"]["progressPercent"] == p["percent"] and 'id="spec-json"' in sp
           and "As a model chooser lists it" in sp and "What it is told" in sp and 'id="spec-save"' in sp and "Commercial use" in sp and "swarm-spec.json" in html
           and spec["trainedAgainst"]["state"] in ("at parity", "not at parity") and spec["trainedAgainst"]["equivalent"] == p["equivalent"] and len(spec["arrangement"]["slots"]) == len(d["briefs"]["slots"])
           and spec["members"]["a"]["sha256"] == d["members"]["a"]["sha256"] and spec["interface"]["out"] == "one reply" and "fundamentally equivalent" in spec["trainedAgainst"]["parityMeans"], sp[:200])
@@ -718,19 +718,30 @@ with tempfile.TemporaryDirectory() as tmp:
     check("where training can be started the page has a Run training button that can be pressed, no count of passes to choose, and says it goes on until it is stopped",
           'id="run-go" type="button">Run training' in page0 and 'id="run-stop"' not in page0 and 'id="run-passes"' not in page0 and "Until stopped" in page0 and "until <b>Stop training</b> is pressed" in page0 and 'class="facts"' not in page0
           and swarm_ui.step_label("10-questions") == "Train, question by question" and swarm_ui.step_label("07-plan") == "Plan what to try" and swarm_ui.step_label("99-new") == "new")
-    lp_none = swarm_ui.loop_panel(dict(d, loop=None))
-    lp = swarm_ui.loop_panel(dict(d, loop={"pass": 3, "of": 84, "questions": 5, "atParity": 3, "reached": 1, "notReached": 1, "kept": 1, "cap": 8, "asked": 19, "list": [
+    # THE SWARM AGAINST EACH QUESTION, on the swarm's own card: a pip for each finished question, the counts, and where a pass stopped
+    trk_rec = {"pass": 2, "of": 6, "questions": 3, "list": [{"id": "q1", "kind": "math", "state": "at parity", "attempts": [{}]},
+               {"id": "q2", "kind": "fix", "state": "reached", "attempts": [{}, {}, {}]}, {"id": "q3", "kind": "day", "state": "not reached", "attempts": [{}] * 9}]}
+    was_live = swarm_ui.session_live
+    swarm_ui.session_live = lambda: False
+    trk = swarm_ui.question_track(dict(d, loop=trk_rec))
+    trk_none = swarm_ui.question_track(dict(d, loop=None))
+    arr_trk = swarm_ui.arrangement(dict(d, loop=trk_rec))
+    swarm_ui.session_live = was_live
+    check("the swarm as it stands says where it is against each question: how many of the pass's questions are finished, at parity as it stood, brought to parity by a change, or not reached; a pip for each in order, with the changes tried on it; where the pass stopped; and before the loop has begun, how it works. The track takes the place of a line about moves being tried",
+          'id="qtrack"' in trk and "3 of 6 finished" in trk and "1 at parity as it stood" in trk and "1 brought to parity" in trk and "1 not reached" in trk
+          and trk.count('<i class="at"') == 1 and trk.count('<i class="re"') == 1 and trk.count('<i class="nr"') == 1 and "q3 · day · 8 changes tried" in trk and "q2 · fix · 2 changes tried" in trk
+          and "Pass 2 stopped after question 3 of 6." in trk and "not begun" in trk_none and 'id="qtrack"' in arr_trk and "Being tried now" not in arr_trk and "Stopped while trying" not in arr_trk
+          and [x["s"] for x in swarm_ui.track_of(trk_rec)] == ["at", "re", "nr"], trk[:300])
+    tl = swarm_ui.tries_list({"list": [
         {"id": "q-easy", "kind": "math", "state": "at parity", "attempts": [{"move": "", "grade": "right"}]},
         {"id": "q-won", "kind": "fix", "state": "reached", "lostAt": "choosing", "attempts": [{"move": "", "grade": "wrong"}, {"move": "plan: decide by most", "grade": "wrong"},
             {"move": "plan: a model decides with the decider", "grade": "right", "guard": {"asked": 2, "lost": 1}, "lostOn": "q-easy"},
             {"move": "a-critic: check the edge cases", "grade": "right", "kept": True, "guard": {"asked": 3, "lost": 0}}]},
-        {"id": "q-stuck", "kind": "day", "state": "not reached", "lostAt": "drafting", "attempts": [{"move": "", "grade": "wrong"}, {"move": "b-direct: say the weekday last", "grade": "wrong"}]}]}))
-    check("the plan part of the page begins with training question by question: how many questions were at parity as the swarm stood, brought there by a change, or not reached; and each question that needed a change, with where it was lost and what was tried on it in order: what did nothing, what reached parity here but lost a question already there, and what was kept; before a pass has begun it says how it works",
-          "Not begun" in lp_none and "stays in hand" in lp_none
-          and "5 of 84 questions · 3 at parity as it stood · 1 brought to parity · 1 not reached · 1 kept" in lp and "asked 19 times" in lp and "q-easy</code> <span" not in lp
-          and lp.index("q-stuck") < lp.index("q-won") and "lost in choosing · 3 tried" in lp and "lost <code>q-easy</code>, already at parity" in lp and "3 already at parity asked again, none lost" in lp
-          and ">kept</span> a-critic: check the edge cases" in lp and "Not reached" in lp and "Brought to parity" in lp
-          and swarm_ui.plan_block(dict(d, loop=None)).index("Question by question") < swarm_ui.plan_block(dict(d, loop=None)).index("The plan for pass"), lp[:300])
+        {"id": "q-stuck", "kind": "day", "state": "not reached", "lostAt": "drafting", "attempts": [{"move": "", "grade": "wrong"}, {"move": "b-direct: say the weekday last", "grade": "wrong"}]}]})
+    check("the question track folds what was tried on each question that needed a change: where its answer was lost and each change in order (what did nothing, what reached parity there but lost a question already there, and what was kept); and the plan section no longer repeats the questions",
+          "What was tried on each question that needed a change (2)" in tl and "q-easy</code> <span" not in tl and tl.index("q-stuck") < tl.index("q-won") and "lost in choosing · 3 tried" in tl
+          and "lost <code>q-easy</code>, already at parity" in tl and "3 already at parity asked again, none lost" in tl and ">kept</span> a-critic: check the edge cases" in tl and "Not reached" in tl and "Brought to parity" in tl
+          and swarm_ui.tries_list({"list": []}) == "" and "Question by question" not in swarm_ui.plan_block(d) and "loopwrap" not in swarm_ui.plan_block(d), tl[:300])
     refused = post("/run/start", headers={"content-type": "text/plain"})[0]
     foreign = post("/run/start", headers={"x-swarm": "1", "origin": "https://elsewhere.example"})[0]
     check("a pass cannot be started by anything but this page: a request without the page's own header, or from another site, is refused", refused == 403 and foreign == 403 and not (fake / ".work" / "train" / "ui-run.json").exists(), [refused, foreign])
@@ -744,10 +755,10 @@ with tempfile.TemporaryDirectory() as tmp:
     check("a teacher is never started from the button, whatever the page was started with", "teacher=[]" in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text())
     # what every slot is doing now: written by a trainer, shown only while a session runs and only while it is fresh
     (fake / ".work" / "train" / "live.json").write_text(json.dumps({"at": time.time() * 1000, "trainer": "measure", "who": "swarm", "split": "train", "n": 3, "of": 42,
-        "question": {"id": "q", "kind": "fix", "ask": "Correct this function."}, "slots": {"a-direct": {"state": "working", "since": time.time() * 1000}, "kev-decide": {"state": "done", "ms": 310, "said": "Picked B."}}}))
+        "question": {"id": "q", "kind": "fix", "ask": "Correct this function."}, "slots": {"a-direct": {"state": "working", "since": time.time() * 1000}, "decide": {"state": "done", "ms": 310, "said": "Picked B."}}}))
     now = json.loads(get(base + "/api/live")[1])
     check("while a session runs the page can ask what every slot is doing at this moment: which question, which slots are working, what one just answered",
-          now["running"] and now["question"]["kind"] == "fix" and now["slots"]["a-direct"]["state"] == "working" and now["slots"]["kev-decide"]["said"] == "Picked B." and now["whoName"] == "The swarm", now)
+          now["running"] and now["question"]["kind"] == "fix" and now["slots"]["a-direct"]["state"] == "working" and now["slots"]["decide"]["said"] == "Picked B." and now["whoName"] == "The swarm", now)
     (fake / ".work" / "train" / "setup.json").write_text(json.dumps({"at": time.time() * 1000, "steps": [{"what": "The engine (llama.cpp)", "state": "ready"}, {"what": "Small model 1 (Qwen3.5 2B)", "state": "fetching", "done": 600 * 2**20, "of": 1200 * 2**20}]}))
     check("while a session runs no model can be changed", post("/config", b'{"a":"x"}')[0] == 409)
     (fake / "src").mkdir(exist_ok=True)

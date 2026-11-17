@@ -93,7 +93,7 @@ def main(dest, config=None):
                 top = round(rnd.uniform(0.55, 0.93), 2)
                 probs = {l: (top if others[i] == str(decided) else round((1 - top) / max(1, len(others) - 1), 2)) for i, l in enumerate(letters)}
                 path = "decided" if str(decided) == most else "decided-against-most"
-                trace.append({"slot": "kev-decide", "member": "kev", "stage": "decide", "ms": rnd.randint(130, 420), "ok": True, "final": str(decided),
+                trace.append({"slot": "decide", "member": "decider", "stage": "decide", "ms": rnd.randint(130, 420), "ok": True, "final": str(decided),
                               "out": "Picked %s." % (letters[others.index(str(decided))] if str(decided) in others else "A"), "probs": probs})
             writer = next(s for s in briefs["slots"] if s["stage"] == "write")
             reply = "%s. Worked through step by step and checked against the question." % decided
@@ -118,7 +118,7 @@ def main(dest, config=None):
         "pass": 5, "at": "2026-11-14T09:00:00Z", "basedOn": "this-pass", "measured": {"compared": 24, "equivalent": 17, "differ": 6, "none": 1},
         "findings": [
             {"id": "drafts-short", "stage": "draft", "answers": 4, "text": "On 4 questions no slot had the larger model's answer. Checking and deciding cannot find what no draft wrote: the drafts are the limit."},
-            {"id": "decider-threw:kev-decide", "stage": "decide", "slot": "kev-decide", "answers": 2, "text": "The decider had the larger model's answer on the table 9 times and chose another 2 times."},
+            {"id": "decider-threw:decide", "stage": "decide", "slot": "decide", "answers": 2, "text": "The decider had the larger model's answer on the table 9 times and chose another 2 times."},
             {"id": "check-worse:a-critic", "stage": "check", "slot": "a-critic", "answers": 1, "text": "a-critic had the larger model's answer 15 times of 24: less often than the best draft it was checking. It is turning answers away from the mark."},
         ],
         "focus": [{"kind": "fix", "more": 4}, {"kind": "bug", "more": 2}],
@@ -126,9 +126,9 @@ def main(dest, config=None):
             {"order": 1, "kind": "brief", "slot": "a-steps", "stage": "draft", "model": "LFM2.5 2.6B", "technique": "What the slot is told", "what": "a checkable statement after every step", "from": "2609.14412",
              "answers": 4, "why": ["drafts-short"], "status": "kept", "result": {"now": {"right": 17, "wrong": 6}, "train": {"right": 19, "wrong": 4}, "why": "higher on train, not lower on held"}},
             {"order": 2, "kind": "plan", "slot": "a-critic", "stage": "check", "model": "LFM2.5 2.6B", "technique": "A change to the plan", "what": "one worked answer for each different answer", "from": "2610.21290",
-             "answers": 3, "why": ["decider-threw:kev-decide", "check-worse:a-critic"], "status": "not kept", "result": {"now": {"right": 19, "wrong": 4}, "train": {"right": 18, "wrong": 5}, "why": "not higher on the train questions"}},
+             "answers": 3, "why": ["decider-threw:decide", "check-worse:a-critic"], "status": "not kept", "result": {"now": {"right": 19, "wrong": 4}, "train": {"right": 18, "wrong": 5}, "why": "not higher on the train questions"}},
             {"order": 3, "kind": "arrangement", "technique": "One more voice", "what": "add a second b-direct on a", "hash": "s1", "answers": 4, "why": ["drafts-short"], "status": "running"},
-            {"order": 4, "kind": "arrangement", "technique": "What a checker is shown", "what": "a-critic sees only the answers", "hash": "s2", "answers": 2, "why": ["check-worse:a-critic", "decider-threw:kev-decide"], "status": "planned"},
+            {"order": 4, "kind": "arrangement", "technique": "What a checker is shown", "what": "a-critic sees only the answers", "hash": "s2", "answers": 2, "why": ["check-worse:a-critic", "decider-threw:decide"], "status": "planned"},
             {"order": 5, "kind": "arrangement", "technique": "The other model in this role", "what": "move b-recompute to a", "hash": "s3", "answers": 0, "why": [], "status": "planned"},
         ],
         "open": {"arrangements": 23, "arrangementsTried": 5},

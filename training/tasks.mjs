@@ -4,7 +4,7 @@
 // understand the person the same way and do the same thing for them.
 //   a function asked for      the two functions are run on the same inputs, and are equivalent when every call gives the same
 //   a value asked for         the two values are read off the replies and are the same value, however written
-//   an answer in words        a decision model (Kev) says whether the two say fundamentally the same thing
+//   an answer in words        a decision model (the judge, else the decider) says whether the two say fundamentally the same thing
 //   a reply in a conversation the same act (both help, or both ask), the same substance, and no convention of the conversation
 //                             broken that the larger model kept (support/equivalent.mjs: talkEquivalent)
 // Nothing here is marked against a right answer: the larger model's reply is the mark (support/equivalent.mjs).
@@ -443,7 +443,7 @@ export const SEEDS = { train: 1009, held: 7919 };
 // focus: { kind: so many more of it } - a kind the swarm is not equivalent on is asked more of (train only: the held questions
 // never change with what was found)
 // Every question carries the three things parity needs, whatever kind it is:
-//   equivalent(refReply, reply, { kev }) -> { grade }   is this reply fundamentally equivalent to the larger model's reply?
+//   equivalent(refReply, reply, { reader }) -> { grade }   is this reply fundamentally equivalent to the larger model's reply?
 //                                                       right (equivalent)  wrong (different)  unsure (it gave no answer)
 //                                                       noref (the larger model gave none, or nothing here can compare them)
 //   usable(reply)                                       does this reply hold an answer at all (a whole function, a value, a sentence)?

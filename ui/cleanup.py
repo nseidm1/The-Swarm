@@ -131,7 +131,7 @@ def remove(root, d, id_, *, decider_up=False):
     if not item["removable"]:
         return False, "That is kept by another program, outside this folder: " + item["note"]
     if decider_up and item["group"] == "Deciders":
-        return False, "A decider is loaded: stop it first (bash training/kev.sh stop)."
+        return False, "A decider is loaded: stop it first (bash training/decider.sh stop)."
     freed = 0
     for p in item["paths"]:
         p = Path(p)

@@ -1,4 +1,4 @@
-// decider-env.mjs - the decider training/kev.sh is to fetch or start, as shell assignments: the one src/config.json names, or the
+// decider-env.mjs - the decider training/decider.sh is to fetch or start, as shell assignments: the one src/config.json names, or the
 // one DECIDER_ID names, with the recipe its entry in src/models.json gives (serve). Each value is quoted for the shell.
 //   eval "$(node training/support/decider-env.mjs)"
 import { REGISTRY, DECIDER } from '../../src/catalog.mjs';

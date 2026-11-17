@@ -7,9 +7,21 @@ stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mj
 
 1. The Swarm answers as it stands. At parity: on to the next question.
 2. Not at parity: where the answer was lost is read from the slots (no drafter had it; a slot had it and it was not chosen;
-   it was settled and the writer changed it). That orders what is tried on this question, one change at a time: another
-   brief for a slot that failed, the check and decide steps configured another way (what a checker sees, how the matter is
-   settled, a model beside the decider, the flow), the writer.
+   it was settled and the writer changed it), and the question's own record says what to try first, before anything is
+   asked again ([`loop.mjs`](loop.mjs) `evidenceOf`):
+   - **Lost in choosing:** each way of settling the matter is replayed on the record ([`replay.mjs`](replay.mjs)); one that
+     picks the right answer from the same drafts comes first, one that would not is never tried. A model beside the decider
+     comes next where the decider was close or overruled the majority. A brief for a slot that already had the answer is
+     never tried.
+   - **Lost in drafting:** more room for a slot cut off at its token limit comes first, then what makes other drafts (a drafter
+     sampled otherwise, one more drafter, the answers sent back). A change to how the matter is decided cannot help here and
+     is never tried.
+   - **Lost in writing:** the settled answer handed over as it is comes first.
+
+   After that: one of each idea before a second (the same flow change at six places counts once), and the kinds of change
+   that have reached parity most often come sooner, learned question after question and pass after pass (shown on the
+   swarm's card). A change that does not reach parity but puts the answer on the table (a slot now has it) is built on: the
+   next changes are tried on top of it, and what is kept is the changes together.
 3. A change that brings the question to parity is asked again on questions already at parity (the same kind first, then the
    latest; 6, or `GUARD`). If none is lost it is **kept**: it is the arrangement for every question after, and an entry on
    the ledger the spec is made from. If one is lost it is not kept, and the next change is tried.
@@ -26,7 +38,7 @@ What is trained:
 |---|---|
 | The drafts, the checks, the write | What each slot is told (its brief): candidates in [`candidates/`](candidates), from the larger model ([`write-briefs.mjs`](write-briefs.mjs)), and from what other configurations kept |
 | The arrangement | Which model drafts and which checks, how many of each, what a checker sees, how freely a drafter samples, how the matter is settled, the flow: every arrangement one change away ([`arrange.mjs`](arrange.mjs)) |
-| The decision | Kev, a decision model, decides ([`../src/decider.mjs`](../src/decider.mjs)). It is to be fine-tuned on the questions the drafts disagreed on. Not built yet: today it decides as it was published |
+| The decision | The decider, whichever decision model the configuration names, decides ([`../src/decider.mjs`](../src/decider.mjs)); a plan can put a small model beside it. Fine-tuning a decider on the questions the drafts disagreed on is not built: each decides as it was published |
 
 The two small models' weights are not changed: they stay as their makers published them. There are countless arrangements of
 them, and the one that reaches parity with the larger model is found by trying, question after question.
@@ -77,7 +89,7 @@ node training/setup.mjs --check    # say what is missing, fetch nothing
 ```
 
 The session runs this first, so there is nothing to do by hand. It fetches the engine (llama.cpp's pinned build, if none is on
-the machine), the two small models, Kev's program, and the larger model's file. It recovers by itself where it can: a download
+the machine), the small models, the decider (its program, or its file), and the larger model's file. It recovers by itself where it can: a download
 that stopped carries on from where it stopped, a file that arrives wrong is thrown away and fetched once more, an engine that
 will not unpack is fetched again. Where it cannot go on (no room on the disk, no network, a target this machine cannot serve)
 it stops and says what to do, and what is already here is kept.
@@ -92,7 +104,7 @@ in families whose details change (the step, the tie rule, the separator), so the
 | `write-arrays`, `write-strings`, `write-numbers`, `write-parsing` | A small JavaScript function, from a description | The two functions return the same for every input |
 | `fix` | A function with one flaw, corrected | The same |
 | `trace` | What a short program prints | The two values are the same |
-| `bug` | What is wrong with a function, in a sentence or two | Kev says the two answers say the same thing |
+| `bug` | What is wrong with a function, in a sentence or two | The judge, else the decider, says the two answers say the same thing |
 
 The older kinds (arithmetic, days, traps) are still there and can be asked with `--kinds`.
 
@@ -233,7 +245,7 @@ Taken from how The Crew is trained, where each was learned the hard way.
 
 | Rule | What a pass does |
 |---|---|
-| Watch before acting | [`replay.mjs`](replay.mjs): from the Swarm's last measurement on the train questions it counts what each way of choosing between the answers would have won (`plan.decideBy`: `kev`, `most`, `kev-if-confident`, `kev-unless-majority`), and the plan ranks those ways by that count. Only a change to how answers are chosen can be replayed; a change to a brief or the flow makes different answers and is tried for real |
+| Watch before acting | [`replay.mjs`](replay.mjs): from the Swarm's last measurement on the train questions it counts what each way of choosing between the answers would have won (`plan.decideBy`: `decider`, `most`, `decider-if-confident`, `decider-unless-majority`; a plan written with the old names, `kev`, `kev-if-confident`, `kev-unless-majority`, reads as the same), and the plan ranks those ways by that count. Only a change to how answers are chosen can be replayed; a change to a brief or the flow makes different answers and is tried for real |
 | A reader is checked before it is believed | [`readers.mjs`](readers.mjs): paraphrases (the same answer in other words), near-misses (one fact changed; some written, some made from the larger model's own replies by changing a number) and different answers. Under four in five overall, or three in four of the paraphrases or of the near-misses, answers in words are not compared this pass |
 | An undecided reading is one | [`support/equivalent.mjs`](support/equivalent.mjs) `UNDECIDED`: a reading within 0.1 of the reader's line is graded different, marked undecided, counted apart on the page, and left out of the keep rule (`bench.mjs` `paired`) |
 | The larger model against itself | `baseline.mjs --who target --self` (step `02-target-self`): the held questions again, from its fourth draw on, graded against its own first answers by the same readers. The page shows it beside parity as the noise floor |
@@ -266,7 +278,7 @@ carry its own values over it in its record (`training/states/`: `policy`), set b
 | The larger model's server stops | Started again, and the question asked again |
 | The larger model's server says it is restarting | Waited for, and asked again the same way |
 | The larger model's engine does not know a flag it is better served with | Served without it, and that is recorded |
-| Kev stops | Started again before the next step. Its port is found free at the start of the session |
+| The decider stops | Started again before the next step. Its port is found free at the start of the session |
 | A trainer stops partway | Every answer is written down as it comes. Run again, it asks only what is left |
 | A step of a pass fails | What it left running is stopped and it is run again, three times at most. If it still fails that is written down and the pass goes on |
 | The session itself stops (a crash, a closed lid, a power cut) | The next session resumes the same pass for the same models: steps that finished are passed over |
@@ -292,7 +304,7 @@ A resumed pass is the same pass only for the same models. Change a model and the
 | [`measure.mjs`](measure.mjs) | The Swarm on the questions, and every slot on its own account |
 | [`arrange.mjs`](arrange.mjs) | What can change: every arrangement one change from the one in hand, every flow one change away, and a few several changes away. It tries none; the loop does |
 | [`setup.mjs`](setup.mjs) | Fetches and makes ready the engine, the models and the decider the configured swarm needs, recovering by itself where it can |
-| [`kev.sh`](kev.sh) | Installs and runs the configured decider beside the Swarm, inside `.work` (Kev in `.work/kev`; StartLux in `.work/deciders`), by the recipe in its `src/models.json` entry (`serve.kind`). The session starts and stops it. A decider that needs an NVIDIA GPU is not started here: its entry carries its maker's instructions, and it is named with `SWARM_KEV` |
+| [`decider.sh`](decider.sh) | Installs and runs the configured decider beside the Swarm, inside `.work` (Kev in `.work/kev`; StartLux and llama.cpp deciders in `.work/deciders`), by the recipe in its `src/models.json` entry (`serve.kind`). The session starts and stops it. A decider that needs an NVIDIA GPU is not started here: its entry carries its maker's instructions, and it is named with `SWARM_DECIDER` |
 | [`publish.mjs`](publish.mjs) | Writes what was measured on `held`, and how it stands against the target, to `src/trained.json`, this machine's summary for a model card (not committed). A finished spec is published from the dashboard to `specs/` |
 | [`session.sh`](session.sh) | Pass after pass, one step at a time, each pass from the one before, until it is stopped. `PASSES=3` runs three and ends. A pass that stopped is resumed. Passes that are over in under a minute did no work: after five in a row it stops and says so |
 | [`support/recover.mjs`](support/recover.mjs) | The ways back, and the record of each one taken. `reap` stops what a dead session left running |
@@ -332,8 +344,8 @@ the abstracts and proposes candidates instead, on the Claude plan of the machine
 
 ## Rules
 
-- No model is loaded outside a session. `session.sh` loads Kev when it starts and unloads it when it ends, however it ends;
-  each step loads and unloads the small models and the target it uses. By hand: `bash training/kev.sh serve`, and `stop` after.
+- No model is loaded outside a session. `session.sh` loads the decider when it starts and unloads it when it ends, however it ends;
+  each step loads and unloads the small models and the target it uses. By hand: `bash training/decider.sh serve`, and `stop` after.
 - One trainer at a time. Two share the machine and spoil each other's times.
 - Do not run the checks (`npm test`) beside a session: they stop nothing of it, but they take its processor.
 - A count is not a finding until the replies behind it have been read.

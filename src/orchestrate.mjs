@@ -9,7 +9,8 @@
 //   check    slots that are shown the different answers and look for what is wrong with them, all at once
 //   revise   the answers go back to the slots that wrote them, with the others, where they part and what the checkers said;
 //            each gives its answer again
-//   decide   which answer stands: a decision model (Kev). No slot judges. { keep: 2 } does not settle it: it keeps the likeliest
+//   decide   which answer stands: the decision model the configuration names (the decider). No slot judges,
+//            unless the plan puts one beside it (plan.decideWith). { keep: 2 } does not settle it: it keeps the likeliest
 //            two, and the flow goes on with those (so there can be more than one decision)
 //   repeat   { steps, upTo }: steps done again while the answers still differ
 //   write    one or more slots write the reply a person reads, from what was settled; with more than one, the decider picks.
@@ -19,7 +20,7 @@
 // A step that works on a dispute (check, revise, decide, repeat) is passed over when every answer is the same one. With no flow
 // named, it is draft, try, check, decide, write.
 // What each slot is told is in briefs.json; this file is the order of things, and what happens when a slot fails (the others
-// carry on; if Kev is not there or decides nothing, the answer most slots hold stands; if nothing can be written, the best draft
+// carry on; if the decider is not there or decides nothing, the answer most slots hold stands; if nothing can be written, the best draft
 // is the reply). It knows nothing of servers: `ask(slot, messages)` is handed in, and returns { text } or throws.
 //   const { reply, path, trace } = await answer(messages, { briefs, ask });
 import {
@@ -42,6 +43,9 @@ export const JUDGE_BRIEF =
   'You are shown a question and different answers to it, each with its working. Decide which one is correct. Put each final ' +
   'answer back into the question and check it; for code, think of the awkward inputs; look for the slip in the working. Do ' +
   'not count how many answers agree. Be brief. End with one line and nothing after it: ANSWER: and the letter of the correct one.';
+// how the matter is settled (plan.decideBy): 'decider' where nothing is said; the names from when Kev was the only decider are
+// read as the same
+export const decideByOf = (v) => String(v || 'decider').replace(/^kev(?=$|-)/, 'decider');
 const LETTERS = 'ABCDEFGHIJKLMNOP'; // an answer for each slot that drafts: four models' worth, and room over
 // the flow of an arrangement: the one it names, or the plain one
 export const DEFAULT_FLOW = [{ do: 'draft' }, { do: 'try' }, { do: 'check' }, { do: 'decide' }, { do: 'write' }];
@@ -464,17 +468,18 @@ export async function answer(
       relabel();
       await tryPool();
     },
-    // WHICH ANSWER STANDS: a decision model (Kev, decider.mjs), in one request that returns a probability for each different
-    // answer. No slot judges. Where Kev is not named or does not answer, the answer most slots hold stands.
+    // WHICH ANSWER STANDS: the decider (decider.mjs), in one request that returns a probability for each different
+    // answer. Where no decider is named or it does not answer, the answer most slots hold stands.
     //   keep: n   it does not settle the matter: it keeps the n likeliest answers and the flow goes on with those
     async decide(step) {
       const table = distinct();
       const tally = votes();
       let ruled = null;
-      // HOW THE MATTER IS SETTLED is part of the plan (plan.decideBy), and so is trained: the decider always ('kev', where nothing
+      // HOW THE MATTER IS SETTLED is part of the plan (plan.decideBy), and so is trained: the decider always ('decider', where nothing
       // is said); the answer most slots hold ('most': the decider is not asked); the decider only where it is sure
-      // ('kev-if-confident'), or only where no answer has more than half the slots behind it ('kev-unless-majority')
-      const by = step.keep || step.sure ? 'kev' : plan.decideBy || 'kev';
+      // ('decider-if-confident'), or only where no answer has more than half the slots behind it ('decider-unless-majority').
+      // A plan from before these had names of their own says 'kev', 'kev-if-confident', 'kev-unless-majority': read as the same
+      const by = step.keep || step.sure ? 'decider' : decideByOf(plan.decideBy);
       // A SMALL MODEL BESIDE THE DECIDER (plan.decideWith: { how, slot }): one slot is shown the different answers and names the
       // one that is correct, and how its word counts is the plan's, and so is trained:
       //   'if-close'   asked only where the decider's pick is narrow, below plan.decideMin (0.6), or where it decided nothing;
@@ -509,15 +514,15 @@ export async function answer(
       const together = withModel && plan.decideWith.how === 'together' && decide && table.length > 1;
       const judged = together ? judgeAmong(table) : null;
       if (decide && table.length > 1 && by !== 'most') {
-        onStart({ slot: 'kev-decide', member: 'kev', stage: 'decide' });
+        onStart({ slot: 'decide', member: 'decider', stage: 'decide' });
         const k = await decide({
           question,
           answers: table.map((d) => ({ letter: d.letter, final: d.final, work: workOf(d.out, marker) })),
           checks: [...S.remarks, ...(S.parted ? [S.parted] : [])],
         });
         ruled = {
-          slot: 'kev-decide',
-          member: 'kev',
+          slot: 'decide',
+          member: 'decider',
           stage: 'decide',
           ms: k.ms || 0,
           out: k.ok
@@ -556,7 +561,7 @@ export async function answer(
         return;
       }
       if (step.keep && table.length > step.keep) {
-        // the likeliest few go on; the rest are out of it. By Kev's probabilities where it gave them, else by how many hold each
+        // the likeliest few go on; the rest are out of it. By the decider's probabilities where it gave them, else by how many hold each
         const rank =
           ruled && ruled.ok && ruled.probs
             ? [...table].sort((x, y) => (ruled.probs[y.letter] || 0) - (ruled.probs[x.letter] || 0))
@@ -619,9 +624,9 @@ export async function answer(
         const top = ruled.probs ? Math.max(...Object.values(ruled.probs)) : 1;
         const voters = tally.reduce((n, v) => n + v.by.length, 0);
         const left =
-          by === 'kev-if-confident' && top < (plan.decideMin ?? 0.6)
+          by === 'decider-if-confident' && top < (plan.decideMin ?? 0.6)
             ? 'it gave its choice ' + top.toFixed(2)
-            : by === 'kev-unless-majority' && tally[0].by.length * 2 > voters
+            : by === 'decider-unless-majority' && tally[0].by.length * 2 > voters
               ? 'more than half the slots hold one answer'
               : '';
         if (left) {
@@ -784,7 +789,7 @@ export async function answer(
       // SEVERAL REPLIES WERE WRITTEN: the decider picks the one that says what was settled best. With none, the first
       reply = kept2[0].out.trim();
       if (decide) {
-        onStart({ slot: 'kev-decide', member: 'kev', stage: 'decide' });
+        onStart({ slot: 'decide', member: 'decider', stage: 'decide' });
         const k = await decide({
           question:
             question +
@@ -795,8 +800,8 @@ export async function answer(
           checks: [],
         });
         const row = {
-          slot: 'kev-decide',
-          member: 'kev',
+          slot: 'decide',
+          member: 'decider',
           stage: 'decide',
           ms: k.ms || 0,
           out: k.ok ? 'Picked reply ' + k.letter + '.' : 'Picked no reply: the first is sent.',

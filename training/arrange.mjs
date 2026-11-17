@@ -15,7 +15,7 @@
 //             compared by what they do, or as text
 import { briefHash } from './state.mjs';
 import { SERVING } from '../src/index.mjs';
-import { flowOf } from '../src/orchestrate.mjs';
+import { flowOf, decideByOf } from '../src/orchestrate.mjs';
 
 // an arrangement is known by its shape, not its words: who is where, at what stage, seeing what, how hot; and the plan
 export const shapeOf = (b) =>
@@ -211,8 +211,8 @@ export function steps(b, { cap = SERVING.slots, members = [...new Set(b.slots.ma
     out.push({ name: 'plan: ' + key + ' ' + !now, briefs: { ...b, plan: { ...b.plan, [key]: !now } } });
   }
   // how the matter is settled (training/replay.mjs says, from the last measurement, what each would have won)
-  for (const way of ['kev', 'most', 'kev-if-confident', 'kev-unless-majority'])
-    if (((b.plan || {}).decideBy || 'kev') !== way)
+  for (const way of ['decider', 'most', 'decider-if-confident', 'decider-unless-majority'])
+    if (decideByOf((b.plan || {}).decideBy) !== way)
       out.push({ name: 'plan: decide by ' + way, briefs: { ...b, plan: { ...b.plan, decideBy: way } } });
   // A SMALL MODEL BESIDE THE DECIDER (src/orchestrate.mjs: plan.decideWith): asked where the decider is close, asked with it every
   // time, or asked where the decider parts from most; on the model of a checker, or of another model of the swarm; or none again

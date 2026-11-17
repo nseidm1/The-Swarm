@@ -3,7 +3,7 @@
 //   --llama <file>          the llama-server program (or SWARM_LLAMA_SERVER, or one on the PATH)
 //   --models <folder>       where the model files are (or SWARM_MODELS_DIR; default .work/models)
 //   --attach-a <url>  --attach-b <url>     servers already running, in place of starting them
-//   --kev <url>             a running Kev (python -m kev.serve), for the decide step; SWARM_KEV does the same
+//   --decider <url>         a decider already running, for the decide step; SWARM_DECIDER does the same (--kev, SWARM_KEV still work)
 //   --split train|held   --each 6   --kinds chain,trap   --limit 20   --label name
 import fs from 'node:fs';
 import path from 'node:path';
@@ -109,51 +109,60 @@ const liveSlot = (id, what) => {
   live();
 };
 
-// WHERE KEV IS: named (--kev, or SWARM_KEV), or the one training/kev.sh started on this machine (it writes its port down), if
-// that one answers. '' when there is none: the trainers then say so, because a pass without Kev trains another arrangement.
+// WHERE THE DECIDER IS: named (--decider, or SWARM_DECIDER; --kev and SWARM_KEV, the names from when Kev was the only decider,
+// still work), or the one training/decider.sh started on this machine (it writes its port down), if that one answers. '' when
+// there is none: the trainers then say so, because a pass without a decider trains another arrangement.
 // WHO READS EQUIVALENCE: the judge the session started apart from the decider (SWARM_JUDGE; src/catalog.mjs JUDGE), else the
 // decider itself
-export const judgeAddress = (kev) => process.env.SWARM_JUDGE || kev;
-export async function kevAddress() {
-  const named = arg('kev', process.env.SWARM_KEV || '');
+export const judgeAddress = (decider) => process.env.SWARM_JUDGE || decider;
+// where training/decider.sh writes the port of the decider it started (and where it wrote it when it was training/kev.sh)
+const PORT_FILES = [path.join(REPO_ROOT, '.work', 'decider', 'port'), path.join(REPO_ROOT, '.work', 'kev', 'port')];
+export async function deciderAddress() {
+  const named = arg('decider', arg('kev', process.env.SWARM_DECIDER || process.env.SWARM_KEV || ''));
   if (named) return named;
-  try {
-    const port = Number(fs.readFileSync(path.join(REPO_ROOT, '.work', 'kev', 'port'), 'utf8').trim());
-    const base = 'http://127.0.0.1:' + port;
-    if (port && (await fetch(base + '/v1/models', { signal: AbortSignal.timeout(3000) })).ok) return base;
-  } catch {
-    /* none running */
-  }
+  for (const f of PORT_FILES)
+    try {
+      const port = Number(fs.readFileSync(f, 'utf8').trim());
+      const base = 'http://127.0.0.1:' + port;
+      if (port && (await fetch(base + '/v1/models', { signal: AbortSignal.timeout(3000) })).ok) return base;
+    } catch {
+      /* none running there */
+    }
   return '';
 }
-// THE DECIDER, KEPT UP. Where Kev is the one this folder runs (training/kev.sh), and it has stopped, it is started again before
-// the next question, and that is written down. A Kev someone named is theirs to keep up.
-let kevCheckedAt = 0;
-export async function kevGuard(kev) {
-  if (!kev || process.env.SWARM_KEV_FIXED === '1' || Date.now() - kevCheckedAt < 15000) return;
-  kevCheckedAt = Date.now();
+// THE DECIDER, KEPT UP. Where the decider is the one this folder runs (training/decider.sh), and it has stopped, it is started
+// again before the next question, and that is written down. A decider someone named is theirs to keep up.
+let deciderCheckedAt = 0;
+export async function deciderGuard(decider) {
+  if (
+    !decider ||
+    (process.env.SWARM_DECIDER_FIXED || process.env.SWARM_KEV_FIXED) === '1' ||
+    Date.now() - deciderCheckedAt < 15000
+  )
+    return;
+  deciderCheckedAt = Date.now();
   const up = async () => {
     try {
-      return (await fetch(kev + '/v1/models', { signal: AbortSignal.timeout(4000) })).ok;
+      return (await fetch(decider + '/v1/models', { signal: AbortSignal.timeout(4000) })).ok;
     } catch {
       return false;
     }
   };
   if (await up()) return;
-  const port = Number((/:(\d+)$/.exec(kev) || [])[1]);
-  const script = path.join(REPO_ROOT, 'training', 'kev.sh');
+  const port = Number((/:(\d+)$/.exec(decider) || [])[1]);
+  const script = path.join(REPO_ROOT, 'training', 'decider.sh');
   if (!port || spawnSync('bash', [script, 'ready']).status !== 0)
     return void note(
-      'the decider (Kev)',
+      'the decider',
       "it has stopped and is not this folder's to start: the answer most slots gave will stand",
       { kind: 'gone' },
     );
   fs.mkdirSync(WORK, { recursive: true });
-  const log = fs.openSync(path.join(WORK, 'kev.log'), 'a');
+  const log = fs.openSync(path.join(WORK, 'decider.log'), 'a');
   spawn('bash', [script, 'serve', String(port)], { stdio: ['ignore', log, log], env: process.env }).unref();
   for (let i = 0; i < 90 && !(await up()); i++) await new Promise((r) => setTimeout(r, 2000));
   note(
-    'the decider (Kev)',
+    'the decider',
     (await up())
       ? 'it had stopped: started again'
       : 'it had stopped and would not start again: the answer most slots gave will stand',
@@ -204,11 +213,11 @@ export async function openSwarm(briefs = readBriefs(), { seed = Number(arg('seed
   const attach = {};
   if (arg('attach-a')) attach.a = arg('attach-a');
   if (arg('attach-b')) attach.b = arg('attach-b');
-  const kev = await kevAddress();
+  const decider = await deciderAddress();
   console.log(
-    kev
-      ? 'Kev decides, at ' + kev + '.'
-      : 'NO KEV: nothing is running to decide (bash training/kev.sh serve). The answer most slots gave will stand.',
+    decider
+      ? 'The decider decides, at ' + decider + '.'
+      : 'NO DECIDER: nothing is running to decide (bash training/decider.sh serve). The answer most slots gave will stand.',
   );
   const swarm = await createSwarm({
     briefs,
@@ -216,7 +225,7 @@ export async function openSwarm(briefs = readBriefs(), { seed = Number(arg('seed
     attach,
     llamaServer: llamaServer(),
     modelsDir: modelsDir(),
-    kev,
+    decider,
     onRecover: note,
     // (an agent's step is asked with tools, whichever way the configuration has it decided: the servers read and write calls in
     // each model's own template. Builds of llama.cpp that already do so by default are not changed by it)
@@ -319,12 +328,12 @@ export function needReference(list, split) {
 
 // put every question to `answerOf(task) -> { reply, ...anything }`, one after another, and mark each reply by whether it is
 // FUNDAMENTALLY EQUIVALENT TO THE LARGER MODEL'S REPLY (ref): for a function, whether the two functions do the same; for a value,
-// whether it is the same value; for an answer in words, whether Kev says they say the same (tasks.mjs, support/equivalent.mjs).
+// whether it is the same value; for an answer in words, whether the decider (or the judge) says they say the same (tasks.mjs, support/equivalent.mjs).
 // The marks keep their short names, and here they mean:
 //   right    equivalent to the larger model's answer       wrong    not equivalent: a different answer
 //   unsure   the reply gave no answer                      noref    the larger model gave none, or nothing could compare: not counted
 // self: true is the larger model itself, whose own answer is the mark (right when it gave one).
-let kevOnce = null;
+let deciderOnce = null;
 // name: what these answers are answers to. With one, every answer is written down as it comes (a checkpoint), and a run under
 // the same name starts with the answers it has and asks only what is left: a trainer that stopped midway carries on.
 export async function run(
@@ -338,8 +347,8 @@ export async function run(
     before.forEach(onRow);
     return before;
   }
-  kevOnce = kevOnce || kevAddress();
-  const kev = await kevOnce;
+  deciderOnce = deciderOnce || deciderAddress();
+  const decider = await deciderOnce;
   const ck = name ? checkpoint(name) : null;
   if (ck) checkpoints.push(ck);
   const had = ck ? list.filter((t) => ck.have.has(t.id)).length : 0;
@@ -356,7 +365,7 @@ export async function run(
       onRow(ck.have.get(t.id));
       continue;
     }
-    if (who === 'swarm' || t.type === 'open' || t.type === 'talk') await kevGuard(kev);
+    if (who === 'swarm' || t.type === 'open' || t.type === 'talk') await deciderGuard(decider);
     const t0 = Date.now();
     let got = { reply: '' };
     live({
@@ -392,7 +401,7 @@ export async function run(
             }
           : got.why
             ? { grade: 'unsure' }
-            : await t.equivalent(theirs, got.reply, { kev: judgeAddress(kev), mark: readerMark(WORKC, t.type) });
+            : await t.equivalent(theirs, got.reply, { reader: judgeAddress(decider), mark: readerMark(WORKC, t.type) });
     const row = {
       cfg: who === 'swarm' ? CONFIG_ID : undefined,
       target: targetOf().id,
