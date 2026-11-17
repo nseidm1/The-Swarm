@@ -109,9 +109,9 @@ with tempfile.TemporaryDirectory() as tmp:
     plan_live = get(base + "/fragment/plan")[1]
     arr_live = swarm_ui.arrangement(data.load(root))
     swarm_ui.run_state = was_rs
-    check("a move a trainer marked as being measured says so only while a session runs: once the session has stopped, it says it was stopped partway, and the arrangement says what it stopped while trying (while a session runs, the question track says what is being tried)",
+    check("a move a trainer marked as being measured says so only while a session runs: once the session has stopped, it says it was stopped partway, and the swarm's card says it through the question track alone: no line of moves marked running, and no label on a face",
           "Being measured" in plan_live and "Stopped partway" not in plan_live and 'id="qtrack"' in arr_live and "Being tried now" not in arr_live
-          and "Stopped partway" in plan and ">Being measured<" not in plan and "stopped partway: " in plan and "Stopped while trying" in arr_stopped and "Being tried now" not in arr_stopped, plan[:200])
+          and "Stopped partway" in plan and ">Being measured<" not in plan and "stopped partway: " in plan and 'id="qtrack"' in arr_stopped and "Stopped while trying" not in arr_stopped and "Being tried now" not in arr_stopped and 'class="tb' not in arr_stopped, plan[:200])
     check("the plan of the pass in hand is on the page as it stands: what the measurement showed, each move in order with the slot, the model, the technique, the paper it came from and why it was chosen, and what became of it",
           "The plan for pass 5" in html and "What the measurement showed" in plan and "no slot had the larger model" in plan.lower().replace("&#x27;", "'") and plan.count("<li class=") == 5 and "Stopped partway" in plan and ">Kept<" in plan and ">Not kept<" in plan
           and "arxiv.org/abs/2609.14412" in plan and "a-steps (draft, LFM2.5 2.6B)" in plan and "Chosen because of: no slot had the answer" in plan and "The measurement does not point at it" in plan

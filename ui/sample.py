@@ -49,9 +49,13 @@ def main(dest, config=None):
         shutil.copy(HERE / "src" / "config.json", dest / "src" / "config.json")
     for f in (HERE / "training" / "candidates").glob("*.json"):
         shutil.copy(f, dest / "training" / "candidates" / f.name)
-    # (training/state.json holds only what was read once a real pass has run: the rest is given here, as a pass begins with it)
-    state = {"pass": 0, "target": "", "seeds": {"train": 1009, "held": 7919}, "focus": {}, "tried": {}, "order": [], "questions": [], "seen": [], "ideas": [], "history": [],
-             **(json.loads((HERE / "training" / "state.json").read_text()) if (HERE / "training" / "state.json").exists() else {})}
+    # the made-up state is the sample's own, whatever this machine's training has read: four ideas from the reading, as a pass
+    # that has read arXiv leaves them (training/state.json is this machine's, and is not committed)
+    state = {"pass": 0, "target": "", "seeds": {"train": 1009, "held": 7919}, "focus": {}, "tried": {}, "order": [], "questions": [], "seen": [], "history": [],
+             "ideas": [{"pass": 1, "from": "2610.21290", "slot": "a-critic", "name": "one worked answer for each different answer", "hash": "1a526401df199dd1"},
+                       {"pass": 1, "from": "2608.23541", "slot": "a-critic", "name": "check for rules that are easy to find broken", "hash": "fbce5f121d6adbac"},
+                       {"pass": 1, "from": "2607.16727", "slot": "a-steps", "name": "a checkable statement after every step", "hash": "a75c04e633ec41bb"},
+                       {"pass": 1, "from": "2603.16045", "slot": "b-direct", "name": "the shortest brief that still asks for a test", "hash": "c3f7a2e81b9d4f60"}]}
     briefs = json.loads((HERE / "src" / "briefs.json").read_text())
     chosen = json.loads((dest / "src" / "config.json").read_text())
     target = chosen["target"]

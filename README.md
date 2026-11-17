@@ -336,7 +336,7 @@ The pictures here and at the top of this page show it in pass 6 of a real sessio
 line what it holds while folded; open or folded is kept on the device.
 
 <p align="center">
-  <img src="docs/images/dashboard-arrangement.png" alt="The arrangement being trained, as faces: the swarm as it stands (briefs v3, 8 slots on 2 models, 2 kept changes), a line saying nothing is running, and what it stopped while trying; a roster of the models (LFM2.5 2.6B, Bonsai 2 2B, Kev 4B, and Nemotron 3.5 Lightning 30B, the mark); then the flow in one row, Draft, a marker for the sandbox, Check, Decide, Write, each slot a face in its model&#39;s colour with its whole name, its record as a ring (a-direct 37 of 69, a-steps 38 of 63) and a dot for what it is doing; a-steps carries a badge saying the session stopped while a brief was being tried on it" width="860">
+  <img src="docs/images/dashboard-arrangement.png" alt="The arrangement being trained, as faces: the swarm as it stands (briefs v3, 8 slots on 2 models, 2 kept changes), a line saying nothing is running, and the question track, not begun, saying that each question stays in hand until the swarm is at parity on it; a roster of the models (LFM2.5 2.6B, Bonsai 2 2B, Kev 4B as the decider, and Nemotron 3.5 Lightning 30B, the mark); then the flow in one row, Draft, a marker for the sandbox, Check, Decide, Write, each slot a face in its model&#39;s colour with its whole name, its record as a ring (a-direct 37 of 69, a-steps 38 of 63) and a dot for what it is doing. While a change is tried on a slot its face has an amber ring" width="860">
 </p>
 
 <p align="center"><em>The arrangement: every slot as a face of its model, in the step of the flow it stands in. Choosing one opens what it is told.</em></p>

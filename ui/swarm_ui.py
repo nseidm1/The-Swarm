@@ -284,8 +284,7 @@ button.mav{position:relative;border:0;font:inherit;color:inherit;text-align:left
 .av:has(.live.on) .ring{animation:halo 1.4s ease-out infinite}.av:has(.live.on) .live i{background:var(--teal2)}
 .av:has(.live.done) .live i{background:var(--right)}.av:has(.live.bad) .live i{background:var(--wrong)}
 @keyframes halo{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--fc) 55%,transparent)}100%{box-shadow:0 0 0 9px color-mix(in srgb,var(--fc) 0%,transparent)}}
-.av .tb{position:absolute;top:40px;left:50%;transform:translateX(-50%);padding:1px 6px;border-radius:999px;background:#fdf0cf;color:#8a5a00;font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;box-shadow:0 0 0 2px #f5faf8}
-.av .tb.off{background:#e9eeec;color:var(--mist)}
+.av.trying .ring{box-shadow:0 0 0 3px var(--sun),0 0 0 6px #fdf0cf;animation:tr 1.6s ease-in-out infinite}@keyframes tr{50%{box-shadow:0 0 0 3px var(--sun),0 0 0 9px rgba(249,196,64,.15)}}
 .avkey{display:flex;flex-wrap:wrap;gap:6px 16px;margin:10px 0 0;font-size:11.5px;color:var(--mist);font-weight:600}.avkey span{display:inline-flex;align-items:center;gap:6px}
 .avkey i{display:inline-block;width:10px;height:10px;border-radius:50%}.avkey .kr{width:14px;height:14px;background:conic-gradient(var(--lfm) 60%,#dfe8e5 0);border-radius:50%}
 .avdetail{margin-top:12px}.avdetail:empty{display:none}.avdetail .slot{margin:0}
@@ -1409,16 +1408,17 @@ def avatars(d):
         rec = d["record"].get(s["id"])
         judged = rec.get("judged", rec.get("ran", 0)) if rec else 0
         pct = (100.0 * rec["right"] / judged) if judged else None
+        # A CHANGE BEING TRIED ON THIS SLOT, while a session runs: an amber ring round its face, and its tooltip says what. No label
+        # over the name, and nothing once the session has stopped (the question track says where it stopped)
+        trying_here = live_now and s["id"] in trying
         badge = ""
-        if s["id"] in trying:
-            badge = '<span class="tb%s">%s</span>' % ("" if live_now else " off", "trying" if live_now else "stopped")
         tip = "%s · %s · %s%s%s" % (s["id"], name(s["member"]), s.get("purpose") or s["stage"],
                                     (" · equivalent %d of %d judged" % (rec["right"], judged)) if pct is not None else (" · %d answered, not yet judged against the larger model" % rec["ran"]) if rec else "",
-                                    (" · a brief being tried on it" if live_now else " · stopped partway through trying a brief on it") if s["id"] in trying else "")
+                                    " · a change being tried on it" if trying_here else "")
         tpl.setdefault(s["id"], slot_card(s, d))
-        return ('<button type="button" class="av %s%s" data-av="%s" title="%s" aria-label="%s"><span class="ring" style="--p:%s"><span class="face">%s</span></span>%s'
+        return ('<button type="button" class="av %s%s%s" data-av="%s" title="%s" aria-label="%s"><span class="ring" style="--p:%s"><span class="face">%s</span></span>%s'
                 '<span class="nm">%s</span><span class="pc">%s</span><span class="live" data-live="%s"><i></i><span>Idle</span></span></button>'
-                % (s["member"], " norec" if pct is None else "", e(s["id"]), e(tip), e(tip), "%.1f" % (pct or 0), e(fc.get(s["member"]) or initials(name(s["member"]))), badge, slot_name(s["id"]),
+                % (s["member"], " norec" if pct is None else "", " trying" if trying_here else "", e(s["id"]), e(tip), e(tip), "%.1f" % (pct or 0), e(fc.get(s["member"]) or initials(name(s["member"]))), badge, slot_name(s["id"]),
                    ("%d of %d" % (rec["right"], judged)) if pct is not None else "&nbsp;", e(s["id"])))
 
     def special(key, cls, face, label, tip, card_html):
@@ -1567,20 +1567,9 @@ def arrangement(d):
     head = ('<div class="arrh"><div><h3>The swarm as it stands</h3><p class="muted small" style="margin:2px 0 0">What each slot is told, which model fills it, the order of steps, and the larger model it is measured against</p></div>'
             '<div class="achips"><span>briefs <b>v%s</b></span><span><b>%d</b> slots on <b>%d</b> models</span><span><b>%d</b> kept change%s</span></div></div>'
             % (e(str(b.get("version", 1))), len(b["slots"]), models, kept, "" if kept == 1 else "s"))
-    p = read_plan(d)
-    trying = [m for m in (p or {}).get("moves", []) if m.get("status") == "running"]
+    # what is being tried, on which question, and where training stopped: the question track says it (a line here about moves
+    # marked running repeated it, from marks a stopped session leaves behind)
     plan_line = ""
-    if d.get("loop") or session_live():
-        # training question by question: the track says what is being tried, on which question, at which iteration
-        pass
-    elif trying:
-        m0 = trying[0]
-        plan_line = ('<p class="tryline"><b>%s</b>%s · %s%s <a href="#strategy">the plan</a></p>'
-                     % ("Being tried now" if session_live() else "Stopped while trying", (" (%d of them)" % len(trying)) if len(trying) > 1 else "", e(m0.get("what", "")), (" · " + e(m0["slot"])) if m0.get("slot") else " · " + e(m0.get("technique", ""))))
-    elif p and p.get("moves"):
-        nxt = next((m for m in p["moves"] if m.get("status") == "planned"), None)
-        if nxt:
-            plan_line = '<p class="tryline"><b>Next in the plan</b> · %s <a href="#strategy">the plan</a></p>' % e(nxt.get("what", ""))
     one = ('<div class="panel arr">%s<div class="now" id="now"><i></i><span>Nothing is running. No model is loaded.</span></div>%s%s%s</div>'
            % (head, question_track(d), plan_line, avatars(d)))
     return '%s<h2 id="strategy">The plan being carried out</h2><div id="plan">%s</div>' % (one, plan_block(d))

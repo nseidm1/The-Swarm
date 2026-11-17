@@ -30,7 +30,7 @@ jobs:
       # The version is the one package.json pins, so a newer Prettier never fails a pull request by itself.
       - run: npx --yes prettier@3.10.1 --check .
       # the shell scripts parse
-      - run: bash -n training/session.sh && bash -n training/support/steps.sh && bash -n training/kev.sh && bash -n tools/hooks/pre-commit && sh -n tools/hooks/install.sh
+      - run: bash -n training/session.sh && bash -n training/support/steps.sh && bash -n training/decider.sh && bash -n training/kev.sh && bash -n tools/hooks/pre-commit && sh -n tools/hooks/install.sh
 
   module:
     name: module (Node ${{ matrix.node }})
