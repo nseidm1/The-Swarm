@@ -32,6 +32,7 @@ import {
   MARKER,
   isToolCall,
   letterOf,
+  describedNotGiven,
 } from './read.mjs';
 import { PROBE_BRIEF, EXPECT_BRIEF, expectedIn } from './behave.mjs';
 
@@ -97,7 +98,7 @@ const said = (m) =>
 
 export async function answer(
   messages,
-  { briefs, ask, decide = null, behave = null, onStep = () => {}, onStart = () => {} },
+  { briefs, ask, decide = null, behave = null, onStep = () => {}, onStart = () => {}, others = [] },
 ) {
   const t0 = Date.now();
   const marker = briefs.marker || MARKER;
@@ -766,24 +767,52 @@ export async function answer(
   if (passOver) path += '+as-settled';
   if (asIs) reply = '```' + (/\bfunction\b|=>|\b(?:const|let)\s/.test(decided) ? 'js' : '') + '\n' + decided + '\n```';
   else if (decided && writers.length && !passOver) {
-    const rows = await all(writers, (s) => [
+    const writeMsgs = (s) => [
       sys(s),
       ...kept.slice(0, -1),
       {
         role: 'user',
+        // (what was settled is a short statement of the answer: asked for a piece of writing, a small writer told "the answer settled
+        // on" wrote ABOUT the answer, "The answer is a resume with 12 placeholders", and echoed these labels. Measured 2026-11-17 on
+        // IFEval, the writer alone on the same drafts: 23 of 40 kept every instruction with the old wording and brief, 25 with this,
+        // and replies describing the answer or echoing the labels fell from 15 of 20 to 6)
         content:
-          'They asked:\n' +
+          "The person's message:\n" +
           question +
-          '\n\nThe answer settled on:' +
+          '\n\nWhat was settled, in short (a statement of the answer, not the reply itself):' +
           fenced(decided) +
-          (work ? '\n\nThe work behind it:\n' + work : '') +
-          '\n\nWrite the reply.',
+          (work ? '\n\nThe draft it came from:\n' + work : '') +
+          '\n\nNow write the reply itself, exactly as the person will read it, and nothing else.',
       },
-    ]);
+    ];
+    const rows = await all(writers, writeMsgs);
+    // A REPLY THAT DESCRIBES THE ANSWER INSTEAD OF GIVING IT IS NOT SENT (read.mjs describedNotGiven: it echoes its prompt, speaks
+    // of the request or the draft, or says what the answer is where a piece was wanted). Marked on its row, for training to see
+    // that the answer was lost in writing; then the same is asked of the largest small model that did not write it (others, the
+    // swarm's models largest first); and where that one describes it too, the draft that holds the piece goes out
+    const tell = (w) => {
+      const why = w.ok ? describedNotGiven(w.out, { settled: decided, draft: work }) : '';
+      if (why) w.describes = why;
+      return !why;
+    };
+    const described = rows.filter((w) => w.ok && !tell(w)).length;
+    if (described && !rows.some((w) => w.ok && !w.describes)) {
+      const used = new Set(writers.map((s) => s.member));
+      const other = others.find((k) => !used.has(k));
+      if (other) {
+        const again = await run(
+          { ...writers[0], id: writers[0].id + '@' + other, member: other },
+          writeMsgs(writers[0]),
+        );
+        again.rewrite = true;
+        if (again.ok && tell(again)) (rows.push(again), (path += '+rewritten'));
+      }
+      if (!rows.some((w) => w.ok && !w.describes)) path += '+described';
+    }
     if (rows.some((w) => !w.ok && isToolCall(w.out)) && !rows.some((w) => w.ok)) path += '+tool-call';
     // CODE IS NOT TO BE REWRITTEN ON THE WAY OUT: a reply whose code is not the code that was settled is not sent
     const kept2 = rows.filter(
-      (w) => w.ok && !(isCode(decided) && plain(finalOf(w.out.trim(), marker)) !== plain(decided)),
+      (w) => w.ok && !w.describes && !(isCode(decided) && plain(finalOf(w.out.trim(), marker)) !== plain(decided)),
     );
     if (rows.some((w) => w.ok) && !kept2.length) path += '+code-restored';
     if (kept2.length === 1) reply = kept2[0].out.trim();
@@ -823,7 +852,12 @@ export async function answer(
   }
   if (!reply) {
     // nothing could be written: the answer and its work, as they stand
-    if (decided) reply = isCode(decided) ? '```js\n' + decided + '\n```' : (work ? work + '\n\n' : '') + decided;
+    if (decided)
+      reply = isCode(decided)
+        ? '```js\n' + decided + '\n```'
+        : /\+described/.test(path) && work
+          ? work
+          : (work ? work + '\n\n' : '') + decided;
     else if (trace.find((r) => r.out))
       reply = workOf(trace.find((r) => r.out).out, marker) || trace.find((r) => r.out).out;
     path = path ? (/code-restored/.test(path) ? path : path + '+unwritten') : 'fallback';

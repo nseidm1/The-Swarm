@@ -139,3 +139,33 @@ export function tally(outs) {
   }
   return [...seen.values()].sort((a, b) => b.by.length - a.by.length);
 }
+
+// A REPLY THAT DESCRIBES THE ANSWER INSTEAD OF GIVING IT: '' where the reply gives it, else why not, in words. Read off the words,
+// with no model, the same every time. Asked for a piece of writing, what is settled is a short statement of it ("A tailored
+// resume template with 12 placeholders"), and a small writer handed that wrote about the answer ("The answer is a tailored
+// resume template that includes 12 placeholders as requested.") where the piece itself was wanted. Three tells:
+//   it repeats the labels it was given (it echoed its prompt)
+//   it speaks of the request, the draft or the reply as things ("the message asks for", "the draft included", "has been prepared",
+//   "the answer is settled with", "the response is clear")
+//   it says what the answer is, where what was settled is a sentence about a piece (not a value) and the draft that holds the
+//   piece is far longer than the reply: "The answer is 42." is an answer; "The answer is a resume ..." in place of one is not
+const LABELS =
+  /(?:^|\n)\s*(?:the person['’]s message|what was settled|the draft it came from|they asked|the answer settled on|the work behind it)\s*:/i;
+const ABOUT =
+  /\b(?:the (?:message|request|prompt|question|task|person) (?:asks|is asking|asked|requires|required|wants)|the draft (?:was|is|came|included|includes|had|has)|(?:has|have) been (?:prepared|written|created|crafted|drafted)|was (?:prepared|created|drafted) (?:with|to|for)|settled (?:on|with|as)|the (?:answer|response|reply) (?:is|was) (?:settled|clear|ready|complete))\b/i;
+const SAYS_WHAT =
+  /^\W*(?:the|this|my) (?:answer|reply|response|summary|resume|résumé|email|essay|letter|story|poem|piece|draft|template|list|post|tweet|article|blog) (?:is|was|has|have|will|includes|contains|captures|provides|highlights|covers|offers)\b/i;
+const wordCount = (s) => (String(s || '').match(/\S+/g) || []).length;
+export function describedNotGiven(reply, { settled = '', draft = '' } = {}) {
+  // (code is read as code: a comment that says "the task requires" is not the reply talking about itself)
+  const r = String(reply || '')
+    .replace(/```[\s\S]*?(?:```|$)/g, ' ')
+    .trim();
+  if (!r) return '';
+  if (LABELS.test(r)) return 'it repeats the labels it was given';
+  if (ABOUT.test(r)) return 'it speaks of the request, the draft or the reply instead of giving it';
+  const sentence = wordCount(settled) >= 6 && !NUMBER.test(String(settled).trim().split(/\s+/)[0] || '');
+  if (sentence && SAYS_WHAT.test(r) && wordCount(draft) >= 60 && wordCount(r) < 0.6 * wordCount(draft))
+    return 'it says what the answer is, where the piece itself was wanted';
+  return '';
+}

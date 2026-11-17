@@ -383,7 +383,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         ref.size +
         ' of the ' +
         list.length +
-        ' train questions, and an adapter learns its answers: Run training once, whose first step asks it, then Pretrain.',
+        ' train questions, and an adapter learns its answers: Train once, whose first step asks it, then Pretrain.',
     );
   const sh = (cmd, args, env = {}) => {
     const r = spawnSync(cmd, args, {
@@ -449,15 +449,30 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       continue;
     }
     const out = adapterDir(work, TARGET.id, m);
-    // (what was learned before is moved aside, not mixed in: a run that fails leaves no half adapter behind as if it were good)
-    fs.rmSync(path.join(out, 'adapter'), { recursive: true, force: true });
-    Object.assign(row, { state: 'training', log: path.join(out, 'train.log'), started: Date.now() });
+    // THE ADAPTER IT HAS IS KEPT UNTIL A BETTER ONE IS READY: the new one is trained beside it (<dir>.next) and takes its place only
+    // once llama.cpp has found it good. Stopped, failed or not kept, the old adapter and its record stand as they were, and the
+    // attempt is written beside them (failed.json)
+    const next = out + '.next';
+    fs.rmSync(next, { recursive: true, force: true });
+    Object.assign(row, { state: 'training', log: path.join(next, 'train.log'), started: Date.now() });
     live.step = 'Training ' + m.name + ' on ' + ds.examples + ' answers';
     write();
     console.log('  ' + m.name + ': training...');
-    const r = trainAdapter(m, ds.file, out, { work, iters, perplexityBin });
+    const r = trainAdapter(m, ds.file, next, { work, iters, perplexityBin });
     const result = { model: m.name, at: new Date().toISOString(), target: TARGET.name, items, iters, ...r };
-    fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify(result, null, 2));
+    if (r.ok) {
+      const old = out + '.old';
+      fs.rmSync(old, { recursive: true, force: true });
+      if (fs.existsSync(out)) fs.renameSync(out, old);
+      fs.renameSync(next, out);
+      fs.rmSync(old, { recursive: true, force: true });
+      result.gguf = path.join(out, path.basename(r.gguf));
+      fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify(result, null, 2));
+    } else {
+      fs.mkdirSync(out, { recursive: true });
+      fs.writeFileSync(path.join(out, 'failed.json'), JSON.stringify(result, null, 2));
+      fs.rmSync(next, { recursive: true, force: true });
+    }
     Object.assign(row, { state: r.ok ? 'done' : 'failed', result, seconds: (Date.now() - row.started) / 1000 });
     write();
     if (!r.ok) failed++;

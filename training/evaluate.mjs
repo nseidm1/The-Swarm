@@ -264,12 +264,35 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     live.now = null;
     say(step);
   };
+  // STOPPED: nothing more is asked (a question to a model that is being stopped made the swarm start it again, and the server it
+  // started outlived the run), the run goes no further (it went on to compare nothing and wrote an empty result over the last one),
+  // and every model server it started is stopped before it ends. The last result that finished stands, as it was
+  let halted = false;
+  const never = () => new Promise(() => {});
   process.on('SIGTERM', async () => {
+    if (halted) return;
+    halted = true;
     if (child) child.kill('SIGTERM');
     for (const t of live.tasks)
       for (const w of ['target', 'swarm']) if (t[w].state === 'asking') t[w].state = 'stopped';
     end('stopped', 'Stopped from the page');
-    for (const f of stopping.splice(0)) await Promise.resolve(f()).catch(() => {});
+    const all = Promise.all(
+      stopping.splice(0).map((f) =>
+        Promise.resolve()
+          .then(f)
+          .catch(() => {}),
+      ),
+    );
+    await Promise.race([all, new Promise((ok) => setTimeout(ok, 8000))]);
+    const kids = spawnSync('pgrep', ['-P', String(process.pid)], { encoding: 'utf8' });
+    for (const k of String(kids.stdout || '')
+      .split(/\s+/)
+      .filter(Boolean))
+      try {
+        process.kill(Number(k), 'SIGTERM');
+      } catch {
+        /* gone */
+      }
     process.exit(143);
   });
 
@@ -337,8 +360,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     });
 
   // one model through every task that needs it: ask(messages, body) is the model, behind a relay that says what it does
-  const askAll = async (who, ask, tasks, outOf) => {
+  const askAll = async (who, askModel, tasks, outOf) => {
     const durations = [];
+    const ask = (m, b) => (halted ? Promise.reject(new Error('the evaluation was stopped')) : askModel(m, b));
     const r = await relay(ask, {
       ask: ({ excerpt }) => {
         const t = live.tasks.find((x) => x[who].state === 'asking');
@@ -372,6 +396,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     for (const b of tasks) {
       say('Asking ' + (who === 'target' ? TARGET.name : 'the swarm') + ': ' + b.name);
       await harness(b, who, r.base, outOf(b));
+      if (halted) await never();
     }
     await r.close();
   };
@@ -416,6 +441,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   await served.close();
   if (swarm) await swarm.stop();
 
+  if (halted) await never();
   // AND EACH QUESTION'S TWO ANSWERS COMPARED
   live.phase = 'comparing';
   say('Comparing the answers, question by question');

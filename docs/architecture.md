@@ -77,7 +77,8 @@ keeps it: a role costs its brief the first time and only the question after that
 | run | no model: every draft is run on those calls in the sandbox (`src/behave.mjs`, `src/sandbox.mjs`), and drafts that return the same are one answer |
 | check | its brief, the earlier turns, then the question with the lettered drafts (the critic with their work, the other without). It may answer with the letter of the draft it finds correct, which counts as that draft's answer whole |
 | decide (the decider) | no brief: one `POST /v1/systemone` with the question, one worked answer for each different answer and what the checkers said as state; a choice among the answers and a yes/no for each as questions. No slot judges, unless the plan puts one beside the decider (`plan.decideWith`): a small model asked which answer is correct where the decider is close, together with it, or where it parts from most |
-| write | its brief, the earlier turns, the question, the answer settled on and the work behind it |
+| write | its brief, the earlier turns, the person's message, what was settled (a short statement of the answer, not the reply), the draft it came from, and a request for the reply itself |
+| write, again | where the reply describes the answer instead of giving it (`describedNotGiven` in `src/read.mjs`), the same is asked of the largest small model that did not write it; where that one describes it too, the draft goes out |
 
 Every slot but the writer ends with a line that starts with `ANSWER:`. That line is how answers are compared without a model
 reading them.

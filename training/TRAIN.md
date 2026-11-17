@@ -102,6 +102,10 @@ was not chosen. It first says what went wrong as a general mistake, then writes 
 its numbers or its answer); they join this configuration's candidates and are tried at once. The larger model is started the
 first time it is asked on a question (a review, a suggestion, briefs) and kept loaded until the question ends.
 
+**A reply that describes the answer is an answer lost in writing.** Where the writer's reply says what the answer is instead
+of giving it (src/read.mjs `describedNotGiven`), the swarm has another model write it, or sends the draft; the loop counts that
+question as lost in writing, tries changing the writer first, and says that the writer described the answer.
+
 **Evaluated apart, pretrained before.** Training's parity is measured on its own questions. How equivalent the swarm is on work
 it was never trained on is measured apart ([`evaluate.mjs`](evaluate.mjs), the page's Evaluate the swarm): the standard tasks of
 lm-evaluation-harness for each body of work chosen, asked of the larger model and of the swarm, every question's two answers

@@ -217,6 +217,8 @@ export async function createSwarm(opts = {}) {
       last = await orchestrate(messages, {
         briefs: o.briefs || briefs,
         ask,
+        // (the swarm's small models, largest first: who rewrites a reply that described the answer instead of giving it)
+        others: Object.keys(members).sort((x, y) => (Number(MEM[y]?.params) || 0) - (Number(MEM[x]?.params) || 0)),
         decide,
         behave,
         onStep: o.onStep,

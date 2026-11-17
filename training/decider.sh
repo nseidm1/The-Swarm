@@ -108,7 +108,7 @@ snapshot_download('$D_WEIGHTS', revision='$D_WEIGHTS_REV', local_dir='$M')" || e
       serve)
         PORT=${1:-8009}
         [ -f "$F" ] && [ -f "$M/.complete" ] || { echo "$D_NAME is not installed here. First: bash training/decider.sh install"; exit 1; }
-        [ -n "$D_LLAMA" ] || { echo "$D_NAME needs llama-server, and none is here. Run training once (it fetches llama.cpp), or put llama-server on the PATH."; exit 1; }
+        [ -n "$D_LLAMA" ] || { echo "$D_NAME needs llama-server, and none is here. Train once from the dashboard (it fetches llama.cpp), or put llama-server on the PATH."; exit 1; }
         [ -n "$DECIDER_NO_PORT_FILE" ] || echo "$PORT" > "$PORT_FILE"
         # shellcheck disable=SC2086  # the maker's flags, word by word
         exec "$D_LLAMA" -m "$F" $D_ARGS --host 127.0.0.1 --port "$PORT"

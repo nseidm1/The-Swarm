@@ -3,7 +3,7 @@
 Everything the Swarm fetches lives inside this folder's .work: the small models and larger models it downloads, the llama.cpp
 build, each decider's program, Python and weights, and what training keeps to resume and to avoid measuring twice. This lists it,
 one piece at a time, with how much room each takes and whether the swarm as it is configured uses it, and removes a piece when
-asked. A piece the configured swarm uses can be removed: Run training fetches it again.
+asked. A piece the configured swarm uses can be removed: Train fetches it again.
 
 What it never does:
   - remove anything outside .work (a path is taken out only when it resolves inside it, and only by an id from this list)
@@ -92,7 +92,7 @@ def inventory(root, d):
                 used=f.name in used_files or f.name == target.get("file"),
                 note=("A link to %s: only the link is removed, the file it points at is kept." % os.readlink(f)) if link else f.name)
     # the llama.cpp build the swarm fetched, where it fetched one
-    add("engine", "Programs", "The engine (llama.cpp)", [work / "engine"], used=True, note="Run training fetches it again where no llama-server is on the PATH.")
+    add("engine", "Programs", "The engine (llama.cpp)", [work / "engine"], used=True, note="Train fetches it again where no llama-server is on the PATH.")
     # the adapter trainer (training/mlx-setup.sh): MLX and the small models' original weights it trains from
     add("mlx:program", "Programs", "MLX: the adapter trainer and its Python", [work / "mlx" / p for p in ("venv", "uv-cache", "hf-home")],
         note="Only Pretrain uses it, and installs it again the next time.")

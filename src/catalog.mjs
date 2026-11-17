@@ -48,6 +48,11 @@ export function readConfig() {
   out.target = pick(REGISTRY.targets, c.target).id;
   // what the swarm is to be equivalent on, where it has been chosen (training/equivalence.json names them): kept as it is
   if (Array.isArray(c.equivalence) && c.equivalence.length) out.equivalence = c.equivalence.map(String);
+  // who takes turns with tools, and whether each small model is served with its adapter: the page's choices, kept as they are
+  // (they were left out here, so the page said "decided by the swarm" while the swarm went on giving them to its lead, and the
+  // adapters switch reached nothing)
+  if (typeof c.tools === 'string' && c.tools) out.tools = c.tools;
+  if (c.adapters === true) out.adapters = true;
   return out;
 }
 // the places of a configuration that hold a small model, in order

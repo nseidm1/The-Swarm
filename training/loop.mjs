@@ -43,7 +43,8 @@ import {
 //   drafting   no slot had it
 export function lostAt(row) {
   const tr = row.trace || [];
-  if (tr.some((s) => s.stage === 'write' && s.same === false)) return 'writing';
+  // (a writer that described the answer instead of giving it lost it in writing, whatever the reply was marked: src/read.mjs)
+  if (tr.some((s) => s.stage === 'write' && (s.same === false || s.describes))) return 'writing';
   if (tr.some((s) => (s.stage === 'draft' || s.stage === 'check' || s.stage === 'revise') && s.same)) return 'choosing';
   return 'drafting';
 }
@@ -86,6 +87,7 @@ const CHOOSING_ONLY = /^plan: decide by |^plan: a model (settles|decides)|keep t
 export function evidenceOf(row, briefs = {}, { replay = null } = {}) {
   const lost = lostAt(row);
   const tr = row.trace || [];
+  const described = tr.some((s) => s.stage === 'write' && s.describes);
   const slots = Object.fromEntries((briefs.slots || []).map((s) => [s.id, s]));
   const failed = tr.filter((s) => (s.stage === 'draft' || s.stage === 'check') && s.same === false).map((s) => s.slot);
   const had = new Set(tr.filter((s) => s.same === true).map((s) => s.slot));
@@ -106,12 +108,17 @@ export function evidenceOf(row, briefs = {}, { replay = null } = {}) {
   const judged = (m) => {
     const n = m.name || '';
     const sl = slotOf(m);
-    if (lost === 'writing')
+    if (lost === 'writing') {
+      // (what went wrong at the writer: it changed the settled answer, or it described the answer instead of giving it)
+      const what = described
+        ? 'the writer described the answer instead of giving it'
+        : 'the writer changed a settled answer';
       return /settled answer goes out as it is/.test(n)
-        ? [0, 'the writer changed a settled answer: this hands it over as it is']
+        ? [0, what + ': this hands it over as it is']
         : m.stage === 'write'
-          ? [1, 'the writer changed a settled answer: this changes the writer']
+          ? [1, what + ': this changes the writer']
           : [3, ''];
+    }
     // WHERE THE DRAFTS WERE RUN AND DO DIFFERENT THINGS, the swarm can tell which is right from the question alone: one slot says
     // what each call should give, the answer that gives it is backed, and the revisions are shown the count (orchestrate.mjs
     // expect). Aimed at the mistake itself, where more drafts or more room only draw again. (The larger model's own behaviour is

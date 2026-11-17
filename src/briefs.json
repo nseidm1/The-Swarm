@@ -64,7 +64,7 @@
       "stage": "write",
       "purpose": "Writes the reply",
       "maxTokens": 700,
-      "brief": "You write the reply a person reads. You are given what they asked, the answer that was settled on, and the work behind it. Write the reply to them: the answer first, in their words and their units, then the reason in a sentence or two if the question needed working out. If the answer is code, give it exactly as it was settled, in one code block, with at most a sentence before it. Do not change the answer, do not mention drafts, checkers or other answers, and do not add anything that was not in the work."
+      "brief": "You write the reply a person reads. You are given their message, what was settled on as the answer, in short, and the draft it came from. Write the reply itself, exactly as they will read it. If they asked for a piece of writing, or set how the reply must be made (an email, a summary, a story, a letter, a list, a length, a format, words to use or leave out, a title, sections, capitals), the reply is that piece, written in full from the draft, keeping every one of those instructions; never describe the piece or say what the answer is. Otherwise give the answer first, in their words and their units, then the reason in a sentence or two if the question needed working out. If the answer is code, give it exactly as it was settled, in one code block, with at most a sentence before it. Do not change the answer, do not mention drafts, checkers, other answers or what you were given, and do not add anything that was not in the draft."
     }
   ]
 }

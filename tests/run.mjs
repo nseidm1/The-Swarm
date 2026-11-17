@@ -121,6 +121,107 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       ran.includes('a-writer'),
     ran,
   );
+  // what the writer is shown: the message, what was settled said to be a short statement and not the reply, the draft it came
+  // from, and a request for the reply itself (told "the answer settled on", a small writer wrote about the answer)
+  const wr = lfm.s.calls.find((c) => roleOf(c).stage === 'write');
+  const shown = wr ? wr.messages.at(-1).content : '';
+  check(
+    "the writer is shown the person's message, what was settled as a short statement of the answer and not the reply, the draft it came from, and asked for the reply itself; its brief says a piece of writing is written in full, never described",
+    shown.startsWith("The person's message:\nWhat is six times seven?") &&
+      /What was settled, in short \(a statement of the answer, not the reply itself\): 42/.test(shown) &&
+      shown.includes('The draft it came from:\nsix sevens') &&
+      shown.endsWith('exactly as the person will read it, and nothing else.') &&
+      !/answer settled on|They asked/.test(shown) &&
+      /never describe the piece or say what the answer is/.test(wr.messages[0].content),
+    shown,
+  );
+}
+// ---- 1b: a reply that describes the answer instead of giving it is not sent: rewritten by the other model, or the draft goes out
+{
+  const piece =
+    'Dear Sam,\n\n' + 'I am writing to say that I am leaving at the end of the month. '.repeat(8) + '\n\nBest, Alex';
+  const draft = (b) =>
+    roleOf(b).stage === 'write'
+      ? null
+      : piece + '\nANSWER: A short resignation letter to Sam saying Alex leaves at the end of the month';
+  const W = [{ role: 'user', content: 'Write a short letter to my boss Sam saying I am quitting.' }];
+  // the writer on a describes it; the other model, asked the same, writes it
+  reset();
+  lfm.s.script = (b) =>
+    roleOf(b).stage === 'write' ? 'The answer is a short resignation letter to Sam, as requested.' : draft(b);
+  bonsai.s.script = (b) => (roleOf(b).stage === 'write' ? piece : draft(b));
+  const one = await swarm.answer(W);
+  // both describe it: the draft, which holds the piece, goes out (not the draft with the one-line answer after it)
+  reset();
+  lfm.s.script = (b) =>
+    roleOf(b).stage === 'write' ? 'The answer is a short resignation letter to Sam, as requested.' : draft(b);
+  bonsai.s.script = (b) => (roleOf(b).stage === 'write' ? "The person's message:\nWrite a short letter" : draft(b));
+  const two = await swarm.answer(W);
+  // a reply that gives it is sent as written, and no other model is asked
+  reset();
+  lfm.s.script = (b) => (roleOf(b).stage === 'write' ? piece : draft(b));
+  bonsai.s.script = draft;
+  const three = await swarm.answer(W);
+  const { lostAt, evidenceOf } = await import('../training/loop.mjs');
+  const ev = evidenceOf(
+    {
+      trace: [
+        { slot: 'a-direct', stage: 'draft', same: true },
+        { slot: 'a-writer', stage: 'write', describes: 'x' },
+      ],
+    },
+    { slots: [{ id: 'a-writer', stage: 'write' }] },
+  );
+  check(
+    'a reply that describes the answer instead of giving it is not sent: it is marked, the largest small model that did not write it is asked the same and its reply goes out; where that one describes it too, the draft that holds the piece goes out, without the one-line answer after it; a reply that gives it goes out as written; and training reads a described reply as an answer lost in writing, puts changing the writer first, and says that it described the answer',
+    one.reply === piece &&
+      /\+rewritten/.test(one.path) &&
+      one.trace.some((r) => r.slot === 'a-writer' && /says what the answer is/.test(r.describes || '')) &&
+      one.trace.some((r) => r.slot === 'a-writer@b' && r.rewrite && !r.describes) &&
+      two.reply === piece &&
+      /\+described/.test(two.path) &&
+      two.trace.filter((r) => r.describes).length === 2 &&
+      three.reply === piece &&
+      !/rewritten|described/.test(three.path) &&
+      !three.trace.some((r) => r.slot === 'a-writer@b') &&
+      lostAt({
+        trace: [
+          { stage: 'draft', same: true },
+          { stage: 'write', describes: 'x' },
+        ],
+      }) === 'writing' &&
+      ev.prio({ name: 'the settled answer goes out as it is' }) === 0 &&
+      ev.because({ name: 'the settled answer goes out as it is' }) ===
+        'the writer described the answer instead of giving it: this hands it over as it is',
+    { one: [one.path, one.reply.slice(0, 60)], two: [two.path, two.reply.slice(0, 60)], three: three.path },
+  );
+}
+// ---- 1c: what reads as describing the answer instead of giving it, from replies seen in two evaluations, and what does not
+{
+  const { describedNotGiven: dng } = await import('../src/read.mjs');
+  const long = 'word '.repeat(120);
+  const piece = { settled: 'A tailored resume template with twelve placeholders for a graduate', draft: long };
+  const flagged = [
+    ['The answer is a tailored resume template that includes 12 placeholders as requested.', piece],
+    ['They asked:\nThe answer settled on: <<Resignation Notice>>', {}],
+    ['The message asks for a summary of the Wikipedia page about Raymond III.', {}],
+    ['A concise resume has been prepared with placeholders like [company].', {}],
+    ['The answer is settled with a clever twist on rocket humor.', {}],
+    ['the answer was settled as a creative tweet. the draft included the key elements', {}],
+    ['The answer is Elohim and Allah.\n******\nThe response is clear: people refer to God by names', {}],
+  ];
+  const passed = [
+    ['The answer is 42.', { settled: '42', draft: long }],
+    ['Six times seven is 42.', { settled: '42', draft: 'six sevens' }],
+    ['[Name]\n[Address]\nObjective: a motivated graduate seeking a first job', piece],
+    ['# Raymond III, Count of Tripoli\n\nRaymond III was a prominent noble of the Crusader states.', piece],
+    ['```js\n// the task requires the list to be rotated\nfunction rotate(l) { return l; }\n```', piece],
+  ];
+  check(
+    'a reply reads as describing the answer instead of giving it when it repeats its labels, speaks of the request, the draft or the reply ("has been prepared", "the answer is settled with", "the draft included", "the response is clear"), or says what the answer is where a piece was wanted; an answer that is a value, the piece itself, and code whose comments speak of the task do not',
+    flagged.every(([r, o]) => dng(r, o)) && passed.every(([r, o]) => !dng(r, o)),
+    [flagged.filter(([r, o]) => !dng(r, o)).map(([r]) => r), passed.filter(([r, o]) => dng(r, o)).map(([r]) => r)],
+  );
 }
 // ---- 2: every slot of both models when the drafts disagree
 {
@@ -1331,6 +1432,29 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       plan.moves.filter((m) => m.technique === 'Several changes at once').length === 3 &&
       steps(briefs).length >= 40,
     { w1: w1.map((c) => c.name), broke, n: steps(briefs).length },
+  );
+}
+// ---- 6j: the page's own choices are read as they were written: who takes turns with tools, and serving with adapters (they
+// were left out, so the page said "decided by the swarm" while the swarm gave them to its lead, and the adapters switch reached
+// nothing)
+{
+  const { readConfig, writeConfig, CONFIG_FILE } = await import('../src/catalog.mjs');
+  const was = fs.readFileSync(CONFIG_FILE, 'utf8');
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify({ ...JSON.parse(was), tools: 'swarm', adapters: true }));
+  const read = readConfig();
+  const kept = writeConfig({ equivalence: ['crew'] });
+  const onDisk = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify({ ...JSON.parse(was), adapters: 'yes' }));
+  const notTrue = readConfig();
+  fs.writeFileSync(CONFIG_FILE, was);
+  check(
+    'who takes turns with tools and whether the small models are served with their adapters are read from the configuration as the page writes them, and survive another choice being written; anything but true leaves the adapters off',
+    read.tools === 'swarm' &&
+      read.adapters === true &&
+      kept.tools === 'swarm' &&
+      onDisk.adapters === true &&
+      notTrue.adapters === undefined,
+    { read, onDisk, notTrue },
   );
 }
 // ---- 6k: MORE THAN TWO SMALL MODELS: two to four places, each a model of its own

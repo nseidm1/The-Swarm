@@ -347,20 +347,38 @@ with tempfile.TemporaryDirectory() as tmp:
     a_off = send("/config", {"adapters": False})[0]
     a_cfg2 = json.loads((root / "src" / "config.json").read_text())
     # while an evaluation runs (this process stands in for it), training and pretraining wait, and each says why
-    (root / ".work" / "eval" / "ui-run.json").write_text(json.dumps({"pid": os.getpid(), "at": "now"}))
+    (root / ".work" / "eval" / "ui-run.json").write_text(json.dumps({"pid": os.getpid(), "at": "now", "limit": 100}))
     held_pre = send("/pretrain/start", {})
+    a_member = d["members"]["a"]
+    a_orig = json.loads((Path(__file__).resolve().parent.parent / "training" / "originals.json").read_text())["models"].get(a_member["file"]) or {}
+    ad = root / ".work" / "library" / "adapters" / d["target"]["id"] / (a_orig.get("dir") or a_member["file"])
+    ad.mkdir(parents=True, exist_ok=True)
+    (ad / "result.json").write_text(json.dumps({"ok": True, "gguf": str(ad / "x-lora.gguf"), "at": "2026-11-17T10:00:00Z", "examples": 72, "target": "the larger model", "items": ["crew"], "valLoss": [1.1, 0.7], "perplexity": {"without": 3.4, "with": 2.7}}))
+    (ad / "failed.json").write_text(json.dumps({"ok": False, "at": "2026-11-17T12:00:00Z", "why": "llama.cpp did not load it"}))
+    (root / ".work" / "pretrain").mkdir(parents=True, exist_ok=True)
+    (root / ".work" / "pretrain" / "ui-run.json").write_text(json.dumps({"pid": os.getpid(), "at": "now"}))
+    pre_run = get(base + "/fragment/pretrain")[1]
+    (root / ".work" / "pretrain" / "ui-run.json").unlink()
+    pre_stop = get(base + "/fragment/pretrain")[1]
+    shutil.rmtree(ad)
     held_by = swarm_ui.busy_with()
     held_ev = get(base + "/fragment/eval")[1]
     (root / ".work" / "eval" / "ui-run.json").unlink()
+    # (the run ends without finishing: no result was written, and the last one that finished is shown again, as it was)
+    ev_after = get(base + "/fragment/eval")[1]
     (root / ".work" / "eval" / "results.json").unlink()
-    check("above Training progress, Evaluate the swarm and Pretrain: Evaluate says what it does (standard benchmarks of lm-evaluation-harness, asked of the larger model and the swarm, kept apart from training), has a size to choose and a button, and a row for every task of what is chosen; an unknown size or a request from elsewhere is refused; once evaluated it says how many questions had the same answer, split by whether both were right, with each model's score and when; Pretrain lists each small model and, where MLX is not installed, says Pretrain installs it and can be pressed on Apple silicon, or that it is not available on any other machine; the adapters switch is written beside the models and refuses anything but on or off; and while an evaluation runs, it can be stopped from its section, and training and pretraining wait for it and say so",
+    check("above Training progress, Evaluate the swarm and Pretrain: Evaluate says what it does (standard benchmarks of lm-evaluation-harness, asked of the larger model and the swarm, kept apart from training), has a size to choose and a button, and a row for every task of what is chosen; an unknown size or a request from elsewhere is refused; once evaluated it says how many questions had the same answer, split by whether both were right, with each model's score and when; Pretrain lists each small model and, where MLX is not installed, says Pretrain installs it and can be pressed on Apple silicon, or that it is not available on any other machine; the adapters switch is written beside the models and refuses anything but on or off; and while an evaluation runs, its headline shows moving bars where the share and the count will be and the questions chosen, the last result returning as it was when the run ends unfinished (Pretrain the same, the adapter that stood still standing beside an attempt that was not kept), it can be stopped from its section, and training and pretraining wait for it and say so",
           html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2>Pretrain</h2>') < html.index('<h2>Training progress</h2>')
           and "lm-evaluation-harness 0.4.13" in ev0 and 'id="ev-go"' in ev0 and ev0.count("<option") == 3 and 'data-evt="ifeval"' in ev0 and "not evaluated yet" in ev0 and api0.get("running") is False
           and bad_size == 400 and foreign == 403
           and 'id="pre-go"' in pre0 and pre_ok and pre0.count('class="prerow"') == len([k for k in ("a", "b", "c", "d") if k in d["members"]])
           and "75%</b> <span>15 of 20 the same" in ev1 and "9 both right · 6 both wrong · 5 differ" in ev1 and "Last evaluated 2026-11-17 12:00 UTC" in ev1 and "without adapters" in ev1
           and a_on == 200 and a_cfg.get("adapters") is True and a_bad == 400 and a_off == 200 and "adapters" not in a_cfg2
-          and held_pre[0] == 409 and "Wait for an evaluation" in held_pre[1] and held_by == "an evaluation" and 'id="ev-stop"' in held_ev and 'id="ev-go"' not in held_ev,
+          and held_pre[0] == 409 and "Wait for an evaluation" in held_pre[1] and held_by == "an evaluation" and 'id="ev-stop"' in held_ev and 'id="ev-go"' not in held_ev
+          and 'class="pct busy"' in held_ev and 'class="busyn"' in held_ev
+          and 'class="pct busy"' in pre_run and "of %d adapted" % pre0.count('class="prerow"') in pre_run and "pct busy" not in pre_stop and '<b class="pct">1</b>' in pre_stop
+          and "Adapted</b> 2026-11-17" in pre_stop and "a later attempt was not kept: llama.cpp did not load it" in pre_stop and "of 100 questions" in held_ev and "75%</b><span>equivalent" not in held_ev
+          and "75%</b><span>equivalent<small>15 of 20 questions" in ev_after and "pct busy" not in ev_after,
           {"order": html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2>Pretrain</h2>') < html.index('<h2>Training progress</h2>'),
            "ev0": ["lm-evaluation-harness 0.4.13" in ev0, 'id="ev-go"' in ev0, ev0.count("<option"), 'data-evt="ifeval"' in ev0, "not evaluated yet" in ev0, api0.get("running")],
            "codes": [bad_size, foreign, a_on, a_bad, a_off, held_pre[0]], "pre": ['id="pre-go"' in pre0, apple, pre_ok, pre0.count('class="prerow"')],
@@ -662,12 +680,14 @@ with tempfile.TemporaryDirectory() as tmp:
           and s_ip and s_ip["pass"] == int(d0["state"].get("pass", 0)) + 1 and s_ip["moves"] == {"planned": 1, "beingMeasured": 1, "kept": 0, "notKept": 1}
           and s_ip["now"][0]["what"] == "a shorter brief" and s_ip["measured"][0]["status"] == "not kept" and s_ip["measured"][0]["why"] == "it did not win by 6"
           and (s_ip["trainSoFar"] is None or "not parity" in s_ip["trainIs"]) and "This pass, under way" in dlg and "a brief tried" in dlg, [n_train, len(d1["splits"]["train"]["swarm"]), s_ip and s_ip["moves"]])
-    # ON A PHONE, THE TRAINING COLUMN IS A TILE BESIDE THE TITLE, opening the column whole in a sheet (and nothing changes elsewhere)
-    mt = get(base + "/fragment/mtile")[1]
-    check("on a phone the training column is a tile beside the title: what the session is doing (idle, stopped, or running with its clock and where it is) and the passes in a line; tapping it moves the column itself (Training, Passes, Ideas waiting to be tried) into a sheet and back when closed, so what redraws it still does; the column is not left below the footer there, and nothing changes at a wider screen",
-          'id="mtile"' in tg0 and 'class="mtile"' in tg0 and "Training</span>" in mt and ("Idle" in mt or "Stopped" in mt or "data-since" in mt) and 'id="mtrain"' in tg0 and 'id="mtrain-body"' in tg0
-          and ".mtile{display:none}" in tg0 and ".shell>.rail{display:none}" in tg0 and "$('#mtrain-body').append(r)" in tg0 and "document.querySelector('.shell').append(r)" in tg0
-          and "swap('/fragment/mtile','#mtile')" in tg0 and tg0.index('id="mtile"') < tg0.index('id="chips"'), mt[:200])
+    # TRAINING LIVES ON ITS PROGRESS CARD: no column beside the page and no tile for one on a phone; the card carries Train (or Stop
+    # training), Clear training state, what the session is doing, and the ideas waiting to be tried; the passes are not listed again
+    card = get(base + "/fragment/score")[1]
+    check("training lives on the Training progress card, as Evaluate and Pretrain do: no column beside the page, no tile or sheet for one on a phone, and no list of passes; the card's head has Train and Clear training state (or Stop training), and under it what the session is doing; the ideas waiting to be tried are in its meta",
+          'class="rail"' not in tg0 and 'id="mtile"' not in tg0 and 'id="mtrain"' not in tg0 and "<h2>Passes</h2>" not in tg0 and "Ideas waiting to be tried</h2>" not in tg0
+          and card.startswith('<div class="panel trainprog">') and '<span class="evctl">' in card and ('id="run-go"' in card) != ('id="run-stop"' in card)
+          and ('id="run-clear"' in card or 'id="run-stop"' in card) and "Ideas waiting to be tried:" in card and "/fragment/mtile" not in tg0,
+          card[:300])
     # EVERYTHING NEEDED TO MAKE IT AGAIN, AND TO OFFER IT AS A MODEL: every slot with what it is told, the decider's recipe, the
     # engine's pinned builds, a card in the shape The Crew's chooser lists its models, what it needs of a machine, what it can and
     # cannot do as a model, and a hash of the recipe that src/spec.mjs computes the same way
@@ -689,7 +709,7 @@ with tempfile.TemporaryDirectory() as tmp:
         rd = __import__("subprocess").run([node_, "-e", "import(process.argv[1]).then(m=>{const s=m.readSpec(process.argv[2]);console.log(s.spec.recipeSha256===m.recipeSha256(s.recipe)?'same':'differs')}).catch(e=>console.log('refused: '+e.message))",
                                             (Path(swarm_ui.__file__).resolve().parent.parent / "src" / "spec.mjs").as_uri(), str(sp_file)], capture_output=True, text=True)
         check("the module reads the spec the page writes, and computes its hash the same way", rd.stdout.strip() == "same", rd.stdout + rd.stderr[:300])
-    check("an idea waiting to be tried opens the paper it came from", 'class="idea" href="https://arxiv.org/abs/' in html and 'target="_blank"' in html and "arXiv 26" in html)
+    check("an idea waiting to be tried opens the paper it came from, from the Training progress card", 'href="https://arxiv.org/abs/' in html.split('class="panel trainprog"')[1].split('<h2')[0] and 'target="_blank"' in html and "arXiv 26" in html)
     node = swarm_ui.node_for_training()
     if node:
         parsed = __import__("subprocess").run([node, "--check", "-"], input="async function page(){\n" + swarm_ui.JS + "\n}", capture_output=True, text=True)
@@ -710,7 +730,7 @@ with tempfile.TemporaryDirectory() as tmp:
     code, html = get(base + "/")
     check("with nothing measured and nothing configured the page still opens, and says training starts at question 1", code == 200 and "Training starts at question 1" in html and "No larger model is named" in html)
     srv.shutdown()
-    # ---- the Run training button, with a stand-in for the session (it writes its steps and waits): no model is started
+    # ---- the Train button, with a stand-in for the session (it writes its steps and waits): no model is started
     srv, base = serve(empty)
     check("on a folder with no trainers the button is there but cannot be pressed, and says why", 'id="run-go" type="button" disabled' in get(base + "/")[1] and "no trainers" in get(base + "/")[1])
     srv.shutdown()
@@ -771,11 +791,11 @@ with tempfile.TemporaryDirectory() as tmp:
     arch = sorted((root / ".work" / "archive").glob("clear-*"))
     gone = [rel for rel in made_c if not (root / rel).exists()]
     kept_c = [rel for rel in made_c if (root / rel).exists()]
-    check("Clear training state starts training again from pass 1: training's records (its state, each configuration's record, what it kept, its measurements and loop) are moved aside to .work/archive, nothing deleted; each model's own answers and their summaries are kept, and so are the found arrangements and the loop's policy (tried first after); the training card says so; it is refused while training runs; and the button sits beside Run training",
+    check("Clear training state starts training again from pass 1: training's records (its state, each configuration's record, what it kept, its measurements and loop) are moved aside to .work/archive, nothing deleted; each model's own answers and their summaries are kept, and so are the found arrangements and the loop's policy (tried first after); the training card says so; it is refused while training runs; and the button sits beside Train",
           busy_code == 409 and len(arch) == 1 and "Cleared: training starts again from pass 1" in clear_html
           and sorted(kept_c) == sorted([".work/train/baseline-runs.jsonl", "training/results/%s/%s-held.json" % (d["key"], tgt_id), "training/results/%s/m-alone-vs-%s-held.json" % (d["key"], tgt_id),
                                         ".work/library/%s.json" % d["key"], ".work/library/%s-policy.json" % d["key"]]) and "the 1 found arrangement" in clear_html
-          and all((arch[0] / rel).exists() for rel in gone) and 'id="run-clear"' in swarm_ui.run_panel(), [busy_code, kept_c, gone])
+          and all((arch[0] / rel).exists() for rel in gone) and 'id="run-clear"' in swarm_ui.progress_strip(data.load(root)), [busy_code, kept_c, gone])
     srv.shutdown()
     srv, base = serve(fake)
 
@@ -788,8 +808,8 @@ with tempfile.TemporaryDirectory() as tmp:
             return x.code, ""
 
     page0 = get(base + "/")[1]
-    check("where training can be started the page has a Run training button that can be pressed, no count of passes to choose, and says it goes on until it is stopped",
-          'id="run-go" type="button">Run training' in page0 and 'id="run-stop"' not in page0 and 'id="run-passes"' not in page0 and "Until stopped" in page0 and "until <b>Stop training</b> is pressed" in page0 and 'class="facts"' not in page0
+    check("where training can be started the Training progress card has a Train button that can be pressed, no count of passes to choose, and says it goes on until it is stopped",
+          'id="run-go" type="button" title="Train question by question, pass after pass, until Stop training is pressed">Train</button>' in page0 and 'id="run-stop"' not in page0 and 'id="run-passes"' not in page0 and 'class="facts"' not in page0
           and swarm_ui.step_label("10-questions") == "Train, question by question" and swarm_ui.step_label("07-plan") == "Plan what to try" and swarm_ui.step_label("99-new") == "new")
     # THE SWARM AGAINST EACH QUESTION, on the swarm's own card: a pip for each finished question, the counts, and where a pass stopped
     trk_rec = {"pass": 2, "of": 6, "questions": 3, "list": [{"id": "q1", "kind": "math", "state": "at parity", "attempts": [{}]},
@@ -891,9 +911,9 @@ with tempfile.TemporaryDirectory() as tmp:
     time.sleep(1.0)
     panel = get(base + "/fragment/run")[1]
     st = json.loads((fake / ".work" / "train" / "ui-run.json").read_text())
-    check("pressed, it starts a session that goes on until it is stopped (no number of passes is given it, and no number of questions: that is the trainer's policy), and the page shows it running: each step as it starts and ends, and the last lines of the step it is on",
-          code == 200 and 'data-running="1"' in panel and "Stop training" in panel and 'data-since="' in panel and "<b>Running " in panel and "<small>since " in panel and swarm_ui._span(45) == "45 s" and swarm_ui._span(750) == "12 min 30 s" and swarm_ui._span(7500) == "2 h 5 min" and "timeZoneName" in html and 'title="00-begin"' in panel and "under a minute" in panel and ">0 min<" not in panel and ">Pass 3<" in panel and "asked" not in panel
-          and "Goes on until stopped" in panel and "Begin the pass" in panel and "Larger model: the held questions" in panel and 'title="02-target"' in panel and 'class="facts"' not in panel and 'id="run-each"' not in page0 and "asked 0 " in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text(), panel[:400])
+    check("pressed, it starts a session that goes on until it is stopped (no number of passes is given it, and no number of questions: that is the trainer's policy), and the Training progress card shows it running: Stop training in place of Train, how long and since when, that it goes on until stopped, and a moving bar in place of the share",
+          code == 200 and 'data-running="1"' in panel and "Stop training" in panel and 'id="run-go"' not in panel and 'data-since="' in panel and "<b>Running " in panel and "<small>since " in panel and swarm_ui._span(45) == "45 s" and swarm_ui._span(750) == "12 min 30 s" and swarm_ui._span(7500) == "2 h 5 min" and "timeZoneName" in html
+          and "until stopped" in panel and panel.startswith('<div class="panel trainprog">') and 'class="pct busy"' in panel and 'class="facts"' not in panel and 'id="run-each"' not in page0 and "asked 0 " in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text(), panel[:400])
     check("a teacher is never started from the button, whatever the page was started with", "teacher=[]" in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text())
     # what every slot is doing now: written by a trainer, shown only while a session runs and only while it is fresh
     (fake / ".work" / "train" / "live.json").write_text(json.dumps({"at": time.time() * 1000, "trainer": "measure", "who": "swarm", "split": "train", "n": 3, "of": 42,
@@ -911,29 +931,9 @@ with tempfile.TemporaryDirectory() as tmp:
     check("the questions a person wrote can be changed while a session runs, like what it is equivalent on", q_run == 200)
     check("what the swarm is to be equivalent on can be changed while a session runs (a pass ends on the questions it began with), but not together with a model",
           eq_run == 200 and eq_cfg == ["crew", "logic"] and post("/config", b'{"equivalence":["crew"],"a":"x"}')[0] == 409, [eq_run, eq_cfg])
-    # a step tried again, a step passed over on a resumed pass, and the ways back taken, are all shown
-    stat = fake / ".work" / "train" / "pass-3" / "status.txt"
-    stat.write_text(stat.read_text() + "10:00:02 END   02-target exit 1 0 min\n10:00:07 START 02-target\n10:00:09 SKIP  03-a-alone\n")
-    (fake / ".work" / "train" / "recovery.jsonl").write_text(json.dumps({"at": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() + 1)), "what": "LFM2.5 2.6B", "did": "its server was gone or hung: started again, and asked again"}) + "\n"
-                                                           + json.dumps({"at": "2020-01-01T00:00:00", "what": "old", "did": "from another session"}) + "\n")
-    rp = get(base + "/fragment/run")[1]
-    check("each section of the training card folds under its heading, folded to begin with and saying in a line what it holds; the passes too, in a line of what they add up to; open or folded is kept on the device and put back each time the card is drawn again; it is saved on a click of the heading, not on every toggle",
-          all(('data-keep="run-%s">' % k) in rp for k in ("pass", "recovered", "learned")) and 'data-keep="run-done"' in rp and " open>" not in rp
-          and rp.count('class="smeta"') >= 3 and "the last: " in rp and "nothing kept yet" in rp
-          and 'data-keep="rail-passes">' in html and 'class="fmeta"' in html and "pass" in html.split('class="fmeta">')[1][:60]
-          and "details.fold>summary" in html
-          and "keepOpen($(into))" in html and "swarm.open." in html and "closest('details[data-keep]>summary')" in html and "addEventListener('toggle'" not in html, [k for k in ("pass", "recovered", "learned", "done") if ('data-keep="run-' + k) in rp])
-    check("a step that failed and is being run again shows as one step with its try, a step done before a stop is shown as done earlier, and the ways back this session has taken are listed (and no other session's)",
-          "try 2" in rp and "done earlier" in rp and rp.count('title="02-target"') == 1 and "Recovered<span>1 time this session" in rp and "started again, and asked again" in rp and "from another session" not in rp, rp[-600:])
-    # the card reads a resumed pass as it is: one step running, the one the stop cut short to come again, the rest in order
-    stx = "\n".join(["07:00:00 START 00-begin", "07:00:01 END   00-begin exit 0 0 min", "07:00:01 START 12-members", "08:00:00 RESUMED this pass had stopped: carrying on",
-                      "08:00:00 SKIP  00-begin", "08:00:01 START 07-write-briefs", "08:00:30 END   07-write-briefs exit 0 0 min", "08:00:31 START 10-questions"])
-    psteps, porder = swarm_ui.pass_steps(stx)
-    ahead = swarm_ui.steps_ahead(psteps, ["a", "b"], ["a-steps", "a-critic"])
-    check("the training card reads a resumed pass as it is: the step running now is the only one running; a step the stop cut short is not running, it is to come and carries on; what is to come is in the order the session runs it; and the decider is named with what it is doing",
-          psteps["10-questions"]["state"] == "now" and psteps["12-members"]["state"] == "stopped" and psteps["00-begin"]["state"] == "earlier" and psteps["07-write-briefs"]["state"] == "done"
-          and ahead.index("12-members") < ahead.index("12-deciders") < ahead.index("21-swarm-held") < ahead.index("22-end") and "10-questions" not in ahead and "00-begin" not in ahead and "07-write-briefs" not in ahead and "03-a-alone" in ahead
-          and swarm_ui.decider_state(False) in ("not running", "ready", "busy") and swarm_ui.decider_state(True) in ("starting", "ready", "busy"), [psteps, ahead[:6]])
+    check("what is folded keeps its state: open or folded is kept on the device and put back each time a part is drawn again, saved on a click of the heading, not on every toggle; and the decider is named with what it is doing",
+          "details.fold>summary" in html and "keepOpen($(into))" in html and "swarm.open." in html and "closest('details[data-keep]>summary')" in html and "addEventListener('toggle'" not in html
+          and swarm_ui.decider_state(False) in ("not running", "ready", "busy") and swarm_ui.decider_state(True) in ("starting", "ready", "busy"))
     post("/run/start")
     check("pressed again while one runs, nothing more is started", json.loads((fake / ".work" / "train" / "ui-run.json").read_text())["pid"] == st["pid"])
     code, after = post("/run/stop")
@@ -944,7 +944,7 @@ with tempfile.TemporaryDirectory() as tmp:
         gone = True
     stale = json.loads(get(base + "/api/live")[1])
     check("once the session has stopped nothing is shown as working, whatever the trainer last wrote", stale["running"] is False and stale["slots"] == {} and "question" not in stale, stale)
-    check("Stop training stops it, and the page says it was stopped and offers the button again", gone and "Run training" in after and "Stopped at" in after and 'data-running' not in after, after[:300])
+    check("Stop training stops it, and the page says it was stopped and offers the button again, the share of training complete back in place of the moving bar", gone and ">Train</button>" in after and "Stopped at" in after and 'data-running' not in after and "pct busy" not in after and '<b class="pct">' in after, after[:300])
     srv.shutdown()
     for k in ("NODE", "SWARM_LLAMA_SERVER", "TEACHER"):
         os.environ.pop(k, None)
