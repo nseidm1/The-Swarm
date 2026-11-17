@@ -265,19 +265,20 @@ button.mav{position:relative;border:0;font:inherit;color:inherit;text-align:left
 .face{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;color:#fff;font:800 12px/1 inherit;letter-spacing:-.02em;flex:none;background:var(--fc,var(--unsure))}
 .a{--fc:var(--lfm)}.b{--fc:var(--bon)}.c{--fc:#7a5cc4}.d{--fc:#2f7fb8}.decider{--fc:var(--dec)}.run{--fc:#6b78a8}.tgt{--fc:var(--tgt)}
 .face svg{width:17px;height:17px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-.pipe{display:flex;flex-wrap:nowrap;align-items:stretch;gap:10px 0;margin-top:4px}.st:has(+.via)::after{display:none}.st:has(+.via){margin-right:16px}.pipe>.st,.pipe>.loopg{flex:0 1 auto}
+.pipe{display:flex;flex-wrap:nowrap;align-items:stretch;gap:10px 0;margin-top:4px}.st:has(+.via)::after{display:none}.st:has(+.via){margin-right:16px}.pipe>.st,.pipe>.loopg{flex:1 1 auto}
 .st{position:relative;display:flex;flex-direction:column;gap:8px;padding:10px 8px 8px;margin-right:16px;border-radius:16px;background:#f5faf8;border:1px solid var(--line2)}
 .st:not(:last-child)::after{content:"";position:absolute;right:-14px;top:50%;width:9px;height:9px;border-top:2.5px solid var(--unsure);border-right:2.5px solid var(--unsure);transform:translateY(-50%) rotate(45deg)}
 .st .stt{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mist);white-space:nowrap}.st .stt span{letter-spacing:0;text-transform:none;font-weight:700;margin-left:6px;color:#8a5a00}
 .loopg{display:flex;flex-wrap:nowrap;gap:10px 0;padding:8px 0 4px 8px;margin-right:22px;border-radius:18px;border:1.5px dashed #e3c46a;position:relative}.loopg{flex-wrap:wrap}.loopg>.lt{flex-basis:100%;font-size:11.5px;font-weight:700;color:#8a5a00;margin:-2px 0 0 2px}
 .loopg:not(:last-child)::after{content:"";position:absolute;right:-17px;top:50%;width:9px;height:9px;border-top:2.5px solid var(--unsure);border-right:2.5px solid var(--unsure);transform:translateY(-50%) rotate(45deg)}.loopg .st:last-of-type{margin-right:8px}.loopg .st:last-of-type::after{display:none}
 .st.mk{margin-left:auto;margin-right:0;background:#eef0f8;border-color:#d7dcef}.st.mk .stt{color:var(--tgt)}
-.avs{display:flex;flex-wrap:wrap;gap:6px 2px}
-.av{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;width:72px;padding:4px 2px 2px;border:0;border-radius:12px;background:none;font:inherit;color:inherit;cursor:pointer}
+.avs{display:flex;flex-wrap:wrap;gap:6px 2px;justify-content:space-around}
+.av{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:72px;padding:4px 6px 2px;border:0;border-radius:12px;background:none;font:inherit;color:inherit;cursor:pointer}
 .av:hover,.av.sel{background:rgba(11,93,87,.07)}.av:focus-visible{outline:3px solid var(--teal2);outline-offset:1px}
 .av .ring{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:conic-gradient(var(--fc) calc(var(--p,0)*1%),#dfe8e5 0)}
 .av.norec .ring{background:#dfe8e5}.av .ring .face{width:36px;height:36px;font-size:11.5px;box-shadow:0 0 0 2px #f5faf8}
-.av .nm{font-size:10.5px;font-weight:700;letter-spacing:-.01em;color:var(--fog);max-width:72px;text-align:center;line-height:1.2;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.av .nm{font-size:10.5px;font-weight:700;letter-spacing:-.01em;color:var(--fog);text-align:center;line-height:1.2;white-space:nowrap}
+@media (max-width:560px){.av{min-width:64px;padding:4px 2px 2px}.av .nm{white-space:normal;max-width:84px}}
 .av .pc{font-size:10.5px;font-weight:700;color:var(--mist);line-height:1;white-space:nowrap}.av.norec .pc{font-weight:600;color:var(--unsure)}
 .av .live{position:absolute;top:2px;right:6px;margin:0;padding:0;border:0;width:14px;height:14px}.av .live span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .av .live i{width:12px;height:12px;margin:0;border:2px solid #f5faf8;box-sizing:content-box;background:#c9d4d1}
@@ -290,11 +291,11 @@ button.mav{position:relative;border:0;font:inherit;color:inherit;text-align:left
 .avdetail{margin-top:12px}.avdetail:empty{display:none}.avdetail .slot{margin:0}
 @media (prefers-reduced-motion:reduce){.av:has(.live.on) .ring{animation:none;box-shadow:0 0 0 3px var(--teal2)}}
 @media (max-width:560px){.via{flex-direction:row;align-self:flex-start;margin:-8px 0 8px 10px;gap:8px}.via:not(:last-child)::after{right:auto;left:16px;top:auto;bottom:-14px;transform:rotate(135deg)}.mav .live{left:30px}
-  .pipe,.loopg{flex-direction:column;flex-wrap:nowrap}.st,.loopg{margin-right:0;margin-bottom:16px}.st{flex-direction:row;align-items:center;gap:8px;padding:6px 8px}.st .stt{flex:none;width:58px;white-space:normal}.st.mk{margin-left:0}.mav.tgt{margin-left:0}
+  .pipe,.loopg{flex-direction:column;flex-wrap:nowrap}.st,.loopg,.st:has(+.via){margin-right:0;margin-bottom:16px}.st{flex-direction:row;align-items:center;gap:8px;padding:6px 8px}.st .stt{flex:none;width:58px;white-space:normal}.st.mk{margin-left:0}.mav.tgt{margin-left:0}
   .st:not(:last-child)::after,.loopg:not(:last-child)::after{right:auto;left:22px;top:auto;bottom:-13px;transform:rotate(135deg)}.loopg .st{margin-right:8px}.loopg .st:last-of-type{margin-bottom:6px}}
 .qtrack{margin:0 0 14px;padding:12px 14px;border-radius:14px;background:var(--soft)}.qtrack .qhead{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;font-size:13px;color:var(--mist);font-weight:600}
 .qtrack .qhead b{color:var(--fog)}.qtrack .qnow{margin:6px 0 0;font-size:13.5px;font-weight:700;color:var(--fog);overflow-wrap:anywhere}.qtrack .qnow small{display:block;font-weight:600;color:var(--mist);font-size:12px;margin-top:2px}
-.qtrack .qnow .it{display:inline-block;padding:1px 8px;border-radius:999px;background:var(--panel);color:var(--teal);font-size:12px;margin-right:6px}
+.qtrack .qnow .q{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.qtrack .qnow .it{display:inline-block;padding:1px 8px;border-radius:999px;background:var(--panel);color:var(--teal);font-size:12px;margin-right:6px}
 .pips{display:flex;flex-wrap:wrap;gap:3px;margin-top:10px}.pips i{width:10px;height:10px;border-radius:3px;background:#dfe8e5;display:block}
 .pips i.at{background:var(--right)}.pips i.re{background:var(--teal2);box-shadow:inset 0 0 0 2px #fff}.pips i.nr{background:var(--wrong)}.pips i.nc{background:#c9d3d0}
 .pips i.cur{background:var(--sun);animation:p 1.2s infinite}.qkey{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:11.5px;color:var(--mist);font-weight:600}.qkey span{display:inline-flex;align-items:center;gap:5px}.qkey i{width:9px;height:9px;border-radius:3px;display:inline-block}
@@ -541,15 +542,15 @@ async function liveTick(){
       const it=lp.guard?'checking a change':lp.attempt?'change '+lp.attempt+' of '+lp.cap:'as it stands';
       const what=lp.guard?'It brought this question to parity; asked again on '+lp.guard+', already at parity, it must lose nothing to be kept: '+lp.move
         :lp.attempt?'Short of parity as the swarm stood. Trying: '+lp.move:'Asked of the swarm as it stands.';
-      qn.innerHTML='';const b=document.createElement('span');b.className='it';b.textContent=it;qn.append(b,document.createTextNode('Question '+lp.n+' of '+lp.of+' · '+q.kind+' · '+q.ask.replace(/\\s+/g,' ').slice(0,110)));
+      qn.innerHTML='';const b=document.createElement('span');b.className='it';b.textContent=it;const tq=document.createElement('span');tq.className='q';tq.textContent='Question '+lp.n+' of '+lp.of+' · '+q.kind+' · '+q.ask.replace(/\\s+/g,' ');tq.prepend(b);qn.append(tq);
       const sm=document.createElement('small');sm.textContent=what;qn.append(sm);}
     else if(n.running&&n.trainer!=='loop')qn.textContent='Training question by question begins after the larger model has answered and the plan is written.';
     if(pp){const key=done.map(x=>x.s).join()+'|'+(lp&&n.trainer==='loop'?lp.n:'');
       if(pp.dataset.k!==key){pp.dataset.k=key;pp.innerHTML='';
         for(const x of done){const i=document.createElement('i');i.className=x.s;i.title=x.id+' · '+x.kind+(x.tried?' · '+x.tried+' change'+(x.tried===1?'':'s')+' tried':'');pp.append(i);}
         if(lp&&n.trainer==='loop'&&lp.n>done.length){const i=document.createElement('i');i.className='cur';i.title='in hand: question '+lp.n;pp.append(i);}}}
-    if(qh&&done.length){const c=s=>done.filter(x=>x.s===s).length;const t=[done.length+' of '+of+' finished',c('at')+' at parity as it stood',c('re')+' brought to parity',c('nr')+' not reached'];
-      const sp=qh.querySelectorAll('span');if(sp.length===4)t.forEach((v,i)=>{if(sp[i].textContent!==v)sp[i].textContent=v;});}}
+    if(qh&&(done.length||(lp&&n.trainer==='loop'))){const c=s=>done.filter(x=>x.s===s).length;const t=[done.length+' of '+of+' finished',c('at')+' at parity as it stood',c('re')+' brought to parity',c('nr')+' not reached'];
+      const k=t.join('|');if(qh.dataset.k!==k){qh.dataset.k=k;qh.innerHTML='<b>Question by question</b>';for(const v of t){const sp=document.createElement('span');sp.textContent=v;qh.append(sp);}}}}
   const slots=n.slots||{},totals=n.totals||{};
   // a slot's clock starts again with every question (a turn). Beside it: which turn this is, and how long this slot has been
   // engaged altogether in the step in hand.
@@ -1546,17 +1547,17 @@ def question_track(d):
     lp = d.get("loop")
     tr = track_of(lp)
     of = (lp or {}).get("of") or 0
-    if not lp and not session_live():
-        return ('<div class="qtrack" id="qtrack"><div class="qhead"><b>Question by question</b><span>not begun</span></div>'
-                '<p class="qnow" id="qnow">Each question the larger model answered stays in hand until the swarm is at parity on it.</p><div class="pips" id="pips"></div></div>')
     n = lambda st: sum(1 for x in tr if x["s"] == st)  # noqa: E731
-    now = ("Pass %s stopped after question %d of %d." % (e(str(lp.get("pass", ""))), len(tr), of)) if tr and len(tr) < of else ("Pass %s: every question finished." % e(str(lp.get("pass", ""))) if tr else "")
+    begun = bool(lp) or session_live()
+    now = ("Pass %s stopped after question %d of %d." % (e(str(lp.get("pass", ""))), len(tr), of)) if tr and len(tr) < of else ("Pass %s: every question finished." % e(str(lp.get("pass", ""))) if tr
+           else "" if begun else "Each question the larger model answered stays in hand until the swarm is at parity on it.")
     pips = "".join('<i class="%s" title="%s · %s%s"></i>' % (x["s"], e(x["id"]), e(x["kind"]), (" · %d change%s tried" % (x["tried"], "" if x["tried"] == 1 else "s")) if x["tried"] else "") for x in tr)
-    return ('<div class="qtrack" id="qtrack"><div class="qhead" id="qhead"><b>Question by question</b><span>%d of %d finished</span><span>%d at parity as it stood</span><span>%d brought to parity</span><span>%d not reached</span></div>'
+    head = ("<span>%d of %d finished</span><span>%d at parity as it stood</span><span>%d brought to parity</span><span>%d not reached</span>" % (len(tr), of, n("at"), n("re"), n("nr"))) if begun else "<span>not begun</span>"
+    return ('<div class="qtrack" id="qtrack"><div class="qhead" id="qhead"><b>Question by question</b>%s</div>'
             '<p class="qnow" id="qnow">%s</p><div class="pips" id="pips">%s</div>'
             '<div class="qkey"><span><i style="background:var(--right)"></i>at parity as it stood</span><span><i style="background:var(--teal2)"></i>brought to parity by a change</span>'
             '<span><i style="background:var(--wrong)"></i>not reached</span><span><i style="background:var(--sun)"></i>in hand</span></div>%s</div>'
-            % (len(tr), of, n("at"), n("re"), n("nr"), now, pips, tries_list(lp)))
+            % (head, now, pips, tries_list(lp)))
 
 
 def arrangement(d):
