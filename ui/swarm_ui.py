@@ -243,7 +243,32 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .parc .memnum b{color:#9a5b00}.parc.level .memnum b{color:var(--right)}.parc .memh small{color:#7a6a4f;font-weight:600}.parc.level .memh small{color:var(--mist)}
 .trainprog>.mbar{display:flex;width:100%;height:14px;margin-top:12px;border-radius:var(--r);overflow:hidden;background:var(--soft)}.trainprog>.mbar i{display:block;height:100%}.trainprog .mbar .pe,.trainprog .memleg .pe{background:var(--right)}.trainprog .mbar .pr,.trainprog .memleg .pr{background:var(--teal2)}
 .trainprog .mbar .pb,.trainprog .memleg .pb{background:#fff;box-shadow:inset 0 0 0 2px var(--sun)}.trainprog .mbar .pn,.trainprog .memleg .pn{background:var(--wrong)}.trainprog .memleg .pq{background:var(--soft)}
-.trainprog .proghead{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline}.trainprog .memnum{display:flex;align-items:baseline;gap:8px}.trainprog .memnum .pct{font-size:40px;line-height:1}
+.trainprog .proghead{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline}.trainprog .memnum{display:flex;align-items:baseline;gap:8px}.trainprog .memnum .pct{font-size:40px;line-height:1}.trainprog .memnum small{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mist);margin-top:2px}
+/* EVALUATE THE SWARM and PRETRAIN: the same head as Training progress, a row a task (its name, a bar for each model, what the two came
+   to) and a row a small model; the bars move in place while a run goes on */
+.evalp .proghead,.prep .proghead{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center}.evalp .memnum,.prep .memnum{display:flex;align-items:baseline;gap:8px}
+.evalp .memnum .pct,.prep .memnum .pct{font-size:40px;line-height:1}.evalp .memnum small,.prep .memnum small{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mist);margin-top:2px}
+.evalp .progline,.prep .progline{flex:1 1 320px;font-size:14px;color:var(--fog);line-height:1.45}.evctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.evctl select{font:inherit;font-weight:700;padding:10px 40px 10px 14px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);cursor:pointer;-webkit-appearance:none;appearance:none;background:var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%235b6b68' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 16px center/12px 8px}
+.evctl select:focus-visible{outline:2px solid var(--teal2);outline-offset:2px}
+.evalp>.state,.prep>.state,.evnow{margin-top:12px}.evq{margin-top:8px;padding:10px 12px;border-radius:var(--r);background:var(--soft);font-size:13px}
+.evq .evql{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}.evq .evql span{color:var(--mist);font-size:12px}.evq p{margin:6px 0 0;overflow-wrap:anywhere;line-height:1.45}
+.evitem{margin-top:16px}.evitem h4{margin:0 0 4px;font-size:15px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.evitem>p{margin:0 0 6px}
+.evrow{display:grid;grid-template-columns:minmax(150px,1.1fr) minmax(200px,1.4fr) minmax(200px,1.3fr);gap:6px 16px;padding:10px 0;border-top:1px solid var(--line2);align-items:center}
+.evname b{display:block;font-size:14px}.evname small,.evag small{display:block;font-size:12px;color:var(--mist);line-height:1.35;margin-top:2px}
+.evbars{display:grid;gap:6px}.evw small{display:block;font-size:12px;color:var(--mist);margin-top:2px;overflow-wrap:anywhere}.evw small b{color:var(--fog)}
+.evbar{display:block;height:8px;border-radius:var(--r);background:var(--soft);overflow:hidden}.evbar i{display:block;height:100%;width:0;background:var(--teal2);transition:width .6s ease}
+.evw[data-w="target"] .evbar i{background:var(--tgt)}.evw.asking .evbar i{background:var(--sun)}.evw.failed .evbar i{background:var(--wrong)}.evw.kept .evbar i{opacity:.55}
+.evag .evpct{font-size:20px;margin-right:4px}.prerows{margin-top:12px}.prerow{display:grid;grid-template-columns:minmax(130px,.6fr) minmax(0,2fr);gap:4px 16px;padding:10px 0;border-top:1px solid var(--line2);align-items:center}
+.prerow small{display:block;font-size:12.5px;color:var(--fog);line-height:1.4;margin-top:2px}.prerow .evbar{height:8px}.preuse{display:flex;gap:8px;align-items:baseline;margin-top:12px;font-weight:700;font-size:14px;flex-wrap:wrap}
+.preuse small{font-weight:500;color:var(--mist);font-size:12px}
+@media (max-width:760px){.evrow{grid-template-columns:minmax(0,1fr)}.prerow{grid-template-columns:minmax(0,1fr)}.evctl{width:100%}.evctl .btn{flex:1}.evctl select{flex:1 1 100%}}
+/* THE HEADLINE NUMBERS (Training progress, Evaluate the swarm, Pretrain): the number, then its label beside it on the same line,
+   and what it is a share of under the label, all read left to right (the memory chart's own number is right-aligned; not these) */
+.trainprog .memnum,.evalp .memnum,.prep .memnum{text-align:left;align-items:baseline;gap:10px;flex:none}
+.trainprog .memnum>span,.evalp .memnum>span,.prep .memnum>span{display:flex;flex-direction:column;align-items:flex-start;font-size:14px;color:var(--fog);font-weight:700;line-height:1.2}
+.trainprog .memnum small,.evalp .memnum small,.prep .memnum small{margin-top:3px;white-space:nowrap}
+.evalp .memnum .pct.none{color:var(--mist);font-weight:800}
 .trainprog .progline{flex:1 1 320px;font-size:14px;color:var(--fog);line-height:1.45}.trainprog .memleg{margin-top:8px}.trainprog .memc{margin-top:14px}
 .parc .mbar .pe,.parc .memleg .pe{background:var(--right)}.parc .mbar .pd,.parc .memleg .pd{background:var(--wrong)}.parc .mbar .pn,.parc .memleg .pn{background:#c9d4d1}
 .parc .memrow.alone{font-weight:600;color:var(--mist)}.parc .memrow.alone .mbar{height:12px;opacity:.8}.parc .memrow .mv b{color:var(--fog)}
@@ -613,7 +638,7 @@ async function liveTick(){
         const rs=md.reasons||[];if(rs.length){line('Why it is tried now','');const ul=document.createElement('ul');for(const r of rs){const li=document.createElement('li');li.textContent=r;ul.append(li);}box.append(ul);}
         if(lp.tried&&lp.tried.length){line('Tried on this question before it','');const ol=document.createElement('ol');ol.className='qtried';
           for(const x of lp.tried){const li=document.createElement('li');const k=document.createElement('span');k.className='k'+(x.grade==='right'?' up':x.closer?' cl':'');
-            k.textContent=x.grade==='right'?(x.lostOn?'broke one':'parity'):x.closer?'closer':x.grade==='noref'?'no grade':x.library?'found, no':x.suggested?'suggested, no':'no closer';li.append(k,(x.round>1?'round '+x.round+' · ':'')+x.move+(x.lostOn?' · at parity, broke '+x.lostOn:x.near?' · '+nw(x.near):''));ol.append(li);}
+            k.textContent=x.grade==='right'?(x.lostOn?'broke one':'parity'):x.closer?'closer':x.grade==='noref'?'no grade':x.library?'found, no':x.suggested?'suggested, no':x.taught?'new brief, no':'no closer';li.append(k,(x.round>1?'round '+x.round+' · ':'')+x.move+(x.lostOn?' · at parity, broke '+x.lostOn:x.near?' · '+nw(x.near):''));ol.append(li);}
           box.append(ol);}
         qn.append(fold);}}
     else if(n.running&&n.trainer!=='loop'){qn.dataset.k='';qn.textContent='Training question by question begins after the larger model has answered and the plan is written.';}
@@ -645,6 +670,52 @@ async function liveTick(){
     if(s.state==='working')paint(el,'on','Answering alone · '+Math.max(0,Math.round((Date.now()-s.since)/1000))+' s');else paint(el,'done','Answered alone in '+(s.ms/1000).toFixed(1)+' s');});
 }
 setInterval(liveTick,1500);liveTick();
+
+// EVALUATE THE SWARM and PRETRAIN: started and stopped from their own buttons, and followed IN PLACE while they run (the bars, the
+// question being asked, how long a question takes, the step a model is on); each section is drawn again only when its run ends
+async function evPost(url,into,body){const r=await fetch(url,{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify(body||{})});
+  if(!r.ok){alert(await r.text());return;}$(into).innerHTML=await r.text();}
+document.addEventListener('click',async(ev)=>{
+  const b=ev.target.closest('#ev-go,#ev-stop,#pre-go,#pre-stop');if(!b)return;b.disabled=true;
+  if(b.id==='ev-go')await evPost('/eval/start','#evalwrap',{limit:Number(($('#ev-size')||{}).value||0)});
+  else if(b.id==='ev-stop')await evPost('/eval/stop','#evalwrap');
+  else if(b.id==='pre-go')await evPost('/pretrain/start','#prewrap');
+  else await evPost('/pretrain/stop','#prewrap');
+  await swap('/fragment/run','#run');});
+document.addEventListener('change',async(ev)=>{const c=ev.target.closest('#pre-use');if(!c)return;
+  const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({adapters:c.checked})});
+  if(!r.ok){alert(await r.text());c.checked=!c.checked;}});
+const EVW={waiting:()=>'waiting',done:s=>s.done+' asked',kept:()=>'answers kept from before',failed:s=>'failed: '+(s.why||''),stopped:s=>'stopped at '+s.done,
+  asking:s=>'asking '+Math.min(s.done+1,s.of||s.done+1)+(s.of?' of '+s.of:'')};
+const mins=x=>x<90?Math.round(x)+' s':x<5400?Math.round(x/60)+' min':(x/3600).toFixed(1)+' h';
+async function evTick(){const box=$('#evalbox');if(!box||!box.dataset.running)return;
+  let s;try{s=await (await fetch('/api/eval')).json();}catch(e){return;}
+  if(!s.running||(s.runId&&box.dataset.run&&s.runId!==box.dataset.run)){await swap('/fragment/eval','#evalwrap');await swap('/fragment/run','#run');return;}
+  const set=(k,t)=>{const el=box.querySelector('[data-ev="'+k+'"]');if(el&&el.textContent!==t)el.textContent=t;};
+  set('step',s.step||'');
+  const q=box.querySelector('.evq'),n=s.now;
+  if(q){q.hidden=!n;if(n){const tn=box.dataset.tname||'';
+    set('q',(n.who==='swarm'?'the swarm':(s.target||'the larger model'))+' · '+n.name+' · question '+n.i+(n.of?' of '+n.of:''));
+    const on=Math.max(0,(Date.now()-n.since)/1000),left=n.avgSeconds&&n.of?Math.max(0,(n.of-n.i+1)*n.avgSeconds-on):null;
+    set('eta','this one '+mins(on)+(n.avgSeconds?' · '+mins(n.avgSeconds)+' a question':'')+(left!==null?' · about '+mins(left)+' left in this task':''));
+    set('ask',String(n.ask||'').replace(/\\s+/g,' ').slice(-300));}
+    const l=s.last;set('reply',l&&l.seconds!=null?'Last answer ('+Math.round(l.seconds)+' s): '+String(l.reply||'').replace(/\\s+/g,' ').slice(0,240):'');}
+  for(const t of s.tasks||[]){const row=box.querySelector('[data-evt="'+t.task+'"]');if(!row)continue;
+    for(const who of ['target','swarm']){const w=row.querySelector('[data-w="'+who+'"]'),st=t[who]||{};if(!w)continue;
+      const pct=st.of?100*st.done/st.of:(st.state==='done'||st.state==='kept'?100:0);w.className='evw '+(st.state||'waiting');
+      w.querySelector('i').style.width=pct.toFixed(1)+'%';const ws=w.querySelector('[data-ws]'),tx=(EVW[st.state]||(()=>''))(st);if(ws.textContent!==tx)ws.textContent=tx;}}}
+async function preTick(){const box=$('#prebox');if(!box||!box.dataset.running)return;
+  let s;try{s=await (await fetch('/api/pretrain')).json();}catch(e){return;}
+  const key=(s.models||[]).map(m=>m.state).join();
+  if(!s.running||(box.dataset.k&&box.dataset.k!==key)){box.dataset.k='';await swap('/fragment/pretrain','#prewrap');if(!s.running)await swap('/fragment/run','#run');return;}
+  box.dataset.k=key;const st=box.querySelector('[data-pre-step]');if(st&&st.textContent!==s.step)st.textContent=s.step||'';
+  for(const m of s.models||[]){const row=box.querySelector('[data-pre="'+m.file+'"]');if(!row)continue;
+    if(m.state==='fetching'){const t=row.querySelector('[data-pm]');if(t)t.textContent=t.textContent.replace(/ · [^·]* so far$/,' · '+m.got+' so far');continue;}
+    if(m.state!=='training')continue;
+    const i=row.querySelector('.evbar i'),t=row.querySelector('[data-pm]'),n=s.iters||100;
+    if(i)i.style.width=(100*(m.iter||0)/n).toFixed(1)+'%';
+    if(t)t.textContent='Training: step '+(m.iter||0)+' of '+n+(m.loss!=null?' · loss '+m.loss.toFixed(3):' · loading its weights');}}
+setInterval(()=>{evTick();preTick();},1500);
 """
 
 
@@ -863,7 +934,7 @@ def tries_list(lp):
                 + method_line(a))
             for a in q["attempts"][1:])
         rounds = (" in %d rounds" % q["rounds"]) if (q.get("rounds") or 1) > 1 else ""
-        why = (" · broke " + ", ".join("%s %d×" % (k, v) for k, v in sorted(q["broke"].items(), key=lambda kv: -kv[1])) if q.get("broke") else "") + (" · every combination within reach tried" if q.get("exhausted") else "") + ((" · widened %d×" % q["widened"]) if q.get("widened") else "") + ((" · lost to %s, back in hand" % q["lostTo"]) if q.get("lostTo") else "") + (" · unstable mark: the larger model did not give its own answer again (searched until parity all the same)" if q.get("unstable") else "")
+        why = (" · beyond rearranging after %s tries" % q["beyond"].get("at") if q.get("beyond") else "") + (" · broke " + ", ".join("%s %d×" % (k, v) for k, v in sorted(q["broke"].items(), key=lambda kv: -kv[1])) if q.get("broke") else "") + (" · every combination within reach tried" if q.get("exhausted") else "") + ((" · widened %d×" % q["widened"]) if q.get("widened") else "") + ((" · lost to %s, back in hand" % q["lostTo"]) if q.get("lostTo") else "") + (" · unstable mark: the larger model did not give its own answer again (searched until parity all the same)" if q.get("unstable") else "")
         rows.append('<li class="lq"><details><summary><code>%s</code> <span class="muted small">%s · lost in %s · %d tried%s%s</span> <span class="pill %s">%s</span></summary><ol class="tries">%s</ol></details></li>'
                     % (e(q["id"]), e(q.get("kind", "")), e(q.get("lostAt", "")), len(q["attempts"]) - 1, rounds, why, cls, e(word), tries))
     # WHAT HAS WORKED, BY KIND OF CHANGE: learned question after question, and what orders the changes tried on the next
@@ -906,7 +977,7 @@ def plan_now(d):
     sg = lp.get("suggest") or {}
     lib = library_of(d)
     lpo = loop_policy_of(d)
-    pol = {"reviewTries": 40, "trialTries": 40, "suggestEvery": 20, **(lpo.get("loopPolicy") or {})}
+    pol = {"reviewTries": 40, "trialTries": 40, "suggestEvery": 20, "teachEvery": 60, **(lpo.get("loopPolicy") or {})}
     tr = lp.get("trial")
     phase = loop_phase(lv)
     of = (lv or {}).get("of") or lp.get("of") or 0
@@ -937,9 +1008,21 @@ def plan_now(d):
     rows.append(("Suggestions", ("Asked %d time%s, about %d s each; %d tried: %d kept, %d came closer. Next after %d failed tries on a question."
                                  % (sg.get("asked", 0), "" if sg.get("asked") == 1 else "s", round(sg.get("seconds", 0) / max(1, sg.get("asked", 0) + sg.get("failed", 0))), sg.get("tried", 0), sg.get("kept", 0), sg.get("closer", 0), pol["suggestEvery"]))
                  if sg.get("asked") else "None yet: the larger model is asked what to try after %d failed tries on a question." % pol["suggestEvery"]))
+    # BEYOND REARRANGING (training/adapters.mjs): a question that resisted so many tries, the larger model's teaching among them; what
+    # was made ready for the next lever, and whether each small model can be trained on this machine
+    for q in [x for x in qs if x.get("beyond")][-2:]:
+        b = q["beyond"]
+        r = b.get("ready") or {}
+        tr_ = "; ".join("%s %s" % (x.get("model", ""), "can be trained here with MLX" if x.get("ok") else "cannot: " + x.get("why", "")) for x in r.get("trainable") or [])
+        rows.append(("Beyond rearranging", "<code>%s</code> after %s tries, the larger model&#39;s briefs among them: it stays in hand. Ready for a fine-tuned adapter: %s train answers%s."
+                     % (e(q.get("id", "")), e(str(b.get("at", "?"))), e(str(r.get("examples", "?"))), (" · " + e(tr_)) if tr_ else "")))
+    tc = lp.get("teach") or {}
+    if tc.get("asked") or tc.get("failed"):
+        rows.append(("Briefs written", "The larger model said what went wrong and wrote new briefs %d time%s (about %d s each): %d briefs, %d tried, %d kept, %d came closer."
+                     % (tc.get("asked", 0), "" if tc.get("asked") == 1 else "s", round(tc.get("seconds", 0) / max(1, tc.get("asked", 0) + tc.get("failed", 0))), tc.get("briefs", 0), tc.get("tried", 0), tc.get("kept", 0), tc.get("closer", 0))))
     steps = [("ask", "Ask the swarm as it stands"), ("library", "Try the found arrangements, the most successful first"),
              ("search", "Search, best first: the plan's moves in the policy's order, building on what came closer; widen, never move on"),
-             ("suggest", "Every %d failed tries, try what the larger model suggests" % pol["suggestEvery"]),
+             ("suggest", "Every %d failed tries, try what the larger model suggests; where no slot drafts the answer, every %d, the briefs it writes for the failing drafters" % (pol["suggestEvery"], pol.get("teachEvery", 60))),
              ("guard", "At parity: ask it again on up to %s questions already at parity" % e(str(((d.get("policy") or {}).get("loop") or {}).get("guard", 6)))),
              ("keep", "None lost: keep it, add it to the found arrangements, next question")]
     flow = "".join('<li%s><span>%s</span></li>' % (' class="on"' if k == phase else "", e(t)) for k, t in steps)
@@ -1050,7 +1133,7 @@ def policy_block(lp):
     pol = lp.get("loopPolicy")
     # (a policy written before a setting existed takes that setting's default, as the loop does: training/loop-policy.mjs normal)
     if pol:
-        pol = {"reviewTries": 40, "trialTries": 40, "swapAfter": 25, "brokeBudget": 12, "suggestEvery": 20, **pol}
+        pol = {"reviewTries": 40, "trialTries": 40, "swapAfter": 25, "brokeBudget": 12, "suggestEvery": 20, "teachEvery": 60, "prune": True, **pol}
     if not pol:
         return ('<h4>The loop&#39;s policy</h4><p class="small muted" style="margin:0">How the search ranks and bounds what it tries is data that '
                 "changes as it runs. A pass that runs this version writes it here: the larger model reviews the record every few questions "
@@ -1065,6 +1148,8 @@ def policy_block(lp):
         "writer left out unless lost in writing" if pol.get("skipWriterUnlessWriting") else "writer always open",
         "a standing conflict swapped after %d" % pol.get("swapAfter", 25) if pol.get("swapAfter") else "no swaps",
         "the larger model suggests what to try after %d failed tries" % pol.get("suggestEvery", 20) if pol.get("suggestEvery") else "no suggestions",
+        "writes briefs for a drafting loss after %d" % pol.get("teachEvery", 60) if pol.get("teachEvery") else "no briefs written",
+        "a win pruned to its smallest form" if pol.get("prune", True) else "wins kept whole",
     ])
     out = ['<h4>The loop&#39;s policy</h4><p class="small" style="margin:0 0 6px">How the search ranks and bounds what it tries is data, and it changes '
            "as training runs: every <b>%s</b> tries the larger model is shown the record and may propose a change to one or two knobs; it is tried "
@@ -1088,9 +1173,11 @@ def policy_block(lp):
         if ev.get("taken"):
             bits.append("; ".join("%s %s → %s" % (x["knob"], json.dumps(x["from"]), json.dumps(x["to"])) for x in ev["taken"]))
         v = ev.get("verdict")
-        if v:
-            bits.append("%s against %s before (reached %d of %d, against %d of %d)" % (v.get("during"), v.get("before") if v.get("before") is not None else "nothing",
-                                                                                      v.get("reachedDuring", 0), v.get("duringN", 0), v.get("reachedBefore", 0), v.get("beforeN", 0)))
+        if v and v.get("inconclusive"):
+            bits.append("no signal: nothing came closer, before or during, so nothing to judge it by")
+        elif v:
+            bits.append("%s against %s before (kept %d of %d tries, against %d of %d)" % (v.get("during"), v.get("before") if v.get("before") is not None else "nothing",
+                                                                                         v.get("keptDuring", v.get("reachedDuring", 0)), v.get("duringN", 0), v.get("keptBefore", v.get("reachedBefore", 0)), v.get("beforeN", 0)))
         if ev.get("why"):
             bits.append(ev["why"])
         if ev.get("ideas"):
@@ -1889,7 +1976,7 @@ def start_run(passes=0):
     st = run_state()
     if st and st["running"]:
         return
-    why = cannot_run()
+    why = cannot_run() or busy_with()
     if why:
         return
     root = Path(ARGS.root)
@@ -2104,7 +2191,8 @@ def run_panel(cleared=""):
         out.append('<p class="meta"><span>%s</span><span>question by question</span><span>%s <b>%s</b></span></p>'
                    % ("Goes on until stopped" if not st.get("passes") else "<b>%d</b> passes" % st["passes"], e(dname), e(decider_state(True))))
     else:
-        why = cannot_run()
+        held = busy_with()
+        why = cannot_run() or (("%s is running: training waits for it, since each needs the models to itself." % (held[0].upper() + held[1:])) if held else "")
         out.append('<div class="runbtns"><button class="btn top wide" id="run-go" type="button"%s>Run training</button>'
                    '<button class="btn top quiet" id="run-clear" type="button" title="Start training again from pass 1: what it has tried, measured and kept is moved aside (to .work/archive), and each model&#39;s own answers are kept">Clear training state</button></div>'
                    % (" disabled" if why else ""))
@@ -2955,21 +3043,351 @@ def progress_strip(d):
     else:
         line = "Training starts at question 1 of the pass: each question stays in hand until the swarm is at parity with %s on it." % e(tname)
         now = ""
-    found = ("<b>%d</b> found arrangement%s (tried first on every question) · <b>%d</b> change%s kept into the spec this pass"
-             % (len(lib), "" if len(lib) == 1 else "s", kept, "" if kept == 1 else "s"))
+    # (the share is this pass's; the spec is every run's: say which is which, so one change kept this pass does not read as all there is)
+    wins = len(d["learned"].get("wins") or [])
+    found = ("The spec: <b>%d</b> win%s from every run (%d kept this pass) · <b>%d</b> found arrangement%s, tried first on every question"
+             % (wins, "" if wins == 1 else "s", kept, len(lib), "" if len(lib) == 1 else "s"))
     mem = memory_chart(d, compact=True)
-    return ('<div class="panel trainprog"><div class="proghead"><span class="memnum"><b class="pct">%s%%</b><span>training complete</span></span>'
+    return ('<div class="panel trainprog"><div class="proghead"><span class="memnum"><b class="pct">%s%%</b><span>training complete<small>pass %s</small></span></span>'
             '<span class="progline">%s %s</span></div>%s<span class="memleg"><span><i class="pe"></i>at parity as the swarm stood</span><span><i class="pr"></i>brought to parity by a change</span>'
             '<span><i class="pb"></i>back in hand</span>%s<span><i class="pq"></i>still to come</span></span><p class="meta" style="margin:8px 0 0">%s</p>%s</div>'
-            % (fmt_pct(pct), line, now, bar, '<span><i class="pn"></i>left short by an earlier loop</span>' if nr else "", found, mem))
+            % (fmt_pct(pct), e(str(lp.get("pass") or (d.get("state") or {}).get("pass", 0) + 1)), line, now, bar, '<span><i class="pn"></i>left short by an earlier loop</span>' if nr else "", found, mem))
+
+
+# ---------------------------------------------------------------- evaluate the swarm, pretrain it
+# Both, like a training session, are processes this page starts and stops (each in a session of its own, so that stopping it stops
+# the model servers it started), and only one of the three runs at a time: each needs the models, and the memory, to itself.
+def _job_file(name):
+    return Path(ARGS.root) / ".work" / name / "ui-run.json"
+
+
+def job_state(name):
+    """{pid, at, ...} of the evaluation or pretraining this page started, and whether it is still alive."""
+    try:
+        st = json.loads(_job_file(name).read_text())
+    except (OSError, ValueError):
+        return None
+    try:
+        try:
+            if os.waitpid(st["pid"], os.WNOHANG)[0] == st["pid"]:
+                raise OSError("ended")
+        except ChildProcessError:
+            pass
+        os.kill(st["pid"], 0)
+        st["running"] = True
+    except (OSError, KeyError):
+        st["running"] = False
+    return st
+
+
+def busy_with():
+    """Which of training, evaluation and pretraining is running now ('' when none): the other two wait for it."""
+    if (run_state() or {}).get("running"):
+        return "training"
+    for name, what in (("eval", "an evaluation"), ("pretrain", "pretraining")):
+        if (job_state(name) or {}).get("running"):
+            return what
+    return ""
+
+
+def start_job(name, argv):
+    """Start an evaluation or pretraining; '' when it started, else why not."""
+    held = busy_with()
+    if held:
+        return "Wait for %s to end, or stop it: each needs the models to itself." % held
+    why = cannot_run()
+    if why:
+        return why
+    root = Path(ARGS.root)
+    (root / ".work" / name).mkdir(parents=True, exist_ok=True)
+    # (what the last one wrote is set aside, so that the page does not show it as this one's while it starts)
+    for f in ((root / ".work" / name / "live.json"),):
+        try:
+            f.replace(f.with_name("last-live.json"))
+        except OSError:
+            pass
+    log = open(root / ".work" / name / "ui-run.log", "wb")
+    env = dict(os.environ, NODE=node_for_training())
+    p = subprocess.Popen(argv, cwd=str(root), env=env, stdout=log, stderr=log, stdin=subprocess.DEVNULL, start_new_session=True)
+    _job_file(name).write_text(json.dumps({"pid": p.pid, "at": time.strftime("%Y-%m-%d %H:%M:%S")}))
+    return ""
+
+
+def stop_job(name):
+    st = job_state(name)
+    if not (st and st["running"]):
+        return
+    try:
+        os.killpg(st["pid"], signal.SIGTERM)
+    except OSError:
+        pass
+    for _ in range(50):
+        time.sleep(0.1)
+        if not (job_state(name) or {}).get("running"):
+            break
+
+
+def job_live(name):
+    """What the evaluation or pretraining is doing (its live.json), with whether it is running; a run that ended without saying
+    so (it stopped on an error before it could) says so, with the last line it wrote."""
+    root = Path(ARGS.root) / ".work" / name
+    live = data._json(root / "live.json", None) or {}
+    st = job_state(name) or {}
+    live["running"] = bool(st.get("running"))
+    if not live["running"] and st and live.get("phase") not in ("done", "stopped", "failed"):
+        try:
+            tail = [x for x in (root / "ui-run.log").read_text(errors="replace").splitlines() if x.strip()]
+        except OSError:
+            tail = []
+        live["phase"] = "failed"
+        live["step"] = "It ended before it finished: " + (tail[-1][:220] if tail else "nothing was written")
+    return live
+
+
+EVAL_SIZES = ((20, "20 a task (quick)"), (100, "100 a task"), (0, "every question"))
+COMPARE_WORDS = {"answer": "the same answer", "verdict": "the same verdict on the task's tests", "instructions": "the same instructions kept and broken"}
+METRIC_WORDS = {"exact_match": "exact match", "pass@1": "pass@1", "pass_at_1": "pass@1", "prompt_level_strict_acc": "strict prompt accuracy"}
+
+
+def _ev_bar(row, who, label):
+    """One model's progress through one task: a bar, and what it is doing."""
+    st = row.get(who) or {}
+    done, of = st.get("done") or 0, st.get("of")
+    pct = 100.0 * done / of if of else (100.0 if st.get("state") in ("done", "kept") else 0)
+    words = {"waiting": "waiting", "asking": "asking %d%s" % (min(done + 1, of or done + 1), (" of %d" % of) if of else ""), "done": "%d asked" % done,
+             "kept": "answers kept from before", "failed": "failed: " + (st.get("why") or ""), "stopped": "stopped at %d" % done}.get(st.get("state"), "")
+    return ('<div class="evw %s" data-w="%s"><span class="evbar"><i style="width:%.1f%%"></i></span><small><b>%s</b> <span data-ws>%s</span></small></div>'
+            % (e(st.get("state") or "waiting"), who, pct, e(label), e(words)))
+
+
+def _ev_agree(r):
+    """What the two answers came to on one task: how many are the same, split by whether both were right."""
+    a = (r or {}).get("agree")
+    if not a:
+        return '<span class="muted">%s</span>' % e((r or {}).get("failed") or "compared when both have answered")
+    pct = data.percent(a["same"], a["of"]) if a["of"] else 0
+    sc = lambda x: ("%s%%" % fmt_pct(round(100.0 * x["value"], 1))) if x and x.get("value") is not None else "?"  # noqa: E731
+    return ('<b class="evpct">%s%%</b> <span>%d of %d the same</span><small>%d both right · %d both wrong · %d differ%s</small><small>scores: %s %s · the swarm %s</small>'
+            % (fmt_pct(pct), a["same"], a["of"], a["bothRight"], a["bothWrong"], a["differ"],
+               (" (%d only %s right, %d only the swarm)" % (a["onlyTarget"], "the larger model", a["onlySwarm"])) if a["differ"] else "",
+               e(r.get("targetName") or "the larger model"), sc(r.get("target")), sc(r.get("swarm"))))
+
+
+def eval_block(d):
+    """EVALUATE THE SWARM: standard benchmarks (lm-evaluation-harness), each asked of the larger model and of the swarm, and every
+    question's two answers compared. Apart from training: training never asks a benchmark's question. Followed in place while it
+    runs (/api/eval), what is being asked and how far each task is; when it ends, what the two came to, task by task."""
+    root = Path(ARGS.root)
+    live = job_live("eval")
+    res = data._json(root / ".work" / "eval" / "results.json", None) or {}
+    tname = (d.get("target") or {}).get("name", "the larger model")
+    eq = d.get("equivalence") or {}
+    chosen = [t for t in eq.get("targets", []) if t["id"] in (eq.get("chosen") or [])]
+    running = live.get("running")
+    shown = live if (running or live.get("phase") in ("stopped", "failed")) and live.get("tasks") else None
+    by_task = {r["task"]: dict(r, targetName=res.get("target") or tname) for r in res.get("results", [])}
+    lrows = {t["task"]: t for t in (shown or {}).get("tasks", [])}
+    held = busy_with()
+    # the headline: of every question compared in the last evaluation (of what is chosen now), how many had the same answer
+    comp = [by_task[b["task"]] for t in chosen for b in t.get("benchmarks", []) if b["task"] in by_task and by_task[b["task"]].get("agree")]
+    same = sum(r["agree"]["same"] for r in comp)
+    of = sum(r["agree"]["of"] for r in comp)
+    head = (('<span class="memnum"><b class="pct">%s%%</b><span>equivalent<small>%d of %d questions</small></span></span>' % (fmt_pct(data.percent(same, of)), same, of))
+            if of else '<span class="memnum"><b class="pct none">–</b><span>equivalent<small>not evaluated yet</small></span></span>')
+    size = int((live.get("limit") if running else (res.get("limit") if res else 20)) or 0)
+    opts = "".join('<option value="%d"%s>%s</option>' % (n, " selected" if n == size else "", e(w)) for n, w in EVAL_SIZES)
+    if running:
+        ctl = '<button class="btn stop top" id="ev-stop" type="button">Stop evaluation</button>'
+    else:
+        ctl = ('<select id="ev-size" aria-label="How many questions of each task"%s>%s</select><button class="btn top" id="ev-go" type="button"%s>Evaluate</button>'
+               % (" disabled" if held else "", opts, " disabled" if held or not chosen else ""))
+    out = ['<div class="panel evalp" id="evalbox" data-phase="%s" data-run="%s"%s>' % (e(live.get("phase") or ""), e(live.get("runId") or ""), ' data-running="1"' if running else ""),
+           '<div class="proghead">%s<span class="progline">Standard benchmarks (EleutherAI&#39;s lm-evaluation-harness 0.4.13), asked of %s and of the swarm, '
+           'and every question&#39;s two answers compared. Kept apart from training: training never asks a benchmark&#39;s question.</span>'
+           '<span class="evctl">%s</span></div>' % (head, e(tname), ctl)]
+    if held and not running:
+        out.append('<div class="state warn"><i></i><span>%s is running: an evaluation waits for it, since each needs the models to itself.</span></div>' % e(held[0].upper() + held[1:]))
+    # WHAT IS HAPPENING NOW (painted again in place from /api/eval)
+    if running or (shown and live.get("phase") in ("stopped", "failed")):
+        cls = "on" if running else ("warn" if live.get("phase") == "failed" else "")
+        now = live.get("now") or {}
+        last = live.get("last") or {}
+        out.append('<div class="evnow"><div class="state %s"><i></i><span data-ev="step">%s</span></div>'
+                   '<div class="evq"%s><div class="evql"><b data-ev="q">%s</b><span data-ev="eta"></span></div><p data-ev="ask">%s</p>'
+                   '<p class="muted" data-ev="reply">%s</p></div></div>'
+                   % (cls, e(live.get("step") or ""), "" if now else ' hidden',
+                      e(("%s · %s · question %s%s" % ("the swarm" if now.get("who") == "swarm" else tname, now.get("name", ""), now.get("i", ""), (" of %s" % now["of"]) if now.get("of") else "")) if now else ""),
+                      e(" ".join(str(now.get("ask", "")).split())[-300:]), e(("Last answer (%.0f s): " % last["seconds"] + " ".join(str(last.get("reply", "")).split())[:240]) if last.get("seconds") is not None else "")))
+    if not chosen:
+        out.append('<p class="muted">Nothing is chosen under the models.</p>')
+    for t in chosen:
+        bms = t.get("benchmarks") or []
+        tc = [by_task[b["task"]] for b in bms if b["task"] in by_task and by_task[b["task"]].get("agree") and not shown]
+        isame, iof = sum(r["agree"]["same"] for r in tc), sum(r["agree"]["of"] for r in tc)
+        out.append('<section class="evitem"><h4>%s%s</h4>' % (e(t["name"]), (' <span class="pill">%s%% equivalent</span>' % fmt_pct(data.percent(isame, iof))) if iof else ""))
+        if t.get("benchmarksNote"):
+            out.append('<p class="muted small">%s.</p>' % e(t["benchmarksNote"]))
+        if not bms:
+            out.append('<p class="muted small">No standard benchmark is mapped to it.</p>')
+        for b in bms:
+            lr = lrows.get(b["task"])
+            r = by_task.get(b["task"]) if not shown else (dict(lr, targetName=tname) if lr and lr.get("agree") else None)
+            if lr:
+                bars = _ev_bar(lr, "target", tname) + _ev_bar(lr, "swarm", "The swarm")
+            elif r:
+                bars = _ev_bar({"target": {"state": "done", "done": (r.get("target") or {}).get("n") or 0, "of": (r.get("target") or {}).get("n")},
+                                "swarm": {"state": "done", "done": (r.get("swarm") or {}).get("n") or 0, "of": (r.get("swarm") or {}).get("n")}}, "target", tname) + \
+                       _ev_bar({"swarm": {"state": "done", "done": (r.get("swarm") or {}).get("n") or 0, "of": (r.get("swarm") or {}).get("n")}}, "swarm", "The swarm")
+            else:
+                bars = '<span class="muted small">not evaluated yet</span>'
+            out.append('<div class="evrow" data-evt="%s"><div class="evname"><b>%s</b><small>Scored by %s · equivalent: %s</small></div><div class="evbars">%s</div><div class="evag" data-ag>%s</div></div>'
+                       % (e(b["task"]), e(b["name"]), e(METRIC_WORDS.get(b["metric"], b["metric"].replace("_", " "))), e(COMPARE_WORDS.get(b["compare"], "")), bars, _ev_agree(r) if (r or lr) else ""))
+        out.append("</section>")
+    if res and not running:
+        when = res.get("at", "")[:16].replace("T", " ")
+        out.append('<p class="meta">Last evaluated %s UTC · %s · %s questions a task · %s in all · the swarm with briefs %s%s</p>'
+                   % (e(when), e(res.get("harness", "")), "every" if not res.get("limit") else res.get("limit"), e(_span(res.get("seconds") or 0)), e(res.get("briefs", "")),
+                      (" · served with adapters (%s)" % e(", ".join(res["adapters"]))) if res.get("adapters") else " · without adapters"))
+    out.append("</div>")
+    return "".join(out)
+
+
+def _originals():
+    return (data._json(Path(ARGS.root) / "training" / "originals.json", None) or data._json(Path(__file__).resolve().parent.parent / "training" / "originals.json", {}) or {}).get("models", {})
+
+
+def _du(p):
+    """Bytes under a folder (0 where it is not there): how much of a download has arrived."""
+    total = 0
+    for dp, _, fs in os.walk(p):
+        for f in fs:
+            try:
+                total += os.path.getsize(os.path.join(dp, f))
+            except OSError:
+                pass
+    return total
+
+
+def _iter_of(log):
+    """How far an MLX run is, from its log: (iteration, train loss) of the last report, or None."""
+    try:
+        text = Path(log).read_text(errors="replace")[-6000:]
+    except OSError:
+        return None
+    text = re.sub(r"\x1b\[[0-9;]*m", "", text)
+    hits = re.findall(r"^\s*(\d+)\s+([0-9]+\.[0-9]+)\s+[▼▲=]?", text, re.M)
+    return (int(hits[-1][0]), float(hits[-1][1])) if hits else None
+
+
+def pretrain_block(d):
+    """PRETRAIN: a LoRA adapter for each small model of the swarm, trained with MLX on the larger model's answers to the train
+    questions of what is chosen (never a benchmark's, never a held one), and kept where llama.cpp finds those answers likelier with
+    it. Whether the swarm is served with them is a switch; Evaluate the swarm, before and after, says what they bought."""
+    root = Path(ARGS.root)
+    live = job_live("pretrain")
+    running = live.get("running")
+    orig = _originals()
+    tgt = d.get("target") or {}
+    cfg = data._json(root / "src" / "config.json", {}) or {}
+    held = busy_with()
+    mlx = (root / ".work" / "mlx" / "venv" / "bin" / "python").exists()
+    import platform
+    apple = sys.platform == "darwin" and platform.machine() == "arm64"  # (MLX runs on Apple silicon only)
+    rows, good = [], 0
+    lmod = {m.get("file"): m for m in live.get("models") or []}
+    names = {t["id"]: t["name"] for t in (d.get("equivalence") or {}).get("targets", [])}
+    for k in ("a", "b", "c", "d"):
+        m = (d.get("members") or {}).get(k)
+        if not m:
+            continue
+        o = orig.get(m.get("file")) or {}
+        adir = root / ".work" / "library" / "adapters" / str(tgt.get("id", "")) / (o.get("dir") or m.get("file", ""))
+        res = data._json(adir / "result.json", None)
+        lm = lmod.get(m.get("file")) if running or live.get("phase") in ("stopped", "failed") else None
+        if res and res.get("ok"):
+            good += 1
+        if lm and lm.get("state") == "training" and not running:
+            it = _iter_of(lm.get("log", ""))
+            what = '<small class="bad">Ended at step %d of %d, before it finished: not kept</small>' % (it[0] if it else 0, live.get("iters") or 100)
+        elif lm and lm.get("state") == "training":
+            it = _iter_of(lm.get("log", ""))
+            n = live.get("iters") or 100
+            pct = 100.0 * (it[0] if it else 0) / n
+            what = ('<span class="evbar on"><i style="width:%.1f%%"></i></span><small data-pm>Training: step %d of %d%s</small>'
+                    % (pct, it[0] if it else 0, n, (" · loss %.3f" % it[1]) if it else " · loading its weights"))
+        elif lm and lm.get("state") == "fetching" and running:
+            what = '<small data-pm>Fetching its original weights from %s · %s so far</small>' % (e(o.get("repo", "")), e(cleanup.gb(_du(lm.get("dir", "")))))
+        elif lm and lm.get("state") in ("waiting", "stopped", "failed", "not trained", "fetching"):
+            what = '<small>%s</small>' % e({"waiting": "Waiting its turn", "stopped": "Stopped"}.get(lm["state"], "Not adapted: " + str((lm.get("result") or {}).get("why") or lm.get("why") or "")))
+        elif res and res.get("ok"):
+            p = res.get("perplexity") or {}
+            what = ('<small><b>Adapted</b> %s on %d of %s&#39;s answers (%s) · loss %s · llama.cpp perplexity on them %s → %s</small>'
+                    % (e(str(res.get("at", ""))[:10]), res.get("examples") or 0, e(res.get("target") or "the larger model"), e(", ".join(names.get(i, i) for i in res.get("items") or [])),
+                       e(" → ".join(str(x) for x in res.get("valLoss") or [])), p.get("without"), p.get("with")))
+        elif res:
+            what = '<small class="bad">Not kept: %s</small>' % e(res.get("why") or "")
+        elif o.get("cannot"):
+            what = '<small class="muted">Cannot be adapted here: %s</small>' % e(o["cannot"])
+        elif not o:
+            what = '<small class="muted">No original weights are named for it (training/originals.json)</small>'
+        elif not (root / ".work" / "mlx" / "hf" / o.get("dir", "-") / "config.json").exists():
+            what = '<small class="muted">Not adapted yet · Pretrain fetches its original weights from %s, then MLX trains it</small>' % e(o.get("repo", ""))
+        else:
+            what = '<small class="muted">Not adapted yet · MLX trains it from %s</small>' % e(o.get("repo", ""))
+        rows.append('<div class="prerow" data-pre="%s"><b>%s</b><div>%s</div></div>' % (e(m.get("file", "")), e(m.get("name", "")), what))
+    on = bool(cfg.get("adapters"))
+    if running:
+        ctl = '<button class="btn stop top" id="pre-stop" type="button">Stop pretraining</button>'
+    else:
+        ctl = '<button class="btn top" id="pre-go" type="button"%s>Pretrain</button>' % (" disabled" if held or not apple else "")
+    items = ", ".join(t["name"] for t in (d.get("equivalence") or {}).get("targets", []) if t["id"] in ((d.get("equivalence") or {}).get("chosen") or []))
+    out = ['<div class="panel prep" id="prebox"%s>' % (' data-running="1"' if running else ""),
+           '<div class="proghead"><span class="memnum"><b class="pct">%d</b><span>of %d adapted<small>LoRA, with MLX</small></span></span>'
+           '<span class="progline">Each small model learns %s&#39;s answers to the train questions of %s: never a benchmark&#39;s, never a held one. '
+           'An adapter is kept where llama.cpp, serving it beside the model, finds those answers likelier with it.</span><span class="evctl">%s</span></div>'
+           % (good, len(rows), e(tgt.get("name", "the larger model")), e(items or "what is chosen"), ctl)]
+    if held and not running:
+        out.append('<div class="state warn"><i></i><span>%s is running: pretraining waits for it.</span></div>' % e(held[0].upper() + held[1:]))
+    elif not apple and not running:
+        out.append('<div class="state warn"><i></i><span>Pretrain trains with MLX, which runs on Apple silicon only: it is not available on this machine. Evaluate the swarm and training are.</span></div>')
+    elif not mlx and not running:
+        out.append('<div class="state"><i></i><span>MLX, the trainer, is not installed yet: Pretrain installs it (once, into <code>.work/mlx</code>) and fetches what each model needs. The Uninstall Helper takes it out again.</span></div>')
+    if running or live.get("phase") in ("stopped", "failed"):
+        out.append('<div class="state %s"><i></i><span data-pre-step>%s</span></div>' % ("on" if running else "warn" if live.get("phase") == "failed" else "", e(live.get("step") or "")))
+    out.append('<div class="prerows">%s</div>' % "".join(rows))
+    out.append('<label class="preuse"><input type="checkbox" id="pre-use"%s%s> Serve the swarm with its adapters <small>from the next time it is loaded: training, an evaluation</small></label>'
+               % (" checked" if on else "", " disabled" if not good else ""))
+    out.append("</div>")
+    return "".join(out)
+
+
+def eval_api():
+    """/api/eval: the evaluation's live state, for the page to paint in place."""
+    live = job_live("eval")
+    live.pop("log", None)
+    return live
+
+
+def pretrain_api():
+    """/api/pretrain: pretraining's live state, with how far the model in training is (from its MLX log)."""
+    live = job_live("pretrain")
+    for m in live.get("models") or []:
+        if m.get("state") == "training":
+            it = _iter_of(m.get("log", ""))
+            m["iter"], m["loss"] = (it if it else (0, None))
+        if m.get("state") == "fetching":
+            m["got"] = cleanup.gb(_du(m.get("dir", "")))
+    return live
 
 
 def main_body(d):
     """Everything that depends on which models are chosen: drawn again, in place, when one is changed."""
     return (
+        '<h2>Evaluate the swarm</h2><div id="evalwrap">%s</div>'
+        '<h2>Pretrain</h2><div id="prewrap">%s</div>'
         '<h2>Training progress</h2><div id="score">%s</div>'
         '<h2 id="arrangement">The arrangement being trained</h2>%s'
-        % (progress_strip(d), arrangement(d))
+        % (eval_block(d), pretrain_block(d), progress_strip(d), arrangement(d))
     )
 
 
@@ -2987,7 +3405,7 @@ def tidy_panel(d, said=""):
     """The Uninstall Helper: everything the Swarm has fetched or kept here, by group, each with the room it takes, whether the
     configured swarm uses it, and a button to remove it (ui/cleanup.py does the removing, and refuses anything outside .work)."""
     items = cleanup.inventory(ARGS.root, d)
-    running = bool((run_state() or {}).get("running"))
+    running = bool(busy_with())
     total = sum(x["bytes"] or 0 for x in items if x["removable"])
     rows, group = [], None
     for x in items:
@@ -3004,7 +3422,7 @@ def tidy_panel(d, said=""):
         '<button class="btn stop top" id="tidy-close" type="button">Close</button></div>'
         '<p class="muted small" style="margin:8px 0 0">Everything the Swarm fetched or keeps in this folder\'s <code>.work</code>: <b>%s</b> in all. '
         'Removing a piece cannot be undone. One marked <i>in use</i> is part of the swarm as it is configured: Run training fetches it again. '
-        'What training has learned (the briefs, the arrangement, each configuration\'s record) is not an install, and is not listed.%s</p>'
+        'What training has learned (the briefs, the arrangement, each configuration\'s record) is not an install, and is not listed; Pretrain\'s adapters are, since Pretrain makes them again.%s</p>'
         '%s<ul class="tlist">%s</ul>'
         % (e(cleanup.gb(total)), " A session is running: stop it before removing anything." if running else "",
            ('<p class="tsaid">%s</p>' % e(said)) if said else "", "".join(rows) or '<li class="muted">Nothing is installed here.</li>')
@@ -3090,6 +3508,14 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(json.dumps(now), kind="application/json")
         if u.path == "/fragment/body":
             return self._send(main_body(d))
+        if u.path == "/api/eval":
+            return self._send(json.dumps(eval_api()), kind="application/json")
+        if u.path == "/api/pretrain":
+            return self._send(json.dumps(pretrain_api()), kind="application/json")
+        if u.path == "/fragment/eval":
+            return self._send(eval_block(d))
+        if u.path == "/fragment/pretrain":
+            return self._send(pretrain_block(d))
         if u.path == "/fragment/spec":
             return self._send(spec_panel(d))
         if u.path == "/fragment/chips":
@@ -3129,13 +3555,39 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):  # noqa: N802
         path = urlparse(self.path).path
-        if path not in ("/run/start", "/run/stop", "/run/clear", "/config", "/questions", "/uninstall", "/steer", "/spec/publish"):
+        if path not in ("/run/start", "/run/stop", "/run/clear", "/config", "/questions", "/uninstall", "/steer", "/spec/publish",
+                        "/eval/start", "/eval/stop", "/pretrain/start", "/pretrain/stop"):
             return self._send("Not here.", 404, "text/plain; charset=utf-8")
         # only this page may start or stop a pass: another website can send a plain form to this address, but it cannot
         # send this header, and a request that names another origin is refused
         origin = self.headers.get("origin", "")
         if self.headers.get("x-swarm") != "1" or (origin and urlparse(origin).netloc != self.headers.get("host", "")):
             return self._send("Not from this page.", 403, "text/plain; charset=utf-8")
+        if path in ("/eval/start", "/eval/stop"):
+            if path == "/eval/stop":
+                stop_job("eval")
+                return self._send(eval_block(data.load(ARGS.root)))
+            try:
+                asked = json.loads(self.rfile.read(min(int(self.headers.get("content-length", 0)), 200)) or b"{}")
+            except ValueError:
+                asked = {}
+            limit = asked.get("limit") if isinstance(asked, dict) else None
+            if limit not in [n for n, _ in EVAL_SIZES]:
+                return self._send("Choose how many questions of each task.", 400, "text/plain; charset=utf-8")
+            why = start_job("eval", ["sh", "training/evaluate.sh"] + (["--limit", str(limit)] if limit else []))
+            if why:
+                return self._send(why, 409, "text/plain; charset=utf-8")
+            time.sleep(0.3)
+            return self._send(eval_block(data.load(ARGS.root)))
+        if path in ("/pretrain/start", "/pretrain/stop"):
+            if path == "/pretrain/stop":
+                stop_job("pretrain")
+            else:
+                why = start_job("pretrain", [node_for_training() or "node", "training/adapters.mjs", "train"])
+                if why:
+                    return self._send(why, 409, "text/plain; charset=utf-8")
+                time.sleep(0.3)
+            return self._send(pretrain_block(data.load(ARGS.root)))
         if path == "/run/clear":
             ok, said = clear_state()
             if not ok:
@@ -3196,8 +3648,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(plan_block(data.load(ARGS.root)))
         if path == "/uninstall":
             # one piece the Uninstall Helper lists, by its id: never while a session runs, never a decider's files while one is loaded
-            if (run_state() or {}).get("running"):
-                return self._send("A session is running: stop it before removing anything.", 409, "text/plain; charset=utf-8")
+            held = busy_with()
+            if held:
+                return self._send("%s is running: stop it before removing anything." % (held[0].upper() + held[1:]), 409, "text/plain; charset=utf-8")
             try:
                 asked = json.loads(self.rfile.read(min(int(self.headers.get("content-length", 0)), 2000)) or b"{}")
             except ValueError:
@@ -3237,7 +3690,7 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(asked, dict):
                 return self._send("Not understood.", 400, "text/plain; charset=utf-8")
             # (what it is to be equivalent on can be changed while a session runs: a pass ends on the questions it began with)
-            if (run_state() or {}).get("running") and set(asked) - {"equivalence", "tools"}:
+            if (run_state() or {}).get("running") and set(asked) - {"equivalence", "tools", "adapters"}:
                 return self._send("A session is running: stop it before changing a model.", 409, "text/plain; charset=utf-8")
             root = Path(ARGS.root)
             reg = data._json(root / "src" / "models.json", {})
@@ -3248,6 +3701,14 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(want, list) or not want or any(i not in known for i in want):
                     return self._send("Tick at least one, from the ones listed.", 400, "text/plain; charset=utf-8")
                 now["equivalence"] = [i for i in known if i in want]
+            if "adapters" in asked:
+                # served with the adapters Pretrain trained, or without (from the next time the swarm is loaded)
+                if not isinstance(asked["adapters"], bool):
+                    return self._send("On or off.", 400, "text/plain; charset=utf-8")
+                if asked["adapters"]:
+                    now["adapters"] = True
+                else:
+                    now.pop("adapters", None)
             if "tools" in asked:
                 # "swarm", or one of the small models in the swarm by its id (written down by its id, so it stays that model)
                 mine_ids = [now.get(k) for k in ("a", "b", "c", "d") if now.get(k)]

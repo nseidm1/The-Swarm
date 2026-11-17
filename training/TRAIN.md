@@ -68,6 +68,9 @@ How the search ranks and bounds what it tries is a policy ([`loop-policy.mjs`](l
 | `brokeBudget` | Changes per question built on an arrangement that brought it to parity but broke a question already at parity (12; 0 turns it off) |
 | `reviewTries`, `trialTries` | How often the larger model reviews the search (every 40 tries, on any question, with nothing on trial), and on how many tries a proposal is tried (40) |
 | `suggestEvery` | After how many failed tries on a question the larger model suggests what to try next (20; 0 never) |
+| `teachEvery` | After how many failed tries on a question the larger model says what went wrong and writes new briefs: for the drafters where no slot drafted the answer, for the checkers where one did and it was not chosen (20; 0 never) |
+| `adaptAfter` | After how many tries on one question, the larger model's briefs among them, it is flagged as beyond rearranging and the next lever made ready (200; 0 never) |
+| `prune` | Try a win of several changes without each part, and keep its smallest form (on) |
 | `swapAfter` | Losses of the same question before a change that loses only it is kept and it goes back in hand (25; 0 never) |
 
 A change that brings the question to parity but loses a question already at parity is a CONFLICT between the two. It is
@@ -80,7 +83,7 @@ record (where each answer was lost, how many tries, what reached parity, each ki
 found arrangements, the conflicts), every knob with its bounds and value, and what came of earlier proposals. It proposes a change to at most two knobs, each checked
 against its bounds (anything else is refused and written down). The change is tried on the next `trialTries` tries (40) and measured
 against as many before it (what each try came to: kept 10, at parity but losing one already there 3, closer 1, nothing 0): kept
-where they came to at least as much, put back where less. Counted in tries, not questions: over the first night, two long
+where they came to at least as much, put back where less; with no signal on either side (every try came to nothing) it is inconclusive, and put back. The larger model is shown the proposals refused before, so as not to make them again. Counted in tries, not questions: over the first night, two long
 questions meant one review, and its trial never ended. Ideas it has that no knob can carry are
 written down for a person. The policy, every proposal, and a trial still running are kept in
 `.work/library/<configuration>-policy.json`, carried from pass to pass and kept by Clear training state. `SWARM_LOOP_REVIEW=0` turns the review off.
@@ -92,6 +95,35 @@ matched to that list (anything else is left out) and tried at once, on top of th
 suggestion needs no trial, and one that brings the question to parity is kept like any change. Each suggestion starts the larger
 model, asks and stops it: how often it was asked, what that cost in seconds and what its tries came to (kept, closer) are counted,
 shown on the page, and given to the review, which can make suggestions more or less frequent.
+
+**The larger model teaches.** After `teachEvery` failed tries on a question it is shown what the failing slots wrote and the
+answer wanted: the drafters where no slot drafted it, the checkers (then the drafters whose answers stood) where one did and it
+was not chosen. It first says what went wrong as a general mistake, then writes briefs that teach the method (never the question,
+its numbers or its answer); they join this configuration's candidates and are tried at once. The larger model is started the
+first time it is asked on a question (a review, a suggestion, briefs) and kept loaded until the question ends.
+
+**Evaluated apart, pretrained before.** Training's parity is measured on its own questions. How equivalent the swarm is on work
+it was never trained on is measured apart ([`evaluate.mjs`](evaluate.mjs), the page's Evaluate the swarm): the standard tasks of
+lm-evaluation-harness for each body of work chosen, asked of the larger model and of the swarm, every question's two answers
+compared. Pretrain (the page; `node training/adapters.mjs train`) trains a LoRA adapter for each small model on the larger model's
+answers to the train questions, before or between passes; served with them, the swarm the loop rearranges is an adapted one.
+
+**Beyond rearranging.** The small models never change: training rearranges them and rewrites what they are told. A question that
+resists `adaptAfter` tries, the larger model's teaching among them, is flagged once, and stays in hand. The next lever is made
+ready ([`adapters.mjs`](adapters.mjs)): the larger model's answers to the pass's train questions (never a held one) as a dataset of
+chat pairs, and whether each small model can be trained here. The trainer is MLX ([`mlx-setup.sh`](mlx-setup.sh) installs it under
+`.work/mlx` and fetches each model's original weights at a pinned revision): llama.cpp's own `llama-finetune` cannot train any of
+the three (measured with build 12110: LFM2.5 1.2B's `SSM_CONV` and Qwen3.5 2B's and Bonsai 2 4B's `SIGMOID` have no backward pass).
+`node training/adapters.mjs train` trains a LoRA adapter on that dataset for each model that can be
+([`support/mlx_adapter.py`](support/mlx_adapter.py); an example longer than 2,048 tokens is left out, since cutting it would cut
+the answer), writes it as a GGUF LoRA for the file the swarm serves, and keeps it only where llama.cpp, loading it with `--lora`,
+finds the trained answers likelier with it than without (its perplexity on them). Measured 2026-11-17 on the 84 train answers:
+LFM2.5 1.2B 3.23 -> 2.56 after 30 steps, Qwen3.5 2B 2.70 -> 2.63 after 30. Bonsai 2 4B is not trained: its weights are
+Hadamard-rotated and load only through its maker's runtime. Trying an adapter as a change (a member served with it, kept only if
+it brings a question to parity and loses none) is not built.
+
+**A win is kept in its smallest form**: one of several changes is tried without each part, and a part is dropped where the
+question stays at parity and no question already there is lost.
 
 The small models are never shown the larger model's answer: only the grading is. A swarm built from the spec has no larger
 model beside it, so nothing is kept that needs one. And nothing is chosen on the held questions: a pass ends by measuring the
@@ -124,7 +156,7 @@ fundamentally equivalent to the larger model's: the same thing said, whatever th
 | The models to climb | The targets in [`../src/models.json`](../src/models.json), smallest first. Each says how it is served: a GGUF file by llama.cpp, or a program of its own |
 | The one being chased | `target` in this machine's `training/state.json`. The first is **Nemotron 3.5 Lightning 30B**, served by TensorFold on the Mac the Swarm is first trained on |
 | At parity | Every answer the Swarm gives to the held questions is equivalent to the larger model's answer. [`state.mjs`](state.mjs) `parity()`. Then the next, larger model becomes the target |
-| What it is equivalent on | Chosen on the dashboard, under the models, or `equivalence` in `src/config.json`: **The Crew** where nothing is chosen, and with it or in its place Math, Logic, Reasoning. Each is a list of kinds of question in [`equivalence.json`](equivalence.json); a pass asks the kinds of all that are chosen, and a choice takes effect when the next pass begins (a pass ends on the questions it began with, which its record names) |
+| What it is equivalent on | Chosen on the dashboard, under the models, or `equivalence` in `src/config.json`: **The Crew** where nothing is chosen, and with it or in its place Code, Math, Logic, Reasoning. Each is a list of kinds of question in [`equivalence.json`](equivalence.json), and the standard benchmarks Evaluate the swarm measures it on (`benchmarks`: never asked in training); a pass asks the kinds of all that are chosen, and a choice takes effect when the next pass begins (a pass ends on the questions it began with, which its record names) |
 | Your own questions | The pencil at the top right of each box opens its questions: the kinds the trainer makes, and questions a person writes, saved to [`questions/<id>.json`](questions/README.md) (200 at most; for The Crew each says Simple or Developer). Every second one is held back. They are judged as a reply in a conversation, and a pass keeps the ones it began with (`own` in its record) |
 | A reply in a conversation (The Crew) | [`tasks-crew.mjs`](tasks-crew.mjs): six kinds, four in Simple and two in Developer, each sent with the system line a seat is given and the turns so far. Equivalent when it is the same **act** (both help, or both ask), the same **substance** (Kev, one request with three yes-or-no questions), and breaks no **convention** the larger model's reply kept (read off the words: `faultsOf`). The page says which of the three a reply was lost on. The reader is checked on 18 pairs before a pass believes it (`readers.mjs` `talkPairs`: paraphrases, near-misses, different replies), and on near-misses made from the larger model's own replies; measured 2026-11-16 with Kev-4B on the first 14 (no near-misses yet): 14 of 14 |
 | How equivalence is decided | By **function**. Where a function is asked for, both functions are run on the same inputs, the ordinary and the awkward, and are equivalent when every call gives the same result: nothing is compared as text, and no right answer is needed. Where a value is asked for (what does this print?), the two values are read and compared. Where the answer is in words (what is the bug?), Kev is asked one yes/no: do the two say fundamentally the same thing? ([`support/equivalent.mjs`](support/equivalent.mjs)) |

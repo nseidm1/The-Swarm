@@ -50,6 +50,13 @@ def gb(n):
     return "%.1f GB" % (n / 2**30) if n >= 2**30 * 0.1 else "%d MB" % max(1, round(n / 2**20)) if n >= 2**20 else "%d KB" % max(1, round(n / 1024))
 
 
+def _read_json(p):
+    try:
+        return json.loads(Path(p).read_text())
+    except (OSError, ValueError):
+        return None
+
+
 def inventory(root, d):
     """[{id, group, what, paths, bytes, used, note, removable}] of what is installed here, largest first within each group."""
     root = Path(root)
@@ -86,6 +93,35 @@ def inventory(root, d):
                 note=("A link to %s: only the link is removed, the file it points at is kept." % os.readlink(f)) if link else f.name)
     # the llama.cpp build the swarm fetched, where it fetched one
     add("engine", "Programs", "The engine (llama.cpp)", [work / "engine"], used=True, note="Run training fetches it again where no llama-server is on the PATH.")
+    # the adapter trainer (training/mlx-setup.sh): MLX and the small models' original weights it trains from
+    add("mlx:program", "Programs", "MLX: the adapter trainer and its Python", [work / "mlx" / p for p in ("venv", "uv-cache", "hf-home")],
+        note="Only Pretrain uses it, and installs it again the next time.")
+    # each small model's original weights (training/originals.json): what an adapter is trained from, one entry each, so that the
+    # ones the swarm is made of can be kept and the rest taken out; anything else in the folder is listed with them
+    # (the folder's own list, or this repository's where the folder has none: a copy of its data)
+    origs = (_read_json(root / "training" / "originals.json") or _read_json(Path(__file__).resolve().parent.parent / "training" / "originals.json") or {}).get("models", {})
+    known = set()
+    for f, o in origs.items():
+        known.add(o.get("dir"))
+        name = next((m.get("name") for m in reg.get("small", []) if m.get("file") == f), o.get("dir"))
+        add("mlx:weights:" + str(o.get("dir")), "Pretrain", "%s: original weights" % name, [work / "mlx" / "hf" / str(o.get("dir"))], used=f in used_files,
+            note="What Pretrain trains its adapter from (the swarm itself serves the GGUF file); Pretrain fetches them again.")
+    other = [p for p in sorted((work / "mlx" / "hf").iterdir()) if p.name not in known] if (work / "mlx" / "hf").is_dir() else []
+    add("mlx:weights:other", "Pretrain", "Original weights of models no longer listed", other, note="Fetched for a model that is no longer one Pretrain trains.")
+    # the adapters Pretrain trained (.work/library/adapters/<larger model>/<model>): small, and what Serve with adapters serves
+    ad = work / "library" / "adapters"
+    for tdir in sorted(ad.iterdir()) if ad.is_dir() else []:
+        if not tdir.is_dir():
+            continue
+        cfg = _read_json(root / "src" / "config.json") or {}
+        add("adapters:" + tdir.name, "Pretrain", "Adapters trained on %s's answers" % next((m.get("name") for m in reg.get("targets", []) if m.get("id") == tdir.name), tdir.name),
+            [tdir], used=bool(cfg.get("adapters")) and tdir.name == target.get("id"),
+            note="One for each small model Pretrain adapted. Removed, the swarm is served without them until Pretrain runs again.")
+    # Evaluate the swarm (training/evaluate.sh): the harness, the benchmarks it fetched, and what each evaluation asked
+    add("lmeval:program", "Programs", "lm-evaluation-harness: the evaluator, its Python and the benchmarks", [work / "lmeval"],
+        note="Only Evaluate the swarm uses it; it is installed again, and the benchmarks fetched again, the next time.")
+    add("eval:answers", "Training", "Evaluations: every answer each model gave", [work / "eval" / p for p in ("runs", "target")],
+        note="The larger model's are kept so an evaluation asks only the swarm again: removed, the next one asks both. The last result is kept.")
     # the deciders
     add("kev:program", "Deciders", "Kev: its program and Python", [work / "kev" / p for p in ("src", "uvenv", "python", "uv-cache")], used=dkind == "kev",
         note="Shared by every Kev size.")
@@ -116,7 +152,7 @@ def inventory(root, d):
     if llama:
         out.append({"id": "llama-path", "group": "Outside this folder", "what": "The llama-server on the PATH", "paths": [llama], "bytes": None, "used": True,
                     "note": "Installed by another program (%s), and used in place of fetching one." % llama, "removable": False})
-    order = ["Models", "Deciders", "Programs", "Training", "Outside this folder"]
+    order = ["Models", "Deciders", "Programs", "Pretrain", "Training", "Outside this folder"]
     out.sort(key=lambda x: (order.index(x["group"]), -(x["bytes"] or 0)))
     return out
 

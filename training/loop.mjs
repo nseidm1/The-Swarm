@@ -461,6 +461,11 @@ export async function runLoop({
   onPolicy = async () => {},
   library = [],
   onLibrary = async () => {},
+  // the larger model writing new briefs for a slot that failed on this question: teach(slot, missed) -> [{ name, brief }], written
+  // where the pool reads candidates (null: never)
+  teach = null,
+  // a question beyond rearranging (adaptAfter tries, the larger model's briefs among them): onBeyond(q, t) makes the next lever ready
+  onBeyond = async () => {},
 }) {
   const st = resume || { questions: [], rows: [], moves: {}, kept: [] };
   st.classes = st.classes || JSON.parse(JSON.stringify(classes || {}));
@@ -524,6 +529,8 @@ export async function runLoop({
       const open = [root];
       const seen = new Set();
       const triedArr = [];
+      // the last answer short of parity: what the failing drafters wrote, for the larger model to write briefs from
+      let lastRow = row;
       let i = 0;
       let won = false;
       const recent = st.kept;
@@ -536,6 +543,48 @@ export async function runLoop({
       };
       // ONE TRY: an arrangement asked on this question, its outcome counted, and what follows from it (kept; at parity but losing one
       // already there, built on; closer, built on)
+      // a win without one of its parts at a time, applied to the swarm as it stood when the question began: dropped where the
+      // question is still at parity and every question already there holds. -> { combo, briefs, rows, dropped } or null
+      const prune = async (combo0, again, rows0) => {
+        let cur = combo0;
+        let curB = null;
+        let curRows = rows0;
+        const dropped = [];
+        for (let k = 0; k < cur.length && cur.length > 1;) {
+          const cand = cur.filter((_, j) => j !== k);
+          const ap = applyNames(poolOf, briefs, cand);
+          if (!ap || ap.names.length !== cand.length) {
+            k++;
+            continue;
+          }
+          const note = { n, of: list.length, attempt: i, cap, move: cand.join(' + '), prune: cur[k] };
+          const r = await attempt(ap.briefs, t, note);
+          q.attempts.push({ move: 'without ' + cur[k], grade: r.grade, prune: true });
+          if (r.grade !== 'right') {
+            k++;
+            continue;
+          }
+          const rr = [];
+          let holds = true;
+          for (const g of again) {
+            const gr = await attempt(ap.briefs, g.t, { ...note, guard: g.t.id });
+            rr.push(gr);
+            if (gr.grade !== 'right') {
+              holds = false;
+              break;
+            }
+          }
+          if (!holds) {
+            k++;
+            continue;
+          }
+          dropped.push(cur[k]);
+          cur = cand;
+          curB = ap.briefs;
+          curRows = rr;
+        }
+        return dropped.length ? { combo: cur, briefs: curB, rows: curRows, dropped } : null;
+      };
       const tryIt = async (node, m, combo, newBriefs, method, extra = {}) => {
         seen.add([...combo].sort().join(' + '));
         i++;
@@ -566,6 +615,7 @@ export async function runLoop({
               ...(x.lostOn ? { lostOn: x.lostOn } : {}),
               ...(x.library ? { library: true } : {}),
               ...(x.suggested ? { suggested: true } : {}),
+              ...(x.taught ? { taught: true } : {}),
               ...(x.near ? { near: x.near } : {}),
             })),
         });
@@ -585,7 +635,7 @@ export async function runLoop({
           cls.secs = Math.round(((cls.secs || 0) + (r.seconds - node.seconds)) * 10) / 10;
           cls.timed = (cls.timed || 0) + 1;
         }
-        if (r.seconds) st.paceS = [...(st.paceS || []), r.seconds].slice(-10);
+        if (r.wallSeconds || r.seconds) st.paceS = [...(st.paceS || []), r.wallSeconds ?? r.seconds].slice(-10);
         const a = {
           move: m.name,
           id: m.id,
@@ -597,6 +647,7 @@ export async function runLoop({
           method,
           ...(extra.library ? { library: true } : {}),
           ...(extra.suggested ? { suggested: true } : {}),
+          ...(extra.taught ? { taught: true } : {}),
           ...(r.seconds ? { seconds: r.seconds } : {}),
           ...(r.seconds && node.seconds ? { added: Math.round((r.seconds - node.seconds) * 10) / 10 } : {}),
         };
@@ -626,14 +677,16 @@ export async function runLoop({
           }
           counted(outcome);
           q.sinceSuggest = (q.sinceSuggest || 0) + 1;
+          q.sinceTeach = (q.sinceTeach || 0) + 1;
+          lastRow = r;
           return { closer: outcome === 'closer' };
         }
         mv.reached++;
         cls.reached++;
-        const what = combo.join(' + ');
+        let what = combo.join(' + ');
         // at parity here: does it hold on the questions that were already there? (the one changes lose most, first)
         const again = guardOf(reached, t, guard, st.lostOn || {});
-        const rows = [];
+        let rows = [];
         const lostIds = [];
         for (const [gk, g] of again.entries()) {
           const gr = await attempt(newBriefs, g.t, {
@@ -695,6 +748,19 @@ export async function runLoop({
           trim();
           return { closer: true };
         }
+        // THE SMALLEST WIN: a win of several changes is tried without each of its parts, and what is kept is the smallest that
+        // still reaches parity and loses none of the questions already there (arrangements had only grown: six changes deep, every
+        // part of them slowing every question after, and none known to be needed)
+        if (pol.prune && combo.length > 1 && !swap) {
+          const pr = await prune(combo, again, rows);
+          if (pr) {
+            a.pruned = pr.dropped;
+            combo = pr.combo;
+            newBriefs = pr.briefs;
+            rows = pr.rows;
+            what = combo.join(' + ');
+          }
+        }
         // KEPT: the arrangement is now this one, for this question and every one after
         briefs = { ...newBriefs, version: (briefs.version || 1) + 1 };
         a.kept = true;
@@ -710,6 +776,7 @@ export async function runLoop({
           question: { id: t.id, kind: t.kind, lostAt: lost, attempt: i, round: node.depth, guard: rows.length },
           ...(a.added !== undefined ? { addedSeconds: a.added } : {}),
           ...(extra.library ? { fromLibrary: extra.library.from } : {}),
+          ...(a.pruned ? { pruned: a.pruned } : {}),
           ...(swap ? { swapped: lostIds[0] } : {}),
           why:
             'it brought ' +
@@ -774,6 +841,100 @@ export async function runLoop({
         await policyTick(st, { review, onPolicy, current: q });
         pol = st.policy;
         if (!won && review && pol.suggestEvery && (q.sinceSuggest || 0) >= pol.suggestEvery) await suggest();
+        if (!won && teach && pol.teachEvery && (q.sinceTeach || 0) >= pol.teachEvery && lostAt(lastRow) !== 'writing')
+          await teachNow();
+        // BEYOND REARRANGING: so many tries, the larger model's teaching among them, and still short of parity. Flagged once, with
+        // the evidence, and the next lever made ready (adapters.mjs): it never moves on before parity all the same
+        if (!won && pol.adaptAfter && i >= pol.adaptAfter && (q.taught || 0) > 0 && !q.beyond) {
+          q.beyond = { at: i, lostAt: lostAt(lastRow), taught: q.taught, closest: root.near };
+          q.beyond.ready = (await onBeyond(q, t)) || null;
+        }
+      };
+      // NEW BRIEFS FOR THE QUESTION'S OWN FAILURE: where no slot drafts the answer, rearranging slots cannot help (measured 2026-11-17:
+      // 53 suggested changes on such a question, none kept, none closer). After `teachEvery` failed tries the larger model is shown
+      // what the failing drafters wrote and the answer wanted, and writes new briefs for them: general instructions, never this
+      // question (support/teach.mjs briefAsk). They join the pool and are tried at once, on top of the closest arrangement
+      const teachNow = async () => {
+        q.sinceTeach = 0;
+        const node = open.filter((x) => !x.spent).sort((x, y) => y.score - x.score || x.depth - y.depth)[0] || root;
+        const slotsById = Object.fromEntries((node.base.slots || []).map((x) => [x.id, x]));
+        // the slots to teach: where no slot drafted the answer, the drafters that missed it; where one did and it was not chosen,
+        // the checkers (who did not show it up), then the drafters whose answers stood instead
+        const lostNow = lostAt(lastRow);
+        const tr0 = (lastRow.trace || []).filter((x) => slotsById[x.slot]);
+        const failing = [
+          ...new Set(
+            (lostNow === 'choosing'
+              ? [
+                  ...tr0.filter((x) => x.stage === 'check'),
+                  ...tr0.filter((x) => x.stage === 'draft' && x.same === false),
+                ]
+              : tr0.filter((x) => x.stage === 'draft' && x.same === false)
+            ).map((x) => x.slot),
+          ),
+        ].slice(0, 2);
+        const tc = (st.teach = st.teach || {
+          asked: 0,
+          seconds: 0,
+          briefs: 0,
+          tried: 0,
+          kept: 0,
+          closer: 0,
+          failed: 0,
+        });
+        for (const sid of failing) {
+          if (won || i >= cap) break;
+          const tr = (lastRow.trace || []).find((x) => x.slot === sid && (x.stage === 'draft' || x.stage === 'check'));
+          const missed = [
+            {
+              question: String(t.ask || '').slice(0, 600),
+              slotWrote: String((tr && (tr.out || tr.final)) || '(nothing)').slice(-500),
+              wanted: String(lastRow.refReply || lastRow.ref || '').slice(0, 600),
+            },
+          ];
+          const t0 = Date.now();
+          let cands = [];
+          try {
+            cands = (await teach(slotsById[sid], missed, lostNow)) || [];
+            tc.asked++;
+            q.taught = (q.taught || 0) + 1;
+          } catch {
+            tc.failed++;
+          }
+          tc.seconds = Math.round((tc.seconds + (Date.now() - t0) / 1000) * 10) / 10;
+          tc.briefs += cands.length;
+          const names = new Set(cands.map((c) => c.name));
+          for (const m of poolOf(node.base).filter((x) => x.slot === sid && names.has(x.name))) {
+            if (won || i >= cap) break;
+            const combo = [...node.chain, m.name];
+            if (seen.has([...combo].sort().join(' + '))) continue;
+            const method = {
+              area: m.area,
+              kind: 'a brief the larger model wrote for this failure',
+              from: node.near,
+              place: 1,
+              open: cands.length,
+              reasons: [
+                (lostNow === 'choosing'
+                  ? 'a slot had the answer and it was not chosen'
+                  : 'no slot drafted the answer') +
+                  ' for ' +
+                  pol.teachEvery +
+                  ' tries: the larger model wrote new briefs for ' +
+                  sid,
+                ...((cands.find((c) => c.name === m.name) || {}).why
+                  ? ['what went wrong: ' + cands.find((c) => c.name === m.name).why]
+                  : []),
+              ],
+            };
+            const out = await tryIt(node, m, combo, m.briefs, method, { taught: true });
+            tc.tried++;
+            if (won) tc.kept++;
+            else if (out.closer) tc.closer++;
+            await policyTick(st, { review, onPolicy, current: q });
+            pol = st.policy;
+          }
+        }
       };
       // THE LARGER MODEL SUGGESTS WHAT TO TRY: after `suggestEvery` failed tries it is shown this question, what was tried and how close
       // each came, the arrangement the next tries build on, the found arrangements, and the changes still open from it by name. What
@@ -1016,7 +1177,7 @@ export async function reviewNow(
       reviewAsk(
         pol,
         recordOf(st, current),
-        (st.policyLog || []).filter((x) => x.taken),
+        (st.policyLog || []).filter((x) => x.taken || x.refused),
       ),
     );
   } catch (e) {
@@ -1356,6 +1517,15 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   };
   // the larger model, asked to review the search: started for it and stopped after (64 GB holds it beside the swarm; where it
   // cannot be served, the review is written down as not made and the policy stays as it is). SWARM_LOOP_REVIEW=0 turns it off
+  // THE LARGER MODEL, KEPT LOADED THROUGH A QUESTION: started the first time it is asked (a review, a suggestion, briefs), asked again
+  // as it stands, and stopped when the question ends (64 GB holds it beside the swarm). A start each time cost more than an answer
+  let teacherOpen = null;
+  const getTeacher = async () => (teacherOpen = teacherOpen || (await B.openAlone('target')));
+  const releaseTeacher = async () => {
+    const t = teacherOpen;
+    teacherOpen = null;
+    if (t) await t.stop();
+  };
   const review =
     process.env.SWARM_LOOP_REVIEW === '0'
       ? null
@@ -1365,15 +1535,39 @@ if (import.meta.url === 'file://' + process.argv[1]) {
               ? '  SUGGEST the larger model is shown this question and what was tried, and asked what to try next'
               : "  REVIEW the larger model is shown the loop's record and asked how the search could do better",
           );
-          const teacher = await B.openAlone('target');
-          try {
-            return String((await teacher.ask([{ role: 'user', content: prompt }], { maxTokens: 1200 })).text || '');
-          } finally {
-            await teacher.stop();
-          }
+          const teacher = await getTeacher();
+          return String((await teacher.ask([{ role: 'user', content: prompt }], { maxTokens: 1200 })).text || '');
         };
   // written at the start too, so that the page shows the policy the search runs by from its first question
   if (!kept) writePolicy(startPolicy);
+  // NEW BRIEFS FOR A SLOT THAT FAILED ON THE QUESTION IN HAND, by the larger model (as write-briefs.mjs does once a pass, from a
+  // pass's misses): added to this configuration's candidates, where the pool reads them, and returned for the loop to try
+  const { teachAsk, candidatesIn } = await import('./support/teach.mjs');
+  const teach =
+    process.env.SWARM_LOOP_REVIEW === '0'
+      ? null
+      : async (slot, missed, lost = 'drafting') => {
+          console.log(
+            '  TEACH the larger model says what went wrong for ' + slot.id + ' on this question, and writes new briefs',
+          );
+          const teacher = await getTeacher();
+          const text = String(
+            (await teacher.ask([{ role: 'user', content: teachAsk(slot, missed, lost) }], { maxTokens: 1800 })).text ||
+              '',
+          );
+          const fresh = candidatesIn(text, 'the larger model');
+          const file = path.join(WORKC, 'candidates', slot.id + '.json');
+          let have = [];
+          try {
+            have = JSON.parse(fs.readFileSync(file, 'utf8'));
+          } catch {
+            /* none yet */
+          }
+          const add = fresh.filter((c) => !have.some((h) => h.brief === c.brief));
+          fs.mkdirSync(path.dirname(file), { recursive: true });
+          writeSafe(file, JSON.stringify([...have, ...add], null, 2));
+          return add;
+        };
   const swarm = await openSwarm(readBriefs(), { reuse: true });
   const reader = judgeAddress(swarm.decider);
   const pick = (got) => ({
@@ -1402,6 +1596,33 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       trial: resume && resume.trial ? null : carriedTrial,
       library,
       onLibrary: async (lib) => writeLibrary(lib),
+      teach,
+      // BEYOND REARRANGING: the larger model's train answers as a dataset, and whether each small model can be trained here
+      onBeyond: async (q) => {
+        // (whether MLX can train each one here: training an adapter takes minutes a model and nothing tries one as a change yet,
+        // so it is not started from here; node training/adapters.mjs train does it)
+        const { exportDataset, mlxReady } = await import('./adapters.mjs');
+        const dir = path.join(LIB, CONFIG_KEY + '-adapters');
+        const ds = exportDataset(list, ref, path.join(dir, 'train.jsonl'), messagesOf);
+        const { MEMBERS } = await import('../src/catalog.mjs');
+        const trainable = Object.values(MEMBERS).map((m) =>
+          mlxReady({ name: m.name, file: path.join(B.modelsDir(), m.file) }, path.join(REPO_ROOT, '.work')),
+        );
+        const ready = { dataset: path.relative(REPO_ROOT, ds.file), examples: ds.examples, trainable };
+        writeSafe(
+          path.join(dir, q.id + '.json'),
+          JSON.stringify({ question: q.id, at: new Date().toISOString(), ...q.beyond, ...ready }, null, 2),
+        );
+        console.log(
+          '  BEYOND REARRANGING ' +
+            q.id +
+            ': ' +
+            ds.examples +
+            ' train answers made ready; ' +
+            trainable.map((x) => x.model + (x.ok ? ' can be trained here' : ': ' + x.why)).join('; '),
+        );
+        return ready;
+      },
       review,
       onPolicy: async (pol, ev, tr) => {
         // (a trial on is carried in the file, so that a pass that ends, or Clear training state, does not lose it)
@@ -1439,6 +1660,8 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         const r1 = swarm.reused || r0;
         row.seconds = Math.round((Date.now() - t0 + (r1.savedMs - r0.savedMs)) / 100) / 10;
         row.reusedSeconds = Math.round((r1.savedMs - r0.savedMs) / 100) / 10;
+        // and what it took on the clock: what the pace is told in (counted at full cost it read 140 s a try against a real 10 s)
+        row.wallSeconds = Math.round((Date.now() - t0) / 100) / 10;
         console.log(
           (at.attempt ? '  ' + (at.guard ? 'again ' : 'try ' + at.attempt + ' ') : '') +
             row.grade.padEnd(7) +
@@ -1468,6 +1691,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         console.log('  KEPT "' + entry.what + '": ' + entry.why);
       },
       onQuestion: async (q, row, cur) => {
+        await releaseTeacher();
         writeSafe(FILE, JSON.stringify({ pass, seed: (list[0] || {}).seed, each, st: cur }));
         save('questions', {
           pass,
@@ -1493,6 +1717,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
           policyLog: policyLog.slice(-30),
           // what the larger model's suggestions of what to try have cost and come to
           suggest: cur.suggest || null,
+          teach: cur.teach || null,
           // the loop as it runs: tries this pass, what was kept from the library and from suggestions, questions back in hand
           tries: cur.tryN || 0,
           reviewedAtTry: cur.reviewedAtTry || 0,
@@ -1504,6 +1729,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     });
   } finally {
     live({ loop: null });
+    await releaseTeacher();
     await swarm.stop();
   }
   const t = tallyOf(st);

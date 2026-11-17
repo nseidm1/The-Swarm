@@ -1,5 +1,5 @@
 {
-  "about": "WHAT THE SWARM IS TO BE EQUIVALENT ON. Parity is equivalence with the larger model on a body of work, and which work is chosen (the page, under the models; or \"equivalence\" in src/config.json). Each entry names the kinds of question (training/tasks.mjs) that make it up. More than one can be chosen: a pass then asks all of their kinds. A choice takes effect when the next pass begins.",
+  "about": "WHAT THE SWARM IS TO BE EQUIVALENT ON. Parity is equivalence with the larger model on a body of work, and which work is chosen (the page, under the models; or \"equivalence\" in src/config.json). Each entry names the kinds of question (training/tasks.mjs) that make it up. More than one can be chosen: a pass then asks all of their kinds. A choice takes effect when the next pass begins. benchmarks: how the swarm is EVALUATED on it, apart from training (training/evaluate.mjs, the page's Evaluate the swarm): standard tasks of EleutherAI's lm-evaluation-harness, each asked of the larger model and of the swarm, and compared answer by answer. task: the harness's name for it; metric and filter: the score the harness reports for it, and the answers that score is taken from; compare: what makes two answers equivalent (answer: the same answer, as the harness extracts it; verdict: the same pass or fail on the task's own tests; instructions: the same instructions followed and broken). Training never asks a benchmark's question.",
   "default": ["crew"],
   "targets": [
     {
@@ -21,25 +21,154 @@
         "practice",
         "shown",
         "agent"
+      ],
+      "benchmarks": [
+        {
+          "task": "ifeval",
+          "name": "IFEval",
+          "metric": "prompt_level_strict_acc",
+          "filter": "none",
+          "compare": "instructions"
+        }
+      ],
+      "benchmarksNote": "IFEval measures following instructions; the conversation and an agent's steps with tools have no standard task in the harness, so they are not in this figure"
+    },
+    {
+      "id": "code",
+      "name": "Code",
+      "about": "Writing a function that does what is asked, correcting one, and saying what one does",
+      "kinds": ["write-arrays", "write-strings", "write-numbers", "write-parsing", "fix", "bug", "trace"],
+      "benchmarks": [
+        {
+          "task": "humaneval_instruct",
+          "name": "HumanEval",
+          "metric": "pass@1",
+          "filter": "create_test",
+          "compare": "verdict"
+        },
+        {
+          "task": "mbpp_instruct",
+          "name": "MBPP",
+          "metric": "pass_at_1",
+          "filter": "extract_code",
+          "compare": "verdict"
+        }
       ]
     },
     {
       "id": "math",
       "name": "Math",
       "about": "Arithmetic in words: sums in a row, rates, units, counting",
-      "kinds": ["chain", "shop", "rate", "units", "count"]
+      "kinds": ["chain", "shop", "rate", "units", "count"],
+      "benchmarks": [
+        {
+          "task": "gsm8k",
+          "name": "GSM8K",
+          "metric": "exact_match",
+          "filter": "flexible-extract",
+          "compare": "answer"
+        },
+        {
+          "task": "bbh_cot_fewshot_multistep_arithmetic_two",
+          "name": "BBH multistep arithmetic",
+          "metric": "exact_match",
+          "filter": "get-answer",
+          "compare": "answer"
+        }
+      ]
     },
     {
       "id": "logic",
       "name": "Logic",
       "about": "What follows from what is given: an order, a day of the week, a question whose first answer is wrong",
-      "kinds": ["order", "day", "trap"]
+      "kinds": ["order", "day", "trap"],
+      "benchmarks": [
+        {
+          "task": "bbh_cot_fewshot_logical_deduction_three_objects",
+          "name": "BBH logical deduction",
+          "metric": "exact_match",
+          "filter": "get-answer",
+          "compare": "answer"
+        },
+        {
+          "task": "bbh_cot_fewshot_date_understanding",
+          "name": "BBH date understanding",
+          "metric": "exact_match",
+          "filter": "get-answer",
+          "compare": "answer"
+        },
+        {
+          "task": "bbh_cot_fewshot_temporal_sequences",
+          "name": "BBH temporal sequences",
+          "metric": "exact_match",
+          "filter": "get-answer",
+          "compare": "answer"
+        },
+        {
+          "task": "bbh_cot_fewshot_web_of_lies",
+          "name": "BBH web of lies",
+          "metric": "exact_match",
+          "filter": "get-answer",
+          "compare": "answer"
+        },
+        {
+          "task": "bbh_cot_fewshot_formal_fallacies",
+          "name": "BBH formal fallacies",
+          "metric": "exact_match",
+          "filter": "get-answer",
+          "compare": "answer"
+        }
+      ]
     },
     {
       "id": "reasoning",
       "name": "Reasoning",
       "about": "Following a procedure exactly: letters counted, a word changed step by step, a figure read out of a passage",
-      "kinds": ["letters", "string", "extract"]
+      "kinds": ["letters", "string", "extract"],
+      "benchmarks": [
+        {
+          "task": "bbh_cot_fewshot_word_sorting",
+          "name": "BBH word sorting",
+          "metric": "exact_match",
+          "filter": "get-answer",
+          "compare": "answer"
+        },
+        {
+          "task": "bbh_cot_fewshot_dyck_languages",
+          "name": "BBH Dyck languages",
+          "metric": "exact_match",
+          "filter": "get-answer",
+          "compare": "answer"
+        },
+        {
+          "task": "bbh_cot_fewshot_object_counting",
+          "name": "BBH object counting",
+          "metric": "exact_match",
+          "filter": "get-answer",
+          "compare": "answer"
+        },
+        {
+          "task": "bbh_cot_fewshot_tracking_shuffled_objects_three_objects",
+          "name": "BBH shuffled objects",
+          "metric": "exact_match",
+          "filter": "get-answer",
+          "compare": "answer"
+        },
+        {
+          "task": "bbh_cot_fewshot_penguins_in_a_table",
+          "name": "BBH penguins in a table",
+          "metric": "exact_match",
+          "filter": "get-answer",
+          "compare": "answer"
+        },
+        {
+          "task": "bbh_cot_fewshot_boolean_expressions",
+          "name": "BBH boolean expressions",
+          "metric": "exact_match",
+          "filter": "get-answer",
+          "compare": "answer"
+        }
+      ]
     }
   ]
 }

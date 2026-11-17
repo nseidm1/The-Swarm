@@ -10,6 +10,7 @@
 // not unpack is fetched again. Where it cannot go on (no room on the disk, no network, a target this machine cannot serve), it
 // stops and says what to do, in a sentence, and what is already here is kept.
 //   node training/setup.mjs            make ready       node training/setup.mjs --check     say what is missing, fetch nothing
+//   node training/setup.mjs --small    the engine and the small models only (Pretrain needs no more)
 // What it is doing is written to .work/train/setup.json as it goes, for the page.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -299,8 +300,11 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     fetched.add(m.id);
     ok.push(await model(m, 'Small model ' + (i + 1) + ' (' + m.name + ')', check));
   }
-  ok.push(decider(check));
-  ok.push(await target(check));
+  // (--small: the engine and the small models only, all that Pretrain needs: training/adapters.mjs train)
+  if (!has('small')) {
+    ok.push(decider(check));
+    ok.push(await target(check));
+  }
   for (const s of steps)
     console.log(
       (s.state === 'ready' ? 'ready    ' : s.state === 'missing' ? 'missing  ' : 'FAILED   ') +

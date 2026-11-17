@@ -214,6 +214,17 @@ export async function openSwarm(briefs = readBriefs(), { seed = Number(arg('seed
   if (arg('attach-a')) attach.a = arg('attach-a');
   if (arg('attach-b')) attach.b = arg('attach-b');
   const decider = await deciderAddress();
+  // the members' adapters, where the configuration serves them ("adapters": true; Pretrain on the page trains them)
+  const { lorasFor } = await import('../adapters.mjs');
+  const loras = lorasFor(readConfig(), MEMBERS, path.join(REPO_ROOT, '.work'), targetOf().id, modelsDir());
+  if (Object.keys(loras).length)
+    console.log(
+      'Served with adapters: ' +
+        Object.keys(loras)
+          .map((k) => MEMBERS[k].name)
+          .join(', ') +
+        '.',
+    );
   console.log(
     decider
       ? 'The decider decides, at ' + decider + '.'
@@ -227,6 +238,7 @@ export async function openSwarm(briefs = readBriefs(), { seed = Number(arg('seed
     llamaServer: llamaServer(),
     modelsDir: modelsDir(),
     decider,
+    loras,
     onRecover: note,
     // (an agent's step is asked with tools, whichever way the configuration has it decided: the servers read and write calls in
     // each model's own template. Builds of llama.cpp that already do so by default are not changed by it)

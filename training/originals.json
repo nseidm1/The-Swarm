@@ -1,0 +1,39 @@
+{
+  "about": "EACH SMALL MODEL'S ORIGINAL WEIGHTS, by the GGUF file the swarm serves: what MLX trains an adapter from (it cannot train a GGUF). training/mlx-setup.sh fetches each into .work/mlx/hf/<dir> at the revision named (include: only those files, where a repository holds more than one copy of the weights). cannot: why that one is not trained here, measured. Read by training/adapters.mjs and the page.",
+  "models": {
+    "LFM2.5-1.2B-Instruct-Q4_K_M.gguf": {
+      "repo": "LiquidAI/LFM2.5-1.2B-Instruct",
+      "revision": "b9d816ab510f9a28dca37cb182e9da8b0226e13c",
+      "dir": "LFM2.5-1.2B-Instruct"
+    },
+    "Qwen3.5-2B-Q4_K_M.gguf": {
+      "repo": "Qwen/Qwen3.5-2B",
+      "revision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
+      "dir": "Qwen3.5-2B"
+    },
+    "Ministral-3-3B-Instruct-2512-Q4_K_M.gguf": {
+      "repo": "mistralai/Ministral-3-3B-Instruct-2512-BF16",
+      "revision": "b6d637bef2393152b3da2b2fde72eecdee30557e",
+      "dir": "Ministral-3-3B-Instruct-2512-BF16",
+      "include": [
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "config.json",
+        "generation_config.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "special_tokens_map.json",
+        "chat_template.jinja",
+        "tekken.json",
+        "processor_config.json"
+      ]
+    },
+    "Ternary-Bonsai-2-4B-Q2_0.gguf": {
+      "repo": "prism-ml/Ternary-Bonsai-2-4B-mlx-2bit",
+      "revision": "dff2caaa23fa8706164c44c10f1b58feb405f76a",
+      "dir": "Ternary-Bonsai-2-4B-mlx-2bit",
+      "cannot": "its weights are Hadamard-rotated and load only through its maker's runtime, not stock mlx-lm"
+    }
+  }
+}

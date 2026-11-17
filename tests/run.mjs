@@ -1875,8 +1875,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { n: tr.length, again: again.length },
   );
   check(
-    'what the swarm is to be equivalent on is chosen from a list kept as data: The Crew (programming and the conversation around it) where nothing is chosen, and with it or in its place Math, Logic and Reasoning; a pass asks the kinds of all that are chosen, and a name that is not on the list is passed over',
-    EQUIVALENCE.targets.map((t) => t.id).join() === 'crew,math,logic,reasoning' &&
+    "what the swarm is to be equivalent on is chosen from a list kept as data: The Crew (programming and the conversation around it) where nothing is chosen, and with it or in its place Code, Math, Logic and Reasoning; a pass asks the kinds of all that are chosen (Code's are among The Crew's, asked once), and a name that is not on the list is passed over",
+    EQUIVALENCE.targets.map((t) => t.id).join() === 'crew,code,math,logic,reasoning' &&
+      kindsFor(['code']).join() === CODE_KIND_NAMES.join() &&
+      kindsFor(['code', 'crew']).join() === NAMES.join() &&
       NAMES.join() === [...CODE_KIND_NAMES, ...CREW_KIND_NAMES, 'agent'].join() &&
       kindsFor(['crew']).join() === NAMES.join() &&
       kindsFor([]).join() === NAMES.join() &&
@@ -4258,6 +4260,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     list: [{ id: 'q', kind: 'k' }],
     briefs: { version: 1, has: [], slots, plan: {} },
     cap: 4,
+    // (building on what came closer is what this checks; pruning a win to its smallest form is checked on its own, 9l)
+    policy: { prune: false },
     poolOf: (bb) =>
       ['room', 'decide']
         .filter((k) => !bb.has.includes(k))
@@ -4445,10 +4449,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const wins = await go(true);
   const never = await go(false);
   check(
-    'a question stays in hand until parity, with no limit on tries, best first: a change that comes closer is built on at once (the next change is tried on top of it); a pair that reaches parity is kept together; where every arrangement open has been tried the search widens (every arrangement tried is built on), and only when no combination at all is left can the loop do no more, which is written down',
+    'a question stays in hand until parity, with no limit on tries, best first: a change that comes closer is built on at once (the next change is tried on top of it); a pair that reaches parity is kept together (each alone is tried after, and neither holds); where every arrangement open has been tried the search widens (every arrangement tried is built on), and only when no combination at all is left can the loop do no more, which is written down',
     wins.q.state === 'reached' &&
       wins.q.rounds === 2 &&
-      wins.asked.join('|') === '|x|x+y' &&
+      wins.asked.join('|') === '|x|x+y|y|x' &&
       wins.kept.join() === 'several: x + y' &&
       never.q.state === 'not reached' &&
       never.q.exhausted === true &&
@@ -5017,6 +5021,408 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       unit.picks[1].join() === 'y' &&
       suggestionsOf('no json', ['x']).picks.length === 0,
     { asked, suggest: st.suggest, log: st.suggestLog, prompt: prompts[0] && prompts[0][1].slice(-400) },
+  );
+}
+
+// ---- 9l: a trial with no signal is put back; refusals are shown again; pace in real seconds; the smallest win; briefs for a drafting loss
+{
+  const { runLoop, reviewNow } = await import('../training/loop.mjs');
+  const P = await import('../training/loop-policy.mjs');
+  const mk = (bb, k) => ({
+    key: k,
+    id: k,
+    name: k,
+    kind: 'arrangement',
+    area: 'slots',
+    briefs: { ...bb, has: [...bb.has, k] },
+  });
+  const wrong = (same = false) => ({
+    grade: 'wrong',
+    path: 'decided',
+    trace: [{ stage: 'draft', slot: 'a1', same, out: 'function f(){return 1}' }],
+    refReply: 'function f(){return 2}',
+  });
+  const v0 = P.verdictOf([0, 0, 0], [0, 0, 0]);
+  const v1 = P.verdictOf([0, 1], [1, 3]);
+  // refusals: the second review is shown the first one's refusal
+  const prompts = [];
+  const st = { questions: [], kept: [], classes: {}, policy: P.normal({}), policyLog: [], tryN: 0, tryLog: [] };
+  const rv = async (p) => (prompts.push(p), '{"proposals":[{"knob":"learnedMinTried","value":0,"why":"lower"}]}');
+  await reviewNow(st, { review: rv });
+  await reviewNow(st, { review: rv });
+  // pace in real seconds, and the smallest win: a found arrangement of two changes of which only `x` is needed
+  const notes = [];
+  const small = await runLoop({
+    list: [
+      { id: 'easy', kind: 'k' },
+      { id: 'q', kind: 'k' },
+      { id: 'q2', kind: 'k' },
+    ],
+    briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+    poolOf: (bb) => ['x', 'y', 'z'].filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k)),
+    library: [{ names: ['y', 'x'], what: 'several: y + x', from: { question: 'old' }, reached: ['old'], tried: 0 }],
+    attempt: async (bb, t, at) => (
+      notes.push(at),
+      t.id === 'easy' || (t.id === 'q' && bb.has.includes('x'))
+        ? { grade: 'right', trace: [], seconds: 90, wallSeconds: 4 }
+        : { ...wrong(), seconds: 90, wallSeconds: 4 }
+    ),
+  });
+  // briefs for a drafting loss: after `teachEvery` failed tries the larger model writes one for the failing drafter, and it wins
+  const taught = [];
+  let written = null;
+  const tq = await runLoop({
+    list: [{ id: 'hard', kind: 'k', ask: 'Write roundTo(n).' }],
+    briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft', brief: 'Answer.' }], plan: {} },
+    policy: { teachEvery: 3, batch: 0, suggestEvery: 0, reviewTries: 1000 },
+    review: async () => '{}',
+    poolOf: (bb) => [
+      ...['a', 'b', 'c', 'd'].filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k)),
+      ...(written && !bb.has.includes('tb')
+        ? [{ ...mk(bb, 'tb'), name: written, kind: 'brief', slot: 'a1', area: 'briefs' }]
+        : []),
+    ],
+    teach: async (slot, missed) => (
+      taught.push([slot.id, missed[0]]),
+      (written = 'the larger model: a careful drafter'),
+      [{ name: written, brief: 'x'.repeat(60) }]
+    ),
+    attempt: async (bb) => (bb.has.includes('tb') ? { grade: 'right', trace: [] } : wrong()),
+  });
+  const won = tq.questions[0].attempts.find((a) => a.kept);
+  check(
+    "a trial whose tries came to nothing on both sides is inconclusive and put back; the larger model is shown the proposals refused before, so as not to make them again; the pace is the clock's seconds, not the full cost; a win of several changes is tried without each part and kept in its smallest form; and where no slot drafts the answer, after `teachEvery` failed tries the larger model writes new briefs for the failing drafter from what it wrote and the answer wanted, tried at once",
+    v0.keep === false &&
+      v0.inconclusive === true &&
+      v1.keep === true &&
+      !v1.inconclusive &&
+      st.policyLog[0].refused[0].knob === 'learnedMinTried' &&
+      /refused/.test(prompts[1]) &&
+      /learnedMinTried takes a whole number/.test(prompts[1]) &&
+      notes.filter((n) => n.pace).at(-1).pace.seconds === 4 &&
+      small.kept[0].what === 'x' &&
+      small.kept[0].pruned.join() === 'y' &&
+      small.questions[1].attempts.some((a) => a.prune) &&
+      taught.length === 1 &&
+      taught[0][0] === 'a1' &&
+      taught[0][1].wanted === 'function f(){return 2}' &&
+      /Write roundTo/.test(taught[0][1].question) &&
+      won &&
+      won.taught === true &&
+      tq.teach.asked === 1 &&
+      tq.teach.kept === 1 &&
+      tq.teach.briefs === 1,
+    {
+      v0,
+      prompt: prompts[1] && prompts[1].slice(-300),
+      kept: small.kept.map((k) => [k.what, k.pruned]),
+      teach: tq.teach,
+      taught,
+    },
+  );
+}
+
+// ---- 9m: teaching beyond drafting and with reasoning; a question beyond rearranging; the adapter dataset and probe
+{
+  const { runLoop } = await import('../training/loop.mjs');
+  const { teachAsk } = await import('../training/support/teach.mjs');
+  const A = await import('../training/adapters.mjs');
+  const mk = (bb, k) => ({
+    key: k,
+    id: k,
+    name: k,
+    kind: 'arrangement',
+    area: 'slots',
+    briefs: { ...bb, has: [...bb.has, k] },
+  });
+  // a slot had the answer and it was not chosen: the checker is taught
+  const taught = [];
+  const chose = await runLoop({
+    list: [{ id: 'c', kind: 'k', ask: 'Pick the right answer.' }],
+    briefs: {
+      version: 1,
+      has: [],
+      slots: [
+        { id: 'd1', stage: 'draft', brief: 'Draft.' },
+        { id: 'k1', stage: 'check', brief: 'Check.' },
+      ],
+      plan: {},
+    },
+    policy: { teachEvery: 2, batch: 0, suggestEvery: 0, reviewTries: 1000, adaptAfter: 4 },
+    review: async () => '{}',
+    poolOf: (bb) => ['a', 'b', 'c', 'd', 'e', 'f'].filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k)),
+    teach: async (slot, missed, lost) => (taught.push([slot.id, lost]), []),
+    onBeyond: async (q) => ({ dataset: 'd.jsonl', examples: 3, flagged: q.id }),
+    attempt: async () => ({
+      grade: 'wrong',
+      path: 'decided',
+      trace: [
+        { stage: 'draft', slot: 'd1', same: true, out: 'x' },
+        { stage: 'check', slot: 'k1', same: false, out: 'looks fine' },
+      ],
+      refReply: 'x',
+    }),
+    cap: 8,
+  });
+  const q = chose.questions[0];
+  const prompt = teachAsk(
+    { stage: 'check', brief: 'Check.' },
+    [{ question: 'Q', slotWrote: 'W', wanted: 'A' }],
+    'choosing',
+  );
+  // the dataset: train questions only, as chat pairs
+  const tmp = path.join(os.tmpdir(), 'adapters-' + process.pid);
+  const ds = A.exportDataset(
+    [
+      { id: 't1', kind: 'k', ask: 'one', split: 'train' },
+      { id: 'h1', kind: 'k', ask: 'held', split: 'held' },
+      { id: 't2', kind: 'k', ask: 'two', split: 'train' },
+    ],
+    new Map([
+      ['t1', 'ANSWER: 1'],
+      ['h1', 'ANSWER: h'],
+      ['t2', ''],
+    ]),
+    path.join(tmp, 'train.jsonl'),
+  );
+  const lines = fs
+    .readFileSync(ds.file, 'utf8')
+    .trim()
+    .split('\n')
+    .map((l) => JSON.parse(l));
+  // the probe: a trainer that cannot, its reason read from what it said; kept, so a second probe does not run it again
+  let runs = 0;
+  const fakeRun = (cmd, args) => {
+    runs++;
+    fs.writeFileSync(
+      args[1].match(/> '([^']+)'/)[1],
+      'src/ggml.c:7367: ggml_compute_backward: unsupported unary op for backward pass: SIGMOID\n1 libggml-base ggml_abort\n',
+    );
+    return { status: null, signal: 'SIGABRT' };
+  };
+  fs.writeFileSync(path.join(tmp, 'm.gguf'), 'x');
+  const p1 = A.probe([{ name: 'M', file: path.join(tmp, 'm.gguf') }], {
+    cacheFile: path.join(tmp, 'probe.json'),
+    workDir: path.join(tmp, 'w'),
+    run: fakeRun,
+  });
+  const p2 = A.probe([{ name: 'M', file: path.join(tmp, 'm.gguf') }], {
+    cacheFile: path.join(tmp, 'probe.json'),
+    workDir: path.join(tmp, 'w'),
+    run: fakeRun,
+  });
+  fs.rmSync(tmp, { recursive: true, force: true });
+  check(
+    "where a slot had the answer and it was not chosen, the larger model is asked to teach the checker (not only where no slot drafted it), saying first what went wrong in general and teaching the method, never the question or its answer; a question that resists `adaptAfter` tries, the larger model's teaching among them, is flagged as beyond rearranging once, with what was made ready; the dataset is the larger model's answers to train questions only, as chat pairs; and the probe says why a model cannot be trained here, from the trainer's own line, and is not run twice for one model",
+    taught[0][0] === 'k1' &&
+      taught[0][1] === 'choosing' &&
+      /settled on another/.test(prompt) &&
+      /First work out what went wrong/.test(prompt) &&
+      /never mention this question/.test(prompt) &&
+      /"why"/.test(prompt) &&
+      q.beyond &&
+      q.beyond.at === 4 &&
+      q.beyond.taught >= 1 &&
+      q.beyond.ready.flagged === 'c' &&
+      q.state === 'not reached' &&
+      ds.examples === 1 &&
+      lines[0].id === 't1' &&
+      lines[0].messages.at(-1).content === 'ANSWER: 1' &&
+      p1[0].ok === false &&
+      p1[0].why === 'llama-finetune cannot train it: SIGMOID has no backward pass' &&
+      p2[0].why === p1[0].why &&
+      runs === 1 &&
+      A.reasonOf('x\nsrc/ggml-opt.cpp:95: GGML_ASSERT(ndata > 0) failed\n1 libggml-base ggml_abort') ===
+        'src/ggml-opt.cpp:95: GGML_ASSERT(ndata > 0) failed',
+    { taught, beyond: q.beyond, ds, p1 },
+  );
+}
+
+// ---- 9n: MLX as the trainer: tool-call arguments parsed for a chat template, why a model can or cannot be trained, and an adapter
+// kept only where llama.cpp finds the trained answers likelier with it
+{
+  const A = await import('../training/adapters.mjs');
+  const tmp = path.join(os.tmpdir(), 'mlx-' + process.pid);
+  // the agent questions carry a tool call's arguments as a JSON string; a template wants an object; a string that is not JSON stays
+  const ds = A.exportDataset(
+    [{ id: 'a1', kind: 'agent', ask: 'x', split: 'train' }],
+    new Map([['a1', 'done']]),
+    path.join(tmp, 'train.jsonl'),
+    () => [
+      { role: 'user', content: 'rename it' },
+      {
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          { id: 'c1', type: 'function', function: { name: 'read', arguments: '{"path":"a.js"}' } },
+          { id: 'c2', type: 'function', function: { name: 'odd', arguments: 'not json' } },
+        ],
+      },
+    ],
+  );
+  const calls = JSON.parse(fs.readFileSync(ds.file, 'utf8')).messages[1].tool_calls;
+  // readiness: a file with no originals named; one that cannot be trained; MLX missing; weights missing; ready
+  const work = path.join(tmp, 'work');
+  const mk = (f) => ({ name: f, file: path.join(tmp, f) });
+  const r = (f) => A.mlxReady(mk(f), work);
+  const none = r('other.gguf');
+  const bonsai = r('Ternary-Bonsai-2-4B-Q2_0.gguf');
+  const noMlx = r('Qwen3.5-2B-Q4_K_M.gguf');
+  const p = A.mlxPaths(work);
+  fs.mkdirSync(path.dirname(p.python), { recursive: true });
+  fs.writeFileSync(p.python, '');
+  const noWeights = r('Qwen3.5-2B-Q4_K_M.gguf');
+  fs.mkdirSync(path.join(p.hf, 'Qwen3.5-2B'), { recursive: true });
+  fs.writeFileSync(path.join(p.hf, 'Qwen3.5-2B', 'config.json'), '{}');
+  // (a config with no weights beside it is not weights: a download that fetched the small files only)
+  const configOnly = r('Qwen3.5-2B-Q4_K_M.gguf');
+  fs.writeFileSync(path.join(p.hf, 'Qwen3.5-2B', 'model.safetensors'), 'x');
+  const ready = r('Qwen3.5-2B-Q4_K_M.gguf');
+  // training: a stand-in for MLX, the converter and llama-perplexity, perplexity `pp` without and with the adapter
+  const runWith = (pp) => {
+    const seen = [];
+    const run = (cmd, args) => {
+      seen.push([cmd, ...args].join(' '));
+      if (args[2] === 'train') {
+        const out = args[5];
+        fs.mkdirSync(path.join(out, 'data'), { recursive: true });
+        fs.writeFileSync(
+          path.join(out, 'data', 'train.jsonl'),
+          JSON.stringify({
+            messages: [
+              { role: 'user', content: 'q' },
+              { role: 'assistant', content: 'a' },
+            ],
+          }) + '\n',
+        );
+        return {
+          status: 0,
+          stdout: 'log\n{"ok": true, "examples": 7, "dropped": 1, "valLoss": [2, 1], "seconds": 3}\n',
+        };
+      }
+      if (args[2] === 'gguf') return { status: 0, stdout: '{"ok": true, "pairs": 4}\n' };
+      const v = args.includes('--lora') ? pp[1] : pp[0];
+      return {
+        status: 0,
+        stdout: '',
+        stderr: v === null ? 'failed to load' : 'Final estimate: PPL = ' + v + ' +/- 0.1\n',
+      };
+    };
+    const res = A.trainAdapter(mk('Qwen3.5-2B-Q4_K_M.gguf'), 'd.jsonl', path.join(tmp, 'out'), { work, iters: 5, run });
+    return { res, seen };
+  };
+  const better = runWith([3.2, 2.5]);
+  const worse = runWith([3.2, 3.6]);
+  const unloaded = runWith([3.2, null]);
+  const notReady = A.trainAdapter(mk('Ternary-Bonsai-2-4B-Q2_0.gguf'), 'd.jsonl', path.join(tmp, 'o2'), { work });
+  fs.rmSync(tmp, { recursive: true, force: true });
+  check(
+    "a tool call's arguments go into the dataset as an object (a chat template refuses a JSON string), a string that is not JSON as it was; a model is trainable with MLX only where its original weights are named, it is not one measured as untrainable, MLX is installed and its weights are here, each refusal saying which; and an adapter is trained, converted for the served file and kept only where llama.cpp finds the trained answers likelier with it, never where they are less likely or it does not load",
+    calls[0].function.arguments.path === 'a.js' &&
+      calls[1].function.arguments === 'not json' &&
+      /no original weights/.test(none.why) &&
+      /Hadamard/.test(bonsai.why) &&
+      /MLX is not installed/.test(noMlx.why) &&
+      /original weights are not here/.test(noWeights.why) &&
+      /original weights are not here/.test(configOnly.why) &&
+      ready.ok &&
+      /Qwen\/Qwen3\.5-2B/.test(ready.why) &&
+      better.res.ok &&
+      better.res.perplexity.without === 3.2 &&
+      better.res.perplexity.with === 2.5 &&
+      better.res.examples === 7 &&
+      /Qwen3\.5-2B-Q4_K_M-lora\.gguf$/.test(better.res.gguf) &&
+      better.seen.some((s) => / train .* --iters 5 /.test(s)) &&
+      better.seen.some((s) => /--lora .*-lora\.gguf/.test(s)) &&
+      !worse.res.ok &&
+      /no likelier \(3\.2 -> 3\.6\)/.test(worse.res.why) &&
+      !unloaded.res.ok &&
+      /did not load/.test(unloaded.res.why) &&
+      !notReady.ok &&
+      /Hadamard/.test(notReady.why),
+    { calls, none, bonsai, noMlx, noWeights, ready, better: better.res, worse: worse.res, unloaded: unloaded.res },
+  );
+}
+
+// ---- 9o: evaluating the swarm on standard benchmarks (training/evaluate.mjs): what each chosen body of work is asked; a reply
+// turned into what would have followed a task's opening of it, the same for both models; the relay in between; and the adapters
+// the swarm is served with
+{
+  const E = await import('../training/evaluate.mjs');
+  const A = await import('../training/adapters.mjs');
+  const EQ = JSON.parse(fs.readFileSync(new URL('../training/equivalence.json', import.meta.url), 'utf8'));
+  const plan = E.planOf(EQ.targets, ['code', 'math']);
+  // HumanEval opens the reply with the function's signature: what follows is the reply's own body, after its header
+  const sig = 'Here is the completed function:\n```python\ndef add(a, b):\n    """Sum."""\n';
+  const he = E.continuation(
+    sig,
+    'Sure!\n```python\nimport math\n\ndef add(a, b):\n    """Sum."""\n    return a + b\n```\nDone.',
+  );
+  // MBPP opens a code block: what follows is the code, then the block's end
+  const mb = E.continuation('\n```python\n', '```python\ndef f(x):\n    return x\n```');
+  // a text opening: what was said after it, or the reply where it did not say it
+  const arc = E.continuation('The best answer is', 'Thinking it over, the best answer is C.');
+  const none = E.continuation('The best answer is', 'C');
+  const cut = E.cutAt('42\n\nQuestion: next', ['Question:', '\n\n']);
+  const prog = E.progressOf('Requesting API:   0%|  | 0/20\rRequesting API:  35%|###  | 7/20 [00:30<');
+  // the relay: the opening is taken off before the model is asked, and its reply comes back as the continuation, cut at the stops
+  const asked = [];
+  const r = await E.relay(
+    async (messages) => (asked.push(messages), '```python\ndef f(x):\n    return x\n```\nThat is it.'),
+    {
+      ask: (x) => asked.push(['ask', x.excerpt]),
+    },
+  );
+  const got = await (
+    await fetch(r.base + '/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'x',
+        messages: [
+          { role: 'user', content: 'Write f.' },
+          { role: 'assistant', content: '\n```python\n' },
+        ],
+        stop: ['That is'],
+      }),
+    })
+  ).json();
+  await r.close();
+  // adapters: served only where the configuration says so and the adapter llama.cpp found good is there
+  const tmp = path.join(os.tmpdir(), 'loras-' + process.pid);
+  const m = { name: 'LFM2.5 1.2B', file: 'LFM2.5-1.2B-Instruct-Q4_K_M.gguf' };
+  const dir = A.adapterDir(tmp, 'tgt', { file: path.join(tmp, m.file) });
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'x-lora.gguf'), 'x');
+  fs.writeFileSync(path.join(dir, 'result.json'), JSON.stringify({ ok: true, gguf: path.join(dir, 'x-lora.gguf') }));
+  const off = A.lorasFor({}, { a: m }, tmp, 'tgt', tmp);
+  const on = A.lorasFor(
+    { adapters: true },
+    { a: m, b: { name: 'Q', file: 'Qwen3.5-2B-Q4_K_M.gguf' } },
+    tmp,
+    'tgt',
+    tmp,
+  );
+  fs.rmSync(tmp, { recursive: true, force: true });
+  check(
+    "evaluating the swarm asks the standard tasks of each body of work chosen (Code: HumanEval and MBPP; Math: GSM8K and BBH), and every body of work has at least one; a reply is turned into what would have followed the task's opening of it (after a signature, the reply's own function body; after a code block's opening, its code and the block's end; after words, what it said after them) and cut at the task's stop strings; the relay takes the opening off before the model is asked; the harness's progress is read from what it prints; and the swarm is served with an adapter only where the configuration says so and the one llama.cpp found good is there",
+    plan.map((b) => b.task).join() ===
+      'humaneval_instruct,mbpp_instruct,gsm8k,bbh_cot_fewshot_multistep_arithmetic_two' &&
+      plan.every((b) => b.metric && b.filter && ['answer', 'verdict', 'instructions'].includes(b.compare)) &&
+      EQ.targets.every((t) => (t.benchmarks || []).length > 0) &&
+      he === '\n    """Sum."""\n    return a + b\n```' &&
+      mb === '\ndef f(x):\n    return x\n```' &&
+      arc === ' C.' &&
+      none === ' C' &&
+      cut === '42' &&
+      prog.done === 7 &&
+      prog.of === 20 &&
+      asked[1].length === 1 &&
+      asked[1][0].role === 'user' &&
+      got.choices[0].message.content === '\ndef f(x):\n    return x\n```' &&
+      Object.keys(off).length === 0 &&
+      Object.keys(on).join() === 'a',
+    { plan, he, mb, arc, none, cut, prog, asked, got, off, on },
   );
 }
 

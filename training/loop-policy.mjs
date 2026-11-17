@@ -107,6 +107,28 @@ export const KNOBS = {
     max: 500,
     default: 20,
   },
+  teachEvery: {
+    about:
+      'After how many failed tries on a question the larger model is shown what the failing slots wrote and the answer wanted (the drafters where no slot drafted it; the checkers where one did and it was not chosen), says what went wrong in general terms, and writes new briefs that teach the method, tried at once (0: never).',
+    kind: 'int',
+    min: 0,
+    max: 1000,
+    default: 20,
+  },
+  adaptAfter: {
+    about:
+      "After how many tries on one question, the larger model having written briefs for it, the question is flagged as beyond rearranging: the larger model's answers are made ready as a dataset to train a small model on, and whether each small model can be trained here is measured (0: never).",
+    kind: 'int',
+    min: 0,
+    max: 5000,
+    default: 200,
+  },
+  prune: {
+    about:
+      'After a win of several changes, try it without each part and keep the smallest that still reaches parity and loses no question.',
+    kind: 'bool',
+    default: true,
+  },
   swapAfter: {
     about:
       'After changes that bring the question in hand to parity have lost the same question already at parity this many times, a change that loses only that one is kept, and that question goes back in hand (once each way for a pair; 0: never).',
@@ -244,7 +266,8 @@ export function reviewAsk(policy, record, past = []) {
     JSON.stringify(record).slice(0, 9000) +
     '\n\nThe knobs, what each does, its bounds and its value now (JSON):\n' +
     JSON.stringify(knobs) +
-    '\n\nProposals already tried and what came of each (JSON):\n' +
+    '\n\nProposals already made and what came of each, including any refused for being out of bounds (never propose a refused one ' +
+    "again; a value must be within its knob's bounds) (JSON):\n" +
     JSON.stringify(past.slice(-8)) +
     '\n\nRead the record for what slows the search: tries spent on kinds of change that never reach parity, changes that cannot ' +
     'help where the answer was lost, a search that never builds on what came closer, a kind that works and is tried late. ' +
@@ -299,11 +322,15 @@ export const counted = (q) => (q.attempts || []).length > 1 && q.state !== 'not 
 const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
 // A TRIAL'S VERDICT, IN TRIES: what each try came to (kept 10, at parity but losing one already there 3, closer 1, nothing 0), the
 // trial's tries against as many before it. Kept where it did at least as well; with nothing before it to compare, kept, and said
+// With no signal on either side (every try came to nothing, before and during) there is nothing to judge by: INCONCLUSIVE, and the
+// change is put back (measured 2026-11-17: on a long question every trial compared 0 with 0 and was kept, beam going 5, 3, 5)
 export function verdictOf(before = [], during = []) {
   const b = mean(before);
   const d = mean(during) || 0;
+  const inconclusive = !d && !b;
   return {
-    keep: b === null || d >= b,
+    keep: !inconclusive && (b === null || d >= b),
+    ...(inconclusive ? { inconclusive: true } : {}),
     before: b === null ? null : Math.round(b * 1000) / 1000,
     during: Math.round(d * 1000) / 1000,
     beforeN: before.length,
@@ -357,6 +384,7 @@ export function recordOf(st, current = null) {
     tries: st.tryN || 0,
     // the larger model's suggestions of what to try: how often asked, what they cost, what came of them
     ...(st.suggest ? { suggestions: st.suggest } : {}),
+    ...(st.teach ? { briefsWritten: st.teach } : {}),
     ...(st.pairs && Object.keys(st.pairs).length
       ? {
           conflicts: Object.entries(st.pairs)

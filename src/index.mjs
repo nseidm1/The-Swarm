@@ -95,7 +95,15 @@ export async function createSwarm(opts = {}) {
     }
     // (a server that takes turns with tools reads and writes calls in its model's own template: --jinja)
     const jinja = opts.jinja !== undefined ? opts.jinja : toolMode === 'swarm' || key === toolLead;
-    const r = await startMember(MEM[key], { ...opts, jinja, slots, file: opts.files && opts.files[key] });
+    // (a member with a trained adapter, opts.loras: { key: its GGUF LoRA }, is served with it: training/adapters.mjs lorasFor)
+    const lora = opts.loras && opts.loras[key];
+    const r = await startMember(MEM[key], {
+      ...opts,
+      jinja,
+      slots,
+      file: opts.files && opts.files[key],
+      ...(lora ? { flags: [...(opts.flags || []), '--lora', lora] } : {}),
+    });
     if (!r.ok) {
       await stop();
       throw new Error(r.why);
