@@ -266,12 +266,12 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .trainprog .memnum,.evalp .memnum,.prep .memnum{text-align:left;align-items:baseline;gap:10px;flex:none}
 .trainprog .memnum>span,.evalp .memnum>span,.prep .memnum>span{display:flex;flex-direction:column;align-items:flex-start;font-size:14px;color:var(--fog);font-weight:700;line-height:1.2}
 .trainprog .memnum small,.evalp .memnum small,.prep .memnum small{margin-top:3px;white-space:nowrap}
-.pct.busy{display:inline-block;width:2.5em;height:.68em;border-radius:var(--r);background:var(--soft);overflow:hidden;position:relative;vertical-align:baseline}
-.pct.busy i,.busyn{background:linear-gradient(90deg,transparent,rgba(30,158,142,.45),transparent);animation:busy 1.4s ease-in-out infinite}
-.pct.busy i{position:absolute;inset:0;transform:translateX(-100%)}
+.pct.busy{display:inline-block;position:relative;color:transparent;line-height:1;user-select:none}
+.memnum .pct.busy>span{font:inherit;color:transparent}
+.pct.busy i{position:absolute;left:0;right:0;bottom:.11em;height:.72em;border-radius:var(--r);background:linear-gradient(90deg,transparent,rgba(30,158,142,.45),transparent) var(--soft);background-size:200% 100%;animation:busyn 1.4s ease-in-out infinite}
+.busyn{background:linear-gradient(90deg,transparent,rgba(30,158,142,.45),transparent)}
 .busyn{display:inline-block;width:2.2em;height:.8em;border-radius:4px;background-color:var(--soft);vertical-align:-1px;background-size:200% 100%}
-@keyframes busy{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
-.busyn{animation-name:busyn}@keyframes busyn{from{background-position:200% 0}to{background-position:-200% 0}}
+.busyn{animation:busyn 1.4s ease-in-out infinite}@keyframes busyn{from{background-position:200% 0}to{background-position:-200% 0}}
 @media (prefers-reduced-motion:reduce){.pct.busy i,.busyn{animation:none}}
 .evalp .memnum .pct.none{color:var(--mist);font-weight:800}
 .trainprog>.state{margin-top:12px}.trainprog>.state.running{flex-wrap:wrap;align-items:baseline;column-gap:8px}.trainprog>.state.running i{align-self:center;margin-top:0}
@@ -2853,8 +2853,8 @@ def progress_strip(d, cleared=""):
     mem = memory_chart(d, compact=True)
     # (while a session runs, a bar that moves in place of the share: the line beside it, the bar and the counts below go on saying
     # where the pass is; stopped, the share comes back, as far as the pass got)
-    busy = bool((run_state() or {}).get("running"))
-    return ('<div class="panel trainprog"><div class="proghead"><span class="memnum"' + (' aria-busy="true">' + BUSY if busy else '><b class="pct">%s%%</b>' % fmt_pct(pct)) + '<span>training complete<small>pass %s</small></span></span>'
+    running_now = bool((run_state() or {}).get("running"))
+    return ('<div class="panel trainprog"><div class="proghead"><span class="memnum"' + (' aria-busy="true">' + busy() if running_now else '><b class="pct">%s%%</b>' % fmt_pct(pct)) + '<span>training complete<small>pass %s</small></span></span>'
             '<span class="progline">%s %s</span><span class="evctl">%s</span></div>%s%s<span class="memleg"><span><i class="pe"></i>at parity as the swarm stood</span><span><i class="pr"></i>brought to parity by a change</span>'
             '<span><i class="pb"></i>back in hand</span>%s<span><i class="pq"></i>still to come</span></span><p class="meta" style="margin:8px 0 0">%s</p>%s</div>'
             % (e(str(lp.get("pass") or (d.get("state") or {}).get("pass", 0) + 1)), line, now, run_controls(), run_lines(cleared), bar,
@@ -2981,7 +2981,10 @@ def _ev_agree(r):
                e(r.get("targetName") or "the larger model"), sc(r.get("target")), sc(r.get("swarm"))))
 
 
-BUSY = '<b class="pct busy" role="progressbar" aria-label="Being measured"><i></i></b>'
+def busy(ghost="00%"):
+    """In place of a headline figure while it is being measured: invisible text the size of the figure (so it sits on the line
+    as the figure does, at its width), and a moving bar where the digits would be."""
+    return '<b class="pct busy" role="progressbar" aria-label="Being measured"><span aria-hidden="true">%s</span><i></i></b>' % ghost
 
 
 def chosen_items(eq):
@@ -3016,7 +3019,7 @@ def eval_block(d):
     if running:
         size_run = (job_state("eval") or {}).get("limit", live.get("limit"))
         asked_n = (int(size_run) * len([b for t in chosen for b in t.get("benchmarks") or []])) if size_run else 0
-        head = ('<span class="memnum" aria-busy="true">' + BUSY + '<span>equivalent'
+        head = ('<span class="memnum" aria-busy="true">' + busy() + '<span>equivalent'
                 '<small><i class="busyn" aria-hidden="true"></i> of %s</small></span></span>' % (("%d questions" % asked_n) if asked_n else "every question"))
     size = int((live.get("limit") if running else (res.get("limit") if res else 20)) or 0)
     opts = "".join('<option value="%d"%s>%s</option>' % (n, " selected" if n == size else "", e(w)) for n, w in EVAL_SIZES)
@@ -3177,7 +3180,7 @@ def pretrain_block(d):
            'An adapter is kept where llama.cpp, serving it beside the model, finds those answers likelier with it.</span><span class="evctl">%s</span></div>'
            # (while it runs, how many are adapted is not known until each model's run is checked: a bar that moves in place of the
            # number; stopped or failed, the adapters that were there are there still, and the number comes back as it was)
-           % (' aria-busy="true"' if running else "", BUSY if running else '<b class="pct">%d</b>' % good, len(rows),
+           % (' aria-busy="true"' if running else "", busy("0") if running else '<b class="pct">%d</b>' % good, len(rows),
               e(tgt.get("name", "the larger model")), e(items or "what is chosen"), ctl)]
     if held and not running:
         out.append('<div class="state warn"><i></i><span>%s is running: pretraining waits for it.</span></div>' % e(held[0].upper() + held[1:]))
