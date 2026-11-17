@@ -323,10 +323,17 @@ with tempfile.TemporaryDirectory() as tmp:
           and json.loads((root / "training" / "questions" / "crew.json").read_text()) == q_file and "nothing called that" in get(base + "/fragment/questions?id=nope")[1], [q_ok, q_file, m_file])
     # EVALUATE THE SWARM and PRETRAIN: above Training progress; started and stopped from the page, one at a time with training
     ev0 = get(base + "/fragment/eval")[1]
+    # (MLX runs on Apple silicon only: there Pretrain installs it and can be pressed; anywhere else, CI's Linux among them, it says
+    # it is not available here and cannot)
+    import platform
+    apple = sys.platform == "darwin" and platform.machine() == "arm64"
     api0 = json.loads(get(base + "/api/eval")[1])
     bad_size = send("/eval/start", {"limit": 7})[0]
     foreign = send("/eval/start", {"limit": 20}, {"x-swarm": "0"})[0]
     pre0 = get(base + "/fragment/pretrain")[1]
+    pre_btn = pre0.split('id="pre-go"')[1][:30] if 'id="pre-go"' in pre0 else ""
+    pre_ok = (("MLX, the trainer, is not installed yet: Pretrain installs it" in pre0 and "disabled" not in pre_btn) if apple
+              else ("runs on Apple silicon only: it is not available on this machine" in pre0 and "disabled" in pre_btn))
     (root / ".work" / "eval").mkdir(parents=True, exist_ok=True)
     (root / ".work" / "eval" / "results.json").write_text(json.dumps({
         "at": "2026-11-17T12:00:00Z", "limit": 20, "harness": "lm-evaluation-harness 0.4.13", "briefs": "abc", "seconds": 600, "adapters": [], "target": "the larger model",
@@ -346,17 +353,17 @@ with tempfile.TemporaryDirectory() as tmp:
     held_ev = get(base + "/fragment/eval")[1]
     (root / ".work" / "eval" / "ui-run.json").unlink()
     (root / ".work" / "eval" / "results.json").unlink()
-    check("above Training progress, Evaluate the swarm and Pretrain: Evaluate says what it does (standard benchmarks of lm-evaluation-harness, asked of the larger model and the swarm, kept apart from training), has a size to choose and a button, and a row for every task of what is chosen; an unknown size or a request from elsewhere is refused; once evaluated it says how many questions had the same answer, split by whether both were right, with each model's score and when; Pretrain lists each small model and, where MLX is not installed, says Pretrain installs it (and can still be pressed); the adapters switch is written beside the models and refuses anything but on or off; and while an evaluation runs, it can be stopped from its section, and training and pretraining wait for it and say so",
+    check("above Training progress, Evaluate the swarm and Pretrain: Evaluate says what it does (standard benchmarks of lm-evaluation-harness, asked of the larger model and the swarm, kept apart from training), has a size to choose and a button, and a row for every task of what is chosen; an unknown size or a request from elsewhere is refused; once evaluated it says how many questions had the same answer, split by whether both were right, with each model's score and when; Pretrain lists each small model and, where MLX is not installed, says Pretrain installs it and can be pressed on Apple silicon, or that it is not available on any other machine; the adapters switch is written beside the models and refuses anything but on or off; and while an evaluation runs, it can be stopped from its section, and training and pretraining wait for it and say so",
           html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2>Pretrain</h2>') < html.index('<h2>Training progress</h2>')
           and "lm-evaluation-harness 0.4.13" in ev0 and 'id="ev-go"' in ev0 and ev0.count("<option") == 3 and 'data-evt="ifeval"' in ev0 and "not evaluated yet" in ev0 and api0.get("running") is False
           and bad_size == 400 and foreign == 403
-          and 'id="pre-go"' in pre0 and "MLX, the trainer, is not installed yet: Pretrain installs it" in pre0 and "disabled" not in pre0.split('id="pre-go"')[1][:30] and pre0.count('class="prerow"') == len([k for k in ("a", "b", "c", "d") if k in d["members"]])
+          and 'id="pre-go"' in pre0 and pre_ok and pre0.count('class="prerow"') == len([k for k in ("a", "b", "c", "d") if k in d["members"]])
           and "75%</b> <span>15 of 20 the same" in ev1 and "9 both right · 6 both wrong · 5 differ" in ev1 and "Last evaluated 2026-11-17 12:00 UTC" in ev1 and "without adapters" in ev1
           and a_on == 200 and a_cfg.get("adapters") is True and a_bad == 400 and a_off == 200 and "adapters" not in a_cfg2
           and held_pre[0] == 409 and "Wait for an evaluation" in held_pre[1] and held_by == "an evaluation" and 'id="ev-stop"' in held_ev and 'id="ev-go"' not in held_ev,
           {"order": html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2>Pretrain</h2>') < html.index('<h2>Training progress</h2>'),
            "ev0": ["lm-evaluation-harness 0.4.13" in ev0, 'id="ev-go"' in ev0, ev0.count("<option"), 'data-evt="ifeval"' in ev0, "not evaluated yet" in ev0, api0.get("running")],
-           "codes": [bad_size, foreign, a_on, a_bad, a_off, held_pre[0]], "pre": ['id="pre-go"' in pre0, "MLX, the trainer, is not installed yet" in pre0, pre0.count('class="prerow"')],
+           "codes": [bad_size, foreign, a_on, a_bad, a_off, held_pre[0]], "pre": ['id="pre-go"' in pre0, apple, pre_ok, pre0.count('class="prerow"')],
            "ev1": ["75%</b> <span>15 of 20 the same" in ev1, "9 both right · 6 both wrong · 5 differ" in ev1, "Last evaluated 2026-11-17 12:00 UTC" in ev1, "without adapters" in ev1],
            "cfg": [a_cfg.get("adapters"), "adapters" in a_cfg2], "held": [held_pre[1][:60], held_by, 'id="ev-stop"' in held_ev]})
     # THE UNINSTALL HELPER LISTS WHAT EVALUATING AND PRETRAINING FETCH: the harness, MLX, each model's original weights (the ones the
