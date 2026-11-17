@@ -30,21 +30,18 @@ the reply.
 
 It is trained toward **parity** with a much larger model, on a machine that could never hold that model. Parity is
 equivalence: for the same message, an answer fundamentally equivalent to the larger model's, on the work the Swarm is
-meant to do. That work is chosen on the dashboard, under the models: **The Crew** (the reason this project exists), and with
-it or in its place Code, Math, Logic and Reasoning, one or several ([`training/equivalence.json`](training/equivalence.json)). For The Crew it is
-the work of a seat on a team, in two parts:
-- **Programming.** Equivalent **function**: the Swarm's function and the larger model's are run on the same inputs, and are
-  equivalent when they do the same, however differently they are written.
-- **The conversation around it.** A person writes to the team, in Simple mode (an everyday question, something the team
-  cannot do for them, something it must ask about, a piece of writing, a hello or a thank-you, something heavy) or in
-  Developer mode (a question of good practice, their own project, a ticket attached to the chat). Each is sent the way a
-  seat is sent one: a system line saying who is speaking, what it can and cannot do and how to reply, then the turns so far.
-  Two replies are equivalent when they do the same thing for the person: the same **act** (both help, or both ask for what
-  is missing), the same **substance** (the same answer, advice or next step; a piece of writing with the same facts and the
-  same request), and no **convention** broken that the larger model's reply kept (claiming to have booked or sent
-  something, running well past the length asked, praising the question, signing off with an offer of more help, a
-  developer's words to someone who is not one). The decision model reads the act and the substance, in one request; the
-  conventions are read off the words.
+meant to do. That work is chosen on the dashboard, under the models: one or several bodies of work, each a set of kinds of
+question the trainer makes, the questions you write for it, and the benchmarks it is evaluated on
+([`training/equivalence.json`](training/equivalence.json)). Today they are The Crew, Code, Math, Logic and Reasoning. Each is an entry in that file, so another project's is added the
+same way: its own questions alone, the kinds that exist, or new kinds written in [`training/tasks.mjs`](training/tasks.mjs)
+where none fits. Equivalence is judged by the kind of answer a question
+asks for: a function is run on the same inputs as the larger model's, and is equivalent when it does the same however it
+is written; a value is the same value; an answer in words is read by the decision model for whether it says the same.
+
+**What training makes is a spec**: everything needed to make that swarm again and serve it as one model (its small models
+and what each slot is told, its decider, its engine, and what it has learned), so any program can use it in place of the
+larger model ([Using it in a program](#using-it-in-a-program)). The Swarm is not tied to one project; [The Crew](#the-crew-the-first-project-that-uses-it)
+is the first to use it.
 
 Parity is not correctness (the larger model's answer is the mark, whatever it is). **Training goes question by question**:
 each train question stays in hand until the swarm's answer to it is equivalent to the larger model's, and every change that
@@ -80,6 +77,7 @@ is measured on questions it was never chosen on.
 
 - [Requirements](#requirements)
 - [Quick start](#quick-start)
+- [The Crew: the first project that uses it](#the-crew-the-first-project-that-uses-it)
 - [How it works](#how-it-works)
 - [Choosing the models](#choosing-the-models)
 - [Using it in a program](#using-it-in-a-program)
@@ -147,6 +145,27 @@ Or serve it at an address, as one model:
 node bin/swarm.mjs serve --port 8090
 ```
 
+## The Crew: the first project that uses it
+
+[The Crew](https://myfamilyoffice.eth.limo/start.html) is the reason this project exists, and its body of work is the
+default where nothing else is chosen: the work of a seat on a team, in two parts.
+- **Programming.** Equivalent **function**: the Swarm's function and the larger model's are run on the same inputs, and are
+  equivalent when they do the same, however differently they are written.
+- **The conversation around it.** A person writes to the team, in Simple mode (an everyday question, something the team
+  cannot do for them, something it must ask about, a piece of writing, a hello or a thank-you, something heavy) or in
+  Developer mode (a question of good practice, their own project, a ticket attached to the chat). Each is sent the way a
+  seat is sent one: a system line saying who is speaking, what it can and cannot do and how to reply, then the turns so far.
+  Two replies are equivalent when they do the same thing for the person: the same **act** (both help, or both ask for what
+  is missing), the same **substance** (the same answer, advice or next step; a piece of writing with the same facts and the
+  same request), and no **convention** broken that the larger model's reply kept (claiming to have booked or sent
+  something, running well past the length asked, praising the question, signing off with an offer of more help, a
+  developer's words to someone who is not one). The decision model reads the act and the substance, in one request; the
+  conventions are read off the words.
+
+Its benchmark in [Evaluate the swarm](#the-dashboard) is IFEval, which measures following instructions; the conversation
+and an agent's steps with tools have no standard task in the harness, so they are not in that figure. Code, Math, Logic and
+Reasoning stand on their own: chosen without The Crew, the swarm is trained and evaluated on them alone.
+
 ## How it works
 
 | Stage | Slots | What they do |
@@ -155,7 +174,7 @@ node bin/swarm.mjs serve --port 8090
 | Try (where a function is asked for) | the sandbox | The drafts are run on the same calls, which one model writes while the others draft. Drafts that return the same are one answer, however differently they are written; one that does not run is none |
 | Check | `a-critic`, `b-recompute` | Shown one draft for each different answer, and the calls on which they part. One looks for the first line where each goes wrong; one puts each final answer back into the question. Each names the answer it finds correct by its letter |
 | Decide | The decider | Picks which answer stands. The decider is whichever decision model the configuration names (Kev, Jeffan, StartLux Decision, and the others below): a model that writes nothing: it is given the question, each different answer and what the checkers said, and returns a probability for each answer. A plan can put one of the small models beside it (below) |
-| Write | `a-writer` | Writes the reply a person reads, from what was settled. Code goes out exactly as it was settled, and is not written out again |
+| Write | `a-writer` | Writes the reply a person reads, from what was settled and the draft it came from. Code goes out exactly as it was settled, and is not written out again. A reply that describes the answer instead of giving it is not sent: the largest other small model writes it, or the draft goes out |
 
 **The order of these steps is not fixed.** It is the arrangement's *flow*, and training changes it the way it changes
 everything else, one step at a time and only on evidence. A flow can send the answers back to the slots that wrote them
