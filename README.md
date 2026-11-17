@@ -70,7 +70,7 @@ is measured on questions it was never chosen on.
 > reached 59.5% of the way to parity on the held questions. The swarm configured now is LFM2.5 1.2B, Qwen3.5 2B and
 > Ministral 3 3B, and Pretrain has adapted all three (100 steps each, 2026-11-17). Evaluated on 20 IFEval questions without
 > adapters, its score rose from 50% to 65% (Nemotron 75%) once its writer stopped describing answers instead of giving them;
-> on 100, it gave Nemotron's result on 61 (Nemotron 79%, the swarm 60%). [Measured, not claimed](#measured-not-claimed) has the numbers, and [Status and limits](#status-and-limits) what
+> on 100, it gave Nemotron's result on 61 (Nemotron 79%, the swarm 60%), and served with its adapters on only 48 (46%). [Measured, not claimed](#measured-not-claimed) has the numbers, and [Status and limits](#status-and-limits) what
 > has and has not been run.
 
 ## Contents
@@ -658,6 +658,11 @@ min in all.
 - **The same result as Nemotron on 61 of 100** (54 both right, 7 both wrong); of the 39 that differ, Nemotron alone was
   right on 25 and the swarm alone on 6. **Scores:** Nemotron 79%, the swarm 60% (each about ±4 to 5 points). This is the
   figure training and the adapters are measured against.
+- **With the adapters on** (the same 100 questions, each small model served with the adapter Pretrain trained for it): the
+  same result as Nemotron on **48 of 100** (40 both right, 8 both wrong; Nemotron alone right on 39, the swarm alone on 6),
+  and a score of **46%**. The adapters made the swarm less equivalent and less often right, well beyond the error of either
+  figure, so training goes on without them. They had made Nemotron's answers to The Crew's train questions likelier
+  (below); taught on 72 answers of one body of work, they did not carry over to following instructions in general.
 
 ### Training question by question, 2026-11-16 to 17
 
@@ -716,8 +721,8 @@ What has been run:
   and Nemotron 3.5 Lightning 30B. The briefs the larger model writes, the third-model probe and the decider replay have run
   in that session; StartLux Decision 4B has been put a pass's recorded choices (38 of 46 to Kev 4B's 37).
 - **Recovery, on real models:** a stopped session resumed its pass and carried on from where it was.
-- **Evaluate the swarm, on real models:** on IFEval, twice on 20 questions (before and after the writer's fix) and once on
-  100, without adapters (see [Measured, not claimed](#measured-not-claimed)).
+- **Evaluate the swarm, on real models:** on IFEval, twice on 20 questions (before and after the writer's fix) and twice on
+  100, without and with adapters (see [Measured, not claimed](#measured-not-claimed)).
 - **Pretrain, on real models:** from the dashboard, all three small models of the configured swarm adapted, its own steps
   (the small models made ready, MLX and each model's original weights already here) taken by itself.
 
@@ -730,12 +735,13 @@ What has not:
 - **Ministral 3 3B in a pass.** It is in the configured swarm (with LFM2.5 1.2B and Qwen3.5 2B), has been adapted and
   evaluated as part of it, but not yet trained.
 - **Eleven of the seventeen small models, three of the four Kev sizes, and fourteen of the fifteen larger models.** Pinned, untried.
-- **What the adapters buy.** Pretrain has run on the real models (2026-11-17, 100 steps each, on 72 of the larger model's
-  answers to The Crew's train questions, one left out as too long): llama.cpp, serving each adapter beside the file the
-  swarm serves, finds those answers likelier with it, perplexity 3.49 -> 2.75 for LFM2.5 1.2B (14 s), 2.73 -> 2.39 for
-  Qwen3.5 2B (140 s) and 2.43 -> 1.99 for Ministral 3 3B (55 s). Whether that makes the swarm more equivalent has not been
-  evaluated, and the swarm has not been trained with them. Bonsai 2 4B cannot be adapted (its weights are Hadamard-rotated;
-  llama.cpp's own `llama-finetune` trains none of these models).
+- **Adapters that help.** Pretrain has run on the real models (2026-11-17, 100 steps each, on 72 of the larger model's
+  answers to The Crew's train questions, one left out as too long), and llama.cpp finds those answers likelier with each
+  adapter (perplexity 3.49 -> 2.75 for LFM2.5 1.2B, 2.73 -> 2.39 for Qwen3.5 2B, 2.43 -> 1.99 for Ministral 3 3B). Served
+  with them, the swarm did worse on IFEval (the same result as Nemotron on 48 of 100 questions against 61 without; see
+  [Measured, not claimed](#measured-not-claimed)). Adapters taught on more answers, of more bodies of work, have not been
+  tried. Bonsai 2 4B cannot be adapted (its weights are Hadamard-rotated; llama.cpp's own `llama-finetune` trains none of
+  these models).
 - **Evaluate the swarm, beyond one task.** It has run on IFEval only, at most 100 questions. Code, Math, Logic and
   Reasoning, and every question of a task, have run against stand-ins only. Some tasks open the model's reply for it
   (HumanEval, MBPP), which the swarm cannot continue, so both models are asked without that opening and their reply turned
