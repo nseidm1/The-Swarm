@@ -82,28 +82,39 @@ export function evidenceOf(row, briefs = {}, { replay = null } = {}) {
   const ways = lost === 'choosing' && replay ? replay([row]).ways : null;
   // the slot a change is to: named on a brief, or the first word of an arrangement's name ("c-direct with a token limit of 1100")
   const slotOf = (m) => m.slot || ((m.name || '').split(' ')[0] in slots ? (m.name || '').split(' ')[0] : '');
-  const prio = (m) => {
+  // -> [priority, the reason in words]: what the record says about this change, said where it is shown being tried
+  const judged = (m) => {
     const n = m.name || '';
     const sl = slotOf(m);
-    if (lost === 'writing') return /settled answer goes out as it is/.test(n) ? 0 : m.stage === 'write' ? 1 : 3;
+    if (lost === 'writing')
+      return /settled answer goes out as it is/.test(n)
+        ? [0, 'the writer changed a settled answer: this hands it over as it is']
+        : m.stage === 'write'
+          ? [1, 'the writer changed a settled answer: this changes the writer']
+          : [3, ''];
     if (lost === 'choosing') {
       const w = (n.match(/^plan: decide by (.+)$/) || [])[1];
-      if (w && ways && ways[w]) return 0;
-      if (/^plan: a model settles it where the decider is close/.test(n) && decided && decided.close) return 1;
+      if (w && ways && ways[w])
+        return [0, "replayed on this answer's own record, deciding this way picks the right draft"];
+      if (/^plan: a model settles it where the decider is close/.test(n) && decided && decided.close)
+        return [1, 'the decider was close to the right draft'];
       if (/^plan: a model settles it where the decider parts from most/.test(n) && row.path === 'decided-against-most')
-        return 1;
-      if (/^plan: a model|keep the likeliest|settle it if the decider|onePerAnswer true/.test(n)) return 2;
-      return 3;
+        return [1, 'the decider overruled most of the drafts'];
+      if (/^plan: a model|keep the likeliest|settle it if the decider|onePerAnswer true/.test(n))
+        return [2, 'a slot had the answer and it was not chosen: this changes how it is chosen'];
+      return [3, ''];
     }
-    if (sl && capped.has(sl) && /token limit/.test(n)) return 0;
+    if (sl && capped.has(sl) && /token limit/.test(n)) return [0, sl + ' was cut off at its token limit'];
     if (
       /temperature|^add a .* on |the answers go back|check and revise/.test(n) &&
       (!sl || (slots[sl] || {}).stage === 'draft')
     )
-      return 1;
-    if (m.kind === 'brief' && m.stage === 'draft') return 2;
-    return 3;
+      return [1, 'no slot had the answer: this makes other drafts'];
+    if (m.kind === 'brief' && m.stage === 'draft') return [2, 'no slot had the answer: another brief for a drafter'];
+    return [3, ''];
   };
+  const prio = (m) => judged(m)[0];
+  const because = (m) => judged(m)[1];
   const skip = (m) => {
     const n = m.name || '';
     if (lost === 'drafting') return CHOOSING_ONLY.test(n);
@@ -114,7 +125,7 @@ export function evidenceOf(row, briefs = {}, { replay = null } = {}) {
     }
     return false;
   };
-  return { lost, failed, prio, skip };
+  return { lost, failed, prio, skip, because };
 }
 // HOW CLOSE A ROW CAME TO PARITY, as one number to compare: the answer lost later in the flow (writing beats choosing beats
 // drafting), then more slots holding the larger model's answer, then more of the decider's probability on that answer
@@ -127,6 +138,39 @@ export function closeness(row, ev = null) {
   const decided = tr.find((s) => s.stage === 'decide' && s.probs && (s.slot === 'decide' || s.slot === 'kev-decide'));
   const p = decided ? Math.max(0, ...holders.map((s) => decided.probs[s.letter] || 0)) : 0;
   return { drafting: 0, choosing: 1, writing: 2 }[lost] * 100 + Math.min(9, holders.length) * 10 + Math.round(p * 9);
+}
+// the same, in parts a person can read: where the answer was lost, how many slots had it, the decider's probability on it
+export function nearOf(row, ev = null) {
+  const lost = (ev && ev.lost) || lostAt(row);
+  const tr = row.trace || [];
+  const holders = tr.filter(
+    (s) => (s.stage === 'draft' || s.stage === 'check' || s.stage === 'revise') && s.same === true,
+  );
+  const decided = tr.find((s) => s.stage === 'decide' && s.probs && (s.slot === 'decide' || s.slot === 'kev-decide'));
+  const p = decided ? Math.max(0, ...holders.map((s) => decided.probs[s.letter] || 0)) : null;
+  return { lost, had: holders.length, ...(p == null ? {} : { p: Math.round(p * 100) / 100 }) };
+}
+// WHY A CHANGE IS TRIED WHERE IT IS, in words: each thing that put it at its place in the order (orderFor's ranking, said)
+export function reasonsOf(m, ev = {}, { moves = {}, classes = {}, pin = [] } = {}) {
+  const out = [];
+  if (pin.includes(m.id)) out.push('pinned on the page');
+  const b = ev.because ? ev.because(m) : '';
+  if (b) out.push(b);
+  const lost = ev.lost || 'drafting';
+  const a = (AREAS_FOR[lost] || AREAS_FOR.drafting).indexOf(m.area);
+  if (a >= 0)
+    out.push((a === 0 ? 'the first area' : 'area ' + (a + 1)) + ' for an answer lost in ' + lost + ' (' + m.area + ')');
+  const c = classes[classOf(m)];
+  out.push(
+    c && c.tried
+      ? classOf(m) + ' has reached parity ' + c.reached + ' of ' + c.tried + ' times'
+      : classOf(m) + ': not tried before, so untested',
+  );
+  const t = (moves[m.key] || {}).tried || 0;
+  out.push(
+    t ? 'this change tried on ' + t + ' question' + (t === 1 ? '' : 's') + ' before' : 'this change never tried before',
+  );
+  return out;
 }
 // how well a kind of change has done: the mean of a Beta(1, 1) on what it reached against what it was tried on
 const rate = (c) => ((c ? c.reached : 0) + 1) / ((c ? c.tried : 0) + 2);
@@ -233,7 +277,8 @@ export async function runLoop({
       // in the flow, more slots holding the larger model's answer, more of the decider's probability on it). It ends at parity, or
       // when a whole round brings it no closer than where that round began: then no combination within reach does, and that is
       // written down. `cap` (none by default) is a bound a person may set; nothing else stops it early.
-      let frontier = [{ base: briefs, ev: ev0, chain: [], score: closeness(row, ev0) }];
+      let frontier = [{ base: briefs, ev: ev0, chain: [], score: closeness(row, ev0), near: nearOf(row, ev0) }];
+      q.near = frontier[0].near;
       const seen = new Set();
       let i = 0;
       let done = false;
@@ -241,13 +286,14 @@ export async function runLoop({
         const next = [];
         for (const node of frontier) {
           if (done || i >= cap) break;
-          for (const m of orderFor(poolOf(node.base), {
+          const opts = orderFor(poolOf(node.base), {
             ...node.ev,
             moves: st.moves,
             classes: st.classes,
             pin,
             drop,
-          })) {
+          });
+          for (const [k, m] of opts.entries()) {
             if (done || i >= cap) break;
             const combo = [...node.chain, m.name];
             const key = [...combo].sort().join(' + ');
@@ -255,6 +301,16 @@ export async function runLoop({
             seen.add(key);
             i++;
             onAttempt({ q, m, n: i });
+            // HOW IT WAS CHOSEN, carried with the change so the page can say it while it is tried: what it is built on and how
+            // close that came, where the answer was lost, its place in the order, and each reason that put it there
+            const method = {
+              area: m.area,
+              kind: classOf(m),
+              from: node.near,
+              place: k + 1,
+              open: opts.length,
+              reasons: reasonsOf(m, node.ev, { moves: st.moves, classes: st.classes, pin }),
+            };
             const r = await attempt(m.briefs, t, {
               n,
               of: list.length,
@@ -262,6 +318,19 @@ export async function runLoop({
               round,
               cap,
               move: combo.join(' + '),
+              ...(node.chain.length ? { on: [...node.chain] } : {}),
+              method,
+              // what has been tried on this question so far, newest last, and how each came out
+              tried: q.attempts
+                .slice(1)
+                .slice(-8)
+                .map((x) => ({
+                  move: (x.on ? x.on.join(' + ') + ' + ' : '') + x.move,
+                  grade: x.grade,
+                  round: x.round,
+                  ...(x.closer ? { closer: true } : {}),
+                  ...(x.near ? { near: x.near } : {}),
+                })),
             });
             const mv = (st.moves[m.key] = st.moves[m.key] || {
               id: m.id,
@@ -283,6 +352,7 @@ export async function runLoop({
               grade: r.grade,
               round,
               ...(node.chain.length ? { on: [...node.chain] } : {}),
+              method,
             };
             q.attempts.push(a);
             if (r.grade !== 'right') {
@@ -290,9 +360,10 @@ export async function runLoop({
               // how close it came: carried into the next round only if closer than what it was tried on
               const ev2 = await lostOf(r, m.briefs);
               const score = closeness(r, ev2);
+              a.near = nearOf(r, ev2);
               if (score > node.score) {
                 a.closer = true;
-                next.push({ base: m.briefs, ev: ev2, chain: combo, score });
+                next.push({ base: m.briefs, ev: ev2, chain: combo, score, near: a.near });
               }
               continue;
             }

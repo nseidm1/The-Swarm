@@ -4458,6 +4458,71 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+// ---- 9f: each change carries how it was chosen, and the page is told it while it is tried
+{
+  const { runLoop, reasonsOf, nearOf, evidenceOf } = await import('../training/loop.mjs');
+  const mk = (bb, k) => ({
+    key: k,
+    id: k,
+    name: k,
+    kind: 'arrangement',
+    area: 'slots',
+    briefs: { ...bb, has: [...bb.has, k] },
+  });
+  const poolOf = (bb) => ['x', 'y'].filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k));
+  const held = {
+    grade: 'wrong',
+    path: 'decided',
+    trace: [
+      { stage: 'draft', slot: 'a1', same: true, letter: 'A' },
+      { stage: 'decide', slot: 'decide', probs: { A: 0.4 } },
+    ],
+  };
+  const none = { grade: 'wrong', path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: false, letter: 'A' }] };
+  const notes = [];
+  const st = await runLoop({
+    list: [{ id: 'q', kind: 'k' }],
+    briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+    poolOf,
+    attempt: async (bb, t, at) => (
+      notes.push(at),
+      bb.has.includes('x') && bb.has.includes('y') ? { grade: 'right', trace: [] } : bb.has.includes('x') ? held : none
+    ),
+  });
+  const q = st.questions[0];
+  const first = q.attempts[1];
+  const second = notes.find((n) => n.attempt === 2);
+  const third = notes.find((n) => n.attempt === 3);
+  const capped = evidenceOf(
+    { trace: [{ stage: 'draft', slot: 'a1', same: false, tokens: 700 }] },
+    { slots: [{ id: 'a1', stage: 'draft', maxTokens: 700 }] },
+  );
+  const tl = { id: 'tl', name: 'a1 with a token limit of 1100', kind: 'arrangement', area: 'slots', key: 'tl' };
+  check(
+    'each change carries how it was chosen: where the answer was lost and how close the arrangement it is built on came, its round and place among those open, and each reason for that place (what the record says, the area for where the answer was lost, how its kind has done, how often it was tried); the page is told it with the change, with what was tried on the question before it and how close each came',
+    first.method &&
+      first.method.place === 1 &&
+      first.method.open === 2 &&
+      first.method.from.lost === 'drafting' &&
+      first.method.reasons.some((r) => /area for an answer lost in drafting/.test(r)) &&
+      first.method.reasons.some((r) => /never tried before/.test(r)) &&
+      first.near.lost === 'choosing' &&
+      first.near.had === 1 &&
+      first.near.p === 0.4 &&
+      first.closer === true &&
+      second.method.place === 2 &&
+      second.tried.length === 1 &&
+      second.tried[0].closer === true &&
+      third.round === 2 &&
+      third.on.join() === 'x' &&
+      third.method.from.lost === 'choosing' &&
+      reasonsOf(tl, capped).some((r) => /cut off at its token limit/.test(r)) &&
+      reasonsOf(tl, capped, { pin: ['tl'] })[0] === 'pinned on the page' &&
+      nearOf({ trace: [] }).had === 0,
+    { first, third },
+  );
+}
+
 await swarm.stop();
 lfm.close();
 bonsai.close();

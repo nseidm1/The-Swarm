@@ -125,7 +125,7 @@ table.spec th{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:
 .tail{margin:0;padding:12px;border-radius:var(--r);background:var(--soft);font:11.5px/1.5 ui-monospace,Menlo,monospace;color:var(--fog);white-space:pre-wrap;overflow-wrap:anywhere;overflow:auto}
 .idea{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:center;color:inherit;text-decoration:none;border-radius:var(--r);padding:4px;margin:-4px}
 .loopq li.lq{display:block;padding:6px 0;border-top:1px solid var(--line)}.loopq li.lq:first-child{border-top:0}.loopq summary{cursor:pointer;list-style:none;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.loopq summary .pill{margin-left:auto}
-.tries{margin:6px 0 2px 18px;padding:0;font-size:12.5px;color:var(--fog)}.tries li{margin:3px 0}.qtries{margin-top:10px;font-size:12.5px}.qlearn{margin:8px 0 4px;color:var(--fog)}.qtries summary{cursor:pointer;font-weight:700;color:var(--teal)}.qtries .loopq{margin-top:6px}
+.tries{margin:6px 0 2px 18px;padding:0;font-size:12.5px;color:var(--fog)}.tries li{margin:3px 0}.tries .why{display:block;color:var(--mist);font-size:12px;margin-top:1px}.loopq .tries{margin:6px 0 2px;font-size:13px}.loopq .tries li{display:grid;grid-template-columns:max-content minmax(0,1fr);column-gap:12px;gap:0 12px;padding:7px 0;border-top:1px solid var(--line2);background:none}.loopq .tries li:first-child{border-top:0}.loopq .tries .k{grid-column:1;min-width:76px;white-space:nowrap;overflow-wrap:normal;letter-spacing:.08em;padding:2px 0 0}.loopq .tries .tx{grid-column:2;min-width:0;overflow-wrap:anywhere;line-height:1.45}@media (max-width:560px){.loopq .tries li{grid-template-columns:46px minmax(0,1fr);gap:0 8px}.loopq .tries .k{min-width:0;letter-spacing:.04em}}.qmethod{margin:8px 0 2px;padding:10px 12px;border-radius:var(--r);background:var(--panel);font-size:12.5px;font-weight:500;color:var(--fog);line-height:1.45}.qmethod p{margin:0 0 4px}.qmethod b{color:var(--fog);font-weight:800;margin-right:4px}.qmethod ul{margin:2px 0 4px 18px;padding:0}.qmethod li{margin:1px 0}.qmethod .qtried{margin:4px 0 0;padding:0;list-style:none}.qmethod .qtried li{margin:2px 0;overflow-wrap:anywhere}.qmethod .k{display:inline-block;min-width:74px;margin-right:6px;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mist)}.qmethod .k.cl{color:var(--teal)}.qmethod .k.up{color:var(--right)}.qtries{margin-top:10px;font-size:12.5px}.qlearn{margin:8px 0 4px;color:var(--fog)}.qtries summary{cursor:pointer;font-weight:700;color:var(--teal)}.qtries .loopq{margin-top:6px}
 .ideas{display:grid;gap:4px}.ideas li{display:block}.ideas .idea{display:block;padding:8px 10px;margin:0 -10px}
 .ideas .idea b{display:block;font-size:13.5px;font-weight:700;line-height:1.35;white-space:normal;overflow:visible;text-transform:none;letter-spacing:0}
 .ideas .idea b::first-letter{text-transform:uppercase}
@@ -269,7 +269,7 @@ button.mav{position:relative;border:0;font:inherit;color:inherit;text-align:left
 .st{position:relative;display:flex;flex-direction:column;gap:8px;padding:10px 8px 8px;margin-right:16px;border-radius:var(--r);background:#f5faf8;border:1px solid var(--line2)}
 .st:not(:last-child)::after{content:"";position:absolute;right:-14px;top:50%;width:9px;height:9px;border-top:2.5px solid var(--unsure);border-right:2.5px solid var(--unsure);transform:translateY(-50%) rotate(45deg)}
 .st .stt{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mist);white-space:nowrap}.st .stt span{letter-spacing:0;text-transform:none;font-weight:700;margin-left:6px;color:#8a5a00}
-.loopg{display:flex;flex-wrap:nowrap;gap:10px 0;padding:8px 0 4px 8px;margin-right:22px;border-radius:var(--r);border:1.5px dashed #e3c46a;position:relative}.loopg{flex-wrap:wrap}.loopg>.lt{flex-basis:100%;font-size:11.5px;font-weight:700;color:#8a5a00;margin:-2px 0 0 2px}
+.loopg{display:flex;flex-wrap:nowrap;gap:10px 0;padding:8px 0 4px 8px;margin-right:22px;border-radius:var(--r);border:1.5px dashed #e3c46a;position:relative}.loopg{flex-wrap:wrap}.loopg>.st{flex:1 1 0;min-width:min-content}.loopg>.lt{flex-basis:100%;font-size:11.5px;font-weight:700;color:#8a5a00;margin:-2px 0 0 2px}
 .loopg:not(:last-child)::after{content:"";position:absolute;right:-17px;top:50%;width:9px;height:9px;border-top:2.5px solid var(--unsure);border-right:2.5px solid var(--unsure);transform:translateY(-50%) rotate(45deg)}.loopg .st:last-of-type{margin-right:8px}.loopg .st:last-of-type::after{display:none}
 .st.mk{margin-left:auto;margin-right:0;background:#eef0f8;border-color:#d7dcef}.st.mk .stt{color:var(--tgt)}
 .avs{display:flex;flex-wrap:wrap;gap:6px 2px;justify-content:space-around}
@@ -546,7 +546,19 @@ async function liveTick(){
       const what=lp.guard?'It brought this question to parity; asked again on '+lp.guard+', already at parity, it must lose nothing to be kept: '+lp.move
         :lp.attempt?'Short of parity as the swarm stood. Trying: '+lp.move:'Asked of the swarm as it stands.';
       qn.innerHTML='';const b=document.createElement('span');b.className='it';b.textContent=it;const tq=document.createElement('span');tq.className='qtext';tq.textContent='Question '+lp.n+' of '+lp.of+' · '+q.kind+' · '+q.ask.replace(/\\s+/g,' ');const ql=document.createElement('span');ql.className='ql';ql.append(b,tq);qn.append(ql);
-      const sm=document.createElement('small');sm.textContent=what;qn.append(sm);}
+      const sm=document.createElement('small');sm.textContent=what;qn.append(sm);
+      // HOW THIS CHANGE WAS CHOSEN (training/loop.mjs method): what it is built on, its round and place, each reason, and what came before
+      if(lp.attempt&&!lp.guard&&lp.method){const md=lp.method,nw=x=>x?'lost in '+x.lost+', '+x.had+' slot'+(x.had===1?'':'s')+' had the answer'+(x.p!=null?', the decider '+Math.round(x.p*100)+'% on it':''):'';
+        const box=document.createElement('div');box.className='qmethod';
+        const line=(label,text)=>{const pe=document.createElement('p');const lb=document.createElement('b');lb.textContent=label;pe.append(lb,text);box.append(pe);return pe;};
+        line('Built on',lp.on&&lp.on.length?lp.on.join(' + ')+', which came closer: '+nw(md.from):'the arrangement as it stands: '+nw(md.from));
+        line('Round '+(lp.round||1)+':','change '+md.place+' of the '+md.open+' open from there ('+md.kind+', in '+md.area+'). One that comes closer is built on in the next round.');
+        const rs=md.reasons||[];if(rs.length){line('Why it is tried now','');const ul=document.createElement('ul');for(const r of rs){const li=document.createElement('li');li.textContent=r;ul.append(li);}box.append(ul);}
+        if(lp.tried&&lp.tried.length){line('Tried on this question before it','');const ol=document.createElement('ol');ol.className='qtried';
+          for(const x of lp.tried){const li=document.createElement('li');const k=document.createElement('span');k.className='k'+(x.grade==='right'?' up':x.closer?' cl':'');
+            k.textContent=x.grade==='right'?'parity':x.closer?'closer':x.grade==='noref'?'no grade':'no closer';li.append(k,(x.round>1?'round '+x.round+' · ':'')+x.move+(x.near?' · '+nw(x.near):''));ol.append(li);}
+          box.append(ol);}
+        qn.append(box);}}
     else if(n.running&&n.trainer!=='loop')qn.textContent='Training question by question begins after the larger model has answered and the plan is written.';
     if(pp){const key=done.map(x=>x.s).join()+'|'+(lp&&n.trainer==='loop'?lp.n:'');
       if(pp.dataset.k!==key){pp.dataset.k=key;pp.innerHTML='';
@@ -949,6 +961,27 @@ def steer_dialog(d):
 LOOP_STATE = {"at parity": ("At parity as it stood", "up"), "reached": ("Brought to parity", "up"), "not reached": ("Not reached", "down"), "not compared": ("Not compared", "planned")}
 
 
+def near_words(n):
+    """How close a reply came, in words (training/loop.mjs nearOf): where the answer was lost, how many slots had it, the decider's
+    probability on it."""
+    if not n:
+        return ""
+    return "lost in %s, %d slot%s had the answer%s" % (n.get("lost", ""), n.get("had", 0), "" if n.get("had") == 1 else "s",
+                                                      (", the decider %d%% on it" % round(n["p"] * 100)) if n.get("p") is not None else "")
+
+
+def method_line(a):
+    """Why a change was tried where it was, and how close it came: the loop's method, recorded with the change."""
+    md = a.get("method") or {}
+    if not md:
+        return ""
+    bits = ["round %d, %d of %d open" % (a.get("round") or 1, md.get("place", 0), md.get("open", 0))] + list(md.get("reasons") or [])
+    out = ('<span class="why">why: %s</span>' % e("; ".join(bits)))
+    if a.get("near"):
+        out += '<span class="why">came out: %s (before it: %s)</span>' % (e(near_words(a["near"])), e(near_words(md.get("from"))))
+    return out
+
+
 def tries_list(lp):
     """Each question of the loop's record that needed a change, newest first, with where its answer was lost and what was tried on
     it in order: what did nothing, what reached parity there but lost a question already at parity, and what was kept."""
@@ -956,12 +989,13 @@ def tries_list(lp):
     for q in [x for x in (lp or {}).get("list", []) if len(x.get("attempts", [])) > 1][::-1][:40]:
         word, cls = LOOP_STATE.get(q.get("state"), (q.get("state", ""), "planned"))
         tries = "".join(
-            '<li><span class="k %s">%s</span> %s%s</li>' % (
+            '<li><span class="k %s">%s</span><span class="tx">%s%s</span></li>' % (
                 "up" if a.get("kept") else "", "kept" if a.get("kept") else "parity here" if a.get("grade") == "right" else "no",
                 e(a.get("move", "")),
                 ((" · lost <code>%s</code>, already at parity" % e(a["lostOn"])) if a.get("lostOn") else
                  (" · %d already at parity asked again, none lost" % a["guard"]["asked"]) if a.get("kept") and (a.get("guard") or {}).get("asked") else "")
-                + (" · came closer: the next round builds on it" if a.get("closer") or a.get("builtOn") else "") + ((" · on top of " + e(" + ".join(a["on"]))) if a.get("on") else ""))
+                + (" · came closer: the next round builds on it" if a.get("closer") or a.get("builtOn") else "") + ((" · on top of " + e(" + ".join(a["on"]))) if a.get("on") else "")
+                + method_line(a))
             for a in q["attempts"][1:])
         rounds = (" in %d rounds" % q["rounds"]) if (q.get("rounds") or 1) > 1 else ""
         why = " · no combination came closer" if q.get("exhausted") else ""
@@ -1472,8 +1506,12 @@ def avatars(d):
     # (the order of stations and the markers between them; an arrow is drawn wherever two stations meet with nothing between)
     for step in flow_of(d):
         if step.get("do") == "repeat":
-            parts.append('<div class="loopg"><div class="lt">↻ again while the answers differ, up to %d times</div>%s</div>'
-                         % (int(step.get("upTo", 2)), "".join(station(x) for x in step.get("steps", []))))
+            inner = [station(x) for x in step.get("steps", [])]
+            # (a loop grows by the faces of every step inside it plus one for each of those steps' own box and arrow, so a revise of six
+            # faces gets the room six need beside its decide: measured at 1440 px, six faces then sit three to a row, as the drafts do)
+            grow = sum(int(m) for m in re.findall(r'class="st" style="flex-grow:(\d+)"', "".join(inner))) + len(inner) or 1
+            parts.append('<div class="loopg" style="flex-grow:%d"><div class="lt">↻ again while the answers differ, up to %d times</div>%s</div>'
+                         % (grow, int(step.get("upTo", 2)), "".join(inner)))
         else:
             parts.append(station(step))
     if t:

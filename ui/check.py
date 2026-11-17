@@ -767,8 +767,16 @@ with tempfile.TemporaryDirectory() as tmp:
         {"id": "q-stuck", "kind": "day", "state": "not reached", "lostAt": "drafting", "attempts": [{"move": "", "grade": "wrong"}, {"move": "b-direct: say the weekday last", "grade": "wrong"}]}]})
     check("the question track folds what was tried on each question that needed a change: where its answer was lost and each change in order (what did nothing, what reached parity there but lost a question already there, and what was kept); and the plan section no longer repeats the questions",
           "What was tried on each question that needed a change (2)" in tl and "q-easy</code> <span" not in tl and tl.index("q-stuck") < tl.index("q-won") and "lost in choosing · 3 tried" in tl
-          and "lost <code>q-easy</code>, already at parity" in tl and "3 already at parity asked again, none lost" in tl and ">kept</span> a-critic: check the edge cases" in tl and "Not reached" in tl and "Brought to parity" in tl
+          and "lost <code>q-easy</code>, already at parity" in tl and "3 already at parity asked again, none lost" in tl and '>kept</span><span class="tx">a-critic: check the edge cases' in tl and "Not reached" in tl and "Brought to parity" in tl
           and swarm_ui.tries_list({"list": []}) == "" and "Question by question" not in swarm_ui.plan_block(d) and "loopwrap" not in swarm_ui.plan_block(d), tl[:300])
+    tm = swarm_ui.tries_list({"list": [{"id": "q-m", "kind": "fix", "state": "not reached", "lostAt": "drafting", "attempts": [{"move": "", "grade": "wrong"},
+        {"move": "flow: the answers go back", "grade": "wrong", "round": 2, "closer": True, "near": {"lost": "choosing", "had": 2, "p": 0.35},
+         "method": {"place": 4, "open": 37, "from": {"lost": "drafting", "had": 0}, "reasons": ["no slot had the answer: this makes other drafts", "the first area for an answer lost in drafting (slots)"]}}]}]})
+    page = get(base + "/")[1]
+    check("each change in the fold says how it was chosen and how close it came: its round and place among those open, each reason, and where the answer was lost before and after it, with how many slots had it and the decider's probability; while a change is tried the page shows the same live, with what was tried on the question before it",
+          "why: round 2, 4 of 37 open; no slot had the answer: this makes other drafts; the first area for an answer lost in drafting (slots)" in tm
+          and "came out: lost in choosing, 2 slots had the answer, the decider 35% on it (before it: lost in drafting, 0 slots had the answer)" in tm
+          and swarm_ui.method_line({"move": "x"}) == "" and "box.className='qmethod'" in page and "Why it is tried now" in page and "Tried on this question before it" in page, tm[:400])
     refused = post("/run/start", headers={"content-type": "text/plain"})[0]
     foreign = post("/run/start", headers={"x-swarm": "1", "origin": "https://elsewhere.example"})[0]
     check("a pass cannot be started by anything but this page: a request without the page's own header, or from another site, is refused", refused == 403 and foreign == 403 and not (fake / ".work" / "train" / "ui-run.json").exists(), [refused, foreign])
