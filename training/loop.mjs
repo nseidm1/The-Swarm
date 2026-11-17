@@ -8,14 +8,14 @@
 //   3  a change that brings this question to parity is asked again on questions already at parity (the same kind first, then
 //      the latest). If none of those is lost it is KEPT: the arrangement is now that one, for every question after. If one is
 //      lost it is not kept, and the next change is tried
-//   4  after `cap` changes with no parity the question is written down as not reached, with where it was lost, and the loop
-//      moves on. A question is never asked for ever
+//   4  changes are tried in rounds: every single change, then each combined with the `beam` that came closest, and so on, until
+//      parity. Only when a round brings the question no closer is it written down as not reached, and the loop moves on
 // What is tried is the plan's (training/plan.mjs: its order, and what a person pinned or skipped on the page); what the loop adds
 // is WHEN: for the question in hand, by where that question was lost. The small models are never shown the larger model's answer:
 // only the grading is. What is kept is what the spec is made of (src/learned), and a swarm built from it has no larger model beside it.
-// A change tried on `drop` questions that never brought one to parity is left out for the rest of the pass, and by passes after.
+// With `--cap` or `--drop` set, a question is left after that many changes, and a change tried on that many questions with no parity is left out.
 //   node training/loop.mjs --each 6            the train questions, one at a time
-//   node training/loop.mjs --cap 8 --guard 6   changes tried on a question; questions asked again before a change is kept
+//   node training/loop.mjs --beam 3 --guard 6  closest built on per round; questions asked again before a change is kept
 //   node training/loop.mjs --pool              what could be tried from here, by area; nothing is asked
 //   node training/loop.mjs --explain           what would be tried first on each question the last loop did not reach
 // It carries on where it stopped: every finished question is written down (.work/train/<configuration>/loop.json).
@@ -116,6 +116,18 @@ export function evidenceOf(row, briefs = {}, { replay = null } = {}) {
   };
   return { lost, failed, prio, skip };
 }
+// HOW CLOSE A ROW CAME TO PARITY, as one number to compare: the answer lost later in the flow (writing beats choosing beats
+// drafting), then more slots holding the larger model's answer, then more of the decider's probability on that answer
+export function closeness(row, ev = null) {
+  const lost = (ev && ev.lost) || lostAt(row);
+  const tr = row.trace || [];
+  const holders = tr.filter(
+    (s) => (s.stage === 'draft' || s.stage === 'check' || s.stage === 'revise') && s.same === true,
+  );
+  const decided = tr.find((s) => s.stage === 'decide' && s.probs && (s.slot === 'decide' || s.slot === 'kev-decide'));
+  const p = decided ? Math.max(0, ...holders.map((s) => decided.probs[s.letter] || 0)) : 0;
+  return { drafting: 0, choosing: 1, writing: 2 }[lost] * 100 + Math.min(9, holders.length) * 10 + Math.round(p * 9);
+}
 // how well a kind of change has done: the mean of a Beta(1, 1) on what it reached against what it was tried on
 const rate = (c) => ((c ? c.reached : 0) + 1) / ((c ? c.tried : 0) + 2);
 // WHAT IS TRIED ON THIS QUESTION, IN ORDER: what a person pinned; what this question's own record says will help (evidenceOf);
@@ -188,13 +200,13 @@ export async function runLoop({
   keep = async () => {},
   onQuestion = () => {},
   onAttempt = () => {},
-  cap = 8,
+  cap = Infinity,
   guard = 6,
-  drop = 6,
+  drop = Infinity,
   pin = [],
   resume = null,
   classes = {},
-  build = 2,
+  beam = 3,
 }) {
   const st = resume || { questions: [], rows: [], moves: {}, kept: [] };
   st.classes = st.classes || JSON.parse(JSON.stringify(classes || {}));
@@ -212,128 +224,153 @@ export async function runLoop({
     if (row.grade === 'noref') q.state = 'not compared';
     else if (row.grade === 'right') q.state = 'at parity';
     else {
-      let ev = await lostOf(row, briefs);
-      const lost = ev.lost;
+      const ev0 = await lostOf(row, briefs);
+      const lost = ev0.lost;
       q.lostAt = lost;
-      // A CHANGE THAT PUTS THE ANSWER ON THE TABLE IS BUILT ON. One that does not reach parity but leaves a slot holding the larger
-      // model's answer where none did (drafting becomes choosing) is half the way: the next changes are tried on top of it, up to
-      // `build` deep, and what is kept, if parity is reached, is all of them together
-      let base = briefs;
-      const chain = [];
-      const used = new Set();
-      for (let i = 0; i < cap; i++) {
-        const m = orderFor(poolOf(base), { ...ev, moves: st.moves, classes: st.classes, pin, drop }).find(
-          (x) => !used.has(x.key),
-        );
-        if (!m) break;
-        used.add(m.key);
-        onAttempt({ q, m, n: i + 1 });
-        const r = await attempt(m.briefs, t, {
-          n,
-          of: list.length,
-          attempt: i + 1,
-          cap,
-          move: [...chain, m.name].join(' + '),
-        });
-        const mv = (st.moves[m.key] = st.moves[m.key] || {
-          id: m.id,
-          name: m.name,
-          area: m.area,
-          slot: m.slot,
-          tried: 0,
-          reached: 0,
-          lostElsewhere: 0,
-        });
-        mv.tried++;
-        const cls = (st.classes[classOf(m)] = st.classes[classOf(m)] || { tried: 0, reached: 0 });
-        cls.tried++;
-        const a = {
-          move: m.name,
-          id: m.id,
-          area: m.area,
-          kind: classOf(m),
-          grade: r.grade,
-          ...(chain.length ? { on: [...chain] } : {}),
-        };
-        q.attempts.push(a);
-        if (r.grade !== 'right') {
-          if (r.grade !== 'noref' && ev.lost === 'drafting' && chain.length < build) {
-            const ev2 = await lostOf(r, m.briefs);
-            if (ev2.lost === 'choosing') {
-              base = m.briefs;
-              ev = ev2;
-              chain.push(m.name);
-              a.builtOn = true;
+      // UNTIL PARITY, NOT FOR A NUMBER OF TRIES. Every change open from the arrangement is tried on this question, in the order its
+      // record gives; then every change on top of the ones that brought it closest, and so on: a search in rounds over
+      // combinations, each round built on the `beam` changes that got closest in the round before (closer: the answer lost later
+      // in the flow, more slots holding the larger model's answer, more of the decider's probability on it). It ends at parity, or
+      // when a whole round brings it no closer than where that round began: then no combination within reach does, and that is
+      // written down. `cap` (none by default) is a bound a person may set; nothing else stops it early.
+      let frontier = [{ base: briefs, ev: ev0, chain: [], score: closeness(row, ev0) }];
+      const seen = new Set();
+      let i = 0;
+      let done = false;
+      for (let round = 1; frontier.length && !done && i < cap; round++) {
+        const next = [];
+        for (const node of frontier) {
+          if (done || i >= cap) break;
+          for (const m of orderFor(poolOf(node.base), {
+            ...node.ev,
+            moves: st.moves,
+            classes: st.classes,
+            pin,
+            drop,
+          })) {
+            if (done || i >= cap) break;
+            const combo = [...node.chain, m.name];
+            const key = [...combo].sort().join(' + ');
+            if (seen.has(key)) continue;
+            seen.add(key);
+            i++;
+            onAttempt({ q, m, n: i });
+            const r = await attempt(m.briefs, t, {
+              n,
+              of: list.length,
+              attempt: i,
+              round,
+              cap,
+              move: combo.join(' + '),
+            });
+            const mv = (st.moves[m.key] = st.moves[m.key] || {
+              id: m.id,
+              name: m.name,
+              area: m.area,
+              slot: m.slot,
+              tried: 0,
+              reached: 0,
+              lostElsewhere: 0,
+            });
+            mv.tried++;
+            const cls = (st.classes[classOf(m)] = st.classes[classOf(m)] || { tried: 0, reached: 0 });
+            cls.tried++;
+            const a = {
+              move: m.name,
+              id: m.id,
+              area: m.area,
+              kind: classOf(m),
+              grade: r.grade,
+              round,
+              ...(node.chain.length ? { on: [...node.chain] } : {}),
+            };
+            q.attempts.push(a);
+            if (r.grade !== 'right') {
+              if (r.grade === 'noref') continue;
+              // how close it came: carried into the next round only if closer than what it was tried on
+              const ev2 = await lostOf(r, m.briefs);
+              const score = closeness(r, ev2);
+              if (score > node.score) {
+                a.closer = true;
+                next.push({ base: m.briefs, ev: ev2, chain: combo, score });
+              }
+              continue;
             }
+            mv.reached++;
+            cls.reached++;
+            const what = combo.join(' + ');
+            // at parity here: does it hold on the questions that were already there?
+            const again = guardOf(reached, t, guard);
+            const rows = [];
+            let lostN = 0;
+            for (const g of again) {
+              const gr = await attempt(m.briefs, g.t, {
+                n,
+                of: list.length,
+                attempt: i,
+                round,
+                cap,
+                move: what,
+                guard: g.t.id,
+              });
+              rows.push(gr);
+              if (gr.grade !== 'right') {
+                lostN++;
+                a.lostOn = g.t.id;
+                break; // one lost is enough: it is not kept
+              }
+            }
+            a.guard = { asked: rows.length, of: again.length, lost: lostN };
+            if (lostN) {
+              mv.lostElsewhere++;
+              continue;
+            }
+            // KEPT: the arrangement is now this one, for this question and every one after
+            briefs = { ...m.briefs, version: (briefs.version || 1) + 1 };
+            a.kept = true;
+            mv.kept = (mv.kept || 0) + 1;
+            const several = node.chain.length > 0;
+            const entry = {
+              kind: several ? 'several' : m.kind,
+              slot: m.slot || undefined,
+              what: several ? 'several: ' + what : m.name,
+              from: m.from || undefined,
+              question: { id: t.id, kind: t.kind, lostAt: lost, attempt: i, round, guard: rows.length },
+              why:
+                'it brought ' +
+                t.id +
+                ' to parity (lost in ' +
+                lost +
+                ', change ' +
+                i +
+                ' tried, in round ' +
+                round +
+                (several ? ', on top of ' + node.chain.join(' and ') + ', which brought it closer' : '') +
+                '), and ' +
+                (rows.length
+                  ? 'the ' +
+                    rows.length +
+                    ' question' +
+                    (rows.length === 1 ? '' : 's') +
+                    ' already at parity asked again with it stayed there'
+                  : 'no question was at parity before it to lose'),
+            };
+            st.kept.push({ ...entry, briefs: briefs.version });
+            await keep(briefs, entry);
+            again.forEach((g, k) => {
+              g.row = rows[k];
+              const at = st.rows.findIndex((x) => x.id === g.t.id);
+              if (at >= 0) st.rows[at] = rows[k];
+            });
+            row = r;
+            done = true;
           }
-          continue;
         }
-        mv.reached++;
-        cls.reached++;
-        const what = [...chain, m.name].join(' + ');
-        // at parity here: does it hold on the questions that were already there?
-        const again = guardOf(reached, t, guard);
-        const rows = [];
-        let lostN = 0;
-        for (const g of again) {
-          const gr = await attempt(m.briefs, g.t, {
-            n,
-            of: list.length,
-            attempt: i + 1,
-            cap,
-            move: what,
-            guard: g.t.id,
-          });
-          rows.push(gr);
-          if (gr.grade !== 'right') {
-            lostN++;
-            a.lostOn = g.t.id;
-            break; // one lost is enough: it is not kept
-          }
-        }
-        a.guard = { asked: rows.length, of: again.length, lost: lostN };
-        if (lostN) {
-          mv.lostElsewhere++;
-          continue;
-        }
-        // KEPT: the arrangement is now this one, for this question and every one after
-        briefs = { ...m.briefs, version: (briefs.version || 1) + 1 };
-        a.kept = true;
-        mv.kept = (mv.kept || 0) + 1;
-        const entry = {
-          kind: chain.length ? 'several' : m.kind,
-          slot: m.slot || undefined,
-          what: chain.length ? 'several: ' + what : m.name,
-          from: m.from || undefined,
-          question: { id: t.id, kind: t.kind, lostAt: lost, attempt: i + 1, guard: rows.length },
-          why:
-            'it brought ' +
-            t.id +
-            ' to parity (lost in ' +
-            lost +
-            ', change ' +
-            (i + 1) +
-            ' tried' +
-            (chain.length ? ', built on ' + chain.join(' and ') + ', which put the answer on the table' : '') +
-            '), and ' +
-            (rows.length
-              ? 'the ' +
-                rows.length +
-                ' question' +
-                (rows.length === 1 ? '' : 's') +
-                ' already at parity asked again with it stayed there'
-              : 'no question was at parity before it to lose'),
-        };
-        st.kept.push({ ...entry, briefs: briefs.version });
-        await keep(briefs, entry);
-        again.forEach((g, j) => {
-          g.row = rows[j];
-          const at = st.rows.findIndex((x) => x.id === g.t.id);
-          if (at >= 0) st.rows[at] = rows[j];
-        });
-        row = r;
-        break;
+        // the next round: on top of the `beam` changes that came closest
+        frontier = next.sort((x, y) => y.score - x.score).slice(0, beam);
+        q.rounds = round;
       }
+      if (!done) q.exhausted = i < cap;
       q.state = row.grade === 'right' ? 'reached' : 'not reached';
     }
     q.reached = row.grade === 'right';
@@ -403,9 +440,12 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   // (training/policy.json: loop), unless named here
   const { readPolicy } = await import('./policy.mjs');
   const lp = readPolicy().loop || {};
-  const cap = Number(arg('cap', process.env.CAP || lp.cap || 8));
+  // no limit by default: a question stays in hand until parity, or until no combination brings it closer
+  const num = (v) => (v === undefined || v === null || v === '' ? Infinity : Number(v));
+  const cap = num(arg('cap', process.env.CAP || lp.cap));
   const guard = Number(arg('guard', process.env.GUARD || lp.guard || 6));
-  const drop = Number(arg('drop', lp.drop || 6));
+  const drop = num(arg('drop', lp.drop));
+  const beam = Number(arg('beam', lp.beam || 3));
   const list = questions('train', each);
   const byId = Object.fromEntries(list.map((t) => [t.id, t]));
   const state = readState();
@@ -568,6 +608,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       cap,
       guard,
       drop,
+      beam,
       pin: steer.pin,
       resume,
       // what kinds of change have reached parity, learned on every question of every pass of this configuration

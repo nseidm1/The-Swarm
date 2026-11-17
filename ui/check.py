@@ -199,7 +199,7 @@ with tempfile.TemporaryDirectory() as tmp:
           [only_html[only_html.find("What only"):only_html.find("What only") + 300] if "What only" in only_html else "", swarm_ui.step_label("07-write-briefs")])
     spec_rows = [dict(r, refToSpec=(i % 3 != 0)) for i, r in enumerate(H["swarm"])]
     check("the plan says how the swarm is being trained, from its policy: how many changes are tried on a question, how many questions already at parity a change is asked again on before it is kept, when a change is dropped, and what the plan lists first; a flow that asks what each call should give is drawn with that step; and parity is also counted where the larger model follows the question",
-          "How it is training" in pol_html and "or <b>12</b> changes have been tried on it" in pol_html and "asked again on <b>6</b> questions already there" in pol_html and "wins" not in pol_html and d["policy"]["loop"]["cap"] == 8
+          "How it is training" in pol_html and "or after <b>12</b> changes" in pol_html and "until it is at parity" in pol_html and "on top of the <b>3</b> that brought it closest" in pol_html and "or after" not in swarm_ui.plan_panel(d) and "asked again on <b>6</b> questions already there" in pol_html and "wins" not in pol_html and d["policy"]["loop"]["cap"] is None and d["policy"]["loop"]["beam"] == 3
           and "Says what each call should give" in exp_html and exp_html.count('class="stage"') == 5
           and data.parity(spec_rows)["onSpec"]["compared"] == 8 and "follows the question" in swarm_ui.score_strip(dict(d, splits=dict(d["splits"], held=dict(H, swarm=spec_rows, parity=data.parity(spec_rows))))), pol_html[:200])
     spec_html = get(base + "/fragment/spec")[1]
@@ -405,7 +405,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and bad == [400, 400, 400, 400] and unp == 200 and json.loads((wdp / "steer.json").read_text())["pin"] == [], [f_ok, p_ok, k_ok, bad, sv])
     check("each subsection of the plan (the gap, what the measurement showed, how it is training, steer it, the moves...) folds under its heading, folded to begin with and saying in a line what it holds while folded, and kept open or folded on the device like the training card's",
           all(('data-keep="plan-%s">' % k) in after_u for k in ("steer-it", "how-it-is-training", "moves-in-plan-order")) and after_u.count('<details class="psec"') == after_u.count("<h4>")
-          and " open>" not in after_u.split('class="psec"')[1][:80] and after_u.count('class="pmeta"') >= 3 and "up to 8 changes a question" in after_u and "Decider loops only · 1 skipped · nothing queued" in after_u and "2 moves · 0 tried · 0 kept" in after_u
+          and " open>" not in after_u.split('class="psec"')[1][:80] and after_u.count('class="pmeta"') >= 3 and "until parity, in rounds on the 3 closest" in after_u and "Decider loops only · 1 skipped · nothing queued" in after_u and "2 moves · 0 tried · 0 kept" in after_u
           and after_u.rstrip().endswith("</div>") and swarm_ui.fold_sections('<div class="panel"><p>x</p></div>', "p") == '<div class="panel"><p>x</p></div>', after_u.count("<h4>"))
     (wdp / "steer.json").unlink()
     if had_plan is None:
@@ -703,6 +703,33 @@ with tempfile.TemporaryDirectory() as tmp:
           and short_code == 409 and "Only a finished spec is published" in short_said and short_none and foreign_code == 403
           and ok_code == 200 and pf.name == d["key"] + ".json" and written.get("spec", {}).get("recipeSha256") == spec["spec"]["recipeSha256"] and "inProgress" not in written
           and "Published as <code>specs/%s</code>" % pf.name in ok_html, [short_code, short_said[:80], foreign_code, ok_code])
+    # CLEAR TRAINING STATE: training's records moved aside, each model's own answers kept; refused while training runs
+    tgt_id = d["target"]["id"]
+    made_c = {"training/state.json": "{}", "training/states/x.json": "{}", "src/learned/x.json": "{}", ".work/train/loop.json": "{}", ".work/train/swarm-runs.jsonl": "",
+              ".work/train/baseline-runs.jsonl": "{}", "training/results/%s/%s-held.json" % (d["key"], tgt_id): "{}",
+              "training/results/%s/swarm-train.json" % d["key"]: "{}", "training/results/%s/m-alone-vs-%s-held.json" % (d["key"], tgt_id): "{}"}
+    for rel, txt in made_c.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(txt)
+    was_rs2 = swarm_ui.run_state
+    swarm_ui.run_state = lambda: {"pid": 1, "at": "x", "passes": 0, "first": 1, "running": True}
+    busy_code = None
+    req = urllib.request.Request(base + "/run/clear", data=b"{}", headers={"x-swarm": "1"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r_:
+            busy_code = r_.status
+    except urllib.error.HTTPError as x:
+        busy_code = x.code
+    swarm_ui.run_state = lambda: None
+    clear_html = urllib.request.urlopen(urllib.request.Request(base + "/run/clear", data=b"{}", headers={"x-swarm": "1"}), timeout=20).read().decode()
+    swarm_ui.run_state = was_rs2
+    arch = sorted((root / ".work" / "archive").glob("clear-*"))
+    gone = [rel for rel in made_c if not (root / rel).exists()]
+    kept_c = [rel for rel in made_c if (root / rel).exists()]
+    check("Clear training state starts training again from pass 1: training's records (its state, each configuration's record, what it kept, its measurements and loop) are moved aside to .work/archive, nothing deleted; each model's own answers and their summaries are kept; the training card says so; it is refused while training runs; and the button sits beside Run training",
+          busy_code == 409 and len(arch) == 1 and "Cleared: training starts again from pass 1" in clear_html
+          and sorted(kept_c) == sorted([".work/train/baseline-runs.jsonl", "training/results/%s/%s-held.json" % (d["key"], tgt_id), "training/results/%s/m-alone-vs-%s-held.json" % (d["key"], tgt_id)])
+          and all((arch[0] / rel).exists() for rel in gone) and 'id="run-clear"' in swarm_ui.run_panel(), [busy_code, kept_c, gone])
     srv.shutdown()
     srv, base = serve(fake)
 

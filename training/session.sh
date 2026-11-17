@@ -16,7 +16,7 @@
 #   TEACHER=claude bash training/session.sh    let a large model turn the reading and the failures into candidate briefs
 #                                              (spends on this machine's Claude plan; without it, candidates are written by hand)
 #   EACH=8 bash training/session.sh            questions of each kind (default: the policy's, 6)
-#   CAP=12 bash training/session.sh            changes tried on one question before it is left as not reached (default 8)
+#   CAP=12 bash training/session.sh            changes tried on one question before it is left as not reached (default: none, until parity)
 #   GUARD=10 bash training/session.sh          questions already at parity asked again before a change is kept (default 6)
 #   SWARM_DECIDER=http://127.0.0.1:8009 ...    a decider already running somewhere, in place of the one this session loads itself
 # Before it: nothing. It fetches and makes ready what the configured swarm needs (training/setup.mjs): the engine, the models,

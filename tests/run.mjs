@@ -1280,15 +1280,16 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   check(
     "how the trainer trains is data: the loop's limits (changes tried on a question, questions asked again before a keep, when a change is dropped), what the plan lists first, and how much each kind of move counts for; a configuration's own setting stands over the one every configuration starts with, and leaves the rest as they are; nothing of the old way is left in it (no margin, no screen, no review rules)",
     base.questions.each === 6 &&
-      base.loop.cap === 8 &&
+      base.loop.cap === null &&
+      base.loop.drop === null &&
+      base.loop.beam === 3 &&
       base.loop.guard === 6 &&
-      base.loop.drop === 6 &&
       base.plan.arrangements >= 1 &&
       base.moves.weight.brief === 1 &&
       base.ratchet.passes >= 1 &&
       mine.loop.cap === 12 &&
       mine.loop.guard === 6 &&
-      readPolicy({}).loop.cap === 8 &&
+      readPolicy({}).loop.cap === null &&
       !('keep' in base) &&
       !('review' in base) &&
       !('trials' in base),
@@ -4317,7 +4318,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       classOf(M('plan: decide by most')) === 'another way of deciding' &&
       learnt[0] === 'a2 at temperature 0.7' &&
       q.state === 'reached' &&
-      q.attempts[1].builtOn === true &&
+      q.attempts[1].closer === true &&
       q.attempts[2].on.join() === 'a1 with a token limit of 1100' &&
       built.kept[0].what === 'several: a1 with a token limit of 1100 + plan: decide by most' &&
       built.classes['more room to answer'].tried === 1 &&
@@ -4398,6 +4399,62 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       decoys.every((d) => seen.includes(String(d.pid))) &&
       decoys.every((d) => !kept.includes(String(d.pid))),
     { ev: ev.lost, oldPlan: oldPlan.filter((n) => /decide by/.test(n)), seen: seen.length, kept: kept.length },
+  );
+}
+
+// ---- 9e: a question stays in hand until parity: round after round over combinations, no cap
+{
+  const { runLoop, closeness } = await import('../training/loop.mjs');
+  const slots = [{ id: 'a1', member: 'a', stage: 'draft', maxTokens: 700 }];
+  // three changes; only `x` puts the answer on the table (a slot holds it), and only `x` with `y` reaches parity
+  const mk = (bb, k) => ({
+    key: k,
+    id: k,
+    name: k,
+    kind: 'arrangement',
+    area: 'slots',
+    briefs: { ...bb, has: [...bb.has, k] },
+  });
+  const poolOf = (bb) => ['x', 'y', 'z'].filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k));
+  const grade = (has, pairWins) =>
+    pairWins && has.includes('x') && has.includes('y')
+      ? { grade: 'right', trace: [] }
+      : has.includes('x')
+        ? {
+            grade: 'wrong',
+            path: 'decided',
+            trace: [{ stage: 'draft', slot: 'a1', same: true, final: 'y', letter: 'A' }],
+          }
+        : {
+            grade: 'wrong',
+            path: 'decided',
+            trace: [{ stage: 'draft', slot: 'a1', same: false, final: 'x', letter: 'A' }],
+          };
+  const go = async (pairWins) => {
+    const asked = [];
+    const st = await runLoop({
+      list: [{ id: 'q', kind: 'k' }],
+      briefs: { version: 1, has: [], slots, plan: {} },
+      poolOf,
+      attempt: async (bb) => (asked.push(bb.has.join('+')), grade(bb.has, pairWins)),
+    });
+    return { q: st.questions[0], asked, kept: st.kept.map((k) => k.what) };
+  };
+  const wins = await go(true);
+  const never = await go(false);
+  check(
+    'a question stays in hand until parity, with no limit on tries: every change is tried on it in a first round, then every change on top of those that came closest, round after round; a pair that reaches parity is kept together; and a question is left only when a whole round brings it no closer, which is written down',
+    wins.q.state === 'reached' &&
+      wins.q.rounds === 2 &&
+      wins.asked.slice(0, 4).join('|') === '|x|y|z' &&
+      wins.asked.includes('x+y') &&
+      wins.kept.join() === 'several: x + y' &&
+      never.q.state === 'not reached' &&
+      never.q.exhausted === true &&
+      never.q.rounds === 2 &&
+      never.asked.join('|') === '|x|y|z|x+y|x+z' &&
+      closeness({ trace: [{ stage: 'draft', same: true }] }) > closeness({ trace: [{ stage: 'draft', same: false }] }),
+    { wins: wins.asked, never: never.asked, q: never.q.rounds },
   );
 }
 

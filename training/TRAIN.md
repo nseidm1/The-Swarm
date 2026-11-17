@@ -25,8 +25,9 @@ stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mj
 3. A change that brings the question to parity is asked again on questions already at parity (the same kind first, then the
    latest; 6, or `GUARD`). If none is lost it is **kept**: it is the arrangement for every question after, and an entry on
    the ledger the spec is made from. If one is lost it is not kept, and the next change is tried.
-4. After 8 changes (`CAP`) with no parity, the question is written down as not reached, with where it was lost, and the loop
-   moves on. A change tried on 6 questions that brought none to parity is dropped, for this pass and those after.
+4. Changes are tried in rounds, with no limit on how many: every single change first, then each combined with the 3 that
+   came closest (`loop.beam`), and so on. Only when a round brings the question no closer is it written down as not reached,
+   with where it was lost, and the loop moves on.
 
 The small models are never shown the larger model's answer: only the grading is. A swarm built from the spec has no larger
 model beside it, so nothing is kept that needs one. And nothing is chosen on the held questions: a pass ends by measuring the
@@ -136,7 +137,6 @@ it. Running the session again is not the same pass again:
 |---|---|
 | The kinds of question the Swarm answered differently from the target on | Asks more of those kinds on the train questions |
 | Each slot's record: how often it had the larger model's answer, how often the decider threw that answer away, how often the writer changed it | Plans from it: which changes speak to where answers were lost |
-| Every change tried on 6 questions that brought none to parity | Does not try it again |
 | The arrangement as the kept changes left it | Starts from it |
 | A search for each kind it answered differently on | Asks arXiv those, with the standing questions |
 | Every paper already seen | Reads only what is new |
@@ -261,9 +261,10 @@ carry its own values over it in its record (`training/states/`: `policy`), set b
 
 | Setting | What it is |
 |---|---|
-| `loop.cap` | How many changes are tried on one question before it is written down as not reached (8) |
+| `loop.cap` | How many changes are tried on one question before it is written down as not reached (none: until parity, or until a round brings it no closer) |
 | `loop.guard` | How many questions already at parity a change is asked again on before it is kept; it is kept only if none is lost (6) |
-| `loop.drop` | A change tried on this many questions that brought none to parity is not tried again (6) |
+| `loop.drop` | A change tried on this many questions that brought none to parity is not tried again (none: every change stays open) |
+| `loop.beam` | How many of the changes that came closest the next round builds combinations on (3) |
 | `plan.arrangements`, `plan.wild`, `plan.depth` | What the plan lists first: how many arrangements one change from here; how many that are several changes away at once; how many changes those are |
 | `moves.weight` | How much each kind of move (brief, plan, arrangement, flow) counts for when the plan ranks what to try |
 | `ratchet.passes`, `ratchet.max` | When a bar that is held tightens |
