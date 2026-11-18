@@ -155,6 +155,13 @@ while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
   # and loses no question already there is kept, and is the arrangement for every question after. CAP changes at most (8).
   # This is the whole of training: there is no measuring everything, then trying, then measuring again.
   run 10-questions    training/loop.mjs --each "$EACH" ${CAP:+--cap "$CAP"} ${GUARD:+--guard "$GUARD"}
+  # A KIND WITH NOTHING TO COMPARE STOPS THE PASS (exit 3, training/loop.mjs coverageOf): training it would train nothing and say only
+  # "not compared". The pass stays open; started again (a judge named, or SKIP_KINDS=a,b to leave those kinds out) it carries on
+  if [ $? = 3 ]; then
+    echo "$(date +%H:%M:%S) STOPPED: a kind of question has nothing to compare (see $OUT/10-questions.out)" >> "$OUT/status.txt"
+    echo "Stopped: a kind of question has nothing to compare. $OUT/10-questions.out says which, and what to do."
+    break
+  fi
   # what the swarm cannot try on its own, measured for a person to decide: whether another small model on this machine drafts what
   # no slot drafts (members-probe.mjs), and whether another decider whose weights are here would have chosen better (decider-replay.mjs)
   run 12-members      training/members-probe.mjs --each "$EACH"

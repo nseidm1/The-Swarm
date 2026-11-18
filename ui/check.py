@@ -193,10 +193,10 @@ with tempfile.TemporaryDirectory() as tmp:
           and data.parity(spec_rows)["onSpec"]["compared"] == 8, pol_html[:200])
     spec_html = get(base + "/fragment/spec")[1]
     sp = data.spec(d)
-    check("the output spec is the record of what this configuration has learned against this larger model: every change that was kept, newest first, with where it came from and the answers it won on train and on held; where each pass left it; the flow; and a count of them on its pill",
+    check("the SoRA spec is the record of what this configuration has learned against this larger model: every change that was kept, newest first, with where it came from and the answers it won on train and on held; where each pass left it; the flow; and a count of them on its pill",
           len(d["learned"]["ledger"]) == 2 and sp["learned"]["changesKept"] == 2 and "What it has learned (2 kept)" in spec_html and spec_html.index("go back to the drafters") < spec_html.index("the shortest brief that still asks for a test")
           and "arxiv.org/abs/2603.16045" in spec_html and "13 → 15" in spec_html and "6 → 7" in spec_html and "Where each pass left it" in spec_html and "pass 4: 75% · 9 of 12" in spec_html
-          and "The flow" in spec_html and "Output spec<span>2 learned</span>" in html and d["briefs"].get("version") == 3 and sp["arrangement"]["flow"][0]["do"] == "draft", sp["learned"]["changesKept"])
+          and "The flow" in spec_html and "SoRA spec<span>2 learned</span>" in html and d["briefs"].get("version") == 3 and sp["arrangement"]["flow"][0]["do"] == "draft", sp["learned"]["changesKept"])
     bare = data.load(Path(tmp) / "empty")
     check("a swarm that has learned nothing says so, and runs the arrangement every swarm starts from", bare["learned"]["ledger"] == [] and "Nothing yet" in swarm_ui.learned_block(dict(d, learned={"ledger": [], "passes": []})))
     check("what a slot is doing is two lines and never more or fewer, and the line above the arrangement is one: a card is the same height whatever it says, so nothing below moves as a pass runs",
@@ -613,8 +613,8 @@ with tempfile.TemporaryDirectory() as tmp:
           not esc_ok and "not inside .work" in esc_said and (far / "precious.gguf").exists(), esc_said)
     code_s, sp = get(base + "/fragment/spec")
     spec = data.spec(data.load(root))
-    check("the output spec says what the swarm as it stands is: what goes in and comes out, each model with its pinned file and SHA-256, the decider, every slot and what it is for, and where it stands against the larger model, to read and to copy as JSON",
-          code_s == 200 and "Output spec" in sp and d["members"]["a"]["sha256"] in sp and d["members"]["b"]["file"] in sp and "<code>decide</code>" in sp and ("% of the way to parity against" in sp or "At parity against" in sp) and spec["trainedAgainst"]["progressPercent"] == p["percent"] and 'id="spec-json"' in sp
+    check("the SoRA spec says what the swarm as it stands is: what goes in and comes out, each model with its pinned file and SHA-256, the decider, every slot and what it is for, and where it stands against the larger model, to read and to copy as JSON",
+          code_s == 200 and "SoRA spec" in sp and "<h4>Proof</h4>" in sp and d["members"]["a"]["sha256"] in sp and d["members"]["b"]["file"] in sp and "<code>decide</code>" in sp and ("% of the way to parity against" in sp or "At parity against" in sp) and spec["trainedAgainst"]["progressPercent"] == p["percent"] and 'id="spec-json"' in sp
           and "As a model chooser lists it" in sp and "What it is told" in sp and 'id="spec-save"' in sp and "Commercial use" in sp and "swarm-spec.json" in html
           and spec["trainedAgainst"]["state"] in ("at parity", "not at parity") and spec["trainedAgainst"]["equivalent"] == p["equivalent"] and len(spec["arrangement"]["slots"]) == len(d["briefs"]["slots"])
           and spec["members"]["a"]["sha256"] == d["members"]["a"]["sha256"] and spec["interface"]["out"] == "one reply" and "fundamentally equivalent" in spec["trainedAgainst"]["parityMeans"], sp[:200])
@@ -641,7 +641,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and b_ok == 200 and b_cfg.get("tools") == idb and ('class="seg on" data-tools="%s"' % idb) in b_row and ("%s alone" % nb) in b_meta and not b_row.startswith("<fieldset")
           and b_spec["recipe"]["serving"]["tools"] == idb and nb in b_spec["interface"]["capabilities"]["tools"] and lead_spec["recipe"]["serving"]["tools"] == ida
           and t_ok == 200 and t_bad == 400 and t_out == 400 and t_cfg.get("tools") == "swarm" and 'class="seg on" data-tools="swarm"' in t_row and "tools: the swarm" in t_meta
-          and sw_spec["recipe"]["serving"]["tools"] == "swarm" and sw_spec["spec"]["recipeSha256"] != lead_spec["spec"]["recipeSha256"]
+          and sw_spec["recipe"]["serving"]["tools"] == "swarm" and sw_spec["sora"]["recipeSha256"] != lead_spec["sora"]["recipeSha256"]
           and sw_spec["interface"]["capabilities"]["toolsMode"] == "swarm" and "decided by the swarm" in sw_spec["interface"]["capabilities"]["tools"] and not any("tools goes to" in x for x in sw_spec["interface"]["notYet"])
           and l_ok == 200 and l_cfg.get("tools") == ida and data.tools_of("no-longer-here", d["members"]) == "a" and data.tools_of(idb, d["members"]) == "b",
           [b_ok, t_ok, t_bad, t_out, l_ok, b_cfg.get("tools"), t_cfg.get("tools"), l_cfg.get("tools")])
@@ -718,7 +718,9 @@ with tempfile.TemporaryDirectory() as tmp:
     # cannot do as a model, and a hash of the recipe that src/spec.mjs computes the same way
     rc = spec["recipe"]
     check("the spec holds everything needed to make the swarm again and offer it: every slot with what it is told, the decider's serving recipe, the engine's pinned builds, a card a model chooser can list (engine swarm, memory, what it is equivalent on and where it stands), what it needs of a machine (platforms, memory, disk, licences, whether it may be used commercially), what it can and cannot do (tools go to one model alone), how to start it, and a format, version and hash",
-          spec["spec"]["format"] == "the-swarm/spec" and spec["spec"]["version"] == 3 and len(spec["spec"]["recipeSha256"]) == 64 and spec["spec"]["recipeSha256"] == data.recipe_sha256(rc)
+          spec["sora"]["format"] == "sora" and spec["sora"]["version"] == 1 and len(spec["sora"]["recipeSha256"]) == 64 and spec["sora"]["recipeSha256"] == data.recipe_sha256(rc)
+          and spec["sora"]["baseModuleSha256"] == data.recipe_sha256({k: rc[k] for k in ("members", "decider", "engine")}) and spec["sora"]["arrangementSha256"] == data.recipe_sha256(rc["briefs"])
+          and spec["baseModule"]["members"] == rc["members"] and isinstance(spec["proof"]["results"], list) and "goal" in spec["proof"]
           and all(s_.get("brief") for s_ in rc["briefs"]["slots"]) and all(s_.get("brief") for s_ in spec["arrangement"]["slots"]) and rc["briefs"]["slots"] == d["briefs"]["slots"]
           and rc["members"]["a"]["sha256"] == d["members"]["a"]["sha256"] and rc["decider"].get("serve") and rc["engine"].get("builds") and rc["serving"]["slots"] == data.SERVING["slots"]
           and spec["card"]["engine"] == "swarm" and spec["card"]["memGb"] > 0 and "Programming and its conversation" in spec["card"]["equivalentOn"] and "Crew" not in json.dumps(spec) and spec["card"]["badge"] and spec["card"]["plain"].startswith("Two small models")
@@ -743,9 +745,9 @@ with tempfile.TemporaryDirectory() as tmp:
     if node_:
         sp_file = Path(tmp) / "spec.json"
         sp_file.write_text(json.dumps(spec, ensure_ascii=False))
-        rd = __import__("subprocess").run([node_, "-e", "import(process.argv[1]).then(m=>{const s=m.readSpec(process.argv[2]);console.log(s.spec.recipeSha256===m.recipeSha256(s.recipe)?'same':'differs')}).catch(e=>console.log('refused: '+e.message))",
+        rd = __import__("subprocess").run([node_, "-e", "import(process.argv[1]).then(m=>{const s=m.readSpec(process.argv[2]);console.log(s.sora.recipeSha256===m.recipeSha256(s.recipe)&&s.sora.baseModuleSha256===m.recipeSha256(m.baseModuleOf(s.recipe))?'same':'differs')}).catch(e=>console.log('refused: '+e.message))",
                                             (Path(swarm_ui.__file__).resolve().parent.parent / "src" / "spec.mjs").as_uri(), str(sp_file)], capture_output=True, text=True)
-        check("the module reads the spec the page writes, and computes its hash the same way", rd.stdout.strip() == "same", rd.stdout + rd.stderr[:300])
+        check("the module reads the SoRA spec the page writes, and computes its recipe and base module hashes the same way", rd.stdout.strip() == "same", rd.stdout + rd.stderr[:300])
     check("the ideas waiting to be tried are no longer on the Train card's head (taken out, console instruction 2026-11-17)", "Ideas waiting to be tried:" not in html.split('<div id="score">')[1].split('</div></div>')[0])
     node = swarm_ui.node_for_training()
     if node:
@@ -781,7 +783,7 @@ with tempfile.TemporaryDirectory() as tmp:
         'echo "10:00:00 START 00-begin" > "$OUT/status.txt"; echo "10:00:01 END   00-begin exit 0 0 min" >> "$OUT/status.txt"\n'
         'echo "10:00:01 START 02-target" >> "$OUT/status.txt"; echo "asked $PASSES $EACH teacher=[$TEACHER]" > "$OUT/02-target.out"\nsleep 60\n')
     os.environ.update(NODE="bash", SWARM_LLAMA_SERVER="stand-in", TEACHER="claude")
-    # ONLY A FINISHED SPEC IS PUBLISHED (specs/): refused short of parity, written whole at parity, without the pass in hand
+    # ONLY A SoRA WITH PROOF IS PUBLISHED (specs/<name>.sora.json and its card): refused without proof, written whole with it, without the pass in hand
     def pub(headers=None):
         req = urllib.request.Request(base + "/spec/publish", data=b"{}", headers=headers if headers is not None else {"x-swarm": "1"})
         try:
@@ -799,11 +801,54 @@ with tempfile.TemporaryDirectory() as tmp:
     ok_code, ok_html = pub()
     data.publishable = was_pub
     written = json.loads(pf.read_text()) if pf.exists() else {}
-    check("only a finished spec is published to specs/: short of parity the button is greyed out saying why and a request is refused, writing nothing; at parity it writes specs/<configuration>.json whole, without the pass in hand, and the dialog then says where it is; a request not from the page is refused",
-          'id="spec-publish"' in sp and ("Only a finished spec is published" in sp) == (spec["trainedAgainst"]["state"] != "at parity")
-          and short_code == 409 and "Only a finished spec is published" in short_said and short_none and foreign_code == 403
-          and ok_code == 200 and pf.name == d["key"] + ".json" and written.get("spec", {}).get("recipeSha256") == spec["spec"]["recipeSha256"] and "inProgress" not in written
+    cf = data.card_file(root, spec)
+    card = cf.read_text() if cf.exists() else ""
+    check("only a SoRA with proof is published to specs/: without proof the button is greyed out saying why and a request is refused, writing nothing; with it it writes specs/<name>.sora.json whole, without the pass in hand, and its SoRA card specs/<name>.sora.md, and the dialog then says where it is; a request not from the page is refused",
+          'id="spec-publish"' in sp and ("Only a SoRA with proof is published" in sp) == (not spec["proof"]["proven"])
+          and short_code == 409 and "Only a SoRA with proof is published" in short_said and short_none and foreign_code == 403
+          and ok_code == 200 and pf.name == d["key"] + ".sora.json" and written.get("sora", {}).get("recipeSha256") == spec["sora"]["recipeSha256"] and "inProgress" not in written
+          and cf.name == d["key"] + ".sora.md" and card.startswith('---\nlibrary_name: "the-swarm"\n') and ("sora_sha256: \"%s\"" % spec["sora"]["recipeSha256"]) in card and "model-index:" in card
           and "Published as <code>specs/%s</code>" % pf.name in ok_html, [short_code, short_said[:80], foreign_code, ok_code])
+    # A PUBLISHED SoRA REFERS TO NO IMPLEMENTATION (docs/sora.md 3): its runtime named once, in `runtime`; how this runtime starts and is
+    # called (interface.as, interface.start, requirements.node) shown on the page and left out of what is published; the card has no commands
+    impl = re.compile(r"\b[\w./-]+\.(?:py|mjs|sh)\b|\b(?:training|src|bin|ui)/|createSwarm|serveSwarm|readSpec|fromSpec|SWARM_[A-Z_]+|\bnode bin\b|\bbash\b")
+    pub = data.published(spec)
+    def leaks(x, at=""):
+        if isinstance(x, dict):
+            return [l for k, v in x.items() if k != "examples" for l in leaks(v, at + "." + k)]  # (examples are training content, not references)
+        if isinstance(x, list):
+            return [l for i, v in enumerate(x) for l in leaks(v, "%s[%d]" % (at, i))]
+        return [at] if isinstance(x, str) and impl.search(x) else []
+    card_now = data.sora_card(spec)
+    check("a published SoRA refers to no implementation: it names its runtime once (library and version), leaves out how this runtime is started and called (which the page still shows), and its card has no commands",
+          leaks(pub) == [] and pub["runtime"]["library"] == "the-swarm" and pub["runtime"].get("version")
+          and "start" not in pub["interface"] and "as" not in pub["interface"] and "node" not in pub["requirements"]
+          and "start" in spec["interface"] and not impl.search(card_now.split("## Hashes")[0]) and "SoRA specification" in card_now,
+          [leaks(pub), [m.group(0) for m in impl.finditer(card_now)]])
+    # THE PROOF OF A SoRA (docs/sora.md): only harness results measured on exactly this SoRA (configuration, arrangement, adapters);
+    # per task the newest that counts as proof (100 questions at least), else the newest check; the gap is the module's score less the target's
+    pr_root = Path(tmp) / "proof"
+    (pr_root / ".work" / "eval").mkdir(parents=True)
+    res = lambda task, n, sv, tv: {"item": "crew", "task": task, "name": task.upper(), "metric": "acc", "filter": "none",  # noqa: E731
+                                   "swarm": {"value": sv, "stderr": 0.03, "n": n, "of": 541}, "target": {"value": tv, "stderr": 0.04, "n": n, "of": 541}}
+    run = lambda at, arr, results, cfg="c--t", adapters=(): {"at": at, "runId": at, "configuration": cfg, "arrangementSha256": arr,  # noqa: E731
+                                                              "harnessId": {"name": "lm-evaluation-harness", "version": "0.4.13"}, "adapters": list(adapters), "results": results}
+    (pr_root / ".work" / "eval" / "history.jsonl").write_text("\n".join(json.dumps(x) for x in [
+        run("2026-11-18T01", "A", [res("ifeval", 100, 0.66, 0.79)]),            # proof, older
+        run("2026-11-18T02", "A", [res("ifeval", 20, 0.70, 0.75)]),             # a newer check: proof still outranks it
+        run("2026-11-18T03", "OTHER", [res("ifeval", 200, 0.99, 0.79)]),        # another arrangement: not this SoRA's
+        run("2026-11-18T04", "A", [res("humaneval", 300, 0.80, 0.80)], cfg="x--t"),  # another configuration
+        run("2026-11-18T05", "A", [res("humaneval", 20, 0.50, 0.60)], adapters=["M"]),  # served with an adapter this SoRA does not pin
+        run("2026-11-18T06", "A", [res("mbpp", 20, 0.40, 0.50)]),               # a check only
+    ]) + "\n")
+    pd = {"root": str(pr_root), "key": "c--t", "members": {"a": {"name": "M"}}}
+    proof = data.sora_proof(pd, "A", {})
+    by = {x["task"]: x for x in proof["results"]}
+    check("the proof of a SoRA lists only harness results measured on exactly it (its configuration, its arrangement, the adapters it pins), for each task the newest that is proof (100 questions or more) else the newest check, with the gap to the target and its error; it is publishable only with proof",
+          sorted(by) == ["ifeval", "mbpp"] and by["ifeval"]["proof"] is True and by["ifeval"]["n"] == 100 and by["ifeval"]["gap"] == -0.13 and by["ifeval"]["gapStderr"] == 0.05
+          and by["mbpp"]["proof"] is False and proof["proven"] == 1 and by["ifeval"]["harness"] == {"name": "lm-evaluation-harness", "version": "0.4.13"}
+          and data.publishable({"proof": proof}) == "" and "Only a SoRA with proof is published" in data.publishable({"proof": {"results": [by["mbpp"]], "proven": 0}})
+          and [x["task"] for x in data.sora_proof(pd, "A", {"a": {"file": "x"}})["results"]] == ["humaneval"], proof)
     # CLEAR TRAINING STATE: training's records moved aside, each model's own answers kept; refused while training runs
     tgt_id = d["target"]["id"]
     made_c = {"training/state.json": "{}", "training/states/x.json": "{}", "src/learned/x.json": "{}", ".work/train/loop.json": "{}", ".work/train/swarm-runs.jsonl": "",

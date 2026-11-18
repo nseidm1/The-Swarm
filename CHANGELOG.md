@@ -6,6 +6,21 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **SoRA.** What a LoRA is to a model, a SoRA is to a swarm module: the spec applied to it to tune it. The output spec is now
+  the **SoRA spec** (`<name>.sora.json`, format `sora` version 1, [docs/sora.md](docs/sora.md)): it names the base module it
+  applies to and the target it was trained toward, with three hashes (base module, arrangement, recipe), and carries its
+  **proof**: harness results for the module and its target, measured on exactly that SoRA, at least 100 questions a task,
+  losses included. Publishing writes it with a **SoRA card** (`<name>.sora.md`, YAML front matter with `model-index`), and needs
+  proof rather than parity on training's own held questions. Output specs from before are still read.
+- **Classes of input.** The arrangement is chosen by the class of the request (tools, talk, code, words), the same way in
+  training and in the running module. What every lineup had learned on code questions now applies to code only
+  (`training/migrate-classes.mjs`); before, briefs written for one code question drafted every essay.
+- **Model files checked before they are served.** Every file of a member is checked against its pinned SHA-256 before the
+  module first serves it, wherever the file came from; a file once checked is not hashed again while it is unchanged. A
+  message whose content is a list of parts is read as its text parts (for the seed and a tool turn's question), as the
+  SoRA specification says.
+- **No kind trained on nothing.** A pass stops before training when a kind of question has nothing to compare (a reader that
+  failed its check), and says which and why; `SKIP_KINDS` leaves kinds out on purpose.
 - **The module.** Two small models served by llama.cpp, four slots each, answer as one model: messages in, one reply out, at an
   OpenAI-compatible address or from `createSwarm()`.
 - **The arrangement.** Draft, check, decide, write. A decision model (Kev) settles which answer stands when the drafts disagree.

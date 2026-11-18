@@ -14,7 +14,8 @@ run() { # run <name> <script> [args...]
     if [ "$attempt" = 1 ]; then "$NODE" "$@" > "$OUT/$name.out" 2>&1; else "$NODE" "$@" >> "$OUT/$name.out" 2>&1; fi
     code=$?
     echo "$(date +%H:%M:%S) END   $name exit $code $(( ($(date +%s) - t0) / 60 )) min" >> "$OUT/status.txt"
-    if [ "$code" = 0 ] || [ "$code" = 2 ]; then return "$code"; fi
+    # (exit 3: the step refused, for a person to act on: asking again would only refuse again)
+    if [ "$code" = 0 ] || [ "$code" = 2 ] || [ "$code" = 3 ]; then return "$code"; fi
     [ "$attempt" = 3 ] && break
     echo "--- it stopped (exit $code): run again, carrying on from what it had written down ---" >> "$OUT/$name.out"
     "$NODE" training/support/recover.mjs reap --keep-decider > /dev/null 2>&1

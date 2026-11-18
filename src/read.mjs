@@ -66,6 +66,16 @@ export function letterOf(text, marker = MARKER, letters = 'ABCDEFGH') {
   return '';
 }
 
+// THE TEXT OF A MESSAGE'S CONTENT (SoRA specification S3.7, T.6.6): a string is itself; a list of parts is its text parts
+// joined in order with nothing between them (an image or any other part adds nothing); absent or null is empty
+export const textOf = (content) =>
+  typeof content === 'string'
+    ? content
+    : Array.isArray(content)
+      ? content.map((p) => (p && p.type === 'text' && p.text != null ? String(p.text) : '')).join('')
+      : content == null
+        ? ''
+        : String(content);
 export const asksForCode = (question) =>
   /code block|write a (?:\w+ )*function|corrected function|give the (?:\w+ )*function/i.test(String(question || ''));
 // is an answer code? Words about a function are not: code has the marks of code (a function with its brackets, an arrow, a

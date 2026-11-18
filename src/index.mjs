@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { MEMBERS, SERVING, ENTRY, SERVED_NAME, TOOLS, toolsOf } from './catalog.mjs';
 import { attachMember, startMember, modelFile } from './members.mjs';
 import { answer as orchestrate } from './orchestrate.mjs';
+import { textOf } from './read.mjs';
 import { serve as serveHttp } from './server.mjs';
 import { deciderAt } from './decider.mjs';
 import { fromSpec, readSpec, recipeSha256 } from './spec.mjs';
@@ -166,9 +167,7 @@ export async function createSwarm(opts = {}) {
     // trainers set it, because a measurement that changes by itself from one run to the next cannot say whether a change helped
     if (opts.seed !== undefined) {
       const last = messages[messages.length - 1];
-      params.seed = seedOf(
-        opts.seed + '|' + slot.id + '|' + messages.length + '|' + String((last && last.content) || ''),
-      );
+      params.seed = seedOf(opts.seed + '|' + slot.id + '|' + messages.length + '|' + textOf(last && last.content));
     }
     if (!reuse) return m.ask(slot.id, messages, params);
     // REUSED WHERE NOTHING CHANGED (opts.reuse, the trainers only): with a seed, the same slot on the same model asked the same

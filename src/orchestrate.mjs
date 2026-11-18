@@ -100,6 +100,23 @@ const said = (m) =>
 // differ by kind (briefs.kinds[kind]: its own slots and plan), kept where a change that brings one kind to parity loses only
 // questions of the other (training/loop.mjs). The question's kind picks the arrangement before anything is asked
 export const kindOf = (question) => (asksForCode(String(question || '')) ? 'code' : 'words');
+// THE CLASS OF AN INPUT: what the arrangement is chosen by (briefs.kinds[class]), decided from the request alone, with no model asked,
+// so that training and the running swarm always sort an input the same way (docs/sora-classes.md):
+//   tools   the request offers tools
+//   talk    the conversation already has a reply of the swarm's in it
+//   code    code is asked for (kindOf)
+//   words   anything else
+// A class with no arrangement of its own is answered with the shared one (briefsFor).
+export const CLASSES = ['tools', 'talk', 'code', 'words'];
+export function classOf(messages = [], { tools = null } = {}) {
+  if (Array.isArray(tools) && tools.length) return 'tools';
+  const ms = (Array.isArray(messages) ? messages : []).filter(
+    (m) => m && (m.role === 'user' || m.role === 'assistant'),
+  );
+  if (ms.some((m) => m.role === 'assistant')) return 'talk';
+  const last = [...ms].reverse().find((m) => m.role === 'user');
+  return kindOf(last ? said(last) : '');
+}
 // what a kind's own arrangement holds: what a change can alter (its slots, its plan, its flow)
 export const KIND_PARTS = ['slots', 'plan', 'flow'];
 export function briefsFor(briefs, question, kind = kindOf(question)) {
@@ -123,7 +140,7 @@ export async function answer(
     .map((m) => ({ role: m.role, content: said(m) }));
   const kept = talk.slice(-((given.plan || {}).keepTurns || 6));
   const question = kept.length ? kept[kept.length - 1].content : '';
-  const briefs = briefsFor(given, question);
+  const briefs = briefsFor(given, question, classOf(messages));
   const plan = briefs.plan || {};
   const stage = (name) => briefs.slots.filter((s) => s.stage === name);
   // where code is asked for, the code a slot wrote is its answer, whatever it wrote after it

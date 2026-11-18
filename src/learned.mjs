@@ -7,7 +7,7 @@
 //             answers equivalent to the larger model's before and after, on the questions it was chosen on and on the held ones
 //   passes    where it stood against the larger model at the end of each pass
 // Nothing is in the ledger that was not measured, and nothing is kept that did not do better on train and no worse on held. The
-// output spec of a swarm is this file read out.
+// SoRA spec of a swarm (docs/sora.md) is this file read out.
 //   readBriefs()   (index.mjs) reads the learned arrangement of the configured swarm, or briefs.json where it has learned nothing
 import fs from 'node:fs';
 import path from 'node:path';
@@ -63,4 +63,53 @@ export function notePass(done, briefs, { config = CONFIG_ID, target = TARGET.id 
   const next = { ...cur, passes: [...cur.passes.filter((p) => p.pass !== done.pass), done] };
   write(learnedFile(config, target), next);
   return next;
+}
+
+// WHAT WAS LEARNED, MOVED TO THE CLASS IT WAS LEARNED ON (docs/sora-classes.md, migration). Until classes, every kept
+// change went into the one shared arrangement, so a brief written for one code question ran on every input. This moves the
+// learned slots, plan and flow into briefs.kinds[<class>], for the class most kept changes were found on, and puts the starting
+// arrangement back as the shared one: what every class with no arrangement of its own runs. Changes found on another class are
+// named, not carried (they are built into the same arrangement and cannot be taken apart without asking again): training finds
+// them again for their own class. Pure: given the learned file, the class of each spec kind, and the starting arrangement.
+//   learned       a learned file (readLearned)
+//   classOfKind   { <spec kind>: <class> } (training/migrate-classes.mjs works it out with src/orchestrate.mjs classOf)
+//   start         the starting arrangement for the configured places (index.mjs readBriefs of briefs.json, withPlaces)
+//   -> { learned: the file to write, moved: <class> | null, dropped: [ledger n], already: bool }
+export function toClasses(learned, { classOfKind = {}, start, now = new Date() } = {}) {
+  if (!learned || !learned.briefs) return { learned, moved: null, dropped: [], already: false };
+  if (learned.migrated) return { learned, moved: null, dropped: [], already: true };
+  const classOf = (e) => classOfKind[(e && e.question && e.question.kind) || ''] || null;
+  const ledger = (learned.ledger || []).map((e) => ({ ...e, class: classOf(e) }));
+  const count = {};
+  for (const e of ledger) if (e.class) count[e.class] = (count[e.class] || 0) + 1;
+  const moved = Object.keys(count).sort((a, b) => count[b] - count[a] || a.localeCompare(b))[0] || null;
+  if (!moved) return { learned, moved: null, dropped: [], already: false };
+  const b = learned.briefs;
+  const own = { slots: b.slots, plan: b.plan, ...(b.flow ? { flow: b.flow } : {}), provisional: true };
+  const shared = { ...b, slots: start.slots, plan: start.plan, version: (Number(b.version) || 1) + 1 };
+  delete shared.flow;
+  if (start.flow) shared.flow = start.flow;
+  shared.kinds = { ...(b.kinds || {}), [moved]: own };
+  const dropped = ledger.filter((e) => e.class && e.class !== moved).map((e) => e.n);
+  return {
+    learned: {
+      ...learned,
+      briefs: shared,
+      ledger,
+      migrated: {
+        at: now.toISOString(),
+        to: moved,
+        dropped,
+        why: 'every kept change had gone into the shared arrangement',
+      },
+    },
+    moved,
+    dropped,
+    already: false,
+  };
+}
+// written as every learned file is: whole, with the last good copy kept
+export function writeLearned(body, { config = CONFIG_ID, target = TARGET.id } = {}) {
+  write(learnedFile(config, target), body);
+  return body;
 }

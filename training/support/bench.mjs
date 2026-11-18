@@ -373,7 +373,7 @@ export function readerStale(work = WORKC, now = readerNow()) {
     return ''; // (not checked at all: a pass run by hand without the check, as before)
   }
 }
-function readerCurrent(list) {
+export function readerCurrent(list) {
   if (readerChecked || !list.some((t) => t.type === 'open' || t.type === 'talk')) return;
   readerChecked = true;
   const was = readerStale();

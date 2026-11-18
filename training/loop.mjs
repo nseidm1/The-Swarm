@@ -26,7 +26,7 @@
 // It carries on where it stopped: every finished question is written down (.work/train/<configuration>/loop.json).
 import fs from 'node:fs';
 import path from 'node:path';
-import { decideByOf, kindOf, briefsFor, KIND_PARTS } from '../src/orchestrate.mjs';
+import { decideByOf, classOf as inputClassOf, briefsFor, KIND_PARTS } from '../src/orchestrate.mjs';
 import {
   normal as normalPolicy,
   reviewAsk,
@@ -391,6 +391,37 @@ export function orderFor(
 // and of those, first the questions changes have lost most often: a change that is going to lose one loses it on its first check,
 // not its third (measured 2026-11-16: 23 of 26 changes that reached parity on one question lost the same other one, asked third,
 // so each failure cost three runs)
+// NO KIND IS TRAINED ON NOTHING WITHOUT SAYING SO (docs/sora-classes.md, coverage). Before a pass trains, each spec kind
+// in it is counted: how many of its questions can be compared with the larger model at all, which needs the larger model's answer
+// and, for an answer in words or a reply in a conversation, a reader whose check is believed (training/readers.mjs). A kind with
+// none is not trained, and before this it was not said: on 2026-11-18 Kev 0.8B failed its check and 42 questions of 7 kinds were
+// "not compared" for a whole pass. Per kind and not per class, because a class can be partly compared (trace and agent were).
+//   coverageOf(list, { ref: Map of the larger model's answers, readerOk: (type) -> bool })
+//     -> [{ kind, n, compared, why }] in the order the kinds first appear; why says what is missing where compared is 0
+export function coverageOf(list, { ref = new Map(), readerOk = () => true } = {}) {
+  const by = new Map();
+  for (const t of list || []) {
+    const k = by.get(t.kind) || { kind: t.kind, n: 0, compared: 0, noRef: 0, noReader: 0, type: t.type };
+    k.n++;
+    const hasRef = ref && ref.get(t.id) !== undefined;
+    const needsReader = t.type === 'open' || t.type === 'talk';
+    if (!hasRef) k.noRef++;
+    else if (needsReader && !readerOk(t.type)) k.noReader++;
+    else k.compared++;
+    by.set(t.kind, k);
+  }
+  return [...by.values()].map(({ kind, n, compared, noRef, noReader, type }) => ({
+    kind,
+    n,
+    compared,
+    why: compared
+      ? ''
+      : noReader >= noRef
+        ? 'the reader of ' + (type === 'talk' ? 'replies in a conversation' : 'answers in words') + ' is not believed'
+        : 'the larger model has not answered them',
+  }));
+}
+
 export function guardOf(reached, t, n, lost = {}, pairs = {}) {
   const same = reached.filter((r) => r.t.kind === t.kind).reverse();
   const rest = reached.filter((r) => r.t.kind !== t.kind).reverse();
@@ -548,9 +579,10 @@ export async function runLoop({
     st.tryLog.push({ n: st.tryN, s: { kept: 10, parity: 3, closer: 1 }[kind] || 0 });
     if (st.tryLog.length > 1200) st.tryLog.splice(0, st.tryLog.length - 1200);
   };
-  // THE KIND OF A QUESTION (code, or words: what the swarm itself can tell from the question, src/orchestrate.mjs kindOf), and the
-  // arrangement a question of that kind is asked with: its own (briefs.kinds[kind]) where one was kept, else the shared one
-  const kindOfT = (t) => kindOf(t.turns ? (t.turns.filter((m) => m.role === 'user').at(-1) || {}).content : t.ask);
+  // THE CLASS OF A QUESTION (tools, talk, code or words: what the running swarm itself tells from the request, src/orchestrate.mjs
+  // classOf, given the same messages and tools the question is asked with), and the arrangement a question of that class is asked
+  // with: its own (briefs.kinds[class]) where one was kept, else the shared one
+  const kindOfT = (t) => inputClassOf(t.turns || [{ role: 'user', content: t.ask }], { tools: t.tools });
   const flat = (b, k) => briefsFor(b, '', k);
   const ownOf = (nb) => Object.fromEntries(KIND_PARTS.map((p) => [p, nb[p] === undefined ? null : nb[p]]));
   // the arrangement a change made for a question of kind k, folded back: into that kind's own where it has one, else the shared one
@@ -1545,7 +1577,15 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const guard = Number(arg('guard', process.env.GUARD || lp.guard || 6));
   const drop = num(arg('drop', lp.drop));
   const beam = Number(arg('beam', lp.beam || 3));
-  const list = questions('train', each);
+  // kinds a person chose to train without this pass (--skip-kinds a,b; SKIP_KINDS in session.sh): left out, and said so
+  const skipKinds = new Set(
+    String(arg('skip-kinds', process.env.SKIP_KINDS || ''))
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+  const list = questions('train', each).filter((t) => !skipKinds.has(t.kind));
+  if (skipKinds.size) console.log('Left out of this pass, as asked: ' + [...skipKinds].join(', ') + '.');
   // what each question asks: a brief that names a function one of them asks for is passed over (support/teach.mjs givesAway)
   const asks = list.map((t) => t.ask || '');
   // THE QUESTIONS WHOSE MARK IS NOT STABLE: the larger model asked them again (session.sh 02-target-self-train) and did not give an
@@ -1684,6 +1724,24 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     process.exit(0);
   }
   const ref = needReference(list, 'train');
+  // THE COVERAGE GATE (coverageOf): the reader's verdict made current first (a judge chosen since its check is checked now), then
+  // every kind counted. A kind with nothing to compare stops the pass before anything is trained: exit 3, which session.sh stops on
+  B.readerCurrent(list);
+  const { readerOk } = await import('./support/reader-file.mjs');
+  const cover = coverageOf(list, { ref, readerOk: (type) => readerOk(WORKC, type) });
+  console.log('Comparable, by kind: ' + cover.map((c) => c.kind + ' ' + c.compared + '/' + c.n).join(', '));
+  const bare = cover.filter((c) => c.compared === 0);
+  if (bare.length) {
+    console.log(
+      'NOT TRAINED: ' +
+        bare.map((c) => c.kind + ' (' + c.n + ' questions: ' + c.why + ')').join('; ') +
+        '.\nA pass would train nothing on them and say only "not compared". Name a judge that passes its check (src/config.json "judge";' +
+        ' training/readers.mjs checks it), or leave them out of this pass deliberately: --skip-kinds ' +
+        bare.map((c) => c.kind).join(',') +
+        ' (SKIP_KINDS=... in a session).',
+    );
+    process.exit(3);
+  }
   // (and the marks the questions' own correct solutions prove wrong: answered once and set aside)
   const wrongMarks = await wrongMarksOf(list, ref);
   if (wrongMarks.size)
@@ -2001,6 +2059,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
           target: TARGET.id,
           cap,
           guard,
+          ...(skipKinds.size ? { skippedKinds: [...skipKinds] } : {}),
           classes: cur.classes,
           of: list.length,
           ...tallyOf(cur),

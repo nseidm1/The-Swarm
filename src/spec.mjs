@@ -1,4 +1,4 @@
-// spec.mjs - A SWARM FROM ITS SPEC. The output spec (the dashboard's Output spec; ui/data.py spec) holds everything a swarm is made
+// spec.mjs - A SWARM FROM ITS SoRA SPEC (docs/sora.md). The SoRA spec (the dashboard's SoRA spec; ui/data.py spec) holds everything a swarm is made
 // from: `recipe` = { members, decider, engine, serving, briefs }, every file pinned and every slot with what it is told. This reads one
 // back, so that a program can make the swarm it describes, anywhere, with no record of its training:
 //   readSpec(json | path)   -> the spec, checked: its format and version known, its recipe there, its hash the recipe's own
@@ -14,8 +14,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 
+// THE SoRA SPEC (docs/sora.md): what the output spec became. A SoRA is to a swarm module what LoRA is to a model. Its header is `sora`
+// (format "sora", version 1); the output spec it replaces (header `spec`, format "the-swarm/spec", versions 2 and 3) is still read
+export const SORA_FORMAT = 'sora';
+export const SORA_VERSIONS = [1];
 export const SPEC_FORMAT = 'the-swarm/spec';
 export const SPEC_VERSIONS = [2, 3];
+// the base module a SoRA is applied to, as it is hashed: the small models, the decider and the engine
+export const baseModuleOf = (recipe) => ({ members: recipe.members, decider: recipe.decider, engine: recipe.engine });
 const canon = (x) =>
   Array.isArray(x)
     ? '[' + x.map(canon).join(',') + ']'
@@ -31,15 +37,18 @@ export const recipeSha256 = (recipe) => createHash('sha256').update(canon(recipe
 
 export function readSpec(from) {
   const spec = typeof from === 'string' ? JSON.parse(fs.readFileSync(from, 'utf8')) : from;
-  const head = (spec && spec.spec) || {};
-  if (head.format !== SPEC_FORMAT)
-    throw new Error('not a swarm spec (its format is ' + JSON.stringify(head.format) + ')');
-  if (!SPEC_VERSIONS.includes(head.version))
+  const sora = spec && spec.sora && spec.sora.format === SORA_FORMAT;
+  const head = (spec && (sora ? spec.sora : spec.spec)) || {};
+  if (!sora && head.format !== SPEC_FORMAT)
+    throw new Error('not a SoRA spec (its format is ' + JSON.stringify(head.format) + ')');
+  const versions = sora ? SORA_VERSIONS : SPEC_VERSIONS;
+  if (!versions.includes(head.version))
     throw new Error(
-      'a swarm spec of version ' +
+      (sora ? 'a SoRA spec' : 'an output spec') +
+        ' of version ' +
         head.version +
         ', which this module does not read (it reads ' +
-        SPEC_VERSIONS.join(', ') +
+        versions.join(', ') +
         ')',
     );
   const r = spec.recipe;
@@ -62,6 +71,9 @@ export function readSpec(from) {
         String(head.recipeSha256).slice(0, 12) +
         ')',
     );
+  // a SoRA also names the base module it applies to: one changed since it was written is another module, whose proof was not measured
+  if (sora && head.baseModuleSha256 && recipeSha256(baseModuleOf(r)) !== head.baseModuleSha256)
+    throw new Error('the base module does not match its hash: the SoRA was changed after it was written');
   return spec;
 }
 

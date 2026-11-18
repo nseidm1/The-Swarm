@@ -2,7 +2,7 @@
 // swarm - the module from a terminal.
 //   swarm serve [--port 8090]            both models started, and the swarm served as one model at an address
 //   swarm ask "What is 17 x 23?"         one message in, one reply out (--trace shows what each slot wrote)
-//   --spec <file>                        the swarm an output spec describes, in place of the one configured here
+//   --spec <file>                        the swarm module a SoRA spec describes (docs/sora.md; an older output spec is read too), in place of the one configured here
 //   --adapters <folder>                  where the adapters a spec pins are (by default <spec name>.adapters beside it)
 // Both take: --llama <llama-server program>  --models <folder>  --attach-a <url>  --attach-b <url>
 import { createSwarm } from '../src/index.mjs';

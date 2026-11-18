@@ -29,6 +29,8 @@ export const ROOT = path.resolve(HERE, '..');
 export const EVAL_DIR = process.env.SWARM_EVAL_DIR || path.join(ROOT, '.work', 'eval');
 export const LMEVAL = path.join(ROOT, '.work', 'lmeval');
 export const HARNESS = 'lm-evaluation-harness 0.4.13';
+// (the same, as a SoRA spec's proof names a harness: docs/sora.md)
+export const HARNESS_ID = { name: 'lm-evaluation-harness', version: '0.4.13' };
 // (bumped when what is done around the harness changes, so that kept answers of the larger model are not reused across it)
 const RELAY_VERSION = 1;
 
@@ -199,6 +201,12 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const runDir = path.join(EVAL_DIR, 'runs', runId);
   fs.mkdirSync(runDir, { recursive: true });
   const briefsHash = crypto.createHash('sha256').update(JSON.stringify(readBriefs())).digest('hex').slice(0, 12);
+  // THE ARRANGEMENT MEASURED, as a SoRA spec pins it (docs/sora.md): the briefs the swarm runs, without their prose, hashed as the
+  // recipe is (src/spec.mjs recipeSha256). A result is proof of a SoRA only where this is that SoRA's arrangementSha256
+  const { recipeSha256 } = await import('../src/spec.mjs');
+  const arrangementSha256 = recipeSha256(
+    Object.fromEntries(Object.entries(readBriefs()).filter(([k]) => k !== 'about')),
+  );
   // (whether its small models are served with the adapters Pretrain trained: what an evaluation before and after compares)
   const { lorasFor } = await import('./adapters.mjs');
   const { MEMBERS } = await import('../src/catalog.mjs');
@@ -215,8 +223,10 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     startedAt: Date.now(),
     limit,
     harness: HARNESS,
+    harnessId: HARNESS_ID,
     configuration: CONFIG_KEY,
     briefs: briefsHash,
+    arrangementSha256,
     adapters,
     target: TARGET.name,
     phase: 'starting',
@@ -480,8 +490,10 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     runId,
     limit,
     harness: HARNESS,
+    harnessId: HARNESS_ID,
     configuration: CONFIG_KEY,
     briefs: briefsHash,
+    arrangementSha256,
     adapters,
     target: TARGET.name,
     seconds: (Date.now() - live.startedAt) / 1000,

@@ -2966,7 +2966,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       listed.data &&
       listed.data.length === 1 &&
       /does not match its hash/.test(refused(changed)) &&
-      /not a swarm spec/.test(refused({ spec: { format: 'other' } })) &&
+      /not a SoRA spec/.test(refused({ spec: { format: 'other' } })) &&
       /version 9/.test(refused({ ...spec, spec: { ...spec.spec, version: 9 } })) &&
       /not pinned/.test(refused(unpinned)),
     { reply: got.reply, up: up.ok, changed: refused(changed) },
@@ -6083,6 +6083,315 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       Object.keys(off).length === 0 &&
       Object.keys(on).join() === 'a',
     { plan, he, mb, arc, none, cut, prog, asked, got, off, on },
+  );
+}
+
+// ---- THE SoRA SPEC (docs/sora.md): a SoRA is read and the module made from it; its base module and recipe are each checked
+// against their hashes; an output spec from before SoRA is still read
+{
+  const { readSpec, fromSpec, recipeSha256, baseModuleOf } = await import('../src/spec.mjs');
+  const recipe = {
+    members: Object.fromEntries(Object.entries(MEMBERS).slice(0, 2)),
+    decider: { id: 'kev-0.8b', name: 'Kev 0.8B' },
+    engine: { name: 'llama.cpp' },
+    serving: { slots: 3, contextPerSlot: 2048 },
+    briefs: { ...briefs, kinds: { code: { slots: briefs.slots, plan: briefs.plan } } },
+  };
+  const sora = {
+    sora: {
+      format: 'sora',
+      version: 1,
+      name: 'x+y+kev-0.8b--t',
+      baseModuleSha256: recipeSha256(baseModuleOf(recipe)),
+      arrangementSha256: recipeSha256(recipe.briefs),
+      recipeSha256: recipeSha256(recipe),
+    },
+    baseModule: baseModuleOf(recipe),
+    target: { id: 't', name: 'T' },
+    recipe,
+    proof: { results: [] },
+  };
+  const why = (s2) => {
+    try {
+      readSpec(s2);
+      return '';
+    } catch (e) {
+      return e.message;
+    }
+  };
+  const otherBase = {
+    ...sora,
+    recipe: { ...recipe, decider: { id: 'kev-4b' } },
+    sora: { ...sora.sora, recipeSha256: undefined },
+  };
+  const legacy = { spec: { format: 'the-swarm/spec', version: 3, recipeSha256: recipeSha256(recipe) }, recipe };
+  const built = fromSpec(sora);
+  check(
+    'a SoRA spec is read and the module made from it, with the arrangement for each class of input; one whose base module was changed after it was written is refused, as is a version not known; an output spec from before SoRA is still read',
+    why(sora) === '' &&
+      built.briefs.kinds.code.slots === briefs.slots &&
+      /base module does not match/.test(why(otherBase)) &&
+      /SoRA spec of version 2/.test(why({ ...sora, sora: { ...sora.sora, version: 2 } })) &&
+      why(legacy) === '' &&
+      /not a SoRA spec/.test(why({ recipe })),
+    { sora: why(sora), otherBase: why(otherBase), legacy: why(legacy) },
+  );
+}
+
+// ---- THE SoRA SPECIFICATION IS SELF-CONTAINED (docs/sora.md): it names no file, program or function of this repository, and
+// carries every text the module itself sends a model, so that a runtime can be built from it alone
+{
+  const doc = fs.readFileSync(fileURLToPath(new URL('../docs/sora.md', import.meta.url)), 'utf8');
+  const repoRefs = doc.match(
+    /\b[\w-]+\.(?:mjs|py|sh)\b|\b(?:src|training|bin|ui|tools|tests)\/|createSwarm|serveSwarm|readSpec|fromSpec|SWARM_[A-Z_]+|briefs\.json|PROBE_BRIEF|EXPECT_BRIEF|JUDGE_BRIEF/g,
+  );
+  const { PROBE_BRIEF, EXPECT_BRIEF } = await import('../src/behave.mjs');
+  const { JUDGE_BRIEF } = await import('../src/orchestrate.mjs');
+  const flat = (t) => String(t).replace(/\s+/g, ' ');
+  const carried = { PROBE_BRIEF, EXPECT_BRIEF, JUDGE_BRIEF };
+  const missing = Object.entries(carried)
+    .filter(([, t]) => !flat(doc).includes(flat(t).slice(0, 120)))
+    .map(([k]) => k);
+  check(
+    'the SoRA specification names no file, program or function of this repository, and carries the texts the module itself sends a model (the probe, expectation and judge briefs) verbatim',
+    !repoRefs && missing.length === 0,
+    { repoRefs, missing },
+  );
+}
+
+// ---- THE RUNTIME AS THE SoRA SPECIFICATION HAS IT: a model file is checked against its pinned SHA-256 before it is first served
+// (S2.1.5), once while it is unchanged; a message whose content is a list of parts is read as its text parts joined (S3.7, T.6.6)
+{
+  const { verifyModel, startMember } = await import('../src/members.mjs');
+  const { textOf } = await import('../src/read.mjs');
+  const { createHash } = await import('node:crypto');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-verify-'));
+  const put = (name, text) => (fs.writeFileSync(path.join(dir, name), text), path.join(dir, name));
+  const sha = (t) => createHash('sha256').update(t).digest('hex');
+  const first = put('w-00001-of-00002.gguf', 'weights one');
+  put('w-00002-of-00002.gguf', 'weights two');
+  const M = {
+    name: 'W',
+    file: 'w-00001-of-00002.gguf',
+    sha256: sha('weights one'),
+    parts: [{ file: 'w-00002-of-00002.gguf', sha256: sha('weights two') }],
+  };
+  const once = await verifyModel(M, first);
+  const twice = await verifyModel(M, first);
+  // the same size, other bytes, a later time: hashed again, and refused
+  const t = new Date(Date.now() + 5000);
+  fs.writeFileSync(path.join(dir, 'w-00002-of-00002.gguf'), 'weights TWO');
+  fs.utimesSync(path.join(dir, 'w-00002-of-00002.gguf'), t, t);
+  const changed = await verifyModel(M, first);
+  const unpinned = await verifyModel({ name: 'U', file: 'w-00001-of-00002.gguf' }, first);
+  const started = await startMember(
+    { ...M, parts: [], sha256: sha('another model') },
+    { llamaServer: '/nonexistent/llama-server', file: first, waitMs: 1000 },
+  );
+  check(
+    'a model file is checked against its pinned SHA-256 before it is first served, every part of it, and not hashed again while it is unchanged; a changed or wrong file is refused before any server is started; a model with no pin is served as it is',
+    once.ok &&
+      once.hashed === 2 &&
+      twice.ok &&
+      twice.hashed === 0 &&
+      !changed.ok &&
+      /not the file the model is pinned to/.test(changed.why) &&
+      unpinned.ok &&
+      unpinned.hashed === 0 &&
+      started.ok === false &&
+      /not the file the model is pinned to/.test(started.why),
+    { once, twice, changed, unpinned, started },
+  );
+
+  const parts = [
+    { type: 'text', text: 'Rotate ' },
+    { type: 'image_url', image_url: { url: 'data:x' } },
+    { type: 'text', text: 'the list.' },
+  ];
+  reset();
+  swarm.setSeed(7);
+  await swarm.answer([{ role: 'user', content: parts }]);
+  swarm.setSeed(undefined);
+  const call = [...lfm.s.calls, ...bonsai.s.calls].find((c) => c.seed !== undefined);
+  const slot = call && briefs.slots.find((x) => (call.messages[0].content || '').startsWith(x.brief));
+  // (the seed is formed from the slot's own request: its number of messages and the text of its last one, S3.7)
+  const want = slot
+    ? createHash('sha256')
+        .update('7|' + slot.id + '|' + call.messages.length + '|' + textOf(call.messages.at(-1).content))
+        .digest()
+        .readUInt32BE(0) >>> 1
+    : null;
+  check(
+    "a message whose content is a list of parts is read as its text parts joined in order (not as the list's default text), and a slot's seed is formed from its own request as S3.7 says",
+    textOf(parts) === 'Rotate the list.' &&
+      textOf('x') === 'x' &&
+      textOf(null) === '' &&
+      textOf(undefined) === '' &&
+      call &&
+      slot &&
+      call.seed === want &&
+      JSON.stringify(call.messages).includes('Rotate the list.') &&
+      !JSON.stringify(call.messages).includes('[object Object]'),
+    { seed: call && call.seed, want, slot: slot && slot.id },
+  );
+}
+
+// ---- CLASSES OF INPUT (docs/sora-classes.md steps 1 and 2): what the arrangement is chosen by, the move of what was
+// learned to the class it was learned on, and the gate that stops a pass with a kind it cannot compare
+{
+  const { classOf, briefsFor } = await import('../src/orchestrate.mjs');
+  const u = (content) => ({ role: 'user', content });
+  const fnAsk = 'Write a JavaScript function `add(a, b)` that returns a + b. Give the function in one code block.';
+  const cls = {
+    words: classOf([u('Write a short essay about rivers, in exactly two paragraphs.')]),
+    code: classOf([u(fnAsk)]),
+    talk: classOf([u('Hi'), { role: 'assistant', content: 'Hello!' }, u(fnAsk)]),
+    tools: classOf([u('What is the weather?')], { tools: [{ type: 'function', function: { name: 'weather' } }] }),
+    noTools: classOf([u('What is the weather?')], { tools: [] }),
+    system: classOf([{ role: 'system', content: 'Be brief.' }, u(fnAsk)]),
+    empty: classOf([]),
+  };
+  check(
+    'an input is sorted from the request alone: tools where tools are offered, talk once the swarm has replied in it, code where code is asked for, words otherwise; a system line is not a reply',
+    cls.words === 'words' &&
+      cls.code === 'code' &&
+      cls.talk === 'talk' &&
+      cls.tools === 'tools' &&
+      cls.noTools === 'words' &&
+      cls.system === 'code' &&
+      cls.empty === 'words',
+    cls,
+  );
+  // the training questions are sorted the same way: the code kinds are code, an agent's step (sent with tools) is tools
+  const sorted = {};
+  for (const t of tasks({ split: 'train', each: 2 }))
+    sorted[t.kind] = classOf(t.turns || [{ role: 'user', content: t.ask }], { tools: t.tools });
+  check(
+    "training sorts its questions as the running swarm sorts a request: the code kinds are code, an agent's step is tools",
+    ['write-arrays', 'write-strings', 'write-numbers', 'write-parsing', 'fix']
+      .filter((k) => k in sorted)
+      .every((k) => sorted[k] === 'code') &&
+      (!('agent' in sorted) || sorted.agent === 'tools'),
+    sorted,
+  );
+
+  // the running swarm answers each class with that class's own arrangement, and every other class with the shared one
+  const base = readBriefs();
+  const tagged = (tag) => ({
+    slots: base.slots.map((s) => (s.stage === 'draft' ? { ...s, brief: tag + ' ' + s.brief } : s)),
+    plan: base.plan,
+  });
+  const scoped = { ...base, kinds: { talk: tagged('TALK-ARRANGEMENT.'), code: tagged('CODE-ARRANGEMENT.') } };
+  const seen = async (messages) => {
+    reset();
+    await swarm.answer(messages, { briefs: scoped });
+    const firsts = [...lfm.s.calls, ...bonsai.s.calls].map((c) => String((c.messages[0] || {}).content || ''));
+    return {
+      talk: firsts.some((x) => x.startsWith('TALK-ARRANGEMENT.')),
+      code: firsts.some((x) => x.startsWith('CODE-ARRANGEMENT.')),
+    };
+  };
+  const onWords = await seen(Q);
+  const onTalk = await seen([u('Hi'), { role: 'assistant', content: 'Hello!' }, ...Q]);
+  check(
+    "the swarm answers a conversation with talk's own arrangement and a plain question with the shared one, never another class's",
+    !onWords.talk && !onWords.code && onTalk.talk && !onTalk.code,
+    { onWords, onTalk },
+  );
+  check(
+    'a class with no arrangement of its own is answered with the shared one',
+    briefsFor(scoped, '', 'tools') === scoped && briefsFor(scoped, '', 'words') === scoped,
+    null,
+  );
+
+  // what was learned moves to the class most kept changes were found on; the shared one is the starting one again
+  const { toClasses } = await import('../src/learned.mjs');
+  const learnedSlots = [
+    { id: 'x-direct', member: 'a', stage: 'draft', brief: 'Test negative inputs: -25 rounds to -20.' },
+  ];
+  const start = {
+    slots: [{ id: 'a-direct', member: 'a', stage: 'draft', brief: 'Answer it.' }],
+    plan: { keepTurns: 6 },
+  };
+  const learned = {
+    config: 'm1+m2+d',
+    target: 't',
+    briefs: {
+      version: 4,
+      marker: 'ANSWER:',
+      slots: learnedSlots,
+      plan: { decideBy: 'decider' },
+      flow: [{ do: 'draft' }],
+    },
+    ledger: [
+      { n: 1, question: { id: 'q1', kind: 'write-arrays' } },
+      { n: 2, question: { id: 'q2', kind: 'trace' } },
+      { n: 3, question: { id: 'q3', kind: 'fix' } },
+    ],
+    passes: [],
+  };
+  const r = toClasses(learned, { classOfKind: { 'write-arrays': 'code', fix: 'code', trace: 'words' }, start });
+  const again = toClasses(r.learned, { classOfKind: {}, start });
+  const b = r.learned.briefs;
+  check(
+    'migration moves the learned arrangement to the class most kept changes were found on, puts the starting one back as shared, names the change found on another class, marks it provisional, and is done once',
+    r.moved === 'code' &&
+      b.kinds.code.slots === learnedSlots &&
+      b.kinds.code.provisional === true &&
+      JSON.stringify(b.kinds.code.flow) === '[{"do":"draft"}]' &&
+      b.slots === start.slots &&
+      b.plan === start.plan &&
+      !('flow' in b) &&
+      b.version === 5 &&
+      b.marker === 'ANSWER:' &&
+      JSON.stringify(r.dropped) === '[2]' &&
+      r.learned.ledger.map((e) => e.class).join() === 'code,words,code' &&
+      again.already === true &&
+      again.learned === r.learned,
+    r,
+  );
+  // the code question is answered with the moved arrangement, a question in words with the starting one
+  check(
+    'after the move, a code question gets what was learned and a question in words gets the starting arrangement',
+    briefsFor(b, fnAsk, classOf([u(fnAsk)])).slots === learnedSlots &&
+      briefsFor(b, 'Write two paragraphs.', classOf([u('Write two paragraphs.')])).slots === start.slots,
+    null,
+  );
+
+  // THE COVERAGE GATE: a kind whose answers need the reader, with the reader not believed, has nothing to compare and is named;
+  // a kind of the same class that does not need the reader (trace) still counts; a kind the larger model has not answered is named
+  const { coverageOf } = await import('../training/loop.mjs');
+  const qs = [
+    { id: 'b1', kind: 'bug', type: 'open' },
+    { id: 'b2', kind: 'bug', type: 'open' },
+    { id: 't1', kind: 'talk', type: 'talk' },
+    { id: 'r1', kind: 'trace', type: 'value' },
+    { id: 'w1', kind: 'write-arrays', type: 'code' },
+    { id: 'w2', kind: 'write-arrays', type: 'code' },
+    { id: 'n1', kind: 'piece', type: 'open' },
+  ];
+  const ref = new Map(['b1', 'b2', 't1', 'r1', 'w1', 'w2'].map((id) => [id, 'answer']));
+  const off = coverageOf(qs, { ref, readerOk: () => false });
+  const on = coverageOf(qs, { ref, readerOk: () => true });
+  const talkOnly = coverageOf(qs, { ref, readerOk: (type) => type !== 'talk' });
+  const bare = (c) => c.filter((x) => x.compared === 0).map((x) => x.kind + ':' + x.why);
+  check(
+    'the coverage gate names every kind with nothing to compare, and why, even where other kinds of the same class are compared; with a believed reader only the unanswered kind is named',
+    JSON.stringify(bare(off)) ===
+      JSON.stringify([
+        'bug:the reader of answers in words is not believed',
+        'talk:the reader of replies in a conversation is not believed',
+        'piece:the larger model has not answered them',
+      ]) &&
+      JSON.stringify(bare(on)) === JSON.stringify(['piece:the larger model has not answered them']) &&
+      JSON.stringify(bare(talkOnly)) ===
+        JSON.stringify([
+          'talk:the reader of replies in a conversation is not believed',
+          'piece:the larger model has not answered them',
+        ]) &&
+      off.find((x) => x.kind === 'write-arrays').compared === 2 &&
+      off.find((x) => x.kind === 'trace').compared === 1,
+    { off, on, talkOnly },
   );
 }
 

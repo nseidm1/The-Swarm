@@ -8,6 +8,7 @@ import { spawn } from 'node:child_process';
 import net from 'node:net';
 import path from 'node:path';
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import { SERVING } from './catalog.mjs';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -190,6 +191,80 @@ export function modelFile(m, modelsDir) {
 // every file a model is: the first, then its parts (one file for most)
 export const filesOf = (m) => [{ file: m.file, bytes: m.bytes, sha256: m.sha256 }, ...(m.parts || [])];
 
+// A MODEL FILE IS CHECKED BEFORE IT IS FIRST SERVED (SoRA specification S2.1.5): every file of the model (the first and its
+// parts) against the SHA-256 it is pinned to, wherever it came from (fetched here, copied in, or found in another program's
+// folder). A file of the right size is not taken on trust: a file that is not the pinned one makes another module, whose
+// proof was not measured. Hashing a model of several GB takes seconds, so a file once verified is not hashed again while its
+// size and modification time are unchanged: that is kept beside the models (.verified.json). Where a model pins no SHA-256
+// there is nothing to check it against, and it is served as it is.
+//   verifyModel(m, file) -> { ok: true, hashed: n } | { ok: false, why }
+const VERIFIED = '.verified.json';
+const sha256File = (f) =>
+  new Promise((resolve, reject) => {
+    const h = createHash('sha256');
+    fs.createReadStream(f)
+      .on('error', reject)
+      .on('data', (c) => h.update(c))
+      .on('end', () => resolve(h.digest('hex')));
+  });
+export async function verifyModel(m, file) {
+  const want = filesOf(m).filter((x) => x && x.file && x.sha256);
+  if (!want.length) return { ok: true, hashed: 0 };
+  const dir = path.dirname(file);
+  const cacheFile = path.join(dir, VERIFIED);
+  let seen = {};
+  try {
+    seen = JSON.parse(fs.readFileSync(cacheFile, 'utf8')) || {};
+  } catch {
+    /* none yet */
+  }
+  let hashed = 0;
+  for (const [i, x] of want.entries()) {
+    const f = i === 0 && x.file === m.file ? file : path.join(dir, path.basename(x.file));
+    let st;
+    try {
+      st = fs.statSync(f);
+    } catch {
+      return { ok: false, why: m.name + ': ' + path.basename(f) + ' is not here' };
+    }
+    const was = seen[f];
+    if (was && was.size === st.size && was.mtimeMs === st.mtimeMs && was.sha256 === x.sha256) continue;
+    let got;
+    try {
+      got = await sha256File(f);
+    } catch (e) {
+      return {
+        ok: false,
+        why:
+          m.name + ': ' + path.basename(f) + ' could not be read (' + String((e && e.message) || e).slice(0, 120) + ')',
+      };
+    }
+    hashed++;
+    if (got !== x.sha256)
+      return {
+        ok: false,
+        why:
+          m.name +
+          ': ' +
+          path.basename(f) +
+          ' is not the file the model is pinned to (SHA-256 ' +
+          got.slice(0, 12) +
+          ', pinned ' +
+          String(x.sha256).slice(0, 12) +
+          '): fetch it again',
+      };
+    seen[f] = { size: st.size, mtimeMs: st.mtimeMs, sha256: got };
+  }
+  if (hashed)
+    try {
+      fs.writeFileSync(cacheFile + '.tmp', JSON.stringify(seen, null, 2));
+      fs.renameSync(cacheFile + '.tmp', cacheFile);
+    } catch {
+      /* a folder that cannot be written to: verified this time, hashed again the next */
+    }
+  return { ok: true, hashed };
+}
+
 export async function startMember(m, opts = {}) {
   const {
     llamaServer,
@@ -202,6 +277,8 @@ export async function startMember(m, opts = {}) {
   let contextPerSlot = opts.contextPerSlot || SERVING.contextPerSlot;
   const file = opts.file || modelFile(m, modelsDir || '');
   if (!file) return { ok: false, why: m.name + ' is not here (' + m.file + '). Fetch it first.' };
+  const checked = await verifyModel(m, file);
+  if (!checked.ok) return { ok: false, why: checked.why };
   if (!llamaServer) return { ok: false, why: 'no llama-server program was named' };
   const UNKNOWN_FLAG = /invalid argument|unknown argument|unrecognized|error while handling argument/i;
   const NO_MEMORY =
