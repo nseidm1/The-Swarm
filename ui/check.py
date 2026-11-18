@@ -1043,9 +1043,30 @@ check("a flow too long for its card wraps into tiles at any width, measured on t
       and ".pipe.wrapped{flex-wrap:wrap" in swarm_ui.CSS and ".pipe.wrapped .st::after,.pipe.wrapped .loopg::after{display:none}" in swarm_ui.CSS)
 
 # A MARK PROVED WRONG IS SET ASIDE ON THE PAGE TOO: said in the line, a grey pip, and not counted against the share
+_rs, swarm_ui.run_state = swarm_ui.run_state, (lambda: {})  # (as if no session ran: the share, not its moving placeholder)
 _pw = swarm_ui.progress_strip(dict(_d, loop={"of": 10, "changes": [], "list": [{"id": "a", "state": "at parity"}, {"id": "b", "state": "reached"}, {"id": "c", "state": "mark wrong", "markWrong": {"share": 0.27}}]}))
+swarm_ui.run_state = _rs
 check("a question whose mark its own correct solution proves wrong is said in the training line as set aside, and is not counted against the share (2 of the 9 that can reach parity)",
       "1 set aside because the larger model&#39;s answer is wrong" in _pw.replace("'", "&#39;") and "22.2%" in _pw and swarm_ui.PIP["mark wrong"] == "nc", _pw[:300])
+
+# THE FACES DRAW THE ARRANGEMENT AS IT IS ASKED: while a try runs, the one that try asks, marked as not kept, the slots its change
+# touches ringed and what else differs said; with no try running, the kept one; and the page is told when to draw them again
+_ll, _sl = swarm_ui.loop_live, swarm_ui.session_live
+_kb = _d["briefs"]
+_cand = {"version": _kb.get("version"), "slots": [dict(x, temperature=0.9) if i == 0 else x for i, x in enumerate(_kb["slots"])], "plan": dict(_kb.get("plan") or {}, decideBy="most"), "flow": _kb.get("flow")}
+swarm_ui.loop_live = lambda: {"n": 25, "attempt": 7, "move": "a change", "briefs": _cand}
+swarm_ui.session_live = lambda: True
+_fb = swarm_ui.faces_block(_d)
+_fk = swarm_ui.faces_key(_d)
+swarm_ui.loop_live = lambda: None
+_fk0, _fb0 = swarm_ui.faces_key(_d), swarm_ui.faces_block(_d)
+swarm_ui.loop_live, swarm_ui.session_live = _ll, _sl
+check("while a try runs the faces draw the arrangement it asks, marked as being tried and not kept, with the slot its change touches ringed and what else differs said; with none running, the kept one; and the key the page polls changes with the try",
+      "Being tried, not kept:" in _fb and "change 7 on question 25" in _fb and "1 slot changed or added" in _fb and "the plan differs: decideBy" in _fb
+      and ('class="av %s trying' % _kb["slots"][0]["member"]) in _fb.replace(" norec", "") and ">not asked<" in _fb
+      and _fk.startswith("try-25-7-") and _fk0 == "kept-%s" % _kb.get("version") and "Being tried, not kept" not in _fb0 and 'id="faces"' in _fb0
+      and "async function facesTick()" in swarm_ui.JS,
+      ["Being tried, not kept:" in _fb, "1 slot changed or added" in _fb, ('class="av %s trying' % _kb["slots"][0]["member"]) in _fb.replace(" norec", ""), ">not asked<" in _fb, _fk, _fk0, "Being tried, not kept" not in _fb0])
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

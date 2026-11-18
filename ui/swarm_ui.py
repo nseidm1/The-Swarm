@@ -19,6 +19,7 @@ It reads what the trainers wrote (ui/data.py) and measures nothing. Only the Pyt
 """
 
 import argparse
+import hashlib
 import json
 import re
 import os
@@ -383,6 +384,7 @@ button.mav{position:relative;border:0;font:inherit;color:inherit;text-align:left
 .pipe.wrapped .via{flex:0 0 auto;flex-direction:column;justify-content:center;align-items:center;align-self:stretch;margin:0;padding:6px;gap:4px;border-radius:var(--r);background:#eef0f8}.pipe.wrapped .via::after{display:none}
 .pipe.wrapped .loopg{flex-direction:row;flex-wrap:wrap;gap:8px;padding:8px}.pipe.wrapped .loopg>.st{margin:0;flex-basis:auto}
 .pipe.wrapped .avs{display:grid;grid-template-columns:repeat(var(--cols,3),minmax(0,1fr));justify-items:center;gap:6px 0}
+.facesnow{margin:0 0 10px}
 .qtrack{margin:0 0 14px;padding:12px 14px;border-radius:var(--r);background:var(--soft)}.qtrack .qhead{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;font-size:13px;color:var(--mist);font-weight:600}
 .qtrack .qhead b{color:var(--fog)}.qtrack .qnow{margin:6px 0 0;font-size:13.5px;font-weight:700;color:var(--fog);overflow-wrap:anywhere}.qtrack .qnow small{display:block;font-weight:600;color:var(--mist);font-size:12px;margin-top:2px}
 .qtrack .qnow .ql{display:block}.qtrack .qnow .qtext{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;padding:0;line-height:1.45;max-height:2.9em;overflow:hidden}.qtrack .qnow .it{float:left;margin:0 8px 0 0;display:inline-block;line-height:1.45;padding:0 8px;white-space:nowrap;border-radius:var(--r);background:var(--panel);color:var(--teal);font-size:12px;margin-right:6px}
@@ -732,6 +734,12 @@ async function busyTick(){const m=$('#busy');if(!m)return;let s;try{s=await (awa
   await swap('/fragment/eval','#evalwrap');await swap('/fragment/pretrain','#prewrap');await swap('/fragment/score','#score');
   if(s.busy==='training')watch();}
 setInterval(()=>{evTick();preTick();busyTick();},1500);
+// THE FACES DRAW THE ARRANGEMENT AS IT IS ASKED: while a try runs, the one it asks (the kept arrangement with the change on it); asked
+// again whenever the try changes (204 where the page already has it), and left alone while a slot's card is open below them
+async function facesTick(){const f=$('#faces');if(!f)return;const open=f.querySelector('#avdetail');if(open&&open.childElementCount)return;
+  let r;try{r=await fetch('/fragment/faces?k='+encodeURIComponent(f.dataset.k||''));}catch(e){return;}
+  if(r.status!==200)return;const t=await r.text();if(t&&$('#faces'))$('#faces').outerHTML=t;}
+setInterval(facesTick,3000);
 // A FLOW TOO LONG FOR ITS CARD WRAPS: the steps sit in one row where they fit, and where they do not (a flow training has grown, a
 // narrow window, the inner screen of a folding phone) they wrap as tiles, as on a phone, instead of running past the card's edge.
 // Measured, not guessed by width: on load, on a resize or a fold, and whenever part of the page is drawn again
@@ -1635,7 +1643,7 @@ def slot_name(sid):
 SANDBOX_FACE = '<svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>'
 
 
-def avatars(d):
+def avatars(d, changed=None):
     """THE ARRANGEMENT AS AVATARS: the models as faces (the roster), and the flow as stations, each slot a face of its model in the
     step it stands in. On each slot: its record as a ring, what it is doing now as a dot and a halo (painted live, as the cards
     were), and a badge while the plan is trying a brief on it. Choosing one opens its card, with what it is told, below."""
@@ -1655,7 +1663,8 @@ def avatars(d):
             fc[k] = (fc[k][:1] + size.group(1)) if size else fc[k]
     live_now = session_live()
     p = read_plan(d)
-    trying = {m["slot"] for m in trying_moves((p or {}).get("moves")) if m.get("slot")}
+    # (the slots a change being tried touches: given where the arrangement drawn is the one being tried, else the plan's running moves)
+    trying = set(changed) if changed is not None else {m["slot"] for m in trying_moves((p or {}).get("moves")) if m.get("slot")}
     # the roster: each model once, with what it brings
     roster = []
     for place in [k for k in ("a", "b", "c", "d") if k in members]:
@@ -1852,6 +1861,41 @@ def question_track(d):
             % (head, now, pips, tries_list(lp)))
 
 
+def faces_key(d):
+    """What the faces are drawn from, as a key the page compares: the try being asked (its question, number and change), or the kept
+    arrangement's version where no try runs."""
+    lv = loop_live() or {}
+    if lv.get("attempt") and lv.get("briefs"):
+        return "try-%s-%s-%s" % (lv.get("n"), lv.get("attempt"), hashlib.sha1(str(lv.get("move", "")).encode()).hexdigest()[:8])
+    return "kept-%s" % (d["briefs"].get("version"),)
+
+
+def faces_block(d):
+    """THE ARRANGEMENT AS IT IS ASKED NOW. While a try runs, the faces draw the arrangement that try asks (the kept one with the change
+    on it, sent by the trainer with each try), marked as being tried and not kept, with each slot the change touches ringed and what
+    else differs said; otherwise the kept arrangement every question is asked with. Drawn again in place when the try changes
+    (/fragment/faces)."""
+    lv = loop_live() or {}
+    cb = lv.get("briefs") if lv.get("attempt") else None
+    if not cb:
+        return '<div id="faces" data-k="%s">%s</div>' % (e(faces_key(d)), avatars(d))
+    kept = d["briefs"]
+    by = {x["id"]: x for x in kept.get("slots", [])}
+    look = lambda x: {k: v for k, v in x.items() if k not in ("purpose",)}  # noqa: E731
+    changed = {x["id"] for x in cb.get("slots", []) if x["id"] not in by or look(x) != look(by[x["id"]])}
+    gone = [i for i in by if i not in {x["id"] for x in cb.get("slots", [])}]
+    plan_k = sorted(k for k in set(cb.get("plan") or {}) | set(kept.get("plan") or {}) if (cb.get("plan") or {}).get(k) != (kept.get("plan") or {}).get(k))
+    flow_d = (cb.get("flow") or None) != (kept.get("flow") or None)
+    diff = [x for x in [("%d slot%s changed or added" % (len(changed), "" if len(changed) == 1 else "s")) if changed else "",
+                        ("%s left out" % ", ".join(gone)) if gone else "", "the flow differs" if flow_d else "",
+                        ("the plan differs: %s" % ", ".join(plan_k)) if plan_k else ""] if x]
+    tried = dict(d, briefs=dict(kept, slots=cb.get("slots") or kept.get("slots"), plan=cb.get("plan") or {}, flow=cb.get("flow")))
+    banner = ('<p class="tryline facesnow"><b>Being tried, not kept:</b> change %s on question %s, %s.%s</p>'
+              % (e(str(lv.get("attempt"))), e(str(lv.get("n"))), e(str(lv.get("move", ""))[:240]),
+                 (" Against the kept arrangement (briefs v%s): %s." % (e(str(kept.get("version"))), e("; ".join(diff)))) if diff else " The same as the kept arrangement."))
+    return '<div id="faces" data-k="%s">%s%s</div>' % (e(faces_key(d)), banner, avatars(tried, changed=changed))
+
+
 def arrangement(d):
     b, t = d["briefs"], d["target"]
     # the swarm as it stands, in a line of chips; then what is running; then what the plan is trying now
@@ -1869,7 +1913,7 @@ def arrangement(d):
     plan_line = ""
     # (the training share, the line beside it, Train and Clear training state head the card: #score, drawn again in place)
     one = ('<div class="panel arr"><div id="score">%s</div>%s<div class="now" id="now"><i></i><span>Nothing is running. No model is loaded.</span></div>%s%s%s</div>'
-           % (progress_strip(d), head, question_track(d), plan_line, avatars(d)))
+           % (progress_strip(d), head, question_track(d), plan_line, faces_block(d)))
     return ('%s<h2 id="strategy">The plan being carried out</h2><div id="plan">%s</div><h2 id="system">Visualizing the System</h2><div id="viz">%s</div>'
             % (one, plan_block(d), viz_block(d)))
 
@@ -3471,6 +3515,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(json.dumps(pretrain_api()), kind="application/json")
         if u.path == "/api/busy":
             return self._send(json.dumps({"busy": busy_with()}), kind="application/json")
+        if u.path == "/fragment/faces":
+            # (204 where the page already has these faces: nothing to draw again)
+            if parse_qs(u.query).get("k", [""])[0] == faces_key(d):
+                return self._send("", 204)
+            return self._send(faces_block(d))
         if u.path == "/fragment/eval":
             return self._send(eval_block(d))
         if u.path == "/fragment/pretrain":

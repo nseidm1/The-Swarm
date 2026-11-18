@@ -1924,7 +1924,16 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       attempt: async (b, t, at) => {
         swarm.setBriefs(b);
         const r0 = swarm.reused || { hits: 0, savedMs: 0 };
-        live({ loop: { ...at, reused: r0 } });
+        // (and, on a try, the arrangement being asked: the page draws it while the try runs, marked as not kept)
+        live({
+          loop: {
+            ...at,
+            reused: r0,
+            ...(at.attempt
+              ? { briefs: { version: b.version, slots: b.slots, plan: b.plan || {}, flow: b.flow || null } }
+              : {}),
+          },
+        });
         const t0 = Date.now();
         const [row] = await run([t], async (x) => pick(await askSwarm(swarm, x, messagesOf(x))), {
           ref,
