@@ -73,6 +73,19 @@ The first version.
 - **A proof run from the page.** *Evaluate* offers a fourth size, a proof run: every body of work that has a standard test,
   chosen for training or not, each task at the size a verdict needs (five hundred questions or more a body of work, never
   fewer than a hundred of one task). A run that is stopped carries on from the task it stopped in.
+- **What a run installs is its own, and is made again where it is broken.** Evaluate and Pretrain install what they need
+  the first time (lm-evaluation-harness, the tool tests, MLX). The Python `uv` fetches for each now goes into that
+  program's own folder in `.work`, never the machine's `~/.local/share/uv`, so the Uninstall Helper takes it out with the
+  rest; and a venv that is there but does not work (an install that was interrupted, a Python since removed) is made again
+  from nothing, where before the install stopped on "a virtual environment already exists". The Uninstall Helper lists the
+  tool tests, and the swarm's kept answers with the larger model's.
+- **The Evaluate card folds.** Its breakdown is one section, folded to begin with, that says in a line where the run is or
+  what the last evaluation came to; inside it each body of work folds under its heading with a line of its own, the one
+  being asked open. A proof run of 23 tasks is a card a screen tall, not three. A task that cannot be asked says so once.
+- **The page says one thing in one place.** A question set aside or back in hand is not counted finished; the share of
+  answers good is the same share in the Train card and in the SwOA spec; while an evaluation runs the Train card says the
+  models are loaded for it; the proof's numbers stay on one line; and the SwOA's words for where training stands say what
+  that measures now.
 - **The page says "good", not "parity", of a question.** Parity is the proof's verdict on a capability. A train question's
   answer is good as the swarm stood, made good by a change, or not good yet; the head of the Train card is the share of
   answers good, with the module beside the larger model where the questions carry a standard; a kept change says what its

@@ -79,7 +79,8 @@ case "$D_KIND" in
         [ -d src/.git ] || git clone -q "$D_CODE" src || exit 1
         git -C src fetch -q origin "$D_CODE_REV" 2>/dev/null; git -C src checkout -q "$D_CODE_REV" || exit 1
         UV=$(uv_in "$H") || exit 1
-        [ -x venv/bin/python ] || $UV venv -q --python 3.13 venv || exit 1
+        # (a venv whose Python does not run is made again from nothing: uv refuses over one that is there without --clear)
+        venv/bin/python -c 'import sys' 2>/dev/null || $UV venv -q --clear --python 3.13 venv || exit 1
         VIRTUAL_ENV=$H/venv $UV pip install -q -e "src[mlx]" huggingface_hub || exit 1
         # the weights, at the pinned revision: written whole, and only once
         if [ ! -f "$M/.complete" ]; then

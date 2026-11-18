@@ -19,7 +19,7 @@ how it is checked.
 | 6 | Three families of question (rules a program checks, calling functions, search with facts made up from the seed), an agent's step graded against the step its scenario needs, three bodies of work to choose | A probe of 10 questions a family on the module (below) | The families asked in a pass, and the target scored on them beside the module |
 | 7 | In a turn with tools a reply is written by the answer procedure, shown what the tools returned (`plan.toolReply: "proposed"` keeps a proposed reply). [swoa.md](swoa.md) Part T.9, and 4.2: a recipe holds no body of knowledge. The tool tests as proof: a second harness (`training/support/bfcl.mjs`, `bfcl-eval` 2026.3.23 in `.work/bfcl`), five function-calling categories under Tools and two web search categories under Search, each result naming its harness and the tools offered; the target asked two ways and counted by the better over the capability | The trial (below), and a reply answered against a reply proposed (below) | The web search test asked: it needs a key to SerpAPI (`SERPAPI_API_KEY`), which a person supplies. Without one it is not asked, and says so |
 
-Tests when this was written: 192 in `tests/run.mjs` and 116 in `ui/check.py`, all passing.
+Tests when this was written: 192 in `tests/run.mjs` and 120 in `ui/check.py`, all passing.
 
 **Step 1 and 7, the trial of the tool tests.** `bfcl-eval` installs with `uv` and a Python 3.12 (it pins a numpy with no
 build for a newer one), about 2 GB, and needs `soundfile`, which it does not name. It is pointed at a model through the one

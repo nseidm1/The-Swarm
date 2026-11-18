@@ -718,9 +718,9 @@ def equivalence_of(d, b, pins):
     trained = at(now) if now != start else {"briefsVersion": now, "adapters": served, "sameAs": "default: training has kept nothing yet"}
     both = "percent" in dflt and "percent" in trained
     return {
-        "is": "the share of the held questions on which the swarm's answer is fundamentally equivalent to the larger model's, served as this spec says (with the adapters it pins, where it pins them)",
+        "is": "the share of training's own held questions the module answers well (right by the question's own standard where it carries one, else equivalent to an answer the target agrees with itself on), served as this spec says (with the adapters it pins, where it pins them). It is training's measure, not the proof",
         "default": dflt,
-        "defaultIs": "the arrangement every swarm starts from, with the same models, decider and adapters",
+        "defaultIs": "the arrangement every swarm starts from, with the same models and decider, served the same way",
         "trained": trained,
         "trainedIs": "the arrangement in `recipe.briefs`, made by the changes in `learned.ledger`",
         "gainPoints": round(trained["percent"] - dflt["percent"], 1) if both else None,
@@ -794,7 +794,7 @@ def spec(d):
         "proof": swoa_proof(d, arrangement_sha, pins),
         "name": "The Swarm",
         "id": "swarm-" + "+".join(m.get("id", "") for m in members.values()),
-        "what": "%s small models that answer as one, trained toward parity with a larger model: an answer fundamentally equivalent to the one the larger model gives." % ["One", "Two", "Three", "Four"][max(0, min(3, n_small - 1))],
+        "what": "%s small models that answer as one, trained toward parity with a larger model: scoring no worse than it, within a margin, on established tests of what it can do." % ["One", "Two", "Three", "Four"][max(0, min(3, n_small - 1))],
         # ONE ITEM FOR A MODEL CHOOSER (id, name, size, params, memGb, pace, badge, plain), with engine 'swarm'; what it is
         # equivalent on and where it stands are said on its face
         "card": {
@@ -892,7 +892,8 @@ def spec(d):
         },
         "trainedAgainst": {
             "target": {k: (d["target"] or {}).get(k) for k in ("id", "name", "by", "params", "engine")},
-            "parityMeans": "every answer to the held questions is fundamentally equivalent to the target's: a function that returns the same for every input, the same value, or (in words) the same thing said. Progress toward it is the share of held answers that are equivalent; parity is 100%, and it is not correctness.",
+            # (training's own measure, on its held questions. Parity itself is the proof's to say, capability by capability)
+            "parityMeans": "where training stands, on its own held questions: the share of them the module answers well (right by the question's own standard where it carries one; else equivalent to an answer the target agrees with itself on). It is training's measure and not the proof: parity is the module scoring no worse than its target, within a margin, on established tests, capability by capability (proof).",
             "state": ("at parity" if p["level"] else "not at parity") if p else "not measured",
             "progressPercent": p["percent"] if p else None,
             "progressIs": "the percentage of the held answers that are equivalent to the larger model's; parity is 100, and nothing less",

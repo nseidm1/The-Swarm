@@ -18,6 +18,12 @@ say() {
   echo "$(date +%H:%M:%S) $1"
   printf '{"phase":"preparing","step":"%s","startedAt":%s000,"tasks":[]}' "$1" "$(date +%s)" > .work/eval/live.json.tmp && mv .work/eval/live.json.tmp .work/eval/live.json
 }
+# WHAT IT INSTALLS, IT INSTALLS INTO ITS OWN FOLDER, AND AGAIN WHERE IT IS BROKEN. A harness is here when its Python can import it.
+# Where it cannot (never installed, an install that was interrupted, a Python that has since been taken out), its venv is made
+# again from nothing (--clear: over a venv that is there, uv and python both refuse otherwise). The Python uv fetches for it goes
+# into that harness's folder (UV_PYTHON_INSTALL_DIR), not the machine's own ~/.local/share/uv: the Uninstall Helper takes the
+# folder out whole. And it is always one uv fetched (only-managed), never the machine's: on an Apple silicon Mac the machine's may
+# be an Intel one.
 # which harnesses what is chosen needs ("lmeval", "bfcl", or both)
 NEEDS=$("$NODE" training/evaluate.mjs --needs "$@" 2>/dev/null || echo lmeval)
 UV=$(command -v uv || true)
@@ -27,28 +33,32 @@ case " $NEEDS " in *" bfcl "*)
   # and not named by it)
   if ! "$T/venv/bin/python" -I -c 'import bfcl_eval, soundfile' 2>/dev/null; then
     say "Installing the tool tests (bfcl-eval 2026.3.23) into .work/bfcl (once)"
+    mkdir -p "$T"
     if [ -n "$UV" ]; then
-      UV_CACHE_DIR="$T/uv-cache" "$UV" venv --python 3.12 "$T/venv"
+      UV_CACHE_DIR="$T/uv-cache" UV_PYTHON_INSTALL_DIR="$T/python" UV_PYTHON_PREFERENCE=only-managed "$UV" venv --clear --python 3.12 "$T/venv"
       UV_CACHE_DIR="$T/uv-cache" "$UV" pip install --python "$T/venv/bin/python" 'bfcl-eval==2026.3.23' soundfile
     else
       PY=$(command -v python3.12 || command -v python3.11 || command -v python3.10 || true)
       [ -n "$PY" ] || { say "Needs Python 3.10 to 3.12, or uv, to install the tool tests"; exit 1; }
-      "$PY" -m venv "$T/venv"
+      "$PY" -m venv --clear "$T/venv"
       "$T/venv/bin/python" -m pip install --quiet 'bfcl-eval==2026.3.23' soundfile
     fi
+    "$T/venv/bin/python" -I -c 'import bfcl_eval, soundfile' || { say "The tool tests did not install: the log says why"; exit 1; }
   fi ;;
 esac
 case " $NEEDS " in *" lmeval "*) NEED_LMEVAL=1 ;; *) NEED_LMEVAL= ;; esac
 if [ -n "$NEED_LMEVAL" ] && ! "$L/venv/bin/python" -I -c 'import lm_eval' 2>/dev/null; then
   say "Installing lm-evaluation-harness 0.4.13 into .work/lmeval (once)"
+  mkdir -p "$L"
   if [ -n "$UV" ]; then
-    UV_CACHE_DIR="$L/uv-cache" "$UV" venv --python 3.13 "$L/venv"
+    UV_CACHE_DIR="$L/uv-cache" UV_PYTHON_INSTALL_DIR="$L/python" UV_PYTHON_PREFERENCE=only-managed "$UV" venv --clear --python 3.13 "$L/venv"
     UV_CACHE_DIR="$L/uv-cache" "$UV" pip install --python "$L/venv/bin/python" 'lm_eval[api,ifeval,math]==0.4.13' evaluate
   else
     python3 -c 'import sys; sys.exit(sys.version_info < (3, 10))' || { say "Needs Python 3.10 or newer, or uv, to install lm-evaluation-harness"; exit 1; }
-    python3 -m venv "$L/venv"
+    python3 -m venv --clear "$L/venv"
     "$L/venv/bin/python" -m pip install --quiet 'lm_eval[api,ifeval,math]==0.4.13' evaluate
   fi
+  "$L/venv/bin/python" -I -c 'import lm_eval' || { say "lm-evaluation-harness did not install: the log says why"; exit 1; }
 fi
 "$NODE" training/support/recover.mjs reap
 say "Making the configured models ready (fetching any that are missing)"

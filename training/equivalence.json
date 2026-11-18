@@ -34,7 +34,7 @@
           "compare": "instructions"
         }
       ],
-      "benchmarksNote": "IFEval measures following instructions; the conversation and an agent's steps with tools have no standard task in the harness, so they are not in this figure"
+      "benchmarksNote": "IFEval measures following instructions; the conversation has no standard task in either harness, and an agent's steps with tools are measured under Tools, so they are not in this figure"
     },
     {
       "id": "code",

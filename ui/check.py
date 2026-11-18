@@ -375,7 +375,45 @@ with tempfile.TemporaryDirectory() as tmp:
           'data-evt="bfcl_simple_python"' in ev_pr and "not chosen for training; measured all the same" in ev_pr and "Berkeley Function-Calling Leaderboard (bfcl-eval 2026.3.23)" in ev_pr
           and "80 of 100 the same" in ev_pr and "Scored by the test&#x27;s own checker" in ev_pr and "not asked: it searches the web through a service that needs a key" in ev_pr
           and '<span class="muted small">not asked</span>' in ev_pr and '<option value="-1" selected>' in ev_pr and "a proof run: its own number of questions a task" in ev_pr
-          and 'data-evt="gsm8k"' not in ev_pr, ev_pr[:300])
+          and 'data-evt="gsm8k"' not in ev_pr
+          # (each body of work folds under its heading and says in a line what it holds: what is chosen for training open, the rest folded)
+          and '<details class="psec evitem" data-keep="eval-crew" open>' in ev_pr and '<details class="psec evitem" data-keep="eval-tools">' in ev_pr
+          and '<span class="pmeta" data-evm="tools">5 tasks · the same on 80 of 100 questions · 4 not evaluated</span>' in ev_pr
+          # (and the whole breakdown is one section that folds, folded to begin with, with a line for all of it)
+          and '<details class="psec evall" data-keep="eval-all"><summary><h4>Every task, by body of work <span class="muted small">3 bodies of work · 8 tasks</span></h4>' in ev_pr
+          and '<span class="pmeta" data-evm="*">8 tasks · the same on 95 of 120 questions · 6 not evaluated</span>' in ev_pr
+          and '<span class="pmeta" data-evm="search">not asked: it searches the web through a service that needs a key' in ev_pr
+          and ev_pr.count('<details class="psec evitem"') == 3 and ev_pr.count("</div></details>") == 4 and "<section" not in ev_pr, ev_pr[:300])
+    # (and while a run is under way, or stopped: a task that was not asked says so once, with no bar and no "failed")
+    (root / ".work" / "eval" / "live.json").write_text(json.dumps({"phase": "stopped", "step": "Stopped from the page", "runId": "r", "proof": True, "tasks": [
+        {"item": "crew", "task": "ifeval", "name": "IFEval", "target": {"state": "done", "done": 20, "of": 20}, "swarm": {"state": "stopped", "done": 3, "of": 20}},
+        {"item": "search", "task": "bfcl_web_search_base", "name": "BFCL web search",
+         "target": {"state": "failed", "why": "not asked: it searches the web through a service that needs a key (SERPAPI_API_KEY), which a person supplies"},
+         "swarm": {"state": "failed", "why": "not asked: it searches the web through a service that needs a key (SERPAPI_API_KEY), which a person supplies"}}]}))
+    ev_live = get(base + "/fragment/eval")[1]
+    (root / ".work" / "eval" / "live.json").unlink()
+    row_ws = ev_live.split('data-evt="bfcl_web_search_base"')[1].split("</div></div>")[0] if 'data-evt="bfcl_web_search_base"' in ev_live else ""
+    check("a task that is not asked says so once while the run is shown, with no bar and not as a failure, and why beside it",
+          '<span class="muted small">not asked</span>' in row_ws and "failed: not asked" not in ev_live and 'class="evbar"' not in row_ws and "not asked: it searches the web through a service that needs a key" in ev_live
+          and "stopped at 3" in ev_live, row_ws[:300])
+    (root / ".work" / "eval" / "ui-run.json").write_text(json.dumps({"pid": os.getpid(), "at": "now", "limit": -1, "proof": True}))
+    (root / ".work" / "eval" / "live.json").write_text(json.dumps({"phase": "asking", "step": "Asking", "runId": "r2", "proof": True, "target": "Big One", "tasks": [
+        {"item": "crew", "task": "ifeval", "name": "IFEval", "target": {"state": "done", "done": 541, "of": 541}, "swarm": {"state": "waiting", "done": 0}},
+        {"item": "tools", "task": "bfcl_simple_python", "name": "BFCL one function", "target": {"state": "kept", "done": 100, "of": 100}, "swarm": {"state": "waiting", "done": 0}},
+        {"item": "tools", "task": "bfcl_multiple", "name": "BFCL one of several functions", "target": {"state": "asking", "done": 11, "of": 100}, "swarm": {"state": "waiting", "done": 0}}]}))
+    ev_run = get(base + "/fragment/eval")[1]
+    (root / ".work" / "eval" / "live.json").unlink()
+    (root / ".work" / "eval" / "ui-run.json").unlink()
+    tn_ = swarm_ui.e(data.load(root)["target"]["name"])
+    check("while an evaluation runs its breakdown folds: all of it as one section, folded to begin with, and inside it body by body, the one being asked open and the others folded, each saying in a line how many of its tasks each model has been asked and the task in hand; the page's script keeps those lines current and opens the body the run moves on to, unless a person chose otherwise",
+          '<details class="psec evitem" data-keep="eval-tools" open>' in ev_run and '<details class="psec evitem" data-keep="eval-crew">' in ev_run
+          and ('<span class="pmeta" data-evm="tools">%s: 1 of 2 tasks asked, asking BFCL one of several functions 12 of 100 · the swarm: 0 of 2 tasks asked</span>' % tn_) in ev_run
+          and ('<span class="pmeta" data-evm="crew">%s: 1 of 1 task asked · the swarm: 0 of 1 task asked</span>' % tn_) in ev_run
+          and "const evMeta=(all,tn)=>" in swarm_ui.JS and "box.querySelectorAll('[data-evm]')" in swarm_ui.JS and "localStorage.getItem('swarm.open.eval-'+at.item)" in swarm_ui.JS
+          # (the whole breakdown folded to begin with, its line counting every task; a folded body inside an open breakdown keeps its own line)
+          and '<details class="psec evall" data-keep="eval-all"><summary>' in ev_run and ('<span class="pmeta" data-evm="*">%s: 2 of 3 tasks asked, asking BFCL one of several functions 12 of 100 · the swarm: 0 of 3 tasks asked</span>' % tn_) in ev_run
+          and "m.dataset.evm==='*'||t.item===m.dataset.evm" in swarm_ui.JS
+          and ".evalp details.psec[open]>summary>.pmeta{display:none}" in swarm_ui.CSS and ".evalp details.psec[open] .pmeta" not in swarm_ui.CSS, ev_run[ev_run.find("data-evm"):][:400])
     (root / ".work" / "eval" / "results.json").write_text(json.dumps(ev_mine))
     ev1 = get(base + "/fragment/eval")[1]
     a_on = send("/config", {"adapters": True})[0]
@@ -427,8 +465,9 @@ with tempfile.TemporaryDirectory() as tmp:
     a_file = d["members"]["a"]["file"]
     origs = json.loads((Path(__file__).resolve().parent.parent / "training" / "originals.json").read_text())["models"]
     a_dir = (origs.get(a_file) or {}).get("dir") or "LFM2.5-1.2B-Instruct"
-    for pth in (root / ".work" / "lmeval" / "venv", root / ".work" / "mlx" / "venv", root / ".work" / "mlx" / "hf" / a_dir, root / ".work" / "mlx" / "hf" / "Old-Model",
-                root / ".work" / "library" / "adapters" / d["target"]["id"] / a_dir, root / ".work" / "eval" / "target"):
+    for pth in (root / ".work" / "lmeval" / "venv", root / ".work" / "mlx" / "venv", root / ".work" / "mlx" / "python", root / ".work" / "mlx" / "hf" / a_dir, root / ".work" / "mlx" / "hf" / "Old-Model",
+                root / ".work" / "library" / "adapters" / d["target"]["id"] / a_dir, root / ".work" / "eval" / "target", root / ".work" / "eval" / "swarm",
+                root / ".work" / "bfcl" / "venv", root / ".work" / "bfcl" / "python", root / ".work" / "bfcl" / "uv-cache"):
         pth.mkdir(parents=True, exist_ok=True)
         (pth / "x.bin").write_bytes(b"x" * 2048)
     inv = {x["id"]: x for x in cleanup.inventory(root, data.load(root))}
@@ -436,8 +475,12 @@ with tempfile.TemporaryDirectory() as tmp:
     held_rm = send("/uninstall", {"id": "lmeval:program"})
     (root / ".work" / "eval" / "ui-run.json").unlink()
     rm_ok = send("/uninstall", {"id": "mlx:weights:" + a_dir})[0]
-    check("the Uninstall Helper lists what evaluating and pretraining fetch, each to be taken out on its own: lm-evaluation-harness, MLX, each small model's original weights (the ones the swarm is made of marked in use, and any no longer listed), the adapters, and the answers evaluations kept; and while an evaluation runs it removes nothing, and says why",
-          "lmeval:program" in inv and "mlx:program" in inv and ("mlx:weights:" + a_dir) in inv and inv["mlx:weights:" + a_dir]["used"] == (a_file in origs) and "mlx:weights:other" in inv
+    rm_bfcl = send("/uninstall", {"id": "bfcl:program"})
+    check("the Uninstall Helper lists what evaluating and pretraining fetch, each to be taken out on its own: lm-evaluation-harness, the tool tests with the Python fetched for them (taken out whole, the folder gone), MLX and its Python, each small model's original weights (the ones the swarm is made of marked in use, and any no longer listed), the adapters, and the answers evaluations kept, the swarm's among them; and while an evaluation runs it removes nothing, and says why",
+          "bfcl:program" in inv and inv["bfcl:program"]["group"] == "Programs" and inv["bfcl:program"]["paths"] == [str(root / ".work" / "bfcl")] and inv["bfcl:program"]["bytes"] >= 3 * 2048
+          and rm_bfcl[0] == 200 and not (root / ".work" / "bfcl").exists() and "bfcl:program" not in {x["id"] for x in cleanup.inventory(root, data.load(root))}
+          and str(root / ".work" / "mlx" / "python") in inv["mlx:program"]["paths"] and str(root / ".work" / "eval" / "swarm") in inv["eval:answers"]["paths"]
+          and "lmeval:program" in inv and "mlx:program" in inv and ("mlx:weights:" + a_dir) in inv and inv["mlx:weights:" + a_dir]["used"] == (a_file in origs) and "mlx:weights:other" in inv
           and ("adapters:" + d["target"]["id"]) in inv and "eval:answers" in inv and inv["mlx:weights:" + a_dir]["group"] == "Pretrain"
           and held_rm[0] == 409 and "An evaluation is running" in held_rm[1] and rm_ok == 200 and not (root / ".work" / "mlx" / "hf" / a_dir).exists(),
           [sorted(k for k in inv if ":" in k), held_rm, rm_ok])
@@ -631,7 +674,7 @@ with tempfile.TemporaryDirectory() as tmp:
           code_s == 200 and "SwOA spec" in sp and "<h4>Proof</h4>" in sp and 'id="spec-json" data-name="' in sp and "&quot;start&quot;" not in sp and "run the shared arrangement above" in sp and "<th>Runtime</th>" in sp and "<span class='muted'>kind</span>" in sp and d["members"]["a"]["sha256"] in sp and d["members"]["b"]["file"] in sp and "<code>decide</code>" in sp and ("% of the way to parity against" in sp or "At parity against" in sp) and spec["trainedAgainst"]["progressPercent"] == p["percent"] and 'id="spec-json"' in sp
           and "As a model chooser lists it" in sp and "What it is told" in sp and 'id="spec-save"' in sp and "Commercial use" in sp and "+'.swoa.json'" in html
           and spec["trainedAgainst"]["state"] in ("at parity", "not at parity") and spec["trainedAgainst"]["equivalent"] == p["equivalent"] and len(spec["arrangement"]["slots"]) == len(d["briefs"]["slots"])
-          and spec["members"]["a"]["sha256"] == d["members"]["a"]["sha256"] and spec["interface"]["out"] == "one reply" and "fundamentally equivalent" in spec["trainedAgainst"]["parityMeans"], sp[:200])
+          and spec["members"]["a"]["sha256"] == d["members"]["a"]["sha256"] and spec["interface"]["out"] == "one reply" and "training's measure and not the proof" in spec["trainedAgainst"]["parityMeans"] and "fundamentally equivalent" not in json.dumps(spec), sp[:200])
     # TURNS WITH TOOLS: who takes an agent's turn is a toggle in Configuration, saved beside the models, said in the folded line, and
     # part of the spec's recipe and of what it says it can do
     tg0 = get(base + "/")[1]
@@ -919,7 +962,7 @@ with tempfile.TemporaryDirectory() as tmp:
     check("the swarm as it stands says where it is against each question: how many of the pass's questions are finished, good as it stood, made good by a change, or not good yet; a pip for each in order, with the changes tried on it; where the pass stopped; and before the loop has begun, how it works. The track takes the place of a line about moves being tried",
           'id="qtrack"' in trk and "3 of 6 finished" in trk and "1 good as it stood" in trk and "1 made good by a change" in trk and "1 not good yet" in trk and "at parity" not in trk
           and trk.count('<i class="at"') == 1 and trk.count('<i class="re"') == 1 and trk.count('<i class="nr"') == 1 and "q3 · not good yet · day · 8 changes tried" in trk and "q2 · made good by a change · fix · 2 changes tried" in trk
-          and "Pass 2 stopped after question 3 of 6." in trk and "not begun" in trk_none and 'id="qtrack"' in arr_trk and "Being tried now" not in arr_trk and "Stopped while trying" not in arr_trk
+          and "Pass 2 stopped with 3 of 6 questions finished." in trk and "not begun" in trk_none and 'id="qtrack"' in arr_trk and "Being tried now" not in arr_trk and "Stopped while trying" not in arr_trk
           and [x["s"] for x in swarm_ui.track_of(trk_rec)] == ["at", "re", "nr"], trk[:300])
     tl = swarm_ui.tries_list({"list": [
         {"id": "q-easy", "kind": "math", "state": "at parity", "attempts": [{"move": "", "grade": "right"}]},
@@ -1217,6 +1260,13 @@ check("an open page carries the build of the code it was drawn with, the server 
       and "async function buildTick()" in swarm_ui.JS and "n.hidden=!b||b===BUILD_ME" in swarm_ui.JS and swarm_ui.JS.count("location.reload()") == 1 and "if(ev.target.closest('#upd-go'))location.reload()" in swarm_ui.JS,
       bj)
 
+_qt2 = swarm_ui.question_track(dict(_d, loop={"pass": 3, "of": 4, "list": [{"id": "a", "kind": "k", "state": "at parity", "attempts": [{}]}, {"id": "b", "kind": "k", "state": "set aside", "attempts": [{}]},
+                                                                      {"id": "c", "kind": "k", "state": "reopened", "attempts": [{}]}, {"id": "d", "kind": "k", "state": "not reached", "attempts": [{}]}]}))
+_ll2 = swarm_ui.loop_line(dict(_d, loop={"of": 10, "list": [{"id": "a", "state": "at parity"}, {"id": "b", "state": "reached"}, {"id": "c", "state": "mark wrong"}, {"id": "d", "state": "no standard"}]}))
+check("a question set aside or back in hand has its pip and is not counted finished, in the page and in its script; and the share of answers good is the one share, of the questions that can be graded, wherever it is said",
+      "2 of 4 finished" in _qt2 and "Pass 3 stopped with 2 of 4 questions finished and 2 to come back to." in _qt2 and "every question finished" not in _qt2
+      and "done.filter(x=>x.s!=='ro'&&x.s!=='sa').length+' of '+of+' finished'" in swarm_ui.JS and "<b>25%</b> · 2 of 10 answers good" in _ll2, [_qt2[:300], _ll2])
+
 _ncw = swarm_ui.track_of({"list": [{"id": "q", "kind": "k", "state": "not compared", "why": "the reader of answers in words failed its own check this pass (training/readers.mjs)", "attempts": [{}]}]})[0]
 check("a question not compared says why on its pip: the reader of its kind not believed this pass is not reported as no answer from the larger model",
       _ncw["s"] == "nc" and "the reader of answers in words failed its own check" in _ncw["w"] and "no answer from the larger model" not in _ncw["w"] and "no answer from the larger model" not in swarm_ui.PIP_WORDS["nc"], _ncw)
@@ -1251,9 +1301,20 @@ check("a proof may hold results of more than one harness: a result of the tool t
       and "BFCL one function: each model was offered the functions each question offers" in _card2 and 'tools: "the functions each question offers"' in _card2 and "bfcl-eval 2026.3.23" in _card2
       # (and where the target was asked two ways: the way it is counted by, its higher score, and both scores, in the proof, on the page and on the card)
       and _b2["bfcl_simple_python"]["targetAsked"] == "written" and _b2["bfcl_simple_python"]["targetWays"]["tools"] == {"value": 0.7, "stderr": 0.03} and "targetAsked" not in _b2["ifeval"]
-      and "the target counted the way it scores higher by on this capability, with the tools written into the conversation (on this task: with the tools in the request 0.700, with the tools written into the conversation 0.920)" in _pb2
+      and "the target, asked two ways: tools in the request 0.700 · tools written into the conversation 0.920 (counted: its better over the capability)" in _pb2 and "white-space:nowrap" in _pb2
       and "offered: the functions each question offers" in _pb2 and "the target was asked two ways and is counted by the one it scores higher by over the capability, here the tools written into the conversation (on this task, the tools in the request: 0.700, the tools written into the conversation: 0.920)" in _card2,
       [_b2, _c2])
+
+# WHILE AN EVALUATION RUNS THE TRAIN CARD DOES NOT SAY THAT NO MODEL IS LOADED: it says the evaluation has them
+_bw = swarm_ui.busy_with
+swarm_ui.busy_with = lambda: "an evaluation"
+_iw_eval = swarm_ui.idle_words()
+swarm_ui.busy_with = lambda: ""
+_iw_none = swarm_ui.idle_words()
+swarm_ui.busy_with = _bw
+check("where an evaluation or pretraining is running the Train card says it has the models, and only where nothing runs that no model is loaded; the page's script says the same",
+      _iw_eval == "An evaluation is running: the models are loaded for it." and _iw_none == "Nothing is running. No model is loaded."
+      and "n.busy?n.busy[0].toUpperCase()+n.busy.slice(1)+' is running: the models are loaded for it.'" in swarm_ui.JS, [_iw_eval, _iw_none])
 
 # A RECORD GRADED BY AN EARLIER RULE IS NOT CARRIED ON, and the page says so in place of where the pass would carry on from
 _st_old = swarm_ui.progress_strip(dict(_d, scoring=3, loop={"of": 5, "changes": [], "scoring": 2, "list": [{"id": "a", "state": "at parity"}, {"id": "b", "state": "not reached"}]}))

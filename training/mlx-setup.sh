@@ -3,6 +3,7 @@
 # llama.cpp's own trainer cannot train the swarm's small models (training/adapters.mjs says why); MLX can, from each model's
 # original weights. Everything goes under .work/mlx, nothing system-wide:
 #   .work/mlx/venv        python with mlx-lm (the trainer) and gguf (to hand an adapter to llama.cpp)
+#   .work/mlx/python      the Python uv fetched for it, where it fetched one (never into the machine's own ~/.local/share/uv)
 #   .work/mlx/hf/<dir>    each model's original weights, at the revision training/originals.json pins
 #   sh training/mlx-setup.sh            install, and fetch the weights of the small models the swarm is made of (src/config.json)
 #   sh training/mlx-setup.sh --all      install, and fetch every listed model's weights (tens of gigabytes)
@@ -17,12 +18,15 @@ mkdir -p "$M"
 # uv where there is one (it brings its own python, and a venv it makes has no pip); else a python 3.10 or newer from the PATH
 UV=$(command -v uv || true)
 [ -n "$UV" ] || [ ! -x "$ROOT/.work/kev/uvenv/bin/uv" ] || UV="$ROOT/.work/kev/uvenv/bin/uv"
-if [ ! -x "$M/venv/bin/python" ]; then
+# (a venv whose Python does not run is made again from nothing: one left by an install that was interrupted, or whose Python has
+# since been taken out. Over a venv that is there, uv and python both refuse without --clear)
+if ! "$M/venv/bin/python" -I -c 'import sys' 2>/dev/null; then
   if [ -n "$UV" ]; then
-    UV_CACHE_DIR="$M/uv-cache" "$UV" venv --python 3.13 "$M/venv"
+    # (a Python uv fetched, never the machine's own: on an Apple silicon Mac that may be an Intel one, which has no MLX)
+    UV_CACHE_DIR="$M/uv-cache" UV_PYTHON_INSTALL_DIR="$M/python" UV_PYTHON_PREFERENCE=only-managed "$UV" venv --clear --python 3.13 "$M/venv"
   else
     python3 -c 'import sys; sys.exit(sys.version_info < (3, 10))' || { echo "Needs python 3.10 or newer, or uv."; exit 1; }
-    python3 -m venv "$M/venv"
+    python3 -m venv --clear "$M/venv"
   fi
 fi
 if ! "$M/venv/bin/python" -I -c 'import mlx_lm, gguf' 2>/dev/null; then
