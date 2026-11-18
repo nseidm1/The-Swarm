@@ -123,6 +123,10 @@ different runtime MAY serve the spec if it implements this specification. It is 
 |---|---|
 | `goal` | `"parity with the target model, as an established LLM evaluation harness measures it"` |
 | `rule` | the rule below, in words |
+| `margin` | number: how much lower than its target a module may score on a capability and still be at parity (0.05 unless stated) |
+| `verdictRule` | the verdict rule below, in words |
+| `capabilities` | array: for each capability measured, its verdict (below) |
+| `claims` | `{ claimed, notClaimed }`: the capabilities this SwOA claims (those measured), and what it says it does not claim |
 | `results` | array: for each harness and task, the newest result that is proof, else the newest check |
 | `proven` | integer: how many results are proof |
 
@@ -131,13 +135,16 @@ Each result:
 | Member | |
 |---|---|
 | `harness` | `{ name, version }` |
+| `item`, `itemName` | the capability the task measures: its id and its name |
 | `task`, `name` | the harness's name for the task, and its common name |
 | `metric`, `filter` | the score the harness reports, as the harness names it |
 | `n`, `of` | questions asked, of how many the task has |
 | `swoa` | `{ value, stderr }`: the module tuned by this SwOA |
 | `target` | `{ value, stderr }`: the target model, on the same questions, by the same harness |
 | `gap` | `swoa.value - target.value`; negative is a loss |
-| `gapStderr` | `sqrt(swoa.stderr^2 + target.stderr^2)` |
+| `pairs` | `{ n, onlySwoa, onlyTarget }`, where the two models' scores on each question are on record: the questions both were asked, and how many only the module, and only the target, had right |
+| `paired` | boolean: whether `gapStderr` is the paired one |
+| `gapStderr` | with `pairs`: `sqrt(((onlySwoa + onlyTarget) / n - g^2) / n)` where `g = (onlySwoa - onlyTarget) / n`; without: `sqrt(swoa.stderr^2 + target.stderr^2)` |
 | `proof` | boolean (the rule below) |
 | `at`, `runId` | when it was measured |
 | `configuration`, `arrangementSha256` | what it was measured on |
@@ -147,10 +154,23 @@ Each result:
 pins none); and (b) it asked at least **100** questions of its task. A result that meets (a) and not (b) is a **check** and MUST
 be marked `proof: false`. A result that does not meet (a) MUST NOT be listed.
 
+**Verdicts.** A capability is what one or more tasks measure together (following instructions, reasoning, code, the use of
+tools). Each entry of `capabilities` is `{ id, name, tasks, n, gap, gapStderr, margin, verdict, proof }`: over the `pairs` of every
+listed result of the capability, summed, `n` questions, `gap = (onlySwoa - onlyTarget) / n`, and `gapStderr` as above. Then
+`verdict` is:
+
+- `parity` when `gap - 1.645 × gapStderr ≥ -margin`: within the margin of the target, or better, at 95% one-sided;
+- `short` when `gap + 1.645 × gapStderr < -margin`: lower than the target by more than the margin, at 95%;
+- `open` otherwise: too few questions to say.
+
+`proof` is true when every result of the capability is proof. A capability none of whose results carries `pairs` has no `verdict`.
+The gap is published whatever the verdict. Where a test offers tools, the target MUST be offered the same tools, by the same
+means, as the module.
+
 The harness's questions MUST NOT be used in training: they are the measurement training cannot fit.
 
 A SwOA SHOULD NOT be published without at least one result that is proof. Parity is not required: a SwOA that loses on a task is
-published with the loss in its proof.
+published with the loss in its proof. A SwOA claims parity only capability by capability, and only where the verdict is `parity`.
 
 #### 4.8 Informative members
 

@@ -3551,6 +3551,18 @@ def proof_block(sp):
         for x in pr.get("results") or [])
     body = ("<table class='spec'><tr><th>Task</th><th>Questions</th><th>SwOA</th><th>%s</th><th>Gap</th><th></th></tr>%s</table>" % (e(tg), rows)
             if rows else "<p class='muted small' style='margin:0'>No harness result has been measured on this SwOA's arrangement yet: Evaluate the swarm.</p>")
+    # A VERDICT FOR EACH CAPABILITY, over the questions of its tasks together (docs/swoa.md 4.7): parity, short, or open
+    VERDICT = {"parity": ("Parity", "up"), "short": ("Short", "down"), "open": ("Open", "planned")}
+    caps = "".join(
+        "<tr><td>%s<br><span class='muted'>%s</span></td><td>%d</td><td><b class='%s'>%+.3f</b> <span class='muted'>± %.3f</span></td><td><span class='pill %s' title='%s'>%s</span>%s</td></tr>"
+        % (e(str(c.get("name"))), e(", ".join(str(t) for t in c.get("tasks") or [])), c.get("n") or 0, "bad" if c["gap"] < 0 else "", c["gap"], c["gapStderr"],
+           VERDICT[c["verdict"]][1], e({"parity": "Within the margin of the target, or better, at 95%", "short": "Lower than the target by more than the margin, at 95%",
+                                       "open": "Too few questions to say"}[c["verdict"]]), VERDICT[c["verdict"]][0], "" if c.get("proof") else " <span class='muted'>a check</span>")
+        for c in pr.get("capabilities") or [] if c.get("verdict") in VERDICT)
+    if caps:
+        body = ("<table class='spec'><tr><th>Capability</th><th>Questions</th><th>Gap</th><th>Verdict (margin %s)</th></tr>%s</table>"
+                "<p class='muted small' style='margin:6px 0 10px'>Not claimed: %s.</p>%s"
+                % (e(str(pr.get("margin"))), caps, e("; ".join((pr.get("claims") or {}).get("notClaimed") or [])), body))
     return "<h4>Proof</h4><p class='muted small' style='margin:0 0 6px'>%s.</p>%s" % (e(str(pr.get("rule") or "").capitalize()), body)
 
 

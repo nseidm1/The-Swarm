@@ -515,6 +515,52 @@ def runtime_of():
 RUNTIME_ONLY = (("interface", "as"), ("interface", "start"), ("requirements", "node"))  # fewer questions than this and a score's standard error (about 0.10 at 20) is larger than the gaps that matter
 
 
+# PARITY, FOR ONE CAPABILITY (docs/swoa.md 4.7; docs/swoa-parity.md): the module and its target are asked the same questions, so
+# the gap is read question by question. From the counts an evaluation already keeps (how many questions only the one had right):
+#   gap = (onlySwoa - onlyTarget) / n          gapStderr = sqrt(((onlySwoa + onlyTarget) / n - gap^2) / n)
+# and a verdict against a margin, at 95% one-sided: parity (within the margin of the target, or better), short (lower by more than
+# the margin), open (too few questions to say).
+PROOF_MARGIN = 0.05
+PROOF_Z = 1.645
+# what a module of this runtime does not claim, whatever its proof holds
+NOT_CLAIMED = ["long conversations (the module keeps the last turns of one)", "speed (an answer is several model calls)",
+               "anything but text", "knowledge with no tool offered"]
+
+
+def paired_gap(agree):
+    from math import sqrt
+    a = agree or {}
+    n, s, t = a.get("of") or 0, a.get("onlySwarm"), a.get("onlyTarget")
+    if not n or not isinstance(s, (int, float)) or not isinstance(t, (int, float)):
+        return None
+    gap = (s - t) / n
+    return {"n": n, "onlySwoa": s, "onlyTarget": t, "gap": round(gap, 4), "gapStderr": round(sqrt(max(0.0, (s + t) / n - gap * gap) / n), 4)}
+
+
+def verdict_of(gap, stderr, margin=PROOF_MARGIN):
+    if gap - PROOF_Z * stderr >= -margin:
+        return "parity"
+    if gap + PROOF_Z * stderr < -margin:
+        return "short"
+    return "open"
+
+
+def capabilities_of(results, margin=PROOF_MARGIN):
+    """A verdict for each capability (a body of work: its tasks' questions together), from the results listed for it. Only results
+    whose questions were paired count toward it; a capability with none has no verdict."""
+    out = []
+    for item in sorted({str(e.get("item")) for e in results}):
+        mine = [e for e in results if str(e.get("item")) == item]
+        pairs = [e["pairs"] for e in mine if e.get("pairs")]
+        cap = {"id": item, "name": next((e.get("itemName") for e in mine if e.get("itemName")), item),
+               "tasks": [e.get("task") for e in mine], "proof": bool(mine) and all(e.get("proof") for e in mine), "margin": margin}
+        if pairs:
+            p = paired_gap({"of": sum(x["n"] for x in pairs), "onlySwarm": sum(x["onlySwoa"] for x in pairs), "onlyTarget": sum(x["onlyTarget"] for x in pairs)})
+            cap.update({"n": p["n"], "gap": p["gap"], "gapStderr": p["gapStderr"], "verdict": verdict_of(p["gap"], p["gapStderr"], margin)})
+        out.append(cap)
+    return out
+
+
 def swoa_proof(d, arrangement_sha, pins):
     """THE PROOF OF A SwOA (docs/swoa.md, proof): harness results on this module beside its target's, from the evaluations on record
     (.work/eval/history.jsonl). Only results measured on this SwOA are listed: this configuration, this arrangement, and the adapters
@@ -542,11 +588,14 @@ def swoa_proof(d, arrangement_sha, pins):
             if not isinstance(sw.get("value"), (int, float)) or not isinstance(tg.get("value"), (int, float)):
                 continue
             n = int(sw.get("n") or 0)
-            e = {"harness": h, "task": x.get("task"), "name": x.get("name"), "item": x.get("item"), "metric": x.get("metric"), "filter": x.get("filter"),
+            pg = paired_gap(x.get("agree"))
+            e = {"harness": h, "task": x.get("task"), "name": x.get("name"), "item": x.get("item"), "itemName": x.get("itemName"), "metric": x.get("metric"), "filter": x.get("filter"),
                  "n": n, "of": sw.get("of"),
                  "swoa": {"value": sw["value"], "stderr": sw.get("stderr")}, "target": {"value": tg["value"], "stderr": tg.get("stderr")},
                  "gap": round(sw["value"] - tg["value"], 4),
-                 "gapStderr": round(sqrt((sw.get("stderr") or 0) ** 2 + (tg.get("stderr") or 0) ** 2), 4),
+                 # (paired where the two models' answers to each question are on record; else from the two scores' own errors)
+                 "gapStderr": pg["gapStderr"] if pg else round(sqrt((sw.get("stderr") or 0) ** 2 + (tg.get("stderr") or 0) ** 2), 4),
+                 "paired": bool(pg), **({"pairs": {k: pg[k] for k in ("n", "onlySwoa", "onlyTarget")}} if pg else {}),
                  "proof": n >= PROOF_MIN_N, "at": r.get("at"), "runId": r.get("runId"),
                  "arrangementSha256": arrangement_sha, "configuration": r.get("configuration")}
             k = (h.get("name"), x.get("task"))
@@ -555,9 +604,14 @@ def swoa_proof(d, arrangement_sha, pins):
             if not was or (e["proof"], e["at"] or "") > (was["proof"], was["at"] or ""):
                 best[k] = e
     results = sorted(best.values(), key=lambda e: (str(e["item"]), str(e["task"])))
+    caps = capabilities_of(results)
     return {
         "goal": "parity with the target model, as an established LLM evaluation harness measures it",
         "rule": "a result counts as proof of this SwOA only when it was measured on it (this configuration, this arrangementSha256, the adapters the recipe pins) and asks at least %d questions of its task; one on this SwOA that asks fewer is listed as a check (proof: false)" % PROOF_MIN_N,
+        "margin": PROOF_MARGIN,
+        "verdictRule": "for each capability, over the questions of its tasks together: parity when gap - %s x gapStderr >= -margin, short when gap + %s x gapStderr < -margin, open otherwise" % (PROOF_Z, PROOF_Z),
+        "capabilities": caps,
+        "claims": {"claimed": [c["name"] for c in caps], "notClaimed": NOT_CLAIMED},
         "results": results,
         "proven": sum(1 for e in results if e["proof"]),
     }
@@ -910,6 +964,12 @@ def swoa_card(sp):
                 name, SWOA_SPEC_URL, (sp.get("runtime") or {}).get("library"), (sp.get("runtime") or {}).get("version")),
             "", "## Proof", "", "The goal is %s. Parity is not guaranteed: as with a LoRA, the harness may measure a loss, and the gap says so." % pr.get("goal", ""),
             "", (pr.get("rule", "")[:1].upper() + pr.get("rule", "")[1:]) + ".", ""]
+    caps = [c for c in pr.get("capabilities") or [] if c.get("verdict")]
+    if caps:
+        body += ["| Capability | Questions | Gap | Verdict (margin %s) |" % pr.get("margin"), "|---|---|---|---|"] + [
+            "| %s | %d | %+.3f ± %.3f | %s%s |" % (c.get("name"), c.get("n") or 0, c["gap"], c["gapStderr"], c["verdict"], "" if c.get("proof") else " (a check)") for c in caps] + [
+            "", "Parity: within the margin of the target, or better, at 95%. Short: lower by more than the margin. Open: too few questions to say.", ""]
+        body += ["Not claimed: %s." % "; ".join((pr.get("claims") or {}).get("notClaimed") or []), ""]
     body += (["| Task | Metric | Questions | SwOA | Target | Gap | |", "|---|---|---|---|---|---|---|"] + rows) if rows else ["No harness result has been measured on this SwOA."]
     body += ["", "## Hashes", "", "- base module: `%s`" % h.get("baseModuleSha256"), "- arrangement: `%s`" % h.get("arrangementSha256"),
              "- SwOA (recipe): `%s`" % h.get("recipeSha256"), "", "Format: [SwOA specification](%s), version %s." % (SWOA_SPEC_URL, h.get("version")), ""]

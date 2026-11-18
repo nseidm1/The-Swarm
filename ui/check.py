@@ -1162,6 +1162,25 @@ check("a question set aside because the larger model did not give its answer aga
       and swarm_ui.near_words({"lost": "drafting", "had": 0, "reply": 0.84}).startswith("the reply read 0.84, lost in drafting")
       and swarm_ui.near_words({"lost": "drafting", "had": 0}).startswith("lost in drafting"), [_tu, _pu[:400]])
 
+# A VERDICT FOR EACH CAPABILITY (docs/swoa.md 4.7): the paired gap from the counts an evaluation keeps, pooled over a capability's
+# tasks, read against the margin: the earlier lineup's 100 questions of IFEval read short, 20 questions read open, a whole task
+# within a point reads parity; and the dialog and the card show it
+_pg = data.paired_gap({"of": 100, "onlySwarm": 6, "onlyTarget": 25})
+_res = lambda item, task, n, s, t, proof=True: {"item": item, "itemName": item.title(), "task": task, "name": task, "metric": "m", "n": n, "of": n, "proof": proof,  # noqa: E731
+                                                "harness": {"name": "h", "version": "1"}, "swoa": {"value": 0.7, "stderr": 0.02}, "target": {"value": 0.7, "stderr": 0.02},
+                                                "gap": round((s - t) / n, 4), "gapStderr": data.paired_gap({"of": n, "onlySwarm": s, "onlyTarget": t})["gapStderr"], "paired": True,
+                                                "pairs": {"n": n, "onlySwoa": s, "onlyTarget": t}}
+_caps = data.capabilities_of([_res("crew", "ifeval", 541, 85, 88), _res("logic", "a", 100, 6, 25), _res("logic", "b", 100, 5, 24), _res("math", "g", 20, 3, 4, False)])
+_cv = {c["id"]: c for c in _caps}
+_pb = swarm_ui.proof_block({"target": {"name": "T"}, "proof": {"rule": "r", "margin": 0.05, "capabilities": _caps, "claims": {"notClaimed": data.NOT_CLAIMED},
+                                                               "results": [_res("crew", "ifeval", 541, 85, 88)]}})
+check("a capability's verdict is read from the paired gap over its tasks together, against the margin: within a point on a whole task is parity, 19 points lower on 200 questions is short, 20 questions are open and marked a check; the dialog shows each with what is not claimed",
+      _pg["gap"] == -0.19 and abs(_pg["gapStderr"] - 0.0523) < 0.0005 and data.verdict_of(_pg["gap"], _pg["gapStderr"]) == "short"
+      and _cv["crew"]["verdict"] == "parity" and _cv["crew"]["n"] == 541 and _cv["logic"]["verdict"] == "short" and _cv["logic"]["n"] == 200 and _cv["logic"]["gap"] == -0.19
+      and _cv["math"]["verdict"] == "open" and _cv["math"]["proof"] is False and data.paired_gap({"of": 0}) is None
+      and ">Parity<" in _pb and "Verdict (margin 0.05)" in _pb and "knowledge with no tool offered" in _pb,
+      [_pg, {k: (v.get("verdict"), v.get("n"), v.get("gap")) for k, v in _cv.items()}])
+
 # AN OPEN PAGE SAYS WHEN THE DASHBOARD'S CODE HAS CHANGED: it carries the build it was drawn with, asks the server's, and where they
 # differ shows a note with a Refresh button (hidden otherwise); it never reloads on its own
 with tempfile.TemporaryDirectory() as tmp:
