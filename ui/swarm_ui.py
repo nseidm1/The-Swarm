@@ -2368,7 +2368,7 @@ def _epoch_local(stamp):
 
 
 def pills(d):
-    """Four choices and one document: the two small models, the model that decides, the larger model, and the SoRA spec."""
+    """Four choices and one document: the two small models, the model that decides, the larger model, and the SwOA spec."""
     reg, running = d["registry"], bool((run_state() or {}).get("running"))
     # (a model in parts weighs all of its parts)
     weigh = lambda m: (" · %.1f GB" % ((m["bytes"] + sum(p.get("bytes") or 0 for p in m.get("parts") or [])) / 2**30)) if m.get("bytes") else (" · about %s GB" % m["memGb"]) if m.get("memGb") else ""  # noqa: E731
@@ -2870,19 +2870,19 @@ def loop_changes(d):
 
 
 def spec_panel(d):
-    """The SoRA spec (docs/sora.md), for a person to read and to copy: what the configured swarm module is, what tunes it, and the
+    """The SwOA spec (docs/swoa.md), for a person to read and to copy: what the configured swarm module is, what tunes it, and the
     proof of where it stands against its target."""
     sp = data.spec(d)
     t = sp["trainedAgainst"]
-    # ONLY A SoRA WITH PROOF GOES UPSTREAM (specs/): published from here, with its card
+    # ONLY A SwOA WITH PROOF GOES UPSTREAM (specs/): published from here, with its card
     why_not = data.publishable(sp)
     pf = data.published_file(d["root"], sp)
     publish_button = ('<button class="btn top" id="spec-publish" type="button"%s>Publish to specs/</button>'
-                      % ((' disabled title="%s"' % e(why_not)) if why_not else ' title="Write the SoRA spec and its card to specs/, the one place training leaves something to commit"'))
+                      % ((' disabled title="%s"' % e(why_not)) if why_not else ' title="Write the SwOA spec and its card to specs/, the one place training leaves something to commit"'))
     published_line = ""
     if pf.exists():
         try:
-            same = json.loads(pf.read_text()).get("sora", {}).get("recipeSha256") == sp["sora"]["recipeSha256"]
+            same = json.loads(pf.read_text()).get("swoa", {}).get("recipeSha256") == sp["swoa"]["recipeSha256"]
         except (OSError, ValueError):
             same = False
         published_line = (" Published as <code>specs/%s</code>%s." % (e(pf.name), "" if same else ", from an earlier recipe: publishing again replaces it"))
@@ -2935,12 +2935,12 @@ def spec_panel(d):
                + row("Disk", "%s GB of model files" % e(str(rq["diskGb"]))) + row("Engine", e(rq["engine"])) + row("Node", e(rq["node"])) + (row("The decider", e(rq["decider"])) if rq.get("decider") else "")
                + row("Licences", e("; ".join(rq["licenses"]))) + row("Commercial use", ("<b>Allowed by every licence listed</b>" if rq["commercialUse"] else "<b class='bad'>Not allowed</b>: a licence says non-commercial") + "<br><span class='muted'>Read every licence above before offering it</span>"),
                row("Chat", "yes") + row("Streaming", e(cap["stream"])) + row("Tools", e(cap["tools"])) + row("Images", "no") + row("Context", "%s tokens a request" % e(str(cap["contextTokens"]))) + row("Good for", e(sp["interface"]["goodFor"])),
-               row("SoRA", "<code>%s</code><br><span class='muted'>%s</span>" % (e(sp["sora"]["recipeSha256"][:16]), e(sp["sora"]["is"])))
-               + row("Base module", "<code>%s</code>" % e(sp["sora"]["baseModuleSha256"][:16])) + row("Arrangement", "<code>%s</code>" % e(sp["sora"]["arrangementSha256"][:16]))
-               + row("Format", "<code>%s</code> version %s (docs/sora.md)" % (e(sp["sora"]["format"]), e(str(sp["sora"]["version"]))))
+               row("SwOA", "<code>%s</code><br><span class='muted'>%s</span>" % (e(sp["swoa"]["recipeSha256"][:16]), e(sp["swoa"]["is"])))
+               + row("Base module", "<code>%s</code>" % e(sp["swoa"]["baseModuleSha256"][:16])) + row("Arrangement", "<code>%s</code>" % e(sp["swoa"]["arrangementSha256"][:16]))
+               + row("Format", "<code>%s</code> version %s (docs/swoa.md)" % (e(sp["swoa"]["format"]), e(str(sp["swoa"]["version"]))))
                + "".join(row(k.capitalize(), "<code>%s</code>" % e(v)) for k, v in st_.items())))
     return (
-        '<div class="spec-head"><div><div class="kicker">SoRA spec</div><h3 style="font-size:24px">%s</h3><div class="muted small">%s</div></div>'
+        '<div class="spec-head"><div><div class="kicker">SwOA spec</div><h3 style="font-size:24px">%s</h3><div class="muted small">%s</div></div>'
         '<div class="spec-acts"><button class="btn top" id="spec-copy" type="button">Copy as JSON</button><button class="btn top" id="spec-save" type="button">Save as a file</button>%s<button class="btn stop top" id="spec-close" type="button">Close</button></div></div>'
         '<p class="verdict %s" style="margin:14px 0 2px">%s against %s.</p><p class="muted small" style="margin:0 0 12px">%s%s</p>'
         "%s%s<h4>What it is</h4><table class='spec'>%s%s%s%s%s%s%s%s</table>"
@@ -3451,28 +3451,28 @@ def main_body(d):
 
 
 def proof_block(sp):
-    """THE PROOF of the SoRA (docs/sora.md): each harness task's score for the module and for its target, and the gap, measured on
-    exactly this SoRA. A result on fewer than data.PROOF_MIN_N questions is shown as a check, not proof."""
+    """THE PROOF of the SwOA (docs/swoa.md): each harness task's score for the module and for its target, and the gap, measured on
+    exactly this SwOA. A result on fewer than data.PROOF_MIN_N questions is shown as a check, not proof."""
     pr = sp.get("proof") or {}
     tg = (sp.get("target") or {}).get("name") or "the target"
     rows = "".join(
         "<tr><td>%s<br><span class='muted'>%s %s · %s</span></td><td>%d of %s</td><td><b>%.3f</b> <span class='muted'>± %.3f</span></td><td>%.3f <span class='muted'>± %.3f</span></td>"
         "<td><b class='%s'>%+.3f</b> <span class='muted'>± %.3f</span></td><td>%s</td></tr>"
         % (e(str(x.get("name"))), e(str(x["harness"].get("name"))), e(str(x["harness"].get("version"))), e(str(x.get("metric"))),
-           x.get("n") or 0, e(str(x.get("of"))), x["sora"]["value"], x["sora"].get("stderr") or 0, x["target"]["value"], x["target"].get("stderr") or 0,
+           x.get("n") or 0, e(str(x.get("of"))), x["swoa"]["value"], x["swoa"].get("stderr") or 0, x["target"]["value"], x["target"].get("stderr") or 0,
            "bad" if x["gap"] < 0 else "", x["gap"], x.get("gapStderr") or 0, "<span class='pill up'>Proof</span>" if x.get("proof") else "<span class='pill'>Check</span>")
         for x in pr.get("results") or [])
-    body = ("<table class='spec'><tr><th>Task</th><th>Questions</th><th>SoRA</th><th>%s</th><th>Gap</th><th></th></tr>%s</table>" % (e(tg), rows)
-            if rows else "<p class='muted small' style='margin:0'>No harness result has been measured on this SoRA's arrangement yet: Evaluate the swarm.</p>")
+    body = ("<table class='spec'><tr><th>Task</th><th>Questions</th><th>SwOA</th><th>%s</th><th>Gap</th><th></th></tr>%s</table>" % (e(tg), rows)
+            if rows else "<p class='muted small' style='margin:0'>No harness result has been measured on this SwOA's arrangement yet: Evaluate the swarm.</p>")
     return "<h4>Proof</h4><p class='muted small' style='margin:0 0 6px'>%s.</p>%s" % (e(str(pr.get("rule") or "").capitalize()), body)
 
 
 def chips(d):
-    """Beside the title: which pass it is, how far toward parity, and the way in to the SoRA spec (with how many kept changes its
+    """Beside the title: which pass it is, how far toward parity, and the way in to the SwOA spec (with how many kept changes its
     arrangement carries now: data.learned_live). Read again while a pass runs."""
     out = []
     live = data.learned_live(d["learned"])
-    out.append('<button class="specbtn" id="spec-open" type="button" title="The SoRA spec: the swarm module as it stands, what tunes it, and the proof">SoRA spec%s</button>'
+    out.append('<button class="specbtn" id="spec-open" type="button" title="The SwOA spec: the swarm module as it stands, what tunes it, and the proof">SwOA spec%s</button>'
                % (("<span>%d learned</span>" % live) if live else ""))
     out.append('<button class="specbtn tidy" id="tidy-open" type="button" title="What the Swarm has put on this machine, and taking out what you do not want">Uninstall Helper</button>')
     return "".join(out)
@@ -3658,7 +3658,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(said, 409, "text/plain; charset=utf-8")
             return self._send(progress_strip(data.load(ARGS.root), cleared=said))
         if path == "/spec/publish":
-            # A SoRA, WRITTEN WHERE IT IS COMMITTED (specs/<name>.sora.json, and its card specs/<name>.sora.md; docs/sora.md).
+            # A SwOA, WRITTEN WHERE IT IS COMMITTED (specs/<name>.swoa.json, and its card specs/<name>.swoa.md; docs/swoa.md).
             # Refused without proof: what training leaves on the way stays on this machine
             d = data.load(ARGS.root)
             sp = data.spec(d)
@@ -3667,7 +3667,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(why_not, 409, "text/plain; charset=utf-8")
             f = data.published_file(ARGS.root, sp)
             f.parent.mkdir(parents=True, exist_ok=True)
-            for target, text in ((f, data.published_text(sp)), (data.card_file(ARGS.root, sp), data.sora_card(sp))):
+            for target, text in ((f, data.published_text(sp)), (data.card_file(ARGS.root, sp), data.swoa_card(sp))):
                 tmp = target.with_name(target.name + ".tmp")
                 tmp.write_text(text)
                 tmp.replace(target)

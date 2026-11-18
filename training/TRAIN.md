@@ -46,7 +46,7 @@ stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mj
    A question short of parity tries them first, on top of the swarm as it stands, the ones that have brought the most questions
    to parity first; one that works is kept and credited with the question. The library is the list of what makes small models
    reach parity, and it grows with every keep. Every win is also written to `.work/library/<configuration>-wins.jsonl`, which
-   Clear training state keeps: the SoRA spec lists all of them, from every run, marking the ones the arrangement carries now,
+   Clear training state keeps: the SwOA spec lists all of them, from every run, marking the ones the arrangement carries now,
    and the library is made whole from it each time training starts.
 7. **A standing conflict is swapped.** Where changes that bring the question in hand to parity have lost the same question
    already at parity `swapAfter` times (25), a change that loses only that one is kept, and that question goes back in hand,
@@ -337,7 +337,7 @@ A change that is kept is written to this configuration's own record, `src/learne
 ([`src/learned.mjs`](../src/learned.mjs)): the arrangement as it now stands, and an entry on its ledger saying what changed,
 where it came from, and the answers equivalent to the larger model's before and after, on train and on held. `pass.mjs end`
 adds where the pass left it. `src/briefs.json` is never changed by training: it is where every swarm starts. The dashboard's
-SoRA spec reads the record out, and grows as a pass keeps things.
+SwOA spec reads the record out, and grows as a pass keeps things.
 
 **Across configurations** ([`support/across.mjs`](support/across.mjs)): every other configuration's record is read, never
 written. An arrangement, flow or plan change kept there, by name, is planned first here (its reason in the plan: kept in

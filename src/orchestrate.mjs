@@ -101,7 +101,7 @@ const said = (m) =>
 // questions of the other (training/loop.mjs). The question's kind picks the arrangement before anything is asked
 export const kindOf = (question) => (asksForCode(String(question || '')) ? 'code' : 'words');
 // THE CLASS OF AN INPUT: what the arrangement is chosen by (briefs.kinds[class]), decided from the request alone, with no model asked,
-// so that training and the running swarm always sort an input the same way (docs/sora-classes.md):
+// so that training and the running swarm always sort an input the same way (docs/swoa-classes.md):
 //   tools   the request offers tools
 //   talk    the conversation already has a reply of the swarm's in it
 //   code    code is asked for (kindOf)

@@ -391,7 +391,7 @@ export function orderFor(
 // and of those, first the questions changes have lost most often: a change that is going to lose one loses it on its first check,
 // not its third (measured 2026-11-16: 23 of 26 changes that reached parity on one question lost the same other one, asked third,
 // so each failure cost three runs)
-// NO KIND IS TRAINED ON NOTHING WITHOUT SAYING SO (docs/sora-classes.md, coverage). Before a pass trains, each spec kind
+// NO KIND IS TRAINED ON NOTHING WITHOUT SAYING SO (docs/swoa-classes.md, coverage). Before a pass trains, each spec kind
 // in it is counted: how many of its questions can be compared with the larger model at all, which needs the larger model's answer
 // and, for an answer in words or a reply in a conversation, a reader whose check is believed (training/readers.mjs). A kind with
 // none is not trained, and before this it was not said: on 2026-11-18 Kev 0.8B failed its check and 42 questions of 7 kinds were

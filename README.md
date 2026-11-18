@@ -199,7 +199,7 @@ fraction of what the larger model takes. Finding the one that answers as the lar
 true of these two small models and this decider against this larger model, so it is kept in a file of its own
 (`src/learned/<small 1>+<small 2>+<decider>--<larger model>.json`): the arrangement as it now stands, which is what the
 swarm runs, and a ledger of every change that was kept with the evidence it was kept on. Choose other models and that
-swarm starts from `briefs.json` and keeps its own record. The SoRA spec is that file read out. What a configuration
+swarm starts from `briefs.json` and keeps its own record. The SwOA spec is that file read out. What a configuration
 remembers of its training (which pass it is, what it tried and did not keep) is its own in the same way; only what was
 read on arXiv is shared, since a paper read once need not be read again.
 
@@ -300,19 +300,19 @@ const started = await serveSwarm(ENTRY, { file: llamaServerProgram }, { modelsDi
 // { ok: true, port, base, pid, args, loadMs, stop }   or   { ok: false, why }
 ```
 
-### From its SoRA spec
+### From its SwOA spec
 
-**SoRA** is to a swarm module what LoRA is to a model: the spec applied to the module to tune it, with the proof of what it
-does, measured by an established LLM evaluation harness. The format is the [SoRA specification](docs/sora.md), independent of any implementation; this repository's is described in
-[docs/sora-implementations.md](docs/sora-implementations.md). The dashboard's
-**SoRA spec** (**Save as a file**) is everything needed to make the swarm module again, anywhere, with no record of its
-training ([`src/spec.mjs`](src/spec.mjs)); **Publish to specs/** writes it, with its SoRA card, once it has proof:
+**SwOA** (Swarm Orchestration Adaptation) is to a swarm module what LoRA is to a model: the spec applied to the module to tune it, with the proof of what it
+does, measured by an established LLM evaluation harness. The format is the [SwOA specification](docs/swoa.md), independent of any implementation; this repository's is described in
+[docs/swoa-implementations.md](docs/swoa-implementations.md). The dashboard's
+**SwOA spec** (**Save as a file**) is everything needed to make the swarm module again, anywhere, with no record of its
+training ([`src/spec.mjs`](src/spec.mjs)); **Publish to specs/** writes it, with its SwOA card, once it has proof:
 
 | Part | What it holds |
 |---|---|
-| `sora` | The header: format `sora`, version 1, its name, and three hashes: the base module it applies to, the arrangement it tunes, and the whole recipe |
+| `swoa` | The header: format `swoa`, version 1, its name, and three hashes: the base module it applies to, the arrangement it tunes, and the whole recipe |
 | `baseModule`, `target` | What it is applied to (the small models, the decider, the engine, each pinned) and the larger model it was trained toward |
-| `proof` | Harness results for the module and for its target on the same questions, with the gap, measured on exactly this SoRA; at least 100 questions a task to count as proof |
+| `proof` | Harness results for the module and for its target on the same questions, with the gap, measured on exactly this SwOA; at least 100 questions a task to count as proof |
 | `recipe` | What a swarm is built from: each small model's pinned file (repository, revision, size, SHA-256, how it is served), the decider and its serving recipe, the engine's pinned builds, slots and context, the arrangement (the flow, every slot with what it is told, and an arrangement of its own for a kind of question where training kept one), and, where the swarm is served with them, each small model's LoRA adapter by file and SHA-256. Hashed: `spec.recipeSha256` |
 | `equivalence` | How far training took it: the share of the held questions on which its answer is equivalent to the larger model's, for the arrangement every swarm starts from and for the trained one, both served as the recipe says (with its adapters, where it pins them), and the gain in points. A side not measured that way says so |
 | `adapters` | How each pinned adapter was made: what it learned (the larger model's answers to so many train questions), the original weights and revision it was trained from, its steps, loss and llama.cpp perplexity, and the command that makes it again. The files are not in the spec (10 to 15 MB each, more than a commit here takes) |
@@ -324,12 +324,12 @@ training ([`src/spec.mjs`](src/spec.mjs)); **Publish to specs/** writes it, with
 ```js
 import { createSwarm, serveSwarm, readSpec } from 'the-swarm';
 
-const spec = readSpec('specs/<name>.sora.json'); // refused if its recipe or base module no longer matches its hash
+const spec = readSpec('specs/<name>.swoa.json'); // refused if its recipe or base module no longer matches its hash
 const swarm = await createSwarm({ spec, decider: 'http://127.0.0.1:8009', modelsDir });
 const started = await serveSwarm({ ...spec.card, spec }, { file: llamaServerProgram }, { modelsDir, decider });
 ```
 
-From a terminal: `node bin/swarm.mjs serve --spec specs/<name>.sora.json`. An output spec written before SoRA is still read. **Adapters:** where the recipe pins them, each is looked
+From a terminal: `node bin/swarm.mjs serve --spec specs/<name>.swoa.json`. An output spec written before SwOA is still read. **Adapters:** where the recipe pins them, each is looked
 for beside the spec, in `swarm-spec.adapters/` (or the folder `adaptersDir` or `--adapters` names), and refused unless its
 SHA-256 is the pinned one: an adapter trained again differs, and makes another swarm whose equivalence has not been measured
 (`anyAdapters: true` takes it all the same).
@@ -400,14 +400,14 @@ line what it holds while folded; open or folded is kept on the device.
 <p align="center"><em>Visualizing the System: every part with a code to name it by (A1 to E2), the box the loop is in marked live.</em></p>
 
 <p align="center">
-  <img src="docs/images/dashboard-spec.png" alt="The SoRA spec of one configuration: in training, pass 1 under way; this pass (14.2% training complete, 23 changes tried, 3 kept, 10 found arrangements in the library); everything it has found, 11 wins from every run, the 3 the arrangement carries now marked and the rest marked found, with when their run was set aside; as a model chooser lists it; what it needs of a machine; what it can do as a model; how to make it; what it is; the flow and the arrangement; and the spec as JSON" width="860">
+  <img src="docs/images/dashboard-spec.png" alt="The SwOA spec of one configuration: in training, pass 1 under way; this pass (14.2% training complete, 23 changes tried, 3 kept, 10 found arrangements in the library); everything it has found, 11 wins from every run, the 3 the arrangement carries now marked and the rest marked found, with when their run was set aside; as a model chooser lists it; what it needs of a machine; what it can do as a model; how to make it; what it is; the flow and the arrangement; and the spec as JSON" width="860">
 </p>
 
-<p align="center"><em>The SoRA spec: everything needed to make this swarm module again and offer it as a model, with what it has learned and the proof of each thing. Copy it, or save it as a file.</em></p>
+<p align="center"><em>The SwOA spec: everything needed to make this swarm module again and offer it as a model, with what it has learned and the proof of each thing. Copy it, or save it as a file.</em></p>
 
 | Part | What it shows |
 |---|---|
-| SoRA spec, Uninstall Helper | Two buttons at the top. **SoRA spec** (with how many kept changes its arrangement carries now): everything needed to make this swarm again and offer it as a model ([from its spec](#from-its-spec)): how far it is toward parity, what it has learned, the card a model chooser would list, what it needs of a machine, what it can do as a model, how to make it, its models with their pinned files, its decider, the flow, and every slot with what it is told. To read, to copy as JSON, or to save as a file. **Uninstall Helper**: everything the Swarm has put in `.work`, with the room each takes and whether the configured swarm uses it, and a button to take out each; never anything outside `.work`, what training has learned, or anything while a session runs |
+| SwOA spec, Uninstall Helper | Two buttons at the top. **SwOA spec** (with how many kept changes its arrangement carries now): everything needed to make this swarm again and offer it as a model ([from its spec](#from-its-spec)): how far it is toward parity, what it has learned, the card a model chooser would list, what it needs of a machine, what it can do as a model, how to make it, its models with their pinned files, its decider, the flow, and every slot with what it is told. To read, to copy as JSON, or to save as a file. **Uninstall Helper**: everything the Swarm has put in `.work`, with the room each takes and whether the configured swarm uses it, and a button to take out each; never anything outside `.work`, what training has learned, or anything while a session runs |
 | Configuration | What the swarm is made of, in one section that folds to a line (its models, its decider, its larger model, what it is equivalent on, and who takes turns with tools). **The pills**: **Small model 1**, **Small model 2** (and a third and fourth, once added: the next empty place has a pill to add one, a filled one can be removed), **Decides** (best first by its Decision Index score; one this machine cannot run is greyed out with what it needs), **Judges equivalence** (the decider itself, or another decision model, served beside it in training), **Larger model**, each grouped by who made it. Choosing one redraws the page for that swarm, in place. **Equivalent on**: one box to tick for each body of work (**The Crew**, ticked where nothing is chosen; Math, Logic, Reasoning); a pass asks the kinds of every one ticked, and the pencil on each opens its questions. Under the boxes, who takes turns with tools: decided by the swarm, or given to one of its small models alone, each listed by name and following the pills. Beside the heading, a note when there are [recommended changes](#recommended-changes) |
 | Memory saved | The first card, its share at the top left as the cards after it have theirs: what the swarm takes in memory against the larger model: a bar for each on one scale, the swarm's made of its parts, the share saved and how many times smaller, estimated from the model files |
 | Evaluate the swarm | How equivalent the swarm is to the larger model, measured apart from training by a standard any lab would recognise: for each body of work ticked under the models, the standard tasks of EleutherAI's [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) 0.4.13 (The Crew: IFEval; Code: HumanEval and MBPP; Math: GSM8K and BBH multistep arithmetic; Logic and Reasoning: BBH subsets), asked of the larger model and then of the swarm, and every question's two answers compared: the same answer as the harness extracts it, the same verdict on a task's tests, or the same instructions kept. It says how many questions were the same, split by whether both were right, each model's score, and when. **Evaluate** (20 a task, 100 a task, or every question) runs it; while it runs, the section follows it in place: what is loading, the question being asked and of whom, how long a question takes and how long is left in the task, the last answer, and a bar for each model on each task; its headline shows moving bars where the share and the count of the same answers will be, with the number of questions chosen. Stopped or failed, a run saves nothing and the last result that finished is shown again. Training never asks a benchmark's question. The first evaluation installs the harness into `.work/lmeval` and fetches each benchmark as it is first asked; any model of the configuration not yet here is fetched as for training. The larger model's answers are kept, so evaluating again asks only the swarm. An evaluation, pretraining and training run one at a time It shows the newest evaluation of the configuration as it is applied (the same models, decider and larger model, served with the same adapters or none); where there is none, it says so, and that the last one was of another configuration |

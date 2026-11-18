@@ -191,7 +191,7 @@ export function modelFile(m, modelsDir) {
 // every file a model is: the first, then its parts (one file for most)
 export const filesOf = (m) => [{ file: m.file, bytes: m.bytes, sha256: m.sha256 }, ...(m.parts || [])];
 
-// A MODEL FILE IS CHECKED BEFORE IT IS FIRST SERVED (SoRA specification S2.1.5): every file of the model (the first and its
+// A MODEL FILE IS CHECKED BEFORE IT IS FIRST SERVED (SwOA specification S2.1.5): every file of the model (the first and its
 // parts) against the SHA-256 it is pinned to, wherever it came from (fetched here, copied in, or found in another program's
 // folder). A file of the right size is not taken on trust: a file that is not the pinned one makes another module, whose
 // proof was not measured. Hashing a model of several GB takes seconds, so a file once verified is not hashed again while its

@@ -1,4 +1,4 @@
-// migrate-classes.mjs - MOVE WHAT EACH SWARM HAS LEARNED TO THE CLASS IT WAS LEARNED ON (docs/sora-classes.md, migration;
+// migrate-classes.mjs - MOVE WHAT EACH SWARM HAS LEARNED TO THE CLASS IT WAS LEARNED ON (docs/swoa-classes.md, migration;
 // src/learned.mjs toClasses). Once for each learned file; a file already moved is left as it is. The file as it was is kept as
 // its .bak, as every write of a learned file keeps it.
 //   node training/migrate-classes.mjs            say what would move, for every learned file; nothing is written

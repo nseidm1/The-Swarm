@@ -7,7 +7,7 @@
 //             answers equivalent to the larger model's before and after, on the questions it was chosen on and on the held ones
 //   passes    where it stood against the larger model at the end of each pass
 // Nothing is in the ledger that was not measured, and nothing is kept that did not do better on train and no worse on held. The
-// SoRA spec of a swarm (docs/sora.md) is this file read out.
+// SwOA spec of a swarm (docs/swoa.md) is this file read out.
 //   readBriefs()   (index.mjs) reads the learned arrangement of the configured swarm, or briefs.json where it has learned nothing
 import fs from 'node:fs';
 import path from 'node:path';
@@ -65,7 +65,7 @@ export function notePass(done, briefs, { config = CONFIG_ID, target = TARGET.id 
   return next;
 }
 
-// WHAT WAS LEARNED, MOVED TO THE CLASS IT WAS LEARNED ON (docs/sora-classes.md, migration). Until classes, every kept
+// WHAT WAS LEARNED, MOVED TO THE CLASS IT WAS LEARNED ON (docs/swoa-classes.md, migration). Until classes, every kept
 // change went into the one shared arrangement, so a brief written for one code question ran on every input. This moves the
 // learned slots, plan and flow into briefs.kinds[<class>], for the class most kept changes were found on, and puts the starting
 // arrangement back as the shared one: what every class with no arrangement of its own runs. Changes found on another class are

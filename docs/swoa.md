@@ -1,65 +1,65 @@
-# SoRA Specification, version 1
+# SwOA Specification, version 1
 
-**SoRA** is to a swarm module what LoRA is to a model. A swarm module takes what a chat model takes and gives what a chat model
-gives: messages in, one reply out. A LoRA is the spec applied to a model to tune it; a **SoRA spec** is the spec applied to a
+**SwOA** (Swarm Orchestration Adaptation) is to a swarm module what LoRA is to a model. A swarm module takes what a chat model takes and gives what a chat model
+gives: messages in, one reply out. A LoRA is the spec applied to a model to tune it; a **SwOA spec** is the spec applied to a
 swarm module to tune it. It holds everything training found and the proof of what that tuning does, measured by an established
 LLM evaluation harness.
 
 This document defines the format. It is normative and independent of any implementation: the key words MUST, MUST NOT, SHOULD
 and MAY are used as in RFC 2119. It is self-contained: a runtime built
-from this document alone, with no other source, can make a swarm module from a SoRA spec and serve it as a standard chat model.
+from this document alone, with no other source, can make a swarm module from a SwOA spec and serve it as a standard chat model.
 
-The document has five parts. **Part I** is the format of a SoRA spec and its card. **Part II** is making the module ready and
+The document has five parts. **Part I** is the format of a SwOA spec and its card. **Part II** is making the module ready and
 serving it: the members, the requests sent to them, and the chat-model interface a consumer uses. **Part III** is how the module
 answers one request. **Part IV** is the decision model. **Part V** is turns with tools. An annex gives the default arrangement.
 
-# Part I: The SoRA spec
+# Part I: The SwOA spec
 
 ### 1. Terms
 
 - **Swarm module**: two or more small language models (**members**) and a **decision model**, served by an inference **engine**,
   that answer as one model.
-- **Base module**: the members, the decision model and the engine, each pinned. What a SoRA is applied to.
+- **Base module**: the members, the decision model and the engine, each pinned. What a SwOA is applied to.
 - **Arrangement**: how the base module answers: its **slots** (a member, a stage, and what the slot is told), its **plan**, its
-  **flow** (the order of stages), and an arrangement of its own for each **class of input** that has one. What a SoRA tunes.
-- **Target model**: the model the SoRA was trained toward. **Parity** with it, as an established harness measures it, is the
-  goal of SoRA training; it is never assumed.
+  **flow** (the order of stages), and an arrangement of its own for each **class of input** that has one. What a SwOA tunes.
+- **Target model**: the model the SwOA was trained toward. **Parity** with it, as an established harness measures it, is the
+  goal of SwOA training; it is never assumed.
 - **Harness**: an established LLM evaluation harness (for example EleutherAI's lm-evaluation-harness).
-- **Runtime**: a program that reads a SoRA spec and serves the module it describes.
+- **Runtime**: a program that reads a SwOA spec and serves the module it describes.
 
 ### 2. Beside a LoRA
 
-| | LoRA | SoRA |
+| | LoRA | SwOA |
 |---|---|---|
 | Tunes | one model | one swarm module |
 | Applied to | a base model | a base module, each part pinned by file and SHA-256 |
 | Holds | low-rank weight updates | the arrangement, and the adapters its members are served with |
 | Trained toward | a task's data | parity with a target model, as a harness measures it |
-| Shipped as | adapter config, weights, a model card | a SoRA spec (`.sora.json`) and a SoRA card (`.sora.md`) |
-| Proof | evaluation results on its card | `proof`: harness results measured on exactly this SoRA |
+| Shipped as | adapter config, weights, a model card | a SwOA spec (`.swoa.json`) and a SwOA card (`.swoa.md`) |
+| Proof | evaluation results on its card | `proof`: harness results measured on exactly this SwOA |
 | On another base | possible; effects unknown | possible; effects unknown, and the hashes no longer match |
 
 ### 3. Files
 
-A SoRA is published as two files sharing a name, the SoRA's **name** (section 4.1):
+A SwOA is published as two files sharing a name, the SwOA's **name** (section 4.1):
 
-- `<name>.sora.json`: the **SoRA spec**, a JSON document (RFC 8259, UTF-8). It is complete: a runtime makes the module from it alone.
-- `<name>.sora.md`: the **SoRA card**, Markdown with YAML front matter (section 7). It is written from the spec and MUST NOT
+- `<name>.swoa.json`: the **SwOA spec**, a JSON document (RFC 8259, UTF-8). It is complete: a runtime makes the module from it alone.
+- `<name>.swoa.md`: the **SwOA card**, Markdown with YAML front matter (section 7). It is written from the spec and MUST NOT
   state anything the spec does not.
 
-A published SoRA spec and card MUST NOT refer to any implementation's files, programs, commands or functions. Which runtime
+A published SwOA spec and card MUST NOT refer to any implementation's files, programs, commands or functions. Which runtime
 wrote it is said once, in `runtime` (section 4.6).
 
-### 4. The SoRA spec
+### 4. The SwOA spec
 
 A JSON object. The members below are normative. A writer MAY add others, which are informative (section 4.8); a reader MUST
 ignore members it does not know.
 
-#### 4.1 `sora` (required): the header
+#### 4.1 `swoa` (required): the header
 
 | Member | Type | |
 |---|---|---|
-| `format` | string | MUST be `"sora"` |
+| `format` | string | MUST be `"swoa"` |
 | `version` | integer | MUST be `1` for this specification |
 | `name` | string | `<members>+<decision model>--<target>`: the members' ids in place order and the decision model's id joined by `+`, then `--` and the target's id |
 | `baseModuleSha256` | string | the hash of the base module (section 5) |
@@ -134,22 +134,22 @@ Each result:
 | `task`, `name` | the harness's name for the task, and its common name |
 | `metric`, `filter` | the score the harness reports, as the harness names it |
 | `n`, `of` | questions asked, of how many the task has |
-| `sora` | `{ value, stderr }`: the module tuned by this SoRA |
+| `swoa` | `{ value, stderr }`: the module tuned by this SwOA |
 | `target` | `{ value, stderr }`: the target model, on the same questions, by the same harness |
-| `gap` | `sora.value - target.value`; negative is a loss |
-| `gapStderr` | `sqrt(sora.stderr^2 + target.stderr^2)` |
+| `gap` | `swoa.value - target.value`; negative is a loss |
+| `gapStderr` | `sqrt(swoa.stderr^2 + target.stderr^2)` |
 | `proof` | boolean (the rule below) |
 | `at`, `runId` | when it was measured |
 | `configuration`, `arrangementSha256` | what it was measured on |
 
-**The rule.** A result is proof of a SoRA only if (a) it was measured on that SoRA: its `configuration` is the spec's `name`, its
+**The rule.** A result is proof of a SwOA only if (a) it was measured on that SwOA: its `configuration` is the spec's `name`, its
 `arrangementSha256` is the spec's, and the members were served with exactly the adapters `recipe.adapters` pins (none where it
 pins none); and (b) it asked at least **100** questions of its task. A result that meets (a) and not (b) is a **check** and MUST
 be marked `proof: false`. A result that does not meet (a) MUST NOT be listed.
 
 The harness's questions MUST NOT be used in training: they are the measurement training cannot fit.
 
-A SoRA SHOULD NOT be published without at least one result that is proof. Parity is not required: a SoRA that loses on a task is
+A SwOA SHOULD NOT be published without at least one result that is proof. Parity is not required: a SwOA that loses on a task is
 published with the loss in its proof.
 
 #### 4.8 Informative members
@@ -176,26 +176,26 @@ Each hash is SHA-256, written in lowercase hexadecimal, over the UTF-8 bytes of 
 | `recipeSha256` | `recipe` |
 
 A reader MUST refuse a spec whose `recipeSha256` or `baseModuleSha256` does not match: it was changed after it was written and is
-not the SoRA its proof was measured on. A runtime MUST refuse an adapter whose SHA-256 is not the one `recipe.adapters` pins,
+not the SwOA its proof was measured on. A runtime MUST refuse an adapter whose SHA-256 is not the one `recipe.adapters` pins,
 unless it is told to accept it, and then it MUST say the module served is not the one the proof measured.
 
-### 6. Applying a SoRA to another base module
+### 6. Applying a SwOA to another base module
 
-As with a LoRA, a SoRA MAY be applied to another base module. A runtime that does so MUST say that the effects are unknown: the
+As with a LoRA, a SwOA MAY be applied to another base module. A runtime that does so MUST say that the effects are unknown: the
 proof was measured on the base module the spec names, and the hashes will not match.
 
-### 7. The SoRA card
+### 7. The SwOA card
 
 Markdown, beginning with YAML front matter:
 
 ```yaml
 ---
 library_name: <runtime.library>
-tags: [sora, swarm-module]
+tags: [swoa, swarm-module]
 base_module: <name, before "--">
-base_module_sha256: <sora.baseModuleSha256>
-arrangement_sha256: <sora.arrangementSha256>
-sora_sha256: <sora.recipeSha256>
+base_module_sha256: <swoa.baseModuleSha256>
+arrangement_sha256: <swoa.arrangementSha256>
+swoa_sha256: <swoa.recipeSha256>
 target_model: <target.name>
 base_models: [<each member's repo or name>]
 decision_model: <decider's repo or name>
@@ -205,19 +205,19 @@ model-index:
       - task: { type: text-generation, name: <result.name> }
         dataset: { name: <result.name>, type: <result.task> }
         metrics:
-          - { type: <result.metric>, name: SoRA, value: <result.sora.value> }
+          - { type: <result.metric>, name: SwOA, value: <result.swoa.value> }
           - { type: <result.metric>, name: "target: <target.name>", value: <result.target.value> }
         source: { name: "<harness.name> <harness.version>", n: <result.n>, proof: <result.proof> }
 ---
 ```
 
 Then, in prose: what the module is (its members, decision model and target), the proof as a table (task, metric, questions,
-SoRA, target, gap, proof or check), and the three hashes. The card names the runtime only as `library_name`.
+SwOA, target, gap, proof or check), and the three hashes. The card names the runtime only as `library_name`.
 
 ### 8. Earlier documents
 
-Before SoRA, the same document was the **output spec** (header `spec`, format `"the-swarm/spec"`, versions 2 and 3; no `proof`,
-`baseModule` or `runtime`). A reader MAY read them, as specs without proof. A writer MUST write only SoRA.
+Before SwOA, the same document was the **output spec** (header `spec`, format `"the-swarm/spec"`, versions 2 and 3; no `proof`,
+`baseModule` or `runtime`). A reader MAY read them, as specs without proof. A writer MUST write only SwOA.
 
 ### 9. Versions
 
@@ -225,10 +225,10 @@ Before SoRA, the same document was the **output spec** (header `spec`, format `"
 
 ### 10. Conformance
 
-A **conforming runtime** implements Parts I to V. Given the same SoRA spec, the same request, and members and a decision model
+A **conforming runtime** implements Parts I to V. Given the same SwOA spec, the same request, and members and a decision model
 that reply the same, it MUST send the same requests to the members and to the decision model (equal as JSON values, in the same
 order where order is specified) and MUST return the same reply. Proof (section 4.7) measured with one conforming runtime holds for
-every conforming runtime. A runtime that departs from Parts II to V MAY serve a SoRA, but MUST NOT present the SoRA's proof as
+every conforming runtime. A runtime that departs from Parts II to V MAY serve a SwOA, but MUST NOT present the SwOA's proof as
 its own.
 
 ### 11. Conventions

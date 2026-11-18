@@ -2966,7 +2966,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       listed.data &&
       listed.data.length === 1 &&
       /does not match its hash/.test(refused(changed)) &&
-      /not a SoRA spec/.test(refused({ spec: { format: 'other' } })) &&
+      /not a SwOA spec/.test(refused({ spec: { format: 'other' } })) &&
       /version 9/.test(refused({ ...spec, spec: { ...spec.spec, version: 9 } })) &&
       /not pinned/.test(refused(unpinned)),
     { reply: got.reply, up: up.ok, changed: refused(changed) },
@@ -6086,8 +6086,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
-// ---- THE SoRA SPEC (docs/sora.md): a SoRA is read and the module made from it; its base module and recipe are each checked
-// against their hashes; an output spec from before SoRA is still read
+// ---- THE SwOA SPEC (docs/swoa.md): a SwOA is read and the module made from it; its base module and recipe are each checked
+// against their hashes; an output spec from before SwOA is still read
 {
   const { readSpec, fromSpec, recipeSha256, baseModuleOf } = await import('../src/spec.mjs');
   const recipe = {
@@ -6097,9 +6097,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     serving: { slots: 3, contextPerSlot: 2048 },
     briefs: { ...briefs, kinds: { code: { slots: briefs.slots, plan: briefs.plan } } },
   };
-  const sora = {
-    sora: {
-      format: 'sora',
+  const swoa = {
+    swoa: {
+      format: 'swoa',
       version: 1,
       name: 'x+y+kev-0.8b--t',
       baseModuleSha256: recipeSha256(baseModuleOf(recipe)),
@@ -6120,28 +6120,28 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     }
   };
   const otherBase = {
-    ...sora,
+    ...swoa,
     recipe: { ...recipe, decider: { id: 'kev-4b' } },
-    sora: { ...sora.sora, recipeSha256: undefined },
+    swoa: { ...swoa.swoa, recipeSha256: undefined },
   };
   const legacy = { spec: { format: 'the-swarm/spec', version: 3, recipeSha256: recipeSha256(recipe) }, recipe };
-  const built = fromSpec(sora);
+  const built = fromSpec(swoa);
   check(
-    'a SoRA spec is read and the module made from it, with the arrangement for each class of input; one whose base module was changed after it was written is refused, as is a version not known; an output spec from before SoRA is still read',
-    why(sora) === '' &&
+    'a SwOA spec is read and the module made from it, with the arrangement for each class of input; one whose base module was changed after it was written is refused, as is a version not known; an output spec from before SwOA is still read',
+    why(swoa) === '' &&
       built.briefs.kinds.code.slots === briefs.slots &&
       /base module does not match/.test(why(otherBase)) &&
-      /SoRA spec of version 2/.test(why({ ...sora, sora: { ...sora.sora, version: 2 } })) &&
+      /SwOA spec of version 2/.test(why({ ...swoa, swoa: { ...swoa.swoa, version: 2 } })) &&
       why(legacy) === '' &&
-      /not a SoRA spec/.test(why({ recipe })),
-    { sora: why(sora), otherBase: why(otherBase), legacy: why(legacy) },
+      /not a SwOA spec/.test(why({ recipe })),
+    { swoa: why(swoa), otherBase: why(otherBase), legacy: why(legacy) },
   );
 }
 
-// ---- THE SoRA SPECIFICATION IS SELF-CONTAINED (docs/sora.md): it names no file, program or function of this repository, and
+// ---- THE SwOA SPECIFICATION IS SELF-CONTAINED (docs/swoa.md): it names no file, program or function of this repository, and
 // carries every text the module itself sends a model, so that a runtime can be built from it alone
 {
-  const doc = fs.readFileSync(fileURLToPath(new URL('../docs/sora.md', import.meta.url)), 'utf8');
+  const doc = fs.readFileSync(fileURLToPath(new URL('../docs/swoa.md', import.meta.url)), 'utf8');
   const repoRefs = doc.match(
     /\b[\w-]+\.(?:mjs|py|sh)\b|\b(?:src|training|bin|ui|tools|tests)\/|createSwarm|serveSwarm|readSpec|fromSpec|SWARM_[A-Z_]+|briefs\.json|PROBE_BRIEF|EXPECT_BRIEF|JUDGE_BRIEF/g,
   );
@@ -6153,13 +6153,13 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     .filter(([, t]) => !flat(doc).includes(flat(t).slice(0, 120)))
     .map(([k]) => k);
   check(
-    'the SoRA specification names no file, program or function of this repository, and carries the texts the module itself sends a model (the probe, expectation and judge briefs) verbatim',
+    'the SwOA specification names no file, program or function of this repository, and carries the texts the module itself sends a model (the probe, expectation and judge briefs) verbatim',
     !repoRefs && missing.length === 0,
     { repoRefs, missing },
   );
 }
 
-// ---- THE RUNTIME AS THE SoRA SPECIFICATION HAS IT: a model file is checked against its pinned SHA-256 before it is first served
+// ---- THE RUNTIME AS THE SwOA SPECIFICATION HAS IT: a model file is checked against its pinned SHA-256 before it is first served
 // (S2.1.5), once while it is unchanged; a message whose content is a list of parts is read as its text parts joined (S3.7, T.6.6)
 {
   const { verifyModel, startMember } = await import('../src/members.mjs');
@@ -6236,7 +6236,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
-// ---- CLASSES OF INPUT (docs/sora-classes.md steps 1 and 2): what the arrangement is chosen by, the move of what was
+// ---- CLASSES OF INPUT (docs/swoa-classes.md steps 1 and 2): what the arrangement is chosen by, the move of what was
 // learned to the class it was learned on, and the gate that stops a pass with a kind it cannot compare
 {
   const { classOf, briefsFor } = await import('../src/orchestrate.mjs');

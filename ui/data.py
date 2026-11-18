@@ -377,7 +377,7 @@ def load(root):
         }
     # THE HELD QUESTIONS BY ARRANGEMENT: this configuration's answers, grouped by the briefs version they were given with and the
     # adapters the swarm was served with (training/measure.mjs writes both on each row), each group's newest answer to each
-    # question. The SoRA spec compares the arrangement every swarm starts from with the one training made (spec: equivalence)
+    # question. The SwOA spec compares the arrangement every swarm starts from with the one training made (spec: equivalence)
     held_by = {}
     for r in swarm_all:
         if r.get("split") != "held" or r.get("label") != "swarm" or r.get("cfg") not in (None, cfg) or r.get("target") not in (None, (target or {}).get("id")):
@@ -490,17 +490,17 @@ def pass_in_hand(d):
     }
 
 
-# THE SoRA SPEC (docs/sora.md): what the output spec became, made formal. A SoRA is to a swarm module what LoRA is to a model: the
+# THE SwOA SPEC (docs/swoa.md): what the output spec became, made formal. A SwOA is to a swarm module what LoRA is to a model: the
 # spec applied to it to tune it, with the proof an established harness measured. Older specs (the-swarm/spec 2 and 3) are read, not written
-SORA_FORMAT = "sora"
-SORA_VERSION = 1
+SWOA_FORMAT = "swoa"
+SWOA_VERSION = 1
 LEGACY_SPEC_FORMAT = "the-swarm/spec"
 PROOF_MIN_N = 100
-SORA_SPEC_URL = "https://github.com/nseidm1/The-Swarm/blob/main/docs/sora.md"
+SWOA_SPEC_URL = "https://github.com/nseidm1/The-Swarm/blob/main/docs/swoa.md"
 
 
 def runtime_of():
-    """THE RUNTIME A SoRA WAS WRITTEN FOR (docs/sora.md 4.6), as a model card names its library: this package's name and version."""
+    """THE RUNTIME A SwOA WAS WRITTEN FOR (docs/swoa.md 4.6), as a model card names its library: this package's name and version."""
     try:
         pkg = json.loads((Path(__file__).resolve().parent.parent / "package.json").read_text())
     except (OSError, ValueError):
@@ -508,14 +508,14 @@ def runtime_of():
     return {"library": pkg.get("name") or SERVED_NAME, "version": pkg.get("version")}
 
 
-# WHAT IS THE RUNTIME'S OWN AND NOT THE SoRA'S (docs/sora.md 3): how this runtime starts and is called. The dashboard shows them
-# on this machine; a published SoRA names its runtime once, in `runtime`, and refers to no implementation
+# WHAT IS THE RUNTIME'S OWN AND NOT THE SwOA'S (docs/swoa.md 3): how this runtime starts and is called. The dashboard shows them
+# on this machine; a published SwOA names its runtime once, in `runtime`, and refers to no implementation
 RUNTIME_ONLY = (("interface", "as"), ("interface", "start"), ("requirements", "node"))  # fewer questions than this and a score's standard error (about 0.10 at 20) is larger than the gaps that matter
 
 
-def sora_proof(d, arrangement_sha, pins):
-    """THE PROOF OF A SoRA (docs/sora.md, proof): harness results on this module beside its target's, from the evaluations on record
-    (.work/eval/history.jsonl). Only results measured on this SoRA are listed: this configuration, this arrangement, and the adapters
+def swoa_proof(d, arrangement_sha, pins):
+    """THE PROOF OF A SwOA (docs/swoa.md, proof): harness results on this module beside its target's, from the evaluations on record
+    (.work/eval/history.jsonl). Only results measured on this SwOA are listed: this configuration, this arrangement, and the adapters
     the recipe pins. For each task the newest that counts as proof (at least PROOF_MIN_N questions) is listed, else the newest check."""
     from math import sqrt
     rows = []
@@ -542,7 +542,7 @@ def sora_proof(d, arrangement_sha, pins):
             n = int(sw.get("n") or 0)
             e = {"harness": h, "task": x.get("task"), "name": x.get("name"), "item": x.get("item"), "metric": x.get("metric"), "filter": x.get("filter"),
                  "n": n, "of": sw.get("of"),
-                 "sora": {"value": sw["value"], "stderr": sw.get("stderr")}, "target": {"value": tg["value"], "stderr": tg.get("stderr")},
+                 "swoa": {"value": sw["value"], "stderr": sw.get("stderr")}, "target": {"value": tg["value"], "stderr": tg.get("stderr")},
                  "gap": round(sw["value"] - tg["value"], 4),
                  "gapStderr": round(sqrt((sw.get("stderr") or 0) ** 2 + (tg.get("stderr") or 0) ** 2), 4),
                  "proof": n >= PROOF_MIN_N, "at": r.get("at"), "runId": r.get("runId"),
@@ -555,7 +555,7 @@ def sora_proof(d, arrangement_sha, pins):
     results = sorted(best.values(), key=lambda e: (str(e["item"]), str(e["task"])))
     return {
         "goal": "parity with the target model, as an established LLM evaluation harness measures it",
-        "rule": "a result counts as proof of this SoRA only when it was measured on it (this configuration, this arrangementSha256, the adapters the recipe pins) and asks at least %d questions of its task; one on this SoRA that asks fewer is listed as a check (proof: false)" % PROOF_MIN_N,
+        "rule": "a result counts as proof of this SwOA only when it was measured on it (this configuration, this arrangementSha256, the adapters the recipe pins) and asks at least %d questions of its task; one on this SwOA that asks fewer is listed as a check (proof: false)" % PROOF_MIN_N,
         "results": results,
         "proven": sum(1 for e in results if e["proof"]),
     }
@@ -640,7 +640,7 @@ def equivalence_of(d, b, pins):
 
 
 def spec(d):
-    """THE SoRA SPEC (docs/sora.md): everything needed to make this swarm module again, anywhere, and to offer it as a model: what it is made of (every
+    """THE SwOA SPEC (docs/swoa.md): everything needed to make this swarm module again, anywhere, and to offer it as a model: what it is made of (every
     file pinned), how it is arranged (every slot with what it is told), how it is served and decided, what it can and cannot do as a
     model, what it needs of a machine, and where it stands against the larger model, with the evidence. One document.
     Generic, for any host: a model chooser takes `card` as one more item, checks `requirements` against the machine, fetches what
@@ -689,17 +689,17 @@ def spec(d):
         # (in training and not yet measured on the held questions: said so, with how its own train questions are going)
         badge = "In training · pass %d" % now["pass"]
     return {
-        # THE SoRA HEADER (docs/sora.md): what this is, and the three hashes that say what it applies to, what it tuned, and all of it
-        "sora": {"format": SORA_FORMAT, "version": SORA_VERSION, "name": d.get("key"),
+        # THE SwOA HEADER (docs/swoa.md): what this is, and the three hashes that say what it applies to, what it tuned, and all of it
+        "swoa": {"format": SWOA_FORMAT, "version": SWOA_VERSION, "name": d.get("key"),
                  "baseModuleSha256": recipe_sha256(base_module), "arrangementSha256": arrangement_sha, "recipeSha256": sha,
                  "writtenAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(timespec="seconds"),
-                 "is": "a SoRA spec: applied to this swarm module (baseModule) it tunes it toward parity with the target, as the proof measures. Two SoRAs with the same recipeSha256 make the same module."},
+                 "is": "a SwOA (Swarm Orchestration Adaptation) spec: applied to this swarm module (baseModule) it tunes it toward parity with the target, as the proof measures. Two SwOAs with the same recipeSha256 make the same module."},
         # WHAT IT APPLIES TO, as a LoRA names its base model: the small models, the decider and the engine, each pinned
         "baseModule": base_module,
         "runtime": runtime_of(),
         "target": {k: (d["target"] or {}).get(k) for k in ("id", "name", "by", "params")},
-        # THE PROOF: harness results on this module beside the target's, measured on exactly this SoRA
-        "proof": sora_proof(d, arrangement_sha, pins),
+        # THE PROOF: harness results on this module beside the target's, measured on exactly this SwOA
+        "proof": swoa_proof(d, arrangement_sha, pins),
         "name": "The Swarm",
         "id": "swarm-" + "+".join(m.get("id", "") for m in members.values()),
         "what": "%s small models that answer as one, trained toward parity with a larger model: an answer fundamentally equivalent to the one the larger model gives." % ["One", "Two", "Three", "Four"][max(0, min(3, n_small - 1))],
@@ -824,23 +824,23 @@ def spec(d):
     }
 
 
-# A SoRA, AS IT IS PUBLISHED (specs/<name>.sora.json and its card, specs/<name>.sora.md; docs/sora.md): only one with proof, and
+# A SwOA, AS IT IS PUBLISHED (specs/<name>.swoa.json and its card, specs/<name>.swoa.md; docs/swoa.md): only one with proof, and
 # without what is true only while it trains (the pass in hand). This is the one thing training leaves that goes upstream. Parity
-# is the goal and is not required: a SoRA that loses on a task is published with that loss in its proof, as a LoRA's card shows it.
+# is the goal and is not required: a SwOA that loses on a task is published with that loss in its proof, as a LoRA's card shows it.
 def publishable(sp):
-    """'' when the SoRA can be published, else why not, in a sentence."""
+    """'' when the SwOA can be published, else why not, in a sentence."""
     pr = sp.get("proof") or {}
     if pr.get("proven"):
         return ""
     checks = [e for e in pr.get("results") or [] if not e.get("proof")]
     if checks:
-        return "Only a SoRA with proof is published: evaluate it with at least %d questions a task (it has %d check%s on fewer)." % (
+        return "Only a SwOA with proof is published: evaluate it with at least %d questions a task (it has %d check%s on fewer)." % (
             PROOF_MIN_N, len(checks), "" if len(checks) == 1 else "s")
-    return "Only a SoRA with proof is published: evaluate it (at least %d questions a task) with this arrangement." % PROOF_MIN_N
+    return "Only a SwOA with proof is published: evaluate it (at least %d questions a task) with this arrangement." % PROOF_MIN_N
 
 
 def published(sp):
-    """The SoRA as it is published: without the pass in hand (true only while it trains) and without what is this runtime's own
+    """The SwOA as it is published: without the pass in hand (true only while it trains) and without what is this runtime's own
     (RUNTIME_ONLY: how it is started and called here)."""
     out = {k: v for k, v in sp.items() if k != "inProgress"}
     for part, key in RUNTIME_ONLY:
@@ -855,30 +855,30 @@ def published_text(sp):
 
 
 def published_file(root, sp):
-    return Path(root) / "specs" / (str(sora_name(sp)) + ".sora.json")
+    return Path(root) / "specs" / (str(swoa_name(sp)) + ".swoa.json")
 
 
-def sora_name(sp):
-    """The SoRA's name: its configuration. (An older spec named it in spec.configuration.)"""
-    return (sp.get("sora") or {}).get("name") or (sp.get("spec") or {}).get("configuration")
+def swoa_name(sp):
+    """The SwOA's name: its configuration. (An older spec named it in spec.configuration.)"""
+    return (sp.get("swoa") or {}).get("name") or (sp.get("spec") or {}).get("configuration")
 
 
 def card_file(root, sp):
-    return Path(root) / "specs" / (str(sora_name(sp)) + ".sora.md")
+    return Path(root) / "specs" / (str(swoa_name(sp)) + ".swoa.md")
 
 
-def sora_card(sp):
-    """THE SoRA CARD (docs/sora.md): the spec for a person and for model hubs. YAML front matter in the form model cards use, with the
+def swoa_card(sp):
+    """THE SwOA CARD (docs/swoa.md): the spec for a person and for model hubs. YAML front matter in the form model cards use, with the
     proof as evaluation results (model-index), then the same facts in prose. Written from the spec; it adds nothing to it."""
     q = lambda v: json.dumps(v, ensure_ascii=False)  # noqa: E731  (a JSON string is a YAML string)
-    h, t, pr = sp.get("sora") or {}, sp.get("target") or {}, sp.get("proof") or {}
+    h, t, pr = sp.get("swoa") or {}, sp.get("target") or {}, sp.get("proof") or {}
     members = (sp.get("baseModule") or {}).get("members") or {}
     dec = (sp.get("baseModule") or {}).get("decider") or {}
-    name = sora_name(sp)
-    y = ["---", "library_name: " + q((sp.get("runtime") or {}).get("library") or SERVED_NAME), "tags:", "  - sora", "  - swarm-module",
+    name = swoa_name(sp)
+    y = ["---", "library_name: " + q((sp.get("runtime") or {}).get("library") or SERVED_NAME), "tags:", "  - swoa", "  - swarm-module",
          "base_module: " + q(name.split("--")[0] if name else ""),
          "base_module_sha256: " + q(h.get("baseModuleSha256")),
-         "sora_sha256: " + q(h.get("recipeSha256")),
+         "swoa_sha256: " + q(h.get("recipeSha256")),
          "arrangement_sha256: " + q(h.get("arrangementSha256")),
          "target_model: " + q(t.get("name")),
          "base_models:"] + ["  - " + q(m.get("repo") or m.get("name") or m.get("id")) for m in members.values()] + [
@@ -888,23 +888,23 @@ def sora_card(sp):
         y += ["      - task:", "          type: text-generation", "          name: " + q(e.get("name")),
               "        dataset:", "          name: " + q(e.get("name")), "          type: " + q(e.get("task")),
               "        metrics:",
-              "          - type: " + q(e.get("metric")), "            name: " + q("SoRA"), "            value: " + q(e["sora"]["value"]),
+              "          - type: " + q(e.get("metric")), "            name: " + q("SwOA"), "            value: " + q(e["swoa"]["value"]),
               "          - type: " + q(e.get("metric")), "            name: " + q("target: " + str(t.get("name"))), "            value: " + q(e["target"]["value"]),
               "        source:", "          name: " + q("%s %s" % (e["harness"].get("name"), e["harness"].get("version"))),
               "          n: " + q(e.get("n")), "          proof: " + q(bool(e.get("proof")))]
     y += ["---", ""]
     rows = ["| %s | %s | %d of %s | %.3f ± %.3f | %.3f ± %.3f | %+.3f ± %.3f | %s |" % (
-        e.get("name"), e.get("metric"), e.get("n") or 0, e.get("of"), e["sora"]["value"], e["sora"].get("stderr") or 0,
+        e.get("name"), e.get("metric"), e.get("n") or 0, e.get("of"), e["swoa"]["value"], e["swoa"].get("stderr") or 0,
         e["target"]["value"], e["target"].get("stderr") or 0, e["gap"], e.get("gapStderr") or 0, "proof" if e.get("proof") else "check")
         for e in pr.get("results") or []]
-    body = ["# SoRA: %s" % name, "",
-            "A SoRA is to a swarm module what a LoRA is to a model: the spec applied to it to tune it. This one tunes a module of %d small models (%s), decided by %s, toward parity with **%s**." % (
+    body = ["# SwOA: %s" % name, "",
+            "A SwOA (Swarm Orchestration Adaptation) is to a swarm module what a LoRA is to a model: the spec applied to it to tune it. This one tunes a module of %d small models (%s), decided by %s, toward parity with **%s**." % (
                 len(members), ", ".join(str(m.get("name") or m.get("id")) for m in members.values()), dec.get("name") or "a decision model", t.get("name")),
-            "", "The module takes messages and gives one reply, as a model does. `%s.sora.json` is everything needed to make it, read by any runtime that implements the [SoRA specification](%s); it was written for %s %s." % (
-                name, SORA_SPEC_URL, (sp.get("runtime") or {}).get("library"), (sp.get("runtime") or {}).get("version")),
+            "", "The module takes messages and gives one reply, as a model does. `%s.swoa.json` is everything needed to make it, read by any runtime that implements the [SwOA specification](%s); it was written for %s %s." % (
+                name, SWOA_SPEC_URL, (sp.get("runtime") or {}).get("library"), (sp.get("runtime") or {}).get("version")),
             "", "## Proof", "", "The goal is %s. Parity is not guaranteed: as with a LoRA, the harness may measure a loss, and the gap says so." % pr.get("goal", ""),
             "", (pr.get("rule", "")[:1].upper() + pr.get("rule", "")[1:]) + ".", ""]
-    body += (["| Task | Metric | Questions | SoRA | Target | Gap | |", "|---|---|---|---|---|---|---|"] + rows) if rows else ["No harness result has been measured on this SoRA."]
+    body += (["| Task | Metric | Questions | SwOA | Target | Gap | |", "|---|---|---|---|---|---|---|"] + rows) if rows else ["No harness result has been measured on this SwOA."]
     body += ["", "## Hashes", "", "- base module: `%s`" % h.get("baseModuleSha256"), "- arrangement: `%s`" % h.get("arrangementSha256"),
-             "- SoRA (recipe): `%s`" % h.get("recipeSha256"), "", "Format: [SoRA specification](%s), version %s." % (SORA_SPEC_URL, h.get("version")), ""]
+             "- SwOA (recipe): `%s`" % h.get("recipeSha256"), "", "Format: [SwOA specification](%s), version %s." % (SWOA_SPEC_URL, h.get("version")), ""]
     return "\n".join(y + body)

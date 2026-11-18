@@ -1,14 +1,14 @@
-# SoRA training: what is learned, scoped to what it was learned on
+# SwOA training: what is learned, scoped to what it was learned on
 
-Part of SoRA ([sora.md](sora.md)): a SoRA spec tunes a swarm module toward parity with a target model, as an established
-harness measures it. This is how SoRA training keeps what it learns on one class of input from changing the module's behaviour
+Part of SwOA ([swoa.md](swoa.md)): a SwOA spec tunes a swarm module toward parity with a target model, as an established
+harness measures it. This is how SwOA training keeps what it learns on one class of input from changing the module's behaviour
 on every other class.
 
 Status: design, 2026-11-18. Steps 1 and 2 are built (classes, migration, coverage gate); 3 to 6 are not.
 
 ## The question
 
-SoRA training finds changes to the arrangement (what each slot is told, the plan, the flow) that bring a configuration's answers to
+SwOA training finds changes to the arrangement (what each slot is told, the plan, the flow) that bring a configuration's answers to
 parity with the larger model, measured against the spec questions. The swarm is consumed as one module: messages in, one reply
 out, under lm-evaluation-harness today and under any caller later. **Does what training learned carry into how that module
 behaves on input it was not trained on?**

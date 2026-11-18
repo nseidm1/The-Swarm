@@ -66,7 +66,7 @@ export function letterOf(text, marker = MARKER, letters = 'ABCDEFGH') {
   return '';
 }
 
-// THE TEXT OF A MESSAGE'S CONTENT (SoRA specification S3.7, T.6.6): a string is itself; a list of parts is its text parts
+// THE TEXT OF A MESSAGE'S CONTENT (SwOA specification S3.7, T.6.6): a string is itself; a list of parts is its text parts
 // joined in order with nothing between them (an image or any other part adds nothing); absent or null is empty
 export const textOf = (content) =>
   typeof content === 'string'
