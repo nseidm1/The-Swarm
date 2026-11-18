@@ -52,19 +52,28 @@ export async function slotReport(rows, tasksById, { reader = '', briefs = null, 
   for (const r of rows) {
     const t = tasksById[r.id];
     paths[r.path] = (paths[r.path] || 0) + 1;
-    if (r.refReply === undefined || r.grade === 'noref') continue; // the larger model gave no answer to this one: nothing to be equivalent to
+    // (a question with a standard of its own is graded against that, whatever the larger model answered: tasks.mjs good)
+    const byOwn = !!t && typeof t.good === 'function' && process.env.SWARM_GRADE !== 'target';
+    if ((r.refReply === undefined && !byOwn) || r.grade === 'noref') continue; // the larger model gave no answer to this one: nothing to be equivalent to
     const memo = new Map();
     // (and how near it came: of code the share of inputs it gets as the larger model's does, of words the reader's probability)
     const shareOf = new Map();
     const own = async (text) => {
       if (!text) return false;
       if (!memo.has(text)) {
-        const g = await t.equivalent(r.refReply, t.wrap(text), {
-          reader,
-          ...(markOf ? { mark: markOf(t) } : {}),
-        });
+        const ctx = { reader, ...(markOf ? { mark: markOf(t) } : {}) };
+        const g = byOwn
+          ? (await t.good(t.wrap(text), ctx)) || { grade: 'noref' }
+          : await t.equivalent(r.refReply, t.wrap(text), ctx);
         memo.set(text, g.grade === 'right');
-        const sh = typeof g.share === 'number' ? g.share : typeof g.p === 'number' ? g.p : null;
+        const sh =
+          typeof g.share === 'number'
+            ? g.share
+            : typeof g.p === 'number'
+              ? g.p
+              : byOwn && typeof g.score === 'number'
+                ? g.score
+                : null;
         if (sh !== null) shareOf.set(text, sh);
       }
       return memo.get(text);

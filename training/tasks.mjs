@@ -433,6 +433,9 @@ export function readOwn(ids) {
 }
 export { CREW_KIND_NAMES };
 // what is sent for a question: the question alone, or (a conversation) the system line a seat is given and the turns so far
+// DOES A QUESTION CARRY A STANDARD OF ITS OWN? Then an answer to it is graded against the question (good), and the larger model's
+// answer is one more answer graded the same way: not the mark (docs/swoa-parity.md, 4)
+export const ownStandard = (t) => !!t && typeof t.good === 'function';
 export const messagesOf = (t) =>
   t.turns
     ? [...(t.system ? [{ role: 'system', content: t.system }] : []), ...t.turns]
@@ -525,6 +528,12 @@ export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, foc
           inputs: made.inputs,
           ok: made.ok,
           equivalent: (refReply, reply) => codeEquivalent(refReply, reply, made),
+          // GOOD, BY THE QUESTION'S OWN STANDARD (docs/swoa-parity.md, 4): the reply's function behaves as the question's correct
+          // solution on the question's inputs. Its score is the share of them on which it does
+          good: async (reply) => {
+            const g = await codeEquivalent('```js\n' + made.ok + '\n```', reply, made);
+            return { ...g, score: g.grade === 'right' ? 1 : typeof g.share === 'number' ? g.share : 0 };
+          },
           usable: (reply) => codeWhole(reply, made.name),
           // does this reply's function do what the question says (what the question's own reference function does)?
           toSpec: async (reply) => (await codeEquivalent('```js\n' + made.ok + '\n```', reply, made)).grade === 'right',
@@ -578,6 +587,19 @@ export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, foc
           ...base,
           flaw: made.flaw,
           equivalent: (refReply, reply, ctx) => openEquivalent(made.ask, refReply, reply, ctx),
+          // (good: the reply says the flaw the question was made with, as the reader reads it; its score is that reading)
+          ...(made.flaw
+            ? {
+                good: async (reply, ctx) => {
+                  const g = await openEquivalent(made.ask, 'The mistake: ' + made.flaw + '.', reply, ctx);
+                  return { ...g, ...(typeof g.p === 'number' ? { score: g.p } : {}) };
+                },
+                toSpec: async (reply, ctx) => {
+                  const g = await openEquivalent(made.ask, 'The mistake: ' + made.flaw + '.', reply, ctx);
+                  return g.grade === 'noref' ? null : g.grade === 'right';
+                },
+              }
+            : {}),
           // an answer in words says something: a reply cut off after a word or two does not
           usable: (reply) =>
             String(reply || '')
@@ -604,6 +626,15 @@ export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, foc
             return { grade: theirs ? gradeFor(theirs)(reply) : 'noref' };
           },
           usable: (reply) => !!read(reply),
+          // (good: the reply gives the question's own answer)
+          ...(made.want === undefined
+            ? {}
+            : {
+                good: async (reply) => {
+                  const grade = gradeFor(String(made.want))(reply);
+                  return { grade, score: grade === 'right' ? 1 : 0 };
+                },
+              }),
           toSpec: async (reply) => (made.want === undefined ? null : gradeFor(String(made.want))(reply) === 'right'),
           show: read,
           wrap: (final) => 'ANSWER: ' + final,

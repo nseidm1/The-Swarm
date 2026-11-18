@@ -436,7 +436,9 @@ export function coverageOf(list, { ref = new Map(), readerOk = () => true } = {}
   for (const t of list || []) {
     const k = by.get(t.kind) || { kind: t.kind, n: 0, compared: 0, noRef: 0, noReader: 0, type: t.type };
     k.n++;
-    const hasRef = ref && ref.get(t.id) !== undefined;
+    // (a question with a standard of its own needs no answer of the larger model's to be graded: tasks.mjs good)
+    const hasRef =
+      (ref && ref.get(t.id) !== undefined) || (typeof t.good === 'function' && process.env.SWARM_GRADE !== 'target');
     const needsReader = t.type === 'open' || t.type === 'talk';
     if (!hasRef) k.noRef++;
     else if (needsReader && !readerOk(t.type)) k.noReader++;
@@ -530,6 +532,39 @@ export function effectOn(b = {}, cls = '') {
   return { ...b, plan, flow: strip(flowOf(b)) };
 }
 export const sameEffect = (a, b, cls) => JSON.stringify(effectOn(a, cls)) === JSON.stringify(effectOn(b, cls));
+// THE MODULE BESIDE ITS TARGET, FAMILY BY FAMILY (docs/swoa-parity.md, 4): for each kind of question, how many the module has right
+// and, where the questions carry a standard of their own, how many the larger model's own answers have right by that same
+// standard (targetRight(id) -> true | false | null where it is not known). Where they do not, the larger model's answer is the
+// standard and its own count is not a figure.
+export function familiesOf(list, rows, targetRight = () => null) {
+  const by = new Map();
+  const rowOf = new Map((rows || []).map((r) => [r.id, r]));
+  for (const t of list || []) {
+    const own = typeof t.good === 'function';
+    const k = by.get(t.kind) || {
+      kind: t.kind,
+      n: 0,
+      own,
+      asked: 0,
+      module: 0,
+      target: own ? 0 : null,
+      targetKnown: 0,
+    };
+    k.n++;
+    const r = rowOf.get(t.id);
+    if (r && r.grade !== 'noref') {
+      k.asked++;
+      if (r.grade === 'right') k.module++;
+    }
+    if (own) {
+      const tr = targetRight(t.id);
+      if (tr === true || tr === false) k.targetKnown++;
+      if (tr === true) k.target++;
+    }
+    by.set(t.kind, k);
+  }
+  return [...by.values()];
+}
 export function quotesQuestion(newBriefs, oldBriefs, tokens = []) {
   if (!tokens.length) return '';
   const was = new Map(((oldBriefs && oldBriefs.slots) || []).map((x) => [x.id, x.brief]));
@@ -2024,7 +2059,20 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     process.exit(3);
   }
   // (and the marks the questions' own correct solutions prove wrong: answered once and set aside)
-  const wrongMarks = await wrongMarksOf(list, ref);
+  // (only the questions graded against the larger model's answer: where a question carries a standard of its own the swarm's
+  // answer is graded against that, and a wrong mark, a mark not given again or a degenerate one costs it nothing)
+  const ownGrade = process.env.SWARM_GRADE !== 'target';
+  const byMark = list.filter((t) => !(ownGrade && typeof t.good === 'function'));
+  if (byMark.length < list.length)
+    console.log(
+      list.length -
+        byMark.length +
+        ' of ' +
+        list.length +
+        " train questions carry a standard of their own (a correct solution, an answer, a flaw): an answer is graded against it, and the larger model's answer the same way.",
+    );
+  for (const t of list) if (!byMark.includes(t)) unstable.delete(t.id);
+  const wrongMarks = await wrongMarksOf(byMark, ref);
   if (wrongMarks.size)
     console.log(
       wrongMarks.size +
@@ -2254,12 +2302,14 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       "The larger model's second answers could not be read again: " + String((e && e.message) || e).slice(0, 120),
     );
   }
+  // (a question graded against a standard of its own has no mark to be unsteady)
+  for (const t of list) if (!byMark.includes(t)) unstable.delete(t.id);
   if (unstable.size)
     console.log(
       unstable.size +
         ' of ' +
-        list.length +
-        ' train questions have a mark the larger model did not give again: one the swarm is not at parity with as it stands is set aside, not searched.',
+        byMark.length +
+        " train questions graded against the larger model's answer have a mark it did not give again: one the swarm is not at parity with as it stands is set aside, not searched.",
     );
   const pick = (got) => ({
     reply: got.reply,
@@ -2471,6 +2521,21 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const c = count(st.rows);
   const rep = await slotReport(st.rows, byId, { reader, briefs: st.briefs, markOf });
   console.log(line('swarm (train)', c));
+  // THE MODULE BESIDE ITS TARGET, family by family (familiesOf): where the questions carry a standard of their own, the larger
+  // model's own answers are counted by that standard too (ref.toSpec: baseline.mjs wrote it as it answered)
+  const families = familiesOf(list, st.rows, (id) => (ref.toSpec ? ref.toSpec.get(id) : null));
+  for (const f of families)
+    console.log(
+      '  ' +
+        f.kind.padEnd(16) +
+        'the module ' +
+        f.module +
+        ' of ' +
+        f.asked +
+        (f.own
+          ? ', the larger model ' + f.target + ' of ' + f.targetKnown + " (by the question's own standard)"
+          : " (against the larger model's answers)"),
+    );
   rowsTo(
     'swarm-runs.jsonl',
     st.rows.map((r) => ({ label: 'swarm', briefs: st.briefs.version, adapters: swarm.adapters || [], ...r })),
@@ -2484,6 +2549,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     target: TARGET.id,
     ...c,
     ...rep,
+    families,
   });
   // what was tried, on the plan and for the passes after: a change tried on `drop` questions that brought none to parity is not
   // tried again

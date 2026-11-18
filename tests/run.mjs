@@ -592,15 +592,36 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     [q3.id]: 'Not sure.',
     [q4.id]: block(q4.ok),
   };
-  const rows = await runRows([q1, q2, q3, q4], async (q) => ({ reply: says[q.id] }), {
-    ref: new Map([
-      [q1.id, block(q1.ok)],
-      [q2.id, block(q2.ok)],
-      [q3.id, block(q3.ok)],
-      [q4.id, 'I cannot write that.'],
-    ]),
-  });
+  const refs4 = new Map([
+    [q1.id, block(q1.ok)],
+    [q2.id, block(q2.ok)],
+    [q3.id, block(q3.ok)],
+    [q4.id, 'I cannot write that.'],
+  ]);
+  // (graded against the larger model's reply, as every question was before it could carry a standard of its own: SWARM_GRADE=target)
+  process.env.SWARM_GRADE = 'target';
+  const rows = await runRows([q1, q2, q3, q4], async (q) => ({ reply: says[q.id] }), { ref: refs4 });
+  delete process.env.SWARM_GRADE;
   const c = count(rows);
+  // GRADED BY THE QUESTION'S OWN STANDARD (docs/swoa-parity.md, 4): its correct solution on its inputs, whatever the larger model
+  // answered; whether it also agrees with the larger model's answer is kept beside the grade
+  const ownRows = await runRows([q1, q2, q3, q4], async (q) => ({ reply: says[q.id] }), { ref: refs4 });
+  const co = count(ownRows);
+  check(
+    "a question that carries its own correct solution is graded against it: right, wrong (with the input that parts it), no answer; it is counted whatever the larger model answered, how far it met the standard is kept as its reading, and whether it agrees with the larger model's answer is kept beside the grade",
+    ownRows.map((r) => r.grade).join() === 'right,wrong,unsure,right' &&
+      co.compared === 4 &&
+      co.right === 2 &&
+      ownRows.every((r) => r.standard === 'own') &&
+      ownRows[0].agrees === true &&
+      ownRows[1].agrees === false &&
+      ownRows[3].agrees === undefined &&
+      ownRows[1].partsOn &&
+      ownRows[0].reading === 1 &&
+      ownRows[1].reading < 1 &&
+      !rows.some((r) => r.standard),
+    ownRows.map((r) => [r.grade, r.standard, r.agrees, r.reading]),
+  );
   const self = await runRows([q1, q3], async (q) => ({ reply: says[q.id] }), { self: true });
   check(
     "every reply is marked against the larger model's reply: equivalent, different (with the input that parts them), no answer; a question the larger model gave no answer to is not counted; and the larger model is its own mark",
@@ -741,10 +762,12 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     })(),
     { self: true, who: 'target' },
   );
+  process.env.SWARM_GRADE = 'target';
   const against = await runRows([code], async () => ({ reply: whole }), {
     ref: new Map([[code.id, cutReply]]),
     who: 'a',
   });
+  delete process.env.SWARM_GRADE;
   check(
     "the larger model's reply is the mark only where it holds an answer: a function cut off partway is code and is no answer, a sentence cut off after a word is none, and a question it gave none to is not compared for anyone",
     codeWhole(block(good), 'add') &&
@@ -4889,6 +4912,66 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       ) === 20 &&
       sizeOf(plan.find((b) => b.task === 'gsm8k')) === 0,
     by,
+  );
+}
+// ---- 9u: GOOD, WHERE THE QUESTION CAN SAY (docs/swoa-parity-plan.md, step 3): a value graded against the question's own answer, a
+// flaw against the flaw the question was made with; which questions carry a standard; the module beside its target by family
+{
+  const { tasks, ownStandard } = await import('../training/tasks.mjs');
+  const { familiesOf, coverageOf } = await import('../training/loop.mjs');
+  const all = tasks({ split: 'train', each: 2 });
+  const value = all.find((t) => t.type === 'value' && t.want !== undefined);
+  const open = all.find((t) => t.type === 'open' && t.flaw);
+  const talk = all.find((t) => t.type === 'talk');
+  const code = all.find((t) => t.type === 'code');
+  const vr = await value.good('Working it through.\nANSWER: ' + value.want);
+  const vw = await value.good('ANSWER: nothing of the kind');
+  // (the reader, stood in for: it is asked the question, the flaw as the standard, and the reply)
+  const seen = [];
+  const fetchImpl = async (url, o) => {
+    const body = JSON.parse(o.body);
+    seen.push(JSON.stringify(body));
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ answers: { same: { noul: /wrap/.test(JSON.stringify(body)) ? 0.93 : 0.07 } } }),
+    };
+  };
+  const og = await open.good('It never wraps round.', { reader: 'http://reader', fetchImpl });
+  const fams = familiesOf(
+    [code, value, talk],
+    [
+      { id: code.id, grade: 'right' },
+      { id: value.id, grade: 'wrong' },
+      { id: talk.id, grade: 'noref' },
+    ],
+    (id) => (id === code.id ? false : id === value.id ? true : null),
+  );
+  const fam = Object.fromEntries(fams.map((f) => [f.kind, f]));
+  const cov = coverageOf([code, talk], { ref: new Map() });
+  check(
+    "a value is good when it is the question's own answer, a flaw when the reader reads the reply as the flaw the question was made with (the flaw is what the reader is shown, not the larger model's answer); questions of code, of a value and of a flaw carry a standard, a reply in a conversation does not; the module is set beside the larger model family by family, the larger model counted by the same standard; and a question with its own standard is compared though the larger model never answered it",
+    vr.grade === 'right' &&
+      vr.score === 1 &&
+      vw.grade !== 'right' &&
+      seen.length === 1 &&
+      seen[0].includes(open.flaw.slice(0, 20)) &&
+      typeof og.score === 'number' &&
+      ownStandard(code) &&
+      ownStandard(value) &&
+      ownStandard(open) &&
+      !ownStandard(talk) &&
+      fam[code.kind].module === 1 &&
+      fam[code.kind].target === 0 &&
+      fam[code.kind].targetKnown === 1 &&
+      fam[value.kind].module === 0 &&
+      fam[value.kind].target === 1 &&
+      fam[talk.kind].own === false &&
+      fam[talk.kind].target === null &&
+      fam[talk.kind].asked === 0 &&
+      cov.find((k) => k.kind === code.kind).compared === 1 &&
+      cov.find((k) => k.kind === talk.kind).compared === 0,
+    { vr, vw, og, fams, cov },
   );
 }
 // ---- 9a: a small model beside the decider in the decide step (plan.decideWith)

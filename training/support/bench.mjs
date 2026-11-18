@@ -437,8 +437,24 @@ export async function run(
     const theirs = self ? got.reply : ref ? ref.get(t.id) : undefined;
     let mark = { grade: 'noref' };
     const holds = (text) => (t.usable ? t.usable(text) : !!t.show(text));
+    const readsWords = t.type === 'open' || t.type === 'talk';
+    const ctx = { reader: judgeAddress(decider), mark: readerMark(WORKC, t.type) };
+    // GRADED BY THE QUESTION'S OWN STANDARD WHERE IT HAS ONE (tasks.mjs good; docs/swoa-parity.md, 4): the larger model's answer is
+    // then not needed to grade the swarm's, and is itself one more answer graded the same way (toSpec, below)
+    let own = false;
     if (self) mark = { grade: holds(got.reply) ? 'right' : 'unsure' };
-    else if (theirs !== undefined)
+    else if (t.good && process.env.SWARM_GRADE !== 'target') {
+      own = true;
+      mark =
+        readsWords && !readerOk(WORKC, t.type)
+          ? {
+              grade: 'noref',
+              why: 'the reader of answers in words failed its own check this pass (training/readers.mjs)',
+            }
+          : got.why
+            ? { grade: 'unsure' }
+            : (await t.good(got.reply, ctx)) || { grade: 'noref' };
+    } else if (theirs !== undefined)
       // a reply of the larger model's that holds no answer (cut off, empty) is nothing to be equivalent to: not compared
       mark = !holds(theirs)
         ? { grade: 'noref' }
@@ -452,7 +468,7 @@ export async function run(
             }
           : got.why
             ? { grade: 'unsure' }
-            : await t.equivalent(theirs, got.reply, { reader: judgeAddress(decider), mark: readerMark(WORKC, t.type) });
+            : await t.equivalent(theirs, got.reply, ctx);
     const row = {
       cfg: who === 'swarm' ? CONFIG_ID : undefined,
       target: targetOf().id,
@@ -472,15 +488,29 @@ export async function run(
       row.partsOn = { input: mark.input, theirs: mark.theirs, ours: mark.ours };
     if (mark.why) row.markWhy = mark.why;
     if (mark.undecided) row.undecided = true; // (support/equivalent.mjs UNDECIDED: graded different, counted apart)
-    // (and how the reader read the reply itself: the probability that it says what the larger model's says. The loop climbs by it)
+    // (and how the reader read the reply itself: the probability that it says what the larger model's says. The loop climbs by it.
+    // Graded by the question's own standard: how far it met it, the share of the question's inputs it gets right for code)
     if (typeof mark.p === 'number') row.reading = Math.round(mark.p * 1000) / 1000;
+    else if (own && typeof mark.score === 'number') row.reading = Math.round(mark.score * 1000) / 1000;
+    if (own) {
+      row.standard = 'own';
+      if (typeof mark.score === 'number') row.score = Math.round(mark.score * 1000) / 1000;
+      // (whether it also agrees with the larger model's answer: a thing to look at, no longer the grade. Not asked where that
+      // takes the reader: one reading a reply is enough)
+      if (!readsWords && theirs !== undefined && holds(theirs) && !got.why)
+        try {
+          row.agrees = (await t.equivalent(theirs, got.reply, ctx)).grade === 'right';
+        } catch {
+          /* not said */
+        }
+    }
     // a reply in a conversation: which part of equivalence it was lost on (the act, the substance, the conduct)
     if (mark.part) row.part = mark.part;
     if (mark.faults) row.faults = mark.faults;
     if (t.mode) row.mode = t.mode;
     // DOES THE LARGER MODEL'S OWN ANSWER DO WHAT THE QUESTION SAYS? Parity is equivalence with it whatever it answers; but where
     // it departs from the question itself no swarm can be expected to follow, and those questions are counted apart as well
-    if (self && t.toSpec) row.toSpec = await t.toSpec(got.reply);
+    if (self && t.toSpec && !(readsWords && !readerOk(WORKC, t.type))) row.toSpec = await t.toSpec(got.reply, ctx);
     if (!self && ref && ref.toSpec) row.refToSpec = ref.toSpec.get(t.id);
     if (who !== 'swarm')
       liveSlot(who, {
