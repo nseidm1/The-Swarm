@@ -1,5 +1,5 @@
 {
-  "about": "WHAT THE SWARM IS TO BE EQUIVALENT ON. Parity is equivalence with the larger model on a body of work, and which work is chosen (the page, under the models; or \"equivalence\" in src/config.json). Each entry names the kinds of question (training/tasks.mjs) that make it up. More than one can be chosen: a pass then asks all of their kinds. A choice takes effect when the next pass begins. benchmarks: how the swarm is EVALUATED on it, apart from training (training/evaluate.mjs, the page's Evaluate the swarm): standard tasks of EleutherAI's lm-evaluation-harness, each asked of the larger model and of the swarm, and compared answer by answer. task: the harness's name for it; metric and filter: the score the harness reports for it, and the answers that score is taken from; compare: what makes two answers equivalent (answer: the same answer, as the harness extracts it; verdict: the same pass or fail on the task's own tests; instructions: the same instructions followed and broken). Training never asks a benchmark's question.",
+  "about": "WHAT THE SWARM IS TO BE EQUIVALENT ON. Parity is equivalence with the larger model on a body of work, and which work is chosen (the page, under the models; or \"equivalence\" in src/config.json). Each entry names the kinds of question (training/tasks.mjs) that make it up. More than one can be chosen: a pass then asks all of their kinds. A choice takes effect when the next pass begins. benchmarks: how the swarm is EVALUATED on it, apart from training (training/evaluate.mjs, the page's Evaluate the swarm): standard tasks of EleutherAI's lm-evaluation-harness, each asked of the larger model and of the swarm, and compared answer by answer. task: the harness's name for it; metric and filter: the score the harness reports for it, and the answers that score is taken from; compare: what makes two answers equivalent (answer: the same answer, as the harness extracts it; verdict: the same pass or fail on the task's own tests; instructions: the same instructions followed and broken). Training never asks a benchmark's question. proofN: how many of the task's questions a proof run asks (evaluate.sh --proof; 0: every one), sized so that a body of work's tasks together come to about five hundred questions, which is what a verdict on it needs (docs/swoa-parity.md).",
   "default": ["crew"],
   "targets": [
     {
@@ -27,6 +27,7 @@
       "benchmarks": [
         {
           "task": "ifeval",
+          "proofN": 0,
           "name": "IFEval",
           "metric": "prompt_level_strict_acc",
           "filter": "none",
@@ -43,6 +44,7 @@
       "benchmarks": [
         {
           "task": "humaneval_instruct",
+          "proofN": 0,
           "name": "HumanEval",
           "metric": "pass@1",
           "filter": "create_test",
@@ -50,6 +52,7 @@
         },
         {
           "task": "mbpp_instruct",
+          "proofN": 336,
           "name": "MBPP",
           "metric": "pass_at_1",
           "filter": "extract_code",
@@ -65,6 +68,7 @@
       "benchmarks": [
         {
           "task": "gsm8k",
+          "proofN": 300,
           "name": "GSM8K",
           "metric": "exact_match",
           "filter": "flexible-extract",
@@ -72,6 +76,7 @@
         },
         {
           "task": "bbh_cot_fewshot_multistep_arithmetic_two",
+          "proofN": 200,
           "name": "BBH multistep arithmetic",
           "metric": "exact_match",
           "filter": "get-answer",
@@ -87,6 +92,7 @@
       "benchmarks": [
         {
           "task": "bbh_cot_fewshot_logical_deduction_three_objects",
+          "proofN": 100,
           "name": "BBH logical deduction",
           "metric": "exact_match",
           "filter": "get-answer",
@@ -94,6 +100,7 @@
         },
         {
           "task": "bbh_cot_fewshot_date_understanding",
+          "proofN": 100,
           "name": "BBH date understanding",
           "metric": "exact_match",
           "filter": "get-answer",
@@ -101,6 +108,7 @@
         },
         {
           "task": "bbh_cot_fewshot_temporal_sequences",
+          "proofN": 100,
           "name": "BBH temporal sequences",
           "metric": "exact_match",
           "filter": "get-answer",
@@ -108,6 +116,7 @@
         },
         {
           "task": "bbh_cot_fewshot_web_of_lies",
+          "proofN": 100,
           "name": "BBH web of lies",
           "metric": "exact_match",
           "filter": "get-answer",
@@ -115,6 +124,7 @@
         },
         {
           "task": "bbh_cot_fewshot_formal_fallacies",
+          "proofN": 100,
           "name": "BBH formal fallacies",
           "metric": "exact_match",
           "filter": "get-answer",
@@ -130,6 +140,7 @@
       "benchmarks": [
         {
           "task": "bbh_cot_fewshot_word_sorting",
+          "proofN": 85,
           "name": "BBH word sorting",
           "metric": "exact_match",
           "filter": "get-answer",
@@ -137,6 +148,7 @@
         },
         {
           "task": "bbh_cot_fewshot_dyck_languages",
+          "proofN": 85,
           "name": "BBH Dyck languages",
           "metric": "exact_match",
           "filter": "get-answer",
@@ -144,6 +156,7 @@
         },
         {
           "task": "bbh_cot_fewshot_object_counting",
+          "proofN": 85,
           "name": "BBH object counting",
           "metric": "exact_match",
           "filter": "get-answer",
@@ -151,6 +164,7 @@
         },
         {
           "task": "bbh_cot_fewshot_tracking_shuffled_objects_three_objects",
+          "proofN": 85,
           "name": "BBH shuffled objects",
           "metric": "exact_match",
           "filter": "get-answer",
@@ -158,6 +172,7 @@
         },
         {
           "task": "bbh_cot_fewshot_penguins_in_a_table",
+          "proofN": 85,
           "name": "BBH penguins in a table",
           "metric": "exact_match",
           "filter": "get-answer",
@@ -165,6 +180,7 @@
         },
         {
           "task": "bbh_cot_fewshot_boolean_expressions",
+          "proofN": 85,
           "name": "BBH boolean expressions",
           "metric": "exact_match",
           "filter": "get-answer",

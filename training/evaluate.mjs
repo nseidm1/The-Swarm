@@ -42,6 +42,10 @@ export function planOf(targets, ids) {
   return out;
 }
 
+// how many of a task's questions a run asks: in a proof run the size its benchmark names (proofN; 0 or none: every question), else
+// the one size the run was given for every task (0: every question)
+export const sizeOf = (b, { proof = false, limit = 0 } = {}) => (proof ? Number(b.proofN) || 0 : Number(limit) || 0);
+
 // a reply cut where the task says a reply ends
 export function cutAt(text, stops) {
   let s = String(text || '');
@@ -195,6 +199,10 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const CONFIG = readConfig();
   const EQ = JSON.parse(fs.readFileSync(path.join(HERE, 'equivalence.json'), 'utf8'));
   const limit = B.arg('limit') ? Number(B.arg('limit')) : 0;
+  // A PROOF RUN (--proof): each task at the size its benchmark names (equivalence.json proofN; 0 or none: every question), sized so
+  // that a capability's tasks together come to about five hundred questions, which is what a verdict needs (docs/swoa-parity.md)
+  const proof = B.has('proof');
+  const limitOf = (b) => sizeOf(b, { proof, limit });
   const ids = B.arg('items') ? String(B.arg('items')).split(',') : CONFIG.equivalence || EQ.default;
   const plan = planOf(EQ.targets, ids);
   const runId = new Date().toISOString().replace(/[:.]/g, '-');
@@ -222,6 +230,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     runId,
     startedAt: Date.now(),
     limit,
+    ...(proof ? { proof: true } : {}),
     harness: HARNESS,
     harnessId: HARNESS_ID,
     configuration: CONFIG_KEY,
@@ -327,7 +336,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         '--output_path',
         out,
         '--confirm_run_unsafe_code',
-        ...(limit ? ['--limit', String(limit)] : []),
+        ...(limitOf(b) ? ['--limit', String(limitOf(b))] : []),
       ];
       child = spawn(path.join(LMEVAL, 'venv', 'bin', 'lm_eval'), args, {
         env: {
@@ -412,7 +421,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   };
 
   // THE LARGER MODEL FIRST, and only where its answers to this task, at this size, are not already kept
-  const keep = (b) => path.join(EVAL_DIR, 'target', TARGET.id, b.task + '-' + (limit || 'all') + '-r' + RELAY_VERSION);
+  const keep = (b) =>
+    path.join(EVAL_DIR, 'target', TARGET.id, b.task + '-' + (limitOf(b) || 'all') + '-r' + RELAY_VERSION);
   const needTarget = plan.filter((b) => !filesOf(keep(b), b.task));
   for (const b of plan.filter((x) => !needTarget.includes(x))) {
     const row = live.tasks.find((t) => t.task === b.task).target;
@@ -437,19 +447,55 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   // THEN THE SWARM, as it is trained now (or one already served at SWARM_EVAL_SWARM_BASE, which is left running)
   live.phase = 'loading';
   const servedAt = process.env.SWARM_EVAL_SWARM_BASE || '';
-  say(servedAt ? 'Using the swarm served at ' + servedAt : 'Loading the swarm (' + CONFIG_KEY.split('--')[0] + ')');
-  let swarm = null;
-  let served = { base: servedAt, close: async () => {} };
-  if (!servedAt) {
-    swarm = await B.openSwarm(readBriefs());
-    stopping.push(() => swarm.stop());
-    served = await serve(swarm, { port: 0 });
-    stopping.push(served.close);
+  // THE SWARM'S ANSWERS ARE KEPT TOO, task by task, for exactly this module: this arrangement, these adapters, and this runtime
+  // (every file of src/ hashed: a change to how the module answers is a change to what was measured). A proof run is hours long
+  // and will be stopped; started again it asks only the tasks it had not finished. --fresh asks them all again. A swarm someone
+  // else serves (SWARM_EVAL_SWARM_BASE) is not known to be the same one, and is always asked.
+  const runtimeSha = crypto
+    .createHash('sha256')
+    .update(
+      fs
+        .readdirSync(path.join(ROOT, 'src'))
+        .filter((f) => f.endsWith('.mjs'))
+        .sort()
+        .map((f) => f + '\n' + fs.readFileSync(path.join(ROOT, 'src', f), 'utf8'))
+        .join('\n'),
+    )
+    .digest('hex')
+    .slice(0, 12);
+  const swarmKeep = (b) =>
+    servedAt
+      ? path.join(runDir, 'swarm', b.task)
+      : path.join(
+          EVAL_DIR,
+          'swarm',
+          CONFIG_KEY,
+          arrangementSha256.slice(0, 16) + '-' + runtimeSha + (adapters.length ? '-adapters' : ''),
+          b.task + '-' + (limitOf(b) || 'all') + '-r' + RELAY_VERSION,
+        );
+  const needSwarm = plan.filter((b) => servedAt || B.has('fresh') || !filesOf(swarmKeep(b), b.task));
+  for (const b of plan.filter((x) => !needSwarm.includes(x))) {
+    const row = live.tasks.find((t) => t.task === b.task).swarm;
+    const s = scoreOf(filesOf(swarmKeep(b), b.task).results, b);
+    Object.assign(row, { state: 'kept', done: s.n, of: s.n });
   }
-  live.phase = 'asking';
-  await askAll('swarm', askAt(served.base), plan, (b) => path.join(runDir, 'swarm', b.task));
-  await served.close();
-  if (swarm) await swarm.stop();
+  if (needSwarm.length) {
+    say(servedAt ? 'Using the swarm served at ' + servedAt : 'Loading the swarm (' + CONFIG_KEY.split('--')[0] + ')');
+    let swarm = null;
+    let served = { base: servedAt, close: async () => {} };
+    if (!servedAt) {
+      swarm = await B.openSwarm(readBriefs());
+      stopping.push(() => swarm.stop());
+      served = await serve(swarm, { port: 0 });
+      stopping.push(served.close);
+    }
+    live.phase = 'asking';
+    // (a task asked again starts from nothing: what a stopped run left of it is not a whole answer to it)
+    for (const b of needSwarm) fs.rmSync(swarmKeep(b), { recursive: true, force: true });
+    await askAll('swarm', askAt(served.base), needSwarm, swarmKeep);
+    await served.close();
+    if (swarm) await swarm.stop();
+  } else say('The swarm has answered every one of these tasks as it is now: nothing is asked again');
 
   if (halted) await never();
   // AND EACH QUESTION'S TWO ANSWERS COMPARED
@@ -459,7 +505,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   for (const b of plan) {
     const row = live.tasks.find((t) => t.task === b.task);
     const tf = filesOf(keep(b), b.task);
-    const sf = filesOf(path.join(runDir, 'swarm', b.task), b.task);
+    const sf = filesOf(swarmKeep(b), b.task);
     if (!tf || !sf) {
       results.push({ ...b, failed: (!tf ? 'the larger model' : 'the swarm') + ' was not asked it to the end' });
       continue;
@@ -489,11 +535,13 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     at: new Date().toISOString(),
     runId,
     limit,
+    ...(proof ? { proof: true } : {}),
     harness: HARNESS,
     harnessId: HARNESS_ID,
     configuration: CONFIG_KEY,
     briefs: briefsHash,
     arrangementSha256,
+    runtimeSha,
     adapters,
     target: TARGET.name,
     seconds: (Date.now() - live.startedAt) / 1000,

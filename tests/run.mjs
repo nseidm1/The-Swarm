@@ -4865,6 +4865,32 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     },
   );
 }
+// ---- 9v: A PROOF RUN ASKS EACH TASK AT THE SIZE ITS BENCHMARK NAMES (docs/swoa-parity-plan.md, step 1): about five hundred
+// questions for each body of work, which is what a verdict on a capability needs
+{
+  const { planOf, sizeOf } = await import('../training/evaluate.mjs');
+  const EQ = JSON.parse(fs.readFileSync(new URL('../training/equivalence.json', import.meta.url), 'utf8'));
+  const whole = { ifeval: 541, humaneval_instruct: 164 };
+  const plan = planOf(EQ.targets, ['crew', 'code', 'math', 'logic', 'reasoning']);
+  const by = {};
+  for (const b of plan) by[b.item] = (by[b.item] || 0) + (sizeOf(b, { proof: true }) || whole[b.task] || NaN);
+  check(
+    'a proof run asks each task at the size its benchmark names (every question where it names none), each body of work coming to about five hundred; any other run asks every task at the one size it was given',
+    plan.length === 16 &&
+      Object.values(by).every((n) => n >= 500 && n <= 541) &&
+      sizeOf(plan[0], { proof: true }) === 0 &&
+      sizeOf(
+        plan.find((b) => b.task === 'gsm8k'),
+        { proof: true },
+      ) === 300 &&
+      sizeOf(
+        plan.find((b) => b.task === 'gsm8k'),
+        { limit: 20 },
+      ) === 20 &&
+      sizeOf(plan.find((b) => b.task === 'gsm8k')) === 0,
+    by,
+  );
+}
 // ---- 9a: a small model beside the decider in the decide step (plan.decideWith)
 {
   const { answer: orchestrate } = await import('../src/orchestrate.mjs');
