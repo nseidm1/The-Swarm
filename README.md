@@ -882,6 +882,9 @@ Known limits:
 | Document | What it covers |
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | The public surface, the files, slots, what each slot is sent, failure |
+| [docs/swoa.md](docs/swoa.md) | The SwOA specification: the format, and everything a runtime needs to serve a module from one |
+| [docs/swoa-classes.md](docs/swoa-classes.md) | Design: what training learns, kept with the class of input it was learned on |
+| [docs/swoa-parity.md](docs/swoa-parity.md) | Design, not yet built: what parity means, how a SwOA proves it, and what training aims at; its build plan is [docs/swoa-parity-plan.md](docs/swoa-parity-plan.md) |
 | [training/TRAIN.md](training/TRAIN.md) | What parity means, which models, making ready, what is measured, how a pass feeds the next, the rules |
 | [specs/README.md](specs/README.md) | What a published spec is, and how one gets there |
 | [SECURITY.md](SECURITY.md) | What the Swarm is built to hold, and how model-written code is run |

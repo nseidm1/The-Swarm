@@ -4,6 +4,8 @@ Part of SwOA ([swoa.md](swoa.md)): a SwOA spec tunes a swarm module toward parit
 harness measures it. This is how SwOA training keeps what it learns on one class of input from changing the module's behaviour
 on every other class.
 
+Next: [swoa-parity.md](swoa-parity.md), what parity means and what training aims at.
+
 Status: design, 2026-11-18. Steps 1 to 4 are built: classes, migration, coverage gate, scoping by class, the held guard and the
 specificity check. Promotion to the shared arrangement (in 2) is not built: the shared arrangement stays the starting one. Steps
 5 and 6 are not built (proof per class; evaluation by class). The held guard asks the pass's held questions, so the held
