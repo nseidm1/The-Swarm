@@ -460,6 +460,30 @@ export function addToLibrary(lib, names, from) {
 // A QUESTION IS NOT LEFT SHORT OF PARITY. The loop moves on only when the question in hand is at parity (or `cap`, a bound only a
 // person sets, runs out). Where every arrangement open has been tried, the search widens: what the beam closed is opened again,
 // then every arrangement tried on the question is built on. A mark the larger model did not give again is searched the same way.
+// THE MARKS THE QUESTIONS THEMSELVES PROVE WRONG: a question of code is made with its correct solution (training/tasks-code.mjs
+// ok) and the inputs it is tried on; where the larger model's answer does not give what that solution gives on every one, the mark
+// is wrong. Measured 2026-11-17: Nemotron 3.5 Lightning 30B wrong on 7 of a pass's 30 code questions (toSeconds("5m") 0, wanted
+// 300), and 3 of the 5 changes one run kept were won on them, the swarm taught the larger model's mistakes.
+// -> Map(id -> { share, input, theirs, wanted }) for those questions
+export async function wrongMarksOf(list, ref, equivalent = null) {
+  const eq = equivalent || (await import('./support/equivalent.mjs')).codeEquivalent;
+  const out = new Map();
+  for (const t of list) {
+    const reply = ref && (ref.get ? ref.get(t.id) : ref[t.id]);
+    if (!t.ok || !t.name || !Array.isArray(t.inputs) || !reply) continue;
+    try {
+      const g = await eq('```js\n' + t.ok + '\n```', reply, { name: t.name, inputs: t.inputs });
+      if (g.grade === 'wrong' || g.grade === 'unsure')
+        out.set(t.id, {
+          share: g.share ?? 0,
+          ...(g.input ? { input: g.input, theirs: g.ours, wanted: g.theirs } : {}),
+        });
+    } catch {
+      /* nothing could be run here: the mark stands */
+    }
+  }
+  return out;
+}
 export async function runLoop({
   list,
   briefs,
@@ -477,6 +501,9 @@ export async function runLoop({
   classes = {},
   beam,
   unstable = new Set(),
+  // the questions whose mark the question's own correct solution proves wrong (wrongMarksOf): answered once and set aside, never
+  // searched, and never a question a change must not lose
+  wrongMarks = new Map(),
   policy = {},
   policyLog = [],
   trial = null,
@@ -510,7 +537,7 @@ export async function runLoop({
   const doneIds = () =>
     new Set(st.questions.filter((q) => q.state !== 'reopened' && q.state !== 'set aside').map((q) => q.id));
   const reached = st.questions
-    .filter((q) => q.reached)
+    .filter((q) => q.reached && !wrongMarks.has(q.id))
     .map((q) => ({ t: byId[q.id], row: st.rows.find((r) => r.id === q.id) }))
     .filter((r) => r.t && r.row);
   // every try counted, for the policy: what came of it (kept 10, at parity but lost one already there 3, closer 1, nothing 0)
@@ -566,7 +593,12 @@ export async function runLoop({
     // A STOPPED RUN CARRIES ON FROM ITS LAST TRY: where this question's search was written down on the same arrangement
     const carry = st.inHand && st.inHand.id === t.id && st.inHand.version === (briefs.version || 1) ? st.inHand : null;
     st.inHand = null;
-    if (row.grade === 'noref') q.state = 'not compared';
+    // A MARK PROVED WRONG: the larger model's answer does not do what the question asks (its own correct solution says so, input
+    // by input). Parity there would teach the swarm the larger model's mistake: it is answered, written down, and not searched
+    if (wrongMarks.has(t.id)) {
+      q.state = 'mark wrong';
+      q.markWrong = wrongMarks.get(t.id);
+    } else if (row.grade === 'noref') q.state = 'not compared';
     else if (row.grade === 'right') q.state = 'at parity';
     else {
       const ev0 = tuned(await lostOf(row, eb), eb, pol);
@@ -1337,7 +1369,7 @@ export async function runLoop({
       }
     }
     st.inHand = null;
-    q.reached = row.grade === 'right';
+    q.reached = row.grade === 'right' && q.state !== 'mark wrong';
     q.briefs = briefs.version;
     if (q.reached) reached.push({ t, row });
     const at = st.questions.findIndex((x) => x.id === q.id);
@@ -1442,6 +1474,7 @@ export function tallyOf(st) {
     atParity: by('at parity'),
     reached: by('reached'),
     notReached: by('not reached'),
+    markWrong: by('mark wrong'),
     setAside: by('set aside'),
     notCompared: by('not compared'),
     kept: st.kept.length,
@@ -1634,6 +1667,15 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     process.exit(0);
   }
   const ref = needReference(list, 'train');
+  // (and the marks the questions' own correct solutions prove wrong: answered once and set aside)
+  const wrongMarks = await wrongMarksOf(list, ref);
+  if (wrongMarks.size)
+    console.log(
+      wrongMarks.size +
+        ' of ' +
+        list.length +
+        ' train questions have a mark that does not do what the question asks (its own correct solution says so): they are answered once and set aside, never searched.',
+    );
   // WHAT THE OLD RULE DROPPED IS NOT DROPPED BY THIS ONE. Before training went question by question, a change was tried on the
   // whole train set and written down as not kept if it did not win there by a margin. Such a change can still bring one question
   // to parity and lose none, so those lists do not say what this loop needs to know: they are cleared, once for a configuration.
@@ -1821,6 +1863,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       pin: steer.pin,
       resume,
       unstable,
+      wrongMarks,
       ...(arg('beam') ? { beam } : {}),
       policy: startPolicy,
       policyLog: [...policyLog],

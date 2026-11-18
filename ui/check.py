@@ -1042,5 +1042,10 @@ check("a flow too long for its card wraps into tiles at any width, measured on t
       "function fitPipes()" in swarm_ui.JS and "addEventListener('resize',fitSoon)" in swarm_ui.JS and "new MutationObserver(fitSoon)" in swarm_ui.JS
       and ".pipe.wrapped{flex-wrap:wrap" in swarm_ui.CSS and ".pipe.wrapped .st::after,.pipe.wrapped .loopg::after{display:none}" in swarm_ui.CSS)
 
+# A MARK PROVED WRONG IS SET ASIDE ON THE PAGE TOO: said in the line, a grey pip, and not counted against the share
+_pw = swarm_ui.progress_strip(dict(_d, loop={"of": 10, "changes": [], "list": [{"id": "a", "state": "at parity"}, {"id": "b", "state": "reached"}, {"id": "c", "state": "mark wrong", "markWrong": {"share": 0.27}}]}))
+check("a question whose mark its own correct solution proves wrong is said in the training line as set aside, and is not counted against the share (2 of the 9 that can reach parity)",
+      "1 set aside because the larger model&#39;s answer is wrong" in _pw.replace("'", "&#39;") and "22.2%" in _pw and swarm_ui.PIP["mark wrong"] == "nc", _pw[:300])
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

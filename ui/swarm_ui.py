@@ -908,7 +908,8 @@ def steer_dialog(d):
 
 
 LOOP_STATE = {"at parity": ("At parity as it stood", "up"), "reached": ("Brought to parity", "up"), "not reached": ("Not reached", "down"), "not compared": ("Not compared", "planned"),
-              "reopened": ("Back in hand", "planned"), "set aside": ("Set aside", "planned")}
+              "reopened": ("Back in hand", "planned"), "set aside": ("Set aside", "planned"),
+              "mark wrong": ("Set aside: the larger model's answer is wrong", "planned")}
 
 
 def near_words(n):
@@ -956,7 +957,7 @@ def tries_list(lp):
                 + method_line(a))
             for a in q["attempts"][1:])
         rounds = (" in %d rounds" % q["rounds"]) if (q.get("rounds") or 1) > 1 else ""
-        why = (" · beyond rearranging after %s tries" % q["beyond"].get("at") if q.get("beyond") else "") + (" · broke " + ", ".join("%s %d×" % (k, v) for k, v in sorted(q["broke"].items(), key=lambda kv: -kv[1])) if q.get("broke") else "") + (" · every combination within reach tried" if q.get("exhausted") else "") + ((" · widened %d×" % q["widened"]) if q.get("widened") else "") + ((" · lost to %s, back in hand" % q["lostTo"]) if q.get("lostTo") else "") + ((" · set aside %d× (it stopped coming closer while other questions waited)" % q["setAside"]) if q.get("setAside") else (" · set aside: it stopped coming closer, and comes back after the others" if q.get("state") == "set aside" else "")) + ((" · carried on from its last try after a stop") if q.get("carried") else "") + (" · unstable mark: the larger model did not give its own answer again (searched until parity all the same)" if q.get("unstable") else "")
+        why = (" · beyond rearranging after %s tries" % q["beyond"].get("at") if q.get("beyond") else "") + (" · broke " + ", ".join("%s %d×" % (k, v) for k, v in sorted(q["broke"].items(), key=lambda kv: -kv[1])) if q.get("broke") else "") + (" · every combination within reach tried" if q.get("exhausted") else "") + ((" · widened %d×" % q["widened"]) if q.get("widened") else "") + ((" · lost to %s, back in hand" % q["lostTo"]) if q.get("lostTo") else "") + ((" · set aside %d× (it stopped coming closer while other questions waited)" % q["setAside"]) if q.get("setAside") else (" · set aside: it stopped coming closer, and comes back after the others" if q.get("state") == "set aside" else "")) + ((" · carried on from its last try after a stop") if q.get("carried") else "") + (" · unstable mark: the larger model did not give its own answer again (searched until parity all the same)" if q.get("unstable") else "") + ((" · the larger model's answer does not do what the question asks%s: set aside, not searched, and not a question a change must not lose" % ((" (on %s it gives %s, the question wants %s)" % (json.dumps((q["markWrong"].get("input") or [""])[0]), q["markWrong"].get("theirs"), q["markWrong"].get("wanted"))) if (q.get("markWrong") or {}).get("input") is not None else "")) if q.get("markWrong") else "")
         rows.append('<li class="lq"><details><summary><code>%s</code> <span class="muted small">%s · lost in %s · %d tried%s%s</span> <span class="pill %s">%s</span></summary><ol class="tries">%s</ol></details></li>'
                     % (e(q["id"]), e(q.get("kind", "")), e(q.get("lostAt", "")), len(q["attempts"]) - 1, rounds, why, cls, e(word), tries))
     # WHAT HAS WORKED, BY KIND OF CHANGE: learned question after question, and what orders the changes tried on the next
@@ -1802,7 +1803,7 @@ def at_parity(d, t):
 
 
 # A QUESTION'S STATE IN THE LOOP, as a pip: at parity as the swarm stood, brought to parity by a change, not reached, not compared
-PIP = {"at parity": "at", "reached": "re", "not reached": "nr", "not compared": "nc", "reopened": "ro", "set aside": "ro"}
+PIP = {"at parity": "at", "reached": "re", "not reached": "nr", "not compared": "nc", "reopened": "ro", "set aside": "ro", "mark wrong": "nc"}
 
 
 def track_of(lp):
@@ -2933,10 +2934,14 @@ def progress_strip(d, cleared=""):
     n = lambda st: sum(1 for q in qs if q.get("state") == st)  # noqa: E731
     at, re_, back, nr = n("at parity"), n("reached"), n("reopened") + n("set aside"), n("not reached")
     done = at + re_
-    pct = data.percent(done, of) if of else 0
+    # (a question that cannot be brought to parity is not counted against the share: no answer from the larger model, or a mark the
+    # question's own correct solution proves wrong)
+    wrong_m = n("mark wrong")
+    can = max(0, of - n("not compared") - wrong_m)
+    pct = data.percent(done, can) if can else 0
     if qs:
         line = ("<b>%d</b> of %d train questions at parity with %s: <b>%d</b> as the swarm stood, <b>%d</b> brought there by a change it kept%s%s."
-                % (done, of, e(tname), at, re_, ((", %d back in hand after a swap" % n("reopened")) if n("reopened") else "") + ((", %d set aside until the others are done" % n("set aside")) if n("set aside") else ""), (", %d left short of parity by an earlier version of the loop" % nr) if nr else ""))
+                % (done, of, e(tname), at, re_, ((", %d back in hand after a swap" % n("reopened")) if n("reopened") else "") + ((", %d set aside until the others are done" % n("set aside")) if n("set aside") else ""), ((", %d left short of parity by an earlier version of the loop" % nr) if nr else "") + ((", %d set aside because the larger model's answer is wrong" % wrong_m) if wrong_m else "")))
         now = ("Question %s is in hand." % e(str(lv.get("n")))) if lv else ("Stopped; it carries on from question %d." % (len(qs) - back + 1)) if len(qs) - back < of else "Every question of this pass is at parity."
     else:
         line = "Training starts at question 1 of the pass: each question stays in hand until the swarm is at parity with %s on it." % e(tname)

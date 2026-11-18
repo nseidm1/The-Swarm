@@ -732,6 +732,15 @@ questions (84 a pass), on one Apple silicon Mac. Its records stay on that machin
 - **Memory: 51.1% saved, about 9.2 GB less** than Nemotron (8.8 GB against 18 GB, 2.0× smaller): an estimate from the model
   files and the listed sizes, not a measurement.
 
+### When the larger model is wrong, 2026-11-17
+
+The swarm of Bonsai 2 2B, LFM3 1.7B and Jan-Code 4B, decided by Kev 0.8B, reached 22 of 84 train questions (17 at parity as
+it stood) and then spent 56 tries on `toSeconds("2d30h")` without reaching parity. Nemotron's own answer there was wrong: it
+read a time only when all three parts were present, so it gave 0 for "5m", "2d" and "10h". Each code question is made with
+its correct solution, and against those Nemotron was wrong on 7 of the pass's 30 code questions; 3 of the run's 5 kept changes
+had been won on them, teaching the swarm Nemotron's mistakes. Such a question is now set aside: answered once, never searched,
+and never one a change must not lose.
+
 ### The earlier training, 2026-11-15 to 16
 
 LFM2.5 2.6B and Bonsai 2 2B, decided by Kev 4B, against Nemotron 3.5 Lightning 30B, on 42 held

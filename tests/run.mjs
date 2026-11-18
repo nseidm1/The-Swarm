@@ -3078,6 +3078,64 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     judges.map((m) => m.name),
   );
 }
+// ---- 6aa: A MARK THE QUESTION'S OWN CORRECT SOLUTION PROVES WRONG is set aside: found by running both on the question's inputs,
+// answered once and never searched, and never a question a change must not lose (one finished before it was found included)
+{
+  const { runLoop, wrongMarksOf } = await import('../training/loop.mjs');
+  const T = [
+    { id: 'W', kind: 'k', name: 'f', ok: 'function f(x) { return x * 2; }', inputs: [[1], [2]] },
+    { id: 'G', kind: 'k', name: 'f', ok: 'function f(x) { return x + 1; }', inputs: [[1], [2]] },
+    { id: 'N', kind: 'k' },
+  ];
+  const ref = new Map([
+    ['W', '```js\nfunction f(x) { return x * 3; }\n```'],
+    ['G', '```js\nfunction f(x) { return x + 1; }\n```'],
+  ]);
+  const found = await wrongMarksOf(T, ref);
+  const mk = (bb, k) => ({
+    key: k,
+    id: k,
+    name: k,
+    kind: 'arrangement',
+    area: 'slots',
+    briefs: { ...bb, has: [...bb.has, k] },
+  });
+  const asked = [];
+  const wrong = { grade: 'wrong', path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: false }] };
+  const st = await runLoop({
+    list: [
+      { id: 'W', kind: 'k' },
+      { id: 'B', kind: 'k' },
+    ],
+    briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+    poolOf: (bb) => ['x'].filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k)),
+    policy: { setAsideAfter: 0, suggestEvery: 0, teachEvery: 0 },
+    wrongMarks: found,
+    // W is at parity as the swarm stands only without x; B needs x: with W set aside, x is kept on B without W asked again
+    attempt: async (bb, t, at) => (
+      asked.push(t.id + (at.guard ? ':guard' : '')),
+      t.id === 'W'
+        ? bb.has.includes('x')
+          ? wrong
+          : { grade: 'right', trace: [] }
+        : bb.has.includes('x')
+          ? { grade: 'right', trace: [] }
+          : wrong
+    ),
+  });
+  const W = st.questions.find((q) => q.id === 'W');
+  check(
+    "a mark the question's own correct solution proves wrong is found by running both on the question's inputs, and that question is answered once, never searched, and never a question a change must not lose",
+    [...found.keys()].join() === 'W' &&
+      found.get('W').share === 0 &&
+      W.state === 'mark wrong' &&
+      W.reached === false &&
+      W.attempts.length === 1 &&
+      st.questions.find((q) => q.id === 'B').state === 'reached' &&
+      !asked.includes('W:guard'),
+    { found: [...found.keys()], W: W && W.state, asked },
+  );
+}
 // ---- 6v: what the measurement held and no finding read: answers cut off at the token limit, a drafter that echoes another on its
 // own model, the decider not answering in time; each found, and each answered by a move that speaks to it
 {
