@@ -2468,11 +2468,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
   const missed = missesOf(wdir, 'a-steps', { seed: 5 });
   const said = candidatesIn(
-    'Sure:\n[{"name":"plainer","brief":"Answer the question in a few short steps and end with a line that starts ANSWER: and holds only the answer."},{"name":"short","brief":"too short"}]',
+    'Sure:\n[{"name":"plainer","add":"Work it out in a few short steps before the last line."},{"name":"short","add":"too short"},{"name":"whole","brief":"Answer the question in a few short steps and end with a line that starts ANSWER: and holds only the answer."}]',
     'the larger model',
   );
   check(
-    "when the slots the plan found failing have no briefs left to try, the larger model writes new ones: it is shown the slot's brief, what it wrote on TRAIN questions the swarm got wrong and the answer wanted (never a held question), and its reply is read for briefs a small model can follow",
+    "when the slots the plan found failing have no briefs left to try, the larger model adds to what they are told: it is shown the slot's brief, what it wrote on TRAIN questions the swarm got wrong and the answer wanted (never a held question), and its reply is read for additions a small model can follow (a whole brief, as it was once asked for, is still read)",
     slotsToTeach(
       {
         findings: [
@@ -2492,9 +2492,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           missed,
         ),
       ) &&
-      /never mention these questions/.test(briefAsk(briefs.slots[0], missed)) &&
-      said.length === 1 &&
+      /never mention a question shown here/.test(briefAsk(briefs.slots[0], missed)) &&
+      said.length === 2 &&
       said[0].name === 'the larger model: plainer' &&
+      said[0].add === 'Work it out in a few short steps before the last line.' &&
+      said[1].brief &&
       candidatesIn('no json here').length === 0,
     { missed, said },
   );
@@ -4375,7 +4377,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
 // ---- 9z: WHAT THIS TURN FILLED, AS THE SwOA SPECIFICATION SAYS IT (S3.8.5, O.8.3/O.8.4, R.4): thinking removed from a member's
 // reply; the writer told to write the reply in full; a program the question asks the output of run and settling the matter
 {
-  const { answer: orchestrate, FULL_REPLY } = await import('../src/orchestrate.mjs');
+  const { answer: orchestrate, FULL_BRIEF } = await import('../src/orchestrate.mjs');
+  const { asksForPiece } = await import('../src/read.mjs');
   const { withoutThinking } = await import('../src/read.mjs');
   const { programOf } = await import('../src/behave.mjs');
   const { printedBy } = await import('../src/sandbox.mjs');
@@ -4425,18 +4428,31 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     print: async () => ({ text: '7' }),
   });
   asked.splice(0);
+  const askFull = async (slot, msgs) => {
+    asked.push({ slot: slot.id, first: msgs[0].content, last: msgs[msgs.length - 1].content });
+    return slot.stage === 'write' ? { text: 'Yes, in small pieces.' } : { text: 'ANSWER: yes' };
+  };
   const full = await orchestrate([{ role: 'user', content: 'Can a rabbit eat celery?' }], {
     briefs: { ...base, plan: { writeAs: 'full' } },
-    ask: async (slot, msgs) => {
-      asked.push({ slot: slot.id, last: msgs[msgs.length - 1].content });
-      return slot.stage === 'write' ? { text: 'Yes, in small pieces.' } : { text: 'ANSWER: yes' };
-    },
+    ask: askFull,
   });
   const wrote = asked.find((x) => x.slot === 'w');
+  asked.splice(0);
+  // (a piece of writing is never written "in full": the piece is the reply)
+  const piece = await orchestrate([{ role: 'user', content: 'Write a text to Maya to cancel dinner on Wednesday.' }], {
+    briefs: { ...base, plan: { writeAs: 'full' } },
+    ask: askFull,
+  });
+  const wrotePiece = asked.find((x) => x.slot === 'w');
+  const pieces =
+    asksForPiece('in a rush sorry - write a note to the landlord about the boiler') &&
+    !asksForPiece('hey quick one, write to my sister for me') &&
+    !asksForPiece('What should I write? My text got no reply.') &&
+    !asksForPiece('Can a rabbit eat celery?');
   const moves = steps({ ...base, plan: {} }).map((m) => m.name);
   const movesFull = steps({ ...base, plan: { writeAs: 'full' } }).map((m) => m.name);
   check(
-    "thinking is removed from a member's reply; a program the question asks the output of is run, and what it printed settles the matter (the checks passed over, the work only a draft that came to it), unless it could not be run or the plan turns it off; with plan.writeAs 'full' the writer is told to write the reply in full, and training can try it and take it back",
+    "thinking is removed from a member's reply; a program the question asks the output of is run, and what it printed settles the matter (the checks passed over, the work only a draft that came to it), unless it could not be run or the plan turns it off; with plan.writeAs 'full' the writer is told the full brief in place of its own (never where a piece of writing is asked for: there its own brief stands), and training can try it and take it back",
     thinking &&
       found &&
       ran &&
@@ -4453,7 +4469,13 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       !off.trace.some((r) => r.printed) &&
       /\+full/.test(full.path) &&
       wrote &&
-      wrote.last.includes(FULL_REPLY.trim()) &&
+      wrote.first.startsWith(FULL_BRIEF) &&
+      !wrote.first.includes('Write.') &&
+      !/in full/.test(wrote.last) &&
+      pieces &&
+      !/\+full/.test(piece.path) &&
+      wrotePiece &&
+      wrotePiece.first.startsWith('Write.') &&
       moves.includes('plan: the writer writes the reply in full') &&
       movesFull.includes('plan: the writer writes the reply as drafted'),
     {
@@ -4514,14 +4536,16 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const { answer: orchestrate } = await import('../src/orchestrate.mjs');
   const cands = [
     { name: 'person', brief: 'p' },
-    { name: 'the larger model: words one', brief: 'w', written: true, class: 'words' },
-    { name: 'the larger model: code one', brief: 'c', written: true, class: 'code' },
+    { name: 'the larger model: words one', add: 'w', written: true, class: 'words' },
+    { name: 'the larger model: code one', add: 'c', written: true, class: 'code' },
     { name: 'the larger model: from before', brief: 'o', written: true },
+    // (a whole brief it wrote, from when it was asked for replacements: not offered, though it says the class)
+    { name: 'the larger model: a rewrite', brief: 'r', written: true, class: 'words' },
   ];
   const onWords = offeredOn(cands, 'words').map((c) => c.name);
   const scoped =
     JSON.stringify(onWords) === JSON.stringify(['person', 'the larger model: words one']) &&
-    offeredOn(cands).length === 4;
+    offeredOn(cands).length === 5;
   const slot = { id: 'a1', stage: 'draft', brief: 'Answer it briefly and plainly.' };
   const ta = teachAsk(slot, [{ id: 'train-1-answer-3', question: 'q', slotWrote: 'w', wanted: 'x' }]);
   const ba = briefAsk(slot, [{ question: 'q', slotWrote: 'w', wanted: 'x' }]);
@@ -4559,7 +4583,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const clearAsked = asked.splice(0);
   const none = await run(said, 'Z');
   check(
-    "a brief the larger model wrote is offered only on questions of the class it was written for (one from before briefs said a class, nowhere a class is asked for; a person's, everywhere); the teacher is told the wanted answer is the standard, and never to teach a role to be shorter, and is not shown the question's id; with decideBy 'most' a tie at the top is put to the decider among the tied answers only, a clear most is not, and where it decides nothing the first stands",
+    "what the larger model wrote for a slot is offered only on questions of the class it was written for, and only as an addition to what the slot is told (one from before briefs said a class, or a whole brief it wrote, nowhere a class is asked for; a person's, everywhere); the teacher is told the wanted answer is the standard, and never to teach a role to be shorter, and is not shown the question's id; with decideBy 'most' a tie at the top is put to the decider among the tied answers only, a clear most is not, and where it decides nothing the first stands",
     scoped &&
       standard &&
       tie.decided === 'hand wash it' &&
@@ -4573,6 +4597,272 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       none.path.split('+')[0] === 'most' &&
       none.decided === 'it can warp',
     { onWords, standard, tie: [tie.decided, tie.path, tieAsked], clear: [clear.path, clearAsked], none: none.path },
+  );
+}
+// ---- 9w: THE FIXES OF 2026-11-18 (the run inspected): every slot's answer read on the reply's line; the reply's own reading
+// counted first in how close a row came; a change that cannot change the answer passed over at no cost of a try; a mark the larger
+// model did not give again set aside, not searched; its second answers read again where no reader had read them; and the larger
+// model adding to what a slot is told, never writing it again
+{
+  const { slotReport } = await import('../training/measure.mjs');
+  const { closeness, nearOf, effectOn, sameEffect, runLoop, READING_STEP, SCORING } =
+    await import('../training/loop.mjs');
+  const { regradeSelf, latestSelfRows } = await import('../training/support/self-check.mjs');
+  const { teachAsk, briefAsk, candidatesIn, withAddition, candKey, refuseGiveaways, ADDITIONS_MOST } =
+    await import('../training/support/teach.mjs');
+  const { candHash } = await import('../training/state.mjs');
+  // -- the line: a slot's answer is read with the mark the caller names for the task's type
+  const marks = [];
+  const task = {
+    type: 'talk',
+    equivalent: async (ref, text, ctx) => (marks.push(ctx.mark), { grade: 'wrong', p: 0.7 }),
+    wrap: (x) => x,
+  };
+  const rowL = {
+    id: 'q',
+    refReply: 'ref',
+    grade: 'wrong',
+    decided: 'd',
+    trace: [{ slot: 'a1', stage: 'draft', final: 'x', ms: 1 }],
+  };
+  await slotReport([rowL], { q: task }, { markOf: (t) => (t.type === 'talk' ? 0.8 : 0.5) });
+  const onLine = marks.length > 0 && marks.every((m) => m === 0.8);
+  marks.length = 0;
+  await slotReport([{ ...rowL, trace: [{ slot: 'a1', stage: 'draft', final: 'y', ms: 1 }] }], { q: task });
+  const noLine = marks.every((m) => m === undefined);
+  // -- the reply's own reading comes first: a step up is closer whatever the drafts did; less than a step is the same
+  const tr = [{ stage: 'draft', slot: 'a1', same: false, share: 0.5, final: 'x' }];
+  const at = (reading, more = {}) => closeness({ trace: tr, reading, ...more }, null, { partial: true });
+  const climbs =
+    at(0.84) > at(0.53) &&
+    at(0.53) === at(0.54) &&
+    at(0.6) > at(0.59) &&
+    at(0.9) >
+      closeness({ trace: [{ stage: 'draft', slot: 'a1', same: true, share: 1, final: 'x' }], reading: 0.5 }, null, {
+        partial: true,
+      }) &&
+    closeness({ trace: tr }, null, { partial: true }) ===
+      closeness({ trace: tr, reading: 0.01 }, null, { partial: true }) &&
+    nearOf({ trace: tr, reading: 0.837 }).reply === 0.84 &&
+    READING_STEP === 0.05;
+  // -- what can change an answer, by class
+  const A = {
+    slots: [
+      { id: 'a1', stage: 'draft', member: 'a', brief: 'D.' },
+      { id: 'c1', stage: 'check', member: 'b', brief: 'C.' },
+    ],
+    plan: { decideBy: 'most' },
+  };
+  const expectFlow = [
+    { do: 'draft' },
+    { do: 'try' },
+    { do: 'check' },
+    { do: 'expect' },
+    { do: 'decide' },
+    { do: 'write' },
+  ];
+  const effects =
+    sameEffect(A, { ...A, plan: { ...A.plan, byBehaviour: false } }, 'words') &&
+    !sameEffect(A, { ...A, plan: { ...A.plan, byBehaviour: false } }, 'code') &&
+    !sameEffect(A, { ...A, plan: { ...A.plan, byBehaviour: false } }, 'talk') &&
+    sameEffect(A, { ...A, flow: expectFlow }, 'words') &&
+    !sameEffect(A, { ...A, flow: expectFlow }, 'code') &&
+    !sameEffect(A, { ...A, flow: [{ do: 'draft' }, { do: 'decide' }, { do: 'write' }] }, 'words') &&
+    !sameEffect(A, { ...A, plan: { decideBy: 'decider' } }, 'words') &&
+    sameEffect(A, { ...A, plan: { decideBy: 'decider' } }, 'tools') &&
+    sameEffect(A, { ...A, slots: [A.slots[0], { ...A.slots[1], brief: 'Other.' }] }, 'tools') &&
+    !sameEffect(A, { ...A, slots: [{ ...A.slots[0], brief: 'Other.' }, A.slots[1]] }, 'tools') &&
+    JSON.stringify(effectOn(A, 'words').flow.map((s) => s.do)) === '["draft","check","decide","write"]';
+  // -- in the loop: a change of no effect is passed over and costs no try; an unstable mark short of parity is not searched
+  const right = { grade: 'right', trace: [] };
+  const wrongD = { grade: 'wrong', path: 'most', trace: [{ stage: 'draft', slot: 'a1', same: false }] };
+  const baseB = { version: 1, slots: [{ id: 'a1', stage: 'draft', brief: 'Draft it.' }], plan: {} };
+  const asked = [];
+  const loop = await runLoop({
+    list: [
+      { id: 'W', kind: 'answer', ask: 'Can a rabbit eat celery?' },
+      { id: 'U', kind: 'answer', ask: 'How long do I boil an egg?' },
+      { id: 'P', kind: 'answer', ask: 'How often do I water a fern?' },
+    ],
+    unstable: new Set(['U', 'P']),
+    briefs: baseB,
+    poolOf: (bb) =>
+      [
+        { id: 'noop', name: 'plan: byBehaviour false', briefs: { ...bb, plan: { ...bb.plan, byBehaviour: false } } },
+        { id: 'real', name: 'a1 with a token limit of 1100', briefs: { ...bb, plan: { ...bb.plan, roomy: true } } },
+      ]
+        .filter((m) => JSON.stringify(m.briefs.plan) !== JSON.stringify(bb.plan))
+        .map((m) => ({ ...m, key: m.id, area: 'plan', kind: 'arrangement' })),
+    policy: { setAsideAfter: 0, suggestEvery: 0, teachEvery: 0, batch: 0 },
+    attempt: async (bb, t, note) => {
+      asked.push(t.id + ':' + (note.move || ''));
+      if (t.id === 'P') return right;
+      return t.id === 'W' && (bb.plan || {}).roomy ? right : wrongD;
+    },
+  });
+  const stateOf = (id) => loop.questions.find((q) => q.id === id);
+  const inLoop =
+    stateOf('W').state === 'reached' &&
+    stateOf('W').noEffect >= 1 &&
+    !asked.some((x) => /byBehaviour/.test(x)) &&
+    stateOf('U').state === 'mark unstable' &&
+    stateOf('U').attempts.length === 1 &&
+    asked.filter((x) => x.startsWith('U:')).length === 1 &&
+    stateOf('P').state === 'at parity';
+  // -- a search written down under another count of closeness is not carried on; one under this count is
+  const heldOf = (scoring) => ({
+    id: 'C',
+    version: 1,
+    ...(scoring ? { scoring } : {}),
+    i: 7,
+    q: { id: 'C', attempts: [{ move: '' }, { move: 'x' }, { move: 'y' }] },
+    seen: [],
+    root: [],
+    open: [],
+    wide: [],
+  });
+  const carryOn = async (scoring) =>
+    (
+      await runLoop({
+        list: [{ id: 'C', kind: 'answer', ask: 'Is it so?' }],
+        briefs: baseB,
+        poolOf: () => [],
+        policy: { setAsideAfter: 0, suggestEvery: 0, teachEvery: 0, batch: 0 },
+        resume: { ...loop, questions: [], rows: [], inHand: heldOf(scoring) },
+        attempt: async () => wrongD,
+      })
+    ).questions.find((q) => q.id === 'C');
+  const old = await carryOn(0);
+  const cur = await carryOn(SCORING);
+  const carried = !old.carried && old.attempts.length === 1 && cur.carried === 1 && cur.attempts.length === 3;
+  // -- the larger model's second answers, read again where no reader had read them
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-self-'));
+  const file = path.join(dir, 'big-self-train.json');
+  const runs = path.join(dir, 'baseline-runs.jsonl');
+  const selfRow = (id, grade, reply) => ({
+    label: 'big-self',
+    split: 'train',
+    seed: 9,
+    id,
+    kind: 'answer',
+    grade,
+    reply,
+    seconds: 1,
+  });
+  fs.writeFileSync(
+    runs,
+    [
+      selfRow('q1', 'right', 'a'),
+      selfRow('q2', 'noref', 'second two'),
+      selfRow('q3', 'noref', 'second three'),
+      { ...selfRow('q3', 'noref', 'x'), seed: 8 },
+    ]
+      .map((r) => JSON.stringify(r))
+      .join('\n') + '\n',
+  );
+  fs.writeFileSync(
+    file,
+    JSON.stringify({ seed: 9, split: 'train', asked: 3, right: 1, wrong: 0, noref: 2, compared: 1, disagreed: [] }),
+  );
+  const count = (rows) => ({
+    asked: rows.length,
+    right: rows.filter((r) => r.grade === 'right').length,
+    wrong: rows.filter((r) => r.grade === 'wrong').length,
+    noref: rows.filter((r) => r.grade === 'noref').length,
+    compared: rows.filter((r) => r.grade !== 'noref').length,
+  });
+  const selfList = ['q1', 'q2', 'q3'].map((id) => ({ id, seed: 9 }));
+  const graded = [];
+  const again = await regradeSelf({
+    file,
+    runsFile: runs,
+    label: 'big-self',
+    list: selfList,
+    ref: new Map([
+      ['q1', 'f1'],
+      ['q2', 'f2'],
+      ['q3', 'f3'],
+    ]),
+    count,
+    grade: async (t, first, second) => (
+      graded.push(t.id + ':' + first + ':' + second),
+      { grade: t.id === 'q2' ? 'wrong' : 'right' }
+    ),
+  });
+  const rec = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const second = await regradeSelf({
+    file,
+    runsFile: runs,
+    label: 'big-self',
+    list: selfList,
+    ref: new Map(),
+    count,
+    grade: async () => ({ grade: 'right' }),
+  });
+  const selfRead =
+    again &&
+    again.regraded === 2 &&
+    JSON.stringify(again.disagreed) === '["q2"]' &&
+    JSON.stringify(graded) === '["q2:f2:second two","q3:f3:second three"]' &&
+    rec.noref === 0 &&
+    rec.compared === 3 &&
+    rec.right === 2 &&
+    rec.wrong === 1 &&
+    rec.regraded.read === 2 &&
+    latestSelfRows(runs, { label: 'big-self', seed: 9 }).get('q2').grade === 'wrong' &&
+    second === null;
+  fs.rmSync(dir, { recursive: true, force: true });
+  // -- the larger model adds to what a slot is told
+  const slot = { id: 'a1', stage: 'draft', brief: 'Answer it briefly. End with ANSWER: and the answer.' };
+  const ta = teachAsk(slot, [{ question: 'q', slotWrote: 'w', wanted: 'x' }]);
+  const ba = briefAsk(slot, [{ question: 'q', slotWrote: 'w', wanted: 'x' }]);
+  const got = candidatesIn(
+    '[{"name":"reasons","why":"it gave no reason","add":"Give the reason too, in one sentence."},{"name":"old","brief":"' +
+      'x'.repeat(60) +
+      '"},{"name":"short","add":"hi"}]',
+    'the larger model',
+  );
+  const one = withAddition(slot.brief, got[0].add);
+  let full = slot.brief;
+  for (let k = 0; k < ADDITIONS_MOST; k++) full = withAddition(full, 'Rule number ' + k + ' to keep to.');
+  const adds =
+    /three different ADDITIONS/.test(ta) &&
+    /every word of it stays/.test(ta) &&
+    /"add":"\.\.\."/.test(ta) &&
+    !/replacements/.test(ta) &&
+    /three different ADDITIONS/.test(ba) &&
+    !/replacements/.test(ba) &&
+    got.length === 2 &&
+    got[0].add === 'Give the reason too, in one sentence.' &&
+    got[0].brief === undefined &&
+    got[1].brief &&
+    one.startsWith(slot.brief) &&
+    one.endsWith('Also keep to this: Give the reason too, in one sentence.') &&
+    withAddition(one, got[0].add) === null &&
+    withAddition(full, 'One more rule to keep to.') === null &&
+    candKey(got[0]) !== candKey({ add: 'Another thing.' }) &&
+    candHash(got[0]) !== candHash({ add: 'Another thing.' }) &&
+    candHash({ brief: 'b' }) === candHash({ brief: 'b', add: undefined }) &&
+    refuseGiveaways([{ name: 'n', add: 'Use list.slice(k) then join.' }], ['q']).refused.length === 1;
+  check(
+    "a slot's answer is read on the line the caller names for the task's type (and on none where none is named); how the reply itself read comes first in how close a row came, in steps of 0.05; a change that alters nothing a question of the class is answered by (byBehaviour and the try and expect steps for a question in words; anything but the drafting slots for a turn with tools) is passed over at no cost of a try; a mark the larger model did not give again is not searched where the swarm is short of it, and counts at parity where it is not; a search written down under another count of closeness is begun afresh, one under this count carried on; its second answers are read again where no reader had read them, once; and the larger model is asked for additions to what a slot is told, put after it, three at most",
+    onLine && noLine && climbs && effects && inLoop && carried && selfRead && adds,
+    {
+      onLine,
+      noLine,
+      climbs,
+      effects,
+      inLoop,
+      carried,
+      selfRead,
+      adds,
+      old: [old.carried, old.attempts.length],
+      cur: [cur.carried, cur.attempts.length],
+      asked,
+      W: stateOf('W') && [stateOf('W').state, stateOf('W').noEffect],
+      U: stateOf('U') && stateOf('U').state,
+      rec,
+    },
   );
 }
 // ---- 9a: a small model beside the decider in the decide step (plan.decideWith)
@@ -5186,13 +5476,14 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const un = unstableOf(tmp, 5);
   const unOther = unstableOf(tmp, 6);
   fs.rmSync(tmp);
-  const withB = shaky.attempts.find((a) => a.move === 'b');
+  const withB = firm.attempts.find((a) => a.move === 'b');
   check(
-    'a question whose mark the larger model did not give again is marked, and searched until parity like the rest (every combination within reach, 15 here, before the loop can do no more); where the drafts were run and do different things, saying what each call should give comes first, with its reason, and not where they all do the same; each try carries its seconds, what it adds against what it was tried on, the pace and how many are still open; a kind of change that makes runs slower is learned and orders after one as good that does not; the record of unstable questions counts only for the questions it was made on',
+    'a question whose mark the larger model did not give again is marked and, short of parity as the swarm stands, set aside without a try, while another is searched until the loop can do no more (every combination within reach, 15 here); where the drafts were run and do different things, saying what each call should give comes first, with its reason, and not where they all do the same; each try carries its seconds, what it adds against what it was tried on, the pace and how many are still open; a kind of change that makes runs slower is learned and orders after one as good that does not; the record of unstable questions counts only for the questions it was made on',
     shaky.unstable === true &&
-      shaky.attempts.length === firm.attempts.length &&
-      shaky.attempts.length === 16 &&
-      shaky.exhausted === true &&
+      shaky.state === 'mark unstable' &&
+      shaky.attempts.length === 1 &&
+      firm.attempts.length === 16 &&
+      firm.exhausted === true &&
       !firm.unstable &&
       evRan.prio(exp) === 0 &&
       /do different things/.test(evRan.because(exp)) &&
@@ -5202,7 +5493,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       withB.added === 15 &&
       notes.find((n) => n.attempt === 2 && n.pace).pace.seconds === 10 &&
       notes.find((n) => n.attempt === 2).pace.left >= 1 &&
-      notes.find((n) => n.attempt === 1 && n.unstable) &&
+      !notes.some((n) => n.attempt >= 1 && n.unstable) &&
       costOf({ timed: 2, secs: 30 }) === 3 &&
       costOf(undefined) === 0 &&
       orderFor([dear, cheap], {
@@ -6158,7 +6449,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       taught[0][1] === 'choosing' &&
       /settled on another/.test(prompt) &&
       /First work out what went wrong/.test(prompt) &&
-      /never mention this question/.test(prompt) &&
+      /never mention a question shown here/.test(prompt) &&
+      /ADDITIONS to what it is told/.test(prompt) &&
       /"why"/.test(prompt) &&
       q.beyond &&
       q.beyond.at === 4 &&

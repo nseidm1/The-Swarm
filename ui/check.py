@@ -1150,6 +1150,18 @@ _late = swarm_ui.track_of({"list": [{"id": "q", "kind": "k", "state": "reached",
 check("a question brought to parity before its mark was found wrong shows the wrong mark's pip, its tooltip saying it reached parity first",
       _late["s"] == "mw" and "brought to parity by a change before that was found" in _late["w"], _late)
 
+# A MARK THE LARGER MODEL DID NOT GIVE AGAIN, where the swarm is not at parity with it: a pip of its own, said in the training line,
+# and still counted in the share (nothing is taken out of what the share is of)
+_rs2, swarm_ui.run_state = swarm_ui.run_state, (lambda: {})
+_pu = swarm_ui.progress_strip(dict(_d, loop={"of": 4, "changes": [], "list": [{"id": "a", "state": "at parity"}, {"id": "b", "state": "mark unstable", "unstable": True}, {"id": "c", "state": "not reached"}, {"id": "d", "state": "reached"}]}))
+swarm_ui.run_state = _rs2
+_tu = swarm_ui.track_of({"list": [{"id": "b", "kind": "answer", "state": "mark unstable", "unstable": True, "attempts": [{}]}]})[0]
+check("a question set aside because the larger model did not give its answer again has a pip of its own, is said in the training line, and stays in the share (2 of 4 is 50%); and how close a try came says first how the reply itself read, where the reader read one",
+      _tu["s"] == "mu" and "did not give this answer again" in _tu["w"] and _tu["tried"] == 0
+      and "1 set aside because the larger model did not give its answer again" in _pu and "50%" in _pu
+      and swarm_ui.near_words({"lost": "drafting", "had": 0, "reply": 0.84}).startswith("the reply read 0.84, lost in drafting")
+      and swarm_ui.near_words({"lost": "drafting", "had": 0}).startswith("lost in drafting"), [_tu, _pu[:400]])
+
 # AN OPEN PAGE SAYS WHEN THE DASHBOARD'S CODE HAS CHANGED: it carries the build it was drawn with, asks the server's, and where they
 # differ shows a note with a Refresh button (hidden otherwise); it never reloads on its own
 with tempfile.TemporaryDirectory() as tmp:

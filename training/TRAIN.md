@@ -7,8 +7,10 @@ stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mj
 
 1. The Swarm answers as it stands. At parity: on to the next question.
 2. Not at parity: where the answer was lost is read from the slots (no drafter had it; a slot had it and it was not chosen;
-   it was settled and the writer changed it), and the question's own record says what to try first, before anything is
-   asked again ([`loop.mjs`](loop.mjs) `evidenceOf`):
+   it was settled and the writer changed it), each slot's answer read on the line the reply is read on (the reader's own
+   for the question's type, 0.8 for a reply in a conversation; read at one half, 10 of 12 questions said to be lost in
+   choosing or writing had no slot that met the reply's line). The question's own record then says what to try first,
+   before anything is asked again ([`loop.mjs`](loop.mjs) `evidenceOf`):
    - **Lost in choosing:** each way of settling the matter is replayed on the record ([`replay.mjs`](replay.mjs)); one that
      picks the right answer from the same drafts comes first, one that would not is never tried. A model beside the decider
      comes next where the decider was close or overruled the majority. A brief for a slot that already had the answer is
@@ -16,12 +18,17 @@ stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mj
    - **Lost in drafting:** more room for a slot cut off at its token limit comes first, then what makes other drafts (a drafter
      sampled otherwise, one more drafter, the answers sent back). A change to how the matter is decided cannot help here and
      is never tried.
-   - **Briefs by the larger model** say the class of the question they were written for, and are offered on that class
-     only; one written before briefs said a class is not offered. The larger model is told its own answer is the standard,
-     and never to teach a role to be shorter or plainer than it.
+   - **What the larger model writes for a slot is an addition** to what the slot is told, a sentence or two put after it
+     (three at most on one brief), never a new brief: asked for replacements it wrote one-sentence briefs that dropped the
+     rule an answer is read by, and 2 of 2,546 brought a question to parity. An addition says the class of the question it
+     was written for and is offered on that class only; a whole brief it wrote before is not offered. It is told its own
+     answer is the standard, and never to teach a role to be shorter or plainer than it.
+   - **A change that cannot change the answer is passed over**, at no cost of a try (`effectOn`): for a question in words,
+     `byBehaviour` and the try and expect steps (nothing is run on calls there); for a turn with tools, anything but the
+     drafting slots. So is a brief that quotes its own question. Neither counts toward the tries a question is given.
    - **Lost in writing:** the settled answer handed over as it is comes first.
    - **A thin reply** (not code, under half as long as the larger model's, wherever it was lost): the writer told to write
-     the reply in full (`plan.writeAs: "full"`) comes first.
+     the reply in full (`plan.writeAs: "full"`) comes first. It is never applied where a piece of writing is asked for.
 
    After that: one of each idea before a second (the same flow change at six places counts once), and the kinds of change
    that have reached parity most often come sooner, learned question after question and pass after pass (shown on the
@@ -31,13 +38,20 @@ stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mj
    latest; 6, or `GUARD`). If none is lost it is **kept**: it is the arrangement for every question after, and an entry on
    the ledger the spec is made from. If one is lost it is not kept, and the next change is tried.
 4. Changes are tried best first, with no limit on how many: from the closest arrangement open, and a change that comes closer
-   is built on at once (up to 3 such arrangements open, `beam`). Closer counts partial credit: of code, the share of inputs on
+   is built on at once (up to 3 such arrangements open, `beam`). **How the reply itself read comes first** (the reader's
+   probability that it says what the larger model's says, in steps of 0.05; each try's line shows it, `reads 0.84`): a
+   step up is closer whatever the drafts did, so a change to how the reply is written or chosen can be built on. Then
+   where it was lost, how many slots had it, and partial credit: of code, the share of inputs on
    which the nearest answer gives what the larger model's gives; of words, the reader's probability. Where the nearest answer is
    as near, the arrangement whose answers are nearer on the whole (the mean share over every slot) is the closer.
 5. **A question is never left short of parity.** Where every arrangement open has been tried, the search widens: what the beam
    closed is opened again, then every arrangement tried on the question is built on. Only `CAP`, a bound a person sets, stops
-   it sooner. A question whose mark the larger model did not give again (step `02-target-self-train`) is marked, and searched
-   the same way (measured on the held questions it agreed with itself on 56 of 84, on conversation as few as 1 in 6). A question
+   it sooner. A question whose mark the larger model did not give again (step `02-target-self-train`: asked a second time,
+   its answer was not equivalent to its first) is answered once; at parity it counts, and short of parity it is **set
+   aside** as a mark that is partly a draw, not searched, and still counted in the share (measured 2026-11-18: on 36
+   questions in conversation the larger model was equivalent to itself on 17, and 18 of the 36 questions then open had
+   such a mark). Where that step ran while no reader of answers in words was believed, its second answers are read
+   again from the record when training starts ([`support/self-check.mjs`](support/self-check.mjs)). A question
    whose mark its own correct solution proves wrong (a question of code is made with that solution and the inputs it is tried
    on; the larger model's answer gives something else on one of them) is answered once and **set aside**: never searched, and
    never one a change must not lose (`wrongMarksOf`). So is a degenerate mark (the same few characters over and over, as

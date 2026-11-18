@@ -408,7 +408,7 @@ button.mav{position:relative;border:0;font:inherit;color:inherit;text-align:left
 .pips{display:flex;flex-wrap:wrap;gap:3px;margin-top:10px}.pips i{width:10px;height:10px;border-radius:3px;background:#dfe8e5;display:block}
 .pips i.at,.qkey i.at{background:var(--right)}.pips i.re,.qkey i.re{background:var(--teal2);box-shadow:inset 0 0 0 2px #fff}.pips i.nr,.qkey i.nr{background:var(--wrong)}.pips i.nc,.qkey i.nc{background:#c9d3d0}.pips i.ro,.qkey i.ro{background:#fff;box-shadow:inset 0 0 0 2px var(--sun)}
 .pips i.cur,.qkey i.cur{background:var(--sun);animation:p 1.2s infinite}
-.pips i.sa,.qkey i.sa{background:#fdf0cf;box-shadow:inset 0 0 0 2px #e3c46a}.pips i.mw,.qkey i.mw{background:repeating-linear-gradient(135deg,#c9d3d0 0 2px,#fff 2px 4px);box-shadow:inset 0 0 0 1px #b3c0bc}.qkey{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:11.5px;color:var(--mist);font-weight:600}.qkey span{display:inline-flex;align-items:center;gap:5px}.qkey i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.pips i.sa,.qkey i.sa{background:#fdf0cf;box-shadow:inset 0 0 0 2px #e3c46a}.pips i.mw,.qkey i.mw{background:repeating-linear-gradient(135deg,#c9d3d0 0 2px,#fff 2px 4px);box-shadow:inset 0 0 0 1px #b3c0bc}.pips i.mu,.qkey i.mu{background:repeating-linear-gradient(45deg,#ecd29a 0 2px,#fff 2px 4px);box-shadow:inset 0 0 0 1px #d9b96a}.qkey{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:11.5px;color:var(--mist);font-weight:600}.qkey span{display:inline-flex;align-items:center;gap:5px}.qkey i{width:10px;height:10px;border-radius:3px;display:inline-block}
 .tryline{margin:8px 0 12px;padding:9px 12px;border-radius:var(--r);background:#fdf0cf;color:#6b4a00;font-size:13px;overflow-wrap:anywhere}.tryline b{color:#8a5a00}.tryline a{color:#8a5a00;font-weight:800;margin-left:6px}
 .slot.tgt{background:#e6e9f6;border-left-color:var(--tgt)}.stage.mark{margin-top:14px;padding-top:14px;border-top:1px solid var(--line2)}.stage.mark .t{color:var(--tgt)}.slot.tgt .body{padding-top:8px}
 .stage.mark .slot.tgt>summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr) auto auto;gap:4px 16px;align-items:center}.stage.mark .slot.tgt .purpose{margin:0}
@@ -942,17 +942,18 @@ def steer_dialog(d):
 
 LOOP_STATE = {"at parity": ("At parity as it stood", "up"), "reached": ("Brought to parity", "up"), "not reached": ("Not reached", "down"), "not compared": ("Not compared", "planned"),
               "reopened": ("Back in hand", "planned"), "set aside": ("Set aside", "planned"),
-              "mark wrong": ("Set aside: the larger model's answer is wrong", "planned")}
+              "mark wrong": ("Set aside: the larger model's answer is wrong", "planned"),
+              "mark unstable": ("Set aside: the larger model did not give this answer again", "planned")}
 
 
 def near_words(n):
     """How close a reply came, in words (training/loop.mjs nearOf): where the answer was lost, how many slots had it, the decider's
-    probability on it."""
+    probability on it; and first, where the reader read one, how the reply itself read (what closeness counts first)."""
     if not n:
         return ""
     if n.get("parity"):
         return "at parity here, but it broke %s when that was asked again" % n.get("broke", "a question")
-    return "lost in %s, %d slot%s had the answer%s%s" % (n.get("lost", ""), n.get("had", 0), "" if n.get("had") == 1 else "s",
+    return (("the reply read %.2f, " % n["reply"]) if n.get("reply") is not None else "") + "lost in %s, %d slot%s had the answer%s%s" % (n.get("lost", ""), n.get("had", 0), "" if n.get("had") == 1 else "s",
                                                         (" (%s)" % ", ".join(n["slots"])) if n.get("slots") else "",
                                                         (", the decider %d%% on it" % round(n["p"] * 100)) if n.get("p") is not None else "") + (
         (", the nearest answer %d%% of the way" % round(n["share"] * 100)) if n.get("share") is not None and not n.get("had") else "")
@@ -1848,10 +1849,11 @@ def at_parity(d, t):
 
 
 # A QUESTION'S STATE IN THE LOOP, as a pip: at parity as the swarm stood, brought to parity by a change, not reached, not compared
-PIP = {"at parity": "at", "reached": "re", "not reached": "nr", "not compared": "nc", "reopened": "ro", "set aside": "sa", "mark wrong": "mw"}
+PIP = {"at parity": "at", "reached": "re", "not reached": "nr", "not compared": "nc", "reopened": "ro", "set aside": "sa", "mark wrong": "mw", "mark unstable": "mu"}
 # what each state is called on a pip's tooltip and in the key, one look for each
 PIP_WORDS = {"at": "at parity as it stood", "re": "brought to parity by a change", "nr": "not reached", "ro": "back in hand after a swap",
-             "sa": "set aside until the others are done", "mw": "set aside: the larger model's answer is wrong", "nc": "not compared: nothing usable from the larger model, or no reader believed for its kind",
+             "sa": "set aside until the others are done", "mw": "set aside: the larger model's answer is wrong",
+             "mu": "set aside: the larger model did not give this answer again", "nc": "not compared: nothing usable from the larger model, or no reader believed for its kind",
              "cur": "in hand"}
 
 
@@ -3062,7 +3064,9 @@ def progress_strip(d, cleared=""):
     pct = data.percent(done, can) if can else 0
     if qs:
         line = ("<b>%d</b> of %d train questions at parity with %s: <b>%d</b> as the swarm stood, <b>%d</b> brought there by a change it kept%s%s."
-                % (done, of, e(tname), at, re_, ((", %d back in hand after a swap" % n("reopened")) if n("reopened") else "") + ((", %d set aside until the others are done" % n("set aside")) if n("set aside") else ""), ((", %d left short of parity by an earlier version of the loop" % nr) if nr else "") + ((", %d set aside because the larger model's answer is wrong" % wrong_m) if wrong_m else "")))
+                % (done, of, e(tname), at, re_, ((", %d back in hand after a swap" % n("reopened")) if n("reopened") else "") + ((", %d set aside until the others are done" % n("set aside")) if n("set aside") else ""), ((", %d left short of parity by an earlier version of the loop" % nr) if nr else "") + ((", %d set aside because the larger model's answer is wrong" % wrong_m) if wrong_m else "")
+                   # (a mark the larger model did not give again, where the swarm is not at parity with it: not searched, and still counted in the share)
+                   + ((", %d set aside because the larger model did not give its answer again" % n("mark unstable")) if n("mark unstable") else "")))
         now = ("Question %s is in hand." % e(str(lv.get("n")))) if lv else ("Stopped; it carries on from question %d." % (len(qs) - back + 1)) if len(qs) - back < of else "Every question of this pass is at parity."
     else:
         line = "Training starts at question 1 of the pass: each question stays in hand until the swarm is at parity with %s on it." % e(tname)

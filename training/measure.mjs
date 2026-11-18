@@ -23,7 +23,9 @@ import {
   finished,
   askSwarm,
   judgeAddress,
+  WORKC,
 } from './support/bench.mjs';
+import { readerMark } from './support/reader-file.mjs';
 import { plain } from '../src/read.mjs';
 import { messagesOf } from './tasks.mjs';
 import { CONFIG_ID, TARGET } from '../src/catalog.mjs';
@@ -36,7 +38,12 @@ import { CONFIG_ID, TARGET } from '../src/catalog.mjs';
 //   echo     how often a drafter's answer did the same as another drafter's on the same model (22 of 25 for one model's pair):
 //            a second slot that says what the first says adds nothing a draft could win
 //   timedOut how often the decider did not answer in time (8 of 40, every one a timeout): the answer most slots gave stood instead
-export async function slotReport(rows, tasksById, { reader = '', briefs = null } = {}) {
+// EVERY SLOT'S ANSWER IS READ ON THE LINE THE REPLY IS READ ON (markOf(task) -> the reader's line for its type: reader-file.mjs
+// readerMark). Without it a slot's answer was read at one half while the reply was read at the reader's own line (0.8 for a reply
+// in a conversation), and "a slot had the answer" meant something the reply itself could not pass (measured 2026-11-18: of 12
+// questions said to be lost in choosing or in writing, 10 had no slot whose answer met the reply's line; 2,731 tries followed
+// those findings, 2,341 of them on one question).
+export async function slotReport(rows, tasksById, { reader = '', briefs = null, markOf = null } = {}) {
   const capOf = Object.fromEntries(((briefs && briefs.slots) || []).map((s) => [s.id, s.maxTokens || 0]));
   const slots = {};
   const paths = {};
@@ -52,7 +59,10 @@ export async function slotReport(rows, tasksById, { reader = '', briefs = null }
     const own = async (text) => {
       if (!text) return false;
       if (!memo.has(text)) {
-        const g = await t.equivalent(r.refReply, t.wrap(text), { reader });
+        const g = await t.equivalent(r.refReply, t.wrap(text), {
+          reader,
+          ...(markOf ? { mark: markOf(t) } : {}),
+        });
         memo.set(text, g.grade === 'right');
         const sh = typeof g.share === 'number' ? g.share : typeof g.p === 'number' ? g.p : null;
         if (sh !== null) shareOf.set(text, sh);
@@ -140,7 +150,11 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       },
     );
     const c = count(rows);
-    const rep = await slotReport(rows, byId, { reader: judgeAddress(swarm.decider), briefs: swarm.briefs });
+    const rep = await slotReport(rows, byId, {
+      reader: judgeAddress(swarm.decider),
+      briefs: swarm.briefs,
+      markOf: (t) => readerMark(WORKC, t.type),
+    });
     console.log('\n' + line(label + ' (' + split + ')', c));
     console.log(
       'paths: ' +

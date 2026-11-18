@@ -1268,9 +1268,9 @@ or `let` followed by a whitespace character; otherwise empty. No writer is calle
 PASS-OVER holds when decided is non-empty, AS-IS does not hold, and `plan.writeAs` is `settled`.
 Then `+as-settled` is appended to path and no writer is called (the reply comes from O.8.6).
 
-FULL holds when neither AS-IS nor PASS-OVER holds and `plan.writeAs` is `full`. When FULL holds, decided is
-non-empty and there are writers, `+full` is appended to path, and the writers are told to write the reply in
-full (O.8.4).
+FULL holds when neither AS-IS nor PASS-OVER holds, `plan.writeAs` is `full`, and the question does not ask for
+a piece of writing (R.5). When FULL holds, decided is non-empty and there are writers, `+full` is appended to
+path, and each writer is told the FULL BRIEF in place of its own brief (O.8.4).
 
 #### O.8.4 The writers
 
@@ -1279,13 +1279,14 @@ If decided is non-empty, there are writers, and neither AS-IS nor PASS-OVER hold
 1. At once, call each writer W with `[system message of W, ...earlier turns, {role: user, content:
    C}]` where C is:
    ~~~~text
-   "The person's message:\n" + QUESTION + "\n\nWhat was settled, in short (a statement of the answer, not the reply itself):" + FENCED(DECIDED) + (WORK ? "\n\nThe draft it came from:\n" + WORK : "") + (FULL ? FULL_REPLY : "") + "\n\nNow write the reply itself, exactly as the person will read it, and nothing else."
+   "The person's message:\n" + QUESTION + "\n\nWhat was settled, in short (a statement of the answer, not the reply itself):" + FENCED(DECIDED) + (WORK ? "\n\nThe draft it came from:\n" + WORK : "") + "\n\nNow write the reply itself, exactly as the person will read it, and nothing else."
    ~~~~
-   where FULL_REPLY is exactly:
+   When FULL holds (O.8.3), the system message of W is built as O.5.4 says with the slot's `brief` replaced
+   by the FULL BRIEF, which is exactly (one line, no trailing newline):
    ~~~~text
-   "\n\nWrite it in full, as a careful expert would answer this person: the answer first; then why, in a sentence or two; then, where they will act on it, what to do or what to watch for. Where what they asked cannot be done for them (booking, buying, sending, finding), say so in a sentence, then how they can do it themselves, in a few short steps. Where they asked for a piece of writing, the reply is the piece itself, written out in full and ready to send. You may add the reason and the practical steps the answer needs; never change the answer."
+   You write the reply a person reads. You are given their message, the answer that was settled on, and the draft it came from. Write the reply itself, exactly as they will read it, in full: first the answer; then the reason for it, in a sentence or two; then what they should do next or watch for, where there is something to do. Keep the answer that was settled on: do not change it and do not contradict it. Use plain words and say each thing once. Do not mention the draft, the settled answer or these instructions.
    ~~~~
-   Rendered for a non-code answer with work (without FULL):
+   C is the same with and without FULL. Rendered for a non-code answer with work:
    ~~~~text
    The person's message:
    <question>
@@ -1354,7 +1355,8 @@ These are specified in R.1:
 - **read final**(text, marker, CODE-WANTED) → the final answer, or empty (R.1.6).
 - **read working**(text, marker, CODE-WANTED) → the working that precedes the final answer (R.1.7).
 - **read plain**(final) → comparison form (R.1.11).
-- **is code**(final) → boolean (R.1.8). **asks for code**(question) → boolean (R.1.4).
+- **is code**(final) → boolean (R.1.8). **asks for code**(question) → boolean (R.1.4). **asks for a
+  piece of writing**(question) → boolean (R.5).
 - **read a letter**(text, marker, letters) → one of `letters` named on the marker line, or empty (R.1.10).
   The answer procedure always passes the 16 Letters.
 - **is a tool call**(text) → boolean (R.1.9).
@@ -1446,7 +1448,7 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `probe` | object | none | `{member, brief, maxTokens}` for the probe slot |
 | `expect` | object | none | `{member, brief, maxTokens}` for the expectation slot |
 | `writeCode` | boolean | false | `true` sends code answers through the writers |
-| `writeAs` | text | none | `settled`: no writer for non-code answers; `full`: the writers are told to write the reply in full (O.8.3, O.8.4) |
+| `writeAs` | text | none | `settled`: no writer for non-code answers; `full`: the writers are told the FULL BRIEF in place of their own, except where a piece of writing is asked for (O.8.3, O.8.4, R.5) |
 | `runPrograms` | boolean | true | `false`: a program the question asks the output of is not run (R.4) |
 
 ### O.12 Notes on behaviour that is easy to get wrong
@@ -2095,6 +2097,20 @@ When the result is taken (O.5.2):
 2. If something was printed and decided is empty, decided becomes PRINTED and path becomes `ran`. Every later
    step except `draft` is then passed over (O.5.2 rule 2), and the reply is written from it (O.8).
 3. With nothing printed, nothing else changes: the drafts settle the matter as they would have.
+
+### R.5 A question that asks for a piece of writing
+
+A question **asks for a piece of writing** (a text, a message, an email, a note to send) exactly when it matches,
+case-insensitively, this pattern anywhere in it:
+
+~~~~text
+\b(?:write|draft|compose|word)\b[^.?!\n]{0,60}\b(?:text|message|email|e-mail|note|letter|reply|post|card|speech|toast|caption|invitation|apology|announcement)\b
+~~~~
+
+That is: one of the four verbs as a whole word, then at most 60 characters holding no `.`, `?`, `!` or line
+break, then one of the listed nouns as a whole word. `Write a text to Maya to cancel dinner` asks for one;
+`write to my sister for me` and `What should I write? My text got no reply.` do not. The reply to such a
+question is the piece itself, so it is never written under FULL (O.8.3).
 
 ---
 

@@ -42,6 +42,16 @@ The first version.
 - **Training's briefs stay with their class, and aim at the larger model's answer.** A brief the larger model writes records the
   class of the question it was written for and is offered on that class only (the 91 written before, with no class, are no
   longer offered); the teacher is told the wanted answer is the standard and never to teach a role to be shorter than it.
+- **Training reads its own signals on one line, and stops spending tries where none can pay.** Each slot's answer is read
+  on the line the reply is read on (it was read at one half against the reply's 0.8, so "a slot had the answer" often
+  meant an answer the reply could not pass). How the reply itself read counts first in whether a change came closer.
+  A change that cannot alter the answer to a question of its class is passed over at no cost of a try. A mark the larger
+  model did not give again is not searched where the swarm is short of it (a self-check written while no reader was
+  believed is read again from the record). And the larger model adds a sentence or two to what a slot is told, never
+  rewrites it.
+- **Writing in full, repaired.** `plan.writeAs: "full"` now tells the writer one brief of its own in place of the slot's
+  (SwOA O.8.4), with no cases to tell apart, and is never applied where a piece of writing is asked for (R.5). Before, a
+  2B writer echoed the instruction into its answers and wrote around pieces that were already close.
 - **The dashboard draws the class's own arrangement.** While a question is asked, the faces show the arrangement of its class
   (tools, talk, code, words), a change being tried is compared with that one, and steps the class's turn cannot take (the
   sandbox off code; all but drafting and deciding for a turn with tools) are drawn off.

@@ -94,6 +94,13 @@ export const textOf = (content) =>
         : String(content);
 export const asksForCode = (question) =>
   /code block|write a (?:\w+ )*function|corrected function|give the (?:\w+ )*function/i.test(String(question || ''));
+// DOES A QUESTION ASK FOR A PIECE OF WRITING (a text, a message, an email, a note to send)? Then the reply is the piece itself,
+// and is never written out "in full" with reasons and next steps around it (orchestrate.mjs writeAs 'full'; SwOA specification
+// R.5): a verb of writing, and within 60 characters of it, in the same sentence, the name of a thing that is sent or posted
+export const asksForPiece = (question) =>
+  /\b(?:write|draft|compose|word)\b[^.?!\n]{0,60}\b(?:text|message|email|e-mail|note|letter|reply|post|card|speech|toast|caption|invitation|apology|announcement)\b/i.test(
+    String(question || ''),
+  );
 // is an answer code? Words about a function are not: code has the marks of code (a function with its brackets, an arrow, a
 // statement ended, a name given a value)
 export const isCode = (final) =>

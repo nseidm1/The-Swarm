@@ -32,6 +32,34 @@ export function missesOf(work, slotId, { seed = null, most = 8 } = {}) {
   }
   return out;
 }
+// THE LARGER MODEL ADDS TO WHAT A ROLE IS TOLD; IT DOES NOT WRITE IT AGAIN. Asked for replacements, it wrote one-sentence briefs
+// that took the place of everything a role was told, the rule its answer is read by included ("You are given a specific question.
+// Read it carefully before checking any answer."), and of 2,546 briefs it wrote in one pass, 2 brought a question to parity
+// (measured 2026-11-18). So it is asked for an ADDITION: a sentence or two put after what the role is told now (withAddition),
+// which stays as it is. A role's brief takes at most ADDITIONS_MOST of them.
+export const ADDITION_LEAD = '\n\nAlso keep to this: ';
+export const ADDITIONS_MOST = 3;
+// what a role is told with an addition put after it; null where it already carries as many as it may, or carries this one
+export function withAddition(brief, add) {
+  const b = String(brief || '').trimEnd();
+  const a = String(add || '').trim();
+  if (!a || b.includes(a) || b.split(ADDITION_LEAD).length - 1 >= ADDITIONS_MOST) return null;
+  return b + ADDITION_LEAD + a;
+}
+// what tells two candidates apart: what one would have a role told (a whole brief, or an addition)
+export const candKey = (c) => String((c && c.brief) || '') + '\u0000' + String((c && c.add) || '');
+const ADD_ASK = (slot) =>
+  'three different ADDITIONS to what it is told. Do not write what it is told again: every word of it stays, and your addition ' +
+  'is put after it. Each addition is one or two plain sentences a small model can follow, under 40 words, about method or ' +
+  'checking, and general: never mention a question shown here, its subject, its numbers or its answer' +
+  (slot.stage === 'write'
+    ? ''
+    : '. It must not change the rule that the last line starts with ANSWER: and holds only the answer') +
+  '.';
+const STANDARD =
+  '\n\nThe wanted answer is the standard. Where it says more than what the role is told allows (it is longer, or gives reasons ' +
+  'or steps), the mistake is in what the role is told, not in the role, and an addition may say so: it stands over what came ' +
+  'before it. Never teach the role to be shorter or plainer than the wanted answer.';
 export const briefAsk = (slot, missed) =>
   'A small language model (2 to 3 billion parameters) fills one role among several in a group that answers questions together. ' +
   'Its role: ' +
@@ -41,15 +69,10 @@ export const briefAsk = (slot, missed) =>
   '\n\nHere is what it wrote on questions the group then got wrong, with the answer that was wanted:\n' +
   JSON.stringify(missed, null, 1) +
   // (the wanted answer is the standard, not the role's brief: as in teachAsk below)
-  '\n\nThe wanted answer is the standard. Where it says more than what the role is told allows (it is longer, or gives reasons ' +
-  'or steps), the replacements may change any rule of what it is told, length included. Never teach the role to be shorter or ' +
-  'plainer than the wanted answer.' +
-  '\n\nWrite three different replacements for what it is told. Each must be plain instructions a small model can follow, under 110 words, ' +
-  'general (never mention these questions or their answers), and must keep the rule that the last line starts with ANSWER: and holds only the answer' +
-  (slot.stage === 'write'
-    ? ' (this role is the exception: it writes the reply a person reads and has no ANSWER line)'
-    : '') +
-  '. Reply with JSON only: [{"name":"...","brief":"..."}]';
+  STANDARD +
+  '\n\nWrite ' +
+  ADD_ASK(slot) +
+  ' Reply with JSON only: [{"name":"...","add":"..."}]';
 // TEACHING WITH REASONING, for the question in hand (training/loop.mjs): the larger model is shown what one slot wrote where the
 // swarm fell short of its answer (no slot drafted it: `drafting`; a slot had it and it was not chosen: `choosing`), first says what
 // went wrong, in general terms, and then writes briefs that teach the method rather than the answer. Never this question, never its
@@ -72,17 +95,11 @@ export const teachAsk = (slot, missed, lost = 'drafting') =>
   // THE WANTED ANSWER IS THE STANDARD, NOT THE ROLE'S BRIEF (measured 2026-11-18: a teacher shown "answer briefly" and a fuller
   // wanted answer named the mistake "the model added extra context and how-to steps, violating the rule to answer briefly", and
   // wrote briefs that made the swarm shorter, away from the answer it is measured against)
-  '\n\nThe wanted answer is the standard. Where it says more than what the role is told allows (it is longer, or gives reasons ' +
-  'or steps), the mistake is in what the role is told, not in the role, and the replacements may change any rule of it, length ' +
-  'included. Never teach the role to be shorter or plainer than the wanted answer.' +
+  STANDARD +
   '\n\nFirst work out what went wrong, as a general mistake (a misread rule, a missed edge case, a wrong method), not as this ' +
-  'question. Then write three different replacements for what it is told that would teach a small model to avoid that kind of ' +
-  'mistake: plain instructions, under 110 words each, about method and checking, general (never mention this question, its ' +
-  'numbers or its answer), keeping the rule that the last line starts with ANSWER: and holds only the answer' +
-  (slot.stage === 'write'
-    ? ' (this role is the exception: it writes the reply a person reads and has no ANSWER line)'
-    : '') +
-  '. Reply with JSON only: [{"name":"...","why":"the general mistake, one sentence","brief":"..."}]';
+  'question. Then write ' +
+  ADD_ASK(slot) +
+  ' Reply with JSON only: [{"name":"...","why":"the general mistake, one sentence","add":"..."}]';
 // A BRIEF THAT GIVES THE QUESTION AWAY IS REFUSED. Both asks say "general, never this question", and a brief is kept only if it
 // helps and loses nothing; but a brief that hands a slot one question's answer can bring that question to parity and teach the
 // swarm nothing. Measured 2026-11-17 on question 6 (rotate left by 4): of three checker briefs, one gave the code outright ("compute
@@ -127,22 +144,24 @@ export function refuseGiveaways(cands, questions = [], { numbers = true } = {}) 
   const kept = [];
   const refused = [];
   for (const c of cands) {
-    const why = givesAway(c.brief, questions, { numbers });
+    const why = givesAway(c.brief || c.add, questions, { numbers });
     if (why) refused.push({ ...c, refused: why });
     else kept.push(c);
   }
   return { kept, refused };
 }
-// the candidates in a teacher's reply: [{ name, brief }], or none
+// the candidates in a teacher's reply: [{ name, add }] (an addition to what the role is told: what it is asked for), or
+// [{ name, brief }] (the whole of what the role is told: a reply in the form asked for before), or none
 export function candidatesIn(text, prefix = 'teacher') {
   const s = String(text || '');
   try {
     const got = JSON.parse(s.slice(s.indexOf('['), s.lastIndexOf(']') + 1));
+    const ok = (x, least, most) => typeof x === 'string' && x.trim().length > least && x.trim().length < most;
     return (Array.isArray(got) ? got : [])
-      .filter((c) => c && typeof c.brief === 'string' && c.brief.length > 40 && c.brief.length < 1600)
+      .filter((c) => c && (ok(c.add, 12, 400) || ok(c.brief, 40, 1600)))
       .map((c) => ({
-        name: prefix + ': ' + String(c.name || 'a rewrite').slice(0, 40),
-        brief: c.brief.trim(),
+        name: prefix + ': ' + String(c.name || (ok(c.add, 12, 400) ? 'an addition' : 'a rewrite')).slice(0, 40),
+        ...(ok(c.add, 12, 400) ? { add: c.add.trim() } : { brief: c.brief.trim() }),
         ...(typeof c.why === 'string' && c.why.trim() ? { why: c.why.trim().slice(0, 300) } : {}),
       }));
   } catch {

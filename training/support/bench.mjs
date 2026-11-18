@@ -472,6 +472,8 @@ export async function run(
       row.partsOn = { input: mark.input, theirs: mark.theirs, ours: mark.ours };
     if (mark.why) row.markWhy = mark.why;
     if (mark.undecided) row.undecided = true; // (support/equivalent.mjs UNDECIDED: graded different, counted apart)
+    // (and how the reader read the reply itself: the probability that it says what the larger model's says. The loop climbs by it)
+    if (typeof mark.p === 'number') row.reading = Math.round(mark.p * 1000) / 1000;
     // a reply in a conversation: which part of equivalence it was lost on (the act, the substance, the conduct)
     if (mark.part) row.part = mark.part;
     if (mark.faults) row.faults = mark.faults;

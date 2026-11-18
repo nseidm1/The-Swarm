@@ -102,7 +102,9 @@ export function targetOf() {
 export const briefHash = (text) =>
   createHash('sha256').update(String(text).replace(/\s+/g, ' ').trim()).digest('hex').slice(0, 16);
 // a candidate is known by what it would change: the words of a brief, a change to the plan, or both
-export const candHash = (c) => briefHash(String(c.brief || '') + (c.plan ? ' ' + JSON.stringify(c.plan) : ''));
+// (an addition to a brief is told apart by its own words: support/teach.mjs withAddition)
+export const candHash = (c) =>
+  briefHash(String(c.brief || '') + (c.add ? ' +' + c.add : '') + (c.plan ? ' ' + JSON.stringify(c.plan) : ''));
 
 // PARITY IS EQUIVALENCE, NOT A SCORE. The swarm is at parity with the larger model when, for the same question, its answer is
 // FUNDAMENTALLY EQUIVALENT to the larger model's: the same thing said, whatever the wording, the layout or the working. It is not

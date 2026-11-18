@@ -29,6 +29,7 @@ import {
   plain,
   isCode,
   asksForCode,
+  asksForPiece,
   MARKER,
   isToolCall,
   letterOf,
@@ -49,13 +50,16 @@ export const JUDGE_BRIEF =
 export const decideByOf = (v) => String(v || 'decider');
 const LETTERS = 'ABCDEFGHIJKLMNOP'; // an answer for each slot that drafts: four models' worth, and room over
 // the flow of an arrangement: the one it names, or the plain one
-// what the writer is told with plan.writeAs 'full' (SwOA specification O.8.4)
-export const FULL_REPLY =
-  '\n\nWrite it in full, as a careful expert would answer this person: the answer first; then why, in a sentence or two; then, ' +
-  'where they will act on it, what to do or what to watch for. Where what they asked cannot be done for them (booking, buying, ' +
-  'sending, finding), say so in a sentence, then how they can do it themselves, in a few short steps. Where they asked for a ' +
-  'piece of writing, the reply is the piece itself, written out in full and ready to send. You may add the reason and the ' +
-  'practical steps the answer needs; never change the answer.';
+// what a writer is told, in place of its own brief, with plan.writeAs 'full' (SwOA specification O.8.3, O.8.4). It is the whole of
+// what the writer is told, and holds no case to tell apart: told "where what they asked cannot be done for them (booking, buying,
+// sending, finding), say so" after its own brief, a 2B writer wrote "You can't book or buy water for your plant" to a question
+// about watering one, and its own brief still said to add nothing that was not in the draft (measured 2026-11-18)
+export const FULL_BRIEF =
+  'You write the reply a person reads. You are given their message, the answer that was settled on, and the draft it came ' +
+  'from. Write the reply itself, exactly as they will read it, in full: first the answer; then the reason for it, in a ' +
+  'sentence or two; then what they should do next or watch for, where there is something to do. Keep the answer that was ' +
+  'settled on: do not change it and do not contradict it. Use plain words and say each thing once. Do not mention the draft, ' +
+  'the settled answer or these instructions.';
 export const DEFAULT_FLOW = [{ do: 'draft' }, { do: 'try' }, { do: 'check' }, { do: 'decide' }, { do: 'write' }];
 export const flowOf = (briefs) => (Array.isArray(briefs.flow) && briefs.flow.length ? briefs.flow : DEFAULT_FLOW);
 // WORKED EXAMPLES: the k nearest the question (by the words they share, code with code), shown as what a good answer looks like.
@@ -903,12 +907,15 @@ export async function answer(
   // be brief and the writer to add nothing (measured 2026-11-18: of 36 questions short of parity, about 19 had the larger model's
   // answer and lost it by being thin: "Yes, rabbits can eat celery." against the answer, how to give it and how much). Whether it
   // is better is the trainer's to find, class by class
-  const full = !asIs && !passOver && plan.writeAs === 'full';
+  // (never where a piece of writing is asked for: the piece is the reply, and reasons and next steps around it are not it.
+  // Measured 2026-11-18: written "in full", a text to cancel a dinner read 0.65 and 0.72 against the larger model's where it had read 0.88)
+  const full = !asIs && !passOver && plan.writeAs === 'full' && !asksForPiece(question);
   if (decided && full && writers.length) path += '+full';
   if (asIs) reply = '```' + (/\bfunction\b|=>|\b(?:const|let)\s/.test(decided) ? 'js' : '') + '\n' + decided + '\n```';
   else if (decided && writers.length && !passOver) {
     const writeMsgs = (s) => [
-      sys(s),
+      // (in full: the writer is told FULL_BRIEF in place of its own brief, the rest of its system message as it always is)
+      sys(full ? { ...s, brief: FULL_BRIEF } : s),
       ...kept.slice(0, -1),
       {
         role: 'user',
@@ -922,7 +929,6 @@ export async function answer(
           '\n\nWhat was settled, in short (a statement of the answer, not the reply itself):' +
           fenced(decided) +
           (work ? '\n\nThe draft it came from:\n' + work : '') +
-          (full ? FULL_REPLY : '') +
           '\n\nNow write the reply itself, exactly as the person will read it, and nothing else.',
       },
     ];

@@ -26,7 +26,7 @@
 // It carries on where it stopped: every finished question is written down (.work/train/<configuration>/loop.json).
 import fs from 'node:fs';
 import path from 'node:path';
-import { decideByOf, classOf as inputClassOf, briefsFor, KIND_PARTS } from '../src/orchestrate.mjs';
+import { decideByOf, classOf as inputClassOf, briefsFor, KIND_PARTS, flowOf } from '../src/orchestrate.mjs';
 import {
   normal as normalPolicy,
   reviewAsk,
@@ -213,6 +213,18 @@ const meanShare = (row) => {
   const xs = sharesOf(row);
   return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
 };
+// AND, FIRST OF ALL, HOW THE REPLY ITSELF READ (row.reading: the reader's probability that the reply says what the larger model's
+// says; answers in words and replies in a conversation have one). Everything above looks at the drafts, so a change to how the reply
+// is written or chosen read as no closer whatever it did to the reply (measured 2026-11-18: writing the reply in full took 13 of 16
+// replies nearer, 0.53 to 0.90, 0.64 to 0.82, 0.49 to 0.84, and only the one that crossed the line counted for anything). It counts
+// in steps of 0.05: a step up is closer, whatever the drafts did; less than a step is the same reading.
+export const READING_STEP = 0.05;
+// HOW CLOSENESS IS COUNTED, as a number written down with a search (2: the reply's own reading first, and every slot's answer read
+// on the reply's line). A search written down under another count is not carried on: its arrangements' scores, and where each
+// said the answer was lost, cannot be set beside ones counted now. The question is searched afresh, on the same bound.
+export const SCORING = 2;
+const readingSteps = (row) =>
+  typeof row.reading === 'number' ? Math.floor(Math.max(0, Math.min(1, row.reading)) / READING_STEP + 1e-9) : 0;
 export function closeness(row, ev = null, { partial = false } = {}) {
   const lost = (ev && ev.lost) || lostAt(row);
   const tr = row.trace || [];
@@ -223,6 +235,7 @@ export function closeness(row, ev = null, { partial = false } = {}) {
   const p = decided ? Math.max(0, ...holders.map((s) => decided.probs[s.letter] || 0)) : 0;
   const share = partial ? bestShare(row) || 0 : 0;
   return (
+    readingSteps(row) * 3000 +
     { drafting: 0, choosing: 1, writing: 2 }[lost] * 1000 +
     Math.min(9, holders.length) * 100 +
     Math.round(p * 9) * 10 +
@@ -250,6 +263,8 @@ export function nearOf(row, ev = null) {
     ...(p == null ? {} : { p: Math.round(p * 100) / 100 }),
     ...(share == null ? {} : { share: Math.round(share * 100) / 100 }),
     ...(mean == null ? {} : { mean: Math.round(mean * 100) / 100 }),
+    // (how the reply itself read: closeness counts it first)
+    ...(typeof row.reading === 'number' ? { reply: Math.round(row.reading * 100) / 100 } : {}),
     ...(row.path ? { path: String(row.path).slice(0, 60) } : {}),
   };
 }
@@ -494,6 +509,27 @@ export function specificTokens(t, others = []) {
   for (const o of others) for (const x of grab(textOfQ(o))) common.add(x);
   return [...mine].filter((x) => x && !common.has(x));
 }
+// WHAT OF AN ARRANGEMENT CAN CHANGE THE ANSWER TO A QUESTION OF A CLASS (src/orchestrate.mjs; src/tools.mjs). A question in words
+// asks for no code, so nothing is run on calls: the try and expect steps do nothing, and plan.byBehaviour, plan.probe and
+// plan.expect are never read. A turn with tools is the drafters proposing and the decider choosing: only the drafting slots are
+// read. A change that alters nothing of this cannot change the answer, and is not tried (measured 2026-11-18: 14 of 199 tries on
+// questions in words were "plan: byBehaviour false" and "flow: say what each call should give", each counted against the 30
+// tries a question is given).
+export function effectOn(b = {}, cls = '') {
+  // (everything of the arrangement stands unless it is known to be unread for the class: nothing is passed over on a guess)
+  if (cls === 'tools') {
+    const { plan: _p, flow: _f, ...rest } = b;
+    return { ...rest, slots: (b.slots || []).filter((s) => s.stage === 'draft') };
+  }
+  if (cls !== 'words') return b;
+  const strip = (steps) =>
+    (steps || [])
+      .filter((s) => s.do !== 'try' && s.do !== 'expect')
+      .map((s) => (s.do === 'repeat' ? { ...s, steps: strip(s.steps) } : s));
+  const { byBehaviour: _b, probe: _pr, expect: _e, ...plan } = b.plan || {};
+  return { ...b, plan, flow: strip(flowOf(b)) };
+}
+export const sameEffect = (a, b, cls) => JSON.stringify(effectOn(a, cls)) === JSON.stringify(effectOn(b, cls));
 export function quotesQuestion(newBriefs, oldBriefs, tokens = []) {
   if (!tokens.length) return '';
   const was = new Map(((oldBriefs && oldBriefs.slots) || []).map((x) => [x.id, x.brief]));
@@ -582,10 +618,11 @@ export function addToLibrary(lib, names, from) {
 // is wrong. Measured 2026-11-17: Nemotron 3.5 Lightning 30B wrong on 7 of a pass's 30 code questions (toSeconds("5m") 0, wanted
 // 300), and 3 of the 5 changes one run kept were won on them, the swarm taught the larger model's mistakes.
 // -> Map(id -> { share, input, theirs, wanted }) for those questions
-// THE SAVED BRIEFS OFFERED ON A QUESTION OF CLASS cls: one the larger model wrote (written) only where it says that class; one a
-// person wrote, for any class; with no class asked for, all of them (training/loop.mjs fileCands)
+// THE SAVED BRIEFS OFFERED ON A QUESTION OF CLASS cls: one the larger model wrote (written) only where it says that class and is an
+// addition to what a slot is told (support/teach.mjs: a whole brief it wrote, from when it was asked for replacements, is not
+// offered); one a person wrote, for any class; with no class asked for, all of them (training/loop.mjs fileCands)
 export const offeredOn = (cands, cls = null) =>
-  (cands || []).filter((c) => c && (!cls || !c.written || c.class === cls));
+  (cands || []).filter((c) => c && (!cls || !c.written || (c.class === cls && !!c.add)));
 // A DEGENERATE REPLY: one that is mostly the same few characters over and over (measured 2026-11-18: the 30B answered "What is in
 // the docs folder?" with one three-character phrase repeated to its token limit). Of a reply's four-character pieces, fewer than one
 // in ten different, over at least sixty characters
@@ -772,6 +809,12 @@ export async function runLoop({
       // (and why: the larger model gave nothing to compare with, or the reader of its kind failed its own check this pass)
       if (row.why) q.why = row.why;
     } else if (row.grade === 'right') q.state = 'at parity';
+    // A MARK THE LARGER MODEL DID NOT GIVE AGAIN (unstable: asked the same question a second time, its answer was not equivalent to
+    // its first): where the swarm is not at parity with it as it stands, the question is set aside and not searched. Parity there
+    // is with one draw of the larger model's, which its next draw would not pass either (measured 2026-11-18: on 36 questions in
+    // conversation its second answer was equivalent to its first on 17; 18 of the 36 questions then short of parity had such a
+    // mark, and 1,017 tries had gone to them). It still counts as short of parity: nothing is taken out of the share.
+    else if (unstable.has(t.id)) q.state = 'mark unstable';
     else {
       const ev0 = tuned(await lostOf(row, eb), eb, pol);
       const lost = ev0.lost;
@@ -874,7 +917,20 @@ export async function runLoop({
           q.specific = (q.specific || 0) + 1;
           st.specificRefused = (st.specificRefused || 0) + 1;
           console.log('  refused ' + combo.join(' + ').slice(0, 70) + ' (a brief quotes the question: ' + quoted + ')');
-          return { closer: false };
+          return { closer: false, skipped: true };
+        }
+        // A CHANGE THAT CANNOT CHANGE THIS QUESTION'S ANSWER IS NOT TRIED (effectOn): it costs no try either
+        if (sameEffect(newBriefs, node.base, K)) {
+          q.noEffect = (q.noEffect || 0) + 1;
+          st.noEffect = (st.noEffect || 0) + 1;
+          console.log(
+            '  passed over ' +
+              combo.join(' + ').slice(0, 70) +
+              ' (it changes nothing a question ' +
+              (K === 'tools' ? 'with tools' : 'in words') +
+              ' is answered by)',
+          );
+          return { closer: false, skipped: true };
         }
         i++;
         onAttempt({ q, m, n: i });
@@ -1206,6 +1262,7 @@ export async function runLoop({
       const snapshot = () => ({
         id: t.id,
         version: briefs.version || 1,
+        scoring: SCORING,
         i,
         q: JSON.parse(JSON.stringify(q)),
         seen: [...seen],
@@ -1222,6 +1279,8 @@ export async function runLoop({
       // written down
       const tryIt = async (...args) => {
         const out = await tryOne(...args);
+        // (a change refused or passed over before it was asked measured nothing: it is no try, and does not count toward the bound)
+        if (out.skipped) return out;
         q.sinceGain = out.closer || won ? 0 : (q.sinceGain || 0) + 1;
         await checkpoint();
         return out;
@@ -1363,6 +1422,7 @@ export async function runLoop({
               ],
             };
             const out = await tryIt(node, m, combo, m.briefs, method, { taught: true });
+            if (out.skipped) continue;
             tc.tried++;
             if (won || out.closer) gained = true;
             if (won) tc.kept++;
@@ -1461,6 +1521,7 @@ export async function runLoop({
             ],
           };
           const out = await tryIt(node, m, combo, ap.briefs, method, { suggested: true, left: picks.length - pk - 1 });
+          if (out.skipped) continue;
           sg.tried++;
           if (won) sg.kept++;
           else if (out.closer) sg.closer++;
@@ -1477,7 +1538,7 @@ export async function runLoop({
       // CARRIED ON: the search as it was written down after its last try (or when it was set aside), on the same arrangement
       const held = carry || (st.asideSearch && st.asideSearch[t.id]);
       if (st.asideSearch) delete st.asideSearch[t.id];
-      if (held && held.version === (briefs.version || 1)) {
+      if (held && held.version === (briefs.version || 1) && (held.scoring || 1) === SCORING) {
         Object.assign(q, held.q, { id: t.id, kind: t.kind, asked: K });
         i = held.i;
         for (const k of held.seen) seen.add(k);
@@ -1722,6 +1783,7 @@ export function tallyOf(st) {
     reached: by('reached'),
     notReached: by('not reached'),
     markWrong: by('mark wrong'),
+    markUnstable: by('mark unstable'),
     setAside: by('set aside'),
     notCompared: by('not compared'),
     kept: st.kept.length,
@@ -1786,17 +1848,15 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   if (skipKinds.size) console.log('Left out of this pass, as asked: ' + [...skipKinds].join(', ') + '.');
   // what each question asks: a brief that names a function one of them asks for is passed over (support/teach.mjs givesAway)
   const asks = list.map((t) => t.ask || '');
+  // (read here, before anything that builds the pool of changes: the pool passes over briefs that give a question away)
+  const { teachAsk, candidatesIn, refuseGiveaways, givesAway, withAddition, candKey } =
+    await import('./support/teach.mjs');
   // THE QUESTIONS WHOSE MARK IS NOT STABLE: the larger model asked them again (session.sh 02-target-self-train) and did not give an
   // answer equivalent to its own first one. Measured on the held questions, it was equivalent to itself on 56 of 84; on the kinds
   // of conversation, as few as 1 in 6
-  const unstable = unstableOf(path.join(B.RESULTS, TARGET.id + '-self-train.json'), (list[0] || {}).seed);
-  if (unstable.size)
-    console.log(
-      unstable.size +
-        ' of ' +
-        list.length +
-        ' train questions have a mark the larger model did not give again: they are marked, and searched until parity like the rest.',
-    );
+  // (said further down, once the record has been read again where no reader had read it: support/self-check.mjs)
+  const selfFile = path.join(B.RESULTS, TARGET.id + '-self-train.json');
+  const unstable = unstableOf(selfFile, (list[0] || {}).seed);
   const byId = Object.fromEntries(list.map((t) => [t.id, t]));
   const state = readState();
   const pass = state.pass + 1;
@@ -1827,7 +1887,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         /* none there, or half written */
       }
     // (one written before briefs that give a question away were refused is passed over the same way)
-    return offeredOn(out, cls).filter((c) => !givesAway(c.brief, asks));
+    return offeredOn(out, cls).filter((c) => !givesAway(c.brief || c.add, asks));
   };
   const poolOf = (b0, { cls = null } = {}) => {
     const b = withExamples(b0, { each });
@@ -1838,9 +1898,13 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         ...fileCands(s.id, cls),
         ...moved.filter((x) => x.slot === s.id).map((x) => ({ name: x.name, brief: x.brief })),
       ];
-      for (const c of cands) {
+      for (const c0 of cands) {
+        // (an addition by the larger model is put after what the slot is told now, whatever that has become: support/teach.mjs
+        // withAddition; null where the brief carries it already, or as many as it may)
+        const c = c0.add ? { ...c0, brief: withAddition(s.brief, c0.add) } : c0;
+        if (c0.add && !c.brief) continue;
         if (!((c.brief && c.brief !== s.brief) || c.plan)) continue;
-        const h = candHash(c);
+        const h = candHash(c0);
         const id = 'brief:' + s.id + ':' + h;
         if ((tried[s.id] || []).includes(h) || steer.skip.includes(id)) continue;
         if (
@@ -2115,7 +2179,6 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   if (!kept) writePolicy(startPolicy);
   // NEW BRIEFS FOR A SLOT THAT FAILED ON THE QUESTION IN HAND, by the larger model (as write-briefs.mjs does once a pass, from a
   // pass's misses): added to this configuration's candidates, where the pool reads them, and returned for the loop to try
-  const { teachAsk, candidatesIn, refuseGiveaways, givesAway } = await import('./support/teach.mjs');
   const teach =
     process.env.SWARM_LOOP_REVIEW === '0'
       ? null
@@ -2143,7 +2206,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
           }
           // (each says the class of the question it was written for, and which question: it is offered on that class only)
           const add = fresh
-            .filter((c) => !have.some((h) => h.brief === c.brief))
+            .filter((c) => !have.some((h) => candKey(h) === candKey(c)))
             .map((c) => ({
               ...c,
               ...(cls ? { class: cls } : {}),
@@ -2156,6 +2219,48 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         };
   const swarm = await openSwarm(readBriefs(), { reuse: true });
   const reader = judgeAddress(swarm.decider);
+  // (the line each slot's answer is read on: the reader's own for the question's type, as the reply is: measure.mjs slotReport)
+  const { readerMark } = await import('./support/reader-file.mjs');
+  const markOf = (t) => readerMark(WORKC, t.type);
+  // THE LARGER MODEL'S SECOND ANSWERS, READ WHERE NO READER HAD READ THEM (support/self-check.mjs): a self-check run while the reader
+  // of answers in words was not believed compared none of them, and named none of those questions as having a mark that is a draw
+  try {
+    const { regradeSelf } = await import('./support/self-check.mjs');
+    const again = await regradeSelf({
+      file: selfFile,
+      runsFile: path.join(B.WORK, 'baseline-runs.jsonl'),
+      label: TARGET.id + '-self',
+      list,
+      ref,
+      count: B.count,
+      grade: async (t, first, second) => {
+        const holds = (text) => (t.usable ? t.usable(text) : !!t.show(text));
+        if (!first || !holds(first)) return { grade: 'noref' };
+        if ((t.type === 'open' || t.type === 'talk') && !readerOk(WORKC, t.type)) return { grade: 'noref' };
+        return t.equivalent(first, second, { reader, mark: markOf(t) });
+      },
+    });
+    if (again) {
+      unstable.clear();
+      for (const id of again.disagreed) unstable.add(id);
+      console.log(
+        "The larger model's second answers were read again where no reader had read them (" +
+          again.regraded +
+          ' read now).',
+      );
+    }
+  } catch (e) {
+    console.log(
+      "The larger model's second answers could not be read again: " + String((e && e.message) || e).slice(0, 120),
+    );
+  }
+  if (unstable.size)
+    console.log(
+      unstable.size +
+        ' of ' +
+        list.length +
+        ' train questions have a mark the larger model did not give again: one the swarm is not at parity with as it stands is set aside, not searched.',
+    );
   const pick = (got) => ({
     reply: got.reply,
     decided: got.decided,
@@ -2270,13 +2375,17 @@ if (import.meta.url === 'file://' + process.argv[1]) {
           (at.attempt ? '  ' + (at.guard ? 'again ' : 'try ' + at.attempt + ' ') : '') +
             row.grade.padEnd(7) +
             (at.guard || t.id).padEnd(22) +
-            (at.move ? at.move.slice(0, 70) : String(row.path).padEnd(22) + plain(row.decided).slice(0, 30)),
+            (at.move ? at.move.slice(0, 70) : String(row.path).padEnd(22) + plain(row.decided).slice(0, 30)) +
+            // (how the reader read the reply, where it reads one: what a change did to the reply is seen try by try)
+            (typeof row.reading === 'number' && row.grade !== 'right'
+              ? '  (reads ' + row.reading.toFixed(2) + ')'
+              : ''),
         );
         return row;
       },
       // every slot's answer marked against the larger model's, then what the record says will help (evidenceOf, with the replay)
       lostOf: async (row, b) => {
-        await slotReport([row], byId, { reader, briefs: b || swarm.briefs });
+        await slotReport([row], byId, { reader, briefs: b || swarm.briefs, markOf });
         return evidenceOf(row, b || swarm.briefs, { replay });
       },
       // one move is being tried at a time: the one before goes back to planned (its result is written when the pass ends)
@@ -2360,7 +2469,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   );
   // THE TRAIN MEASUREMENT IS WHAT THE LOOP LEFT: every question's standing answer, with each slot's own marked
   const c = count(st.rows);
-  const rep = await slotReport(st.rows, byId, { reader, briefs: st.briefs });
+  const rep = await slotReport(st.rows, byId, { reader, briefs: st.briefs, markOf });
   console.log(line('swarm (train)', c));
   rowsTo(
     'swarm-runs.jsonl',

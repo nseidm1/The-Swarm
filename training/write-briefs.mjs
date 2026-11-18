@@ -12,7 +12,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { arg, openAlone, WORK, WORKC } from './support/bench.mjs';
-import { missesOf, briefAsk, candidatesIn, refuseGiveaways } from './support/teach.mjs';
+import { missesOf, briefAsk, candidatesIn, refuseGiveaways, candKey } from './support/teach.mjs';
 import { readBriefs } from '../src/index.mjs';
 import { readState, candHash } from './state.mjs';
 import { readPlan } from './support/plan-file.mjs';
@@ -114,7 +114,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       }
       for (const c of refused) console.log(id + ': refused "' + c.name + '": ' + c.refused);
       const fresh = kept.filter(
-        (c) => c.brief !== slot.brief && !tried.includes(candHash(c)) && !have.some((x) => x.brief === c.brief),
+        (c) => c.brief !== slot.brief && !tried.includes(candHash(c)) && !have.some((x) => candKey(x) === candKey(c)),
       );
       fs.writeFileSync(file, JSON.stringify([...have, ...fresh], null, 2) + '\n');
       console.log(
