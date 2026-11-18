@@ -536,6 +536,8 @@ export async function runLoop({
   const byId = Object.fromEntries(list.map((t) => [t.id, t]));
   const doneIds = () =>
     new Set(st.questions.filter((q) => q.state !== 'reopened' && q.state !== 'set aside').map((q) => q.id));
+  // (a question finished before its mark was found wrong keeps its record, flagged: it is no longer one a change must not lose)
+  for (const q of st.questions) if (wrongMarks.has(q.id) && !q.markWrong) q.markWrong = wrongMarks.get(q.id);
   const reached = st.questions
     .filter((q) => q.reached && !wrongMarks.has(q.id))
     .map((q) => ({ t: byId[q.id], row: st.rows.find((r) => r.id === q.id) }))

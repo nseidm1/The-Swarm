@@ -41,6 +41,21 @@ import data  # noqa: E402
 
 ARGS = None
 
+
+def _build_id():
+    """WHICH CODE THIS SERVER RUNS: a hash of the page's own modules as they were when it started. An open page carries the one it was
+    drawn with, and says so when the server's has changed (a restart onto new code): its own script cannot pick up the new one."""
+    h = hashlib.sha1()
+    for f in ("swarm_ui.py", "data.py", "cleanup.py"):
+        try:
+            h.update((Path(__file__).resolve().parent / f).read_bytes())
+        except OSError:
+            pass
+    return h.hexdigest()[:12]
+
+
+BUILD = _build_id()
+
 CSS = """
 :root{--ink:#eaf7f3;--panel:#ffffff;--soft:#e3efeb;--line:#d9e8e3;--line2:#e3ece9;--fog:#14211f;--mist:#5f7773;
 --r:14px;--teal:#0b5d57;--teal2:#1e9e8e;--sun:#f9c440;--coral:#f2644b;--lfm:#0e6b62;--bon:#c98a06;--dec:#d9502f;--tgt:#3f4f86;
@@ -385,12 +400,14 @@ button.mav{position:relative;border:0;font:inherit;color:inherit;text-align:left
 .pipe.wrapped .loopg{flex-direction:row;flex-wrap:wrap;gap:8px;padding:8px}.pipe.wrapped .loopg>.st{margin:0;flex-basis:auto}
 .pipe.wrapped .avs{display:grid;grid-template-columns:repeat(var(--cols,3),minmax(0,1fr));justify-items:center;gap:6px 0}
 .facesnow{margin:0 0 10px}
+.updnote{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;margin:0 0 12px;padding:10px 14px;border-radius:var(--r);background:#fdf0cf;color:#6b4a00;font-weight:700;font-size:14px;box-shadow:var(--shadow)}.updnote[hidden]{display:none}
 .qtrack{margin:0 0 14px;padding:12px 14px;border-radius:var(--r);background:var(--soft)}.qtrack .qhead{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;font-size:13px;color:var(--mist);font-weight:600}
 .qtrack .qhead b{color:var(--fog)}.qtrack .qnow{margin:6px 0 0;font-size:13.5px;font-weight:700;color:var(--fog);overflow-wrap:anywhere}.qtrack .qnow small{display:block;font-weight:600;color:var(--mist);font-size:12px;margin-top:2px}
 .qtrack .qnow .ql{display:block}.qtrack .qnow .qtext{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;padding:0;line-height:1.45;max-height:2.9em;overflow:hidden}.qtrack .qnow .it{float:left;margin:0 8px 0 0;display:inline-block;line-height:1.45;padding:0 8px;white-space:nowrap;border-radius:var(--r);background:var(--panel);color:var(--teal);font-size:12px;margin-right:6px}
 .pips{display:flex;flex-wrap:wrap;gap:3px;margin-top:10px}.pips i{width:10px;height:10px;border-radius:3px;background:#dfe8e5;display:block}
-.pips i.at{background:var(--right)}.pips i.re{background:var(--teal2);box-shadow:inset 0 0 0 2px #fff}.pips i.nr{background:var(--wrong)}.pips i.nc{background:#c9d3d0}.pips i.ro{background:#fff;box-shadow:inset 0 0 0 2px var(--sun)}
-.pips i.cur{background:var(--sun);animation:p 1.2s infinite}.qkey{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:11.5px;color:var(--mist);font-weight:600}.qkey span{display:inline-flex;align-items:center;gap:5px}.qkey i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.pips i.at,.qkey i.at{background:var(--right)}.pips i.re,.qkey i.re{background:var(--teal2);box-shadow:inset 0 0 0 2px #fff}.pips i.nr,.qkey i.nr{background:var(--wrong)}.pips i.nc,.qkey i.nc{background:#c9d3d0}.pips i.ro,.qkey i.ro{background:#fff;box-shadow:inset 0 0 0 2px var(--sun)}
+.pips i.cur,.qkey i.cur{background:var(--sun);animation:p 1.2s infinite}
+.pips i.sa,.qkey i.sa{background:#fdf0cf;box-shadow:inset 0 0 0 2px #e3c46a}.pips i.mw,.qkey i.mw{background:repeating-linear-gradient(135deg,#c9d3d0 0 2px,#fff 2px 4px);box-shadow:inset 0 0 0 1px #b3c0bc}.qkey{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:11.5px;color:var(--mist);font-weight:600}.qkey span{display:inline-flex;align-items:center;gap:5px}.qkey i{width:10px;height:10px;border-radius:3px;display:inline-block}
 .tryline{margin:8px 0 12px;padding:9px 12px;border-radius:var(--r);background:#fdf0cf;color:#6b4a00;font-size:13px;overflow-wrap:anywhere}.tryline b{color:#8a5a00}.tryline a{color:#8a5a00;font-weight:800;margin-left:6px}
 .slot.tgt{background:#e6e9f6;border-left-color:var(--tgt)}.stage.mark{margin-top:14px;padding-top:14px;border-top:1px solid var(--line2)}.stage.mark .t{color:var(--tgt)}.slot.tgt .body{padding-top:8px}
 .stage.mark .slot.tgt>summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr) auto auto;gap:4px 16px;align-items:center}.stage.mark .slot.tgt .purpose{margin:0}
@@ -658,7 +675,7 @@ async function liveTick(){
       document.querySelectorAll('#viz [data-part]').forEach(b=>b.classList.toggle('on',b.dataset.part===ph));}
     if(pp){const key=done.map(x=>x.s).join()+'|'+(lp&&n.trainer==='loop'?lp.n:'');
       if(pp.dataset.k!==key){pp.dataset.k=key;pp.innerHTML='';
-        for(const x of done){const i=document.createElement('i');i.className=x.s;i.title=x.id+' · '+x.kind+(x.tried?' · '+x.tried+' change'+(x.tried===1?'':'s')+' tried':'');pp.append(i);}
+        for(const x of done){const i=document.createElement('i');i.className=x.s;i.title=x.id+' · '+(x.w?x.w+' · ':'')+x.kind+(x.tried?' · '+x.tried+' change'+(x.tried===1?'':'s')+' tried':'');pp.append(i);}
         if(lp&&n.trainer==='loop'&&lp.n>done.length){const i=document.createElement('i');i.className='cur';i.title='in hand: question '+lp.n;pp.append(i);}}}
     if(qh&&(done.length||(lp&&n.trainer==='loop'))){const c=s=>done.filter(x=>x.s===s).length;const t=[done.length+' of '+of+' finished',c('at')+' at parity as it stood',c('re')+' brought to parity',c('nr')+' not reached'];
       const k=t.join('|');if(qh.dataset.k!==k){qh.dataset.k=k;qh.innerHTML='<b>Question by question</b>';for(const v of t){const sp=document.createElement('span');sp.textContent=v;qh.append(sp);}}}}
@@ -740,6 +757,13 @@ async function facesTick(){const f=$('#faces');if(!f)return;const open=f.querySe
   let r;try{r=await fetch('/fragment/faces?k='+encodeURIComponent(f.dataset.k||''));}catch(e){return;}
   if(r.status!==200)return;const t=await r.text();if(t&&$('#faces'))$('#faces').outerHTML=t;}
 setInterval(facesTick,3000);
+// THE PAGE KNOWS WHEN THE DASHBOARD'S CODE HAS CHANGED: its own script is the one it was drawn with, and a server restarted onto new
+// code cannot change that. It asks which code the server runs, and where it differs says so, with a button; it never reloads itself
+const BUILD_ME=(document.querySelector('meta[name="swarm-build"]')||{}).content||'';
+async function buildTick(){const n=$('#updnote');if(!n||!BUILD_ME)return;let b;try{b=(await (await fetch('/api/build')).json()).build;}catch(e){return;}
+  n.hidden=!b||b===BUILD_ME;}
+document.addEventListener('click',(ev)=>{if(ev.target.closest('#upd-go'))location.reload();});
+setInterval(buildTick,15000);
 // A FLOW TOO LONG FOR ITS CARD WRAPS: the steps sit in one row where they fit, and where they do not (a flow training has grown, a
 // narrow window, the inner screen of a folding phone) they wrap as tiles, as on a phone, instead of running past the card's edge.
 // Measured, not guessed by width: on load, on a resize or a fold, and whenever part of the page is drawn again
@@ -1812,12 +1836,20 @@ def at_parity(d, t):
 
 
 # A QUESTION'S STATE IN THE LOOP, as a pip: at parity as the swarm stood, brought to parity by a change, not reached, not compared
-PIP = {"at parity": "at", "reached": "re", "not reached": "nr", "not compared": "nc", "reopened": "ro", "set aside": "ro", "mark wrong": "nc"}
+PIP = {"at parity": "at", "reached": "re", "not reached": "nr", "not compared": "nc", "reopened": "ro", "set aside": "sa", "mark wrong": "mw"}
+# what each state is called on a pip's tooltip and in the key, one look for each
+PIP_WORDS = {"at": "at parity as it stood", "re": "brought to parity by a change", "nr": "not reached", "ro": "back in hand after a swap",
+             "sa": "set aside until the others are done", "mw": "set aside: the larger model's answer is wrong", "nc": "not compared: no answer from the larger model",
+             "cur": "in hand"}
 
 
 def track_of(lp):
     """Each finished question of the loop's record, in order, for the pips: [{id, kind, s (pip class), tried}]."""
-    return [{"id": q.get("id", ""), "kind": q.get("kind", "") + (" · unstable mark" if q.get("unstable") else ""), "s": PIP.get(q.get("state"), "nc"), "tried": max(0, len(q.get("attempts") or []) - 1)}
+    # (a question brought to parity before its mark was found wrong: the wrong mark's look, and its tooltip says it reached parity first)
+    late = lambda q: bool(q.get("markWrong")) and q.get("state") in ("at parity", "reached")  # noqa: E731
+    return [{"id": q.get("id", ""), "kind": q.get("kind", "") + (" · unstable mark" if q.get("unstable") else ""), "s": "mw" if late(q) else PIP.get(q.get("state"), "nc"),
+             "w": (PIP_WORDS["mw"] + " (it was %s before that was found)" % PIP_WORDS[PIP[q["state"]]]) if late(q) else PIP_WORDS.get(PIP.get(q.get("state"), "nc"), ""),
+             "tried": max(0, len(q.get("attempts") or []) - 1)}
             for q in (lp or {}).get("list") or []]
 
 
@@ -1852,13 +1884,13 @@ def question_track(d):
     begun = bool(lp) or session_live()
     now = ("Pass %s stopped after question %d of %d." % (e(str(lp.get("pass", ""))), len(tr), of)) if tr and len(tr) < of else ("Pass %s: every question finished." % e(str(lp.get("pass", ""))) if tr
            else "" if begun else "Each question the larger model answered stays in hand until the swarm is at parity on it.")
-    pips = "".join('<i class="%s" title="%s · %s%s"></i>' % (x["s"], e(x["id"]), e(x["kind"]), (" · %d change%s tried" % (x["tried"], "" if x["tried"] == 1 else "s")) if x["tried"] else "") for x in tr)
+    pips = "".join('<i class="%s" title="%s · %s · %s%s"></i>' % (x["s"], e(x["id"]), e(x["w"]), e(x["kind"]), (" · %d change%s tried" % (x["tried"], "" if x["tried"] == 1 else "s")) if x["tried"] else "") for x in tr)
     head = ("<span>%d of %d finished</span><span>%d at parity as it stood</span><span>%d brought to parity</span><span>%d not reached</span>" % (len(tr), of, n("at"), n("re"), n("nr"))) if begun else "<span>not begun</span>"
     return ('<div class="qtrack" id="qtrack"><div class="qhead" id="qhead"><b>Question by question</b>%s</div>'
             '<p class="qnow" id="qnow">%s</p><div class="pips" id="pips">%s</div>'
-            '<div class="qkey"><span><i style="background:var(--right)"></i>at parity as it stood</span><span><i style="background:var(--teal2);box-shadow:inset 0 0 0 2px #fff"></i>brought to parity by a change</span>'
-            '<span><i style="background:var(--wrong)"></i>not reached</span><span><i style="background:var(--sun)"></i>in hand</span></div>%s</div>'
-            % (head, now, pips, tries_list(lp)))
+            # (one line for every look a pip can have, each look drawn by the pip's own class: the key cannot drift from the pips)
+            '<div class="qkey">%s</div>%s</div>'
+            % (head, now, pips, "".join('<span><i class="pk %s"></i>%s</span>' % (k, e(w)) for k, w in PIP_WORDS.items()), tries_list(lp)))
 
 
 def faces_key(d):
@@ -3456,7 +3488,9 @@ def page(d):
     banner = '<div class="banner">Sample data, made up to show the layout. It is not a measurement of anything.</div>' if d["sample"] else ""
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-        '<title>The Swarm</title><style>%s</style></head><body><div class="shell">'
+        '<title>The Swarm</title><meta name="swarm-build" content="' + BUILD + '"><style>%s</style></head><body><div class="shell">'
+        # (shown when the dashboard's code has changed since this page was drawn: a note and a button, never a reload on its own)
+        '<div class="updnote" id="updnote" hidden><span>The dashboard was updated since this page was opened.</span><button class="btn top" id="upd-go" type="button">Refresh</button></div>'
         '<main id="top"><header><div><div class="kicker">The Swarm · training overview</div><h1>Training Dashboard</h1></div>'
         '<div class="chips" id="chips">%s</div></header>%s%s'
         '<div id="body">%s</div>'
@@ -3513,6 +3547,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(json.dumps(eval_api()), kind="application/json")
         if u.path == "/api/pretrain":
             return self._send(json.dumps(pretrain_api()), kind="application/json")
+        if u.path == "/api/build":
+            return self._send(json.dumps({"build": BUILD}), kind="application/json")
         if u.path == "/api/busy":
             return self._send(json.dumps({"busy": busy_with()}), kind="application/json")
         if u.path == "/fragment/faces":

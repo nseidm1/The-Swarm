@@ -859,7 +859,7 @@ with tempfile.TemporaryDirectory() as tmp:
     swarm_ui.session_live = was_live
     check("the swarm as it stands says where it is against each question: how many of the pass's questions are finished, at parity as it stood, brought to parity by a change, or not reached; a pip for each in order, with the changes tried on it; where the pass stopped; and before the loop has begun, how it works. The track takes the place of a line about moves being tried",
           'id="qtrack"' in trk and "3 of 6 finished" in trk and "1 at parity as it stood" in trk and "1 brought to parity" in trk and "1 not reached" in trk
-          and trk.count('<i class="at"') == 1 and trk.count('<i class="re"') == 1 and trk.count('<i class="nr"') == 1 and "q3 · day · 8 changes tried" in trk and "q2 · fix · 2 changes tried" in trk
+          and trk.count('<i class="at"') == 1 and trk.count('<i class="re"') == 1 and trk.count('<i class="nr"') == 1 and "q3 · not reached · day · 8 changes tried" in trk and "q2 · brought to parity by a change · fix · 2 changes tried" in trk
           and "Pass 2 stopped after question 3 of 6." in trk and "not begun" in trk_none and 'id="qtrack"' in arr_trk and "Being tried now" not in arr_trk and "Stopped while trying" not in arr_trk
           and [x["s"] for x in swarm_ui.track_of(trk_rec)] == ["at", "re", "nr"], trk[:300])
     tl = swarm_ui.tries_list({"list": [
@@ -1042,12 +1042,12 @@ check("a flow too long for its card wraps into tiles at any width, measured on t
       "function fitPipes()" in swarm_ui.JS and "addEventListener('resize',fitSoon)" in swarm_ui.JS and "new MutationObserver(fitSoon)" in swarm_ui.JS
       and ".pipe.wrapped{flex-wrap:wrap" in swarm_ui.CSS and ".pipe.wrapped .st::after,.pipe.wrapped .loopg::after{display:none}" in swarm_ui.CSS)
 
-# A MARK PROVED WRONG IS SET ASIDE ON THE PAGE TOO: said in the line, a grey pip, and not counted against the share
+# A MARK PROVED WRONG IS SET ASIDE ON THE PAGE TOO: said in the line, a pip of its own, and not counted against the share
 _rs, swarm_ui.run_state = swarm_ui.run_state, (lambda: {})  # (as if no session ran: the share, not its moving placeholder)
 _pw = swarm_ui.progress_strip(dict(_d, loop={"of": 10, "changes": [], "list": [{"id": "a", "state": "at parity"}, {"id": "b", "state": "reached"}, {"id": "c", "state": "mark wrong", "markWrong": {"share": 0.27}}]}))
 swarm_ui.run_state = _rs
 check("a question whose mark its own correct solution proves wrong is said in the training line as set aside, and is not counted against the share (2 of the 9 that can reach parity)",
-      "1 set aside because the larger model&#39;s answer is wrong" in _pw.replace("'", "&#39;") and "22.2%" in _pw and swarm_ui.PIP["mark wrong"] == "nc", _pw[:300])
+      "1 set aside because the larger model&#39;s answer is wrong" in _pw.replace("'", "&#39;") and "22.2%" in _pw and swarm_ui.PIP["mark wrong"] == "mw", _pw[:300])
 
 # THE FACES DRAW THE ARRANGEMENT AS IT IS ASKED: while a try runs, the one that try asks, marked as not kept, the slots its change
 # touches ringed and what else differs said; with no try running, the kept one; and the page is told when to draw them again
@@ -1067,6 +1067,30 @@ check("while a try runs the faces draw the arrangement it asks, marked as being 
       and _fk.startswith("try-25-7-") and _fk0 == "kept-%s" % _kb.get("version") and "Being tried, not kept" not in _fb0 and 'id="faces"' in _fb0
       and "async function facesTick()" in swarm_ui.JS,
       ["Being tried, not kept:" in _fb, "1 slot changed or added" in _fb, ('class="av %s trying' % _kb["slots"][0]["member"]) in _fb.replace(" norec", ""), ">not asked<" in _fb, _fk, _fk0, "Being tried, not kept" not in _fb0])
+
+# THE QUESTIONS' KEY IS EXHAUSTIVE: every look a pip can have (each state's, and the one in hand) has its line in the key
+_qt = swarm_ui.question_track(_d)
+_css = swarm_ui.CSS
+check("every state a question can be in has a pip of its own (no two states share a look), its name on the pip's tooltip, and its line in the key drawn by the same class: at parity, brought to parity, not reached, in hand, back in hand after a swap, set aside, set aside because the larger model's answer is wrong, and not compared",
+      len(set(swarm_ui.PIP.values())) == len(swarm_ui.PIP) and set(swarm_ui.PIP.values()) | {"cur"} == set(swarm_ui.PIP_WORDS)
+      and all(('<i class="pk %s"></i>' % k) in _qt and swarm_ui.e(w) in _qt for k, w in swarm_ui.PIP_WORDS.items())
+      and all((".qkey i.%s" % k) in _css for k in swarm_ui.PIP_WORDS) and "x.w?x.w+' · ':''" in swarm_ui.JS,
+      [k for k in swarm_ui.PIP_WORDS if ('<i class="pk %s"></i>' % k) not in _qt])
+
+_late = swarm_ui.track_of({"list": [{"id": "q", "kind": "k", "state": "reached", "markWrong": {"share": 0.9}, "attempts": [{}]}]})[0]
+check("a question brought to parity before its mark was found wrong shows the wrong mark's pip, its tooltip saying it reached parity first",
+      _late["s"] == "mw" and "brought to parity by a change before that was found" in _late["w"], _late)
+
+# AN OPEN PAGE SAYS WHEN THE DASHBOARD'S CODE HAS CHANGED: it carries the build it was drawn with, asks the server's, and where they
+# differ shows a note with a Refresh button (hidden otherwise); it never reloads on its own
+with tempfile.TemporaryDirectory() as tmp:
+    srv, base = serve(Path(__file__).resolve().parent.parent)
+    pg, bj = get(base + "/")[1], json.loads(get(base + "/api/build")[1])
+    srv.shutdown()
+check("an open page carries the build of the code it was drawn with, the server says which it runs, and where they differ the page shows a note with a Refresh button, hidden otherwise, and never reloads by itself",
+      ('<meta name="swarm-build" content="%s">' % swarm_ui.BUILD) in pg and bj == {"build": swarm_ui.BUILD} and '<div class="updnote" id="updnote" hidden>' in pg and 'id="upd-go"' in pg
+      and "async function buildTick()" in swarm_ui.JS and "n.hidden=!b||b===BUILD_ME" in swarm_ui.JS and swarm_ui.JS.count("location.reload()") == 1 and "if(ev.target.closest('#upd-go'))location.reload()" in swarm_ui.JS,
+      bj)
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)
