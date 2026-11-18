@@ -254,16 +254,16 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .evctl select:focus-visible{outline:2px solid var(--teal2);outline-offset:2px}
 .evalp>.state,.prep>.state,.evnow{margin-top:12px}.evq{margin-top:8px;padding:10px 12px;border-radius:var(--r);background:var(--soft);font-size:13px}
 .evq .evql{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}.evq .evql span{color:var(--mist);font-size:12px}.evq p{margin:6px 0 0;overflow-wrap:anywhere;line-height:1.45}
-.evitem{margin-top:16px}.evitem h4{margin:0 0 4px;font-size:15px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.evitem>p{margin:0 0 6px}
+.evitem{margin-top:18px}.evitem h4{margin:0 0 6px;font-size:15px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.evitem>p{margin:0 0 10px;line-height:1.45}
 .evrow{display:grid;grid-template-columns:minmax(150px,1.1fr) minmax(200px,1.4fr) minmax(200px,1.3fr);gap:6px 16px;padding:10px 0;border-top:1px solid var(--line2);align-items:center}
 .evname b{display:block;font-size:14px}.evname small,.evag small{display:block;font-size:12px;color:var(--mist);line-height:1.35;margin-top:2px}
-.evbars{display:grid;gap:6px}.evw small{display:block;font-size:12px;color:var(--mist);margin-top:2px;overflow-wrap:anywhere}.evw small b{color:var(--fog)}
+.evbars{display:grid;gap:10px}.evw small{display:block;font-size:12px;color:var(--mist);margin-top:2px;overflow-wrap:anywhere}.evw small b{color:var(--fog)}
 .evbar{display:block;height:8px;border-radius:var(--r);background:var(--soft);overflow:hidden}.evbar i{display:block;height:100%;width:0;background:var(--teal2);transition:width .6s ease}
 .evw[data-w="target"] .evbar i{background:var(--tgt)}.evw.asking .evbar i{background:var(--sun)}.evw.failed .evbar i{background:var(--wrong)}.evw.kept .evbar i{opacity:.55}
 .evag .evpct{font-size:20px;margin-right:4px}.prerows{margin-top:12px}.prerow{display:grid;grid-template-columns:minmax(130px,.6fr) minmax(0,2fr);gap:4px 16px;padding:10px 0;border-top:1px solid var(--line2);align-items:center}
 .prerow small{display:block;font-size:12.5px;color:var(--fog);line-height:1.4;margin-top:2px}.prerow .evbar{height:8px}.preuse{display:flex;gap:8px;align-items:baseline;margin-top:12px;font-weight:700;font-size:14px;flex-wrap:wrap}
 .preuse small{font-weight:500;color:var(--mist);font-size:12px}
-@media (max-width:760px){.evrow{grid-template-columns:minmax(0,1fr)}.prerow{grid-template-columns:minmax(0,1fr)}.evctl{width:100%}.evctl .btn{flex:1}.evctl select{flex:1 1 100%}}
+@media (max-width:760px){.evrow{grid-template-columns:minmax(0,1fr);gap:10px;padding:14px 0}.prerow{grid-template-columns:minmax(0,1fr)}.evctl{width:100%}.evctl .btn{flex:1}.evctl select{flex:1 1 100%}}
 /* THE HEADLINE NUMBERS (Training progress, Evaluate the swarm, Pretrain): the number, then its label beside it on the same line,
    and what it is a share of under the label, all read left to right (the memory chart's own number is right-aligned; not these) */
 .trainprog .memnum,.evalp .memnum,.prep .memnum,.memcard .memnum{text-align:left;align-items:center;gap:10px;flex:none}
@@ -3043,7 +3043,8 @@ def _ev_agree(r):
     """What the two answers came to on one task: how many are the same, split by whether both were right."""
     a = (r or {}).get("agree")
     if not a:
-        return '<span class="muted">%s</span>' % e((r or {}).get("failed") or "compared when both have answered")
+        # (the size of the lines beside it, not the body's: it is a note on the bars, as their labels are)
+        return '<small>%s</small>' % e((r or {}).get("failed") or "compared when both have answered")
     pct = data.percent(a["same"], a["of"]) if a["of"] else 0
     sc = lambda x: ("%s%%" % fmt_pct(round(100.0 * x["value"], 1))) if x and x.get("value") is not None else "?"  # noqa: E731
     return ('<b class="evpct">%s%%</b> <span>%d of %d the same</span><small>%d both right · %d both wrong · %d differ%s</small><small>scores: %s %s · the swarm %s</small>'
