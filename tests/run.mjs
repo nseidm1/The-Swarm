@@ -4907,9 +4907,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const by = {};
   for (const b of plan) by[b.item] = (by[b.item] || 0) + (sizeOf(b, { proof: true }) || whole[b.task] || NaN);
   check(
-    'a proof run asks each task at the size its benchmark names (every question where it names none), each body of work coming to about five hundred; any other run asks every task at the one size it was given',
+    'a proof run asks each task at the size its benchmark names (every question where it names none), each body of work coming to five hundred or a little more and no task to fewer than a hundred; any other run asks every task at the one size it was given',
     plan.length === 16 &&
-      Object.values(by).every((n) => n >= 500 && n <= 541) &&
+      Object.values(by).every((n) => n >= 500 && n <= 600) &&
+      // (and never fewer than a hundred of one task: a result of fewer is a check, not proof)
+      plan.every((b) => !sizeOf(b, { proof: true }) || sizeOf(b, { proof: true }) >= 100) &&
       sizeOf(plan[0], { proof: true }) === 0 &&
       sizeOf(
         plan.find((b) => b.task === 'gsm8k'),
@@ -7708,6 +7710,307 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       off.find((x) => x.kind === 'write-arrays').compared === 2 &&
       off.find((x) => x.kind === 'trace').compared === 1,
     { off, on, talkOnly },
+  );
+}
+
+// ---- 10a: THE TOOL TESTS, A SECOND HARNESS (docs/swoa-parity-plan.md, step 7; training/support/bfcl.mjs): calling a function and
+// searching are measured by the Berkeley Function-Calling Leaderboard, asked of the larger model and of the swarm through a relay
+// that sends on the conversation and the functions as they came. What is checked here needs no package: which harness a task
+// is of, what is read from the package's files, the pairs, and the relay
+{
+  const E = await import('../training/evaluate.mjs');
+  const T = await import('../training/support/bfcl.mjs');
+  const EQ = JSON.parse(fs.readFileSync(new URL('../training/equivalence.json', import.meta.url), 'utf8'));
+  const plan = E.planOf(EQ.targets, ['crew', 'tools', 'search']);
+  const tool = plan.find((b) => b.task === 'bfcl_simple_python');
+  const web = plan.find((b) => b.task === 'bfcl_web_search_base');
+  const ifeval = plan.find((b) => b.task === 'ifeval');
+  const toolsN = plan.filter((b) => b.item === 'tools').reduce((n, b) => n + E.sizeOf(b, { proof: true }), 0);
+  check(
+    'a body of work may be measured by the tool tests: its tasks say so, name the package category and what each model is offered; a plan says which harnesses it needs; calling functions is asked about five hundred questions for a proof; and a search test with no key to the search service is not asked, and says why',
+    JSON.stringify(E.needsOf(plan)) === JSON.stringify(['lmeval', 'bfcl']) &&
+      JSON.stringify(E.needsOf(E.planOf(EQ.targets, ['crew']))) === JSON.stringify(['lmeval']) &&
+      JSON.stringify(E.needsOf(E.planOf(EQ.targets, ['tools']))) === JSON.stringify(['bfcl']) &&
+      E.isToolTest(tool) &&
+      !E.isToolTest(ifeval) &&
+      E.harnessOf(tool).name === 'bfcl-eval' &&
+      E.harnessOf(ifeval).name === 'lm-evaluation-harness' &&
+      tool.category === 'simple_python' &&
+      toolsN === 500 &&
+      plan.filter(E.isToolTest).every((b) => b.tools && b.category && b.compare === 'verdict') &&
+      /SERPAPI_API_KEY/.test(E.blockedOf(web, {})) &&
+      E.blockedOf(web, { SERPAPI_API_KEY: 'k' }) === '' &&
+      E.blockedOf(tool, {}) === '' &&
+      web.daily === true &&
+      !tool.daily &&
+      E.dayOf(new Date('2026-11-18T23:59:00Z')) === '2026-11-18',
+    { needs: E.needsOf(plan), toolsN, web },
+  );
+
+  // what the package writes for a category, as it writes it: every answer in one file; in the other the count, then every
+  // question it counted wrong
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-bfcl-'));
+  const put = (r, kind, lines) => {
+    const dir = path.join(r, kind, 'openbmb_MiniCPM-SALA-FC', 'non_live');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'BFCL_v4_simple_python_' + kind + '.json'),
+      lines.map((l) => JSON.stringify(l)).join('\n') + '\n',
+    );
+  };
+  const tRoot = path.join(root, 'target');
+  const sRoot = path.join(root, 'swarm');
+  put(tRoot, 'result', [{ id: 'q0' }, { id: 'q1' }, { id: 'q2' }, { id: 'q3' }]);
+  put(tRoot, 'score', [
+    { accuracy: 0.75, correct_count: 3, total_count: 4 },
+    { id: 'q3', valid: false, error: ["Missing required parameter: 'x'."] },
+  ]);
+  put(sRoot, 'result', [{ id: 'q0' }, { id: 'q1' }, { id: 'q2' }, { id: 'q3' }]);
+  put(sRoot, 'score', [
+    { accuracy: 0.5, correct_count: 2, total_count: 4 },
+    { id: 'q1', valid: false, error: ['Wrong function name.'] },
+    { id: 'q2', valid: false, error: ['Wrong function name.'] },
+  ]);
+  const ts = T.bfclScore(tRoot, 'simple_python', 400);
+  const ss = T.bfclScore(sRoot, 'simple_python', 400);
+  const pr = T.pairOf(ts, ss);
+  check(
+    'the tool tests are read from what the package wrote: the score it counted, of how many, which questions it counted right; a category it did not score is not kept; and the two models are paired by question on its verdict, in the shape the other harness is paired in',
+    ts.value === 0.75 &&
+      ts.n === 4 &&
+      ts.of === 400 &&
+      Math.abs(ts.stderr - Math.sqrt((0.75 * 0.25) / 4)) < 1e-9 &&
+      JSON.stringify(ts.right) === JSON.stringify(['q0', 'q1', 'q2']) &&
+      JSON.stringify(ss.wrong) === JSON.stringify(['q1', 'q2']) &&
+      ss.why.q1 === 'Wrong function name.' &&
+      T.bfclFiles(tRoot, 'multiple') === null &&
+      pr.of === 4 &&
+      pr.same === 1 &&
+      pr.bothRight === 1 &&
+      pr.bothWrong === 0 &&
+      pr.differ === 3 &&
+      pr.onlyTarget === 2 &&
+      pr.onlySwarm === 1 &&
+      pr.examples.length === 3 &&
+      pr.examples[0].swarm === 'wrong: Wrong function name.' &&
+      T.bfclProgress('Generating results for x:  40%|####      | 2/5 [00:10<00:15,  5.0s/it]').done === 2 &&
+      T.bfclProgress('nothing yet') === null,
+    { ts, ss, pr },
+  );
+  fs.rmSync(root, { recursive: true, force: true });
+
+  // the relay: the package hands back the model's own message with every field its client knows; what goes on to the model is
+  // the conversation made plain and the functions as they came; what comes back is its calls (each with an id, its arguments as
+  // text) or its reply, and a count of tokens
+  const seen = [];
+  const r = await T.toolRelay(async (q) => {
+    seen.push(q);
+    return seen.length === 1
+      ? {
+          message: { content: null, tool_calls: [{ function: { name: 'add', arguments: { a: 1, b: 2 } } }] },
+          usage: {},
+        }
+      : { message: { content: 'It is 3. <unk> <unk> noise' }, usage: { prompt_tokens: 12, completion_tokens: 4 } };
+  });
+  const post = async (body) =>
+    (
+      await fetch(r.base + '/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    ).json();
+  const tools = [{ type: 'function', function: { name: 'add', parameters: { type: 'object', properties: {} } } }];
+  const one = await post({
+    model: 'x',
+    store: false,
+    temperature: 0.001,
+    messages: [{ role: 'user', content: 'Add 1 and 2.' }],
+    tools,
+  });
+  const call = one.choices[0].message.tool_calls[0];
+  const two = await post({
+    model: 'x',
+    messages: [
+      { role: 'user', content: 'Add 1 and 2.' },
+      {
+        role: 'assistant',
+        content: null,
+        refusal: null,
+        audio: null,
+        function_call: null,
+        annotations: [],
+        tool_calls: [call],
+      },
+      { role: 'tool', tool_call_id: call.id, content: '3' },
+    ],
+    tools,
+  });
+  await r.close();
+  check(
+    'the relay of the tool tests sends a model the conversation made plain and the functions as they came, and gives back its calls as any client expects them (an id each, the arguments as text) or its reply, with a count of tokens',
+    seen[0].tools.length === 1 &&
+      JSON.stringify(seen[0].messages) === JSON.stringify([{ role: 'user', content: 'Add 1 and 2.' }]) &&
+      one.choices[0].finish_reason === 'tool_calls' &&
+      one.choices[0].message.content === null &&
+      call.type === 'function' &&
+      typeof call.id === 'string' &&
+      call.id.length > 0 &&
+      call.function.arguments === '{"a":1,"b":2}' &&
+      one.usage.prompt_tokens === 0 &&
+      JSON.stringify(Object.keys(seen[1].messages[1]).sort()) === JSON.stringify(['content', 'role', 'tool_calls']) &&
+      seen[1].messages[1].content === null &&
+      seen[1].messages[2].tool_call_id === call.id &&
+      two.choices[0].message.content === 'It is 3.' &&
+      two.choices[0].finish_reason === 'stop' &&
+      two.usage.total_tokens === 16,
+    { one, two, seen: seen[1] },
+  );
+}
+
+// ---- 10b: A CLOSING REMARK ABOUT HOW THE REPLY WAS MADE IS CUT (docs/swoa.md R.1.14; src/read.mjs withoutClosingRemark): a small
+// writer gives the answer and then says, in a paragraph of its own, that it came from "the provided draft" or was "settled". The
+// replies here are ones the swarm gave on a standard test of calling functions, 2026-11-18
+{
+  const { withoutClosingRemark: cut } = await import('../src/read.mjs');
+  const seen = [
+    [
+      'The area is 25 square units.\n\nThis answer was settled based on the provided draft which correctly calculated the area using the formula.',
+      'The area is 25 square units.',
+    ],
+    [
+      'The roots are 1 and -5.\n\nThis is based on the provided draft which solved the equation step-by-step to arrive at the correct numerical values. The draft explicitly states the final results of the factorization process.',
+      'The roots are 1 and -5.',
+    ],
+    [
+      "$1.87 for Chicago, $3.66 for Sacramento, and $0.11 for Portland (approximate sales tax amounts).\n\nThis reply is based on the settled answer provided in the prompt, formatted as a direct response to the user's question without adding external commentary or deviating from the original instructions.",
+      '$1.87 for Chicago, $3.66 for Sacramento, and $0.11 for Portland (approximate sales tax amounts).',
+    ],
+    [
+      '[19.32, 30.68] and [19.19, 30.81]\n\nThe answer is a direct statement of the calculated confidence intervals based on the provided draft. No additional instructions or modifications were made to the output format or content.',
+      '[19.32, 30.68] and [19.19, 30.81]',
+    ],
+    ['-1 ± i√2\n\nThe solution was derived from the quadratic formula application in the provided draft.', '-1 ± i√2'],
+    [
+      '35 square meters\n\nThe answer is a simple calculation result, not a full explanation or analysis. The draft provided the method and the final value, so I have extracted the specific answer requested by the user in their words and units, without adding any extra commentary or describing the process beyond what was settled.',
+      '35 square meters',
+    ],
+    [
+      'The answer is $vt \\cos\\theta$.\n\nThe draft explains that the horizontal distance in time t is v cosθ * t, leading to the same result. The final settled answer matches this derivation.',
+      'The answer is $vt \\cos\\theta$.',
+    ],
+  ];
+  const caveat =
+    'The calculated Future Value is 1628.89.\n\nThis answer assumes the standard interpretation of calculating FV over 10 years despite the ambiguity in the prompt.';
+  const two =
+    'Use a queue.\n \nIt keeps the order.\n\nThis reply is based on the settled answer.\n\nThe draft explains the same thing.';
+  const coded = 'Here it is.\n\n```js\n// the provided draft\nconst a = 1;\n```';
+  // through the swarm: the writer closes with such a remark, and what goes out is the answer
+  reset();
+  const d = (b) => (roleOf(b).stage === 'write' ? null : 'six sevens are forty-two\nANSWER: 42');
+  lfm.s.script = (b) =>
+    roleOf(b).stage === 'write'
+      ? 'It is 42.\n\nThis answer was settled based on the provided draft which multiplied the two numbers.'
+      : d(b);
+  bonsai.s.script = d;
+  const got = await swarm.answer([{ role: 'user', content: 'What is six times seven?' }]);
+  check(
+    'a closing remark about how the reply was made is cut: the paragraphs at the end that speak of the provided draft, of what was settled or of the prompt go, and the answer before them stands as it was written; a caveat that is no such remark stays; the first paragraph is never cut; nothing is cut where the person spoke of a draft themselves, nor from a paragraph holding code; and the reply that goes out says it was trimmed, with no other model asked to write it again',
+    seen.every(([reply, want]) => cut(reply, 'What is the area?') === want) &&
+      cut(caveat, 'q') === caveat &&
+      cut('This answer was settled based on the provided draft.', 'q') ===
+        'This answer was settled based on the provided draft.' &&
+      cut(seen[0][0], 'Is my draft right?') === seen[0][0] &&
+      cut(two, 'q') === 'Use a queue.\n \nIt keeps the order.' &&
+      cut(coded, 'q') === coded &&
+      cut('  One paragraph only.  ', 'q') === 'One paragraph only.' &&
+      got.reply === 'It is 42.' &&
+      /\+trimmed/.test(got.path) &&
+      !/rewritten|described/.test(got.path) &&
+      got.trace.some((r) => r.slot === 'a-writer' && r.trimmed && !r.describes) &&
+      !got.trace.some((r) => r.rewrite),
+    { path: got.path, reply: got.reply, seen: seen.map(([r]) => cut(r, 'q')) },
+  );
+}
+
+// ---- 10c: THE LARGER MODEL IS ASKED A TOOL TEST TWO WAYS, AND COUNTED BY THE BETTER (training/support/bfcl.mjs; evaluate.mjs
+// waysOf, bestWay): a server may return only the first of the calls its model wrote (measured 2026-11-18), so the functions are
+// also written into the conversation and the calls read from the reply's text
+{
+  const E = await import('../training/evaluate.mjs');
+  const T = await import('../training/support/bfcl.mjs');
+  const EQ = JSON.parse(fs.readFileSync(new URL('../training/equivalence.json', import.meta.url), 'utf8'));
+  const plan = E.planOf(EQ.targets, ['crew', 'tools', 'search']);
+  const tools = [{ type: 'function', function: { name: 'add', parameters: { type: 'object', properties: {} } } }];
+  const call = { id: 'c1', type: 'function', function: { name: 'add', arguments: '{"a":1,"b":2}' } };
+  const wm = T.writtenMessages(
+    [
+      { role: 'system', content: 'Be brief.' },
+      { role: 'user', content: 'Add 1 and 2, then 3 and 4.' },
+      { role: 'assistant', content: null, tool_calls: [call] },
+      { role: 'tool', tool_call_id: 'c1', content: '3' },
+    ],
+    tools,
+  );
+  const wrote =
+    '<tool_call>\n{"name": "add", "arguments": {"a": 1, "b": 2}}\n</tool_call>\n<tool_call>\n{"name": "add", "arguments": {"a": 3, "b": 4}}\n</tool_call>\n<tool_call>\nnot json\n</tool_call>';
+  // a server that returns the text whole: asked the written way, every call comes back; and one that parsed nothing gives a reply
+  const srv = http.createServer((req, res) => {
+    const parts = [];
+    req.on('data', (c) => parts.push(c));
+    req.on('end', () => {
+      const body = JSON.parse(Buffer.concat(parts).toString('utf8'));
+      srv.seen.push(body);
+      const content = /Add/.test(body.messages.at(-1).content) ? wrote : 'Nothing to call here.';
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content } }], usage: { prompt_tokens: 5 } }));
+    });
+  });
+  srv.seen = [];
+  await new Promise((ok) => srv.listen(0, '127.0.0.1', ok));
+  const base = 'http://127.0.0.1:' + srv.address().port;
+  const askW = T.askWrittenAt(base, { model: 'target', stop: ['<unk>'] });
+  const a1 = await askW({ messages: [{ role: 'user', content: 'Add 1 and 2, then 3 and 4.' }], tools });
+  const a2 = await askW({ messages: [{ role: 'user', content: 'Hello.' }], tools });
+  await new Promise((ok) => srv.close(ok));
+  const fn = plan.find((b) => b.task === 'bfcl_parallel');
+  const web = plan.find((b) => b.task === 'bfcl_web_search_base');
+  // (what the larger model first measured scored, 20 questions a task: written is the better over the four tasks that need a
+  // call and the worse on the one that needs none; it is counted by one way for the whole body of work)
+  const by = E.wayByItem([
+    ...[14, 15, 2, 8, 20].map((right) => ({ item: 'tools', way: 'tools', right, n: 20 })),
+    ...[19, 18, 16, 18, 10].map((right) => ({ item: 'tools', way: 'written', right, n: 20 })),
+    { item: 'search', way: 'tools', right: 9, n: 20 },
+    { item: 'even', way: 'written', right: 5, n: 10 },
+    { item: 'even', way: 'tools', right: 5, n: 10 },
+  ]);
+  check(
+    'the larger model is asked a function-calling test two ways and counted by one of them for the whole body of work, the one it scores higher by over its tasks together (the tools in the request where they tie): written into the conversation, its functions go into the system message after its own, every earlier call and result is written out as text, no tools are in the request, and every call it writes is read from its reply; a reply that writes none is a reply',
+    JSON.stringify(E.waysOf(fn)) === JSON.stringify(['tools', 'written']) &&
+      JSON.stringify(E.waysOf(web)) === JSON.stringify(['tools']) &&
+      JSON.stringify(E.waysOf(plan.find((b) => b.task === 'ifeval'))) === JSON.stringify(['tools']) &&
+      by.tools === 'written' &&
+      by.search === 'tools' &&
+      by.even === 'tools' &&
+      wm.length === 4 &&
+      wm[0].role === 'system' &&
+      wm[0].content.startsWith('Be brief.\n\nYou may call one or more functions') &&
+      wm[0].content.includes('<tools>\n' + JSON.stringify(tools[0]) + '\n</tools>') &&
+      wm[2].role === 'assistant' &&
+      wm[2].content === '<tool_call>\n{"name":"add","arguments":{"a":1,"b":2}}\n</tool_call>' &&
+      wm[3].role === 'user' &&
+      wm[3].content === '<tool_response>\n3\n</tool_response>' &&
+      T.callsWritten(wrote).length === 2 &&
+      T.callsWritten(wrote)[1].function.arguments === '{"a":3,"b":4}' &&
+      T.callsWritten('It is 3.').length === 0 &&
+      !('tools' in srv.seen[0]) &&
+      srv.seen[0].messages[0].role === 'system' &&
+      JSON.stringify(srv.seen[0].stop) === JSON.stringify(['<unk>']) &&
+      a1.message.tool_calls.length === 2 &&
+      a1.message.content === null &&
+      a2.message.content === 'Nothing to call here.' &&
+      !a2.message.tool_calls,
+    { wm, a1, a2, ways: E.waysOf(fn) },
   );
 }
 

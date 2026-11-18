@@ -643,13 +643,15 @@ async function liveTick(){
     const qkey=lp&&q&&n.trainer==='loop'?JSON.stringify([lp.n,lp.attempt,lp.guard||'',lp.guarded||'',lp.move,lp.round,lp.method||'',lp.tried||'',lp.pace||'',lp.trial||'',lp.unstable||'',q.ask]):'';
     if(qkey&&qn.dataset.k===qkey){}
     else if(lp&&q&&n.trainer==='loop'){qn.dataset.k=qkey;
-      const it=lp.guard?'checking a change':lp.attempt?'training change '+lp.attempt+(lp.cap?' of '+lp.cap:'')+(lp.round>1?' · round '+lp.round:''):'as it stands';
-      const what=lp.guard?'It brought this question to parity; asked again on '+lp.guard+(lp.guarded?' ('+lp.guarded.n+' of '+lp.guarded.of+')':'')+', already at parity, it must lose nothing to be kept: '+lp.move
-        :lp.attempt?'Short of parity as the swarm stood. Trying: '+lp.move:'Asked of the swarm as it stands.';
+      const it=lp.standing?'where its class stands':lp.classCheck?'checking a change on its class':lp.guard?'checking a change':lp.attempt?'training change '+lp.attempt+(lp.cap?' of '+lp.cap:'')+(lp.round>1?' · round '+lp.round:''):'as it stands';
+      const what=lp.standing?'A change is kept when its class got better. To set it beside, '+lp.guard+(lp.held?', a held question,':'')+' is asked as the swarm stands.'
+        :lp.classCheck?'A change is kept when its class got better. With it, asked on '+lp.guard+(lp.held?', a held question':lp.guarded?' ('+lp.guarded.n+' of '+lp.guarded.of+' of its class)':'')+': '+lp.move
+        :lp.guard?'It made this answer good; asked again on '+lp.guard+(lp.guarded?' ('+lp.guarded.n+' of '+lp.guarded.of+')':'')+', already good, it must lose nothing to be kept: '+lp.move
+        :lp.attempt?'Not good as the swarm stood. Trying: '+lp.move:'Asked of the swarm as it stands.';
       qn.innerHTML='';const b=document.createElement('span');b.className='it';b.textContent=it;const tq=document.createElement('span');tq.className='qtext';tq.textContent='Question '+lp.n+' of '+lp.of+' · '+q.kind+' · '+q.ask.replace(/\\s+/g,' ');const ql=document.createElement('span');ql.className='ql';ql.append(b,tq);qn.append(ql);
       const sm=document.createElement('small');sm.textContent=what;qn.append(sm);
       // HOW THIS CHANGE WAS CHOSEN (training/loop.mjs method): what it is built on, its round and place, each reason, and what came before
-      if(lp.attempt&&lp.method){const md=lp.method,nw=x=>x&&x.parity?'at parity here, but it broke '+x.broke+' when that was asked again':x?'lost in '+x.lost+', '+x.had+' slot'+(x.had===1?'':'s')+' had the answer'+(x.slots&&x.slots.length?' ('+x.slots.join(', ')+')':'')+(x.p!=null?', the decider '+Math.round(x.p*100)+'% on it':'')+(x.share!=null&&!x.had?', the nearest answer '+Math.round(x.share*100)+'% of the way':''):'';
+      if(lp.attempt&&lp.method){const md=lp.method,nw=x=>x&&x.parity?'good here, but it broke '+x.broke+' when that was asked again':x?'lost in '+x.lost+', '+x.had+' slot'+(x.had===1?'':'s')+' had the answer'+(x.slots&&x.slots.length?' ('+x.slots.join(', ')+')':'')+(x.p!=null?', the decider '+Math.round(x.p*100)+'% on it':'')+(x.share!=null&&!x.had?', the nearest answer '+Math.round(x.share*100)+'% of the way':''):'';
         // FOLDED BY DEFAULT: a line that says where the change stands, opened for the reasons; open or folded stays as the reader left it
         // (on this device, across repaints and reloads)
         const fold=document.createElement('details');fold.className='qmethod';fold.dataset.keep='qmethod';let wasOpen=false;try{wasOpen=localStorage.getItem('swarm.open.qmethod')==='1';}catch(e){}fold.open=wasOpen;
@@ -663,12 +665,12 @@ async function liveTick(){
           line('Pace:','about '+Math.round(pc.seconds)+' s a try'+(left?'; '+left+' more open from here, about '+(mins<1?'a minute':mins+' min')+' if none reaches parity':'')+(lp.reused&&lp.reused.hits?'. '+lp.reused.hits+' slot answers reused unchanged so far, '+Math.round(lp.reused.savedMs/60000)+' min not spent':'')+'.');}
         if(lp.trial&&lp.trial.length)line('Policy on trial:','the search is ranked and bounded by a change the larger model proposed ('+lp.trial.join(', ')+'), kept only if it does at least as well.');
         if(lp.suggest&&lp.suggest.asked){const g=lp.suggest;line('Suggestions:','the larger model was asked what to try '+g.asked+' time'+(g.asked===1?'':'s')+' (about '+Math.round(g.seconds/Math.max(1,g.asked+(g.failed||0)))+' s each); '+g.tried+' tried: '+g.kept+' kept, '+g.closer+' came closer.');}
-        if(lp.broke){const bk=Object.entries(lp.broke).sort((a,b)=>b[1]-a[1]);line('Conflict:','changes that brought this question to parity broke '+bk.map(([k,v])=>k+' ('+v+' time'+(v===1?'':'s')+')').join(', ')+'. It is asked first when a change reaches parity, and the search builds on those changes for one that keeps both.');}
+        if(lp.broke){const bk=Object.entries(lp.broke).sort((a,b)=>b[1]-a[1]);line('Conflict:','changes that made this answer good broke '+bk.map(([k,v])=>k+' ('+v+' time'+(v===1?'':'s')+')').join(', ')+'. It is asked first when a change makes this answer good, and the search builds on those changes for one that keeps both.');}
         if(lp.unstable)line('Unstable mark:','asked this question again, the larger model did not give its own answer again, so parity here is partly a draw; it is searched until parity all the same.');
         const rs=md.reasons||[];if(rs.length){line('Why it is tried now','');const ul=document.createElement('ul');for(const r of rs){const li=document.createElement('li');li.textContent=r;ul.append(li);}box.append(ul);}
         if(lp.tried&&lp.tried.length){line('Tried on this question before it','');const ol=document.createElement('ol');ol.className='qtried';
           for(const x of lp.tried){const li=document.createElement('li');const k=document.createElement('span');k.className='k'+(x.grade==='right'?' up':x.closer?' cl':'');
-            k.textContent=x.grade==='right'?(x.lostOn?'broke one':'parity'):x.closer?'closer':x.grade==='noref'?'no grade':x.library?'found, no':x.suggested?'suggested, no':x.taught?'new brief, no':'no closer';li.append(k,(x.round>1?'round '+x.round+' · ':'')+x.move+(x.lostOn?' · at parity, broke '+x.lostOn:x.near?' · '+nw(x.near):''));ol.append(li);}
+            k.textContent=x.grade==='right'?(x.lostOn?'broke one':'good'):x.closer?'closer':x.grade==='noref'?'no grade':x.library?'found, no':x.suggested?'suggested, no':x.taught?'new brief, no':'no closer';li.append(k,(x.round>1?'round '+x.round+' · ':'')+x.move+(x.lostOn?' · at parity, broke '+x.lostOn:x.near?' · '+nw(x.near):''));ol.append(li);}
           box.append(ol);}
         qn.append(fold);}}
     else if(n.running&&n.trainer!=='loop'){qn.dataset.k='';qn.textContent='Training question by question begins after the larger model has answered and the plan is written.';}
@@ -679,7 +681,7 @@ async function liveTick(){
       if(pp.dataset.k!==key){pp.dataset.k=key;pp.innerHTML='';
         for(const x of done){const i=document.createElement('i');i.className=x.s;i.title=x.id+' · '+(x.w?x.w+' · ':'')+x.kind+(x.tried?' · '+x.tried+' change'+(x.tried===1?'':'s')+' tried':'');pp.append(i);}
         if(lp&&n.trainer==='loop'&&lp.n>done.length){const i=document.createElement('i');i.className='cur';i.title='in hand: question '+lp.n;pp.append(i);}}}
-    if(qh&&(done.length||(lp&&n.trainer==='loop'))){const c=s=>done.filter(x=>x.s===s).length;const t=[done.length+' of '+of+' finished',c('at')+' at parity as it stood',c('re')+' brought to parity',c('nr')+' not reached'];
+    if(qh&&(done.length||(lp&&n.trainer==='loop'))){const c=s=>done.filter(x=>x.s===s).length;const t=[done.length+' of '+of+' finished',c('at')+' good as it stood',c('re')+' made good by a change',c('nr')+' not good yet'];
       const k=t.join('|');if(qh.dataset.k!==k){qh.dataset.k=k;qh.innerHTML='<b>Question by question</b>';for(const v of t){const sp=document.createElement('span');sp.textContent=v;qh.append(sp);}}}}
   const slots=n.slots||{},totals=n.totals||{};
   // a slot's clock starts again with every question (a turn). Beside it: which turn this is, and how long this slot has been
@@ -938,11 +940,13 @@ def steer_dialog(d):
             '<span class="muted small">queued</span>' if m["id"] in sv["pin"] else '<button type="button" class="btn top qadd" data-steer="pin" data-id="%s">Queue</button>' % e(m["id"])) for m in items)
         groups.append('<h4>%s <span class="muted small" style="font-weight:600;letter-spacing:0;text-transform:none">%d · %s</span></h4><ul class="movepick">%s</ul>' % (e(name), len(items), e(about), lis))
     return ('<div class="spec-head"><div><div class="kicker">Steer it</div><h3 style="font-size:22px;margin-top:4px">Choose any move</h3></div><button class="btn stop top" id="steer-close" type="button">Close</button></div>'
-            '<p class="muted small" style="margin:8px 0 10px">Every move open to this pass. A queued move is tried first on each question that is not at parity, and kept only on evidence.</p>'
+            '<p class="muted small" style="margin:8px 0 10px">Every move open to this pass. A queued move is tried first on each question not answered well yet, and kept only on evidence.</p>'
             '<input type="search" id="steer-find" placeholder="Find a move: decider, revise, a-critic, temperature..." aria-label="Find a move">%s' % "".join(groups))
 
 
-LOOP_STATE = {"at parity": ("At parity as it stood", "up"), "reached": ("Brought to parity", "up"), "not reached": ("Not reached", "down"), "not compared": ("Not compared", "planned"),
+# (the record's own names stay: "at parity" is an answer that was good as the swarm stood, "reached" one a change made good. Good:
+# right by the question's own standard, or equivalent to an answer the larger model agrees with itself on. docs/swoa-parity.md)
+LOOP_STATE = {"at parity": ("Good as it stood", "up"), "reached": ("Made good by a change", "up"), "not reached": ("Not good yet", "down"), "not compared": ("Not graded", "planned"),
               "reopened": ("Back in hand", "planned"), "set aside": ("Set aside", "planned"),
               "mark wrong": ("Set aside: the larger model's answer is wrong", "planned"),
               "mark unstable": ("Set aside: the larger model did not give this answer again", "planned"),
@@ -955,7 +959,7 @@ def near_words(n):
     if not n:
         return ""
     if n.get("parity"):
-        return "at parity here, but it broke %s when that was asked again" % n.get("broke", "a question")
+        return "good here, but it broke %s when that was asked again" % n.get("broke", "a question")
     return (("the reply read %.2f, " % n["reply"]) if n.get("reply") is not None else "") + "lost in %s, %d slot%s had the answer%s%s" % (n.get("lost", ""), n.get("had", 0), "" if n.get("had") == 1 else "s",
                                                         (" (%s)" % ", ".join(n["slots"])) if n.get("slots") else "",
                                                         (", the decider %d%% on it" % round(n["p"] * 100)) if n.get("p") is not None else "") + (
@@ -986,10 +990,10 @@ def tries_list(lp):
         word, cls = LOOP_STATE.get(q.get("state"), (q.get("state", ""), "planned"))
         tries = "".join(
             '<li><span class="k %s">%s</span><span class="tx">%s%s</span></li>' % (
-                "up" if a.get("kept") else "", "kept" if a.get("kept") else "parity here" if a.get("grade") == "right" else "no",
+                "up" if a.get("kept") else "", "kept" if a.get("kept") else "good here" if a.get("grade") == "right" else "no",
                 e(a.get("move", "")),
-                ((" · lost <code>%s</code>, already at parity" % e(a["lostOn"])) if a.get("lostOn") else
-                 (" · %d already at parity asked again, none lost" % a["guard"]["asked"]) if a.get("kept") and (a.get("guard") or {}).get("asked") else "")
+                ((" · lost <code>%s</code>, already good" % e(a["lostOn"])) if a.get("lostOn") else
+                 (" · %d already good asked again, none lost" % a["guard"]["asked"]) if a.get("kept") and (a.get("guard") or {}).get("asked") else "")
                 + (" · came closer: the next round builds on it" if a.get("closer") or a.get("builtOn") else "") + ((" · on top of " + e(" + ".join(a["on"]))) if a.get("on") else "")
                 + method_line(a))
             for a in q["attempts"][1:])
@@ -1020,7 +1024,7 @@ def loop_phase(lv):
 
 
 PHASE_WORDS = {"ask": "asked of the swarm as it stands", "library": "trying the found arrangements", "search": "searching, best first",
-               "suggest": "trying what the larger model suggested", "guard": "checking a change on the questions already at parity"}
+               "suggest": "trying what the larger model suggested", "guard": "checking a change on other questions"}
 
 
 def plan_now(d):
@@ -1049,11 +1053,11 @@ def plan_now(d):
         rows.append(("Now", "Not running." + (" It stopped with %d of %d questions finished." % (len([q for q in qs if q.get("state") not in ("reopened", "set aside")]), of) if qs else "")))
     if qs:
         back = st_("reopened") + st_("set aside")
-        rows.append(("This pass", "%d of %d questions finished: <b>%d</b> at parity as the swarm stood, <b>%d</b> brought to parity%s%s. %d changes tried; <b>%d</b> kept "
+        rows.append(("This pass", "%d of %d questions finished: <b>%d</b> good as the swarm stood, <b>%d</b> made good by a change%s%s. %d changes tried; <b>%d</b> kept "
                      "(%d of them found arrangements, %d suggested by the larger model%s)."
-                     % (len(qs) - back, of, st_("at parity"), st_("reached"), (", %d not reached" % st_("not reached")) if st_("not reached") else "",
+                     % (len(qs) - back, of, st_("at parity"), st_("reached"), (", %d not good yet" % st_("not reached")) if st_("not reached") else "",
                         ((", %d back in hand after a swap" % st_("reopened")) if st_("reopened") else "") + ((", %d set aside until the others are done" % st_("set aside")) if st_("set aside") else ""), tries, len(ch), from_lib, sg.get("kept", 0), (", %d swap%s" % (swaps, "" if swaps == 1 else "s")) if swaps else "")))
-    rows.append(("Found arrangements", ("<b>%d</b>, tried first on every question short of parity; the most successful has brought %d question%s to parity."
+    rows.append(("Found arrangements", ("<b>%d</b>, tried first on every question not answered well yet; the most successful has made %d answer%s good."
                                         % (len(lib), max(len(x.get("reached") or []) for x in lib), "" if max(len(x.get("reached") or []) for x in lib) == 1 else "s")) if lib
                  else "None yet: the first arrangement kept starts the library."))
     if tr:
@@ -1081,11 +1085,14 @@ def plan_now(d):
         rows.append(("Briefs written", "The larger model said what went wrong and wrote new briefs %d time%s (about %d s each), for the drafters nearest the answer first: %d briefs, %d tried, %d kept, %d came closer%s."
                      % (tc.get("asked", 0), "" if tc.get("asked") == 1 else "s", round(tc.get("seconds", 0) / max(1, tc.get("asked", 0) + tc.get("failed", 0))), tc.get("briefs", 0), tc.get("tried", 0), tc.get("kept", 0), tc.get("closer", 0),
                         (", %d refused for giving a question away (code, or the name of the function asked for)" % tc["refused"]) if tc.get("refused") else "")))
+    lpol_ = (d.get("policy") or {}).get("loop") or {}
     steps = [("ask", "Ask the swarm as it stands"), ("library", "Try the found arrangements, the most successful first"),
              ("search", "Search, best first: the plan's moves in the policy's order, building on what came closer; widen, never move on"),
              ("suggest", "Every %d failed tries, try what the larger model suggests; where no slot drafts the answer, every %d, the briefs it writes for the failing drafters" % (pol["suggestEvery"], pol.get("teachEvery", 60))),
-             ("guard", "At parity: ask it again on up to %s questions already at parity" % e(str(((d.get("policy") or {}).get("loop") or {}).get("guard", 6)))),
-             ("keep", "None lost: keep it, add it to the found arrangements, next question")]
+             *([("guard", "Good here: score it on the questions of its class, the first %s first" % e(str(lpol_.get("classRace", 8)))),
+                ("keep", "Its class got better: keep it, add it to the found arrangements, next question")] if lpol_.get("classKeep") is True else
+               [("guard", "Good here: ask it again on up to %s questions already good" % e(str(lpol_.get("guard", 6)))),
+                ("keep", "None lost: keep it, add it to the found arrangements, next question")])]
     flow = "".join('<li%s><span>%s</span></li>' % (' class="on"' if k == phase else "", e(t)) for k, t in steps)
     return ('<div class="plannow"><table class="spec kv">%s</table><p class="small" style="margin:10px 0 4px"><b>Each question, in order</b> (the step it is on is marked):</p>'
             '<ol class="qsteps">%s</ol></div>' % ("".join("<tr><th>%s</th><td>%s</td></tr>" % (e(k), v) for k, v in rows), flow))
@@ -1097,7 +1104,9 @@ def viz_block(d):
     lpo = loop_policy_of(d)
     pol = {"reviewTries": 40, "trialTries": 40, "suggestEvery": 20, "swapAfter": 25, "stableAfter": 6, "stableMax": 2, **(lpo.get("loopPolicy") or {})}
     lib = len(library_of(d))
-    guard = ((d.get("policy") or {}).get("loop") or {}).get("guard", 6)
+    lpol_ = (d.get("policy") or {}).get("loop") or {}
+    guard = lpol_.get("guard", 6)
+    by_class = lpol_.get("classKeep") is True
     tname = (d.get("target") or {}).get("name", "the larger model")
     dname = (d.get("decider") or {}).get("name", "the decider")
     box = lambda code, part, title, body: ('<div class="vbox"%s><b><span class="vcode">%s</span>%s</b><small>%s</small></div>'  # noqa: E731
@@ -1109,16 +1118,17 @@ def viz_block(d):
             "steps run in the order of the arrows. The marked box is where the loop is now.</p>%s%s%s%s%s</div>" % (
                 lane("A", "Once a pass", [
                     box("A1", "", "Questions", "Train questions are trained on; held questions are only checked."),
-                    box("A2", "", "The mark", "%s answers each question once. Parity means an equivalent answer." % tname),
+                    box("A2", "", "The standard", "The question's own where it has one; else the answers %s agrees with itself on." % tname),
                     box("A3", "", "The plan", "The moves the search draws its changes from.")]),
-                lane("B", "Each question, until it is at parity", [
+                lane("B", "Each question, until its answer is good", [
                     box("B1", "ask", "Ask", "The swarm as it stands."),
                     box("B2", "library", "Found arrangements", "%d, the most successful first." % lib),
                     box("B3", "search", "Search", "Best first: builds on what came closer, widens when all are tried."),
                     box("B4", "suggest", "Suggestions", "Every %s failed tries, %s names changes to try." % (pol["suggestEvery"], tname)),
-                    box("B5", "guard", "Check", "Asked again on up to %s questions already at parity." % guard),
+                    box("B5", "guard", "Check", ("Scored on the questions of its class: %s first, then the rest." % lpol_.get("classRace", 8)) if by_class else "Asked again on up to %s questions already good." % guard),
                     box("B6", "keep", "Keep", "Into the arrangement, the found arrangements and the spec.")],
-                     "Short of parity: back to B3; it never moves on. Loses a question at B5: built on, aimed at that question, and swapped after %s." % e(swap_words(pol))),
+                     ("Not good yet: back to B3; it never moves on. Its class no better at B5: not kept, back to B3." if by_class
+                      else "Not good yet: back to B3; it never moves on. Loses a question at B5: built on, aimed at that question, and swapped after %s." % e(swap_words(pol)))),
                 lane("C", "Inside one try", [
                     box("C1", "", "Draft", "Each slot answers its own way."),
                     box("C2", "", "Try", "Code runs in a sandbox; drafts that behave alike are one answer."),
@@ -1159,14 +1169,14 @@ def library_block(d):
     question, the most successful first; how many questions each has brought to parity and how often it was tried."""
     lib = library_of(d)
     if not lib:
-        return ('<h4>Found arrangements</h4><p class="small muted" style="margin:0">None yet. Every arrangement that brings a question to parity and '
-                "loses none already there is kept here, across passes and Clear training state, and tried first on every question after.</p>")
+        return ('<h4>Found arrangements</h4><p class="small muted" style="margin:0">None yet. Every arrangement training keeps '
+                "is kept here too, across passes and Clear training state, and tried first on every question after.</p>")
     rows = "".join('<li><span class="pill up">%d</span> <span class="small"><b>%s</b> · found on <code>%s</code>%s</span></li>'
                    % (len(x.get("reached") or []), e(x.get("what", "")), e(str((x.get("from") or {}).get("question", ""))),
                       (" · tried %d time%s since" % (x["tried"], "" if x["tried"] == 1 else "s")) if x.get("tried") else "")
                    for x in sorted(lib, key=lambda x: -len(x.get("reached") or [])))
-    return ('<h4>Found arrangements (%d)</h4><p class="small" style="margin:0 0 6px">Tried first on every question short of parity, the most successful '
-            "first (the number: questions each has brought to parity). Kept across passes and Clear training state; every keep adds to it.</p>"
+    return ('<h4>Found arrangements (%d)</h4><p class="small" style="margin:0 0 6px">Tried first on every question not answered well yet, the most successful '
+            "first (the number: answers each has made good). Kept across passes and Clear training state; every keep adds to it.</p>"
             '<ul class="plist">%s</ul>' % (len(lib), rows))
 
 
@@ -1326,12 +1336,21 @@ def plan_panel(d):
     pol = d.get("policy") or {}
     lpol, ppol = pol.get("loop") or {}, pol.get("plan") or {}
     cap_, drop_ = lpol.get("cap"), lpol.get("drop")
-    out.append('<h4>How it is training</h4><p class="small" style="margin:0">A question stays in hand until it is at parity: it never moves on before%s. The arrangements found so far are tried on it first, the most successful first. Then changes are tried best first: from the closest arrangement open, and a change that comes closer is built on at once, with up to <b>%s</b> such arrangements open at a time; where every arrangement open has been tried, the search widens and builds on every arrangement it tried. '
-               "A change that brings it to parity is asked again on <b>%s</b> questions already there, and is kept only if none is lost.%s "
-               "Where changes that bring it to parity lose a question already at parity, what is built on them is aimed at that question; where they keep losing it (%s), one that loses only that one is kept and that question goes back in hand. "
+    out.append('<h4>How it is training</h4><p class="small" style="margin:0">A question stays in hand until its answer is good: it never moves on before%s. The arrangements found so far are tried on it first, the most successful first. Then changes are tried best first: from the closest arrangement open, and a change that comes closer is built on at once, with up to <b>%s</b> such arrangements open at a time; where every arrangement open has been tried, the search widens and builds on every arrangement it tried. '
+               "%s%s %s"
                "A slot asked exactly what it was asked before answers as it did, without being asked again, so a try that changes one slot asks only what changed. The plan lists <b>%s</b> arrangements one change from here first, and <b>%s</b> that are %s changes from here at once.</p>"
-               % ((" (or after <b>%s</b> changes, a bound a person set)" % e(str(cap_))) if cap_ else "", e(str(lpol.get("beam", 3))), e(str(lpol.get("guard", 6))),
-                  (" A change tried on <b>%s</b> questions that brought none to parity is dropped." % e(str(drop_))) if drop_ else "", e(swap_words({"swapAfter": 25, "stableAfter": 6, "stableMax": 2, **(loop_policy_of(d).get("loopPolicy") or {})})),
+               % ((" (or after <b>%s</b> changes, a bound a person set)" % e(str(cap_))) if cap_ else "", e(str(lpol.get("beam", 3))),
+                  # (how a change is kept, as the policy has it: by its class, or question by question as before)
+                  ("A change that makes it good is scored on the questions of its class, with the change and as the swarm stood: the first <b>%s</b>, and the rest where those did not fall. "
+                   "It is kept when the class gained more than twice its error and at least <b>%s</b>, no kind of question fell by more than <b>%s</b>, and the held questions of the class did not fall by more than their error. "
+                   "At the end of a pass up to <b>%s</b> changes a class, those that most often brought its questions closer, are proposed for the class outright and scored the same way."
+                   % (e(str(lpol.get("classRace", 8))), e(str(lpol.get("classMinGain", 0.02))), e(str(lpol.get("classMargin", 0.05))), e(str(lpol.get("classTries", 0)))))
+                  if lpol.get("classKeep") is True else
+                  "A change that makes it good is asked again on <b>%s</b> questions already good, and is kept only if none is lost." % e(str(lpol.get("guard", 6))),
+                  (" A change tried on <b>%s</b> questions that made none good is dropped." % e(str(drop_))) if drop_ else "",
+                  "" if lpol.get("classKeep") is True else
+                  "Where changes that make it good lose a question already good, what is built on them is aimed at that question; where they keep losing it (%s), one that loses only that one is kept and that question goes back in hand."
+                  % e(swap_words({"swapAfter": 25, "stableAfter": 6, "stableMax": 2, **(loop_policy_of(d).get("loopPolicy") or {})})),
                   e(str(ppol.get("arrangements", "?"))), e(str(ppol.get("wild", 0))), e(str(ppol.get("depth", 2)))))
     out.append(policy_block(loop_policy_of(d)))
     out.append(library_block(d))
@@ -1363,7 +1382,7 @@ def plan_panel(d):
         acts = ""
         if st == "planned" and mid and STEER_ID.match(mid):
             acts = '<span class="acts">%s%s</span>' % (
-                '<button type="button" data-steer="unpin" data-id="%s">Unqueue</button>' % e(mid) if pinned else '<button type="button" data-steer="pin" data-id="%s" title="Try it first on each question that is not at parity">Next</button>' % e(mid),
+                '<button type="button" data-steer="unpin" data-id="%s">Unqueue</button>' % e(mid) if pinned else '<button type="button" data-steer="pin" data-id="%s" title="Try it first on each question not answered well yet">Next</button>' % e(mid),
                 '<button type="button" data-steer="unskip" data-id="%s">Unskip</button>' % e(mid) if skipped else '<button type="button" data-steer="skip" data-id="%s" title="Never try it">Skip</button>' % e(mid))
         if x.get("pinned"):
             reason = "Queued by you. " + reason
@@ -1375,7 +1394,7 @@ def plan_panel(d):
         out.append('<ul class="moves">%s</ul>' % "".join(rows))
     o = p.get("open") or {}
     if o.get("arrangements") is not None:
-        out.append('<p class="muted small" style="margin:12px 0 0">%d arrangements one step from this one are open, %d have been tried and dropped. A move is kept only if it brings a question to parity and loses none already there.</p>'
+        out.append('<p class="muted small" style="margin:12px 0 0">%d arrangements one step from this one are open, %d have been tried and dropped. A move is kept only on evidence: how is said under How it is training.</p>'
                    % (o.get("arrangements", 0), o.get("arrangementsTried", 0)))
     out.append("</div>")
     # WHAT EACH SUBSECTION SAYS, IN A LINE, shown while it is folded (they begin folded: the plan reads as a list of its parts)
@@ -1396,7 +1415,8 @@ def plan_panel(d):
         bits += ["%s: %d against %d" % (r["decider"], r.get("theirsRight", 0), r.get("nowRight", r.get("kevRight", 0))) for r in rep.get("results") or []]
     if bits:
         meta["what-only-you-can-change"] = " · ".join(bits)
-    meta["how-it-is-training"] = "until parity, best first, building on the %s closest · asked again on %s before a keep" % (lpol.get("beam", 3), lpol.get("guard", 6))
+    meta["how-it-is-training"] = ("until its answer is good, best first, building on the %s closest · %s" % (
+        lpol.get("beam", 3), "a change kept when its class got better" if lpol.get("classKeep") is True else "asked again on %s before a keep" % lpol.get("guard", 6)))
     fl = {k: v for k, v in sv["focus"].items() if v}
     meta["steer-it"] = " · ".join([", ".join("%s %s" % (dict((a, nm) for a, nm, _ in STEER_AREAS).get(k, k), v) for k, v in fl.items()) or "as planned"]
                                    + ["%d queued" % len(sv["pin"])] * bool(sv["pin"]) + ["%d skipped" % len(sv["skip"])] * bool(sv["skip"]) + ["nothing queued"] * (not sv["pin"]))
@@ -1854,9 +1874,9 @@ def at_parity(d, t):
 # A QUESTION'S STATE IN THE LOOP, as a pip: at parity as the swarm stood, brought to parity by a change, not reached, not compared
 PIP = {"at parity": "at", "reached": "re", "not reached": "nr", "not compared": "nc", "reopened": "ro", "set aside": "sa", "mark wrong": "mw", "mark unstable": "mu", "no standard": "ns"}
 # what each state is called on a pip's tooltip and in the key, one look for each
-PIP_WORDS = {"at": "at parity as it stood", "re": "brought to parity by a change", "nr": "not reached", "ro": "back in hand after a swap",
+PIP_WORDS = {"at": "good as it stood", "re": "made good by a change", "nr": "not good yet", "ro": "back in hand after a swap",
              "sa": "set aside until the others are done", "mw": "set aside: the larger model's answer is wrong",
-             "mu": "set aside: the larger model did not give this answer again", "ns": "left out: the larger model's own answers do not agree", "nc": "not compared: nothing usable from the larger model, or no reader believed for its kind",
+             "mu": "set aside: the larger model did not give this answer again", "ns": "left out: the larger model's own answers do not agree", "nc": "not graded: nothing usable from the larger model, or no reader believed for its kind",
              "cur": "in hand"}
 
 
@@ -1866,7 +1886,7 @@ def track_of(lp):
     late = lambda q: bool(q.get("markWrong")) and q.get("state") in ("at parity", "reached")  # noqa: E731
     return [{"id": q.get("id", ""), "kind": q.get("kind", "") + (" · unstable mark" if q.get("unstable") else ""), "s": "mw" if late(q) else PIP.get(q.get("state"), "nc"),
              "w": (PIP_WORDS["mw"] + " (it was %s before that was found)" % PIP_WORDS[PIP[q["state"]]]) if late(q)
-             else ("not compared: " + q["why"]) if q.get("state") == "not compared" and q.get("why") else PIP_WORDS.get(PIP.get(q.get("state"), "nc"), ""),
+             else ("not graded: " + q["why"]) if q.get("state") == "not compared" and q.get("why") else PIP_WORDS.get(PIP.get(q.get("state"), "nc"), ""),
              "tried": max(0, len(q.get("attempts") or []) - 1)}
             for q in (lp or {}).get("list") or []]
 
@@ -1920,9 +1940,9 @@ def question_track(d):
     n = lambda st: sum(1 for x in tr if x["s"] == st)  # noqa: E731
     begun = bool(lp) or session_live()
     now = ("Pass %s stopped after question %d of %d." % (e(str(lp.get("pass", ""))), len(tr), of)) if tr and len(tr) < of else ("Pass %s: every question finished." % e(str(lp.get("pass", ""))) if tr
-           else "" if begun else "Each question the larger model answered stays in hand until the swarm is at parity on it.")
+           else "" if begun else "Each question stays in hand until the swarm&#39;s answer to it is good.")
     pips = "".join('<i class="%s" title="%s · %s · %s%s"></i>' % (x["s"], e(x["id"]), e(x["w"]), e(x["kind"]), (" · %d change%s tried" % (x["tried"], "" if x["tried"] == 1 else "s")) if x["tried"] else "") for x in tr)
-    head = ("<span>%d of %d finished</span><span>%d at parity as it stood</span><span>%d brought to parity</span><span>%d not reached</span>" % (len(tr), of, n("at"), n("re"), n("nr"))) if begun else "<span>not begun</span>"
+    head = ("<span>%d of %d finished</span><span>%d good as it stood</span><span>%d made good by a change</span><span>%d not good yet</span>" % (len(tr), of, n("at"), n("re"), n("nr"))) if begun else "<span>not begun</span>"
     return ('<div class="qtrack" id="qtrack"><div class="qhead" id="qhead"><b>Question by question</b>%s</div>'
             '<p class="qnow" id="qnow">%s</p><div class="pips" id="pips">%s</div>'
             # (one line for every look a pip can have, each look drawn by the pip's own class: the key cannot drift from the pips)
@@ -2871,11 +2891,19 @@ def ledger_rows(entries, newest_first=True, pill=lambda x: ("up", "Kept")):
         where = " · ".join(v for v in [("<code>%s</code>" % e(x["slot"])) if x.get("slot") else "", "pass %s" % e(str(x.get("pass", ""))) if x.get("pass") else "", e(str(x.get("at", ""))[:10]),
                                         '<a href="https://arxiv.org/abs/%s" target="_blank" rel="noopener">arXiv %s</a>' % (e(x["from"]), e(x["from"])) if x.get("from") else ""] if v)
         qn = x.get("question") or {}
-        # kept question by question (training/loop.mjs): the question it brought to parity, and how many already there held
-        evid = ("Brought <code>%s</code> to parity (lost in %s; change %s tried on it) · %s" % (
+        # KEPT BY ITS CLASS (training/loop.mjs classCheck): what the questions of its class gained with it, the error of that, and
+        # over how many; a change proposed for the class outright says so. One kept before that rule says what it was kept on then:
+        # the question it brought to parity with the larger model's answer, and how many already there held
+        cg = x.get("classGain") or {}
+        gained = ("its class (%s) gained <b style='display:inline;font-size:inherit'>%+.3f</b> ± %.3f over %d questions"
+                  % (e(CLASS_WORDS.get(x.get("class") or cg.get("class"), str(x.get("class") or cg.get("class") or ""))), cg["gain"], cg.get("stderr") or 0, cg.get("n") or 0)) if isinstance(cg.get("gain"), (int, float)) else ""
+        evid = (("Proposed for its class at the end of a pass · %s" % gained) if x.get("proposed") and gained
+                else ("Made <code>%s</code> good (lost in %s; change %s tried on it) · %s" % (
+                    e(str(qn.get("id", ""))), e(str(qn.get("lostAt", ""))), e(str(qn.get("attempt", ""))), gained)) if qn and gained
+                else "Brought <code>%s</code> to parity (lost in %s; change %s tried on it) · %s" % (
                     e(str(qn.get("id", ""))), e(str(qn.get("lostAt", ""))), e(str(qn.get("attempt", ""))),
                     ("%d already at parity asked again, none lost" % qn["guard"]) if qn.get("guard") else "none was at parity before it")
-                ) if qn else ('Equivalent answers on train: <b style="display:inline;font-size:inherit">%s</b> · on held: <b style="display:inline;font-size:inherit">%s</b>' % (ev(tr), ev(he)))
+                ) if qn or gained else ('Equivalent answers on train: <b style="display:inline;font-size:inherit">%s</b> · on held: <b style="display:inline;font-size:inherit">%s</b>' % (ev(tr), ev(he)))
         out.append('<li class="kept"><span class="o">%s</span><span class="k %s">%s</span><span class="mv"><b>%s</b><small>%s</small>'
                    '<small>%s</small></span><span class="pill %s">%s</span></li>'
                    % (e(str(x.get("n", ""))), e(x.get("kind", "")), e(_kind(x)), e(_what(x)), where, evid, pill(x)[0], e(pill(x)[1])))
@@ -2893,8 +2921,8 @@ def learned_block(d):
         now = sum(1 for w in wins if w.get("inArrangement"))
         rows = ledger_rows([dict(w, n=k + 1) for k, w in enumerate(wins)],
                            pill=lambda x: ("up", "In the arrangement") if x.get("inArrangement") else ("planned", "Found" + run_words(x.get("run"))))
-        return ('<h4>Everything it has found (%d win%s, every run)</h4><p class="muted small" style="margin:0 0 6px">Every change that brought a train question to parity '
-                "with %s&#39;s answer and lost none already at parity, from every run of this configuration: Clear training state starts training again, it never "
+        return ('<h4>Everything it has found (%d win%s, every run)</h4><p class="muted small" style="margin:0 0 6px">Every change training kept, '
+                "each with what it was kept on (measured against %s), from every run of this configuration: Clear training state starts training again, it never "
                 "takes a win out of here. <b>%d</b> %s in the arrangement this spec describes; every one is a found arrangement, tried first on every question.</p>"
                 '<ul class="moves">%s</ul>' % (len(wins), "" if len(wins) == 1 else "s", e(tname), now, "is" if now == 1 else "are", rows))
     if not led:
@@ -2920,7 +2948,7 @@ def loop_line(d):
         return "not begun"
     at = sum(1 for q in qs if q.get("state") == "at parity")
     re_ = sum(1 for q in qs if q.get("state") == "reached")
-    return "<b>%s%%</b> · %d of %d questions at parity (%d as the swarm stood, %d brought there by a change)" % (fmt_pct(data.percent(at + re_, of)), at + re_, of, at, re_)
+    return "<b>%s%%</b> · %d of %d answers good (%d as the swarm stood, %d made good by a change)" % (fmt_pct(data.percent(at + re_, of)), at + re_, of, at, re_)
 
 
 def loop_changes(d):
@@ -2969,7 +2997,7 @@ def spec_panel(d):
         under = ("<h4>This pass, under way</h4><table class='spec'>%s%s%s%s</table>"
                  % (row("Pass", "%d%s%s" % (ip["pass"], " · running now" if live else " · stopped partway", (" · began %s" % e(str(ip["began"])[:16].replace("T", " ")) + " UTC") if ip.get("began") else "")),
                     # (training goes question by question: how far it has come and what it has kept are the loop's, not the plan's marks)
-                    row("Training complete", loop_line(d)),
+                    row("Answers good", loop_line(d)),
                     row("Changes", loop_changes(d)),
                     row("Measured so far", "<ul style='margin:0;padding-left:18px'>%s</ul>" % meas) if meas else ""))
     # HOW FAR TRAINING TOOK IT: the default arrangement against the trained one, served the same way, and the gain (data.equivalence_of)
@@ -3067,9 +3095,10 @@ def memory_chart(d, compact=False, headless=False):
 
 
 def progress_strip(d, cleared=""):
-    """TRAINING COMPLETE, as a share: training goes question by question and a question is never left short of parity, so how far it
-    has come is how many of the pass's train questions are at parity (as the swarm stood, or brought there by a change it kept), of
-    all of them; with the line that says where the pass is, Train and Clear training state, and what the session is doing. It heads
+    """ANSWERS GOOD, as a share: training goes question by question, so how far the pass has come is how many of its train questions
+    the swarm answers well (as it stood, or after a change it kept), of all that can be graded. Good: right by the question's own
+    standard, or equivalent to an answer the larger model agrees with itself on (docs/swoa-parity.md). It is not parity: that is the
+    proof's to say, capability by capability, and the line sets the module beside its target where the questions carry a standard; with the line that says where the pass is, Train and Clear training state, and what the session is doing. It heads
     the Train card (#score inside arrangement()): the bar, its legend, the spec line and the ideas line that sat under it were taken
     out (console instruction 2026-11-17), the memory chart is a card of its own, above Evaluate (memory_card)."""
     lp = d.get("loop") or {}
@@ -3087,19 +3116,29 @@ def progress_strip(d, cleared=""):
     can = max(0, of - n("not compared") - wrong_m - n("no standard"))
     pct = data.percent(done, can) if can else 0
     if qs:
-        line = ("<b>%d</b> of %d train questions at parity with %s: <b>%d</b> as the swarm stood, <b>%d</b> brought there by a change it kept%s%s."
-                % (done, of, e(tname), at, re_, ((", %d back in hand after a swap" % n("reopened")) if n("reopened") else "") + ((", %d set aside until the others are done" % n("set aside")) if n("set aside") else ""), ((", %d left short of parity by an earlier version of the loop" % nr) if nr else "") + ((", %d set aside because the larger model's answer is wrong" % wrong_m) if wrong_m else "")
-                   # (a mark the larger model did not give again, where the swarm is not at parity with it: not searched, and still counted in the share)
+        # THE MODULE BESIDE ITS TARGET, where a question carries its own standard: how many each has right by it (families_block has
+        # every family). Parity itself is the proof's to say, capability by capability; this is where the pass stands
+        fams = [f for f in lp.get("families") or [] if f.get("asked") and f.get("own")]
+        beside = (" By the questions&#39; own standards the module is right on <b>%d</b> of %d and %s on <b>%d</b> of %d."
+                  % (sum(f.get("module") or 0 for f in fams), sum(f.get("asked") or 0 for f in fams), e(tname), sum(f.get("target") or 0 for f in fams), sum(f.get("targetKnown") or 0 for f in fams))) if fams else ""
+        line = ("<b>%d</b> of %d train answers good: <b>%d</b> as the swarm stood, <b>%d</b> made good by a change it kept%s%s.%s"
+                % (done, of, at, re_, ((", %d back in hand after a swap" % n("reopened")) if n("reopened") else "") + ((", %d set aside until the others are done" % n("set aside")) if n("set aside") else ""), ((", %d not good yet" % nr) if nr else "") + ((", %d set aside because the larger model's answer is wrong" % wrong_m) if wrong_m else "")
+                   # (a mark the larger model did not give again, where the swarm's answer is not equivalent to it: not searched, and still counted in the share)
                    + ((", %d set aside because the larger model did not give its answer again" % n("mark unstable")) if n("mark unstable") else "")
-                   + ((", %d left out because the larger model's own answers do not agree" % n("no standard")) if n("no standard") else "")))
-        now = ("Question %s is in hand." % e(str(lv.get("n")))) if lv else ("Stopped; it carries on from question %d." % (len(qs) - back + 1)) if len(qs) - back < of else "Every question of this pass is at parity."
+                   + ((", %d left out because the larger model's own answers do not agree" % n("no standard")) if n("no standard") else ""), beside))
+        # (a record graded by an earlier rule is not carried on by the loop, training/loop.mjs SCORING: said, in place of where it
+        # would have carried on from)
+        stale = d.get("scoring") is not None and (lp.get("scoring") or 1) != d.get("scoring")
+        now = (("Question %s is in hand." % e(str(lv.get("n")))) if lv
+               else "This is the record of a pass graded by an earlier rule: when training starts, its questions are asked again from the first." if stale
+               else ("Stopped; it carries on from question %d." % (len(qs) - back + 1)) if len(qs) - back < of else "Every question of this pass is finished.")
     else:
-        line = "Training starts at question 1 of the pass: each question stays in hand until the swarm is at parity with %s on it." % e(tname)
+        line = "Training starts at question 1 of the pass: each question stays in hand until the swarm&#39;s answer to it is good."
         now = ""
     # (while a session runs, a bar that moves in place of the share: the line beside it, the bar and the counts below go on saying
     # where the pass is; stopped, the share comes back, as far as the pass got)
     running_now = bool((run_state() or {}).get("running"))
-    return ('<div class="trainprog trainhead"><div class="proghead"><span class="memnum"' + (' aria-busy="true">' + busy() if running_now else '><b class="pct">%s%%</b>' % fmt_pct(pct)) + '<span>training complete<small>pass %s</small></span></span>'
+    return ('<div class="trainprog trainhead"><div class="proghead"><span class="memnum"' + (' aria-busy="true">' + busy() if running_now else '><b class="pct">%s%%</b>' % fmt_pct(pct)) + '<span>answers good<small>pass %s</small></span></span>'
             '<span class="progline">%s %s</span><span class="evctl">%s</span></div>%s</div>'
             % (e(str(lp.get("pass") or (d.get("state") or {}).get("pass", 0) + 1)), line, now, run_controls(), run_lines(cleared)))
 
@@ -3209,9 +3248,12 @@ def job_live(name):
     return live
 
 
-EVAL_SIZES = ((20, "20 a task (quick)"), (100, "100 a task"), (0, "every question"))
+# (-1: a proof run, each task at the size its benchmark names: training/evaluate.mjs --proof)
+EVAL_SIZES = ((20, "20 a task (quick)"), (100, "100 a task"), (0, "every question"), (-1, "a proof run (about 500 a body of work)"))
+PROOF_SIZE = -1
+HARNESS_WORDS = {"lm": "EleutherAI&#39;s lm-evaluation-harness 0.4.13", "bfcl": "for the use of tools, the Berkeley Function-Calling Leaderboard (bfcl-eval 2026.3.23)"}
 COMPARE_WORDS = {"answer": "the same answer", "verdict": "the same verdict on the task's tests", "instructions": "the same instructions kept and broken"}
-METRIC_WORDS = {"exact_match": "exact match", "pass@1": "pass@1", "pass_at_1": "pass@1", "prompt_level_strict_acc": "strict prompt accuracy"}
+METRIC_WORDS = {"exact_match": "exact match", "pass@1": "pass@1", "pass_at_1": "pass@1", "prompt_level_strict_acc": "strict prompt accuracy", "accuracy": "the test's own checker"}
 
 
 def _ev_bar(row, who, label):
@@ -3290,9 +3332,12 @@ def eval_block(d):
     shown = live if (running or live.get("phase") in ("stopped", "failed")) and live.get("tasks") else None
     by_task = {r["task"]: dict(r, targetName=res.get("target") or tname) for r in res.get("results", [])}
     lrows = {t["task"]: t for t in (shown or {}).get("tasks", [])}
+    # WHAT IS SHOWN: what is chosen, and after it any other body of work the run under way, or the last one, asked (a proof run
+    # asks every body that has a standard test)
+    listed = chosen + [t for t in eq.get("targets", []) if t not in chosen and any(b["task"] in lrows or b["task"] in by_task for b in t.get("benchmarks") or [])]
     held = busy_with()
     # the headline: of every question compared in the last evaluation (of what is chosen now), how many had the same answer
-    comp = [by_task[b["task"]] for t in chosen for b in t.get("benchmarks", []) if b["task"] in by_task and by_task[b["task"]].get("agree")]
+    comp = [by_task[b["task"]] for t in listed for b in t.get("benchmarks", []) if b["task"] in by_task and by_task[b["task"]].get("agree")]
     same = sum(r["agree"]["same"] for r in comp)
     of = sum(r["agree"]["of"] for r in comp)
     head = (('<span class="memnum"><b class="pct">%s%%</b><span>equivalent<small>%d of %d questions</small></span></span>' % (fmt_pct(data.percent(same, of)), same, of))
@@ -3301,11 +3346,14 @@ def eval_block(d):
     # bar that moves (nothing is known until the answers are compared), and the questions it was asked to put, as chosen. Stopped
     # or failed, a run writes no result, and the last one that finished is shown again as it was
     if running:
-        size_run = (job_state("eval") or {}).get("limit", live.get("limit"))
-        asked_n = (int(size_run) * len([b for t in chosen for b in t.get("benchmarks") or []])) if size_run else 0
+        size_run = PROOF_SIZE if live.get("proof") else (job_state("eval") or {}).get("limit", live.get("limit"))
+        every = [b for t in (listed if size_run == PROOF_SIZE else chosen) for b in t.get("benchmarks") or [] if size_run != PROOF_SIZE or b["task"] in lrows]
+        # (a proof run asks each task its own size; where one of them is every question the sum is not known before it runs)
+        asked_n = ((sum(int(b.get("proofN") or 0) for b in every) if all(b.get("proofN") for b in every) else 0) if size_run == PROOF_SIZE
+                   else int(size_run) * len(every)) if size_run else 0
         head = ('<span class="memnum" aria-busy="true">' + busy() + '<span>equivalent'
                 '<small><i class="busyn" aria-hidden="true"></i> of %s</small></span></span>' % (("%d questions" % asked_n) if asked_n else "every question"))
-    size = int((live.get("limit") if running else (res.get("limit") if res else 20)) or 0)
+    size = PROOF_SIZE if (live if running else res or {}).get("proof") else int((live.get("limit") if running else (res.get("limit") if res else 20)) or 0)
     opts = "".join('<option value="%d"%s>%s</option>' % (n, " selected" if n == size else "", e(w)) for n, w in EVAL_SIZES)
     if running:
         ctl = '<button class="btn stop top" id="ev-stop" type="button">Stop evaluation</button>'
@@ -3313,9 +3361,11 @@ def eval_block(d):
         ctl = ('<select id="ev-size" aria-label="How many questions of each task"%s>%s</select><button class="btn top" id="ev-go" type="button"%s>Evaluate</button>'
                % (" disabled" if held else "", opts, " disabled" if held or not chosen else ""))
     out = ['<div class="panel evalp" id="evalbox" data-phase="%s" data-run="%s"%s>' % (e(live.get("phase") or ""), e(live.get("runId") or ""), ' data-running="1"' if running else ""),
-           '<div class="proghead">%s<span class="progline">Standard benchmarks (EleutherAI&#39;s lm-evaluation-harness 0.4.13), asked of %s and of the swarm, '
+           '<div class="proghead">%s<span class="progline">Standard benchmarks (%s), asked of %s and of the swarm, '
            'and every question&#39;s two answers compared. Kept apart from training: training never asks a benchmark&#39;s question.</span>'
-           '<span class="evctl">%s</span></div>' % (head, e(tname), ctl)]
+           '<span class="evctl">%s</span></div>'
+           # (the harnesses of what is chosen: the tool tests are named only where a chosen body of work is measured by them)
+           % (head, "; ".join(HARNESS_WORDS[k] for k in ("lm", "bfcl") if any((b.get("harness") or "lm") == k for t in listed for b in t.get("benchmarks") or [])) or HARNESS_WORDS["lm"], e(tname), ctl)]
     if held and not running:
         out.append('<div class="state warn"><i></i><span>%s is running: an evaluation waits for it, since each needs the models to itself.</span></div>' % e(held[0].upper() + held[1:]))
     # WHAT IS HAPPENING NOW (painted again in place from /api/eval)
@@ -3331,11 +3381,12 @@ def eval_block(d):
                       e(" ".join(str(now.get("ask", "")).split())[-300:]), e(("Last answer (%.0f s): " % last["seconds"] + " ".join(str(last.get("reply", "")).split())[:240]) if last.get("seconds") is not None else "")))
     if not chosen:
         out.append('<p class="muted">Nothing is chosen under the models.</p>')
-    for t in chosen:
+    for t in listed:
         bms = t.get("benchmarks") or []
         tc = [by_task[b["task"]] for b in bms if b["task"] in by_task and by_task[b["task"]].get("agree") and not shown]
         isame, iof = sum(r["agree"]["same"] for r in tc), sum(r["agree"]["of"] for r in tc)
-        out.append('<section class="evitem"><h4>%s%s</h4>' % (e(t["name"]), (' <span class="pill">%s%% equivalent</span>' % fmt_pct(data.percent(isame, iof))) if iof else ""))
+        out.append('<section class="evitem"><h4>%s%s%s</h4>' % (e(t["name"]), (' <span class="pill">%s%% equivalent</span>' % fmt_pct(data.percent(isame, iof))) if iof else "",
+                                                                 "" if t in chosen else ' <span class="muted small">not chosen for training; measured all the same</span>'))
         if t.get("benchmarksNote"):
             out.append('<p class="muted small">%s.</p>' % e(t["benchmarksNote"]))
         if not bms:
@@ -3345,6 +3396,9 @@ def eval_block(d):
             r = by_task.get(b["task"]) if not shown else (dict(lr, targetName=tname) if lr and lr.get("agree") else None)
             if lr:
                 bars = _ev_bar(lr, "target", tname) + _ev_bar(lr, "swarm", "The swarm")
+            elif r and r.get("failed") and not r.get("target"):
+                # (a task that was not asked, or not to the end: said beside it, with no bar that would read as answers)
+                bars = '<span class="muted small">not asked</span>'
             elif r:
                 bars = _ev_bar({"target": {"state": "done", "done": (r.get("target") or {}).get("n") or 0, "of": (r.get("target") or {}).get("n")},
                                 "swarm": {"state": "done", "done": (r.get("swarm") or {}).get("n") or 0, "of": (r.get("swarm") or {}).get("n")}}, "target", tname) + \
@@ -3362,7 +3416,7 @@ def eval_block(d):
     if res and not running:
         when = res.get("at", "")[:16].replace("T", " ")
         out.append('<p class="meta">Last evaluated %s UTC · %s · %s questions a task · %s in all · the swarm with briefs %s%s</p>'
-                   % (e(when), e(res.get("harness", "")), "every" if not res.get("limit") else res.get("limit"), e(_span(res.get("seconds") or 0)), e(res.get("briefs", "")),
+                   % (e(when), e(res.get("harness", "")), "a proof run: its own number of" if res.get("proof") else "every" if not res.get("limit") else res.get("limit"), e(_span(res.get("seconds") or 0)), e(res.get("briefs", "")),
                       (" · served with adapters (%s)" % e(", ".join(res["adapters"]))) if res.get("adapters") else " · without adapters"))
     out.append("</div>")
     return "".join(out)
@@ -3562,15 +3616,24 @@ def class_arrangements(sp):
     return lead + "".join(out)
 
 
+TARGET_WAY = {"tools": "with the tools in the request", "written": "with the tools written into the conversation"}
+
+
 def proof_block(sp):
     """THE PROOF of the SwOA (docs/swoa.md): each harness task's score for the module and for its target, and the gap, measured on
     exactly this SwOA. A result on fewer than data.PROOF_MIN_N questions is shown as a check, not proof."""
     pr = sp.get("proof") or {}
     tg = (sp.get("target") or {}).get("name") or "the target"
     rows = "".join(
-        "<tr><td>%s<br><span class='muted'>%s %s · %s</span></td><td>%d of %s</td><td><b>%.3f</b> <span class='muted'>± %.3f</span></td><td>%.3f <span class='muted'>± %.3f</span></td>"
+        "<tr><td>%s<br><span class='muted'>%s %s · %s%s</span></td><td>%d of %s</td><td><b>%.3f</b> <span class='muted'>± %.3f</span></td><td>%.3f <span class='muted'>± %.3f</span></td>"
         "<td><b class='%s'>%+.3f</b> <span class='muted'>± %.3f</span></td><td>%s</td></tr>"
         % (e(str(x.get("name"))), e(str(x["harness"].get("name"))), e(str(x["harness"].get("version"))), e(str(x.get("metric"))),
+           # (a test that offers tools: what each model was offered; the day both were asked; and, where the target was asked two
+           # ways, the one it is counted by, its higher score, with what it scored the other way)
+           "".join(["<br>offered: %s" % e(str(x["tools"])) if x.get("tools") else "", " · asked %s" % e(str(x["askedOn"])) if x.get("askedOn") else "",
+                    ("<br>the target counted the way it scores higher by on this capability, %s (on this task: %s)" % (
+                        e(TARGET_WAY.get(x["targetAsked"], str(x["targetAsked"]))),
+                        e(", ".join("%s %.3f" % (TARGET_WAY.get(k, k), v.get("value") or 0) for k, v in (x.get("targetWays") or {}).items())))) if x.get("targetAsked") else ""]),
            x.get("n") or 0, e(str(x.get("of"))), x["swoa"]["value"], x["swoa"].get("stderr") or 0, x["target"]["value"], x["target"].get("stderr") or 0,
            "bad" if x["gap"] < 0 else "", x["gap"], x.get("gapStderr") or 0, "<span class='pill up'>Proof</span>" if x.get("proof") else "<span class='pill'>Check</span>")
         for x in pr.get("results") or [])
@@ -3762,7 +3825,11 @@ class Handler(BaseHTTPRequestHandler):
             limit = asked.get("limit") if isinstance(asked, dict) else None
             if limit not in [n for n, _ in EVAL_SIZES]:
                 return self._send("Choose how many questions of each task.", 400, "text/plain; charset=utf-8")
-            why = start_job("eval", ["sh", "training/evaluate.sh"] + (["--limit", str(limit)] if limit else []), keep={"limit": limit})
+            # (a proof run asks every body of work that has a standard test, chosen for training or not: a proof is of the
+            # module, capability by capability)
+            battery = [t["id"] for t in (data.load(ARGS.root).get("equivalence") or {}).get("targets", []) if t.get("benchmarks")]
+            why = start_job("eval", ["sh", "training/evaluate.sh"] + (["--proof", "--items", ",".join(battery)] if limit == PROOF_SIZE else ["--limit", str(limit)] if limit else []),
+                            keep={"limit": limit, **({"proof": True, "items": battery} if limit == PROOF_SIZE else {})})
             if why:
                 return self._send(why, 409, "text/plain; charset=utf-8")
             time.sleep(0.3)

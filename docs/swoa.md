@@ -24,7 +24,8 @@ answers one request. **Part IV** is the decision model. **Part V** is turns with
   **flow** (the order of stages), and an arrangement of its own for each **class of input** that has one. What a SwOA tunes.
 - **Target model**: the model the SwOA was trained toward. **Parity** with it, as an established harness measures it, is the
   goal of SwOA training; it is never assumed.
-- **Harness**: an established LLM evaluation harness (for example EleutherAI's lm-evaluation-harness).
+- **Harness**: an established LLM evaluation harness (for example EleutherAI's lm-evaluation-harness, or, for the use of
+  tools, the Berkeley Function-Calling Leaderboard). A proof may hold results of more than one; each result names its own.
 - **Runtime**: a program that reads a SwOA spec and serves the module it describes.
 
 ### 2. Beside a LoRA
@@ -149,6 +150,9 @@ Each result:
 | `pairs` | `{ n, onlySwoa, onlyTarget }`, where the two models' scores on each question are on record: the questions both were asked, and how many only the module, and only the target, had right |
 | `paired` | boolean: whether `gapStderr` is the paired one |
 | `gapStderr` | with `pairs`: `sqrt(((onlySwoa + onlyTarget) / n - g^2) / n)` where `g = (onlySwoa - onlyTarget) / n`; without: `sqrt(swoa.stderr^2 + target.stderr^2)` |
+| `tools` | where the test offers tools: what each model was offered, in words. Absent where it offers none |
+| `askedOn` | where the answers depend on the day (a search of the live web): the day, `YYYY-MM-DD`, on which both models were asked |
+| `targetAsked`, `targetWays` | where the target was asked more than one way (below): the way it is counted by on this capability, `"tools"` or `"written"`, and its `{ value, stderr }` on this task by each |
 | `proof` | boolean (the rule below) |
 | `at`, `runId` | when it was measured |
 | `configuration`, `arrangementSha256` | what it was measured on |
@@ -168,8 +172,16 @@ listed result of the capability, summed, `n` questions, `gap = (onlySwoa - onlyT
 - `open` otherwise: too few questions to say.
 
 `proof` is true when every result of the capability is proof. A capability none of whose results carries `pairs` has no `verdict`.
-The gap is published whatever the verdict. Where a test offers tools, the target MUST be offered the same tools, by the same
-means, as the module.
+The gap is published whatever the verdict. Where a test offers tools, the target MUST be offered the same tools as the module,
+in the request as the module is, and the result MUST say what was offered (`tools`). A server may not return all that its
+model wrote (only the first of several calls, for one). So the target MAY be asked a second way as well: the same tools written
+into the conversation, each call a JSON object between `<tool_call>` tags, and its calls read from its reply. It is then
+counted by one way for the whole capability: the way it scores higher by over the capability's tasks together (the tools in
+the request where the two tie), never the better way task by task. Each result MUST say which way that is and give the
+target's score by both (`targetAsked`, `targetWays`). The module is asked the one way: tools in the request is the interface
+it is measured through. Where what a tool returns changes from day to day, the
+module and the target MUST both be asked on the same day, against the same service, and the result MUST name the day (`askedOn`);
+answers of one model given on another day MUST NOT be set beside them.
 
 The harness's questions MUST NOT be used in training: they are the measurement training cannot fit.
 
@@ -232,6 +244,7 @@ model-index:
           - { type: <result.metric>, name: SwOA, value: <result.swoa.value> }
           - { type: <result.metric>, name: "target: <target.name>", value: <result.target.value> }
         source: { name: "<harness.name> <harness.version>", n: <result.n>, proof: <result.proof> }
+                        # and tools: <result.tools>, asked_on: <result.askedOn>, each where the result carries it
 ---
 ```
 
@@ -1322,14 +1335,19 @@ If decided is non-empty, there are writers, and neither AS-IS nor PASS-OVER hold
 
    Now write the reply itself, exactly as the person will read it, and nothing else.
    ~~~~
+   **A closing remark is cut.** Then, for each ok writer row, in the order of the writers, the
+   row's `out` is replaced by "without a closing remark" (O.9.2) of that `out` and QUESTION. Where
+   the result is not textually equal to the trimmed `out` it replaced, the row is marked `trimmed`.
+   If any row was marked, append `+trimmed` to path.
 2. **Described, not given.** For each ok writer row, test "describes instead of gives" (O.9.2)
    with the row's `out`, the decided answer and WORK; a non-empty reason marks the row as
    describing. If at least one ok row describes and no ok row is free of that mark: take the first
    member in `others` that is not the member of any writer. If there is one, call a copy of the
    FIRST writer with `id` = first writer's id + `@` + that member, `member` = that member, and
    exactly the first writer's messages (its system message included). Its row is marked as a
-   rewrite and is always recorded. If it is ok and does not describe, it joins the writer rows and
-   `+rewritten` is appended to path. Then, if still no ok row is free of the mark, append
+   rewrite and is always recorded. If it is ok, its closing remark is cut as in step 1, and
+   `+trimmed` is appended to path where the row was marked and path does not contain it already.
+   If it is ok and does not describe, it joins the writer rows and `+rewritten` is appended to path. Then, if still no ok row is free of the mark, append
    `+described`.
 3. If some writer row is not ok and its `out` is a tool call, and no writer row is ok, append
    `+tool-call`.
@@ -1347,8 +1365,8 @@ If decided is non-empty, there are writers, and neither AS-IS nor PASS-OVER hold
 
 #### O.8.5 Path suffix order
 
-Suffixes are appended in this order when they apply: `+narrowed`, `+as-settled`, `+full`, `+rewritten`,
-`+described`, `+tool-call`, `+code-restored`, `+picked`, `+unwritten`.
+Suffixes are appended in this order when they apply: `+narrowed`, `+as-settled`, `+full`, `+trimmed`,
+`+rewritten`, `+described`, `+tool-call`, `+code-restored`, `+picked`, `+unwritten`.
 
 #### O.8.6 Nothing written
 
@@ -1385,6 +1403,8 @@ These are specified in R.1:
   The answer procedure always passes the 16 Letters.
 - **is a tool call**(text) → boolean (R.1.9).
 - **describes instead of gives**(reply, {settled, draft}) → empty, or a reason (R.1.13).
+- **without a closing remark**(reply, question) → the reply, less its closing paragraphs that speak of
+  how it was made (R.1.14).
 
 #### O.9.3 The behaviour functions
 
@@ -1417,7 +1437,7 @@ Base: `decided`, `decided-against-most`, `decided-early`, `most`, `most-tie-deci
 
 A row is recorded into the trace when its call completes, so concurrent calls are recorded in
 completion order. Rows record at least `slot`, `member`, `stage`, `ms`, `out`, `final`, `ok`, and
-where relevant `why`, `tokens`, `concluded`, `picked`, `round`, `describes`, `rewrite`. The
+where relevant `why`, `tokens`, `concluded`, `picked`, `round`, `describes`, `rewrite`, `trimmed`. The
 decider's ruling row has `slot` `decide`, `member` `decider`, `stage` `decide`, its `probs`, `yes`,
 `close` (when ok and close), `retried` (when the decider says so), and, when not ok and its reason
 contains `did not answer`, `timedOut` = whether the reason contains `abort` or `timeout` (any
@@ -1716,6 +1736,29 @@ the answer) or a non-empty reason. The decision uses no model and MUST be determ
 
 The reason texts above are normative; a runtime MUST use them verbatim, because they may be shown to
 models.
+
+#### R.1.14 A closing remark about how the reply was made
+
+A writer may give the answer and then, in a paragraph of its own, say where it got it ("This answer
+was settled based on the provided draft."). The person was shown no draft and no settling. Given a
+written reply and QUESTION (the person's message), the runtime removes the reply's closing paragraphs
+that speak of how it was made. The result is a text. The procedure uses no model and MUST be
+deterministic.
+
+1. Let R be the reply, trimmed. If QUESTION matches `/\b(?:draft|settled)\b/i`, the result is R (the
+   reply may then mean the person's own draft).
+2. Let B[0..n-1] be every match of `/\n\s*\n/g` in R, in order (the paragraph breaks), and END the
+   length of R.
+3. For k from n-1 down to 0: let PARA be R from the end of B[k] up to END. If PARA contains three
+   backticks in a row, or does not match REMARK, stop. Otherwise set END to the start of B[k], and
+   go on to k-1. REMARK:
+   ```
+   /\b(?:(?:provided|settled) (?:draft|answer)|(?:provided|given|stated|settled) in the (?:prompt|draft)|the draft (?:explicitly|correctly|provided|provides|explains|explained|states|stated|shows|showed|solved|gives|gave)|(?:this|the) (?:answer|reply|response|solution|result) (?:is|was) (?:settled|based on|derived from|a direct|formatted)|what was settled)\b/i
+   ```
+4. The result is R up to END, trimmed.
+
+The first paragraph is never removed, so a reply of one paragraph is returned as it was, trimmed; a
+reply that is nothing but such talk is for R.1.13 to read.
 
 ---
 

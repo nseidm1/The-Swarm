@@ -202,3 +202,26 @@ export function describedNotGiven(reply, { settled = '', draft = '' } = {}) {
     return 'it says what the answer is, where the piece itself was wanted';
   return '';
 }
+
+// A CLOSING REMARK ABOUT HOW THE REPLY WAS MADE IS CUT. A small writer gives the answer and then, in a paragraph of its own, says
+// where it got it: "The area is 25 square units.\n\nThis answer was settled based on the provided draft which correctly calculated
+// the area." The person sees a draft and a settling they were never shown. Measured 2026-11-18 on a standard test of calling
+// functions: 7 of the swarm's 39 replies in words closed this way, each after an answer that stood without it. So the closing
+// paragraphs that speak of the draft, of what was settled or of the prompt are cut, as long as a paragraph is left before them;
+// a paragraph holding code is never cut, and nothing is where the person's own message speaks of a draft or of settling (the
+// reply may then mean theirs). A reply that is nothing but such talk is not helped by this: describedNotGiven reads it next.
+const REMARK =
+  /\b(?:(?:provided|settled) (?:draft|answer)|(?:provided|given|stated|settled) in the (?:prompt|draft)|the draft (?:explicitly|correctly|provided|provides|explains|explained|states|stated|shows|showed|solved|gives|gave)|(?:this|the) (?:answer|reply|response|solution|result) (?:is|was) (?:settled|based on|derived from|a direct|formatted)|what was settled)\b/i;
+export function withoutClosingRemark(reply, question = '') {
+  const r = String(reply || '').trim();
+  if (/\b(?:draft|settled)\b/i.test(String(question || ''))) return r;
+  // (paragraphs are parted by a blank line; the reply is cut where the first of its closing remarks begins, as it was written)
+  const breaks = [...r.matchAll(/\n\s*\n/g)];
+  let end = r.length;
+  for (let k = breaks.length - 1; k >= 0; k--) {
+    const para = r.slice(breaks[k].index + breaks[k][0].length, end);
+    if (para.includes('```') || !REMARK.test(para)) break;
+    end = breaks[k].index;
+  }
+  return r.slice(0, end).trim();
+}

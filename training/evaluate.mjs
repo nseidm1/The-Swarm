@@ -17,12 +17,35 @@
 // kept (.work/eval/target/), so evaluating the swarm again asks only the swarm.
 //   bash training/evaluate.sh [--limit N] [--items crew,math]    (N questions a task, the first N as the harness orders them;
 //                                                                 none: every question)
+//
+// A SECOND HARNESS, FOR TOOLS. Calling a function and using a search tool have no task in lm-evaluation-harness. A benchmark that
+// says harness "bfcl" is a category of the Berkeley Function-Calling Leaderboard (support/bfcl.mjs: the package pinned, how it is
+// pointed at a model here, its relay). It is asked the same way: the larger model first and kept, then the swarm, each offered the
+// same functions in the same request, and the two paired by question on the package's own verdict. A result of it names the
+// harness it came from and the tools offered. A category that searches the web needs a key to a search service, which a person
+// supplies (SERPAPI_API_KEY); without it that task is not asked, and says so. Its answers are kept by day: what a search returns
+// changes from one day to the next, so the two models are only set beside each other where they were asked on the same day.
 import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import {
+  BFCL,
+  BFCL_ID,
+  SEARCH_KEY,
+  bfclInstalled,
+  idsOf,
+  bfclRun,
+  bfclFiles,
+  bfclScore,
+  pairOf,
+  bfclProgress,
+  toolRelay,
+  askToolsAt,
+  askWrittenAt,
+} from './support/bfcl.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(HERE, '..');
@@ -45,6 +68,46 @@ export function planOf(targets, ids) {
 // how many of a task's questions a run asks: in a proof run the size its benchmark names (proofN; 0 or none: every question), else
 // the one size the run was given for every task (0: every question)
 export const sizeOf = (b, { proof = false, limit = 0 } = {}) => (proof ? Number(b.proofN) || 0 : Number(limit) || 0);
+
+// which harness a benchmark is a task of, as a SwOA's proof names one, and whether it is the tool tests
+export const isToolTest = (b) => b.harness === 'bfcl';
+export const harnessOf = (b) => (isToolTest(b) ? BFCL_ID : HARNESS_ID);
+// the harnesses a plan needs installed: ['lmeval', 'bfcl'] (training/evaluate.sh installs each the first time)
+export const needsOf = (plan) => [
+  ...(plan.some((b) => !isToolTest(b)) ? ['lmeval'] : []),
+  ...(plan.some(isToolTest) ? ['bfcl'] : []),
+];
+// a task that cannot be asked as things are, and why ('' where it can): a search test with no key to the search service
+export const blockedOf = (b, env = process.env) =>
+  b.needsKey && !env[b.needsKey]
+    ? 'not asked: it searches the web through a service that needs a key (' + b.needsKey + '), which a person supplies'
+    : '';
+// THE WAYS THE LARGER MODEL IS ASKED A TOOL TEST: with the tools in the request, as the swarm is; and, where the benchmark says so
+// (targetAlsoWritten), with the functions written into the conversation and its calls read from its reply (support/bfcl.mjs says
+// why: a server may return only the first of the calls its model wrote). It is counted by the way it scores higher by, so that a
+// result never rests on how the larger model happens to be served
+export const waysOf = (b) => (isToolTest(b) && b.targetAlsoWritten ? ['tools', 'written'] : ['tools']);
+// THE WAY IT IS COUNTED BY IS ONE FOR A WHOLE BODY OF WORK: the way it scores higher by over that body's tasks together, the tools
+// in the request where the two tie. Not the better way task by task: neither is the better on every task (measured 2026-11-18,
+// 20 questions a task: written, 19, 18, 16 and 18 right where a call was needed against 14, 15, 2 and 8; and 10 against 20 where
+// none was), and no model as it is served answers one task one way and the next another.
+//   wayByItem([{ item, way, right, n }]) -> { item: way }
+export function wayByItem(scores) {
+  const out = {};
+  for (const item of [...new Set(scores.map((x) => x.item))]) {
+    const mine = scores.filter((x) => x.item === item);
+    const share = (way) => {
+      const of = mine.filter((x) => x.way === way);
+      const n = of.reduce((a, x) => a + x.n, 0);
+      return n ? of.reduce((a, x) => a + x.right, 0) / n : -1;
+    };
+    const ways = [...new Set(mine.map((x) => x.way))].sort((a, b) => (a === 'tools' ? -1 : b === 'tools' ? 1 : 0));
+    out[item] = ways.reduce((a, w) => (share(w) > share(a) ? w : a));
+  }
+  return out;
+}
+// the day, for answers that are only good for the day they were given (a web search)
+export const dayOf = (at = new Date()) => at.toISOString().slice(0, 10);
 
 // a reply cut where the task says a reply ends
 export function cutAt(text, stops) {
@@ -205,6 +268,21 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const limitOf = (b) => sizeOf(b, { proof, limit });
   const ids = B.arg('items') ? String(B.arg('items')).split(',') : CONFIG.equivalence || EQ.default;
   const plan = planOf(EQ.targets, ids);
+  // (--needs: which harnesses what is chosen needs installed, for training/evaluate.sh, and nothing else)
+  if (B.has('needs')) {
+    console.log(needsOf(plan).join(' '));
+    process.exit(0);
+  }
+  // the harnesses of this run, in words and as a SwOA's proof names them. A result of the second names its own
+  const harnesses = [...(plan.some((b) => !isToolTest(b)) ? [HARNESS] : []), ...(plan.some(isToolTest) ? [BFCL] : [])];
+  const HARNESS_NOW = harnesses.join(' and ') || HARNESS;
+  const HARNESS_ID_NOW = plan.length && plan.every(isToolTest) ? BFCL_ID : HARNESS_ID;
+  // a tool test's questions, in the package's order (asked of it once a run), and how many of them this run asks
+  const toolIds = {};
+  const idsFor = (b) => (toolIds[b.category] = toolIds[b.category] || idsOf(b.category));
+  // (answers that are only good for the day they were given are kept by day)
+  const TODAY = dayOf();
+  const dayPart = (b) => (b.daily ? '-' + TODAY : '');
   const runId = new Date().toISOString().replace(/[:.]/g, '-');
   const runDir = path.join(EVAL_DIR, 'runs', runId);
   fs.mkdirSync(runDir, { recursive: true });
@@ -231,8 +309,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     startedAt: Date.now(),
     limit,
     ...(proof ? { proof: true } : {}),
-    harness: HARNESS,
-    harnessId: HARNESS_ID,
+    harness: HARNESS_NOW,
+    harnessId: HARNESS_ID_NOW,
     configuration: CONFIG_KEY,
     briefs: briefsHash,
     arrangementSha256,
@@ -246,6 +324,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       task: b.task,
       name: b.name,
       compare: b.compare,
+      harness: harnessOf(b).name,
       target: { state: 'waiting', done: 0, of: null, seconds: 0 },
       swarm: { state: 'waiting', done: 0, of: null, seconds: 0 },
     })),
@@ -315,6 +394,39 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     process.exit(143);
   });
 
+  // one category of the tool tests, for one model behind a tool relay at `base`; the package's folder for it is `out`
+  const toolTest = async (b, who, base, out) => {
+    const row = live.tasks.find((t) => t.task === b.task)[who];
+    row.state = 'asking';
+    row.started = Date.now();
+    const all = idsFor(b);
+    const n = limitOf(b) && limitOf(b) < all.length ? limitOf(b) : 0;
+    row.of = n || all.length;
+    write(true);
+    const got = await bfclRun({
+      root: out,
+      category: b.category,
+      ids: n ? all.slice(0, n) : null,
+      base,
+      onChild: (c) => (child = c),
+      onSaid: (said, step) => {
+        const p = step === 'generate' ? bfclProgress(said) : null;
+        if (p && p.of) row.done = p.done;
+        write();
+      },
+    });
+    row.seconds = (Date.now() - row.started) / 1000;
+    if (got.ok) {
+      row.state = 'done';
+      row.done = row.of;
+    } else {
+      row.state = 'failed';
+      row.why = got.why;
+    }
+    write(true);
+    return got.ok;
+  };
+
   // one task through the harness, for one model behind a relay at `base`; its files land in `out`
   const harness = (b, who, base, out) =>
     new Promise((ok) => {
@@ -378,11 +490,13 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       });
     });
 
-  // one model through every task that needs it: ask(messages, body) is the model, behind a relay that says what it does
-  const askAll = async (who, askModel, tasks, outOf) => {
+  // one model through every task that needs it: askModel(messages, body) is the model, behind a relay that says what it does;
+  // askTools({ messages, tools }) the same model asked a step with tools, behind the tool tests' relay; askWritten the same, for a
+  // task to be asked with its functions written into the conversation (b.way 'written')
+  const askAll = async (who, askModel, askTools, tasks, outOf, askWritten = null) => {
     const durations = [];
-    const ask = (m, b) => (halted ? Promise.reject(new Error('the evaluation was stopped')) : askModel(m, b));
-    const r = await relay(ask, {
+    const stopped = () => Promise.reject(new Error('the evaluation was stopped'));
+    const on = (counts) => ({
       ask: ({ excerpt }) => {
         const t = live.tasks.find((x) => x[who].state === 'asking');
         if (!t) return;
@@ -402,7 +516,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         const t = live.tasks.find((x) => x[who].state === 'asking');
         durations.push(seconds);
         if (durations.length > 30) durations.shift();
-        if (t) t[who].done += 1;
+        // (a tool test may ask a model several steps for one question: how far it is comes from the package, not from here)
+        if (t && counts) t[who].done += 1;
         live.last = { who, task: t && t.task, name: t && t.name, reply: excerpt, seconds };
         write(true);
       },
@@ -411,27 +526,73 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         write(true);
       },
     });
-    stopping.push(r.close);
+    const r = tasks.some((b) => !isToolTest(b))
+      ? await relay((m, b) => (halted ? stopped() : askModel(m, b)), on(true))
+      : null;
+    const written = (b) => isToolTest(b) && b.way === 'written';
+    const rt = tasks.some((b) => isToolTest(b) && !written(b))
+      ? await toolRelay((q) => (halted ? stopped() : askTools(q)), on(false))
+      : null;
+    const rw = tasks.some(written) ? await toolRelay((q) => (halted ? stopped() : askWritten(q)), on(false)) : null;
+    for (const x of [r, rt, rw]) if (x) stopping.push(x.close);
     for (const b of tasks) {
-      say('Asking ' + (who === 'target' ? TARGET.name : 'the swarm') + ': ' + b.name);
-      await harness(b, who, r.base, outOf(b));
+      say(
+        'Asking ' +
+          (who === 'target' ? TARGET.name : 'the swarm') +
+          ': ' +
+          b.name +
+          (written(b) ? ', its functions written into the conversation' : ''),
+      );
+      if (isToolTest(b)) await toolTest(b, who, (written(b) ? rw : rt).base, outOf(b));
+      else await harness(b, who, r.base, outOf(b));
       if (halted) await never();
     }
-    await r.close();
+    for (const x of [r, rt, rw]) if (x) await x.close();
   };
 
-  // THE LARGER MODEL FIRST, and only where its answers to this task, at this size, are not already kept
-  const keep = (b) =>
-    path.join(EVAL_DIR, 'target', TARGET.id, b.task + '-' + (limitOf(b) || 'all') + '-r' + RELAY_VERSION);
-  const needTarget = plan.filter((b) => !filesOf(keep(b), b.task));
-  for (const b of plan.filter((x) => !needTarget.includes(x))) {
-    const row = live.tasks.find((t) => t.task === b.task).target;
-    const s = scoreOf(filesOf(keep(b), b.task).results, b);
-    Object.assign(row, { state: 'kept', done: s.n, of: s.n });
-  }
+  // what is kept of a task in a folder (its files, or null where it was not asked to the end), and its score from them
+  const keptIn = (dir, b) => (isToolTest(b) ? bfclFiles(dir, b.category) : filesOf(dir, b.task));
+  const scoreIn = (dir, b) =>
+    isToolTest(b) ? bfclScore(dir, b.category, idsFor(b).length) : scoreOf(filesOf(dir, b.task).results, b);
+
   if (!plan.length) {
     end('failed', 'Nothing chosen under the models has a benchmark');
     process.exit(1);
+  }
+  if (plan.some(isToolTest) && !bfclInstalled()) {
+    end('failed', 'The tool tests are not installed (' + BFCL + '): training/evaluate.sh installs them the first time');
+    process.exit(1);
+  }
+  // A TASK THAT CANNOT BE ASKED AS THINGS ARE (a search test with no key to the search service) is left out and says why; the
+  // others are asked
+  const blocked = new Map(plan.map((b) => [b.task, blockedOf(b)]).filter(([, why]) => why));
+  for (const [task, why] of blocked) {
+    const row = live.tasks.find((t) => t.task === task);
+    for (const w of ['target', 'swarm']) Object.assign(row[w], { state: 'failed', why });
+  }
+  const askable = plan.filter((b) => !blocked.has(b.task));
+
+  // THE LARGER MODEL FIRST, and only where its answers to this task, at this size, are not already kept (a tool test: each way
+  // it is asked, kept apart)
+  const keep = (b) =>
+    path.join(
+      EVAL_DIR,
+      'target',
+      TARGET.id,
+      b.task +
+        '-' +
+        (limitOf(b) || 'all') +
+        '-r' +
+        RELAY_VERSION +
+        dayPart(b) +
+        (b.way === 'written' ? '-written' : ''),
+    );
+  const targetAsks = askable.flatMap((b) => waysOf(b).map((way) => (way === 'tools' ? b : { ...b, way })));
+  const needTarget = targetAsks.filter((b) => !keptIn(keep(b), b));
+  for (const b of askable.filter((x) => !needTarget.some((y) => y.task === x.task))) {
+    const row = live.tasks.find((t) => t.task === b.task).target;
+    const s = scoreIn(keep(b), b);
+    Object.assign(row, { state: 'kept', done: s.n, of: s.n });
   }
   if (needTarget.length) {
     live.phase = 'loading';
@@ -440,7 +601,15 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     const t = await openTarget(TARGET, { llamaServer: B.llamaServer(), modelsDir: B.modelsDir(), onRecover: () => {} });
     stopping.push(t.stop);
     live.phase = 'asking';
-    await askAll('target', askAt(t.base), needTarget, keep);
+    // (a step with tools is asked of it as training asks one: training/target.mjs)
+    await askAll(
+      'target',
+      askAt(t.base),
+      askToolsAt(t.base, { model: TARGET.model || 'target', stop: ['<unk>'] }),
+      needTarget,
+      keep,
+      askWrittenAt(t.base, { model: TARGET.model || 'target', stop: ['<unk>'] }),
+    );
     await t.stop();
   }
 
@@ -471,12 +640,12 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
           'swarm',
           CONFIG_KEY,
           arrangementSha256.slice(0, 16) + '-' + runtimeSha + (adapters.length ? '-adapters' : ''),
-          b.task + '-' + (limitOf(b) || 'all') + '-r' + RELAY_VERSION,
+          b.task + '-' + (limitOf(b) || 'all') + '-r' + RELAY_VERSION + dayPart(b),
         );
-  const needSwarm = plan.filter((b) => servedAt || B.has('fresh') || !filesOf(swarmKeep(b), b.task));
-  for (const b of plan.filter((x) => !needSwarm.includes(x))) {
+  const needSwarm = askable.filter((b) => servedAt || B.has('fresh') || !keptIn(swarmKeep(b), b));
+  for (const b of askable.filter((x) => !needSwarm.includes(x))) {
     const row = live.tasks.find((t) => t.task === b.task).swarm;
-    const s = scoreOf(filesOf(swarmKeep(b), b.task).results, b);
+    const s = scoreIn(swarmKeep(b), b);
     Object.assign(row, { state: 'kept', done: s.n, of: s.n });
   }
   if (needSwarm.length) {
@@ -492,22 +661,64 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     live.phase = 'asking';
     // (a task asked again starts from nothing: what a stopped run left of it is not a whole answer to it)
     for (const b of needSwarm) fs.rmSync(swarmKeep(b), { recursive: true, force: true });
-    await askAll('swarm', askAt(served.base), needSwarm, swarmKeep);
+    await askAll('swarm', askAt(served.base), askToolsAt(served.base, { model: 'swarm' }), needSwarm, swarmKeep);
     await served.close();
     if (swarm) await swarm.stop();
-  } else say('The swarm has answered every one of these tasks as it is now: nothing is asked again');
+  } else if (askable.length)
+    say('The swarm has answered every one of these tasks as it is now: nothing is asked again');
 
   if (halted) await never();
   // AND EACH QUESTION'S TWO ANSWERS COMPARED
   live.phase = 'comparing';
   say('Comparing the answers, question by question');
   const results = [];
+  // the way the larger model is counted by on the tool tests, for each body of work (wayByItem), from what is kept of each way
+  const wayOf = wayByItem(
+    askable.filter(isToolTest).flatMap((b) =>
+      waysOf(b)
+        .filter((way) => keptIn(keep({ ...b, way }), b))
+        .map((way) => {
+          const sc = scoreIn(keep({ ...b, way }), b);
+          return { item: b.item, way, right: sc.right.length, n: sc.n };
+        }),
+    ),
+  );
   for (const b of plan) {
     const row = live.tasks.find((t) => t.task === b.task);
-    const tf = filesOf(keep(b), b.task);
-    const sf = filesOf(swarmKeep(b), b.task);
+    // (a result of the second harness names it, and the tools each model was offered)
+    const from = isToolTest(b) ? { harnessId: BFCL_ID, ...(b.daily ? { askedOn: TODAY } : {}) } : {};
+    if (blocked.has(b.task)) {
+      results.push({ ...b, ...from, failed: blocked.get(b.task) });
+      continue;
+    }
+    const tf = waysOf(b).every((way) => keptIn(keep({ ...b, way }), b)) && keptIn(keep(b), b);
+    const sf = keptIn(swarmKeep(b), b);
     if (!tf || !sf) {
-      results.push({ ...b, failed: (!tf ? 'the larger model' : 'the swarm') + ' was not asked it to the end' });
+      results.push({
+        ...b,
+        ...from,
+        failed: (!tf ? 'the larger model' : 'the swarm') + ' was not asked it to the end',
+      });
+      continue;
+    }
+    if (isToolTest(b)) {
+      // the larger model by the way it scores higher by over this body of work; the result says which, and what it scored each way
+      const ways = waysOf(b).map((way) => ({ way, score: scoreIn(keep({ ...b, way }), b) }));
+      const best = ways.find((w) => w.way === wayOf[b.item]) || ways[0];
+      const ss = scoreIn(swarmKeep(b), b);
+      const agree = pairOf(best.score, ss);
+      const lean = ({ value, stderr, n, of }) => ({ value, stderr, n, of });
+      row.agree = agree;
+      results.push({
+        ...b,
+        ...from,
+        target: lean(best.score),
+        swarm: lean(ss),
+        agree,
+        ...(ways.length > 1
+          ? { targetAsked: best.way, targetWays: Object.fromEntries(ways.map((w) => [w.way, lean(w.score)])) }
+          : {}),
+      });
       continue;
     }
     const a = spawnSync(
@@ -536,8 +747,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     runId,
     limit,
     ...(proof ? { proof: true } : {}),
-    harness: HARNESS,
-    harnessId: HARNESS_ID,
+    harness: HARNESS_NOW,
+    harnessId: HARNESS_ID_NOW,
     configuration: CONFIG_KEY,
     briefs: briefsHash,
     arrangementSha256,

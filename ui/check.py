@@ -88,8 +88,8 @@ with tempfile.TemporaryDirectory() as tmp:
           data.parity([{"grade": "right"}] * 999 + [{"grade": "wrong"}])["percent"] == 99.9 and data.parity([{"grade": "right"}] * 3)["percent"] == 100 and data.parity([{"grade": "right"}] * 1999 + [{"grade": "wrong"}])["percent"] < 100
           and swarm_ui.fmt_pct(75.0) == "75" and swarm_ui.fmt_pct(62.5) == "62.5")
     strip = get(base + "/fragment/score")[1]
-    check("the page says how far training has come, question by question: a percentage training complete at the head of the Train card (no bar, legend, spec line or ideas line under it: taken out), and no parity verdict, held-question card or whole-measurement dialog any more",
-          '<h2 id="arrangement">Train</h2>' in html and "<h2>Training progress</h2>" not in html and 'class="trainprog trainhead"' in strip and "training complete" in strip
+    check("the page says how far training has come, question by question: a percentage of answers good at the head of the Train card (no bar, legend, spec line or ideas line under it: taken out), and no parity verdict, held-question card or whole-measurement dialog any more",
+          '<h2 id="arrangement">Train</h2>' in html and "<h2>Training progress</h2>" not in html and 'class="trainprog trainhead"' in strip and "answers good" in strip and "training complete" not in strip
           and html.index('<h2 id="arrangement">Train</h2>') < html.index('<div id="score">') and 'class="mbar stack"' not in strip and 'class="memleg"' not in strip and "Ideas waiting to be tried" not in strip
           and 'id="score-open"' not in html and 'id="big"' not in html and "/fragment/scorefull" not in html and get(base + "/fragment/scorefull")[0] == 404 and "Parity with the larger model" not in html, strip[:300])
     fp = data.footprint({"a": {"bytes": 2**30}, "b": {"bytes": 2**30}}, {"memGb": 5}, {"memGb": 18})
@@ -140,9 +140,9 @@ with tempfile.TemporaryDirectory() as tmp:
     # TRAINING COMPLETE, AS IT GOES: nothing yet; questions at parity as the swarm stood and brought there; one back in hand after a swap
     p_none = swarm_ui.progress_strip(dict(d, loop=None))
     p_some = swarm_ui.progress_strip(dict(d, loop={"of": 10, "changes": [{"what": "x"}], "list": [{"id": "a", "state": "at parity"}, {"id": "b", "state": "reached"}, {"id": "c", "state": "at parity"}, {"id": "d", "state": "reopened"}]}))
-    check("training complete says how far training has come and never more: before anything, that training starts at question 1; then the share of the pass's questions at parity (as the swarm stood, brought there by a change), with any back in hand after a swap, the found arrangements and what the spec kept",
-          "0%</b><span>training complete" in p_none and "Training starts at question 1" in p_none
-          and "30%</b><span>training complete" in p_some and "<b>3</b> of 10 train questions at parity" in p_some and "<b>2</b> as the swarm stood, <b>1</b> brought there" in p_some
+    check("answers good says how far the pass has come and never more: before anything, that training starts at question 1; then the share of the pass's questions answered well (as the swarm stood, made good by a change), with any back in hand after a swap, the found arrangements and what the spec kept",
+          "0%</b><span>answers good" in p_none and "Training starts at question 1" in p_none and "until the swarm&#39;s answer to it is good" in p_none
+          and "30%</b><span>answers good" in p_some and "<b>3</b> of 10 train answers good" in p_some and "<b>2</b> as the swarm stood, <b>1</b> made good by a change it kept" in p_some and "at parity" not in p_some
           and "1 back in hand after a swap" in p_some and "kept this pass" not in p_some and "from every run" not in p_some and "found arrangement" not in p_some and "<small>pass " in p_some, p_some[:400])
     ckd = root / ".work" / "train" / "checkpoints"
     ckd.mkdir(parents=True, exist_ok=True)
@@ -187,8 +187,8 @@ with tempfile.TemporaryDirectory() as tmp:
           and swarm_ui.step_label("07-write-briefs") == "New briefs from the larger model" and swarm_ui.step_label("12-members") == "Could another small model draft it?" and swarm_ui.step_label("12-deciders") == "Would another decider choose better?",
           [only_html[only_html.find("What only"):only_html.find("What only") + 300] if "What only" in only_html else "", swarm_ui.step_label("07-write-briefs")])
     spec_rows = [dict(r, refToSpec=(i % 3 != 0)) for i, r in enumerate(H["swarm"])]
-    check("the plan says how the swarm is being trained, from its policy: how many changes are tried on a question, how many questions already at parity a change is asked again on before it is kept, when a change is dropped, and what the plan lists first; a flow that asks what each call should give is drawn with that step; and parity is also counted where the larger model follows the question",
-          "How it is training" in pol_html and "or after <b>12</b> changes" in pol_html and "until it is at parity" in pol_html and "with up to <b>3</b> such arrangements open at a time" in pol_html and "The loop&#39;s policy" in pol_html and "or after" not in swarm_ui.plan_panel(d) and "asked again on <b>6</b> questions already there" in pol_html and "wins" not in pol_html and d["policy"]["loop"]["cap"] is None and d["policy"]["loop"]["beam"] == 3
+    check("the plan says how the swarm is being trained, from its policy: how many changes are tried on a question, how a change is kept (by its class where the policy says so, else asked again on questions already good), when a change is dropped, and what the plan lists first; a flow that asks what each call should give is drawn with that step; and parity is also counted where the larger model follows the question",
+          "How it is training" in pol_html and "or after <b>12</b> changes" in pol_html and "until its answer is good" in pol_html and "with up to <b>3</b> such arrangements open at a time" in pol_html and "The loop&#39;s policy" in pol_html and "or after" not in swarm_ui.plan_panel(d) and (("scored on the questions of its class" in pol_html and "the first <b>8</b>" in pol_html and "at least <b>0.02</b>" in pol_html and "asked again on" not in pol_html) if d["policy"]["loop"].get("classKeep") is True else "asked again on <b>6</b> questions already good" in pol_html) and "wins" not in pol_html and d["policy"]["loop"]["cap"] is None and d["policy"]["loop"]["beam"] == 3
           and "Says what each call should give" in exp_html and exp_html.count('class="stage"') == 5
           and data.parity(spec_rows)["onSpec"]["compared"] == 8, pol_html[:200])
     spec_html = get(base + "/fragment/spec")[1]
@@ -277,7 +277,7 @@ with tempfile.TemporaryDirectory() as tmp:
     code_ok, drawn = send("/config", {"a": other["id"]})
     after = json.loads((root / "src" / "config.json").read_text())
     check("choosing a model writes it down and draws again everything that depends on it, in place: the slots in that place carry the new model's name, and results of another arrangement are not shown as this one's",
-          code_ok == 200 and after["a"] == other["id"] and other["name"] in drawn and "training complete" in drawn and "At parity with" not in drawn and "Not at parity with" not in drawn and after["b"] == d["members"]["b"]["id"], after)
+          code_ok == 200 and after["a"] == other["id"] and other["name"] in drawn and "answers good" in drawn and "At parity with" not in drawn and "Not at parity with" not in drawn and after["b"] == d["members"]["b"]["id"], after)
     check("a model that is not one of those that can be chosen is refused, and so is a choice that does not come from this page",
           send("/config", {"a": "no-such-model"})[0] == 400 and send("/config", {"a": d["members"]["a"]["id"]}, {"content-type": "application/json"})[0] == 403 and json.loads((root / "src" / "config.json").read_text())["a"] == other["id"])
     send("/config", {"a": d["members"]["a"]["id"]})
@@ -362,6 +362,20 @@ with tempfile.TemporaryDirectory() as tmp:
           "75%</b> <span>15 of 20 the same" in ev_mix and "another configuration" not in ev_mix
           and "Not evaluated as the swarm is now" in ev_none and "of another configuration" in ev_none and "the same</span>" not in ev_none.split("Not evaluated")[0].split("evrow")[-1] and "20%</b>" not in ev_none,
           [ev_mix.count("75%"), "Not evaluated" in ev_none])
+    # A PROOF RUN ASKS EVERY BODY OF WORK THAT HAS A STANDARD TEST: what a run asked beyond what is chosen is shown after it, said
+    # to be measured for the proof, with what each model was asked by; and a task that was not asked says why, with no bar
+    ev_proof = dict(ev_mine, proof=True, limit=0, harness="lm-evaluation-harness 0.4.13 and bfcl-eval 2026.3.23", results=ev_mine["results"] + [
+        {"item": "tools", "task": "bfcl_simple_python", "name": "BFCL one function", "metric": "accuracy", "filter": "none", "compare": "verdict", "harness": "bfcl",
+         "target": {"value": 0.7, "n": 100}, "swarm": {"value": 0.65, "n": 100}, "agree": {"of": 100, "same": 80, "bothRight": 55, "bothWrong": 25, "differ": 20, "onlyTarget": 12, "onlySwarm": 8, "examples": []}},
+        {"item": "search", "task": "bfcl_web_search_base", "name": "BFCL web search", "metric": "accuracy", "filter": "none", "compare": "verdict", "harness": "bfcl",
+         "failed": "not asked: it searches the web through a service that needs a key (SERPAPI_API_KEY), which a person supplies"}])
+    (root / ".work" / "eval" / "results.json").write_text(json.dumps(ev_proof))
+    ev_pr = get(base + "/fragment/eval")[1]
+    check("after a proof run the Evaluate card shows every body of work it asked, those not chosen for training said to be so; it names the tool tests; a task that was not asked says why and draws no bar; and the size offered again is a proof run",
+          'data-evt="bfcl_simple_python"' in ev_pr and "not chosen for training; measured all the same" in ev_pr and "Berkeley Function-Calling Leaderboard (bfcl-eval 2026.3.23)" in ev_pr
+          and "80 of 100 the same" in ev_pr and "Scored by the test&#x27;s own checker" in ev_pr and "not asked: it searches the web through a service that needs a key" in ev_pr
+          and '<span class="muted small">not asked</span>' in ev_pr and '<option value="-1" selected>' in ev_pr and "a proof run: its own number of questions a task" in ev_pr
+          and 'data-evt="gsm8k"' not in ev_pr, ev_pr[:300])
     (root / ".work" / "eval" / "results.json").write_text(json.dumps(ev_mine))
     ev1 = get(base + "/fragment/eval")[1]
     a_on = send("/config", {"adapters": True})[0]
@@ -390,10 +404,10 @@ with tempfile.TemporaryDirectory() as tmp:
     # (the run ends without finishing: no result was written, and the last one that finished is shown again, as it was)
     ev_after = get(base + "/fragment/eval")[1]
     (root / ".work" / "eval" / "results.json").unlink()
-    check("Memory saved first, its share at the top left as the cards after it have theirs; then, above Train, Evaluate the swarm and Pretrain: Evaluate says what it does (standard benchmarks of lm-evaluation-harness, asked of the larger model and the swarm, kept apart from training), has a size to choose and a button, and a row for every task of what is chosen; an unknown size or a request from elsewhere is refused; once evaluated it says how many questions had the same answer, split by whether both were right, with each model's score and when; Pretrain lists each small model and, where MLX is not installed, says Pretrain installs it and can be pressed on Apple silicon, or that it is not available on any other machine; the adapters switch is written beside the models and refuses anything but on or off; and while an evaluation runs, its headline shows moving bars where the share and the count will be and the questions chosen, the last result returning as it was when the run ends unfinished (Pretrain the same, the adapter that stood still standing beside an attempt that was not kept), it can be stopped from its section, and training and pretraining wait for it and say so",
+    check("Memory saved first, its share at the top left as the cards after it have theirs; then, above Train, Evaluate the swarm and Pretrain: Evaluate says what it does (standard benchmarks of lm-evaluation-harness, asked of the larger model and the swarm, kept apart from training), has a size to choose (a proof run among them) and a button, names the tool tests only where what is chosen is measured by them, and has a row for every task of what is chosen; an unknown size or a request from elsewhere is refused; once evaluated it says how many questions had the same answer, split by whether both were right, with each model's score and when; Pretrain lists each small model and, where MLX is not installed, says Pretrain installs it and can be pressed on Apple silicon, or that it is not available on any other machine; the adapters switch is written beside the models and refuses anything but on or off; and while an evaluation runs, its headline shows moving bars where the share and the count will be and the questions chosen, the last result returning as it was when the run ends unfinished (Pretrain the same, the adapter that stood still standing beside an attempt that was not kept), it can be stopped from its section, and training and pretraining wait for it and say so",
           html.index('<h2>Memory saved</h2>') < html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2>Pretrain</h2>') < html.index('<h2 id="arrangement">Train</h2>')
           and '<h2>Memory saved</h2><div class="panel memcard"><div class="proghead"><span class="memnum"><b class="pct">' in html and 'class="memh"' not in html.split('<h2>Memory saved</h2>')[1].split('<h2>')[0]
-          and "lm-evaluation-harness 0.4.13" in ev0 and 'id="ev-go"' in ev0 and ev0.count("<option") == 3 and 'data-evt="ifeval"' in ev0 and "not evaluated yet" in ev0 and api0.get("running") is False
+          and "lm-evaluation-harness 0.4.13" in ev0 and 'id="ev-go"' in ev0 and ev0.count("<option") == 4 and "a proof run" in ev0 and "Function-Calling" not in ev0 and 'data-evt="ifeval"' in ev0 and "not evaluated yet" in ev0 and api0.get("running") is False
           and bad_size == 400 and foreign == 403
           and 'id="pre-go"' in pre0 and pre_ok and pre0.count('class="prerow"') == len([k for k in ("a", "b", "c", "d") if k in d["members"]])
           and "75%</b> <span>15 of 20 the same" in ev1 and "9 both right · 6 both wrong · 5 differ" in ev1 and "Last evaluated 2026-11-17 12:00 UTC" in ev1 and "without adapters" in ev1
@@ -492,7 +506,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and bad == [400, 400, 400, 400] and unp == 200 and json.loads((wdp / "steer.json").read_text())["pin"] == [], [f_ok, p_ok, k_ok, bad, sv])
     check("each subsection of the plan (the gap, what the measurement showed, how it is training, steer it, the moves...) folds under its heading, folded to begin with and saying in a line what it holds while folded, and kept open or folded on the device like the training card's",
           all(('data-keep="plan-%s">' % k) in after_u for k in ("steer-it", "how-it-is-training", "moves-in-plan-order")) and after_u.count('<details class="psec"') == after_u.count("<h4>")
-          and " open>" not in after_u.split('class="psec"')[1][:80] and after_u.count('class="pmeta"') >= 3 and "until parity, best first, building on the 3 closest" in after_u and "Decider loops only · 1 skipped · nothing queued" in after_u and "2 moves · 0 tried by the loop · 0 kept" in after_u
+          and " open>" not in after_u.split('class="psec"')[1][:80] and after_u.count('class="pmeta"') >= 3 and "until its answer is good, best first, building on the 3 closest" in after_u and "Decider loops only · 1 skipped · nothing queued" in after_u and "2 moves · 0 tried by the loop · 0 kept" in after_u
           and after_u.rstrip().endswith("</div>") and swarm_ui.fold_sections('<div class="panel"><p>x</p></div>', "p") == '<div class="panel"><p>x</p></div>', after_u.count("<h4>"))
     (wdp / "steer.json").unlink()
     if had_plan is None:
@@ -902,9 +916,9 @@ with tempfile.TemporaryDirectory() as tmp:
     trk_none = swarm_ui.question_track(dict(d, loop=None))
     arr_trk = swarm_ui.arrangement(dict(d, loop=trk_rec))
     swarm_ui.session_live = was_live
-    check("the swarm as it stands says where it is against each question: how many of the pass's questions are finished, at parity as it stood, brought to parity by a change, or not reached; a pip for each in order, with the changes tried on it; where the pass stopped; and before the loop has begun, how it works. The track takes the place of a line about moves being tried",
-          'id="qtrack"' in trk and "3 of 6 finished" in trk and "1 at parity as it stood" in trk and "1 brought to parity" in trk and "1 not reached" in trk
-          and trk.count('<i class="at"') == 1 and trk.count('<i class="re"') == 1 and trk.count('<i class="nr"') == 1 and "q3 · not reached · day · 8 changes tried" in trk and "q2 · brought to parity by a change · fix · 2 changes tried" in trk
+    check("the swarm as it stands says where it is against each question: how many of the pass's questions are finished, good as it stood, made good by a change, or not good yet; a pip for each in order, with the changes tried on it; where the pass stopped; and before the loop has begun, how it works. The track takes the place of a line about moves being tried",
+          'id="qtrack"' in trk and "3 of 6 finished" in trk and "1 good as it stood" in trk and "1 made good by a change" in trk and "1 not good yet" in trk and "at parity" not in trk
+          and trk.count('<i class="at"') == 1 and trk.count('<i class="re"') == 1 and trk.count('<i class="nr"') == 1 and "q3 · not good yet · day · 8 changes tried" in trk and "q2 · made good by a change · fix · 2 changes tried" in trk
           and "Pass 2 stopped after question 3 of 6." in trk and "not begun" in trk_none and 'id="qtrack"' in arr_trk and "Being tried now" not in arr_trk and "Stopped while trying" not in arr_trk
           and [x["s"] for x in swarm_ui.track_of(trk_rec)] == ["at", "re", "nr"], trk[:300])
     tl = swarm_ui.tries_list({"list": [
@@ -915,7 +929,7 @@ with tempfile.TemporaryDirectory() as tmp:
         {"id": "q-stuck", "kind": "day", "state": "not reached", "lostAt": "drafting", "attempts": [{"move": "", "grade": "wrong"}, {"move": "b-direct: say the weekday last", "grade": "wrong"}]}]})
     check("the question track folds what was tried on each question that needed a change: where its answer was lost and each change in order (what did nothing, what reached parity there but lost a question already there, and what was kept); and the plan section no longer repeats the questions",
           "What was tried on each question that needed a change (2)" in tl and "q-easy</code> <span" not in tl and tl.index("q-stuck") < tl.index("q-won") and "lost in choosing · 3 tried" in tl
-          and "lost <code>q-easy</code>, already at parity" in tl and "3 already at parity asked again, none lost" in tl and '>kept</span><span class="tx">a-critic: check the edge cases' in tl and "Not reached" in tl and "Brought to parity" in tl
+          and "lost <code>q-easy</code>, already good" in tl and "3 already good asked again, none lost" in tl and '>kept</span><span class="tx">a-critic: check the edge cases' in tl and "Not good yet" in tl and "Made good by a change" in tl
           and swarm_ui.tries_list({"list": []}) == "" and "Question by question" not in swarm_ui.plan_block(d) and "loopwrap" not in swarm_ui.plan_block(d), tl[:300])
     tm = swarm_ui.tries_list({"list": [{"id": "q-m", "kind": "fix", "state": "not reached", "lostAt": "drafting", "attempts": [{"move": "", "grade": "wrong"},
         {"move": "flow: the answers go back", "grade": "wrong", "round": 2, "closer": True, "near": {"lost": "choosing", "had": 2, "p": 0.35},
@@ -943,7 +957,7 @@ with tempfile.TemporaryDirectory() as tmp:
     (pf_root / ".work" / "train" / "k1" / "loop-policy.json").write_text(json.dumps({"policy": {"batch": 5, "order": ["pin"]}, "log": [{"event": "on trial", "during": "q12"}]}))
     pf = swarm_ui.loop_policy_of({"root": str(pf_root), "key": "k1", "loop": {"list": [], "loopPolicy": {"batch": 8}}})
     check("a conflict between two questions is on the page: the question it broke and how often, in the fold and while it runs; a change built on a parity that broke one says so; and the loop's policy is read from the file the loop writes as it goes, newer than the record of finished questions",
-          "broke q-other 3×" in tb and "at parity here, but it broke q-other when that was asked again" in tb and "line('Conflict:'" in page and "'broke one'" in page
+          "broke q-other 3×" in tb and "good here, but it broke q-other when that was asked again" in tb and "line('Conflict:'" in page and "'broke one'" in page
           and pf["loopPolicy"]["batch"] == 5 and pf["policyLog"][0]["during"] == "q12" and swarm_ui.loop_policy_of({"root": str(pf_root), "key": "none", "loop": {"loopPolicy": {"batch": 8}}})["loopPolicy"]["batch"] == 8, tb[:300])
     sgb = swarm_ui.policy_block({"loopPolicy": {"order": ["pin"], "suggestEvery": 20}, "suggest": {"asked": 3, "seconds": 126, "tried": 11, "kept": 1, "closer": 4, "failed": 0},
                                  "suggestLog": [{"picks": ["e + f", "g"], "came": ["closer", "no closer"]}]})
@@ -1148,7 +1162,7 @@ check("every state a question can be in has a pip of its own (no two states shar
 
 _late = swarm_ui.track_of({"list": [{"id": "q", "kind": "k", "state": "reached", "markWrong": {"share": 0.9}, "attempts": [{}]}]})[0]
 check("a question brought to parity before its mark was found wrong shows the wrong mark's pip, its tooltip saying it reached parity first",
-      _late["s"] == "mw" and "brought to parity by a change before that was found" in _late["w"], _late)
+      _late["s"] == "mw" and "made good by a change before that was found" in _late["w"], _late)
 
 # A MARK THE LARGER MODEL DID NOT GIVE AGAIN, where the swarm is not at parity with it: a pip of its own, said in the training line,
 # and still counted in the share (nothing is taken out of what the share is of)
@@ -1206,6 +1220,64 @@ check("an open page carries the build of the code it was drawn with, the server 
 _ncw = swarm_ui.track_of({"list": [{"id": "q", "kind": "k", "state": "not compared", "why": "the reader of answers in words failed its own check this pass (training/readers.mjs)", "attempts": [{}]}]})[0]
 check("a question not compared says why on its pip: the reader of its kind not believed this pass is not reported as no answer from the larger model",
       _ncw["s"] == "nc" and "the reader of answers in words failed its own check" in _ncw["w"] and "no answer from the larger model" not in _ncw["w"] and "no answer from the larger model" not in swarm_ui.PIP_WORDS["nc"], _ncw)
+
+# A SECOND HARNESS IN THE PROOF: a result of the tool tests names its own harness, the tools each model was offered and (a search of
+# the live web) the day both were asked; a task that was not asked is not listed; the capability gets its verdict like any other
+import tempfile as _tf
+with _tf.TemporaryDirectory() as _t2:
+    _r2 = Path(_t2)
+    (_r2 / ".work" / "eval").mkdir(parents=True)
+    _bf = {"name": "bfcl-eval", "version": "2026.3.23"}
+    _row = {"at": "2026-11-18T20", "runId": "r", "configuration": "c--t", "arrangementSha256": "A", "harness": "lm-evaluation-harness 0.4.13 and bfcl-eval 2026.3.23",
+            "harnessId": {"name": "lm-evaluation-harness", "version": "0.4.13"}, "adapters": [], "results": [
+                {"task": "ifeval", "name": "IFEval", "item": "crew", "itemName": "The Crew", "metric": "m", "filter": "none",
+                 "swarm": {"value": 0.7, "stderr": 0.04, "n": 120, "of": 541}, "target": {"value": 0.75, "stderr": 0.04, "n": 120, "of": 541}},
+                {"task": "bfcl_simple_python", "name": "BFCL one function", "item": "tools", "itemName": "Tools", "metric": "accuracy", "filter": "none", "harnessId": _bf,
+                 "tools": "the functions each question offers", "swarm": {"value": 0.9, "stderr": 0.02, "n": 150, "of": 400}, "target": {"value": 0.92, "stderr": 0.02, "n": 150, "of": 400},
+                 "targetAsked": "written", "targetWays": {"tools": {"value": 0.7, "stderr": 0.03, "n": 150, "of": 400}, "written": {"value": 0.92, "stderr": 0.02, "n": 150, "of": 400}},
+                 "agree": {"of": 150, "same": 139, "onlySwarm": 5, "onlyTarget": 6}},
+                {"task": "bfcl_web_search_base", "name": "BFCL web search", "item": "search", "itemName": "Search", "metric": "accuracy", "filter": "none", "harnessId": _bf,
+                 "tools": "a search tool", "askedOn": "2026-11-18", "failed": "not asked: it searches the web through a service that needs a key"}]}
+    (_r2 / ".work" / "eval" / "history.jsonl").write_text(json.dumps(_row) + "\n")
+    _p2 = data.swoa_proof({"root": str(_r2), "key": "c--t", "members": {}}, "A", {})
+_b2 = {x["task"]: x for x in _p2["results"]}
+_c2 = {c["id"]: c for c in _p2["capabilities"]}
+_pb2 = swarm_ui.proof_block({"target": {"name": "T"}, "proof": _p2})
+_card2 = data.swoa_card({"swoa": {}, "target": {"name": "T"}, "proof": _p2, "baseModule": {"members": {}, "decider": {}}, "runtime": {}})
+check("a proof may hold results of more than one harness: a result of the tool tests names its own, and what each model was offered; a task that was not asked is not listed; calling functions gets its verdict from its pairs as any capability does; the card says what was offered; and where the target was asked two ways the proof says which it is counted by and what it scored each way",
+      sorted(_b2) == ["bfcl_simple_python", "ifeval"] and _b2["bfcl_simple_python"]["harness"] == _bf and _b2["ifeval"]["harness"]["name"] == "lm-evaluation-harness"
+      and _b2["bfcl_simple_python"]["tools"] == "the functions each question offers" and "tools" not in _b2["ifeval"] and _b2["bfcl_simple_python"]["pairs"] == {"n": 150, "onlySwoa": 5, "onlyTarget": 6}
+      and _c2["tools"]["verdict"] == "parity" and "Tools" in _p2["claims"]["claimed"] and "search" not in _c2
+      and "BFCL one function: each model was offered the functions each question offers" in _card2 and 'tools: "the functions each question offers"' in _card2 and "bfcl-eval 2026.3.23" in _card2
+      # (and where the target was asked two ways: the way it is counted by, its higher score, and both scores, in the proof, on the page and on the card)
+      and _b2["bfcl_simple_python"]["targetAsked"] == "written" and _b2["bfcl_simple_python"]["targetWays"]["tools"] == {"value": 0.7, "stderr": 0.03} and "targetAsked" not in _b2["ifeval"]
+      and "the target counted the way it scores higher by on this capability, with the tools written into the conversation (on this task: with the tools in the request 0.700, with the tools written into the conversation 0.920)" in _pb2
+      and "offered: the functions each question offers" in _pb2 and "the target was asked two ways and is counted by the one it scores higher by over the capability, here the tools written into the conversation (on this task, the tools in the request: 0.700, the tools written into the conversation: 0.920)" in _card2,
+      [_b2, _c2])
+
+# A RECORD GRADED BY AN EARLIER RULE IS NOT CARRIED ON, and the page says so in place of where the pass would carry on from
+_st_old = swarm_ui.progress_strip(dict(_d, scoring=3, loop={"of": 5, "changes": [], "scoring": 2, "list": [{"id": "a", "state": "at parity"}, {"id": "b", "state": "not reached"}]}))
+_st_new = swarm_ui.progress_strip(dict(_d, scoring=3, loop={"of": 5, "changes": [], "scoring": 3, "list": [{"id": "a", "state": "at parity"}, {"id": "b", "state": "not reached"}]}))
+check("a pass's record graded by an earlier rule says its questions will be asked again from the first when training starts, and not where it would carry on from; one graded by the rule in force says where it carries on; and the rule in force is read from the loop",
+      "graded by an earlier rule: when training starts, its questions are asked again from the first" in _st_old and "it carries on from" not in _st_old
+      and "Stopped; it carries on from question 3." in _st_new and "earlier rule" not in _st_new
+      and isinstance(data.scoring_now(Path(__file__).resolve().parent.parent), int) and data.scoring_now("/nowhere/at/all") is None, _st_old[-400:])
+
+# A CHANGE KEPT BY ITS CLASS says what its class gained, the error of that and over how many questions; one proposed for the class
+# says so; one kept before that rule says what it was kept on then. And the page says how a change is kept as the policy has it
+_lr = swarm_ui.ledger_rows([
+    {"n": 3, "kind": "brief", "what": "a-direct: say the day last", "class": "words", "question": {"id": "day-4", "lostAt": "drafting", "attempt": 12}, "classGain": {"class": "words", "n": 110, "gain": 0.071, "stderr": 0.02}},
+    {"n": 2, "kind": "plan", "what": "write in full", "class": "talk", "proposed": True, "classGain": {"class": "talk", "n": 36, "gain": 0.05, "stderr": 0.02}},
+    {"n": 1, "kind": "brief", "what": "old", "question": {"id": "fix-1", "lostAt": "choosing", "attempt": 3, "guard": 4}}])
+check("a kept change says what it was kept on: its class's gain, the error of it and over how many questions; proposed for the class where it was; and one kept before that rule, the question it brought to parity and how many already there held",
+      "Made <code>day-4</code> good (lost in drafting; change 12 tried on it)" in _lr and "its class (in words) gained <b style='display:inline;font-size:inherit'>+0.071</b> ± 0.020 over 110 questions" in _lr
+      and "Proposed for its class at the end of a pass · its class (in conversation) gained" in _lr and "over 36 questions" in _lr
+      and "Brought <code>fix-1</code> to parity (lost in choosing; change 3 tried on it) · 4 already at parity asked again, none lost" in _lr, _lr)
+check("while a change is scored on its class the page says so, and says which question is asked as the swarm stands to set it beside; and the SwOA's learned record states the rule a change is kept by now, and the rule before it",
+      "lp.classCheck?'checking a change on its class'" in swarm_ui.JS and "lp.standing?'where its class stands'" in swarm_ui.JS and "of its class)" in swarm_ui.JS
+      and "a change is kept when the questions of its class got better with it" in data.learned_rule({"loop": {"classKeep": True}}) and "classGain" in data.learned_rule({"loop": {"classKeep": True}})
+      and "Before this rule, a change was kept only if it brought a train question to parity" in data.learned_rule({"loop": {"classKeep": True, "classMinGain": 0.02}})
+      and data.learned_rule({"loop": {}}).startswith("training goes question by question: a change is kept only if it brings a train question to parity"), data.learned_rule({"loop": {"classKeep": True}}))
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

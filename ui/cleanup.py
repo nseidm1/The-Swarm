@@ -120,8 +120,10 @@ def inventory(root, d):
     # Evaluate the swarm (training/evaluate.sh): the harness, the benchmarks it fetched, and what each evaluation asked
     add("lmeval:program", "Programs", "lm-evaluation-harness: the evaluator, its Python and the benchmarks", [work / "lmeval"],
         note="Only Evaluate the swarm uses it; it is installed again, and the benchmarks fetched again, the next time.")
-    add("eval:answers", "Training", "Evaluations: every answer each model gave", [work / "eval" / p for p in ("runs", "target")],
-        note="The larger model's are kept so an evaluation asks only the swarm again: removed, the next one asks both. The last result is kept.")
+    add("bfcl:program", "Programs", "The tool tests (bfcl-eval): the evaluator of calling functions and searching, and its Python", [work / "bfcl"],
+        note="Only Evaluate the swarm uses it, and only where a body of work measured by it is chosen (Tools, Search); it is installed again the next time.")
+    add("eval:answers", "Training", "Evaluations: every answer each model gave", [work / "eval" / p for p in ("runs", "target", "swarm")],
+        note="The larger model's are kept so an evaluation asks only the swarm again, and the swarm's so that a long one that was stopped carries on: removed, the next one asks both. The last result is kept.")
     # the deciders
     add("kev:program", "Deciders", "Kev: its program and Python", [work / "kev" / p for p in ("src", "uvenv", "python", "uv-cache")], used=dkind == "kev",
         note="Shared by every Kev size.")

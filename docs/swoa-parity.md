@@ -4,9 +4,9 @@ Part of SwOA ([swoa.md](swoa.md)): a SwOA spec tunes a swarm module toward parit
 harness measures it. This says what that parity is, how a SwOA proves it, and how training has to change to aim at it.
 [swoa-classes.md](swoa-classes.md) is the design before this one: what is learned, kept with the class it was learned on.
 
-Status: design, 2026-11-18. Built the same day, by the steps of [swoa-parity-plan.md](swoa-parity-plan.md), except what
-needs a long run or a second harness: the battery has not been run at proof size, and the tool tests (calling functions,
-search) are not wired. The plan says, step by step, what is built and what it measured.
+Status: design, 2026-11-18. Built the same day, by the steps of [swoa-parity-plan.md](swoa-parity-plan.md), the tool tests
+among them. What it waits on: the battery run at proof size (hours of the machine), and for the web search test a key to a
+search service, which a person supplies. The plan says, step by step, what is built and what it measured.
 
 ## The question
 
@@ -99,16 +99,28 @@ together, and lists each task's own gap beneath. There is no single yes or no un
 | Following instructions | IFEval | lm-evaluation-harness | measured, 20 questions on this lineup |
 | Reasoning: arithmetic, logic, procedures | GSM8K; the BBH tasks named in `equivalence.json` | lm-evaluation-harness | defined (`math`, `logic`, `reasoning`), not chosen |
 | Code | HumanEval, MBPP | lm-evaluation-harness | defined (`code`), not chosen |
-| Tool use: calling functions | the function-calling categories of BFCL | Berkeley Function-Calling Leaderboard (`bfcl-eval`) | not wired |
-| Knowledge, with a search tool offered | BFCL's web search category (100 multi-hop questions), or a browsing test whose search runs over a corpus the test provides | BFCL, or Inspect Evals | not wired |
+| Tool use: calling functions | five function-calling categories of BFCL: one function, one of several, several calls at once, several calls of several functions, no function fits | Berkeley Function-Calling Leaderboard (`bfcl-eval` 2026.3.23) | wired (`tools`), tried on 20 questions a category |
+| Knowledge, with a search tool offered | BFCL's two web search categories (100 multi-hop questions each) | the same | wired (`search`); not asked yet: it searches the live web through SerpAPI, which needs a key |
 | Conversation, advice, writing | none is standard | | a training measure only: reported beside the proof, never as proof |
 
 The module answers as a chat model and gives no token probabilities, so only tasks that grade what is generated can be used.
-The two tool tests are named from their public descriptions and have to be confirmed against the module's own endpoint
-before they are relied on (step 1 below).
+The function-calling test was confirmed against the module's own endpoint and against the target's on 2026-11-18
+(`training/support/bfcl.mjs`: the package asks the one model it has registered that speaks plain chat completions with
+`tools` to an address it is given, and that address is a relay in front of the model being asked).
 
 **Like for like.** Whatever the module is offered, the target is offered: the same tools, the same search behind them, on the
 same day. A test of knowledge in which only the module may search is not parity.
+
+**And the target is not counted by how it happens to be served.** The first trial read the module at 75 of 100 right and its
+target at 59, and that was wrong: the target's server returns the first call only of those its model writes (asked four
+questions that need two or three calls, it returned one each time; asked the same with the functions written into a system
+message and no `tools` in the request, the model wrote every call), and with `tools` in the request it replied in words on
+5 of 20 questions that needed one call. So the target is asked two ways: the tools in the request, as the module is, and the
+tools written into the conversation, its calls read from its reply. It is counted by one of them for the whole capability,
+the way it scores higher by over the capability's tasks together. Neither way is the better on every task (written: 19, 18,
+16 and 18 of 20 where a call is needed, against 14, 15, 2 and 8; and 10 of 20 against 20 where none is), and no model as it
+is served answers one task one way and the next another. By that rule the same trial reads 81 for the target and 75 for the
+module: a gap of 0.06, `open` on 100 questions. The module is asked the one way: `tools` in the request is its interface.
 
 **Not claimed**, and said so in the SwOA: long conversations (the module keeps the last 6 turns), speed (an answer is several
 model calls), anything but text, and **knowledge with no tool offered**. That last is measured and published as it is; a loss
@@ -255,8 +267,9 @@ The page follows: "training complete" becomes, for each family, the module's sco
 
 1. **The margin.** 0.05 is proposed: the loss a SwOA may show and still say parity. It is best chosen after the battery
    has been measured once: how often the two differ sets what a proof of a given size can show.
-2. **The tool tests.** BFCL is proposed first, for calling functions and for search; a fixed-corpus browsing test if its
-   live search proves too unsteady to be proof.
+2. **The tool tests.** Settled for calling functions: BFCL, wired and tried. For search, BFCL's web search test is wired and
+   not yet asked (it needs a key to a search service); a fixed-corpus browsing test if its live search proves too unsteady
+   to be proof.
 3. **Three answers.** Enough to tell a standard from a draw on most questions; five would say more and cost two more passes
    of the larger model over the train questions.
 

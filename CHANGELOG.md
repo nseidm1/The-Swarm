@@ -56,6 +56,27 @@ The first version.
     not), **search** (a search tool and facts made up from the seed, so no model can know them).
   - *Tools.* In a turn with tools a reply is now written by the answer procedure, shown what the tools returned (SwOA T.9);
     before, the first drafter's reply went out unchecked. `plan.toolReply: "proposed"` keeps that.
+- **Calling functions and searching are measured by a standard test.** Tools and Search are evaluated by the
+  [Berkeley Function-Calling Leaderboard](https://gorilla.cs.berkeley.edu/leaderboard.html)'s own package (`bfcl-eval`
+  2026.3.23, installed into `.work/bfcl` the first time one of them is evaluated: about 2 GB), beside
+  lm-evaluation-harness: the larger model and the swarm are offered the same functions in the same request, and paired
+  question by question on the package's verdict. A SwOA's proof may now hold results of more than one harness; a result of a
+  test with tools says what each model was offered. The web search test searches the live web through a service that needs
+  a key (`SERPAPI_API_KEY`): without one it is not asked, and says so.
+- **The larger model is not counted by how it happens to be served.** On a tool test it is asked two ways, the tools in the
+  request and the tools written into the conversation, and counted by the way it scores higher by over the capability.
+  Measured on the first target: its server returns only the first of the calls the model writes, and read the first way
+  alone it scored 59 of 100 where the swarm scored 75; counted fairly it scores 81.
+- **A reply no longer ends by saying where it came from.** A small writer gave the answer and then, in a paragraph of its
+  own, said it was "settled based on the provided draft": 7 of the swarm's 39 replies in words on the function-calling
+  test. Such closing paragraphs are cut, and the answer before them goes out as it was written (SwOA specification R.1.14).
+- **A proof run from the page.** *Evaluate* offers a fourth size, a proof run: every body of work that has a standard test,
+  chosen for training or not, each task at the size a verdict needs (five hundred questions or more a body of work, never
+  fewer than a hundred of one task). A run that is stopped carries on from the task it stopped in.
+- **The page says "good", not "parity", of a question.** Parity is the proof's verdict on a capability. A train question's
+  answer is good as the swarm stood, made good by a change, or not good yet; the head of the Train card is the share of
+  answers good, with the module beside the larger model where the questions carry a standard; a kept change says what its
+  class gained; and the page says how a change is kept as the policy has it.
   - Knowledge reaches the module through tools the caller offers; a recipe holds no body of knowledge.
 - **Training reads its own signals on one line, and stops spending tries where none can pay.** Each slot's answer is read
   on the line the reply is read on (it was read at one half against the reply's 0.8, so "a slot had the answer" often

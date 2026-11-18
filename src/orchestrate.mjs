@@ -34,6 +34,7 @@ import {
   isToolCall,
   letterOf,
   describedNotGiven,
+  withoutClosingRemark,
 } from './read.mjs';
 import { PROBE_BRIEF, EXPECT_BRIEF, expectedIn, programOf } from './behave.mjs';
 
@@ -933,6 +934,18 @@ export async function answer(
       },
     ];
     const rows = await all(writers, writeMsgs);
+    // A CLOSING REMARK ABOUT HOW THE REPLY WAS MADE IS CUT (read.mjs withoutClosingRemark): the answer, then a paragraph that says
+    // it came from "the provided draft" or was "settled". The paragraphs before it are the reply; the row says it was trimmed
+    const cut = (w) => {
+      if (!w.ok) return;
+      const t = withoutClosingRemark(w.out, question);
+      if (t !== String(w.out || '').trim()) {
+        w.out = t;
+        w.trimmed = true;
+      }
+    };
+    rows.forEach(cut);
+    if (rows.some((w) => w.trimmed)) path += '+trimmed';
     // A REPLY THAT DESCRIBES THE ANSWER INSTEAD OF GIVING IT IS NOT SENT (read.mjs describedNotGiven: it echoes its prompt, speaks
     // of the request or the draft, or says what the answer is where a piece was wanted). Marked on its row, for training to see
     // that the answer was lost in writing; then the same is asked of the largest small model that did not write it (others, the
@@ -952,6 +965,8 @@ export async function answer(
           writeMsgs(writers[0]),
         );
         again.rewrite = true;
+        cut(again);
+        if (again.trimmed && !path.includes('+trimmed')) path += '+trimmed';
         if (again.ok && tell(again)) (rows.push(again), (path += '+rewritten'));
       }
       if (!rows.some((w) => w.ok && !w.describes)) path += '+described';

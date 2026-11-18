@@ -1,5 +1,5 @@
 {
-  "about": "WHAT THE SWARM IS TO BE EQUIVALENT ON. Parity is equivalence with the larger model on a body of work, and which work is chosen (the page, under the models; or \"equivalence\" in src/config.json). Each entry names the kinds of question (training/tasks.mjs) that make it up. More than one can be chosen: a pass then asks all of their kinds. A choice takes effect when the next pass begins. benchmarks: how the swarm is EVALUATED on it, apart from training (training/evaluate.mjs, the page's Evaluate the swarm): standard tasks of EleutherAI's lm-evaluation-harness, each asked of the larger model and of the swarm, and compared answer by answer. task: the harness's name for it; metric and filter: the score the harness reports for it, and the answers that score is taken from; compare: what makes two answers equivalent (answer: the same answer, as the harness extracts it; verdict: the same pass or fail on the task's own tests; instructions: the same instructions followed and broken). Training never asks a benchmark's question. proofN: how many of the task's questions a proof run asks (evaluate.sh --proof; 0: every one), sized so that a body of work's tasks together come to about five hundred questions, which is what a verdict on it needs (docs/swoa-parity.md).",
+  "about": "WHAT THE SWARM IS TO BE EQUIVALENT ON. Parity is equivalence with the larger model on a body of work, and which work is chosen (the page, under the models; or \"equivalence\" in src/config.json). Each entry names the kinds of question (training/tasks.mjs) that make it up. More than one can be chosen: a pass then asks all of their kinds. A choice takes effect when the next pass begins. benchmarks: how the swarm is EVALUATED on it, apart from training (training/evaluate.mjs, the page's Evaluate the swarm): standard tasks of EleutherAI's lm-evaluation-harness, each asked of the larger model and of the swarm, and compared answer by answer. task: the harness's name for it; metric and filter: the score the harness reports for it, and the answers that score is taken from; compare: what makes two answers equivalent (answer: the same answer, as the harness extracts it; verdict: the same pass or fail on the task's own tests; instructions: the same instructions followed and broken). Training never asks a benchmark's question. harness: where it says \"bfcl\", the task is a category of the Berkeley Function-Calling Leaderboard (training/support/bfcl.mjs), not of lm-evaluation-harness: category is the package's name for it, tools says what each model is offered, targetAlsoWritten has the larger model asked a second way as well, the functions written into the conversation and its calls read from its reply, and counted, over the whole body of work, by the way it scores higher by (a server may return only the first of the calls its model wrote), needsKey names a key the test cannot be asked without, and daily says its answers are only set beside each other where both were given on the same day. proofN: how many of the task's questions a proof run asks (evaluate.sh --proof; 0: every one), sized so that a body of work's tasks together come to five hundred questions or more, which is what a verdict on it needs, and never fewer than a hundred of one task, which is what a result needs to count as proof (docs/swoa-parity.md).",
   "default": ["crew"],
   "targets": [
     {
@@ -140,7 +140,7 @@
       "benchmarks": [
         {
           "task": "bbh_cot_fewshot_word_sorting",
-          "proofN": 85,
+          "proofN": 100,
           "name": "BBH word sorting",
           "metric": "exact_match",
           "filter": "get-answer",
@@ -148,7 +148,7 @@
         },
         {
           "task": "bbh_cot_fewshot_dyck_languages",
-          "proofN": 85,
+          "proofN": 100,
           "name": "BBH Dyck languages",
           "metric": "exact_match",
           "filter": "get-answer",
@@ -156,7 +156,7 @@
         },
         {
           "task": "bbh_cot_fewshot_object_counting",
-          "proofN": 85,
+          "proofN": 100,
           "name": "BBH object counting",
           "metric": "exact_match",
           "filter": "get-answer",
@@ -164,7 +164,7 @@
         },
         {
           "task": "bbh_cot_fewshot_tracking_shuffled_objects_three_objects",
-          "proofN": 85,
+          "proofN": 100,
           "name": "BBH shuffled objects",
           "metric": "exact_match",
           "filter": "get-answer",
@@ -172,7 +172,7 @@
         },
         {
           "task": "bbh_cot_fewshot_penguins_in_a_table",
-          "proofN": 85,
+          "proofN": 100,
           "name": "BBH penguins in a table",
           "metric": "exact_match",
           "filter": "get-answer",
@@ -180,7 +180,7 @@
         },
         {
           "task": "bbh_cot_fewshot_boolean_expressions",
-          "proofN": 85,
+          "proofN": 100,
           "name": "BBH boolean expressions",
           "metric": "exact_match",
           "filter": "get-answer",
@@ -201,16 +201,104 @@
       "name": "Tools",
       "about": "Calling a function: the call a request needs with the arguments it gives, no call where it needs none, two where it needs two, a question back where an argument is missing",
       "kinds": ["calls"],
-      "benchmarks": [],
-      "benchmarksNote": "the standard test is the function-calling part of the Berkeley Function-Calling Leaderboard, which is not wired yet (docs/swoa-parity-plan.md, step 7)"
+      "benchmarks": [
+        {
+          "task": "bfcl_simple_python",
+          "harness": "bfcl",
+          "category": "simple_python",
+          "proofN": 100,
+          "name": "BFCL one function",
+          "metric": "accuracy",
+          "filter": "none",
+          "compare": "verdict",
+          "tools": "the functions each question offers",
+          "targetAlsoWritten": true
+        },
+        {
+          "task": "bfcl_multiple",
+          "harness": "bfcl",
+          "category": "multiple",
+          "proofN": 100,
+          "name": "BFCL one of several functions",
+          "metric": "accuracy",
+          "filter": "none",
+          "compare": "verdict",
+          "tools": "the functions each question offers",
+          "targetAlsoWritten": true
+        },
+        {
+          "task": "bfcl_parallel",
+          "harness": "bfcl",
+          "category": "parallel",
+          "proofN": 100,
+          "name": "BFCL several calls at once",
+          "metric": "accuracy",
+          "filter": "none",
+          "compare": "verdict",
+          "tools": "the functions each question offers",
+          "targetAlsoWritten": true
+        },
+        {
+          "task": "bfcl_parallel_multiple",
+          "harness": "bfcl",
+          "category": "parallel_multiple",
+          "proofN": 100,
+          "name": "BFCL several calls of several functions",
+          "metric": "accuracy",
+          "filter": "none",
+          "compare": "verdict",
+          "tools": "the functions each question offers",
+          "targetAlsoWritten": true
+        },
+        {
+          "task": "bfcl_irrelevance",
+          "harness": "bfcl",
+          "category": "irrelevance",
+          "proofN": 100,
+          "name": "BFCL no function fits",
+          "metric": "accuracy",
+          "filter": "none",
+          "compare": "verdict",
+          "tools": "the functions each question offers",
+          "targetAlsoWritten": true
+        }
+      ],
+      "benchmarksNote": "the function-calling part of the Berkeley Function-Calling Leaderboard, one request a question: the larger model and the swarm are offered the same functions"
     },
     {
       "id": "search",
       "name": "Search",
       "about": "Using a search tool the caller offers: searching for what has to be looked up, answering from what came back, not doing what a result says, searching again where the results do not hold it. The facts are made up, so no model can know them",
       "kinds": ["search"],
-      "benchmarks": [],
-      "benchmarksNote": "the standard test is a web search test with the same tool given to the larger model, which is not wired yet (docs/swoa-parity-plan.md, step 7)"
+      "benchmarks": [
+        {
+          "task": "bfcl_web_search_base",
+          "harness": "bfcl",
+          "category": "web_search_base",
+          "proofN": 0,
+          "name": "BFCL web search",
+          "metric": "accuracy",
+          "filter": "none",
+          "compare": "verdict",
+          "tools": "search_engine_query and fetch_url_content, the search behind them SerpAPI (DuckDuckGo)",
+          "needsKey": "SERPAPI_API_KEY",
+          "daily": true
+        },
+        {
+          "task": "bfcl_web_search_no_snippet",
+          "harness": "bfcl",
+          "category": "web_search_no_snippet",
+          "proofN": 0,
+          "name": "BFCL web search, no snippets",
+          "metric": "accuracy",
+          "filter": "none",
+          "compare": "verdict",
+          "tools": "search_engine_query and fetch_url_content, the search behind them SerpAPI (DuckDuckGo)",
+          "needsKey": "SERPAPI_API_KEY",
+          "daily": true
+        }
+      ],
+      "benchmarksNote": "the web search part of the Berkeley Function-Calling Leaderboard, the same search tool given to the larger model and to the swarm. It searches the live web through a service that needs a key (SERPAPI_API_KEY), which a person supplies; without one it is not asked. Both are asked on the same day"
     }
   ]
 }

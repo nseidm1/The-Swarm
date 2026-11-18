@@ -2782,6 +2782,9 @@ if (import.meta.url === 'file://' + process.argv[1]) {
           // the module beside the larger model, family by family, as far as the pass has got (familiesOf), and how a change is kept
           families: familiesOf(list, cur.rows, (id) => (ref.toSpec ? ref.toSpec.get(id) : null)),
           keptBy: classKeep ? 'class' : 'guard',
+          // (how its answers were graded, as a number: the page says of a record graded by an earlier rule that the pass's questions
+          // will be asked again from the first)
+          scoring: SCORING,
           // the loop's policy as it stands, what is on trial, and what became of each proposal
           loopPolicy: cur.policy,
           trial: cur.trial

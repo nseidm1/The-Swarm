@@ -193,7 +193,19 @@ question as lost in writing, tries changing the writer first, and says that the 
 **Evaluated apart, pretrained before.** Training's parity is measured on its own questions. How equivalent the swarm is on work
 it was never trained on is measured apart ([`evaluate.mjs`](evaluate.mjs), the page's Evaluate the swarm): the standard tasks of
 lm-evaluation-harness for each body of work chosen, asked of the larger model and of the swarm, every question's two answers
-compared. Pretrain (the page; `node training/adapters.mjs train`) trains a LoRA adapter for each small model on the larger model's
+compared. Calling a function and searching have no task there, so Tools and Search are measured by a second harness, the
+Berkeley Function-Calling Leaderboard's own package ([`support/bfcl.mjs`](support/bfcl.mjs)): the larger model and the swarm
+are offered the same functions in the same request, and paired on the package's verdict. Its web search test searches the
+live web through a service that needs a key (`SERPAPI_API_KEY`); without one it is not asked, and both models are always asked
+on the same day. `bash training/evaluate.sh --proof` asks each task at the size a verdict needs.
+
+**How the larger model is served can hide what it can do.** On the function-calling test it is asked two ways, the tools in
+the request and the tools written into the conversation, and counted by the way it scores higher by over the capability
+([`evaluate.mjs`](evaluate.mjs) `wayByItem`): its server returns only the first of the calls its model writes, and with tools
+in the request it more often replies in words. In training it is still asked the one way, with the tools in the request
+([`target.mjs`](target.mjs)). So on training's own tool questions the larger model's count beside the module's is a low one
+wherever a question needs more than one call; the module's grade does not depend on it there, since those questions carry
+their own standard. Pretrain (the page; `node training/adapters.mjs train`) trains a LoRA adapter for each small model on the larger model's
 answers to the train questions, before or between passes; served with them, the swarm the loop rearranges is an adapted one.
 
 **Beyond rearranging.** The small models never change: training rearranges them and rewrites what they are told. A question that

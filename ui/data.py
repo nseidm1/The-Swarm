@@ -416,6 +416,7 @@ def load(root):
         "key": key,
         # training question by question (training/loop.mjs): this configuration's, against this larger model
         "loop": (lambda q: q if q and q.get("target") == (target or {}).get("id") else None)(_json(results / "questions.json", None)),
+        "scoring": scoring_now(root),
         "sample": (root / ".sample").exists(),
         "briefs": briefs,
         # how this swarm is trained now: the settings every swarm starts with, and over them this configuration's own changes
@@ -582,8 +583,10 @@ def swoa_proof(d, arrangement_sha, pins):
             continue
         if sorted(r.get("adapters") or []) != want_adapters:
             continue
-        h = r.get("harnessId") or {"name": str(r.get("harness") or "").rsplit(" ", 1)[0], "version": str(r.get("harness") or "").rsplit(" ", 1)[-1]}
+        run_h = r.get("harnessId") or {"name": str(r.get("harness") or "").rsplit(" ", 1)[0], "version": str(r.get("harness") or "").rsplit(" ", 1)[-1]}
         for x in r.get("results") or []:
+            # (a run may hold tasks of more than one harness: a result of the second names its own)
+            h = x.get("harnessId") or run_h
             sw, tg = x.get("swarm") or {}, x.get("target") or {}
             if not isinstance(sw.get("value"), (int, float)) or not isinstance(tg.get("value"), (int, float)):
                 continue
@@ -596,6 +599,10 @@ def swoa_proof(d, arrangement_sha, pins):
                  # (paired where the two models' answers to each question are on record; else from the two scores' own errors)
                  "gapStderr": pg["gapStderr"] if pg else round(sqrt((sw.get("stderr") or 0) ** 2 + (tg.get("stderr") or 0) ** 2), 4),
                  "paired": bool(pg), **({"pairs": {k: pg[k] for k in ("n", "onlySwoa", "onlyTarget")}} if pg else {}),
+                 # (where the test offers tools: what each model was offered; where its answers are only good for a day: the day)
+                 **({"tools": x["tools"]} if x.get("tools") else {}), **({"askedOn": x["askedOn"]} if x.get("askedOn") else {}),
+                 # (where the target was asked more than one way: the way it is counted by, its higher score, and what it scored each way)
+                 **({"targetAsked": x["targetAsked"], "targetWays": {k: {"value": v.get("value"), "stderr": v.get("stderr")} for k, v in (x.get("targetWays") or {}).items()}} if x.get("targetAsked") else {}),
                  "proof": n >= PROOF_MIN_N, "at": r.get("at"), "runId": r.get("runId"),
                  "arrangementSha256": arrangement_sha, "configuration": r.get("configuration")}
             k = (h.get("name"), x.get("task"))
@@ -615,6 +622,31 @@ def swoa_proof(d, arrangement_sha, pins):
         "results": results,
         "proven": sum(1 for e in results if e["proof"]),
     }
+
+
+def scoring_now(root):
+    """HOW AN ANSWER IS GRADED NOW, as the number the loop writes down with a pass's record (training/loop.mjs SCORING). A record of
+    another number is not carried on by the loop: its questions are asked again from the first. None where it cannot be read."""
+    try:
+        m = re.search(r"^export const SCORING = (\d+);", (Path(root) / "training" / "loop.mjs").read_text(), re.M)
+    except OSError:
+        return None
+    return int(m.group(1)) if m else None
+
+
+def learned_rule(policy):
+    """HOW A CHANGE IS KEPT, in words, for a SwOA's learned record (training/loop.mjs; docs/swoa-parity.md): by its class where the
+    policy says so (loop.classKeep), else question by question. The earlier rule is said too: entries kept under it are on the ledger."""
+    lp = (policy or {}).get("loop") or {}
+    before = ("a change was kept only if it brought a train question to parity with the target's answer and none of the questions already at parity "
+              "that were asked again with it was lost")
+    if lp.get("classKeep") is True:
+        return ("a change is kept when the questions of its class got better with it: each train question of the class is scored with the change and as the module stood "
+                "(by the question's own standard where it carries one, else against the answers the target agrees with itself on), and the change is kept when the mean gain "
+                "is more than twice its paired error and at least %s, no kind of question falls by more than %s, and the held questions of the class do not fall by more than "
+                "their error; an entry so kept says its gain, its error and over how many questions (classGain). Before this rule, %s"
+                % (lp.get("classMinGain", 0.02), lp.get("classMargin", 0.05), before))
+    return "training goes question by question: " + before.replace("was kept", "is kept").replace("it brought", "it brings").replace("that were asked", "that are asked").replace("was lost", "is lost")
 
 
 def learned_live(learned):
@@ -850,7 +882,8 @@ def spec(d):
             "changesKept": len(d["learned"]["ledger"]),
             # (what the arrangement carries now: a change a move to classes did not carry is on the ledger and not live)
             "changesLive": learned_live(d["learned"]),
-            "rule": "training goes question by question: a change is kept only if it brings a train question to parity with the larger model's answer and none of the questions already at parity that are asked again with it is lost",
+            # (how a change is kept, as the policy has it now; an entry kept under the earlier rule says what it was kept on)
+            "rule": learned_rule(d.get("policy")),
             "ledger": d["learned"]["ledger"],
             "passes": d["learned"]["passes"],
             # every win of this configuration, from every run, cumulative across Clear training state: what training has found
@@ -951,7 +984,8 @@ def swoa_card(sp):
               "          - type: " + q(e.get("metric")), "            name: " + q("SwOA"), "            value: " + q(e["swoa"]["value"]),
               "          - type: " + q(e.get("metric")), "            name: " + q("target: " + str(t.get("name"))), "            value: " + q(e["target"]["value"]),
               "        source:", "          name: " + q("%s %s" % (e["harness"].get("name"), e["harness"].get("version"))),
-              "          n: " + q(e.get("n")), "          proof: " + q(bool(e.get("proof")))]
+              "          n: " + q(e.get("n")), "          proof: " + q(bool(e.get("proof")))] + (
+                  ["          tools: " + q(e["tools"])] if e.get("tools") else []) + (["          asked_on: " + q(e["askedOn"])] if e.get("askedOn") else [])
     y += ["---", ""]
     rows = ["| %s | %s | %d of %s | %.3f ± %.3f | %.3f ± %.3f | %+.3f ± %.3f | %s |" % (
         e.get("name"), e.get("metric"), e.get("n") or 0, e.get("of"), e["swoa"]["value"], e["swoa"].get("stderr") or 0,
@@ -971,6 +1005,12 @@ def swoa_card(sp):
             "", "Parity: within the margin of the target, or better, at 95%. Short: lower by more than the margin. Open: too few questions to say.", ""]
         body += ["Not claimed: %s." % "; ".join((pr.get("claims") or {}).get("notClaimed") or []), ""]
     body += (["| Task | Metric | Questions | SwOA | Target | Gap | |", "|---|---|---|---|---|---|---|"] + rows) if rows else ["No harness result has been measured on this SwOA."]
+    way_words = {"tools": "the tools in the request", "written": "the tools written into the conversation"}
+    offered = ["- %s: each model was offered %s%s%s" % (
+        e.get("name"), e["tools"], (", and both were asked on %s" % e["askedOn"]) if e.get("askedOn") else "",
+        ("; the target was asked two ways and is counted by the one it scores higher by over the capability, here %s (on this task, %s)" % (way_words.get(e.get("targetAsked"), e.get("targetAsked")), ", ".join("%s: %.3f" % (way_words.get(k, k), v.get("value") or 0) for k, v in e["targetWays"].items()))) if e.get("targetWays") else "")
+        for e in pr.get("results") or [] if e.get("tools")]
+    body += ([""] + offered) if offered else []
     body += ["", "## Hashes", "", "- base module: `%s`" % h.get("baseModuleSha256"), "- arrangement: `%s`" % h.get("arrangementSha256"),
              "- SwOA (recipe): `%s`" % h.get("recipeSha256"), "", "Format: [SwOA specification](%s), version %s." % (SWOA_SPEC_URL, h.get("version")), ""]
     return "\n".join(y + body)
