@@ -228,6 +228,20 @@ export function steps(b, { cap = SERVING.slots, members = [...new Set(b.slots.ma
   });
   for (const [how, label] of Object.entries(HOW))
     if (!dw || dw.how !== how) out.push({ name: 'plan: ' + label, briefs: withPlan({ ...(dw || {}), how }) });
+  // EVERY MODEL OF THE SWARM AS THE ONE BESIDE IT, FROM THE START: each way of asking, with each other model (by the slot it is
+  // asked as: a checker of that model where there is one). Offered only once one way was kept, the other models were never
+  // asked: measured 2026-11-17, 19 tries of the three ways, every one with the first checker's model (Bonsai 2 2B, the weakest of
+  // the three alone), none kept, while LFM3 1.7B's drafter held the larger model's answer in 14 of the question's tries
+  const asSlot = (m) =>
+    b.slots.find((x) => x.member === m && x.stage === 'check') || b.slots.find((x) => x.member === m);
+  if (!dw) {
+    const first = (b.slots.find((s) => s.stage === 'check') || b.slots[0] || {}).member;
+    for (const [how, label] of Object.entries(HOW))
+      for (const m of members.filter((x) => x !== first)) {
+        const s = asSlot(m);
+        if (s) out.push({ name: 'plan: ' + label + ' (as ' + s.id + ')', briefs: withPlan({ how, slot: s.id }) });
+      }
+  }
   if (dw) {
     out.push({ name: 'plan: the decider decides alone', briefs: withPlan(undefined) });
     // the model beside it: each model of the swarm, by the slot it is asked as (a checker of that model where there is one)

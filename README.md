@@ -510,8 +510,9 @@ same questions put a second way; the verdict is written, with every flip named.
   as another of its slots) which answer is correct, in one of three ways the search tries: only where the decider is close
   (its pick narrow or under 0.6), choosing between its two likeliest and settling it; at the same time as the decider,
   its pick adding 0.35 to the decider's probability for that answer; or only where the decider's pick is not the answer
-  most slots hold, choosing between the two. Where the model names nothing, the decider's pick stands. These need a model
-  asked again, so the replay above cannot rank them.
+  most slots hold, choosing between the two. Where the model names nothing, the decider's pick stands. Each way is offered
+  with each model of the swarm from the start (the first checker's model, and every other one by its checker or first slot),
+  so no model goes unasked. These need a model asked again, so the replay above cannot rank them.
 - **The same meaning in other words is the same answer, and one changed fact is not.** Whether two answers in words (or two
   replies in a conversation) say the same is read by a decision model: wording, order, length and warmth do not count; a
   different fact, recommendation or step does.

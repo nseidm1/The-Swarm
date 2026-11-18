@@ -3053,6 +3053,31 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     bad,
   );
 }
+// ---- 6z: EVERY MODEL OF THE SWARM IS OFFERED AS THE ONE BESIDE THE DECIDER FROM THE START: each way of asking it, with each model
+// other than the first checker's (by its checker, else its first slot); offered only after a way was kept, they never were
+{
+  const { steps } = await import('../training/arrange.mjs');
+  const { withPlaces } = await import('../src/index.mjs');
+  const b3 = withPlaces(JSON.parse(fs.readFileSync(new URL('../src/briefs.json', import.meta.url), 'utf8')), [
+    'a',
+    'b',
+    'c',
+  ]);
+  const names = steps(b3).map((m) => m.name);
+  const judges = steps(b3).filter((m) => /^plan: a model .* \(as /.test(m.name));
+  const first = (b3.slots.find((x) => x.stage === 'check') || b3.slots[0]).member;
+  const others = ['a', 'b', 'c'].filter((m) => m !== first);
+  check(
+    "every model of the swarm is offered as the one beside the decider from the start: each of the three ways of asking, with each model other than the first checker's, by its checker or else its first slot; and the swap of the model beside it is still offered once a way is kept",
+    judges.length === 3 * others.length &&
+      judges.every((m) => others.includes(b3.slots.find((x) => x.id === m.briefs.plan.decideWith.slot).member)) &&
+      names.includes('plan: a model decides with the decider') &&
+      steps({ ...b3, plan: { ...b3.plan, decideWith: { how: 'together' } } }).some((m) =>
+        /^plan: the model beside the decider is /.test(m.name),
+      ),
+    judges.map((m) => m.name),
+  );
+}
 // ---- 6v: what the measurement held and no finding read: answers cut off at the token limit, a drafter that echoes another on its
 // own model, the decider not answering in time; each found, and each answered by a move that speaks to it
 {
