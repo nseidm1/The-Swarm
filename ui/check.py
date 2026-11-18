@@ -345,11 +345,24 @@ with tempfile.TemporaryDirectory() as tmp:
     pre_ok = (("MLX, the trainer, is not installed yet: Pretrain installs it" in pre0 and "disabled" not in pre_btn) if apple
               else ("runs on Apple silicon only: it is not available on this machine" in pre0 and "disabled" in pre_btn))
     (root / ".work" / "eval").mkdir(parents=True, exist_ok=True)
-    (root / ".work" / "eval" / "results.json").write_text(json.dumps({
-        "at": "2026-11-17T12:00:00Z", "limit": 20, "harness": "lm-evaluation-harness 0.4.13", "briefs": "abc", "seconds": 600, "adapters": [], "target": "the larger model",
+    ev_mine = {
+        "at": "2026-11-17T12:00:00Z", "limit": 20, "harness": "lm-evaluation-harness 0.4.13", "configuration": data.load(root)["key"], "briefs": "abc", "seconds": 600, "adapters": [], "target": "the larger model",
         "results": [{"item": "crew", "task": "ifeval", "name": "IFEval", "metric": "prompt_level_strict_acc", "filter": "none", "compare": "instructions",
                      "target": {"value": 0.6, "n": 20}, "swarm": {"value": 0.45, "n": 20},
-                     "agree": {"of": 20, "same": 15, "bothRight": 9, "bothWrong": 6, "differ": 5, "onlyTarget": 3, "onlySwarm": 2, "examples": []}}]}))
+                     "agree": {"of": 20, "same": 15, "bothRight": 9, "bothWrong": 6, "differ": 5, "onlyTarget": 3, "onlySwarm": 2, "examples": []}}]}
+    # THE EVALUATION SHOWN IS THE APPLIED CONFIGURATION'S: a newer one of another configuration is not shown in its place (this one's,
+    # from the history, is), and with none of this one's the card says it has not been evaluated as it is now
+    ev_other = dict(ev_mine, at="2026-11-17T13:00:00Z", configuration="other+models--x", results=[dict(ev_mine["results"][0], agree=dict(ev_mine["results"][0]["agree"], same=4))])
+    (root / ".work" / "eval" / "history.jsonl").write_text(json.dumps(ev_mine) + "\n")
+    (root / ".work" / "eval" / "results.json").write_text(json.dumps(ev_other))
+    ev_mix = get(base + "/fragment/eval")[1]
+    (root / ".work" / "eval" / "history.jsonl").unlink()
+    ev_none = get(base + "/fragment/eval")[1]
+    check("the Evaluate card shows the evaluation of the configuration as it is applied: a newer one of another configuration is not shown in its place, and with none of this one's it says it has not been evaluated as it is now",
+          "75%</b> <span>15 of 20 the same" in ev_mix and "another configuration" not in ev_mix
+          and "Not evaluated as the swarm is now" in ev_none and "of another configuration" in ev_none and "the same</span>" not in ev_none.split("Not evaluated")[0].split("evrow")[-1] and "20%</b>" not in ev_none,
+          [ev_mix.count("75%"), "Not evaluated" in ev_none])
+    (root / ".work" / "eval" / "results.json").write_text(json.dumps(ev_mine))
     ev1 = get(base + "/fragment/eval")[1]
     a_on = send("/config", {"adapters": True})[0]
     a_cfg = json.loads((root / "src" / "config.json").read_text())

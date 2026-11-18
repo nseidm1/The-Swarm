@@ -34,6 +34,85 @@
       "revision": "dff2caaa23fa8706164c44c10f1b58feb405f76a",
       "dir": "Ternary-Bonsai-2-4B-mlx-2bit",
       "cannot": "its weights are Hadamard-rotated and load only through its maker's runtime, not stock mlx-lm"
+    },
+    "LFM2.5-2.6B-Q4_K_M.gguf": {
+      "repo": "LiquidAI/LFM2.5-2.6B",
+      "revision": "7141b56cd4650af95c7c7b86983443aed050c96a",
+      "dir": "LFM2.5-2.6B"
+    },
+    "Ternary-Bonsai-2-2B-Q2_0.gguf": {
+      "repo": "prism-ml/Ternary-Bonsai-2-2B-mlx-2bit",
+      "revision": "1c6cbae21f8c38830ce337972b46fdae7b18eaaa",
+      "dir": "Ternary-Bonsai-2-2B-mlx-2bit",
+      "cannot": "its weights are Hadamard-rotated and load only through its maker's runtime, not stock mlx-lm"
+    },
+    "Ternary-Bonsai-2-9B-Q2_0.gguf": {
+      "repo": "prism-ml/Ternary-Bonsai-2-9B-mlx-2bit",
+      "revision": "f4e28a59531731c41b6dfac88cf271bd58f0a287",
+      "dir": "Ternary-Bonsai-2-9B-mlx-2bit",
+      "cannot": "its weights are Hadamard-rotated and load only through its maker's runtime, not stock mlx-lm"
+    },
+    "Ternary-Bonsai-2-27B-Q2_0.gguf": {
+      "repo": "prism-ml/Ternary-Bonsai-2-27B-mlx-2bit",
+      "revision": "24b5937a4a104a44f790b6ccbd0c79b6fabd4299",
+      "dir": "Ternary-Bonsai-2-27B-mlx-2bit",
+      "cannot": "its weights are Hadamard-rotated and load only through its maker's runtime, not stock mlx-lm"
+    },
+    "Qwen3.5-4B-Q4_K_M.gguf": {
+      "repo": "Qwen/Qwen3.5-4B",
+      "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+      "dir": "Qwen3.5-4B"
+    },
+    "Qwen3-1.7B-Q8_0.gguf": {
+      "repo": "Qwen/Qwen3-1.7B",
+      "revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+      "dir": "Qwen3-1.7B"
+    },
+    "Qwen3-4B-Q4_K_M.gguf": {
+      "repo": "Qwen/Qwen3-4B",
+      "revision": "1cfa9a7208912126459214e8b04321603b3df60c",
+      "dir": "Qwen3-4B"
+    },
+    "gemma-4-E2B_q4_0-it.gguf": {
+      "repo": "google/gemma-4-E2B-it-qat-q4_0-unquantized",
+      "revision": "6befbaca7398925921802abd1f277b495b78b738",
+      "dir": "gemma-4-E2B-it-qat-q4_0-unquantized"
+    },
+    "gemma-4-E4B_q4_0-it.gguf": {
+      "repo": "google/gemma-4-E4B-it-qat-q4_0-unquantized",
+      "revision": "476025a01dbf99361c062bbeca3d6a76bb4c4566",
+      "dir": "gemma-4-E4B-it-qat-q4_0-unquantized"
+    },
+    "granite-4.2-3b-Q4_K_M.gguf": {
+      "repo": "ibm-granite/granite-4.2-3b",
+      "revision": "4e9c275e232f10211ec88644d106a1f6a1b60e06",
+      "dir": "granite-4.2-3b"
+    },
+    "NVIDIA-Nemotron3-Nano-4B-Q4_K_M.gguf": {
+      "repo": "nvidia/NVIDIA-Nemotron-3-Nano-4B-BF16",
+      "revision": "dfaf35de3e30f1867dd8dbc38a7fc9fb52d3914f",
+      "dir": "NVIDIA-Nemotron-3-Nano-4B-BF16"
+    },
+    "LFM3-1.7B-Q4_K_M.gguf": {
+      "repo": "LiquidAI/LFM3-1.7B",
+      "revision": "1da06bec6a819da10b54c67e5c90972b46d81871",
+      "dir": "LFM3-1.7B",
+      "cannot": "mlx-lm 0.32.2, the trainer, has no LFM3 architecture (its config says model_type lfm3)"
+    },
+    "smollm2-1.7b-instruct-q4_k_m.gguf": {
+      "repo": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+      "revision": "31b70e2e869a7173562077fd711b654946d38674",
+      "dir": "SmolLM2-1.7B-Instruct",
+      "include": [
+        "model.safetensors",
+        "config.json",
+        "generation_config.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "special_tokens_map.json",
+        "merges.txt",
+        "vocab.json"
+      ]
     }
   }
 }

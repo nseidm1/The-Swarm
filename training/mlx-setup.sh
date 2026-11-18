@@ -3,9 +3,10 @@
 # llama.cpp's own trainer cannot train the swarm's small models (training/adapters.mjs says why); MLX can, from each model's
 # original weights. Everything goes under .work/mlx, nothing system-wide:
 #   .work/mlx/venv        python with mlx-lm (the trainer) and gguf (to hand an adapter to llama.cpp)
-#   .work/mlx/hf/<dir>    each model's original weights, at the revision training/originals.json pins (about 13 GB for the three it can train)
-#   sh training/mlx-setup.sh            install, and fetch every model's weights
-#   sh training/mlx-setup.sh --no-fetch install only
+#   .work/mlx/hf/<dir>    each model's original weights, at the revision training/originals.json pins
+#   sh training/mlx-setup.sh            install, and fetch the weights of the small models the swarm is made of (src/config.json)
+#   sh training/mlx-setup.sh --all      install, and fetch every listed model's weights (tens of gigabytes)
+#   sh training/mlx-setup.sh --no-fetch install only (Pretrain fetches what each model it trains needs, as it needs it)
 # Then: node training/adapters.mjs ready
 set -e
 cd "$(dirname "$0")/.."
@@ -33,12 +34,15 @@ if ! "$M/venv/bin/python" -I -c 'import mlx_lm, gguf' 2>/dev/null; then
 fi
 "$M/venv/bin/python" -I -c 'import mlx.core as mx, mlx_lm; print("MLX", mx.__version__, "on", mx.default_device(), "- mlx-lm", mlx_lm.__version__)'
 [ "$1" = "--no-fetch" ] && exit 0
-# each model's repository, revision and folder, read from training/originals.json (one place); a model it says cannot be trained
-# is not fetched. (No file-name expansion from here: the include patterns are for the download, not this folder)
+# each model's repository, revision and folder, read from training/originals.json (one place): the swarm's own small models, or
+# with --all every one listed; a model it says cannot be trained is not fetched. (No file-name expansion from here: the include
+# patterns are for the download, not this folder)
 set -f
-node -e '
-import("./training/adapters.mjs").then(({ ORIGINALS }) => {
-  for (const o of Object.values(ORIGINALS)) if (!o.cannot) console.log(o.repo, o.revision, o.dir, ...(o.include || []));
+ALL=$([ "$1" = "--all" ] && echo 1 || echo 0) node -e '
+Promise.all([import("./training/adapters.mjs"), import("./src/catalog.mjs")]).then(([{ ORIGINALS }, { MEMBERS }]) => {
+  const mine = new Set(Object.values(MEMBERS).map((m) => m.file.split("/").pop()));
+  for (const [file, o] of Object.entries(ORIGINALS))
+    if (!o.cannot && (process.env.ALL === "1" || mine.has(file))) console.log(o.repo, o.revision, o.dir, ...(o.include || []));
 });' | while read -r REPO REV DIR INCLUDE; do
   if [ -f "$M/hf/$DIR/config.json" ]; then echo "$DIR is here."; continue; fi
   echo "Fetching $REPO at $REV..."

@@ -3030,6 +3030,29 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { missing, other, stray },
   );
 }
+// ---- 6y: EVERY SMALL MODEL OF THE CATALOG NAMES ITS ORIGINAL WEIGHTS (training/originals.json): what Pretrain fetches as it needs
+// them, pinned to a revision, or why it cannot be adapted here; a model with neither said only that nothing was named
+{
+  const { ORIGINALS } = await import('../training/adapters.mjs');
+  const fs = await import('node:fs');
+  const small = JSON.parse(fs.readFileSync(new URL('../src/models.json', import.meta.url), 'utf8')).small;
+  const bad = small
+    .map((m) => [m.id, ORIGINALS[m.file]])
+    .filter(
+      ([, o]) =>
+        !o ||
+        !o.repo ||
+        !/^[0-9a-f]{40}$/.test(o.revision || '') ||
+        !o.dir ||
+        (o.cannot !== undefined && typeof o.cannot !== 'string'),
+    )
+    .map(([id]) => id);
+  check(
+    'every small model of the catalog names its original weights for Pretrain (a repository pinned to a revision, and its folder), or why it cannot be adapted here',
+    bad.length === 0 && small.length >= 17,
+    bad,
+  );
+}
 // ---- 6v: what the measurement held and no finding read: answers cut off at the token limit, a drafter that echoes another on its
 // own model, the decider not answering in time; each found, and each answered by a move that speaks to it
 {

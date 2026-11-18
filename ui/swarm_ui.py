@@ -3063,13 +3063,39 @@ def chosen_items(eq):
     return [t for t in eq.get("targets", []) if t["id"] in (eq.get("chosen") or [])]
 
 
+def eval_of_config(root, d):
+    """THE EVALUATION OF THE SWARM AS IT IS APPLIED: the newest that finished (.work/eval/history.jsonl, then results.json) of this
+    configuration (the same small models, decider and larger model: its key) served as it is now (with the same adapters, or with
+    none). One of another configuration is never shown as this one's: the card showed LFM2.5 1.2B, Qwen3.5 2B and Ministral 3 3B
+    with adapters while the swarm was Bonsai 2 9B and LFM3 1.7B. -> (that result or {}, the newest of any configuration or {})"""
+    rows = []
+    hist = Path(root) / ".work" / "eval" / "history.jsonl"
+    try:
+        for line in hist.read_text().splitlines():
+            try:
+                rows.append(json.loads(line))
+            except ValueError:
+                pass
+    except OSError:
+        pass
+    last = data._json(Path(root) / ".work" / "eval" / "results.json", None)
+    if last:
+        rows.append(last)
+    rows = [r for r in rows if isinstance(r, dict) and r.get("results")]
+    pins, _ = data.spec_adapters(d)
+    served = sorted((d.get("members", {}).get(k) or {}).get("name", k) for k in pins)
+    mine = [r for r in rows if r.get("configuration") == d.get("key") and sorted(r.get("adapters") or []) == served]
+    newest = lambda xs: max(xs, key=lambda r: str(r.get("at", ""))) if xs else {}  # noqa: E731
+    return newest(mine), newest(rows)
+
+
 def eval_block(d):
     """EVALUATE THE SWARM: standard benchmarks (lm-evaluation-harness), each asked of the larger model and of the swarm, and every
     question's two answers compared. Apart from training: training never asks a benchmark's question. Followed in place while it
     runs (/api/eval), what is being asked and how far each task is; when it ends, what the two came to, task by task."""
     root = Path(ARGS.root)
     live = job_live("eval")
-    res = data._json(root / ".work" / "eval" / "results.json", None) or {}
+    res, any_res = eval_of_config(root, d)
     tname = (d.get("target") or {}).get("name", "the larger model")
     eq = d.get("equivalence") or {}
     chosen = chosen_items(eq)
@@ -3141,6 +3167,11 @@ def eval_block(d):
             out.append('<div class="evrow" data-evt="%s"><div class="evname"><b>%s</b><small>Scored by %s · equivalent: %s</small></div><div class="evbars">%s</div><div class="evag" data-ag>%s</div></div>'
                        % (e(b["task"]), e(b["name"]), e(METRIC_WORDS.get(b["metric"], b["metric"].replace("_", " "))), e(COMPARE_WORDS.get(b["compare"], "")), bars, _ev_agree(r) if (r or lr) else ""))
         out.append("</section>")
+    if not res and any_res and not running:
+        # (an evaluation of another configuration is not this one's: said, never shown as if it were)
+        out.append('<p class="meta">Not evaluated as the swarm is now (%s%s). The last evaluation, %s UTC, was of another configuration.</p>'
+                   % (e(", ".join(m["name"] for m in d.get("members", {}).values() if m)), " with adapters" if data.spec_adapters(d)[0] else ", without adapters",
+                      e(any_res.get("at", "")[:16].replace("T", " "))))
     if res and not running:
         when = res.get("at", "")[:16].replace("T", " ")
         out.append('<p class="meta">Last evaluated %s UTC · %s · %s questions a task · %s in all · the swarm with briefs %s%s</p>'
@@ -3243,7 +3274,10 @@ def pretrain_block(d):
     if running:
         ctl = '<button class="btn stop top" id="pre-stop" type="button">Stop pretraining</button>'
     else:
-        ctl = '<button class="btn top" id="pre-go" type="button"%s>Pretrain</button>' % (" disabled" if held or not apple else "")
+        # (none of the swarm's small models can be adapted here: nothing to press for, and the button says why)
+        none_can = not any((orig.get((m or {}).get("file")) or {}) and not (orig.get((m or {}).get("file")) or {}).get("cannot") for m in (d.get("members") or {}).values() if m)
+        ctl = ('<button class="btn top" id="pre-go" type="button"%s>Pretrain</button>'
+               % ((' disabled title="None of the swarm\'s small models can be adapted here: each says why"' if none_can and apple else "") or (" disabled" if held or not apple else "")))
     items = ", ".join(t["name"] for t in (d.get("equivalence") or {}).get("targets", []) if t["id"] in ((d.get("equivalence") or {}).get("chosen") or []))
     out = ['<div class="panel prep" id="prebox"%s>' % (' data-running="1"' if running else ""),
            '<div class="proghead"><span class="memnum"%s>%s<span>of %d adapted<small>LoRA, with MLX</small></span></span>'
