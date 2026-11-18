@@ -1021,5 +1021,20 @@ with tempfile.TemporaryDirectory() as tmp:
           len(heads) >= 4 and all(x == ["memnum", "progline", "evctl"] for x in shape)
           and "grid-template-columns:330px minmax(0,1fr) 300px" in page and ".memcard>.proghead,.evalp>.proghead,.prep>.proghead,.trainhead>.proghead{display:grid" in page, shape)
 
+# THE DECIDE STEP SHOWS WHO DECIDES: a small model beside the decider has its face there too, in its model's colour, labelled with
+# how it is asked and with its own live line; and where the answer most slots hold settles it, the decider's face says it is not asked
+import types as _types
+swarm_ui.ARGS = _types.SimpleNamespace(root=str(Path(__file__).resolve().parent.parent))
+_d = data.load(Path(__file__).resolve().parent.parent)
+_b = _d["briefs"]
+_slot = next(x for x in _b["slots"] if x["member"] == "b")
+_with = swarm_ui.avatars(dict(_d, briefs=dict(_b, plan=dict(_b.get("plan") or {}, decideWith={"how": "if-close", "slot": _slot["id"]}))))
+_judge = re.search(r'<button[^>]*data-av="decide-judge".*?</button>', _with, re.S)
+_most = swarm_ui.avatars(dict(_d, briefs=dict(_b, plan=dict(_b.get("plan") or {}, decideBy="most", decideWith={"how": "together"}))))
+check("the decide step shows who decides: a small model beside the decider has its face there, in its model's colour, labelled with how it is asked and with its own live line; where most slots settle it, the decider's face says it is not asked, and no model beside it is shown",
+      bool(_judge) and 'class="av b judge' in _judge.group(0) and ">if close<" in _judge.group(0) and 'data-live="decide-judge"' in _judge.group(0) and ("asked as %s" % _slot["id"]) in _judge.group(0)
+      and "decide-judge" not in swarm_ui.avatars(dict(_d, briefs=dict(_b, plan={k: v for k, v in (_b.get("plan") or {}).items() if k not in ("decideWith", "decideBy")}))) and ">not asked<" in _most and 'data-av="decide-judge"' not in _most,
+      _judge.group(0)[:200] if _judge else "no judge face")
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

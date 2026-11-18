@@ -1703,7 +1703,25 @@ def avatars(d):
         elif do == "decide":
             keep = step.get("keep")
             what = "keeps %d" % keep if keep else "if sure" if step.get("sure") else "decides"
-            faces = [special("decide", "decider", e(initials(dec)), what, "%s: %s" % (dec, "keeps the likeliest %d answers" % keep if keep else "settles it here only if it is sure" if step.get("sure") else "decides which answer stands"), decider_card(d))]
+            plan_ = d["briefs"].get("plan") or {}
+            # (settled by the answer most slots hold: the decider is not asked, and its face says so)
+            most = not keep and not step.get("sure") and str(plan_.get("decideBy") or "") == "most"
+            if most:
+                what = "not asked"
+            faces = [special("decide", "decider", e(initials(dec)), what, "%s: %s" % (dec, "keeps the likeliest %d answers" % keep if keep else "settles it here only if it is sure" if step.get("sure")
+                                                                                      else "not asked: the answer most slots hold stands" if most else "decides which answer stands"), decider_card(d))]
+            # A SMALL MODEL BESIDE THE DECIDER (plan.decideWith), where the plan has one: its face in the same step, in its model's colour,
+            # labelled with how it is asked, with its own live line while it works (the slot it answers as is decide-judge)
+            dw = plan_.get("decideWith") or {}
+            if dw.get("how") in DECIDE_WITH and not keep and not step.get("sure") and not most:
+                base = by_id.get(dw.get("slot")) or next((x for x in slots if x["stage"] == "check"), slots[0])
+                m = base.get("member", "")
+                short = {"if-close": "if close", "together": "with it", "if-at-odds": "if at odds"}[dw["how"]]
+                tip = "%s, asked as %s, beside the decider: %s" % (name(m), base["id"], DECIDE_WITH[dw["how"]])
+                body = ('<div class="body">%s is shown the different answers and names the one that is correct: %s. Where it names nothing, '
+                        "the decider&#39;s pick stands.</div>" % (e(name(m)), e(DECIDE_WITH[dw["how"]])))
+                faces.append(special("decide-judge", m + " judge", e(fc.get(m) or initials(name(m))), short, tip,
+                                     card("judge", "%s beside the decider" % name(m), "Asked as %s" % base["id"], "decide-judge", ["<span>judge</span>"], "", body)))
         else:
             return ""
         extra = ""
