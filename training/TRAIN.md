@@ -27,11 +27,15 @@ stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mj
    the ledger the spec is made from. If one is lost it is not kept, and the next change is tried.
 4. Changes are tried best first, with no limit on how many: from the closest arrangement open, and a change that comes closer
    is built on at once (up to 3 such arrangements open, `beam`). Closer counts partial credit: of code, the share of inputs on
-   which the nearest answer gives what the larger model's gives; of words, the reader's probability.
+   which the nearest answer gives what the larger model's gives; of words, the reader's probability. Where the nearest answer is
+   as near, the arrangement whose answers are nearer on the whole (the mean share over every slot) is the closer.
 5. **A question is never left short of parity.** Where every arrangement open has been tried, the search widens: what the beam
    closed is opened again, then every arrangement tried on the question is built on. Only `CAP`, a bound a person sets, stops
    it sooner. A question whose mark the larger model did not give again (step `02-target-self-train`) is marked, and searched
-   the same way (measured on the held questions it agreed with itself on 56 of 84, on conversation as few as 1 in 6).
+   the same way (measured on the held questions it agreed with itself on 56 of 84, on conversation as few as 1 in 6). It may be
+   **set aside** first: after `setAsideAfter` tries in a row (30) that brought it neither closer nor to parity, while another
+   question waits, it comes back after the others, on the arrangement they leave. Where the arrangement has not changed by then,
+   it is searched until parity as before.
 6. **The found arrangements are tried first.** Every arrangement kept (an arrangement that brought a question to parity and lost
    none already there) goes into a library, `.work/library/<configuration>.json`, kept across passes and Clear training state.
    A question short of parity tries them first, on top of the swarm as it stands, the ones that have brought the most questions
@@ -41,7 +45,21 @@ stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mj
    and the library is made whole from it each time training starts.
 7. **A standing conflict is swapped.** Where changes that bring the question in hand to parity have lost the same question
    already at parity `swapAfter` times (25), a change that loses only that one is kept, and that question goes back in hand,
-   taken next (once each way for a pair, so two questions cannot trade places for ever).
+   taken next. Sooner, where every question they have lost is among the same few (`stableMax`, 2): once those losses together
+   reach `stableAfter` (6), a change that loses only those is kept and they all go back in hand. Once each way for a pair, so
+   two questions cannot trade places for ever.
+8. **A conflict between kinds is not a conflict.** The swarm can tell from a question alone whether it asks for code
+   (`src/orchestrate.mjs` `kindOf`). Where a change brings the question in hand to parity and every question it loses is of the
+   other kind, it is kept for its own kind only (`kindBranch`): `briefs.kinds.code` (or `.words`) holds that kind's own slots,
+   plan and flow, the swarm answers each question with the arrangement for its kind (`briefsFor`), and the questions of the
+   other kind keep the one they were at parity with. A change is checked only on questions answered with the arrangement it
+   changes.
+9. **A stopped run carries on from its last try.** Where the question in hand stands (its record, what was tried, every
+   arrangement open or tried, by the changes that make it) is written to `loop.json` after every try; carried on with the same
+   arrangement, the search goes on from there instead of from its first try.
+10. **The larger model's help comes less often where it brings nothing** (`helpBackoff`). Its suggestions and new briefs each
+   cost it started, asked and stopped: on a question where one round of them brought nothing closer, the next comes after twice
+   as many tries, and back to every `suggestEvery` / `teachEvery` once one does.
 
 Each change is recorded with how it was chosen (its round, its place among those open, each reason), how close it came (where
 the answer was lost, which slots had it, the decider's probability) and what a run took with it. Where the drafts were run in
@@ -61,7 +79,7 @@ How the search ranks and bounds what it tries is a policy ([`loop-policy.mjs`](l
 | `learnedMinTried` | How many tries a kind of change needs before how often it reached parity counts (3) |
 | `momentumRecent` | How many recent kept changes count for momentum: a change that names the same slot, or shares most of its words, comes first (3) |
 | `skipWriterUnlessWriting`, `skipDecidingUnlessChoosing` | Leave out what cannot help where the answer was lost (on) |
-| `partialCredit` | Count partial credit as closer (on) |
+| `partialCredit` | Count partial credit as closer: the nearest answer's, then every answer's on the whole (on) |
 | `batch` | Changes tried from the closest arrangement before the search looks again for the closest; 0 sweeps it first (8) |
 | `beam` | Closer arrangements kept open (3) |
 | `areas` | The order of areas of change for each place an answer is lost |
@@ -72,11 +90,18 @@ How the search ranks and bounds what it tries is a policy ([`loop-policy.mjs`](l
 | `adaptAfter` | After how many tries on one question, the larger model's briefs among them, it is flagged as beyond rearranging and the next lever made ready (200; 0 never) |
 | `prune` | Try a win of several changes without each part, and keep its smallest form (on) |
 | `swapAfter` | Losses of the same question before a change that loses only it is kept and it goes back in hand (25; 0 never) |
+| `stableAfter` | The same, sooner, where every question the question in hand's changes have lost is among the same few: their losses together (6; 0: wait for `swapAfter`) |
+| `stableMax` | How many different questions such a conflict may span and still be swapped after `stableAfter` (2; 1: one question only) |
+| `setAsideAfter` | Tries in a row with nothing closer and no parity before a question is set aside while another waits (30; 0 never) |
+| `helpBackoff` | The larger model's suggestions and briefs half as often on a question each time they bring it nothing (on) |
+| `kindBranch` | A change that loses only questions of the other kind (code, or words) is kept for its own kind (on) |
 
 A change that brings the question to parity but loses a question already at parity is a CONFLICT between the two. It is
-counted: the question lost most often is asked first when the next change reaches parity, so a doomed change fails on its first
-check, not its third. And it is built on (up to `brokeBudget` changes): the arrangement is at parity here, so one more change may
-keep this question and give the other back, and is then kept together. The page and the review name each conflict.
+counted: the question this question's changes have lost most is asked first when the next change reaches parity, then the one
+changes have lost most overall, so a doomed change fails on its first check, not its third. And it is built on (up to
+`brokeBudget` changes), aimed at the question it broke: the next changes are ranked by where that question was lost in its
+check, not by where this one had been, since this one is at parity already. One more change may keep this question and give
+the other back, and is then kept together. The page and the review name each conflict.
 
 Every `reviewTries` tries, with nothing on trial, the larger model is started and shown the loop's
 record (where each answer was lost, how many tries, what reached parity, each kind of change's tries, successes and cost, the
@@ -98,8 +123,13 @@ shown on the page, and given to the review, which can make suggestions more or l
 
 **The larger model teaches.** After `teachEvery` failed tries on a question it is shown what the failing slots wrote and the
 answer wanted: the drafters where no slot drafted it, the checkers (then the drafters whose answers stood) where one did and it
-was not chosen. It first says what went wrong as a general mistake, then writes briefs that teach the method (never the question,
-its numbers or its answer); they join this configuration's candidates and are tried at once. The larger model is started the
+was not chosen. Of the drafters, the two nearest the answer are taught first (by the share of inputs their answer already gets
+as the larger model's does), not the first two in order. It first says what went wrong as a general mistake, then writes briefs
+that teach the method (never the question, its numbers or its answer); they join this configuration's candidates and are tried
+at once. A brief that gives a question away anyway is refused, said and counted (`support/teach.mjs` `givesAway`): one that holds
+code (a variable set or a remainder taken counts: "Let k = 4 % length"), names a function a question asks for (by its stem:
+`rotate`, "rotating"), or uses a number of the question it was written on. The pool passes over any brief written before that
+holds code or names such a function. The larger model is started the
 first time it is asked on a question (a review, a suggestion, briefs) and kept loaded until the question ends.
 
 **A reply that describes the answer is an answer lost in writing.** Where the writer's reply says what the answer is instead
@@ -305,9 +335,11 @@ output spec reads the record out, and grows as a pass keeps things.
 written. An arrangement, flow or plan change kept there, by name, is planned first here (its reason in the plan: kept in
 another configuration), and a brief kept there for a slot of the same name is a candidate for that slot (`plan.mjs`,
 `loop.mjs`). Kept here only on evidence here. Each small model measured alone against a larger model
-(`results/<model>-alone-vs-<target>-held.json`) and each configuration's latest pass against it (`states/`) are shared the same
-way: the dashboard recommends a swap where a model alone beat the weakest member by 5 points or more, and a configuration
-further along against the same larger model.
+(`results/<configuration>/<model>-alone-vs-<target>-held.json`) and each configuration's latest pass against it (`states/`) are
+shared the same way: the dashboard recommends a swap where a model alone, on the same held questions, beat the weakest member by
+more than one model's runs there differ (5 points at least; a model measured twice counts by its mean), and a configuration
+further along against the same larger model. Any small model of the catalog can be measured alone, in the swarm or not:
+`node training/setup.mjs --model <id>` fetches it, `node training/baseline.mjs --who model:<id> --split held` measures it.
 
 What a configuration remembers of its training is its own too (`training/states/<a>+<b>+<decider>--<target>.json`): which
 pass it is, the questions' seeds, what it measured and did not keep, the order of its slots, how each pass ended, and what
@@ -361,7 +393,7 @@ carry its own values over it in its record (`training/states/`: `policy`), set b
 
 | Setting | What it is |
 |---|---|
-| `loop.cap` | How many changes are tried on one question before it is written down as not reached (none: until parity, or until a round brings it no closer) |
+| `loop.cap` | How many changes are tried on one question before it is written down as not reached (none: until parity, or until a round brings it no closer; a question may be set aside before that, `setAsideAfter`) |
 | `loop.guard` | How many questions already at parity a change is asked again on before it is kept; it is kept only if none is lost (6) |
 | `loop.drop` | A change tried on this many questions that brought none to parity is not tried again (none: every change stays open) |
 | `loop.beam` | How many of the changes that came closest the next round builds combinations on (3) |

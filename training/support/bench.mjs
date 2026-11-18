@@ -11,7 +11,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { createSwarm, MEMBERS, readBriefs } from '../../src/index.mjs';
-import { CONFIG_ID, CONFIG_KEY, readConfig } from '../../src/catalog.mjs';
+import { CONFIG_ID, CONFIG_KEY, readConfig, REGISTRY } from '../../src/catalog.mjs';
 import { note, checkpoint, briefKey } from './recover.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { attachMember, startMember } from '../../src/members.mjs';
@@ -54,7 +54,8 @@ export function llamaServer() {
   return '';
 }
 // what one model alone is written down as: the model, and the larger model its answers were marked against
-export const aloneLabel = (place) => MEMBERS[place].id + '-alone-vs-' + targetOf().id;
+export const aloneLabel = (place) =>
+  (String(place).startsWith('model:') ? String(place).slice(6) : MEMBERS[place].id) + '-alone-vs-' + targetOf().id;
 // the questions of this pass: made from the seeds the last pass left, with more of the kinds it found the swarm trailing on
 export const questions = (split, each = Number(arg('each', 6))) => {
   const kinds = String(arg('kinds', '')).split(',').filter(Boolean);
@@ -244,6 +245,8 @@ export async function openSwarm(briefs = readBriefs(), { seed = Number(arg('seed
     // each model's own template. Builds of llama.cpp that already do so by default are not changed by it)
     jinja: true,
   });
+  // (which places are served with an adapter: written on every answer it gives, so that a measurement says how it was served)
+  swarm.adapters = Object.keys(loras).sort();
   // every slot, as it starts and as it ends
   const answer = swarm.answer.bind(swarm);
   swarm.answer = (messages, o = {}) =>
@@ -283,7 +286,12 @@ export async function openAlone(which) {
       stop: () => {},
     };
   }
-  const r = await startMember(MEMBERS[which], {
+  // (model:<id>: any small model of the catalog, whatever the swarm is made of: measured alone before it is chosen, so that the
+  // page's recommendations can weigh it; training/setup.mjs --model <id> fetches it)
+  const named = String(which).startsWith('model:') ? REGISTRY.small.find((m) => m.id === String(which).slice(6)) : null;
+  if (String(which).startsWith('model:') && !named)
+    throw new Error('no small model in src/models.json is ' + String(which).slice(6));
+  const r = await startMember(named ? { ...named, key: 'alone' } : MEMBERS[which], {
     jinja: true, // (a step in an agent's work is asked with tools: the server reads and writes calls in the model's own template)
     onRecover: note,
     llamaServer: llamaServer(),

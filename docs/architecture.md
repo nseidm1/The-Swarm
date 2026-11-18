@@ -25,7 +25,7 @@ answer is to be reached. That is the whole public surface, in three forms:
 | [`src/members.mjs`](../src/members.mjs) | One model behind a llama.cpp server with several slots; never more conversations at once than slots |
 | [`src/decider.mjs`](../src/decider.mjs) | The decide step by a decision model: the request the decider is sent, how its answer is read, and when it counts as a decision |
 | [`src/tools.mjs`](../src/tools.mjs) | A turn with tools decided by the swarm: each drafter's step read as an action, the ones that are not calls the caller offered left out, the same ones made one, the decider where they differ |
-| [`src/spec.mjs`](../src/spec.mjs) | A swarm from its output spec: the spec read back and checked (format, version, pinned models, the recipe against its hash), and what `createSwarm({ spec })` makes from it |
+| [`src/spec.mjs`](../src/spec.mjs) | A swarm from its output spec: the spec read back and checked (format, version, pinned models and adapters, the recipe against its hash), the adapters found and checked by SHA-256, and what `createSwarm({ spec })` makes from it |
 | [`src/read.mjs`](../src/read.mjs) | Reading the answer out of what a slot wrote, and telling when two answers are the same |
 | [`src/behave.mjs`](../src/behave.mjs) | Which drafts of a function do the same: the calls to try, the drafts run on them, the drafts grouped by what they returned |
 | [`src/sandbox.mjs`](../src/sandbox.mjs), [`src/sandbox-runner.mjs`](../src/sandbox-runner.mjs) | Running a function a model wrote where it can reach nothing. The only place anything a model wrote is run |
@@ -37,6 +37,11 @@ answer is to be reached. That is the whole public surface, in three forms:
 
 What happens in what order is a list of steps in `src/briefs.json` (`flow`), run over the answers that stand. With none named
 it is `draft, try, check, decide, write`.
+
+An arrangement may differ by the kind of question, as the swarm tells it from the question alone: one that asks for code, or
+one in words (`kindOf` in `src/orchestrate.mjs`). Where training kept a change for one kind only, `briefs.kinds.code` (or
+`.words`) holds that kind's own `slots`, `plan` and `flow`, and `answer()` uses them for a question of that kind (`briefsFor`);
+every other question uses the shared ones.
 
 | Step | What it does |
 |---|---|

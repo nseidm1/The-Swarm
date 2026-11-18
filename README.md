@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/dashboard.png" alt="The training dashboard, one column: Configuration (pills choosing LFM2.5 1.2B, Qwen3.5 2B and Ministral 3 3B, Jeffan 4B deciding, against Nemotron 3.5 Lightning 30B; Equivalent on with The Crew ticked among The Crew, Code, Math, Logic and Reasoning; turns with tools decided by the swarm); Evaluate the swarm, 55% equivalent, the same result as Nemotron on 11 of 20 IFEval questions (10 both right, 1 both wrong, 9 differ; scores 75% and 65%); Pretrain, 3 of 3 adapted, with each model&#39;s loss and llama.cpp perplexity before and after; Training progress, 0% complete in pass 1, stopped, with Train and Clear training state in its head, the ideas waiting to be tried, and the memory the swarm takes against the larger model, 45.6% saved" width="860">
+  <img src="docs/images/dashboard.png" alt="The training dashboard, one column: Configuration (one recommendation beside it; pills choosing LFM2.5 1.2B, Qwen3.5 2B and Ministral 3 3B, Jeffan 4B deciding and judging, against Nemotron 3.5 Lightning 30B; Equivalent on with The Crew ticked among The Crew, Code, Math, Logic and Reasoning, and under it who takes turns with tools, decided by the swarm); Memory saved, 45.6%, 8.2 GB less, the swarm 1.8 times smaller, with its bars and their key; Evaluate the swarm, 48% equivalent on 100 IFEval questions (40 both right, 8 both wrong, 52 differ; scores 79% and 46%, served with adapters); Pretrain, 3 of 3 adapted, with each model&#39;s loss and llama.cpp perplexity before and after. Each card&#39;s head is the same three columns: the figure, what the card does, its controls" width="860">
 </p>
 
 <p align="center"><em>The training dashboard on the first day of a new configuration (LFM2.5 1.2B, Qwen3.5 2B and Ministral 3 3B, decided by Jeffan 4B, against Nemotron 3.5 Lightning 30B): its three small models adapted, and evaluated on IFEval again after the writer was fixed; 2026-11-17.</em></p>
@@ -118,7 +118,7 @@ cd The-Swarm
 npm test
 ```
 
-**With the dashboard.** Choose the models in the pills at the top and press **Train** (on the Training progress card): what is missing is fetched and
+**With the dashboard.** Choose the models in the pills at the top and press **Train** (at the head of the Train card): what is missing is fetched and
 made ready, then a pass runs.
 
 ```bash
@@ -307,8 +307,10 @@ its training ([`src/spec.mjs`](src/spec.mjs)):
 
 | Part | What it holds |
 |---|---|
-| `recipe` | What a swarm is built from: each small model's pinned file (repository, revision, size, SHA-256, how it is served), the decider and its serving recipe, the engine's pinned builds, slots and context, and the arrangement: the flow and every slot with what it is told. Hashed: `spec.recipeSha256` |
-| `card` | One item for a model chooser, in the shape The Crew's catalogue lists its models (`id`, `name`, `size`, `params`, `memGb`, `pace`, `badge`, `plain`), with `engine: "swarm"`, what it is equivalent on and where it stands |
+| `recipe` | What a swarm is built from: each small model's pinned file (repository, revision, size, SHA-256, how it is served), the decider and its serving recipe, the engine's pinned builds, slots and context, the arrangement (the flow, every slot with what it is told, and an arrangement of its own for a kind of question where training kept one), and, where the swarm is served with them, each small model's LoRA adapter by file and SHA-256. Hashed: `spec.recipeSha256` |
+| `equivalence` | How far training took it: the share of the held questions on which its answer is equivalent to the larger model's, for the arrangement every swarm starts from and for the trained one, both served as the recipe says (with its adapters, where it pins them), and the gain in points. A side not measured that way says so |
+| `adapters` | How each pinned adapter was made: what it learned (the larger model's answers to so many train questions), the original weights and revision it was trained from, its steps, loss and llama.cpp perplexity, and the command that makes it again. The files are not in the spec (10 to 15 MB each, more than a commit here takes) |
+| `card` | One item for a model chooser (`id`, `name`, `size`, `params`, `memGb`, `pace`, `badge`, `plain`), with `engine: "swarm"`, what it is equivalent on (named by the work, with its kinds of question) and where it stands |
 | `requirements` | What it needs of a machine: platforms (where the decider runs), memory, disk, engine, Node, every licence, and whether it may be used commercially |
 | `interface` | What it is as a model: its endpoints, what it can and cannot do (who takes a turn with tools: the swarm, or which of its small models), and how to start it |
 | `trainedAgainst`, `learned` | Where it stands against the larger model, kind by kind, and every change it kept with the evidence |
@@ -321,7 +323,10 @@ const swarm = await createSwarm({ spec, decider: 'http://127.0.0.1:8009', models
 const started = await serveSwarm({ ...spec.card, spec }, { file: llamaServerProgram }, { modelsDir, decider });
 ```
 
-From a terminal: `node bin/swarm.mjs serve --spec swarm-spec.json`.
+From a terminal: `node bin/swarm.mjs serve --spec swarm-spec.json`. **Adapters:** where the recipe pins them, each is looked
+for beside the spec, in `swarm-spec.adapters/` (or the folder `adaptersDir` or `--adapters` names), and refused unless its
+SHA-256 is the pinned one: an adapter trained again differs, and makes another swarm whose equivalence has not been measured
+(`anyAdapters: true` takes it all the same).
 
 **Finished specs are committed; nothing else training writes is.** A swarm at parity with its larger model is published
 from the same dialog, **Publish to specs/**, to [`specs/`](specs) as `<configuration>.json`. The button is greyed out until
@@ -329,13 +334,12 @@ the swarm is at parity on the held questions, and says why. What a session write
 read on arXiv, what each configuration tried and kept, every measurement, the trained summary) stays on the machine that
 trained it, and git ignores it.
 
-**In a model chooser** (The Crew's *Choose your model*, for one): list `spec.card` beside the other models; offer it only where
+**In a model chooser:** list `spec.card` beside the other models; offer it only where
 `spec.requirements` fit the machine (and, for a paid product, only where `commercialUse` is true: a configuration decided by
 StartLux is not); fetch what `recipe` pins; start the decider by `recipe.decider.serve`; then `serveSwarm({ ...card, spec })`,
 the same call shape a llama.cpp model is started with. It answers at an OpenAI-compatible address as one model. What it is
-good for is what it was measured on (`card.equivalentOn`): a seat's replies, single checked steps and, with turns with tools
-decided by the swarm, an agent's steps (as The Crew's Pi takes them). With them given to one small model, an agent gets that
-model alone.
+good for is what it was measured on (`card.equivalentOn`): replies a person reads, single checked steps and, with turns with
+tools decided by the swarm, an agent's steps. With them given to one small model, an agent gets that model alone.
 
 ## Configuration
 
@@ -366,16 +370,16 @@ python3 ui/swarm_ui.py
 
 It opens at `http://127.0.0.1:8787/` (`--port` changes that). It needs nothing installed.
 
-The pictures here and at the top of this page show it on 2026-11-17, after the first night of training question by
-question: the swarm of LFM2.5 1.2B, Qwen3.5 2B and Bonsai 2 4B, decided by Jeffan 4B, against Nemotron 3.5 Lightning 30B
-(the recommended changes are from an earlier configuration: this one has none to recommend). Every section folds, smoothly, and says in a
+The pictures here and at the top of this page show it on 2026-11-17, five questions into a pass of training question by
+question: the swarm of LFM2.5 1.2B, Qwen3.5 2B and Ministral 3 3B, decided by Jeffan 4B, against Nemotron 3.5 Lightning
+30B, with every small model in the catalog measured alone (the recommendation). Every section folds, smoothly, and says in a
 line what it holds while folded; open or folded is kept on the device.
 
 <p align="center">
-  <img src="docs/images/dashboard-arrangement.png" alt="The arrangement being trained, as faces: the swarm as it stands (briefs v4, 9 slots on 3 models, 3 kept changes); Question by question, 12 of 84 finished, a pip for each; the models; and the flow the kept changes made: draft (six slots), decide keeping two, try, check, decide, write" width="860">
+  <img src="docs/images/dashboard-arrangement.png" alt="The Train card: 5.9% training complete in pass 1, 5 of 84 train questions at parity (3 as the swarm stood, 2 brought there by a change), stopped, with Train and Clear training state; then the swarm as it stands (briefs v3, 9 slots on 3 models, 2 kept changes), Question by question with a pip for each finished question, the models, and the plain flow as faces: draft (six slots), try, check, decide, write" width="860">
 </p>
 
-<p align="center"><em>The arrangement: every slot as a face of its model, in the step of the flow it stands in. Choosing one opens what it is told.</em></p>
+<p align="center"><em>The Train card: how far training has come, with Train beside it, then every slot as a face of its model, in the step of the flow it stands in. Choosing one opens what it is told.</em></p>
 
 <p align="center">
   <img src="docs/images/dashboard-plan.png" alt="The plan being carried out, from the loop: now, this pass so far (questions finished, changes tried and kept, from the found arrangements, suggested), the found arrangements, the policy and what is on trial, the suggestions, and the six steps each question goes through; the loop's policy open; and the ten found arrangements, each with how many questions it has brought to parity and where it was found" width="860">
@@ -398,11 +402,11 @@ line what it holds while folded; open or folded is kept on the device.
 | Part | What it shows |
 |---|---|
 | Output spec, Uninstall Helper | Two buttons at the top. **Output spec** (with how many wins training has found, from every run: Clear training state never takes one out): everything needed to make this swarm again and offer it as a model ([from its spec](#from-its-spec)): how far it is toward parity, what it has learned, the card a model chooser would list, what it needs of a machine, what it can do as a model, how to make it, its models with their pinned files, its decider, the flow, and every slot with what it is told. To read, to copy as JSON, or to save as a file. **Uninstall Helper**: everything the Swarm has put in `.work`, with the room each takes and whether the configured swarm uses it, and a button to take out each; never anything outside `.work`, what training has learned, or anything while a session runs |
-| Configuration | What the swarm is made of, in one section that folds to a line (its models, its decider, its larger model, what it is equivalent on, and who takes turns with tools). **The pills**: **Small model 1**, **Small model 2** (and a third and fourth, once added: the next empty place has a pill to add one, a filled one can be removed), **Decides** (best first by its Decision Index score; one this machine cannot run is greyed out with what it needs), **Judges equivalence** (the decider itself, or another decision model, served beside it in training), **Larger model**, each grouped by who made it. Choosing one redraws the page for that swarm, in place. **Equivalent on**: one box to tick for each body of work (**The Crew**, ticked where nothing is chosen; Math, Logic, Reasoning); a pass asks the kinds of every one ticked, and the pencil on each opens its questions. **Turns with tools**: decided by the swarm, or given to one of its small models alone, each listed by name and following the pills. Beside the heading, a note when there are [recommended changes](#recommended-changes) |
+| Configuration | What the swarm is made of, in one section that folds to a line (its models, its decider, its larger model, what it is equivalent on, and who takes turns with tools). **The pills**: **Small model 1**, **Small model 2** (and a third and fourth, once added: the next empty place has a pill to add one, a filled one can be removed), **Decides** (best first by its Decision Index score; one this machine cannot run is greyed out with what it needs), **Judges equivalence** (the decider itself, or another decision model, served beside it in training), **Larger model**, each grouped by who made it. Choosing one redraws the page for that swarm, in place. **Equivalent on**: one box to tick for each body of work (**The Crew**, ticked where nothing is chosen; Math, Logic, Reasoning); a pass asks the kinds of every one ticked, and the pencil on each opens its questions. Under the boxes, who takes turns with tools: decided by the swarm, or given to one of its small models alone, each listed by name and following the pills. Beside the heading, a note when there are [recommended changes](#recommended-changes) |
+| Memory saved | The first card, its share at the top left as the cards after it have theirs: what the swarm takes in memory against the larger model: a bar for each on one scale, the swarm's made of its parts, the share saved and how many times smaller, estimated from the model files |
 | Evaluate the swarm | How equivalent the swarm is to the larger model, measured apart from training by a standard any lab would recognise: for each body of work ticked under the models, the standard tasks of EleutherAI's [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) 0.4.13 (The Crew: IFEval; Code: HumanEval and MBPP; Math: GSM8K and BBH multistep arithmetic; Logic and Reasoning: BBH subsets), asked of the larger model and then of the swarm, and every question's two answers compared: the same answer as the harness extracts it, the same verdict on a task's tests, or the same instructions kept. It says how many questions were the same, split by whether both were right, each model's score, and when. **Evaluate** (20 a task, 100 a task, or every question) runs it; while it runs, the section follows it in place: what is loading, the question being asked and of whom, how long a question takes and how long is left in the task, the last answer, and a bar for each model on each task; its headline shows moving bars where the share and the count of the same answers will be, with the number of questions chosen. Stopped or failed, a run saves nothing and the last result that finished is shown again. Training never asks a benchmark's question. The first evaluation installs the harness into `.work/lmeval` and fetches each benchmark as it is first asked; any model of the configuration not yet here is fetched as for training. The larger model's answers are kept, so evaluating again asks only the swarm. An evaluation, pretraining and training run one at a time |
 | Pretrain | A LoRA adapter for each small model, trained with MLX on the larger model's answers to the train questions of what is ticked (never a benchmark's, never a held one), and kept where llama.cpp, loading it beside the model, finds those answers likelier with it. Everything it needs it fetches itself, shown as it goes: the small models' files, MLX (once, into `.work/mlx`) and each adapted model's original weights ([`training/originals.json`](training/originals.json)), with how much has arrived. It needs the larger model's answers to the train questions, which the first step of training asks for, and says so if they are not there yet. MLX runs on Apple silicon only; elsewhere Pretrain says it is not available. While it runs, each model's training step and loss move in place, and a moving bar stands in the headline. A model keeps the adapter it has until a new one passes llama.cpp's check; a run that is stopped or fails leaves the old one in place, and says the later attempt was not kept. **Serve the swarm with its adapters** serves them from the next time the swarm is loaded; Evaluate the swarm before and after says what they bought, and each evaluation says whether adapters were on |
-| Training progress | **% training complete**: training goes question by question and never leaves a question short of parity, so how far it has come is the share of this pass's train questions at parity with the larger model, with a bar (at parity as the swarm stood, brought there by a change it kept, back in hand after a swap, still to come), the found arrangements and the changes kept into the spec, the ideas waiting to be tried (what the reading on arXiv left, each opening the paper it came from), and the memory the swarm takes against the larger model's. **Train** sits in its head, as Evaluate and Pretrain have theirs: it fetches and makes ready whatever the chosen models need, then trains pass after pass until **Stop training** is pressed; **Clear training state** (pressed twice) sets what training has recorded aside in `.work/archive`, keeping the models' own answers, the found arrangements and the loop's policy (`.work/library`), so a fresh start tries first what worked. Under the head, while a session runs (a moving bar in place of the share, which comes back when it stops): how long it has run and since when, the decider's state, and what it is fetching while it makes ready; when it cannot start, why. What the session is doing step by step is on the swarm's card below |
-| The arrangement being trained | One section, drawn as faces: the swarm as it stands (briefs, slots, kept changes); **Question by question**, the swarm against each question of the pass: the question in hand and which training change it is on (and its round), how that change was chosen (folded to a line: what it is built on, its place among those open, each reason, the pace, what was tried before it), or a change that reached parity being asked again on a question already there; a pip for every question so far (at parity as it stood, brought to parity by a change, back in hand after a swap), the counts, and folded, what was tried on each question that needed a change; what is running. Then a roster of the models, each a face in its colour (two of one family are told apart by size: L2.6, L1.2); the larger model's chip carries its live dot and opens its card (how it is served, the configurations at parity with it). Then the flow in one row of stations (Draft › Check › Decide › Write, a loop drawn round the steps it repeats); the sandbox, which no model fills, is a marker between the stations it runs between. Each slot is a face of its model in the step it stands in, with its whole name: a ring for its record (its answers equivalent to the larger model's, of those judged), a dot and a halo for what it is doing now (working, answered, failed, idle), and an amber ring while a change is being tried on it. Choosing a face opens that slot's card below the row: what it is told, its record, what is being tried on it |
+| Train | **% training complete** heads it: training goes question by question and never leaves a question short of parity, so how far it has come is the share of this pass's train questions at parity with the larger model, with a line saying where the pass is. **Train** sits beside it, as Evaluate and Pretrain have theirs: it fetches and makes ready whatever the chosen models need, then trains pass after pass until **Stop training** is pressed; **Clear training state** (pressed twice) sets what training has recorded aside in `.work/archive`, keeping the models' own answers, the found arrangements and the loop's policy (`.work/library`), so a fresh start tries first what worked. Under it, while a session runs (a moving bar in place of the share): how long it has run and since when, the decider's state, and what it is fetching; when it cannot start, why. Then, drawn as faces: the swarm as it stands (briefs, slots, kept changes); **Question by question**, the swarm against each question of the pass: the question in hand and which training change it is on (and its round), how that change was chosen (folded to a line: what it is built on, its place among those open, each reason, the pace, what was tried before it), or a change that reached parity being asked again on a question already there; a pip for every question so far (at parity as it stood, brought to parity by a change, back in hand after a swap), the counts, and folded, what was tried on each question that needed a change; what is running. Then a roster of the models, each a face in its colour (two of one family are told apart by size: L2.6, L1.2); the larger model's chip carries its live dot and opens its card (how it is served, the configurations at parity with it). Then the flow in one row of stations (Draft › Check › Decide › Write, a loop drawn round the steps it repeats); the sandbox, which no model fills, is a marker between the stations it runs between. Each slot is a face of its model in the step it stands in, with its whole name: a ring for its record (its answers equivalent to the larger model's, of those judged), a dot and a halo for what it is doing now (working, answered, failed, idle), and an amber ring while a change is being tried on it. Choosing a face opens that slot's card below the row: what it is told, its record, what is being tried on it |
 | The plan being carried out | What the loop is doing now, from the loop itself: the question in hand and which step of the loop it is on, this pass so far (finished, tried, kept, from the found arrangements, suggested, swaps), the found arrangements, the policy and what is on trial, the larger model's suggestions, and the steps every question goes through, the current one marked. Then the plan the search draws from, in subsections that each fold to a line of what they hold (folded to begin with): **The gap, on the train questions** (how many answers to close, by choosing better or by better drafts); **What the measurement showed** (each finding, with the answers it accounts for); **Questions** (more of the kinds the last pass answered differently on); **What only you can change**; **How it is training** (the loop's limits and what the plan lists first, from the policy); **Steer it** (lean the search on an area: briefs, slots, flow, decider placement, decider loops, several at once; less, as planned, more, only; and choose any move); and **Moves, in plan order**: each with its slot and model, its technique, the paper it came from, why it was chosen, and what became of it (planned, being tried, stopped partway, kept, not kept), a planned one with **Next** and **Skip**. Steering decides what is tried, never what is kept |
 | Visualizing the System | Every part of training drawn as boxes with a code to name it by (A1 to E2): once a pass (questions, the mark, the plan); each question until parity (ask, found arrangements, search, suggestions, check on questions at parity, keep); inside one try (draft, try, check and revise, decide, write, grade); always (the policy, its review, its trial); at the end of a pass. The box the loop is in now is marked, live |
 
@@ -419,14 +423,14 @@ say which model's drafts held each right answer (and which held it alone), how o
 how often a slot stopped at its token limit, and how often the decider did not answer.
 
 <p align="center">
-  <img src="docs/images/dashboard-recommendations.png" alt="Recommended configuration changes for the swarm of LFM2.5 2.6B and Bonsai 2 2B decided by Kev 4B: measured, decide with StartLux Decision 4B, which on the 46 choices recorded in pass 6 chose the larger model&#39;s answer 38 times against 37 (a small edge); untested, add a third small model, since on 19 of 70 train questions no slot drafted the larger model&#39;s answer; and untested, judge equivalence with StartLux Decision 4B, apart from the decider. Each has a Make this change button" width="620">
+  <img src="docs/images/dashboard-recommendations.png" alt="Recommended configuration changes: measured, use Bonsai 2 27B in place of Qwen3.5 2B. Alone against Nemotron 3.5 Lightning 30B on the same 84 held questions it answered 73.8% as the larger model did (62 of 84), where Qwen3.5 2B answered 25.5% (the mean of 2 runs); it leads by 48.2 points, above the 16.6 by which one model&#39;s runs have differed; about 5.9 GB more" width="620">
 </p>
 
 | Recommends | When |
 |---|---|
 | Another decider | Replayed on the choices a pass recorded ([`decider-replay.mjs`](training/decider-replay.mjs)), it recovers more of the larger model's answers than it loses |
 | A third or fourth small model | No slot drafted the larger model's answer on some questions ([`members-probe.mjs`](training/members-probe.mjs)): measured where another small model here drafts them, untested where none is here to ask |
-| One small model in place of another | Alone against the same larger model, it answered as the larger model did at least 5 points more often than the weakest member. Any configuration's measurement counts |
+| One small model in place of another | Alone against the same larger model, on the same held questions, it answered as the larger model did more often than the weakest member, by more than one model's runs on those questions differ (5 points at least). Any configuration's measurement counts, and a model measured twice counts by its mean. To measure one that is not in the swarm: `node training/setup.mjs --model <id>`, then `node training/baseline.mjs --who model:<id> --split held` |
 | Another configuration | It is further along against the same larger model than this one, which has been measured. Both keep their own records |
 | Taking a third or fourth model out | Its drafts held no right answer the others did not, and few at all; its slots echoing each other says so too. A change you made is judged on what followed it |
 | The decider before this one | This decider gave no decision on 1 in 10 or more, not for want of time, and the one before it (on the same small models) did better |
@@ -664,6 +668,49 @@ min in all.
   figure, so training goes on without them. They had made Nemotron's answers to The Crew's train questions likelier
   (below); taught on 72 answers of one body of work, they did not carry over to following instructions in general.
 
+### Every small model alone, 2026-11-17
+
+Each small model in the catalog, by itself, on the same 84 held questions of The Crew, its answers compared with Nemotron
+3.5 Lightning 30B's by Jeffan 4B: what the [recommended changes](#recommended-changes) weigh a model by. Ten were fetched for
+this and taken out again afterwards (`node training/setup.mjs --model <id>`, `node training/baseline.mjs --who model:<id>
+--split held`).
+
+| Small model | The same as Nemotron | | Small model | The same as Nemotron |
+|---|---|---|---|---|
+| Bonsai 2 27B | 62 of 84 (73.8%) | | Bonsai 2 2B | 34 (40.5%) |
+| Bonsai 2 9B | 61 (72.6%) | | Gemma 4 E4B | 33 (39.3%) |
+| Qwen3.5 4B | 54 (64.3%) | | Gemma 4 E2B | 33 (39.3%) |
+| LFM3 1.7B | 44 (52.4%) | | Qwen3 1.7B | 28 (33.3%) |
+| Nemotron 3 Nano 4B | 42 (50.0%) | | Ministral 3 3B | 27 (32.1%) |
+| Granite 4.2 3B | 41 (48.8%) | | LFM2.5 1.2B | 22 (26.6%, mean of 3) |
+| Bonsai 2 4B | 37 (44.0%) | | Qwen3.5 2B | 22 (25.6%, mean of 2) |
+| | | | SmolLM2 1.7B | 13 (15.5%) |
+
+- **One model's runs differ by up to 14 of 84** (LFM2.5 1.2B: 16, 21 and 30 on the same questions), so a lead of less than
+  that says nothing, and the recommendations ask for more.
+- **Qwen3 4B is left out:** it gave no answer on 30 of the 84, which says it was served wrongly here (it is a model that
+  thinks first), not how it answers.
+- **The three in the swarm trained so far are among the weakest alone.** Bonsai 2 9B and 27B give Nemotron's answer about
+  three times as often as LFM2.5 1.2B or Qwen3.5 2B. Alone is not in a swarm: a pass is what would tell.
+
+### Question 6: one missing idea, 2026-11-17
+
+The swarm of LFM2.5 1.2B, Qwen3.5 2B and Ministral 3 3B stopped at question 6 for 84 tries: write `rotate(list)`, moving
+the items 4 places to the left, which must work for arrays shorter than 5. Asked once and graded input by input, every
+drafter missed the same idea, the shift taken modulo the length: the nearest wrote `[...list.slice(4), ...list.slice(0, 4)]`,
+right on 13 of 15 inputs and wrong only on 3-item arrays; several read "must work for shorter arrays" as "return them
+unchanged". Rearranging cannot reach parity while no draft is right, so the loop now:
+
+- sets a question aside after 30 tries in a row that bring it no closer, while others wait, and writes its search down after
+  every try so a stopped run carries on from there;
+- counts how near all the drafts came, not only the nearest, so the search has something to climb;
+- has the larger model teach the drafters nearest the answer first (its briefs had all gone to the 1.2B model), and refuses
+  a brief that gives the question away. One did: "Let k = 4 % length. Return the list sliced from k to end, then from start
+  to k" brought question 6 to parity three times and broke `sumEvery` each time, since it told a drafter to rotate on every
+  question.
+
+Question 6 has not yet reached parity through a brief that teaches the method rather than the answer.
+
 ### Training question by question, 2026-11-16 to 17
 
 LFM2.5 1.2B, Qwen3.5 2B and Bonsai 2 4B, decided by Jeffan 4B, against Nemotron 3.5 Lightning 30B, on The Crew's train
@@ -674,7 +721,8 @@ questions (84 a pass), on one Apple silicon Mac. Its records stay on that machin
   arrangements are tried first on every question.
 - **The longest run:** 19 of 84 questions overnight, 11 at parity as the swarm stood and 5 brought there by a change, in 612
   changes. One question took 560 of them: it reached parity about 300 times, each time losing a question already at parity.
-  Such a standing conflict is now swapped.
+  Such a standing conflict is now swapped, a change that loses only the other kind of question (code, or words) is kept
+  for its own kind, and a question that stops coming closer is set aside until the others are done.
 - **The run after it, with the found arrangements tried first:** one of them brought a second question to parity; it stopped
   at 12 of 84 (14.2% training complete).
 - **Memory: 51.1% saved, about 9.2 GB less** than Nemotron (8.8 GB against 18 GB, 2.0× smaller): an estimate from the model

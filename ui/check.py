@@ -88,16 +88,18 @@ with tempfile.TemporaryDirectory() as tmp:
           data.parity([{"grade": "right"}] * 999 + [{"grade": "wrong"}])["percent"] == 99.9 and data.parity([{"grade": "right"}] * 3)["percent"] == 100 and data.parity([{"grade": "right"}] * 1999 + [{"grade": "wrong"}])["percent"] < 100
           and swarm_ui.fmt_pct(75.0) == "75" and swarm_ui.fmt_pct(62.5) == "62.5")
     strip = get(base + "/fragment/score")[1]
-    check("the page says how far training has come, question by question: a percentage training complete, with a bar of the questions at parity (as the swarm stood, brought there by a change), and no parity verdict, held-question card or whole-measurement dialog any more",
-          "Training progress" in html and 'class="panel trainprog"' in top and "training complete" in top and 'class="mbar stack"' in strip
+    check("the page says how far training has come, question by question: a percentage training complete at the head of the Train card (no bar, legend, spec line or ideas line under it: taken out), and no parity verdict, held-question card or whole-measurement dialog any more",
+          '<h2 id="arrangement">Train</h2>' in html and "<h2>Training progress</h2>" not in html and 'class="trainprog trainhead"' in strip and "training complete" in strip
+          and html.index('<h2 id="arrangement">Train</h2>') < html.index('<div id="score">') and 'class="mbar stack"' not in strip and 'class="memleg"' not in strip and "Ideas waiting to be tried" not in strip
           and 'id="score-open"' not in html and 'id="big"' not in html and "/fragment/scorefull" not in html and get(base + "/fragment/scorefull")[0] == 404 and "Parity with the larger model" not in html, strip[:300])
     fp = data.footprint({"a": {"bytes": 2**30}, "b": {"bytes": 2**30}}, {"memGb": 5}, {"memGb": 18})
+    mp = swarm_ui.memory_card(data.load(root))
     check("the training card says what the swarm is for: the memory it takes against the larger model's, in the memory chart (a bar for each on one scale, the swarm's made of its parts, a scale and a key), the share and how many times smaller, estimated and said to be; and parity in the same design above it: the share large, the swarm's answers as a bar (equivalent, different, no answer) with each small model alone beside it on one scale, and a key; the other numbers are chips",
           {k: fp[k] for k in ("small", "decider", "swarm", "target", "share", "times")} == {"small": 3.5, "decider": 5, "swarm": 8.5, "target": 18, "share": 47.2, "times": 2.1}
           and fp["saved"] == 52.8 and fp["savedGb"] == 9.5
           and [x["kind"] for x in fp["parts"]] == ["model", "model", "contexts", "decider"] and abs(sum(x["gb"] for x in fp["parts"]) - fp["swarm"]) < 0.05 and data.footprint({}, {}, {"memGb": 18}) is None
-          and 'class="memc compact"' in strip and "The swarm</span>" in strip and "memory saved" in strip and "GB less" in strip and "not measured" in strip and "Not measured." in strip and "× smaller" in strip
-          and 'class="memleg"' in strip and 'class="mbar stack"' in strip and strip.count("<i style=\"width:") >= 5 and "<svg" not in strip
+          and 'class="memc compact"' in mp and "The swarm</span>" in mp and "memory saved" in mp and "GB less" in mp and "not measured" in mp and "Not measured." in mp and "× smaller" in mp
+          and 'class="memleg"' in mp and 'class="mbar stack"' in mp and mp.count("<i style=\"width:") >= 5 and "<svg" not in mp
           , strip[:600])
     plan = get(base + "/fragment/plan")[1]
     arr_stopped = swarm_ui.arrangement(data.load(root))
@@ -141,7 +143,7 @@ with tempfile.TemporaryDirectory() as tmp:
     check("training complete says how far training has come and never more: before anything, that training starts at question 1; then the share of the pass's questions at parity (as the swarm stood, brought there by a change), with any back in hand after a swap, the found arrangements and what the spec kept",
           "0%</b><span>training complete" in p_none and "Training starts at question 1" in p_none
           and "30%</b><span>training complete" in p_some and "<b>3</b> of 10 train questions at parity" in p_some and "<b>2</b> as the swarm stood, <b>1</b> brought there" in p_some
-          and "1 back in hand after a swap" in p_some and "1 kept this pass" in p_some and "win" in p_some and "from every run" in p_some and "found arrangement" in p_some and "<small>pass " in p_some, p_some[:400])
+          and "1 back in hand after a swap" in p_some and "kept this pass" not in p_some and "from every run" not in p_some and "found arrangement" not in p_some and "<small>pass " in p_some, p_some[:400])
     ckd = root / ".work" / "train" / "checkpoints"
     ckd.mkdir(parents=True, exist_ok=True)
     extra = dict(H["swarm"][0], id="held-live-1", grade="right")
@@ -252,7 +254,7 @@ with tempfile.TemporaryDirectory() as tmp:
     check("the page ends with a footer: whose product it is, its licence, and that the page is served from this machine",
           '<footer class="foot">' in html and "A Family Office product" in html and "apache.org/licenses/LICENSE-2.0" in html and "github.com/nseidm1/The-Swarm" in html and "Copyright 2026 Family Office" in html and "<svg" in html.split('<footer class="foot">')[1].split("</footer>")[0])
     check("it shows the arrangement being trained: every slot of both models by stage, what each is told, what is being tried, and the larger model alongside",
-          all(s["id"] in html for s in d["briefs"]["slots"]) and html.count('class="slot a"') >= 4 and html.count('class="slot b"') >= 3 and "being trained" in html and "under test" not in html and "Trained every pass" not in html and 'class="side"' not in html and "Ask both" not in html and "What it is told" in html and "Being tried" in html and "arXiv 2610.21290" in html and "The larger model" in html and "tensorfold serve" in html)
+          all(s["id"] in html for s in d["briefs"]["slots"]) and html.count('class="slot a"') >= 4 and html.count('class="slot b"') >= 3 and '<h2 id="arrangement">Train</h2>' in html and "under test" not in html and "Trained every pass" not in html and 'class="side"' not in html and "Ask both" not in html and "What it is told" in html and "Being tried" in html and "arXiv 2610.21290" in html and "The larger model" in html and "tensorfold serve" in html)
     krow = next((r for sp in d["splits"].values() for r in sp["swarm"] if any(t["slot"] == "decide" for t in r["trace"])), None)
     kfrag = get(base + "/fragment/question?split=%s&id=%s" % (krow["split"], urllib.request.quote(krow["id"])))[1] if krow else ""
     check("every slot is shown by the model that fills it and what it is for, with a line for what it is doing now; the decision model is in the decide step, and on a question shows what it picked and the probability it gave each answer",
@@ -300,10 +302,10 @@ with tempfile.TemporaryDirectory() as tmp:
     e_ok, _ = send("/config", {"equivalence": ["reasoning", "crew"]})
     e_cfg = json.loads((root / "src" / "config.json").read_text())
     row2 = get(base + "/fragment/equiv")[1]
-    check("under the models, a box to tick for each body of work the swarm can be brought to equivalence on: The Crew ticked where nothing was chosen, then Code, Math, Logic and Reasoning, each saying what it is; ticking writes the choice down in the list's own order beside the models, and the row is drawn again in place with what a pass will now ask; none, or one that is not listed, is refused and nothing is written",
+    check("under the models, a box to tick for each body of work the swarm can be brought to equivalence on: The Crew ticked where nothing was chosen, then Code, Math, Logic and Reasoning, each saying what it is; ticking writes the choice down in the list's own order beside the models, and the row is drawn again in place, with who takes a turn with tools under the boxes and no description under either; none, or one that is not listed, is refused and nothing is written",
           row.startswith('<fieldset class="equiv" id="equiv">') and row.count('data-equiv="') == 5 and row.count(" checked") == 1 and 'data-equiv="crew" checked' in row and "<b>The Crew</b>" in row and "<b>Code</b>" in row and "<b>Math</b>" in row and "<b>Logic</b>" in row and "<b>Reasoning</b>" in row
-          and "14 kinds of question in a pass" in row and 'id="equiv"' in html and html.index('id="picks"') < html.index('id="equiv"') < html.index('id="body"')
-          and e_ok == 200 and e_cfg["equivalence"] == ["crew", "reasoning"] and e_cfg["a"] == d["members"]["a"]["id"] and not row2.startswith("<fieldset") and row2.count(" checked") == 2 and "17 kinds of question in a pass" in row2
+          and "Parity is equivalence" not in row and 'id="tools"' in row and 'data-tools="swarm"' in row and "An agent&#x27;s turn" not in row and 'id="equiv"' in html and html.index('id="picks"') < html.index('id="equiv"') < html.index('id="body"')
+          and e_ok == 200 and e_cfg["equivalence"] == ["crew", "reasoning"] and e_cfg["a"] == d["members"]["a"]["id"] and not row2.startswith("<fieldset") and row2.count(" checked") == 2 and 'id="tools"' in row2
           and send("/config", {"equivalence": []})[0] == 400 and send("/config", {"equivalence": ["crew", "poetry"]})[0] == 400 and send("/config", {"equivalence": "crew"})[0] == 400
           and json.loads((root / "src" / "config.json").read_text())["equivalence"] == ["crew", "reasoning"] and send("/config", {"equivalence": ["crew"]})[0] == 200, [e_ok, e_cfg.get("equivalence"), row.count(" checked")])
     pens = swarm_ui.equiv(data.load(root))
@@ -316,7 +318,7 @@ with tempfile.TemporaryDirectory() as tmp:
     check("each body of work has a little pencil at its top right that opens its questions: the kinds the trainer makes (not edited) and the questions a person wrote, one row each, with Simple or Developer for The Crew; saving writes them whole (blank ones dropped, a mode only where it means something), the box then says how many there are, and the next opening shows them; an unknown body of work, more than 200, or a list that is not one is refused",
           pens.count('class="pencil"') == 5 and 'data-qedit="crew"' in pens and "Edit the questions for The Crew" in pens and 'id="qedit"' in html
           and "Questions: The Crew" in panel_q and "Made by the trainer" in panel_q and "Simple: a piece of writing" in panel_q and "Developer: their own project" in panel_q and "Write a function: arrays" in panel_q and panel_q.count('class="qrow"') == 1 and "0 of 200" in panel_q
-          and q_ok == 200 and q_file == {"questions": [{"ask": "Move my dentist to Friday."}, {"ask": "Is a sleep a fix?", "mode": "developer"}]} and "2 of your own" in q_row and "15 kinds of question in a pass" in q_row
+          and q_ok == 200 and q_file == {"questions": [{"ask": "Move my dentist to Friday."}, {"ask": "Is a sleep a fix?", "mode": "developer"}]} and "2 of your own" in q_row
           and panel_q2.count('class="qrow"') == 3 and "Move my dentist to Friday." in panel_q2 and '<option value="developer" selected>' in panel_q2 and "2 of 200" in panel_q2
           and m_ok == 200 and m_file == {"questions": [{"ask": "What is 17 times 23?"}]} and "data-q-mode" not in get(base + "/fragment/questions?id=math")[1].split("<template")[0]
           and send("/questions", {"id": "poetry", "questions": []})[0] == 400 and send("/questions", {"id": "crew", "questions": "x"})[0] == 400 and send("/questions", {"id": "crew", "questions": [{"ask": "q"}] * 201})[0] == 400
@@ -328,6 +330,14 @@ with tempfile.TemporaryDirectory() as tmp:
     import platform
     apple = sys.platform == "darwin" and platform.machine() == "arm64"
     api0 = json.loads(get(base + "/api/eval")[1])
+    # who holds the machine, read by the page every 1.5 s: when it changes (a run started or stopped anywhere), Evaluate, Pretrain
+    # and Training progress are drawn again in place (they had waited for their own run to end, so a stopped training run left them
+    # stale until a reload)
+    busy0 = json.loads(get(base + "/api/busy")[1])
+    body0 = get(base + "/fragment/body")[1]
+    check("the page knows who holds the machine and redraws the three cards when that changes",
+          busy0 == {"busy": ""} and 'id="busy" data-busy=""' in body0 and "busyTick" in get(base + "/")[1],
+          json.dumps(busy0))
     bad_size = send("/eval/start", {"limit": 7})[0]
     foreign = send("/eval/start", {"limit": 20}, {"x-swarm": "0"})[0]
     pre0 = get(base + "/fragment/pretrain")[1]
@@ -367,8 +377,9 @@ with tempfile.TemporaryDirectory() as tmp:
     # (the run ends without finishing: no result was written, and the last one that finished is shown again, as it was)
     ev_after = get(base + "/fragment/eval")[1]
     (root / ".work" / "eval" / "results.json").unlink()
-    check("above Training progress, Evaluate the swarm and Pretrain: Evaluate says what it does (standard benchmarks of lm-evaluation-harness, asked of the larger model and the swarm, kept apart from training), has a size to choose and a button, and a row for every task of what is chosen; an unknown size or a request from elsewhere is refused; once evaluated it says how many questions had the same answer, split by whether both were right, with each model's score and when; Pretrain lists each small model and, where MLX is not installed, says Pretrain installs it and can be pressed on Apple silicon, or that it is not available on any other machine; the adapters switch is written beside the models and refuses anything but on or off; and while an evaluation runs, its headline shows moving bars where the share and the count will be and the questions chosen, the last result returning as it was when the run ends unfinished (Pretrain the same, the adapter that stood still standing beside an attempt that was not kept), it can be stopped from its section, and training and pretraining wait for it and say so",
-          html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2>Pretrain</h2>') < html.index('<h2>Training progress</h2>')
+    check("Memory saved first, its share at the top left as the cards after it have theirs; then, above Train, Evaluate the swarm and Pretrain: Evaluate says what it does (standard benchmarks of lm-evaluation-harness, asked of the larger model and the swarm, kept apart from training), has a size to choose and a button, and a row for every task of what is chosen; an unknown size or a request from elsewhere is refused; once evaluated it says how many questions had the same answer, split by whether both were right, with each model's score and when; Pretrain lists each small model and, where MLX is not installed, says Pretrain installs it and can be pressed on Apple silicon, or that it is not available on any other machine; the adapters switch is written beside the models and refuses anything but on or off; and while an evaluation runs, its headline shows moving bars where the share and the count will be and the questions chosen, the last result returning as it was when the run ends unfinished (Pretrain the same, the adapter that stood still standing beside an attempt that was not kept), it can be stopped from its section, and training and pretraining wait for it and say so",
+          html.index('<h2>Memory saved</h2>') < html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2>Pretrain</h2>') < html.index('<h2 id="arrangement">Train</h2>')
+          and '<h2>Memory saved</h2><div class="panel memcard"><div class="proghead"><span class="memnum"><b class="pct">' in html and 'class="memh"' not in html.split('<h2>Memory saved</h2>')[1].split('<h2>')[0]
           and "lm-evaluation-harness 0.4.13" in ev0 and 'id="ev-go"' in ev0 and ev0.count("<option") == 3 and 'data-evt="ifeval"' in ev0 and "not evaluated yet" in ev0 and api0.get("running") is False
           and bad_size == 400 and foreign == 403
           and 'id="pre-go"' in pre0 and pre_ok and pre0.count('class="prerow"') == len([k for k in ("a", "b", "c", "d") if k in d["members"]])
@@ -379,7 +390,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and 'class="pct busy"' in pre_run and "of %d adapted" % pre0.count('class="prerow"') in pre_run and "pct busy" not in pre_stop and '<b class="pct">1</b>' in pre_stop
           and "Adapted</b> 2026-11-17" in pre_stop and "a later attempt was not kept: llama.cpp did not load it" in pre_stop and "of 100 questions" in held_ev and "75%</b><span>equivalent" not in held_ev
           and "75%</b><span>equivalent<small>15 of 20 questions" in ev_after and "pct busy" not in ev_after,
-          {"order": html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2>Pretrain</h2>') < html.index('<h2>Training progress</h2>'),
+          {"order": html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2>Pretrain</h2>') < html.index('<h2 id="arrangement">Train</h2>'),
            "ev0": ["lm-evaluation-harness 0.4.13" in ev0, 'id="ev-go"' in ev0, ev0.count("<option"), 'data-evt="ifeval"' in ev0, "not evaluated yet" in ev0, api0.get("running")],
            "codes": [bad_size, foreign, a_on, a_bad, a_off, held_pre[0]], "pre": ['id="pre-go"' in pre0, apple, pre_ok, pre0.count('class="prerow"')],
            "ev1": ["75%</b> <span>15 of 20 the same" in ev1, "9 both right · 6 both wrong · 5 differ" in ev1, "Last evaluated 2026-11-17 12:00 UTC" in ev1, "without adapters" in ev1],
@@ -557,7 +568,8 @@ with tempfile.TemporaryDirectory() as tmp:
     made = []
     for mid, right in (("lfm25-2.6b", 19), ("bonsai2-2b", 11), ("qwen35-4b", 30), ("gemma4-e2b", 13)):
         fp = res / ("%s-alone-vs-nemotron35-30b-held.json" % mid)
-        fp.write_text(json.dumps({"right": right, "compared": 42}))
+        # (newest of all, so that these are the questions compared, whatever this repository has measured itself)
+        fp.write_text(json.dumps({"right": right, "compared": 42, "at": "2099-01-01T00:00:00Z"}))
         made.append(fp)
     for key, eq in (("qwen35-4b+gemma4-e4b+startlux-4b--nemotron35-30b", 40), ("qwen3-4b+gemma4-e2b+kev-4b--nemotron35-30b", 20)):
         fp = sts / (key + ".json")
@@ -571,7 +583,7 @@ with tempfile.TemporaryDirectory() as tmp:
     ra = swarm_ui.recommendations(data.load(root))
     by = {r["id"]: r for r in ra}
     sw, cf = by.get("swap:b:qwen35-4b"), by.get("config:qwen35-4b+gemma4-e4b+startlux-4b--nemotron35-30b")
-    check("what other configurations measured becomes a recommendation here: a small model that, alone against the same larger model, answered as it did more often than the weakest member (by 5 points or more) is recommended in that member's place; a configuration further along against the same larger model is recommended with its members and decider; one behind this configuration, or a model below the bar, is not; each says what it rests on",
+    check("what other configurations measured becomes a recommendation here: a small model that, alone against the same larger model on the same questions, answered as it did more often than the weakest member (by 5 points or more, or by more than one model's runs differ) is recommended in that member's place; a configuration further along against the same larger model is recommended with its members and decider; one behind this configuration, or a model below the bar, is not; each says what it rests on",
           sw and sw["apply"] == {"b": "qwen35-4b"} and sw["strength"] == "measured" and "30 of 42" in sw["why"] and "Bonsai 2 2B" in sw["title"]
           and cf and cf["apply"] == {"a": "qwen35-4b", "b": "gemma4-e4b", "c": "", "d": "", "decider": "startlux-4b"} and "95.2%" in cf["why"] and "2 passes" in cf["why"]
           and not any("gemma4-e2b" in i for i in by) and not any("qwen3-4b+" in i for i in by), list(by))
@@ -683,23 +695,35 @@ with tempfile.TemporaryDirectory() as tmp:
     # TRAINING LIVES ON ITS PROGRESS CARD: no column beside the page and no tile for one on a phone; the card carries Train (or Stop
     # training), Clear training state, what the session is doing, and the ideas waiting to be tried; the passes are not listed again
     card = get(base + "/fragment/score")[1]
-    check("training lives on the Training progress card, as Evaluate and Pretrain do: no column beside the page, no tile or sheet for one on a phone, and no list of passes; the card's head has Train and Clear training state (or Stop training), and under it what the session is doing; the ideas waiting to be tried are in its meta",
+    check("training lives at the head of the Train card, as Evaluate and Pretrain have theirs: no column beside the page, no tile or sheet for one on a phone, and no list of passes; the card's head has Train and Clear training state (or Stop training), and under it what the session is doing; the ideas waiting to be tried are not there (taken out)",
           'class="rail"' not in tg0 and 'id="mtile"' not in tg0 and 'id="mtrain"' not in tg0 and "<h2>Passes</h2>" not in tg0 and "Ideas waiting to be tried</h2>" not in tg0
-          and card.startswith('<div class="panel trainprog">') and '<span class="evctl">' in card and ('id="run-go"' in card) != ('id="run-stop"' in card)
-          and ('id="run-clear"' in card or 'id="run-stop"' in card) and "Ideas waiting to be tried:" in card and "/fragment/mtile" not in tg0,
+          and card.startswith('<div class="trainprog trainhead">') and '<span class="evctl">' in card and ('id="run-go"' in card) != ('id="run-stop"' in card)
+          and ('id="run-clear"' in card or 'id="run-stop"' in card) and "Ideas waiting to be tried:" not in card and "/fragment/mtile" not in tg0,
           card[:300])
     # EVERYTHING NEEDED TO MAKE IT AGAIN, AND TO OFFER IT AS A MODEL: every slot with what it is told, the decider's recipe, the
-    # engine's pinned builds, a card in the shape The Crew's chooser lists its models, what it needs of a machine, what it can and
+    # engine's pinned builds, a card a model chooser can list, what it needs of a machine, what it can and
     # cannot do as a model, and a hash of the recipe that src/spec.mjs computes the same way
     rc = spec["recipe"]
     check("the spec holds everything needed to make the swarm again and offer it: every slot with what it is told, the decider's serving recipe, the engine's pinned builds, a card a model chooser can list (engine swarm, memory, what it is equivalent on and where it stands), what it needs of a machine (platforms, memory, disk, licences, whether it may be used commercially), what it can and cannot do (tools go to one model alone), how to start it, and a format, version and hash",
-          spec["spec"]["format"] == "the-swarm/spec" and spec["spec"]["version"] == 2 and len(spec["spec"]["recipeSha256"]) == 64 and spec["spec"]["recipeSha256"] == data.recipe_sha256(rc)
+          spec["spec"]["format"] == "the-swarm/spec" and spec["spec"]["version"] == 3 and len(spec["spec"]["recipeSha256"]) == 64 and spec["spec"]["recipeSha256"] == data.recipe_sha256(rc)
           and all(s_.get("brief") for s_ in rc["briefs"]["slots"]) and all(s_.get("brief") for s_ in spec["arrangement"]["slots"]) and rc["briefs"]["slots"] == d["briefs"]["slots"]
           and rc["members"]["a"]["sha256"] == d["members"]["a"]["sha256"] and rc["decider"].get("serve") and rc["engine"].get("builds") and rc["serving"]["slots"] == data.SERVING["slots"]
-          and spec["card"]["engine"] == "swarm" and spec["card"]["memGb"] > 0 and "The Crew" in spec["card"]["equivalentOn"] and spec["card"]["badge"] and spec["card"]["plain"].startswith("Two small models")
+          and spec["card"]["engine"] == "swarm" and spec["card"]["memGb"] > 0 and "Programming and its conversation" in spec["card"]["equivalentOn"] and "Crew" not in json.dumps(spec) and spec["card"]["badge"] and spec["card"]["plain"].startswith("Two small models")
           and spec["requirements"]["commercialUse"] is True and spec["requirements"]["licenses"] and spec["requirements"]["diskGb"] > 0 and spec["requirements"]["platforms"]
           and "alone" in spec["interface"]["capabilities"]["tools"] and "serveSwarm({ ...spec.card, spec }" in spec["interface"]["start"]["host"] and "--spec" in spec["interface"]["start"]["terminal"],
           {k: spec.get(k) for k in ("spec", "card", "requirements")})
+    # HOW FAR TRAINING TOOK IT: the arrangement every swarm starts from against the trained one, both served as the recipe says, and the
+    # gain; a side measured another way (with other adapters) is not borrowed, and an unmeasured side says so
+    eq_d = dict(data.load(root), heldBy=[{"briefs": 1, "adapters": [], "parity": {"percent": 50.0, "equivalent": 21, "compared": 42}},
+                                         {"briefs": 4, "adapters": [], "parity": {"percent": 61.9, "equivalent": 26, "compared": 42}},
+                                         {"briefs": 1, "adapters": ["a"], "parity": {"percent": 90.0, "equivalent": 38, "compared": 42}}])
+    eq4 = data.equivalence_of(eq_d, {"version": 4}, {})
+    eq4a = data.equivalence_of(eq_d, {"version": 4}, {"a": {}})
+    check("the spec says how far training took the swarm past the arrangement every swarm starts from, served the same way: the default and the trained share of the held questions and the gain in points; a side measured with other adapters is not borrowed; and the adapters it is served with are pinned in the recipe (none here)",
+          eq4["default"]["percent"] == 50.0 and eq4["trained"]["percent"] == 61.9 and eq4["gainPoints"] == 11.9
+          and eq4a["default"]["percent"] == 90.0 and eq4a["trained"].get("measured") is False and eq4a["gainPoints"] is None
+          and data.equivalence_of(eq_d, {"version": 1}, {})["trained"].get("sameAs") and "equivalence" in spec and spec["adapters"] == {"servedWith": False} and "adapters" not in spec["recipe"],
+          [eq4, eq4a])
     nc = data.spec(dict(data.load(root), decider=next(x for x in d["registry"]["deciders"] if x["id"] == "startlux-4b")))
     check("a spec whose decider's licence says non-commercial says it may not be used commercially, and lists every licence", nc["requirements"]["commercialUse"] is False and any("NC" in x or "non-commercial" in x for x in nc["requirements"]["licenses"]), nc["requirements"])
     node_ = swarm_ui.node_for_training()
@@ -709,7 +733,7 @@ with tempfile.TemporaryDirectory() as tmp:
         rd = __import__("subprocess").run([node_, "-e", "import(process.argv[1]).then(m=>{const s=m.readSpec(process.argv[2]);console.log(s.spec.recipeSha256===m.recipeSha256(s.recipe)?'same':'differs')}).catch(e=>console.log('refused: '+e.message))",
                                             (Path(swarm_ui.__file__).resolve().parent.parent / "src" / "spec.mjs").as_uri(), str(sp_file)], capture_output=True, text=True)
         check("the module reads the spec the page writes, and computes its hash the same way", rd.stdout.strip() == "same", rd.stdout + rd.stderr[:300])
-    check("an idea waiting to be tried opens the paper it came from, from the Training progress card", 'href="https://arxiv.org/abs/' in html.split('class="panel trainprog"')[1].split('<h2')[0] and 'target="_blank"' in html and "arXiv 26" in html)
+    check("the ideas waiting to be tried are no longer on the Train card's head (taken out, console instruction 2026-11-17)", "Ideas waiting to be tried:" not in html.split('<div id="score">')[1].split('</div></div>')[0])
     node = swarm_ui.node_for_training()
     if node:
         parsed = __import__("subprocess").run([node, "--check", "-"], input="async function page(){\n" + swarm_ui.JS + "\n}", capture_output=True, text=True)
@@ -808,7 +832,7 @@ with tempfile.TemporaryDirectory() as tmp:
             return x.code, ""
 
     page0 = get(base + "/")[1]
-    check("where training can be started the Training progress card has a Train button that can be pressed, no count of passes to choose, and says it goes on until it is stopped",
+    check("where training can be started the Train card has a Train button that can be pressed, no count of passes to choose, and says it goes on until it is stopped",
           'id="run-go" type="button" title="Train question by question, pass after pass, until Stop training is pressed">Train</button>' in page0 and 'id="run-stop"' not in page0 and 'id="run-passes"' not in page0 and 'class="facts"' not in page0
           and swarm_ui.step_label("10-questions") == "Train, question by question" and swarm_ui.step_label("07-plan") == "Plan what to try" and swarm_ui.step_label("99-new") == "new")
     # THE SWARM AGAINST EACH QUESTION, on the swarm's own card: a pip for each finished question, the counts, and where a pass stopped
@@ -911,9 +935,9 @@ with tempfile.TemporaryDirectory() as tmp:
     time.sleep(1.0)
     panel = get(base + "/fragment/run")[1]
     st = json.loads((fake / ".work" / "train" / "ui-run.json").read_text())
-    check("pressed, it starts a session that goes on until it is stopped (no number of passes is given it, and no number of questions: that is the trainer's policy), and the Training progress card shows it running: Stop training in place of Train, how long and since when, that it goes on until stopped, and a moving bar in place of the share",
+    check("pressed, it starts a session that goes on until it is stopped (no number of passes is given it, and no number of questions: that is the trainer's policy), and the Train card shows it running: Stop training in place of Train, how long and since when, that it goes on until stopped, and a moving bar in place of the share",
           code == 200 and 'data-running="1"' in panel and "Stop training" in panel and 'id="run-go"' not in panel and 'data-since="' in panel and "<b>Running " in panel and "<small>since " in panel and swarm_ui._span(45) == "45 s" and swarm_ui._span(750) == "12 min 30 s" and swarm_ui._span(7500) == "2 h 5 min" and "timeZoneName" in html
-          and "until stopped" in panel and panel.startswith('<div class="panel trainprog">') and 'class="pct busy"' in panel and 'class="facts"' not in panel and 'id="run-each"' not in page0 and "asked 0 " in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text(), panel[:400])
+          and "until stopped" in panel and panel.startswith('<div class="trainprog trainhead">') and 'class="pct busy"' in panel and 'class="facts"' not in panel and 'id="run-each"' not in page0 and "asked 0 " in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text(), panel[:400])
     check("a teacher is never started from the button, whatever the page was started with", "teacher=[]" in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text())
     # what every slot is doing now: written by a trainer, shown only while a session runs and only while it is fresh
     (fake / ".work" / "train" / "live.json").write_text(json.dumps({"at": time.time() * 1000, "trainer": "measure", "who": "swarm", "split": "train", "n": 3, "of": 42,
@@ -952,6 +976,37 @@ with tempfile.TemporaryDirectory() as tmp:
     code, html = get(base + "/")
     check("on this repository it opens and names the model being chased", code == 200 and "Nemotron 3.5 Lightning 30B" in html and "Sample data" not in html)
     srv.shutdown()
+
+# THE RECOMMENDATIONS WEIGH EVERY SAVED ALONE MEASUREMENT: those in each configuration's folder too (the badge once read only the
+# top of training/results, and recommended nothing while six models were measured), only those on the same questions, a model
+# measured more than once by its mean, and a lead only where it clears how far one model's runs differ
+with tempfile.TemporaryDirectory() as tmp:
+    res = Path(tmp) / "training" / "results"
+    def alone(folder, mid, right, of=84, kinds=("bug", "write-arrays"), at="2026-11-17T10:00:00Z"):
+        f = res / folder / ("%s-alone-vs-tgt-held.json" % mid) if folder else res / ("%s-alone-vs-tgt-held.json" % mid)
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps({"at": at, "seed": 7919, "right": right, "compared": of, "kinds": {k: 1 for k in kinds}}))
+    alone("cfg1", "m-small", 16, at="2026-11-16T10:00:00Z")
+    alone("cfg2", "m-small", 30, at="2026-11-17T10:00:00Z")
+    alone("cfg2", "m-big", 44)
+    alone("cfg2", "m-mid", 25)
+    alone("", "m-other", 40, of=42, kinds=("bug",))
+    sc = swarm_ui.alone_scores(tmp, "tgt", ["m-small"])
+    check("the recommendations read alone measurements in every configuration's folder, compare only those on the same questions, take a model measured twice by its mean, and set the bar at how far one model's runs differ",
+          set(sc["models"]) == {"m-small", "m-big", "m-mid"} and sc["models"]["m-small"]["runs"] == 2 and abs(sc["models"]["m-small"]["pct"] - 100 * 23 / 84) < 0.01
+          and abs(sc["bar"] - 100 * 14 / 84) < 0.01 and swarm_ui.alone_scores(tmp, "none")["models"] == {},
+          json.dumps({k: round(v["pct"], 1) for k, v in sc["models"].items()}))
+
+# THE HEAD OF EVERY CARD IS ONE STRUCTURE: the figure, what the card does, its controls, in that order, on one grid of fixed columns
+with tempfile.TemporaryDirectory() as tmp:
+    srv, base = serve(Path(__file__).resolve().parent.parent)
+    page = get(base + "/")[1]
+    srv.shutdown()
+    heads = re.findall(r'<div class="proghead">(.*?)</div>', page, re.S)
+    shape = [re.findall(r'<span class="(memnum|progline|evctl)"', h)[:3] for h in heads]
+    check("every card's head (Memory saved, Evaluate, Pretrain, Train) is one structure: the figure, what the card does, its controls, in three columns of the same widths",
+          len(heads) >= 4 and all(x == ["memnum", "progline", "evctl"] for x in shape)
+          and "grid-template-columns:330px minmax(0,1fr) 300px" in page and ".memcard>.proghead,.evalp>.proghead,.prep>.proghead,.trainhead>.proghead{display:grid" in page, shape)
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

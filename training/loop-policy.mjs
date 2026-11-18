@@ -129,6 +129,42 @@ export const KNOBS = {
     kind: 'bool',
     default: true,
   },
+  stableAfter: {
+    about:
+      'Where every question already at parity that changes for the question in hand have broken is among the same few (stableMax at most), after this many losses of them together a change that loses only those is kept and they go back in hand, sooner than swapAfter (0: wait for swapAfter).',
+    kind: 'int',
+    min: 0,
+    max: 500,
+    default: 6,
+  },
+  stableMax: {
+    about:
+      'How many different questions already at parity a standing conflict may span and still be swapped after stableAfter (1: only a conflict with one question).',
+    kind: 'int',
+    min: 1,
+    max: 5,
+    default: 2,
+  },
+  setAsideAfter: {
+    about:
+      'After this many tries in a row that bring the question in hand neither closer nor to parity, it is set aside while another question waits, and comes back after them on the arrangement they leave; where nothing has changed by then it is searched until parity (0: never set aside).',
+    kind: 'int',
+    min: 0,
+    max: 500,
+    default: 30,
+  },
+  helpBackoff: {
+    about:
+      "The larger model's suggestions and new briefs come half as often on a question each time they bring it nothing (no parity, nothing closer), and back to every suggestEvery / teachEvery tries when they do.",
+    kind: 'bool',
+    default: true,
+  },
+  kindBranch: {
+    about:
+      'Where a change brings the question in hand to parity and every question it loses is of the other kind (code, or words), keep it for its own kind only: that kind gets its own arrangement, and nothing is lost.',
+    kind: 'bool',
+    default: true,
+  },
   swapAfter: {
     about:
       'After changes that bring the question in hand to parity have lost the same question already at parity this many times, a change that loses only that one is kept, and that question goes back in hand (once each way for a pair; 0: never).',

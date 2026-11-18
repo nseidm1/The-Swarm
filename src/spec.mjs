@@ -2,15 +2,20 @@
 // from: `recipe` = { members, decider, engine, serving, briefs }, every file pinned and every slot with what it is told. This reads one
 // back, so that a program can make the swarm it describes, anywhere, with no record of its training:
 //   readSpec(json | path)   -> the spec, checked: its format and version known, its recipe there, its hash the recipe's own
-//   fromSpec(spec)          -> { members, briefs, slots, contextPerSlot, decider } for createSwarm
+//   fromSpec(spec, { adaptersDir, anyAdapters })
+//                           -> { members, briefs, slots, contextPerSlot, decider, loras } for createSwarm. Where the recipe pins
+//                              adapters (version 3), each is looked for in adaptersDir (by default beside a spec read from a file:
+//                              <name>.adapters/) and refused unless its SHA-256 is the pinned one: an adapter trained again
+//                              differs, and makes another swarm (anyAdapters: true takes it all the same, and says so)
 //   recipeSha256(recipe)    -> the hash, in the form ui/data.py writes it: keys sorted, no spaces, text as itself, 1.0 written 1
 // A spec whose hash does not match its recipe is refused: it has been changed since it was written, and is no longer the swarm it
 // says it is (its record of parity was measured on another).
 import fs from 'node:fs';
+import path from 'node:path';
 import { createHash } from 'node:crypto';
 
 export const SPEC_FORMAT = 'the-swarm/spec';
-export const SPEC_VERSIONS = [2];
+export const SPEC_VERSIONS = [2, 3];
 const canon = (x) =>
   Array.isArray(x)
     ? '[' + x.map(canon).join(',') + ']'
@@ -43,6 +48,11 @@ export function readSpec(from) {
   for (const [k, m] of Object.entries(r.members))
     if (!m || !m.file || !m.sha256)
       throw new Error('the small model in place ' + k + ' is not pinned (a file and its SHA-256)');
+  for (const [k, a] of Object.entries(r.adapters || {}))
+    if (!r.members[k] || !a || !a.file || !a.sha256)
+      throw new Error(
+        'the adapter in place ' + k + ' is not pinned to a small model of the recipe (a file and its SHA-256)',
+      );
   const got = recipeSha256(r);
   if (head.recipeSha256 && got !== head.recipeSha256)
     throw new Error(
@@ -55,8 +65,37 @@ export function readSpec(from) {
   return spec;
 }
 
-export function fromSpec(spec) {
+const sha256Of = (file) => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+export function fromSpec(spec, { adaptersDir, anyAdapters = false } = {}) {
   const r = readSpec(spec).recipe;
+  // THE ADAPTERS IT IS SERVED WITH: each found, and checked against its pin
+  const dir = adaptersDir || (typeof spec === 'string' ? spec.replace(/\.json$/, '') + '.adapters' : '');
+  const loras = {};
+  for (const [k, a] of Object.entries(r.adapters || {})) {
+    const file = dir ? path.join(dir, a.file) : '';
+    if (!file || !fs.existsSync(file))
+      throw new Error(
+        'the spec serves place ' +
+          k +
+          ' with the adapter ' +
+          a.file +
+          ', and it is not ' +
+          (dir ? 'in ' + dir : 'given') +
+          ': name the folder that holds it (adaptersDir, or --adapters)',
+      );
+    const got = sha256Of(file);
+    if (got !== a.sha256 && !anyAdapters)
+      throw new Error(
+        'the adapter ' +
+          a.file +
+          ' is not the one the spec pins (SHA-256 ' +
+          got.slice(0, 12) +
+          ' against ' +
+          a.sha256.slice(0, 12) +
+          '): one trained again makes another swarm, whose equivalence has not been measured',
+      );
+    loras[k] = file;
+  }
   return {
     members: r.members,
     briefs: r.briefs,
@@ -64,5 +103,6 @@ export function fromSpec(spec) {
     contextPerSlot: (r.serving && r.serving.contextPerSlot) || undefined,
     decider: r.decider || null,
     tools: (r.serving && r.serving.tools) || 'lead',
+    loras,
   };
 }

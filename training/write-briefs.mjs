@@ -12,7 +12,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { arg, openAlone, WORK, WORKC } from './support/bench.mjs';
-import { missesOf, briefAsk, candidatesIn } from './support/teach.mjs';
+import { missesOf, briefAsk, candidatesIn, refuseGiveaways } from './support/teach.mjs';
 import { readBriefs } from '../src/index.mjs';
 import { readState, candHash } from './state.mjs';
 import { readPlan } from './support/plan-file.mjs';
@@ -83,7 +83,13 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         have = [];
       }
       const tried = state.tried[id] || [];
-      const fresh = candidatesIn(text, 'the larger model').filter(
+      // (a brief that gives one of these questions away is refused and said: support/teach.mjs givesAway)
+      const { kept, refused } = refuseGiveaways(
+        candidatesIn(text, 'the larger model'),
+        missed.map((x) => x.question),
+      );
+      for (const c of refused) console.log(id + ': refused "' + c.name + '": ' + c.refused);
+      const fresh = kept.filter(
         (c) => c.brief !== slot.brief && !tried.includes(candHash(c)) && !have.some((x) => x.brief === c.brief),
       );
       fs.writeFileSync(file, JSON.stringify([...have, ...fresh], null, 2) + '\n');

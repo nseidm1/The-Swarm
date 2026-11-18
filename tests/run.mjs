@@ -2904,7 +2904,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 // ---- 6w: A SWARM FROM ITS SPEC: the output spec holds what a swarm is made of, so a program can make the swarm it describes (a
-// chooser like The Crew's offers spec.card and starts it with serveSwarm({ ...card, spec })); a spec changed since it was written,
+// model chooser offers spec.card and starts it with serveSwarm({ ...card, spec })); a spec changed since it was written,
 // or not one at all, is refused
 {
   const { readSpec, recipeSha256 } = await import('../src/spec.mjs');
@@ -2963,6 +2963,71 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       /version 9/.test(refused({ ...spec, spec: { ...spec.spec, version: 9 } })) &&
       /not pinned/.test(refused(unpinned)),
     { reply: got.reply, up: up.ok, changed: refused(changed) },
+  );
+}
+// ---- 6x: THE ADAPTERS A SPEC PINS (version 3): found in the folder named, or beside a spec read from a file (<name>.adapters/),
+// checked by SHA-256 and handed to the swarm; one missing, or another (trained again), is refused unless anyAdapters is said
+{
+  const { fromSpec, readSpec, recipeSha256 } = await import('../src/spec.mjs');
+  const { createHash } = await import('node:crypto');
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-spec-'));
+  const bytes = Buffer.from('a LoRA, in miniature');
+  const recipe = {
+    members: Object.fromEntries(Object.entries(MEMBERS).slice(0, 2)),
+    decider: { id: 'kev-4b' },
+    engine: { name: 'llama.cpp' },
+    serving: { slots: 3, contextPerSlot: 2048 },
+    briefs,
+    adapters: {
+      a: { file: 'a-lora.gguf', sha256: createHash('sha256').update(bytes).digest('hex'), bytes: bytes.length },
+    },
+  };
+  const spec = { spec: { format: 'the-swarm/spec', version: 3, recipeSha256: recipeSha256(recipe) }, recipe };
+  const file = path.join(dir, 'swarm.json');
+  fs.writeFileSync(file, JSON.stringify(spec));
+  const why = (f) => {
+    try {
+      f();
+      return '';
+    } catch (e) {
+      return e.message;
+    }
+  };
+  const missing = why(() => fromSpec(file));
+  fs.mkdirSync(path.join(dir, 'swarm.adapters'));
+  fs.writeFileSync(path.join(dir, 'swarm.adapters', 'a-lora.gguf'), bytes);
+  const found = fromSpec(file);
+  const named = fromSpec(spec, { adaptersDir: path.join(dir, 'swarm.adapters') });
+  fs.writeFileSync(path.join(dir, 'swarm.adapters', 'a-lora.gguf'), Buffer.from('trained again'));
+  const other = why(() => fromSpec(file));
+  const taken = fromSpec(file, { anyAdapters: true });
+  const stray = why(() =>
+    readSpec({
+      ...spec,
+      spec: { ...spec.spec, recipeSha256: undefined },
+      recipe: { ...recipe, adapters: { z: { file: 'z.gguf', sha256: 'x' } } },
+    }),
+  );
+  fs.rmSync(dir, { recursive: true, force: true });
+  check(
+    'a spec that pins its adapters makes the swarm with them: each is found beside the spec (or in the folder named) and checked by its SHA-256; one missing, or one trained again, is refused saying why (unless taken anyway), and an adapter for a place the recipe has no small model in is refused',
+    /not in .*swarm\.adapters/.test(missing) &&
+      found.loras.a === path.join(dir, 'swarm.adapters', 'a-lora.gguf') &&
+      named.loras.a === found.loras.a &&
+      /not the one the spec pins/.test(other) &&
+      taken.loras.a === found.loras.a &&
+      /not pinned to a small model/.test(stray) &&
+      Object.keys(
+        fromSpec({
+          ...spec,
+          spec: { ...spec.spec, version: 2, recipeSha256: undefined },
+          recipe: { ...recipe, adapters: undefined },
+        }).loras,
+      ).length === 0,
+    { missing, other, stray },
   );
 }
 // ---- 6v: what the measurement held and no finding read: answers cut off at the token limit, a drafter that echoes another on its
@@ -5090,6 +5155,308 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       carried.trial.taken[0].knob === 'beam' &&
       carried.trial.from.beam === 3,
     { asked: asked.slice(0, 8), kept: st.kept.map((k) => k.what), order, A, swapped: sw.kept.map((k) => k.swapped) },
+  );
+}
+
+// ---- 9p: a conflict handled faster: what is built on a change that broke a question is aimed at that question; the question this
+// question's changes break most is checked first; a conflict with one question only is swapped after `stableAfter`
+{
+  const { runLoop, guardOf } = await import('../training/loop.mjs');
+  const mk = (bb, k, area) => ({
+    key: k,
+    id: k,
+    name: k,
+    kind: 'arrangement',
+    area,
+    briefs: { ...bb, has: [...bb.has, k] },
+  });
+  const DECIDE = 'plan: decide by most';
+  const pool = (bb) =>
+    [
+      ['x', 'slots'],
+      ['m1', 'slots'],
+      [DECIDE, 'decider'],
+    ]
+      .filter(([k]) => !bb.has.includes(k))
+      .map(([k, area]) => mk(bb, k, area));
+  const asked = [];
+  // B needs x; x makes A lose in choosing (a draft had A's answer, and it was not chosen) unless the decider is changed too
+  const run = await runLoop({
+    list: [
+      { id: 'A', kind: 'k' },
+      { id: 'B', kind: 'k' },
+    ],
+    briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+    poolOf: pool,
+    policy: { stableAfter: 0 },
+    attempt: async (bb, t) => {
+      asked.push(t.id + ':' + bb.has.join('+'));
+      if (t.id === 'A' && bb.has.includes('x') && !bb.has.includes(DECIDE))
+        return { grade: 'wrong', path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: true }] };
+      if (t.id === 'B' && !bb.has.includes('x'))
+        return { grade: 'wrong', path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: false }] };
+      return { grade: 'right', trace: [] };
+    },
+  });
+  const B = run.questions.find((x) => x.id === 'B');
+  const afterBreak = asked.slice(asked.indexOf('A:x') + 1);
+  // the same conflict as the swap check before, with swapAfter left at 25: one question only lost, so swapped after stableAfter
+  const order = [];
+  const wrong = { grade: 'wrong', path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: false }] };
+  const sw = await runLoop({
+    list: [
+      { id: 'A', kind: 'k' },
+      { id: 'B', kind: 'k' },
+      { id: 'C', kind: 'k' },
+    ],
+    briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+    poolOf: (bb) => ['x', 'y'].filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k, 'slots')),
+    policy: { swapAfter: 25, stableAfter: 2 },
+    attempt: async (bb, t, at) => {
+      if (!at.attempt && !at.guard) order.push(t.id);
+      const ok = t.id === 'A' ? !bb.has.includes('x') : t.id === 'B' ? bb.has.includes('x') : true;
+      return ok ? { grade: 'right', trace: [] } : wrong;
+    },
+  });
+  const reached = [{ t: { id: 'q1', kind: 'k' } }, { t: { id: 'q3', kind: 'k' } }];
+  check(
+    "a change that brings the question to parity but breaks one already there is built on with changes aimed at the one it broke (ranked by where that one was lost: here a deciding change, which this question's own drafting loss would have left out), and kept together; the question this question's changes have broken most is checked first, before one lost more often overall; and where the only question lost is the same one, the conflict is swapped after `stableAfter` losses, sooner than `swapAfter`",
+    B.state === 'reached' &&
+      run.kept.at(-1).what === 'several: x + ' + DECIDE &&
+      afterBreak[0] === 'B:x+' + DECIDE &&
+      !asked.some((a) => a === 'B:x+m1') &&
+      guardOf(reached, { id: 'q6', kind: 'k' }, 6, { q1: 11, q3: 5 }, { 'q6>q3': 5 })
+        .map((r) => r.t.id)
+        .join() === 'q3,q1' &&
+      guardOf(reached, { id: 'q6', kind: 'k' }, 6, { q1: 11, q3: 5 })
+        .map((r) => r.t.id)
+        .join() === 'q1,q3' &&
+      sw.kept.at(-1).swapped === 'A' &&
+      order.join() === 'A,B,A,C',
+    { asked, kept: run.kept.map((k) => k.what), order, swapped: sw.kept.map((k) => k.swapped) },
+  );
+}
+
+// ---- 9q: a standing conflict that spans two questions already at parity is swapped after `stableAfter` losses of them together, when
+// `stableMax` allows two; with `stableMax` 1 it is not
+{
+  const { runLoop } = await import('../training/loop.mjs');
+  const mk = (bb, k) => ({
+    key: k,
+    id: k,
+    name: k,
+    kind: 'arrangement',
+    area: 'slots',
+    briefs: { ...bb, has: [...bb.has, k] },
+  });
+  const wrong = { grade: 'wrong', path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: false }] };
+  const go = (stableMax) =>
+    runLoop({
+      list: [
+        { id: 'A', kind: 'k' },
+        { id: 'C', kind: 'k' },
+        { id: 'B', kind: 'k' },
+      ],
+      briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+      poolOf: (bb) => ['x', 'y'].filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k)),
+      policy: { swapAfter: 25, stableAfter: 2, stableMax },
+      // B needs x; x loses both A and C
+      attempt: async (bb, t) => ((t.id === 'B') === bb.has.includes('x') ? { grade: 'right', trace: [] } : wrong),
+    });
+  const two = await go(2);
+  const one = await go(1);
+  const sw2 = two.kept.filter((k) => k.swapped).map((k) => k.swapped);
+  const sw1 = one.kept.filter((k) => k.swapped).map((k) => k.swapped);
+  check(
+    'a conflict spanning two questions already at parity is swapped after `stableAfter` losses of them together (both go back in hand), and not when `stableMax` is 1',
+    sw2.length === 1 && sw2[0].split(', ').sort().join() === 'A,C' && sw1.length === 0,
+    { sw2, sw1 },
+  );
+}
+
+// ---- 9r: a question that stops coming closer is set aside while others wait, and comes back after them; a stopped run carries on
+// from its last try; the larger model's help comes less often where it brings nothing; closeness counts how near all the drafts
+// came; and a change that loses only questions of the other kind is kept for its own kind
+{
+  const { runLoop, closeness } = await import('../training/loop.mjs');
+  const mk = (bb, k) => ({
+    key: k,
+    id: k,
+    name: k,
+    kind: 'arrangement',
+    area: 'slots',
+    briefs: { ...bb, has: [...bb.has, k] },
+  });
+  const MOVES = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8'];
+  const pool = (bb) => MOVES.filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k));
+  const wrong = { grade: 'wrong', path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: false }] };
+  const B0 = () => ({ version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} });
+  // set aside: A never comes closer; after 3 tries it waits for B, then comes back (nothing has changed: searched until exhausted)
+  const firsts = [];
+  const sa = await runLoop({
+    list: [
+      { id: 'A', kind: 'k' },
+      { id: 'B', kind: 'k' },
+    ],
+    briefs: B0(),
+    poolOf: pool,
+    policy: { setAsideAfter: 3, batch: 0, suggestEvery: 0, teachEvery: 0 },
+    attempt: async (bb, t, at) => (
+      !at.attempt && !at.guard && firsts.push(t.id),
+      t.id === 'A' ? wrong : { grade: 'right', trace: [] }
+    ),
+  });
+  const A = sa.questions.find((x) => x.id === 'A');
+  // carried on: a run stopped at its 5th try is started again from what onTry wrote, and asks none of its first tries again
+  let saved = null;
+  const asked1 = [];
+  try {
+    await runLoop({
+      list: [{ id: 'Q', kind: 'k' }],
+      briefs: B0(),
+      poolOf: pool,
+      policy: { setAsideAfter: 0, batch: 0, suggestEvery: 0, teachEvery: 0 },
+      onTry: async (st) => (saved = JSON.parse(JSON.stringify(st))),
+      attempt: async (bb, t, at) => {
+        if (at.attempt === 5) throw new Error('stopped');
+        if (at.attempt) asked1.push(bb.has.join('+'));
+        return wrong;
+      },
+    });
+  } catch {}
+  const asked2 = [];
+  const tries2 = [];
+  await runLoop({
+    list: [{ id: 'Q', kind: 'k' }],
+    briefs: B0(),
+    poolOf: pool,
+    resume: saved,
+    policy: { setAsideAfter: 0, batch: 0, suggestEvery: 0, teachEvery: 0 },
+    attempt: async (bb, t, at) => (at.attempt && (asked2.push(bb.has.join('+')), tries2.push(at.attempt)), wrong),
+  });
+  // help backs off: the larger model, asked to suggest every 2 failed tries, is asked less often where its suggestions bring nothing
+  const asks = async (helpBackoff) => {
+    let n = 0;
+    await runLoop({
+      list: [{ id: 'Q', kind: 'k', ask: 'Write isEven(n).' }],
+      briefs: B0(),
+      poolOf: (bb) =>
+        Array.from({ length: 40 }, (_, k) => 'n' + k)
+          .filter((k) => !bb.has.includes(k))
+          .map((k) => mk(bb, k)),
+      cap: 30,
+      policy: { suggestEvery: 2, teachEvery: 0, batch: 0, setAsideAfter: 0, reviewTries: 1000, helpBackoff },
+      review: async (p, kind) => (kind === 'suggest' && n++, kind === 'suggest' ? '{"try":[["n39"]],"why":"x"}' : '{}'),
+      attempt: async () => wrong,
+    });
+    return n;
+  };
+  const off = await asks(false);
+  const on = await asks(true);
+  // closeness: the same nearest answer, more of the drafts near: closer
+  const tr = (xs) => ({ trace: xs.map((share) => ({ stage: 'draft', same: false, share })) });
+  const nearer = closeness(tr([0.5, 0.5]), null, { partial: true }) > closeness(tr([0.5, 0]), null, { partial: true });
+  // kind branch: B (code) needs x, and x loses A (words): kept for code only, and A stays at parity
+  const CODE = 'Write a JavaScript function `f(n)` that returns n.';
+  const kb = await runLoop({
+    list: [
+      { id: 'A', kind: 'k', ask: 'What is the capital of France?' },
+      { id: 'B', kind: 'k', ask: CODE },
+      { id: 'C', kind: 'k', ask: 'What is two plus two?' },
+    ],
+    briefs: B0(),
+    poolOf: (bb) => ['x'].filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k)),
+    policy: { setAsideAfter: 0, suggestEvery: 0, teachEvery: 0 },
+    attempt: async (bb, t) =>
+      (t.id === 'A' || t.id === 'C') === bb.has.includes('x') ? wrong : { grade: 'right', trace: [] },
+  });
+  check(
+    'a question that stops coming closer is set aside while another waits and comes back after it; a stopped run carries on from its last try without asking its first tries again; the larger model is asked less often where its suggestions bring nothing; closeness counts how near all the drafts came; and a change that loses only questions of the other kind is kept for its own kind, the others keeping theirs',
+    firsts.join() === 'A,B,A' &&
+      A.state === 'not reached' &&
+      A.setAside === 1 &&
+      tries2[0] === 5 &&
+      !asked2.some((x) => asked1.includes(x)) &&
+      on < off &&
+      nearer &&
+      kb.kept.at(-1).kindOnly === 'code' &&
+      kb.briefs.kinds.code.has === undefined &&
+      'flow' in kb.briefs.kinds.code &&
+      !kb.briefs.has.includes('x') &&
+      kb.questions.find((x) => x.id === 'A').state === 'at parity' &&
+      kb.questions.find((x) => x.id === 'C').state === 'at parity',
+    {
+      firsts,
+      A: A && A.state,
+      setAside: A && A.setAside,
+      tries2: tries2.slice(0, 3),
+      asked1,
+      asked2: asked2.slice(0, 4),
+      on,
+      off,
+      kept: kb.kept.map((k) => k.kindOnly),
+      kinds: kb.briefs.kinds,
+    },
+  );
+}
+
+// ---- 9s: the larger model's new briefs go first to the drafters nearest the answer, and a brief that gives a question away (code,
+// or the name of a function a question asks for) is refused and counted
+{
+  const { runLoop } = await import('../training/loop.mjs');
+  const { givesAway } = await import('../training/support/teach.mjs');
+  const Q =
+    'Write a JavaScript function `rotate(list)` that returns a new array with the items moved 4 places to the left.';
+  const mk = (bb, k) => ({
+    key: k,
+    id: k,
+    name: k,
+    kind: 'arrangement',
+    area: 'slots',
+    briefs: { ...bb, has: [...bb.has, k] },
+  });
+  const taught = [];
+  const st = await runLoop({
+    list: [{ id: 'Q', kind: 'k', ask: Q }],
+    briefs: {
+      version: 1,
+      has: [],
+      slots: [
+        { id: 'a-direct', stage: 'draft' },
+        { id: 'a-steps', stage: 'draft' },
+        { id: 'c-direct', stage: 'draft' },
+      ],
+      plan: {},
+    },
+    poolOf: (bb) => ['m1', 'm2', 'm3', 'm4'].filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k)),
+    cap: 6,
+    policy: { teachEvery: 2, suggestEvery: 0, batch: 0, setAsideAfter: 0, helpBackoff: false },
+    teach: async (slot) => (taught.push(slot.id), Object.assign([], { refused: 1 })),
+    attempt: async () => ({
+      grade: 'wrong',
+      path: 'decided',
+      trace: [
+        { stage: 'draft', slot: 'a-direct', same: false, share: 0 },
+        { stage: 'draft', slot: 'a-steps', same: false, share: 0.53 },
+        { stage: 'draft', slot: 'c-direct', same: false, share: 0.87 },
+      ],
+    }),
+  });
+  check(
+    "the larger model's briefs go first to the drafters nearest the answer (by the share of inputs they already get right), not to the first in order; and a brief that holds code (a variable set or a remainder taken among it), names a function a question asks for, or uses a number of the question it was written on is refused and counted, where a general one is not",
+    taught.slice(0, 2).join() === 'c-direct,a-steps' &&
+      st.teach.refused >= 2 &&
+      givesAway('Compute k = k % list.length and return [...list.slice(k)]', [Q]) === 'it holds code' &&
+      /names rotate/.test(givesAway('Before rotating, reduce the shift modulo the length.', [Q])) &&
+      givesAway('Read the question twice, and check the shortest inputs it allows before answering.', [Q]) === '' &&
+      // the answer in words, as it slipped through once: a variable set and a remainder taken are code
+      givesAway('If length is 0 return []. Let k = 4 % length. Return the list sliced from k to end.', [Q]) ===
+        'it holds code' &&
+      // a number the question uses, for the question the brief was written on
+      /uses 4/.test(givesAway('Shift by 4 and wrap around at the end.', [Q], { numbers: true })) &&
+      givesAway('Shift by 4 and wrap around at the end.', [Q]) === '' &&
+      givesAway('Aim for 50% of the effort on checking, under 110 words.', [Q], { numbers: true }) === '',
+    { taught, refused: st.teach && st.teach.refused },
   );
 }
 

@@ -8,6 +8,8 @@
 //   parseAction(text)         -> the action a line of text names (the trainers grade by it)
 //   sameAction(a, b)          -> the same calls with the same arguments (strings trimmed, a leading ./ dropped), or both replies
 //   answerTools(messages, { tools, tool_choice, briefs, ask, decide, lead }) -> { ok, action, calls, reply, text, path, trace, ms }
+import { briefsFor } from './orchestrate.mjs';
+
 const canon = (x) =>
   Array.isArray(x)
     ? x.map(canon)
@@ -100,8 +102,14 @@ const asCalls = (action) =>
   }));
 
 // the turn itself: one proposal from each drafter, the same ones made one, the decider where they differ
-export async function answerTools(messages, { tools = [], tool_choice, briefs, ask, decide, lead = 'a' } = {}) {
+export async function answerTools(messages, { tools = [], tool_choice, briefs: given, ask, decide, lead = 'a' } = {}) {
   const t0 = Date.now();
+  // the arrangement for the turn's kind (code, or words), as for any other question (orchestrate.mjs briefsFor)
+  const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+  const briefs = briefsFor(
+    given,
+    lastUser ? (typeof lastUser.content === 'string' ? lastUser.content : JSON.stringify(lastUser.content)) : '',
+  );
   const drafters = (briefs.slots || []).filter((s) => s.stage === 'draft');
   const who = drafters.length ? drafters : [{ id: 'lead', member: lead, stage: 'draft', maxTokens: 700 }];
   const trace = [];

@@ -3,6 +3,8 @@
 // model (what it is trying to match). The model is told nothing but the question.
 //   node training/baseline.mjs --who a --split held
 //   node training/baseline.mjs --who b --split held
+//   node training/baseline.mjs --who model:qwen35-4b --split held   any small model of the catalog (src/models.json), in the swarm or
+//        not: what the page's recommendations weigh a model by (fetch it first: training/setup.mjs --model qwen35-4b)
 //   node training/baseline.mjs --who target --split held          the larger model being chased (targets.json, target.mjs)
 //   node training/baseline.mjs --who http://127.0.0.1:8080 --label large-27b --split held      any model, wherever it runs
 //   node training/baseline.mjs --who target --self --split held   THE LARGER MODEL AGAINST ITSELF: asked each question again (another

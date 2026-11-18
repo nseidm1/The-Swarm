@@ -67,6 +67,56 @@ export const teachAsk = (slot, missed, lost = 'drafting') =>
     ? ' (this role is the exception: it writes the reply a person reads and has no ANSWER line)'
     : '') +
   '. Reply with JSON only: [{"name":"...","why":"the general mistake, one sentence","brief":"..."}]';
+// A BRIEF THAT GIVES THE QUESTION AWAY IS REFUSED. Both asks say "general, never this question", and a brief is kept only if it
+// helps and loses nothing; but a brief that hands a slot one question's answer can bring that question to parity and teach the
+// swarm nothing. Measured 2026-11-17 on question 6 (rotate left by 4): of three checker briefs, one gave the code outright ("compute
+// k = k % list.length. Return [...list.slice(k), ...]") and another named the task ("Before rotating, reduce the shift modulo").
+// Refused: code in the brief (a fence, an arrow, a function, a spread, a call on a value, a variable set, a remainder taken), or the
+// name of a function a question asks for (by its stem: rotate -> "rotating"). And, for the question it was written on (`numbers`),
+// a number that question uses: the same session let through "If length is 0 return []. Let k = 4 % length. Return the list sliced
+// from k to end, then from start to k", the answer in words, told to a drafter on every question (it broke sumEvery each time)
+export const CODE_IN_BRIEF =
+  /```|=>|\bfunction\s*\w*\s*\(|\.\.\.\w|\b\w+\.(?:slice|splice|concat|map|filter|reduce|push|pop|shift|unshift|join|split|length|indexOf|includes)\b|\b(?:let|const|var)\s+\w+\s*=|\b\w+\s*%\s*(?:length|len|size|count|n|[a-z]\w*\.\w+)\b|\b(?:k|n|i|j|x|shift|step|index)\s*%\s*\w/i;
+export const namesIn = (question) => [...String(question || '').matchAll(/`([A-Za-z_$][\w$]*)\s*\(/g)].map((m) => m[1]);
+// the numbers a question names in its words (2 and up: 0 and 1 are in every method), not inside its code
+export const numbersIn = (question) => [
+  ...new Set(
+    [
+      ...String(question || '')
+        .replace(/`[^`]*`/g, ' ')
+        .matchAll(/(?<![\w.])(\d+)(?![\w.])/g),
+    ]
+      .map((m) => m[1])
+      .filter((x) => Number(x) >= 2),
+  ),
+];
+export function givesAway(brief, questions = [], { numbers = false } = {}) {
+  const b = String(brief || '');
+  if (CODE_IN_BRIEF.test(b)) return 'it holds code';
+  for (const q of questions)
+    for (const n of namesIn(q)) {
+      const stem = n.length >= 5 ? n.replace(/(?:es|e|s)$/i, '') : n;
+      if (new RegExp('\\b' + stem.replace(/\$/g, '\\$'), 'i').test(b))
+        return 'it names ' + n + ', a function a question asks for';
+    }
+  if (numbers)
+    for (const q of questions)
+      for (const x of numbersIn(q))
+        if (new RegExp('(?<![\\w.])' + x + '(?![\\w.])').test(b))
+          return 'it uses ' + x + ', a number the question uses';
+  return '';
+}
+// -> { kept, refused: [{ ...candidate, refused: why }] }
+export function refuseGiveaways(cands, questions = [], { numbers = true } = {}) {
+  const kept = [];
+  const refused = [];
+  for (const c of cands) {
+    const why = givesAway(c.brief, questions, { numbers });
+    if (why) refused.push({ ...c, refused: why });
+    else kept.push(c);
+  }
+  return { kept, refused };
+}
 // the candidates in a teacher's reply: [{ name, brief }], or none
 export function candidatesIn(text, prefix = 'teacher') {
   const s = String(text || '');

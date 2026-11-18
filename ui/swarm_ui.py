@@ -69,6 +69,7 @@ dialog#recd{border:0;border-radius:var(--r);padding:26px;max-width:min(760px,94v
 .hostcard{padding:14px 16px;border-radius:var(--r);border:1px solid var(--line2);background:#fafdfc}.hostcard p{margin:6px 0 0;font-size:13.5px;line-height:1.5}.hcbadge{display:inline-block;margin-top:6px;padding:2px 10px;border-radius:var(--r);background:#fdf0cf;color:#8a5a00;font-size:12px;font-weight:700}
 .hcon{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.hcon span{padding:2px 10px;border-radius:var(--r);background:var(--soft);font-size:12px;font-weight:700;color:var(--teal)}
 details.told{margin-top:4px}details.told summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--teal)}details.told div{margin-top:4px;white-space:pre-wrap;font-size:12.5px;color:var(--fog)}.spec .bad{color:var(--wrong)}
+.equiv .tools{margin-top:12px}
 .tgl{display:inline-flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:var(--r);background:var(--soft)}.tgl .seg{border:0;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--mist);padding:7px 14px;border-radius:var(--r);cursor:pointer}
 .tgl .seg.on{background:#fff;color:var(--teal);box-shadow:0 1px 4px rgba(11,93,87,.15)}.tgl .seg:focus-visible{outline:3px solid var(--teal2)}fieldset.tools{margin-top:12px}
 .rech{list-style:none;margin:8px 0 0;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mist)}
@@ -241,12 +242,14 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .parc .memnum b{color:#9a5b00}.parc.level .memnum b{color:var(--right)}.parc .memh small{color:#7a6a4f;font-weight:600}.parc.level .memh small{color:var(--mist)}
 .trainprog>.mbar{display:flex;width:100%;height:14px;margin-top:12px;border-radius:var(--r);overflow:hidden;background:var(--soft)}.trainprog>.mbar i{display:block;height:100%}.trainprog .mbar .pe,.trainprog .memleg .pe{background:var(--right)}.trainprog .mbar .pr,.trainprog .memleg .pr{background:var(--teal2)}
 .trainprog .mbar .pb,.trainprog .memleg .pb{background:#fff;box-shadow:inset 0 0 0 2px var(--sun)}.trainprog .mbar .pn,.trainprog .memleg .pn{background:var(--wrong)}.trainprog .memleg .pq{background:var(--soft)}
+.memcard .memc{margin-top:14px}
+.trainhead{margin:0 0 16px;padding:0 0 16px;border-bottom:1px solid var(--line)}
 .trainprog .proghead{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline}.trainprog .memnum{display:flex;align-items:baseline;gap:8px}.trainprog .memnum .pct{font-size:40px;line-height:1}.trainprog .memnum small{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mist);margin-top:2px}
 /* EVALUATE THE SWARM and PRETRAIN: the same head as Training progress, a row a task (its name, a bar for each model, what the two came
    to) and a row a small model; the bars move in place while a run goes on */
-.evalp .proghead,.prep .proghead{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center}.evalp .memnum,.prep .memnum{display:flex;align-items:baseline;gap:8px}
-.evalp .memnum .pct,.prep .memnum .pct{font-size:40px;line-height:1}.evalp .memnum small,.prep .memnum small{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mist);margin-top:2px}
-.evalp .progline,.prep .progline{flex:1 1 320px;font-size:14px;color:var(--fog);line-height:1.45}.evctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.memcard .proghead,.evalp .proghead,.prep .proghead{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center}.memcard .memnum,.evalp .memnum,.prep .memnum{display:flex;align-items:baseline;gap:8px}
+.memcard .memnum .pct,.evalp .memnum .pct,.prep .memnum .pct{font-size:40px;line-height:1}.memcard .memnum small,.evalp .memnum small,.prep .memnum small{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mist);margin-top:2px}
+.memcard .progline,.evalp .progline,.prep .progline{flex:1 1 320px;font-size:14px;color:var(--fog);line-height:1.45}.evctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .evctl select{font:inherit;font-weight:700;padding:10px 40px 10px 14px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);cursor:pointer;-webkit-appearance:none;appearance:none;background:var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%235b6b68' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 16px center/12px 8px}
 .evctl select:focus-visible{outline:2px solid var(--teal2);outline-offset:2px}
 .evalp>.state,.prep>.state,.evnow{margin-top:12px}.evq{margin-top:8px;padding:10px 12px;border-radius:var(--r);background:var(--soft);font-size:13px}
@@ -263,9 +266,11 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 @media (max-width:760px){.evrow{grid-template-columns:minmax(0,1fr)}.prerow{grid-template-columns:minmax(0,1fr)}.evctl{width:100%}.evctl .btn{flex:1}.evctl select{flex:1 1 100%}}
 /* THE HEADLINE NUMBERS (Training progress, Evaluate the swarm, Pretrain): the number, then its label beside it on the same line,
    and what it is a share of under the label, all read left to right (the memory chart's own number is right-aligned; not these) */
-.trainprog .memnum,.evalp .memnum,.prep .memnum{text-align:left;align-items:baseline;gap:10px;flex:none}
-.trainprog .memnum>span,.evalp .memnum>span,.prep .memnum>span{display:flex;flex-direction:column;align-items:flex-start;font-size:14px;color:var(--fog);font-weight:700;line-height:1.2}
-.trainprog .memnum small,.evalp .memnum small,.prep .memnum small{margin-top:3px;white-space:nowrap}
+.trainprog .memnum,.evalp .memnum,.prep .memnum,.memcard .memnum{text-align:left;align-items:center;gap:10px;flex:none}
+.trainprog .memnum>span,.evalp .memnum>span,.prep .memnum>span,.memcard .memnum>span{display:flex;flex-direction:column;align-items:flex-start;font-size:14px;color:var(--fog);font-weight:700;line-height:1.2}
+/* (the figure centred on its two lines; a line too long for the column wraps inside it, never over the description) */
+.trainprog .memnum small,.evalp .memnum small,.prep .memnum small,.memcard .memnum small{margin-top:3px;white-space:normal}
+.trainprog .memnum>span,.evalp .memnum>span,.prep .memnum>span,.memcard .memnum>span{min-width:0}
 .pct.busy{display:inline-block;position:relative;color:transparent;line-height:1;user-select:none}
 .memnum .pct.busy>span{font:inherit;color:transparent}
 .pct.busy i{position:absolute;left:0;right:0;bottom:.11em;height:.72em;border-radius:var(--r);background:linear-gradient(90deg,transparent,rgba(30,158,142,.45),transparent) var(--soft);background-size:200% 100%;animation:busyn 1.4s ease-in-out infinite}
@@ -448,6 +453,18 @@ details.fold:not([open])>summary::after,details.fold.shutting>summary::after{tra
 @media (max-width:560px){.picks .pick,.picks .pick.target,.picks .group.small.n4 .pick{flex:1 1 100%}}
 @media (max-width:1000px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.charts,.two,.io,.versus{grid-template-columns:minmax(0,1fr)}
 .stages{grid-auto-columns:minmax(170px,46%)}.qlist{max-height:260px}}
+/* THE HEAD OF EVERY CARD, one structure (Memory saved, Evaluate the swarm, Pretrain, Train): the headline figure with what it is, what
+   the card does, and its controls, in three columns of the same widths on every card, so that each section lines up with the one
+   above it. A card with nothing to press keeps the third column empty */
+.memcard>.proghead,.evalp>.proghead,.prep>.proghead,.trainhead>.proghead{display:grid;grid-template-columns:330px minmax(0,1fr) 300px;gap:8px 24px;align-items:center}
+.memcard>.proghead>.memnum,.evalp>.proghead>.memnum,.prep>.proghead>.memnum,.trainhead>.proghead>.memnum{min-width:0}
+.memcard>.proghead>.progline,.evalp>.proghead>.progline,.prep>.proghead>.progline,.trainhead>.proghead>.progline{min-width:0}
+.memcard>.proghead>.evctl,.evalp>.proghead>.evctl,.prep>.proghead>.evctl,.trainhead>.proghead>.evctl{justify-self:end;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+@media (max-width:1100px){.memcard>.proghead,.evalp>.proghead,.prep>.proghead,.trainhead>.proghead{grid-template-columns:minmax(0,1fr) auto}
+.memcard>.proghead>.progline,.evalp>.proghead>.progline,.prep>.proghead>.progline,.trainhead>.proghead>.progline{grid-column:1/-1;grid-row:2}}
+@media (max-width:760px){.memcard>.proghead,.evalp>.proghead,.prep>.proghead,.trainhead>.proghead{grid-template-columns:minmax(0,1fr)}
+.memcard>.proghead>.progline,.evalp>.proghead>.progline,.prep>.proghead>.progline,.trainhead>.proghead>.progline{grid-row:auto}
+.memcard>.proghead>.evctl,.evalp>.proghead>.evctl,.prep>.proghead>.evctl,.trainhead>.proghead>.evctl{justify-self:stretch;justify-content:flex-start}}
 @media (max-width:560px){.stages{grid-auto-columns:minmax(170px,82%)}.kpis{grid-template-columns:minmax(0,1fr)}main{padding:18px 16px 40px}h1{font-size:27px}.panel{padding:16px;border-radius:var(--r)}}
 """
 
@@ -700,7 +717,14 @@ async function preTick(){const box=$('#prebox');if(!box||!box.dataset.running)re
     const i=row.querySelector('.evbar i'),t=row.querySelector('[data-pm]'),n=s.iters||100;
     if(i)i.style.width=(100*(m.iter||0)/n).toFixed(1)+'%';
     if(t)t.textContent='Training: step '+(m.iter||0)+' of '+n+(m.loss!=null?' · loss '+m.loss.toFixed(3):' · loading its weights');}}
-setInterval(()=>{evTick();preTick();},1500);
+// WHO HOLDS THE MACHINE: training, an evaluation or pretraining, started or stopped anywhere (this page, another device, a script).
+// Each card was drawn again only when its OWN run ended, so a training run stopped left Evaluate and Pretrain saying they wait for it
+// until the page was reloaded. When the holder changes, the three cards are drawn again in place
+async function busyTick(){const m=$('#busy');if(!m)return;let s;try{s=await (await fetch('/api/busy')).json();}catch(e){return;}
+  if(s.busy===m.dataset.busy)return;m.dataset.busy=s.busy;
+  await swap('/fragment/eval','#evalwrap');await swap('/fragment/pretrain','#prewrap');await swap('/fragment/score','#score');
+  if(s.busy==='training')watch();}
+setInterval(()=>{evTick();preTick();busyTick();},1500);
 """
 
 
@@ -871,7 +895,7 @@ def steer_dialog(d):
 
 
 LOOP_STATE = {"at parity": ("At parity as it stood", "up"), "reached": ("Brought to parity", "up"), "not reached": ("Not reached", "down"), "not compared": ("Not compared", "planned"),
-              "reopened": ("Back in hand", "planned")}
+              "reopened": ("Back in hand", "planned"), "set aside": ("Set aside", "planned")}
 
 
 def near_words(n):
@@ -919,7 +943,7 @@ def tries_list(lp):
                 + method_line(a))
             for a in q["attempts"][1:])
         rounds = (" in %d rounds" % q["rounds"]) if (q.get("rounds") or 1) > 1 else ""
-        why = (" · beyond rearranging after %s tries" % q["beyond"].get("at") if q.get("beyond") else "") + (" · broke " + ", ".join("%s %d×" % (k, v) for k, v in sorted(q["broke"].items(), key=lambda kv: -kv[1])) if q.get("broke") else "") + (" · every combination within reach tried" if q.get("exhausted") else "") + ((" · widened %d×" % q["widened"]) if q.get("widened") else "") + ((" · lost to %s, back in hand" % q["lostTo"]) if q.get("lostTo") else "") + (" · unstable mark: the larger model did not give its own answer again (searched until parity all the same)" if q.get("unstable") else "")
+        why = (" · beyond rearranging after %s tries" % q["beyond"].get("at") if q.get("beyond") else "") + (" · broke " + ", ".join("%s %d×" % (k, v) for k, v in sorted(q["broke"].items(), key=lambda kv: -kv[1])) if q.get("broke") else "") + (" · every combination within reach tried" if q.get("exhausted") else "") + ((" · widened %d×" % q["widened"]) if q.get("widened") else "") + ((" · lost to %s, back in hand" % q["lostTo"]) if q.get("lostTo") else "") + ((" · set aside %d× (it stopped coming closer while other questions waited)" % q["setAside"]) if q.get("setAside") else (" · set aside: it stopped coming closer, and comes back after the others" if q.get("state") == "set aside" else "")) + ((" · carried on from its last try after a stop") if q.get("carried") else "") + (" · unstable mark: the larger model did not give its own answer again (searched until parity all the same)" if q.get("unstable") else "")
         rows.append('<li class="lq"><details><summary><code>%s</code> <span class="muted small">%s · lost in %s · %d tried%s%s</span> <span class="pill %s">%s</span></summary><ol class="tries">%s</ol></details></li>'
                     % (e(q["id"]), e(q.get("kind", "")), e(q.get("lostAt", "")), len(q["attempts"]) - 1, rounds, why, cls, e(word), tries))
     # WHAT HAS WORKED, BY KIND OF CHANGE: learned question after question, and what orders the changes tried on the next
@@ -971,13 +995,13 @@ def plan_now(d):
         rows.append(("Now", "Question <b>%s</b> of %s is in hand: %s%s." % (e(str(lv.get("n", "?"))), e(str(of)), e(PHASE_WORDS.get(phase, "")),
                      (", change %s%s" % (e(str(lv["attempt"])), (" · round %s" % e(str(lv["round"]))) if (lv.get("round") or 1) > 1 else "")) if lv.get("attempt") else "")))
     else:
-        rows.append(("Now", "Not running." + (" It stopped with %d of %d questions finished." % (len([q for q in qs if q.get("state") != "reopened"]), of) if qs else "")))
+        rows.append(("Now", "Not running." + (" It stopped with %d of %d questions finished." % (len([q for q in qs if q.get("state") not in ("reopened", "set aside")]), of) if qs else "")))
     if qs:
-        back = st_("reopened")
+        back = st_("reopened") + st_("set aside")
         rows.append(("This pass", "%d of %d questions finished: <b>%d</b> at parity as the swarm stood, <b>%d</b> brought to parity%s%s. %d changes tried; <b>%d</b> kept "
                      "(%d of them found arrangements, %d suggested by the larger model%s)."
                      % (len(qs) - back, of, st_("at parity"), st_("reached"), (", %d not reached" % st_("not reached")) if st_("not reached") else "",
-                        (", %d back in hand after a swap" % back) if back else "", tries, len(ch), from_lib, sg.get("kept", 0), (", %d swap%s" % (swaps, "" if swaps == 1 else "s")) if swaps else "")))
+                        ((", %d back in hand after a swap" % st_("reopened")) if st_("reopened") else "") + ((", %d set aside until the others are done" % st_("set aside")) if st_("set aside") else ""), tries, len(ch), from_lib, sg.get("kept", 0), (", %d swap%s" % (swaps, "" if swaps == 1 else "s")) if swaps else "")))
     rows.append(("Found arrangements", ("<b>%d</b>, tried first on every question short of parity; the most successful has brought %d question%s to parity."
                                         % (len(lib), max(len(x.get("reached") or []) for x in lib), "" if max(len(x.get("reached") or []) for x in lib) == 1 else "s")) if lib
                  else "None yet: the first arrangement kept starts the library."))
@@ -1003,8 +1027,9 @@ def plan_now(d):
                      % (e(q.get("id", "")), e(str(b.get("at", "?"))), e(str(r.get("examples", "?"))), (" · " + e(tr_)) if tr_ else "")))
     tc = lp.get("teach") or {}
     if tc.get("asked") or tc.get("failed"):
-        rows.append(("Briefs written", "The larger model said what went wrong and wrote new briefs %d time%s (about %d s each): %d briefs, %d tried, %d kept, %d came closer."
-                     % (tc.get("asked", 0), "" if tc.get("asked") == 1 else "s", round(tc.get("seconds", 0) / max(1, tc.get("asked", 0) + tc.get("failed", 0))), tc.get("briefs", 0), tc.get("tried", 0), tc.get("kept", 0), tc.get("closer", 0))))
+        rows.append(("Briefs written", "The larger model said what went wrong and wrote new briefs %d time%s (about %d s each), for the drafters nearest the answer first: %d briefs, %d tried, %d kept, %d came closer%s."
+                     % (tc.get("asked", 0), "" if tc.get("asked") == 1 else "s", round(tc.get("seconds", 0) / max(1, tc.get("asked", 0) + tc.get("failed", 0))), tc.get("briefs", 0), tc.get("tried", 0), tc.get("kept", 0), tc.get("closer", 0),
+                        (", %d refused for giving a question away (code, or the name of the function asked for)" % tc["refused"]) if tc.get("refused") else "")))
     steps = [("ask", "Ask the swarm as it stands"), ("library", "Try the found arrangements, the most successful first"),
              ("search", "Search, best first: the plan's moves in the policy's order, building on what came closer; widen, never move on"),
              ("suggest", "Every %d failed tries, try what the larger model suggests; where no slot drafts the answer, every %d, the briefs it writes for the failing drafters" % (pol["suggestEvery"], pol.get("teachEvery", 60))),
@@ -1019,7 +1044,7 @@ def viz_block(d):
     """VISUALIZING THE SYSTEM: every part of training as a coded box (A1, B3 ...) a person can name when talking about it, in the order
     things happen. The box the loop is in now is marked, live (the page's poll; data-part names the step)."""
     lpo = loop_policy_of(d)
-    pol = {"reviewTries": 40, "trialTries": 40, "suggestEvery": 20, "swapAfter": 25, **(lpo.get("loopPolicy") or {})}
+    pol = {"reviewTries": 40, "trialTries": 40, "suggestEvery": 20, "swapAfter": 25, "stableAfter": 6, "stableMax": 2, **(lpo.get("loopPolicy") or {})}
     lib = len(library_of(d))
     guard = ((d.get("policy") or {}).get("loop") or {}).get("guard", 6)
     tname = (d.get("target") or {}).get("name", "the larger model")
@@ -1042,7 +1067,7 @@ def viz_block(d):
                     box("B4", "suggest", "Suggestions", "Every %s failed tries, %s names changes to try." % (pol["suggestEvery"], tname)),
                     box("B5", "guard", "Check", "Asked again on up to %s questions already at parity." % guard),
                     box("B6", "keep", "Keep", "Into the arrangement, the found arrangements and the spec.")],
-                     "Short of parity: back to B3; it never moves on. Loses a question at B5: built on, and after %s such losses swapped." % e(str(pol["swapAfter"]))),
+                     "Short of parity: back to B3; it never moves on. Loses a question at B5: built on, aimed at that question, and swapped after %s." % e(swap_words(pol))),
                 lane("C", "Inside one try", [
                     box("C1", "", "Draft", "Each slot answers its own way."),
                     box("C2", "", "Try", "Code runs in a sandbox; drafts that behave alike are one answer."),
@@ -1111,6 +1136,18 @@ def loop_policy_of(d):
     return lp
 
 
+def swap_words(pol):
+    """When a standing conflict is swapped, in words: stableAfter losses where the questions lost are the same few (stableMax at most),
+    swapAfter losses of one question otherwise."""
+    st_, sw = int(pol.get("stableAfter") or 0), int(pol.get("swapAfter") or 0)
+    mx = int(pol.get("stableMax") or 2)
+    few = "it is the only question lost" if mx == 1 else "the questions lost are the same %d or fewer" % mx
+    if st_ and sw and st_ < sw:
+        return "%d losses where %s, %d otherwise" % (st_, few, sw)
+    n = min(x for x in (st_, sw) if x) if (st_ or sw) else 0
+    return ("%d losses" % n) if n else "never"
+
+
 def policy_block(lp):
     """THE LOOP'S OWN POLICY (training/loop-policy.mjs): how its search ranks and bounds what it tries, as it has evolved; what the larger
     model proposed and what became of each proposal; and what is on trial now."""
@@ -1118,24 +1155,27 @@ def policy_block(lp):
     pol = lp.get("loopPolicy")
     # (a policy written before a setting existed takes that setting's default, as the loop does: training/loop-policy.mjs normal)
     if pol:
-        pol = {"reviewTries": 40, "trialTries": 40, "swapAfter": 25, "brokeBudget": 12, "suggestEvery": 20, "teachEvery": 60, "prune": True, **pol}
+        pol = {"reviewTries": 40, "trialTries": 40, "swapAfter": 25, "stableAfter": 6, "stableMax": 2, "brokeBudget": 12, "suggestEvery": 20, "teachEvery": 60, "prune": True, "setAsideAfter": 30, "helpBackoff": True, "kindBranch": True, **pol}
     if not pol:
         return ('<h4>The loop&#39;s policy</h4><p class="small muted" style="margin:0">How the search ranks and bounds what it tries is data that '
                 "changes as it runs. A pass that runs this version writes it here: the larger model reviews the record every few questions "
                 "that needed a change, and a change it proposes is tried before it is kept.</p>")
-    knobs = "; ".join([
+    knobs = "; ".join(x for x in [
         "ranked by " + " → ".join(RANK_WORDS.get(k, k) for k in pol.get("order", [])),
         "%d changes from the closest before looking again" % pol.get("batch", 0) if pol.get("batch") else "every change from the closest before looking again",
         "%d closer arrangements open" % pol.get("beam", 3),
         "momentum from the last %d kept" % pol.get("momentumRecent", 0) if pol.get("momentumRecent") else "no momentum",
         "a kind counts after %d tries" % pol.get("learnedMinTried", 3),
-        "partial credit " + ("on" if pol.get("partialCredit") else "off"),
+        "partial credit " + ("on, by the nearest answer and then by all of them" if pol.get("partialCredit") else "off"),
         "writer left out unless lost in writing" if pol.get("skipWriterUnlessWriting") else "writer always open",
-        "a standing conflict swapped after %d" % pol.get("swapAfter", 25) if pol.get("swapAfter") else "no swaps",
+        ("a standing conflict swapped after " + swap_words(pol)) if (pol.get("swapAfter") or pol.get("stableAfter")) else "no swaps",
         "the larger model suggests what to try after %d failed tries" % pol.get("suggestEvery", 20) if pol.get("suggestEvery") else "no suggestions",
         "writes briefs for a drafting loss after %d" % pol.get("teachEvery", 60) if pol.get("teachEvery") else "no briefs written",
+        "each half as often where it brought a question nothing" if pol.get("helpBackoff") and (pol.get("suggestEvery") or pol.get("teachEvery")) else "",
+        ("a question set aside after %d tries in a row with nothing closer, while others wait" % pol["setAsideAfter"]) if pol.get("setAsideAfter") else "no question set aside",
+        "a change that loses only the other kind (code, or words) kept for its own kind" if pol.get("kindBranch") else "one arrangement for every kind",
         "a win pruned to its smallest form" if pol.get("prune", True) else "wins kept whole",
-    ])
+    ] if x)
     out = ['<h4>The loop&#39;s policy</h4><p class="small" style="margin:0 0 6px">How the search ranks and bounds what it tries is data, and it changes '
            "as training runs: every <b>%s</b> tries the larger model is shown the record and may propose a change to one or two knobs; it is tried "
            "on the next <b>%s</b> tries and kept only where they came to at least as much as as many before (kept 10, at parity but losing one 3, closer 1). "
@@ -1191,7 +1231,7 @@ def plan_panel(d):
     lpq = d.get("loop") or {}
     lq = lpq.get("list") or []
     out = ['<div class="panel plan"><div class="plan-head"><h3>Pass %d, question by question</h3><span class="muted small">%d questions finished · %d changes tried · %d kept</span></div>'
-           % (n, len([q for q in lq if q.get("state") != "reopened"]), lpq.get("tries") or sum(max(0, len(q.get("attempts") or []) - 1) for q in lq), len(lpq.get("changes") or [])),
+           % (n, len([q for q in lq if q.get("state") not in ("reopened", "set aside")]), lpq.get("tries") or sum(max(0, len(q.get("attempts") or []) - 1) for q in lq), len(lpq.get("changes") or [])),
            plan_now(d),
            '<p class="muted small" style="margin:12px 0 0">The plan below is what the search draws from: %d moves.%s</p>' % (len(moves), (" " + e(based) + ".") if based else "")]
     g = p.get("gap")
@@ -1237,10 +1277,10 @@ def plan_panel(d):
     cap_, drop_ = lpol.get("cap"), lpol.get("drop")
     out.append('<h4>How it is training</h4><p class="small" style="margin:0">A question stays in hand until it is at parity: it never moves on before%s. The arrangements found so far are tried on it first, the most successful first. Then changes are tried best first: from the closest arrangement open, and a change that comes closer is built on at once, with up to <b>%s</b> such arrangements open at a time; where every arrangement open has been tried, the search widens and builds on every arrangement it tried. '
                "A change that brings it to parity is asked again on <b>%s</b> questions already there, and is kept only if none is lost.%s "
-               "Where changes that bring it to parity keep losing the same question (<b>%s</b> times), one that loses only that one is kept and that question goes back in hand. "
+               "Where changes that bring it to parity lose a question already at parity, what is built on them is aimed at that question; where they keep losing it (%s), one that loses only that one is kept and that question goes back in hand. "
                "A slot asked exactly what it was asked before answers as it did, without being asked again, so a try that changes one slot asks only what changed. The plan lists <b>%s</b> arrangements one change from here first, and <b>%s</b> that are %s changes from here at once.</p>"
                % ((" (or after <b>%s</b> changes, a bound a person set)" % e(str(cap_))) if cap_ else "", e(str(lpol.get("beam", 3))), e(str(lpol.get("guard", 6))),
-                  (" A change tried on <b>%s</b> questions that brought none to parity is dropped." % e(str(drop_))) if drop_ else "", e(str((loop_policy_of(d).get("loopPolicy") or {}).get("swapAfter", 25))),
+                  (" A change tried on <b>%s</b> questions that brought none to parity is dropped." % e(str(drop_))) if drop_ else "", e(swap_words({"swapAfter": 25, "stableAfter": 6, "stableMax": 2, **(loop_policy_of(d).get("loopPolicy") or {})})),
                   e(str(ppol.get("arrangements", "?"))), e(str(ppol.get("wild", 0))), e(str(ppol.get("depth", 2)))))
     out.append(policy_block(loop_policy_of(d)))
     out.append(library_block(d))
@@ -1731,7 +1771,7 @@ def at_parity(d, t):
 
 
 # A QUESTION'S STATE IN THE LOOP, as a pip: at parity as the swarm stood, brought to parity by a change, not reached, not compared
-PIP = {"at parity": "at", "reached": "re", "not reached": "nr", "not compared": "nc", "reopened": "ro"}
+PIP = {"at parity": "at", "reached": "re", "not reached": "nr", "not compared": "nc", "reopened": "ro", "set aside": "ro"}
 
 
 def track_of(lp):
@@ -1786,13 +1826,18 @@ def arrangement(d):
     models = len({s["member"] for s in b["slots"]})
     kept = len(d["learned"]["ledger"])
     head = ('<div class="arrh"><div><h3>The swarm as it stands</h3><p class="muted small" style="margin:2px 0 0">What each slot is told, which model fills it, the order of steps, and the larger model it is measured against</p></div>'
-            '<div class="achips"><span>briefs <b>v%s</b></span><span><b>%d</b> slots on <b>%d</b> models</span><span><b>%d</b> kept change%s</span></div></div>'
-            % (e(str(b.get("version", 1))), len(b["slots"]), models, kept, "" if kept == 1 else "s"))
+            '<div class="achips"><span>briefs <b>v%s</b></span><span><b>%d</b> slots on <b>%d</b> models</span><span><b>%d</b> kept change%s</span>%s</div></div>'
+            % (e(str(b.get("version", 1))), len(b["slots"]), models, kept, "" if kept == 1 else "s",
+               # a kind with its own arrangement (a change kept for questions asking for code, or in words, only): the chips above are
+               # the shared one
+               "".join('<span title="A change that lost only questions of the other kind was kept for these alone">questions %s: <b>their own</b> arrangement, %d slots</span>'
+                       % ("asking for code" if k == "code" else "in words", len((v or {}).get("slots") or b["slots"])) for k, v in sorted((b.get("kinds") or {}).items()))))
     # what is being tried, on which question, and where training stopped: the question track says it (a line here about moves
     # marked running repeated it, from marks a stopped session leaves behind)
     plan_line = ""
-    one = ('<div class="panel arr">%s<div class="now" id="now"><i></i><span>Nothing is running. No model is loaded.</span></div>%s%s%s</div>'
-           % (head, question_track(d), plan_line, avatars(d)))
+    # (the training share, the line beside it, Train and Clear training state head the card: #score, drawn again in place)
+    one = ('<div class="panel arr"><div id="score">%s</div>%s<div class="now" id="now"><i></i><span>Nothing is running. No model is loaded.</span></div>%s%s%s</div>'
+           % (progress_strip(d), head, question_track(d), plan_line, avatars(d)))
     return ('%s<h2 id="strategy">The plan being carried out</h2><div id="plan">%s</div><h2 id="system">Visualizing the System</h2><div id="viz">%s</div>'
             % (one, plan_block(d), viz_block(d)))
 
@@ -2172,24 +2217,6 @@ def run_lines(cleared=""):
     return "".join(out)
 
 
-def ideas_line(d):
-    """The ideas waiting to be tried (from research, or a person's own), on the Training progress card: each in its own words, the
-    slot it is for and where it came from (a paper opens)."""
-    ideas = [i for i in (d.get("state") or {}).get("ideas", []) if i.get("status") == "open"][:6]
-    if not ideas:
-        return '<p class="meta ideasln">Ideas waiting to be tried: <b>none</b>, research adds them</p>'
-
-    def idea(i):
-        src = str(i.get("from", ""))
-        paper = src[:1].isdigit()
-        name = e(i.get("name", ""))
-        where = "arXiv " + e(src) if paper else "your idea"
-        inner = '<b>%s</b> <small>for %s · %s</small>' % (name, slot_name(i["slot"]), where)
-        return ('<li><a href="https://arxiv.org/abs/%s" target="_blank" rel="noopener" title="Open the paper this idea came from">%s</a></li>' % (e(src), inner)) if paper else "<li>%s</li>" % inner
-
-    return '<div class="ideasln"><p class="meta">Ideas waiting to be tried: <b>%d</b></p><ul>%s</ul></div>' % (len(ideas), "".join(idea(i) for i in ideas))
-
-
 STEP_WORDS = [("target-self-train", "Larger model against itself: the train questions"), ("reader", "Check the reader of answers in words"), ("swarm-reworded", "The swarm: the held questions, a second way"), ("begin", "Begin the pass"), ("research", "Read what is new on arXiv"), ("target-train", "Larger model: the train questions"), ("target-self", "Larger model against itself"), ("target", "Larger model: the held questions"),
               ("swarm-held", "The swarm: the held questions"), ("plan", "Plan what to try"), ("write-briefs", "New briefs from the larger model"),
               ("members", "Could another small model draft it?"), ("deciders", "Would another decider choose better?"),
@@ -2321,6 +2348,39 @@ def evidence_of(d, name):
     return None, ""
 
 
+def alone_scores(root, tid, members=()):
+    """EACH SMALL MODEL ALONE AGAINST THE LARGER MODEL, as the recommendations weigh it. A measurement is written into the folder of
+    the configuration that took it (training/results/<configuration>/<model>-alone-vs-<target>-held.json; the oldest at the top
+    of training/results): every one is read, which the badge once did not (it read only the top, and recommended nothing while six
+    models were measured). Only measurements on the same questions are compared (the seed, how many, and their kinds): the set the
+    swarm's own members were measured on most recently, else the newest. A model measured more than once there counts by the mean,
+    and how far one model's runs differ (LFM2.5 1.2B: 16, 21 and 30 of the same 84) is the bar a lead must clear, never under 5.
+    -> {"models": {id: {"pct", "right", "of", "runs", "lo", "hi"}}, "spread", "bar", "set": n questions}"""
+    base = Path(root) / "training" / "results"
+    suffix = "-alone-vs-%s-held.json" % tid
+    runs = []
+    for f in base.rglob("*" + suffix):
+        j = data._json(f, {}) or {}
+        if not j.get("compared"):
+            continue
+        sig = (j.get("seed"), j.get("compared"), tuple(sorted((j.get("kinds") or {}).keys())))
+        runs.append({"id": f.name[: -len(suffix)], "sig": sig, "at": str(j.get("at") or ""), "right": j.get("right", 0), "of": j["compared"]})
+    if not runs:
+        return {"models": {}, "spread": 0.0, "bar": 5.0, "set": 0}
+    own = [r for r in runs if r["id"] in members]
+    sig = max(own or runs, key=lambda r: r["at"])["sig"]
+    by = {}
+    for r in runs:
+        if r["sig"] == sig:
+            by.setdefault(r["id"], []).append(100.0 * r["right"] / r["of"])
+    models = {}
+    for mid, xs in by.items():
+        of = sig[1]
+        models[mid] = {"pct": sum(xs) / len(xs), "right": round(sum(xs) / len(xs) * of / 100), "of": of, "runs": len(xs), "lo": min(xs), "hi": max(xs)}
+    spread = max([m["hi"] - m["lo"] for m in models.values() if m["runs"] > 1] or [0.0])
+    return {"models": models, "spread": spread, "bar": max(5.0, spread), "set": sig[1]}
+
+
 def recommendations(d):
     """CHANGES TO THE CONFIGURATION THAT THE EVIDENCE POINTS AT: what only a person can change (a pass cannot change which models
     the swarm is made of), from what this configuration's passes measured for it (members-probe.mjs, decider-replay.mjs). Each says
@@ -2346,28 +2406,27 @@ def recommendations(d):
                               r["recovered"], e(rec_dec), r["lost"],
                               "A small edge: a real pass is what would tell." if edge < 3 else "A clear edge on the recorded choices.") + elsewhere(rep_from),
                     "note": " · ".join(x for x in [dec.get("license", ""), "its weights are here" if any((Path(d["root"]) / ".work" / "deciders" / dec["id"] / f).exists() for f in ("model/.complete", ".complete")) or (dec.get("serve") or {}).get("kind") == "kev" else "Train fetches it"] if x)})
-    # EACH SMALL MODEL ALONE against this larger model (training/results/<model>-alone-vs-<target>-held.json, written by whichever
-    # configuration measured it): one that answers as the larger model more often than a member of this swarm is evidence for a swap
+    # EACH SMALL MODEL ALONE against this larger model: one that answers as the larger model more often than the weakest member of
+    # this swarm, by more than the measurements themselves wander, is evidence for a swap (alone_scores)
     tid = (d.get("target") or {}).get("id", "")
-    alone = {}
-    for f in (Path(d["root"]) / "training" / "results").glob("*-alone-vs-%s-held.json" % tid):
-        j = data._json(f, {}) or {}
-        mid = f.name[: -len("-alone-vs-%s-held.json" % tid)]
-        if j.get("compared"):
-            alone[mid] = (100.0 * j.get("right", 0) / j["compared"], j.get("right", 0), j["compared"])
     members = d.get("members", {})
     mine = {k: m["id"] for k, m in members.items() if m}
-    scored = [(alone[i][0], k, i) for k, i in mine.items() if i in alone]
+    al = alone_scores(d["root"], tid, list(mine.values()))
+    scored = [(al["models"][i]["pct"], k, i) for k, i in mine.items() if i in al["models"]]
     if scored:
         worst = min(scored)
         names = {m["id"]: m["name"] for m in reg.get("small", [])}
-        for mid, (pc, r_, n_) in sorted(alone.items(), key=lambda kv: -kv[1][0]):
-            if mid in mine.values() or mid not in names or pc < worst[0] + 5:
+        bar = al["bar"]
+        for mid, sc in sorted(al["models"].items(), key=lambda kv: -kv[1]["pct"]):
+            if mid in mine.values() or mid not in names or sc["pct"] < worst[0] + bar:
                 continue
-            out.append({"id": "swap:%s:%s" % (worst[1], mid), "strength": "measured", "apply": {worst[1]: mid}, "n": n_,
+            w = al["models"][worst[2]]
+            runs = lambda x: (" (the mean of %d runs)" % x["runs"]) if x["runs"] > 1 else ""  # noqa: E731
+            out.append({"id": "swap:%s:%s" % (worst[1], mid), "strength": "measured", "apply": {worst[1]: mid}, "n": sc["of"],
                         "title": "Use %s in place of %s" % (names[mid], names.get(worst[2], worst[2])),
-                        "why": "Alone, against %s, it answered %s%% of the held questions as the larger model did (%d of %d), where %s answered %s%%. Measured by another configuration on the same larger model."
-                               % (e((d.get("target") or {}).get("name", "")), fmt_pct(int(pc * 10) / 10), r_, n_, e(names.get(worst[2], worst[2])), fmt_pct(int(worst[0] * 10) / 10)),
+                        "why": "Alone, against %s, on the same %d held questions, it answered %s%% as the larger model did (%d of %d%s), where %s answered %s%%%s. It leads by %s points; the same model measured again on these questions has differed by up to %s, so only a lead above %s counts."
+                               % (e((d.get("target") or {}).get("name", "")), sc["of"], fmt_pct(int(sc["pct"] * 10) / 10), sc["right"], sc["of"], runs(sc).replace(" (", ", ").rstrip(")"), e(names.get(worst[2], worst[2])),
+                                  fmt_pct(int(w["pct"] * 10) / 10), runs(w), fmt_pct(int((sc["pct"] - w["pct"]) * 10) / 10), fmt_pct(int(al["spread"] * 10) / 10), fmt_pct(int(bar * 10) / 10)),
                         "note": "alone is not in a swarm: a real pass is what would tell"})
             break
     # ANOTHER CONFIGURATION FURTHER ALONG against the same larger model (training/states/*--<target>.json)
@@ -2533,7 +2592,7 @@ def config_section(d):
     n = len([r for r in recommendations(d) if r.get("apply")])
     badge = ('<button type="button" class="recbadge" id="rec-open" title="Open the recommended configuration changes"><i></i>%d recommendation%s</button>' % (n, "" if n == 1 else "s")) if n else ""
     return ('<details class="cfg fold" data-keep="cfg" open><summary><span class="cfgh">Configuration</span><span id="rec-slot">%s</span><span class="fmeta" id="cfg-meta">%s</span></summary>'
-            '<div class="foldb">%s%s%s</div></details>' % (badge, e(cfg_meta(d)), pills(d), equiv(d), tools_toggle(d)))
+            '<div class="foldb">%s%s</div></details>' % (badge, e(cfg_meta(d)), pills(d), equiv(d)))
 
 
 def tools_toggle(d, inner=False):
@@ -2546,11 +2605,9 @@ def tools_toggle(d, inner=False):
     # one choice for the swarm, and one for each small model in it, by its name: the list follows the pills
     seg = lambda val, label, sel: '<button type="button" class="seg%s" data-tools="%s" aria-pressed="%s">%s</button>' % (" on" if sel else "", e(val), "true" if sel else "false", label)  # noqa: E731
     segs = seg("swarm", "Decided by the swarm", on) + "".join(seg(m["id"], "%s alone" % e(m["name"]), cur == k) for k, m in mem)
-    who = next((m["name"] for k, m in mem if k == cur), "one small model")
-    body = ('<legend>Turns with tools</legend><div class="tgl">%s</div><p class="muted small">%s</p>'
-            % (segs, e("An agent's turn (a request that carries tools, as The Crew's Pi sends): every drafter proposes the next step, a call to a tool that was not offered or with arguments that are not an object is left out, and the decider picks where they differ. Measured by the agent-step questions, against the larger model's own step."
-                       if on else "An agent's turn (a request that carries tools) goes to %s alone, as it came, and its reply comes straight back: the swarm drafts and decides only replies in words. Choose another small model to take them, or have the swarm decide them." % who)))
-    return body if inner else '<fieldset class="equiv tools" id="tools">%s</fieldset>' % body
+    # (in the Equivalent on card, under its boxes, with no description: console instruction 2026-11-17)
+    body = '<div class="tgl" role="group" aria-label="Who takes a turn with tools">%s</div>' % segs
+    return body if inner else '<div class="tools" id="tools">%s</div>' % body
 
 
 def equiv(d, inner=False):
@@ -2565,15 +2622,8 @@ def equiv(d, inner=False):
         % (" on" if t["id"] in q["chosen"] else "", e(t.get("about", "")), e(t["id"]), " checked" if t["id"] in q["chosen"] else "", e(t["name"]), e(t.get("about", "")),
            (" <em>· %d of your own</em>" % own(t)) if own(t) else "", e(t["id"]), e(t["name"]), e(t["name"]))
         for t in q["targets"])
-    want = [k for t in q["targets"] if t["id"] in q["chosen"] for k in t.get("kinds", [])] + ["own-" + t["id"] for t in q["targets"] if t["id"] in q["chosen"] and own(t)]
-    asking = q.get("asking")
-    note = "%d kinds of question in a pass." % len(set(want))
-    if asking is not None and set(asking) != set(want):
-        note += " The pass this configuration is on keeps the %d kinds it began with; the next pass asks these." % len(set(asking))
-    elif asking is None and (d.get("state") or {}).get("history"):
-        note += " The pass this configuration is on began before this could be chosen and keeps its programming questions; the next pass asks these."
-    body = ('<legend>Equivalent on</legend><div class="ticks">%s</div>'
-            '<p class="muted small">Parity is equivalence with the larger model on the work ticked here. %s</p>' % (boxes, e(note)))
+    # (and who takes a turn with tools, the switch under the boxes; no description under either: console instruction 2026-11-17)
+    body = '<legend>Equivalent on</legend><div class="ticks">%s</div>%s' % (boxes, tools_toggle(d))
     # (drawn again in place, it is what is inside the row that is sent)
     return body if inner else '<fieldset class="equiv" id="equiv">%s</fieldset>' % body
 
@@ -2748,10 +2798,26 @@ def spec_panel(d):
                     row("Training complete", loop_line(d)),
                     row("Changes", loop_changes(d)),
                     row("Measured so far", "<ul style='margin:0;padding-left:18px'>%s</ul>" % meas) if meas else ""))
-    # AS A MODEL CHOOSER LISTS IT (The Crew's "Choose your model" among them): the card, what it needs, what it can do, how it starts
+    # HOW FAR TRAINING TOOK IT: the default arrangement against the trained one, served the same way, and the gain (data.equivalence_of)
+    eqv = sp["equivalence"]
+    side = lambda x: ("<b>%s%%</b> · %d of %d held questions" % (fmt_pct(x["percent"]), x["equivalent"], x["of"])) if "percent" in x else ("the same as the default: training has kept nothing yet" if x.get("sameAs") else "not measured yet")  # noqa: E731
+    served = (" with the adapters of %s" % ", ".join("place " + k for k in eqv["default"]["adapters"])) if eqv["default"]["adapters"] else " without adapters"
+    gained = ("<table class='spec'>%s%s%s</table>"
+              % (row("Default (briefs v%s)" % eqv["default"]["briefsVersion"], side(eqv["default"]) + "<br><span class='muted'>%s%s</span>" % (e(eqv["defaultIs"]), e(served))),
+                 row("Trained (briefs v%s)" % eqv["trained"]["briefsVersion"], side(eqv["trained"]) + "<br><span class='muted'>%s</span>" % e(eqv["trainedIs"])),
+                 row("Gain", ("<b>%+.1f points</b>" % eqv["gainPoints"]) if eqv["gainPoints"] is not None else "<span class='muted'>%s</span>" % e(eqv["gainIs"]))))
+    gained = "<h4>How far training took it</h4>" + gained
+    pins = sp["recipe"].get("adapters") or {}
+    made = (sp.get("adapters") or {}).get("models") or {}
+    adapter_rows = "".join(row("Adapter (place %s)" % k, "<code>%s</code> <span class='muted'>%.1f MB</span><br><code>sha256 %s</code><br><span class='muted'>%s; from %s @ %s, %s steps</span>"
+                               % (e(a["file"]), a["bytes"] / 2**20, e(a["sha256"]), e(made.get(k, {}).get("learned", "")), e(str((made.get(k, {}).get("from") or {}).get("weights", ""))),
+                                  e(str((made.get(k, {}).get("from") or {}).get("revision", ""))[:12]), e(str(made.get(k, {}).get("iters", ""))))) for k, a in pins.items())
+    if pins:
+        adapter_rows += row("Adapter files", "<span class='muted'>%s</span>" % e(sp["adapters"]["filesAre"]))
+    # AS A MODEL CHOOSER LISTS IT: the card, what it needs, what it can do, how it starts
     c, rq, cap, st_ = sp["card"], sp["requirements"], sp["interface"]["capabilities"], sp["interface"]["start"]
     host = ('<h4>As a model chooser lists it</h4><div class="hostcard"><div><b>%s</b><span class="muted small"> · %s · about %s GB · %s</span></div><div class="hcbadge">%s</div><p>%s</p>%s</div>'
-            '<p class="muted small" style="margin:6px 0 0">The entry a chooser such as The Crew&#39;s <i>Choose your model</i> takes, with <code>engine: swarm</code>; it is started with <code>%s</code>.</p>'
+            '<p class="muted small" style="margin:6px 0 0">The entry a model chooser takes, with <code>engine: swarm</code>; it is started with <code>%s</code>.</p>'
             "<h4>What it needs</h4><table class='spec'>%s</table><h4>What it can do as a model</h4><table class='spec'>%s</table><h4>To make it</h4><table class='spec'>%s</table>"
             % (e(c["name"]), e(c["size"]), e(str(c["memGb"])), e(c["pace"] if c.get("secondsPerReply") is None else "%s s a reply" % c["secondsPerReply"]), e(c["badge"]), e(c["plain"]),
                ('<div class="hcon">%s</div>' % "".join("<span>%s</span>" % e(x) for x in c["equivalentOn"])) if c["equivalentOn"] else "", e(st_["host"]),
@@ -2775,11 +2841,11 @@ def spec_panel(d):
             state_cls, e(("%s%% of the way to parity" % fmt_pct(t["progressPercent"])) if t.get("progressPercent") is not None and t["state"] != "at parity"
                          else ("In training: pass %d under way" % ip["pass"]) if t["state"] == "not measured" and ip else t["state"].capitalize()), e(t["target"].get("name") or ""),
             e(t["parityMeans"]), published_line,
-            under + learned_block(d), host,
+            under + gained + learned_block(d), host,
             row("In", e(sp["interface"]["in"])), row("Out", e(sp["interface"]["out"])),
             row("Offered as", "<br>".join(e(x) for x in sp["interface"]["as"])),
             row("Not yet", "<br>".join(e(x) for x in sp["interface"]["notYet"])),
-            "".join(row("Small model %d (place %s)" % (i + 1, k), mem(m)) for i, (k, m) in enumerate(sp["members"].items())), "",
+            "".join(row("Small model %d (place %s)" % (i + 1, k), mem(m)) for i, (k, m) in enumerate(sp["members"].items())), adapter_rows,
             row("Decides", "%s <span class='muted'>· %s · %s</span><br><code>%s</code>" % (e(sp["decider"].get("name") or ""), e(sp["decider"].get("by") or ""), e(sp["decider"].get("license") or ""), e(sp["decider"].get("run") or ""))),
             row("Against %s" % e(t["target"].get("name") or ""), ("<b>%s</b> of the way to parity. %d held questions: %d equivalent, %d different, %d no answer<ul style='margin:6px 0 0;padding-left:18px'>%s</ul>" % (e(fmt_pct(t["progressPercent"]) + "%"), t["heldQuestions"], t["equivalent"], t["different"], t["noAnswer"], kinds)) if t["state"] != "not measured" else "Not measured: no pass has put this swarm and this target to the same held questions.")
             + row("Served", "%d slots on each small model, %d tokens of context a slot; about %s GB of memory (an estimate); engine %s %s" % (sp["serving"]["slots"], sp["serving"]["contextPerSlot"], sp["serving"]["memoryGbEstimate"], e(sp["engine"].get("name") or ""), e(sp["engine"].get("version") or ""))),
@@ -2792,10 +2858,11 @@ def spec_panel(d):
 
 
 
-def memory_chart(d, compact=False):
+def memory_chart(d, compact=False, headless=False):
     """THE POINT OF THE SWARM, AS A PICTURE: the larger model's memory as one bar, and the swarm's beside it on the same scale, made of
     its parts (each small model, the room for their contexts, the decider), with the share. Estimates from what is on record, and said
-    to be. compact: the parity card's version (a short heading; the whole explanation is in the whole measurement)."""
+    to be. compact: the parity card's version (a short heading; the whole explanation is in the whole measurement). headless: the
+    bars, scale and key alone, under a card's own head (memory_card)."""
     fp = d.get("footprint")
     if not fp:
         return ""
@@ -2816,7 +2883,7 @@ def memory_chart(d, compact=False):
             '<span class="memrow"><span class="ml">The swarm</span><span class="mbar stack">%s</span><span class="mv"><b>%s GB</b></span></span>'
             '<span class="memrow axis"><span></span><span class="ticks">%s</span><span class="mv">GB</span></span></span>'
             '<span class="memleg">%s</span></span>'
-            % (" compact" if compact else "", head, e(fp.get("targetName") or "The larger model"), 100.0 * fp["target"] / scale, ab(fp["target"]), seg, ab(fp["swarm"]), ticks, legend))
+            % (" compact" if compact else "", "" if headless else head, e(fp.get("targetName") or "The larger model"), 100.0 * fp["target"] / scale, ab(fp["target"]), seg, ab(fp["swarm"]), ticks, legend))
 
 
 
@@ -2824,41 +2891,45 @@ def memory_chart(d, compact=False):
 def progress_strip(d, cleared=""):
     """TRAINING COMPLETE, as a share: training goes question by question and a question is never left short of parity, so how far it
     has come is how many of the pass's train questions are at parity (as the swarm stood, or brought there by a change it kept), of
-    all of them. With it, the found arrangements and what the spec has kept, and the memory the swarm takes against the larger model's."""
+    all of them; with the line that says where the pass is, Train and Clear training state, and what the session is doing. It heads
+    the Train card (#score inside arrangement()): the bar, its legend, the spec line and the ideas line that sat under it were taken
+    out (console instruction 2026-11-17), the memory chart is a card of its own, above Evaluate (memory_card)."""
     lp = d.get("loop") or {}
     qs = lp.get("list") or []
     of = lp.get("of") or 0
     lv = loop_live()
     tname = (d.get("target") or {}).get("name", "the larger model")
     n = lambda st: sum(1 for q in qs if q.get("state") == st)  # noqa: E731
-    at, re_, back, nr = n("at parity"), n("reached"), n("reopened"), n("not reached")
+    at, re_, back, nr = n("at parity"), n("reached"), n("reopened") + n("set aside"), n("not reached")
     done = at + re_
     pct = data.percent(done, of) if of else 0
-    lib = library_of(d)
-    kept = len(lp.get("changes") or [])
-    w = lambda x: (100.0 * x / of) if of else 0  # noqa: E731
-    bar = ('<span class="mbar stack"><i class="pe" style="width:%.2f%%" title="%d at parity as the swarm stood"></i><i class="pr" style="width:%.2f%%" title="%d brought to parity"></i>'
-           '<i class="pb" style="width:%.2f%%" title="%d back in hand"></i><i class="pn" style="width:%.2f%%" title="%d not reached"></i></span>' % (w(at), at, w(re_), re_, w(back), back, w(nr), nr))
     if qs:
         line = ("<b>%d</b> of %d train questions at parity with %s: <b>%d</b> as the swarm stood, <b>%d</b> brought there by a change it kept%s%s."
-                % (done, of, e(tname), at, re_, (", %d back in hand after a swap" % back) if back else "", (", %d left short of parity by an earlier version of the loop" % nr) if nr else ""))
+                % (done, of, e(tname), at, re_, ((", %d back in hand after a swap" % n("reopened")) if n("reopened") else "") + ((", %d set aside until the others are done" % n("set aside")) if n("set aside") else ""), (", %d left short of parity by an earlier version of the loop" % nr) if nr else ""))
         now = ("Question %s is in hand." % e(str(lv.get("n")))) if lv else ("Stopped; it carries on from question %d." % (len(qs) - back + 1)) if len(qs) - back < of else "Every question of this pass is at parity."
     else:
         line = "Training starts at question 1 of the pass: each question stays in hand until the swarm is at parity with %s on it." % e(tname)
         now = ""
-    # (the share is this pass's; the spec is every run's: say which is which, so one change kept this pass does not read as all there is)
-    wins = len(d["learned"].get("wins") or [])
-    found = ("The spec: <b>%d</b> win%s from every run (%d kept this pass) · <b>%d</b> found arrangement%s, tried first on every question"
-             % (wins, "" if wins == 1 else "s", kept, len(lib), "" if len(lib) == 1 else "s"))
-    mem = memory_chart(d, compact=True)
     # (while a session runs, a bar that moves in place of the share: the line beside it, the bar and the counts below go on saying
     # where the pass is; stopped, the share comes back, as far as the pass got)
     running_now = bool((run_state() or {}).get("running"))
-    return ('<div class="panel trainprog"><div class="proghead"><span class="memnum"' + (' aria-busy="true">' + busy() if running_now else '><b class="pct">%s%%</b>' % fmt_pct(pct)) + '<span>training complete<small>pass %s</small></span></span>'
-            '<span class="progline">%s %s</span><span class="evctl">%s</span></div>%s%s<span class="memleg"><span><i class="pe"></i>at parity as the swarm stood</span><span><i class="pr"></i>brought to parity by a change</span>'
-            '<span><i class="pb"></i>back in hand</span>%s<span><i class="pq"></i>still to come</span></span><p class="meta" style="margin:8px 0 0">%s</p>%s</div>'
-            % (e(str(lp.get("pass") or (d.get("state") or {}).get("pass", 0) + 1)), line, now, run_controls(), run_lines(cleared), bar,
-               '<span><i class="pn"></i>left short by an earlier loop</span>' if nr else "", found, ideas_line(d) + mem))
+    return ('<div class="trainprog trainhead"><div class="proghead"><span class="memnum"' + (' aria-busy="true">' + busy() if running_now else '><b class="pct">%s%%</b>' % fmt_pct(pct)) + '<span>training complete<small>pass %s</small></span></span>'
+            '<span class="progline">%s %s</span><span class="evctl">%s</span></div>%s</div>'
+            % (e(str(lp.get("pass") or (d.get("state") or {}).get("pass", 0) + 1)), line, now, run_controls(), run_lines(cleared)))
+
+
+def memory_card(d):
+    """MEMORY SAVED, the first card: what the swarm takes in memory against the larger model. Its head is built as Evaluate's, Pretrain's
+    and Train's are (the share at the top left, what it is beside it, a line saying what it rests on), and under it the bars on one
+    scale, the swarm's made of its parts, and their key. None where nothing is on record to estimate from."""
+    fp = d.get("footprint")
+    if not fp:
+        return ""
+    ab = lambda n: ("%.1f" % n).rstrip("0").rstrip(".")  # noqa: E731
+    return ('<h2>Memory saved</h2><div class="panel memcard"><div class="proghead"><span class="memnum"><b class="pct">%s%%</b><span>memory saved<small>%s GB less</small></span></span>'
+            '<span class="progline">The swarm is %s× smaller than %s: estimated from the model files and the listed sizes, not measured.</span><span class="evctl"></span></div>%s</div>'
+            % (fmt_pct(fp["saved"]) if fp["saved"] > 0 else "0", ab(max(0.0, fp["savedGb"])), ab(fp["times"] or 0), e(fp.get("targetName") or "the larger model"),
+               memory_chart(d, compact=True, headless=True)))
 
 
 # ---------------------------------------------------------------- evaluate the swarm, pretrain it
@@ -3219,11 +3290,12 @@ def pretrain_api():
 def main_body(d):
     """Everything that depends on which models are chosen: drawn again, in place, when one is changed."""
     return (
+        '<i id="busy" data-busy="%s" hidden></i>'
+        '%s'
         '<h2>Evaluate the swarm</h2><div id="evalwrap">%s</div>'
         '<h2>Pretrain</h2><div id="prewrap">%s</div>'
-        '<h2>Training progress</h2><div id="score">%s</div>'
-        '<h2 id="arrangement">The arrangement being trained</h2>%s'
-        % (eval_block(d), pretrain_block(d), progress_strip(d), arrangement(d))
+        '<h2 id="arrangement">Train</h2>%s'
+        % (e(busy_with()), memory_card(d), eval_block(d), pretrain_block(d), arrangement(d))
     )
 
 
@@ -3326,6 +3398,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(json.dumps(eval_api()), kind="application/json")
         if u.path == "/api/pretrain":
             return self._send(json.dumps(pretrain_api()), kind="application/json")
+        if u.path == "/api/busy":
+            return self._send(json.dumps({"busy": busy_with()}), kind="application/json")
         if u.path == "/fragment/eval":
             return self._send(eval_block(d))
         if u.path == "/fragment/pretrain":

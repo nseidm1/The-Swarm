@@ -69,7 +69,9 @@ export const readTrained = () => {
 const seedOf = (text) => createHash('sha256').update(text).digest().readUInt32BE(0) >>> 1;
 export async function createSwarm(opts = {}) {
   // FROM A SPEC (spec.mjs): its members, its arrangement and its serving, exactly; nothing from this machine's configuration
-  const S = opts.spec ? fromSpec(opts.spec) : null;
+  const S = opts.spec ? fromSpec(opts.spec, { adaptersDir: opts.adaptersDir, anyAdapters: opts.anyAdapters }) : null;
+  // (the adapters a spec pins, found and checked by fromSpec, unless the caller names its own)
+  if (S && Object.keys(S.loras || {}).length && !opts.loras) opts = { ...opts, loras: S.loras };
   const MEM = S ? S.members : MEMBERS;
   let briefs = opts.briefs || (S && S.briefs) || readBriefs(opts.briefsFile);
   const slots = opts.slots || (S && S.slots) || SERVING.slots;

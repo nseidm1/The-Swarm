@@ -375,6 +375,18 @@ def load(root):
             # measurement still being made
             "expected": len(tgt) or None,
         }
+    # THE HELD QUESTIONS BY ARRANGEMENT: this configuration's answers, grouped by the briefs version they were given with and the
+    # adapters the swarm was served with (training/measure.mjs writes both on each row), each group's newest answer to each
+    # question. The output spec compares the arrangement every swarm starts from with the one training made (spec: equivalence)
+    held_by = {}
+    for r in swarm_all:
+        if r.get("split") != "held" or r.get("label") != "swarm" or r.get("cfg") not in (None, cfg) or r.get("target") not in (None, (target or {}).get("id")):
+            continue
+        if seeds.get("held") is not None and r.get("seed") not in (None, seeds.get("held")):
+            continue
+        hk = (r.get("briefs"), tuple(sorted(r.get("adapters") or [])))
+        held_by.setdefault(hk, {})[r["id"]] = r
+    held_by = [{"briefs": k[0], "adapters": list(k[1]), "parity": parity(list(v.values()))} for k, v in held_by.items() if v]
     # each slot's own record on the train questions (what the trainers work from), else on the held ones
     record = slot_record(splits["train"]["swarm"] or splits["held"]["swarm"])
     # the same rows, read for what they say about the configuration itself (ui/swarm_ui.py recommendations); and each other
@@ -423,6 +435,7 @@ def load(root):
         # in src/config.json names it by its id: src/catalog.mjs toolsOf, the same rule)
         "tools": tools_of(chosen.get("tools"), members),
         "splits": splits,
+        "heldBy": held_by,
         "record": record,
         "evidence": evidence,
         "candidates": candidates,
@@ -476,15 +489,87 @@ def pass_in_hand(d):
 
 
 SPEC_FORMAT = "the-swarm/spec"
-SPEC_VERSION = 2
+SPEC_VERSION = 3  # 3: the recipe pins the adapters the swarm is served with; the spec says the equivalence before and after training
+
+
+_SHA = {}
+
+
+def _sha256(path):
+    """A file's SHA-256, kept while the file is unchanged (an adapter is 10 to 15 MB; the spec is drawn on every opening)."""
+    import hashlib
+    st = os.stat(path)
+    key = (str(path), st.st_mtime, st.st_size)
+    if key not in _SHA:
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                h.update(chunk)
+        _SHA[key] = h.hexdigest()
+    return _SHA[key]
+
+
+def spec_adapters(d):
+    """THE ADAPTERS THE SWARM IS SERVED WITH, as the spec pins them: where the configuration serves them ("adapters": true in
+    src/config.json), each small model with one that llama.cpp found good (training/adapters.mjs lorasFor reads the same) ->
+    ({place: {file, sha256, bytes}} for the recipe, {place: how it was made} for the spec), both empty where none is served."""
+    root = Path(d["root"])
+    cfg = _json(root / "src" / "config.json", {}) or {}
+    if not cfg.get("adapters"):
+        return {}, {}
+    orig = (_json(root / "training" / "originals.json", {}) or {}).get("models", {})
+    tid = str((d.get("target") or {}).get("id", ""))
+    pins, made = {}, {}
+    for k, m in (d.get("members") or {}).items():
+        if not m:
+            continue
+        o = orig.get(m.get("file")) or {}
+        res = _json(root / ".work" / "library" / "adapters" / tid / (o.get("dir") or m.get("file", "")) / "result.json", None)
+        g = Path(str((res or {}).get("gguf") or ""))
+        if not res or not res.get("ok") or not g.is_file():
+            continue
+        pins[k] = {"file": g.name, "sha256": _sha256(g), "bytes": g.stat().st_size}
+        work = {t["id"]: t.get("specName") or t.get("name", t["id"]) for t in (d.get("equivalence") or {}).get("targets", [])}
+        made[k] = {"model": m.get("id"), "file": g.name, "learned": "the larger model's answers to %s train questions%s" % (res.get("examples"), (" of " + ", ".join(work.get(i, i) for i in res.get("items") or [])) if res.get("items") else ""),
+                   "from": {"weights": o.get("repo"), "revision": o.get("revision")}, "iters": res.get("iters"), "at": res.get("at"),
+                   "validationLoss": res.get("valLoss"), "perplexity": res.get("perplexity"),
+                   "make": "node training/adapters.mjs train %s --iters %s (MLX LoRA from the original weights, converted to a GGUF LoRA for llama.cpp)" % (m.get("file"), res.get("iters"))}
+    return pins, made
+
+
+def equivalence_of(d, b, pins):
+    """The equivalence the spec reports: the share of the held questions on which the swarm's answer is equivalent to the larger
+    model's, for the arrangement every swarm starts from (src/briefs.json's version) and for the one training made (this
+    configuration's briefs), each served with the adapters the recipe pins; and how many points training added. A side not yet
+    measured that way says so: nothing is borrowed from a measurement made another way."""
+    start = (_json(Path(d["root"]) / "src" / "briefs.json", {}) or {}).get("version", 1)
+    served = sorted(pins)
+    def at(v):
+        g = next((x["parity"] for x in d.get("heldBy") or [] if x["briefs"] == v and x["adapters"] == served), None)
+        return ({"briefsVersion": v, "adapters": served, "percent": g["percent"], "equivalent": g["equivalent"], "of": g["compared"]} if g
+                else {"briefsVersion": v, "adapters": served, "measured": False})
+    dflt = at(start)
+    now = b.get("version")
+    trained = at(now) if now != start else {"briefsVersion": now, "adapters": served, "sameAs": "default: training has kept nothing yet"}
+    both = "percent" in dflt and "percent" in trained
+    return {
+        "is": "the share of the held questions on which the swarm's answer is fundamentally equivalent to the larger model's, served as this spec says (with the adapters it pins, where it pins them)",
+        "default": dflt,
+        "defaultIs": "the arrangement every swarm starts from (src/briefs.json), with the same models, decider and adapters",
+        "trained": trained,
+        "trainedIs": "the arrangement in `recipe.briefs`, made by the changes in `learned.ledger`",
+        "gainPoints": round(trained["percent"] - dflt["percent"], 1) if both else None,
+        "gainIs": "what training added over the default, in points of the held questions; none until both are measured the same way",
+    }
 
 
 def spec(d):
     """THE OUTPUT SPEC: everything needed to make this swarm again, anywhere, and to offer it as a model: what it is made of (every
     file pinned), how it is arranged (every slot with what it is told), how it is served and decided, what it can and cannot do as a
     model, what it needs of a machine, and where it stands against the larger model, with the evidence. One document.
-    Written with one host in mind, and generic: a model chooser like The Crew's ("Choose your model") takes `card` as one more
-    item, checks `requirements` against the machine, fetches what `recipe` pins, and starts it with serveSwarm({ ...card, spec }).
+    Generic, for any host: a model chooser takes `card` as one more item, checks `requirements` against the machine, fetches what
+    `recipe` pins, and starts it with serveSwarm({ ...card, spec }). It says how far training took the swarm past the arrangement
+    every swarm starts from, served the same way (`equivalence`), and what made the difference (`learned`).
     The parts a swarm is built from (members, decider, engine, serving, arrangement.briefs) are hashed: recipeSha256."""
     import hashlib
     from statistics import median
@@ -505,8 +590,10 @@ def spec(d):
     run_briefs = {k: v for k, v in b.items() if k != "about"}  # what createSwarm runs, exactly
     tools = d.get("tools") or "a"
     one = (members.get(tools) or {}) if tools != "swarm" else {}
+    pins, made = spec_adapters(d)
     recipe = {"members": members, "decider": dec, "engine": engine,
-              "serving": {**{k: serving[k] for k in ("slots", "contextPerSlot")}, "tools": "swarm" if tools == "swarm" else one.get("id", tools)}, "briefs": run_briefs}
+              "serving": {**{k: serving[k] for k in ("slots", "contextPerSlot")}, "tools": "swarm" if tools == "swarm" else one.get("id", tools)}, "briefs": run_briefs,
+              **({"adapters": pins} if pins else {})}
     sha = recipe_sha256(recipe)
     lic = list(dict.fromkeys(x for x in [m.get("license") for m in members.values()] + [dec.get("license")] if x))
     secs = [r["seconds"] for r in held if isinstance(r.get("seconds"), (int, float))]
@@ -514,7 +601,9 @@ def spec(d):
     t = d["target"] or {}
     names = [m.get("name", k) for k, m in members.items()]
     eq = d.get("equivalence") or {}
-    on = [{"id": x["id"], "name": x.get("name", x["id"])} for x in eq.get("targets", []) if x["id"] in (eq.get("chosen") or [])]
+    # (what it is equivalent on, by what the work is, not by the product it was first measured for: specName, specAbout)
+    on = [{"id": x["id"], "name": x.get("specName") or x.get("name", x["id"]), "about": x.get("specAbout") or x.get("about", ""), "kinds": x.get("kinds", [])}
+          for x in eq.get("targets", []) if x["id"] in (eq.get("chosen") or [])]
     badge = (("At parity with %s" % t.get("name")) if p["level"] else ("%s%% of the way to parity with %s" % (("%.1f" % p["percent"]).rstrip("0").rstrip("."), t.get("name")))) if p and t else "Not yet measured"
     runs_on = dec.get("runsOn") or ["mac", "cuda", "cpu"]
     now = pass_in_hand(d)
@@ -523,12 +612,12 @@ def spec(d):
         badge = "In training · pass %d" % now["pass"]
     return {
         "spec": {"format": SPEC_FORMAT, "version": SPEC_VERSION, "configuration": d.get("key"), "recipeSha256": sha,
-                 "recipeIs": "members, decider, engine, serving and arrangement.briefs: what a swarm is built from. Two specs with the same hash make the same swarm."},
+                 "recipeIs": "members, decider, engine, serving, arrangement.briefs and the adapters it is served with: what a swarm is built from. Two specs with the same hash make the same swarm."},
         "name": "The Swarm",
         "id": "swarm-" + "+".join(m.get("id", "") for m in members.values()),
         "what": "%s small models that answer as one, trained toward parity with a larger model: an answer fundamentally equivalent to the one the larger model gives." % ["One", "Two", "Three", "Four"][max(0, min(3, n_small - 1))],
-        # ONE ITEM FOR A MODEL CHOOSER, in the shape The Crew's catalogue has its models (src/js/catalog.js: id, name, size, params,
-        # memGb, pace, badge, plain), with engine 'swarm'; what it is equivalent on and where it stands are said on its face
+        # ONE ITEM FOR A MODEL CHOOSER (id, name, size, params, memGb, pace, badge, plain), with engine 'swarm'; what it is
+        # equivalent on and where it stands are said on its face
         "card": {
             "id": "swarm-" + "+".join(m.get("id", "") for m in members.values()), "engine": "swarm", "family": "Swarm", "name": "The Swarm",
             "size": ["One", "Two", "Three", "Four"][max(0, min(3, n_small - 1))] + " small models",
@@ -577,7 +666,7 @@ def spec(d):
                 "contextTokens": SERVING.get("contextPerSlot"),
             },
             "goodFor": ("replies a person reads, single steps that can be checked, and an agent's turns with tools: what it was measured on (%s)" if tools == "swarm" else "replies a person reads and single steps that can be checked: what it was measured on (%s)") % (", ".join(x["name"] for x in on) or "its questions"),
-            "notYet": ([] if tools == "swarm" else ["a request that carries tools goes to %s alone (an agent that works by tools, as The Crew's Pi does, gets that one model)" % one.get("name", "one small model")]) + ["the reply is whole before any of it is sent"],
+            "notYet": ([] if tools == "swarm" else ["a request that carries tools goes to %s alone (an agent that works by tools gets that one model)" % one.get("name", "one small model")]) + ["the reply is whole before any of it is sent"],
             "start": {
                 "decider": "bash training/decider.sh serve (the recipe is recipe.decider.serve); or name one already running with SWARM_DECIDER",
                 "program": "createSwarm({ spec, decider: 'http://127.0.0.1:8009', modelsDir })",
@@ -585,6 +674,13 @@ def spec(d):
                 "terminal": "node bin/swarm.mjs serve --spec <this file> [--port 8090]",
             },
         },
+        # HOW FAR TRAINING TOOK IT: the held questions answered by the arrangement every swarm starts from and by the one training
+        # made, both served as this spec says (with the adapters it pins, where it pins them), and the difference
+        "equivalence": equivalence_of(d, b, pins),
+        # THE ADAPTERS, how each was made: the recipe pins each file by its SHA-256; the files are not in the spec
+        "adapters": ({"servedWith": True, "models": made,
+                      "filesAre": "not in the spec (10 to 15 MB each, more than a commit here takes): copied from the machine that trained them, or made again by `make` from the larger model's answers. A swarm is built from a spec only with files whose SHA-256 is the recipe's; one made again differs, and is another swarm whose equivalence has not been measured"}
+                     if pins else {"servedWith": False}),
         # THIS PASS, UNDER WAY (pass_in_hand): what the parts below, which speak of finished passes, do not yet hold
         "inProgress": now,
         "recipe": recipe,

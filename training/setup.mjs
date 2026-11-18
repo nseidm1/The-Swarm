@@ -11,13 +11,15 @@
 // stops and says what to do, in a sentence, and what is already here is kept.
 //   node training/setup.mjs            make ready       node training/setup.mjs --check     say what is missing, fetch nothing
 //   node training/setup.mjs --small    the engine and the small models only (Pretrain needs no more)
+//   node training/setup.mjs --model qwen35-4b,gemma4-e2b   those small models of the catalog only (src/models.json), whatever
+//        the swarm is made of: to measure one alone (training/baseline.mjs --who model:<id>) before choosing it
 // What it is doing is written to .work/train/setup.json as it goes, for the page.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { has, llamaServer, modelsDir, REPO_ROOT, WORK } from './support/bench.mjs';
-import { MEMBERS, DECIDER, TARGET, ENGINE, fileUrl, engineBuild, engineUrl } from '../src/catalog.mjs';
+import { MEMBERS, DECIDER, TARGET, ENGINE, REGISTRY, fileUrl, engineBuild, engineUrl } from '../src/catalog.mjs';
 import { modelFile, filesOf } from '../src/members.mjs';
 import { programOf } from './target.mjs';
 
@@ -293,6 +295,26 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   }
   const ok = [];
   ok.push(await engine(check));
+  // (--model <id>[,<id>]: those small models of the catalog only, and nothing else)
+  const named = String(process.argv[process.argv.indexOf('--model') + 1] || '');
+  if (has('model')) {
+    for (const id of named.split(',').filter(Boolean)) {
+      const m = REGISTRY.small.find((x) => x.id === id);
+      if (!m) {
+        say('Small model ' + id, 'failed', { why: 'no small model in src/models.json has that id' });
+        ok.push(false);
+        continue;
+      }
+      ok.push(await model(m, 'Small model (' + m.name + ')', check));
+    }
+    for (const s of steps)
+      console.log(
+        (s.state === 'ready' ? 'ready    ' : s.state === 'missing' ? 'missing  ' : 'FAILED   ') +
+          s.what +
+          (s.why ? ': ' + s.why : s.note ? ' (' + s.note + ')' : s.of ? ' (' + gb(s.of) + ')' : ''),
+      );
+    process.exit(ok.every(Boolean) ? 0 : 1);
+  }
   // every small model the swarm is made of (the same model in two places is one file)
   const fetched = new Set();
   for (const [i, m] of Object.values(MEMBERS).entries()) {

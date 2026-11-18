@@ -26,7 +26,7 @@
 // It carries on where it stopped: every finished question is written down (.work/train/<configuration>/loop.json).
 import fs from 'node:fs';
 import path from 'node:path';
-import { decideByOf } from '../src/orchestrate.mjs';
+import { decideByOf, kindOf, briefsFor, KIND_PARTS } from '../src/orchestrate.mjs';
 import {
   normal as normalPolicy,
   reviewAsk,
@@ -180,11 +180,20 @@ export function unstableOf(file, seed) {
 // partial credit) how near the nearest answer came: of code, the share of inputs on which it gives what the larger model's gives;
 // of words, the reader's probability. Without that last, a question no slot drafts reads the same after every change, and the
 // search has nothing to build on (measured 2026-11-16: 99 tries on one question, every one "0 slots had the answer")
-const bestShare = (row) => {
-  const xs = (row.trace || [])
+const sharesOf = (row) =>
+  (row.trace || [])
     .filter((s) => (s.stage === 'draft' || s.stage === 'check' || s.stage === 'revise') && typeof s.share === 'number')
     .map((s) => s.share);
+const bestShare = (row) => {
+  const xs = sharesOf(row);
   return xs.length ? Math.max(...xs) : null;
+};
+// AND HOW NEAR THEY ALL CAME: the mean share over every slot's answer. Two arrangements whose nearest answer is as near read the same
+// by the best alone, and the search had nothing to climb (measured 2026-11-17: 44 tries in a row on one code question, none
+// closer); one where more of the drafts behave like the larger model's on more inputs is now the closer, by a fraction under 1
+const meanShare = (row) => {
+  const xs = sharesOf(row);
+  return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
 };
 export function closeness(row, ev = null, { partial = false } = {}) {
   const lost = (ev && ev.lost) || lostAt(row);
@@ -199,7 +208,8 @@ export function closeness(row, ev = null, { partial = false } = {}) {
     { drafting: 0, choosing: 1, writing: 2 }[lost] * 1000 +
     Math.min(9, holders.length) * 100 +
     Math.round(p * 9) * 10 +
-    Math.round(share * 9)
+    Math.round(share * 9) +
+    (partial ? Math.round((meanShare(row) || 0) * 99) / 100 : 0)
   );
 }
 // the same, in parts a person can read: where the answer was lost, how many slots had it (which), the decider's probability on
@@ -214,12 +224,14 @@ export function nearOf(row, ev = null) {
   const p = decided ? Math.max(0, ...holders.map((s) => decided.probs[s.letter] || 0)) : null;
   const slots = [...new Set(holders.map((s) => s.slot).filter(Boolean))].slice(0, 8);
   const share = bestShare(row);
+  const mean = meanShare(row);
   return {
     lost,
     had: holders.length,
     ...(slots.length ? { slots } : {}),
     ...(p == null ? {} : { p: Math.round(p * 100) / 100 }),
     ...(share == null ? {} : { share: Math.round(share * 100) / 100 }),
+    ...(mean == null ? {} : { mean: Math.round(mean * 100) / 100 }),
     ...(row.path ? { path: String(row.path).slice(0, 60) } : {}),
   };
 }
@@ -379,12 +391,16 @@ export function orderFor(
 // and of those, first the questions changes have lost most often: a change that is going to lose one loses it on its first check,
 // not its third (measured 2026-11-16: 23 of 26 changes that reached parity on one question lost the same other one, asked third,
 // so each failure cost three runs)
-export function guardOf(reached, t, n, lost = {}) {
+export function guardOf(reached, t, n, lost = {}, pairs = {}) {
   const same = reached.filter((r) => r.t.kind === t.kind).reverse();
   const rest = reached.filter((r) => r.t.kind !== t.kind).reverse();
+  // (the one THIS question's changes have broken most comes first, then the one changes have lost most: a change that will be
+  // turned down is turned down on its first check. Ranked by losses overall alone, a question another question had broken eleven
+  // times was asked first on every try, and passed, before the one that was failing every time)
+  const pairOf = (r) => pairs[t.id + '>' + r.t.id] || 0;
   return [...same, ...rest]
     .map((r, k) => ({ r, k }))
-    .sort((x, y) => (lost[y.r.t.id] || 0) - (lost[x.r.t.id] || 0) || x.k - y.k)
+    .sort((x, y) => pairOf(y.r) - pairOf(x.r) || (lost[y.r.t.id] || 0) - (lost[x.r.t.id] || 0) || x.k - y.k)
     .map((x) => x.r)
     .slice(0, n);
 }
@@ -473,6 +489,9 @@ export async function runLoop({
   teach = null,
   // a question beyond rearranging (adaptAfter tries, the larger model's briefs among them): onBeyond(q, t) makes the next lever ready
   onBeyond = async () => {},
+  // after every try on a question still in hand: st, with st.inHand (where its search stands), to be written down so that a stopped
+  // run carries on from that try instead of searching the question again from its first
+  onTry = async () => {},
 }) {
   const st = resume || { questions: [], rows: [], moves: {}, kept: [] };
   st.classes = st.classes || JSON.parse(JSON.stringify(classes || {}));
@@ -488,7 +507,8 @@ export async function runLoop({
   if (!st.trial && trial && trial.from && trial.taken)
     st.trial = { from: normalPolicy(trial.from), taken: trial.taken, startTry: st.tryN, before: [] };
   const byId = Object.fromEntries(list.map((t) => [t.id, t]));
-  const doneIds = () => new Set(st.questions.filter((q) => q.state !== 'reopened').map((q) => q.id));
+  const doneIds = () =>
+    new Set(st.questions.filter((q) => q.state !== 'reopened' && q.state !== 'set aside').map((q) => q.id));
   const reached = st.questions
     .filter((q) => q.reached)
     .map((q) => ({ t: byId[q.id], row: st.rows.find((r) => r.id === q.id) }))
@@ -499,32 +519,82 @@ export async function runLoop({
     st.tryLog.push({ n: st.tryN, s: { kept: 10, parity: 3, closer: 1 }[kind] || 0 });
     if (st.tryLog.length > 1200) st.tryLog.splice(0, st.tryLog.length - 1200);
   };
+  // THE KIND OF A QUESTION (code, or words: what the swarm itself can tell from the question, src/orchestrate.mjs kindOf), and the
+  // arrangement a question of that kind is asked with: its own (briefs.kinds[kind]) where one was kept, else the shared one
+  const kindOfT = (t) => kindOf(t.turns ? (t.turns.filter((m) => m.role === 'user').at(-1) || {}).content : t.ask);
+  const flat = (b, k) => briefsFor(b, '', k);
+  const ownOf = (nb) => Object.fromEntries(KIND_PARTS.map((p) => [p, nb[p] === undefined ? null : nb[p]]));
+  // the arrangement a change made for a question of kind k, folded back: into that kind's own where it has one, else the shared one
+  const fold = (nb, k, base) =>
+    base.kinds && base.kinds[k]
+      ? { ...base, kinds: { ...base.kinds, [k]: ownOf(nb) } }
+      : { ...nb, ...(base.kinds ? { kinds: base.kinds } : {}) };
+  // whether a change to the arrangement of kind k can change how a question of kind k2 is answered: both on the same arrangement
+  const shares = (b, k, k2) => k === k2 || (!(b.kinds && b.kinds[k]) && !(b.kinds && b.kinds[k2]));
+  // THE NEXT QUESTION: one sent back in hand; else the next not yet finished; else one SET ASIDE (it stopped coming closer while others
+  // waited), first one the arrangement has changed since, and last one it has not, which is then searched until parity as before
+  const asideOf = () => st.questions.filter((x) => x.state === 'set aside');
   for (;;) {
     const done = doneIds();
-    const t = st.reopen.length ? byId[st.reopen.shift()] : list.find((x) => !done.has(x.id));
+    const aside0 = asideOf();
+    let t = st.reopen.length
+      ? byId[st.reopen.shift()]
+      : list.find((x) => !done.has(x.id) && !aside0.some((a) => a.id === x.id));
+    let lastChance = false;
+    if (!t && aside0.length) {
+      const changed = aside0.find((a) => (a.asideAt || 0) < (briefs.version || 1));
+      t = byId[(changed || aside0[0]).id];
+      lastChance = !changed;
+    }
     if (!t) break;
     let pol = st.policy;
-    const n = st.questions.filter((x) => x.state !== 'reopened').length + 1;
-    let row = await attempt(briefs, t, { n, of: list.length, attempt: 0, cap, move: '' });
+    const K = kindOfT(t);
+    const eb = flat(briefs, K);
+    const n = st.questions.filter((x) => x.state !== 'reopened' && x.state !== 'set aside' && x.id !== t.id).length + 1;
+    let row = await attempt(eb, t, { n, of: list.length, attempt: 0, cap, move: '' });
     const was = st.questions.find((x) => x.id === t.id);
     const q = {
       id: t.id,
       kind: t.kind,
+      asked: K,
       attempts: [{ move: '', grade: row.grade, ...(row.seconds ? { seconds: row.seconds } : {}) }],
       ...(unstable.has(t.id) ? { unstable: true } : {}),
       ...(st.trial ? { onTrial: true } : {}),
       ...(was ? { again: (was.again || 0) + 1, lostTo: was.lostTo } : {}),
+      ...(was && was.state === 'set aside' ? { setAside: (was.setAside || 0) + 1 } : {}),
     };
+    // A STOPPED RUN CARRIES ON FROM ITS LAST TRY: where this question's search was written down on the same arrangement
+    const carry = st.inHand && st.inHand.id === t.id && st.inHand.version === (briefs.version || 1) ? st.inHand : null;
+    st.inHand = null;
     if (row.grade === 'noref') q.state = 'not compared';
     else if (row.grade === 'right') q.state = 'at parity';
     else {
-      const ev0 = tuned(await lostOf(row, briefs), briefs, pol);
+      const ev0 = tuned(await lostOf(row, eb), eb, pol);
       const lost = ev0.lost;
       q.lostAt = lost;
       const score = (r, ev) => closeness(r, ev, { partial: pol.partialCredit });
       const node0 = (over) => ({ tried: new Set(), spent: false, ...over });
+      // WHEN THE QUESTIONS A CHANGE LOSES ARE SWAPPED (kept, and they go back in hand): one question lost `swapAfter` times; or, where
+      // every question this one's changes have broken is among the same few (`stableMax` at most: a standing conflict, repairs aimed at
+      // it having failed), those losses together reaching `stableAfter`. One already swapped for this question is never swapped back
+      const swapOk = (ids) => {
+        if (!ids.length || ids.some((id) => st.swapped[id + '>' + t.id])) return false;
+        const lostOf_ = (id) => st.pairs[t.id + '>' + id] || 0;
+        if (ids.length === 1 && pol.swapAfter > 0 && lostOf_(ids[0]) + 1 >= pol.swapAfter) return true;
+        const set = [...new Set([...Object.keys(q.broke || {}), ...ids])];
+        return (
+          pol.stableAfter > 0 &&
+          set.length <= pol.stableMax &&
+          set.reduce((sum, k) => sum + lostOf_(k), 0) + 1 >= pol.stableAfter
+        );
+      };
+      const branchOk = (ids) =>
+        pol.kindBranch &&
+        ids.length > 0 &&
+        !(briefs.kinds && briefs.kinds[K]) &&
+        ids.every((id) => byId[id] && kindOfT(byId[id]) !== K);
       const root = node0({
-        base: briefs,
+        base: eb,
         ev: ev0,
         chain: [],
         score: score(row, ev0),
@@ -559,7 +629,7 @@ export async function runLoop({
         const dropped = [];
         for (let k = 0; k < cur.length && cur.length > 1;) {
           const cand = cur.filter((_, j) => j !== k);
-          const ap = applyNames(poolOf, briefs, cand);
+          const ap = applyNames(poolOf, eb, cand);
           if (!ap || ap.names.length !== cand.length) {
             k++;
             continue;
@@ -592,7 +662,7 @@ export async function runLoop({
         }
         return dropped.length ? { combo: cur, briefs: curB, rows: curRows, dropped } : null;
       };
-      const tryIt = async (node, m, combo, newBriefs, method, extra = {}) => {
+      const tryOne = async (node, m, combo, newBriefs, method, extra = {}) => {
         seen.add([...combo].sort().join(' + '));
         i++;
         onAttempt({ q, m, n: i });
@@ -674,6 +744,7 @@ export async function runLoop({
               seconds: r.seconds,
               depth: node.depth + 1,
               ...(node.broken ? { broken: true } : {}),
+              ...(node.rank ? { rank: node.rank, repairOf: node.repairOf } : {}),
             });
             if (s2 > node.score) {
               a.closer = true;
@@ -692,7 +763,13 @@ export async function runLoop({
         cls.reached++;
         let what = combo.join(' + ');
         // at parity here: does it hold on the questions that were already there? (the one changes lose most, first)
-        const again = guardOf(reached, t, guard, st.lostOn || {});
+        const again = guardOf(
+          reached.filter((x) => shares(briefs, K, kindOfT(x.t))),
+          t,
+          guard,
+          st.lostOn || {},
+          st.pairs || {},
+        );
         let rows = [];
         const lostIds = [];
         for (const [gk, g] of again.entries()) {
@@ -711,25 +788,17 @@ export async function runLoop({
           rows.push(gr);
           if (gr.grade !== 'right') {
             lostIds.push(g.t.id);
-            // A STANDING CONFLICT MAY BE SWAPPED: where changes that bring this question to parity have lost the same one `swapAfter`
-            // times, the rest are asked too; if that one is all it loses, the change is kept and that question goes back in hand
-            const pk = t.id + '>' + g.t.id;
-            const swappable =
-              lostIds.length === 1 &&
-              pol.swapAfter &&
-              (st.pairs[pk] || 0) + 1 >= pol.swapAfter &&
-              !st.swapped[g.t.id + '>' + t.id];
-            if (!swappable) break;
+            // A STANDING CONFLICT MAY BE SWAPPED: while what it has lost could still be swapped, the rest are asked too; if that is all
+            // it loses, the change is kept and those questions go back in hand
+            if (!swapOk(lostIds) && !branchOk(lostIds)) break;
           }
         }
         a.guard = { asked: rows.length, of: again.length, lost: lostIds.length };
-        const swap =
-          lostIds.length === 1 &&
-          rows.length === again.length &&
-          pol.swapAfter &&
-          (st.pairs[t.id + '>' + lostIds[0]] || 0) + 1 >= pol.swapAfter &&
-          !st.swapped[lostIds[0] + '>' + t.id];
-        if (lostIds.length && !swap) {
+        // KEPT FOR ITS KIND ONLY: where every question it lost is of the other kind (code, or words), it is kept as this kind's own
+        // arrangement, and those questions keep the one they were at parity with: nothing is lost, and nothing goes back in hand
+        const branch = lostIds.length > 0 && rows.length === again.length && branchOk(lostIds);
+        const swap = !branch && lostIds.length > 0 && rows.length === again.length && swapOk(lostIds);
+        if (lostIds.length && !swap && !branch) {
           a.lostOn = lostIds[0];
           mv.lostElsewhere++;
           st.lostOn = st.lostOn || {};
@@ -740,10 +809,16 @@ export async function runLoop({
           a.nearParity = true;
           counted('parity');
           if (!pol.brokeBudget || (q.brokeTries || 0) >= pol.brokeBudget) return { closer: false };
+          // WHAT IS BUILT ON IT IS AIMED AT THE QUESTION IT BROKE: this question is at parity with it already, so the next changes are
+          // ranked by where the broken one was lost in its check (drafting, choosing, writing), not by where this one had been. Ranked
+          // by this question's own record, eight changes in a row on rotate were drafting changes, and each broke dedupe as the last had
+          const failed = rows.find((x) => x.grade !== 'right');
+          const repair = failed ? tuned(await lostOf(failed, newBriefs), newBriefs, pol) : null;
           open.push(
             node0({
               base: newBriefs,
               ev: node.ev,
+              ...(repair ? { rank: repair, repairOf: a.lostOn } : {}),
               chain: combo,
               broken: true,
               score: 100000 + rows.length - 1,
@@ -758,7 +833,7 @@ export async function runLoop({
         // THE SMALLEST WIN: a win of several changes is tried without each of its parts, and what is kept is the smallest that
         // still reaches parity and loses none of the questions already there (arrangements had only grown: six changes deep, every
         // part of them slowing every question after, and none known to be needed)
-        if (pol.prune && combo.length > 1 && !swap) {
+        if (pol.prune && combo.length > 1 && !swap && !branch) {
           const pr = await prune(combo, again, rows);
           if (pr) {
             a.pruned = pr.dropped;
@@ -769,7 +844,13 @@ export async function runLoop({
           }
         }
         // KEPT: the arrangement is now this one, for this question and every one after
-        briefs = { ...newBriefs, version: (briefs.version || 1) + 1 };
+        briefs = branch
+          ? {
+              ...briefs,
+              kinds: { ...(briefs.kinds || {}), [K]: ownOf(newBriefs) },
+              version: (briefs.version || 1) + 1,
+            }
+          : { ...fold(newBriefs, K, briefs), version: (briefs.version || 1) + 1 };
         a.kept = true;
         mv.kept = (mv.kept || 0) + 1;
         const several = combo.length > 1;
@@ -784,7 +865,8 @@ export async function runLoop({
           ...(a.added !== undefined ? { addedSeconds: a.added } : {}),
           ...(extra.library ? { fromLibrary: extra.library.from } : {}),
           ...(a.pruned ? { pruned: a.pruned } : {}),
-          ...(swap ? { swapped: lostIds[0] } : {}),
+          ...(swap ? { swapped: lostIds.join(', ') } : {}),
+          ...(branch ? { kindOnly: K, wouldLose: lostIds.join(', ') } : {}),
           why:
             'it brought ' +
             t.id +
@@ -799,21 +881,33 @@ export async function runLoop({
                 ? ', on top of ' + node.chain.join(' and ')
                 : '') +
             '), and ' +
-            (swap
+            (branch
               ? 'of the ' +
                 rows.length +
                 ' already at parity asked again it lost only ' +
-                lostIds[0] +
-                ', which it had lost ' +
-                pol.swapAfter +
-                ' times: that one goes back in hand'
-              : rows.length
-                ? 'the ' +
+                lostIds.join(' and ') +
+                ', ' +
+                (K === 'code' ? 'asked in words' : 'asked for code') +
+                ': it is kept for questions ' +
+                (K === 'code' ? 'asking for code' : 'in words') +
+                ' only, as their own arrangement, and those keep the one they were at parity with'
+              : swap
+                ? 'of the ' +
                   rows.length +
-                  ' question' +
-                  (rows.length === 1 ? '' : 's') +
-                  ' already at parity asked again with it stayed there'
-                : 'no question was at parity before it to lose'),
+                  ' already at parity asked again it lost only ' +
+                  lostIds.join(' and ') +
+                  ', lost ' +
+                  lostIds.reduce((sum, k) => sum + (st.pairs[t.id + '>' + k] || 0), 0) +
+                  " times before by this question's changes: " +
+                  (lostIds.length === 1 ? 'that one goes' : 'those go') +
+                  ' back in hand'
+                : rows.length
+                  ? 'the ' +
+                    rows.length +
+                    ' question' +
+                    (rows.length === 1 ? '' : 's') +
+                    ' already at parity asked again with it stayed there'
+                  : 'no question was at parity before it to lose'),
         };
         st.kept.push({ ...entry, briefs: briefs.version });
         await keep(briefs, entry);
@@ -821,34 +915,93 @@ export async function runLoop({
         addToLibrary(st.library, combo, { question: t.id, pass: undefined, lostAt: lost });
         await onLibrary(st.library);
         again.forEach((g, k) => {
-          if (!rows[k]) return;
+          if (!rows[k] || (branch && kindOfT(g.t) !== K)) return;
           const at = st.rows.findIndex((x) => x.id === g.t.id);
           if (at >= 0) st.rows[at] = rows[k];
         });
         if (swap) {
-          const lostId = lostIds[0];
-          st.swapped[t.id + '>' + lostId] = true;
-          const lq = st.questions.find((x) => x.id === lostId);
-          if (lq) {
-            lq.state = 'reopened';
-            lq.reached = false;
-            lq.lostTo = t.id;
+          for (const lostId of lostIds) {
+            st.swapped[t.id + '>' + lostId] = true;
+            const lq = st.questions.find((x) => x.id === lostId);
+            if (lq) {
+              lq.state = 'reopened';
+              lq.reached = false;
+              lq.lostTo = t.id;
+            }
+            const ri = reached.findIndex((x) => x.t.id === lostId);
+            if (ri >= 0) reached.splice(ri, 1);
+            st.reopen.push(lostId);
           }
-          const ri = reached.findIndex((x) => x.t.id === lostId);
-          if (ri >= 0) reached.splice(ri, 1);
-          st.reopen.push(lostId);
-          q.swapped = lostId;
+          q.swapped = lostIds.join(', ');
         }
         row = r;
         won = true;
         counted('kept');
         return { closer: true };
       };
+      // WHERE THE SEARCH STANDS, written down after every try: the question's record, what was tried, and each arrangement open or
+      // tried by the changes that make it (rebuilt from the swarm as it stands when carried on: applyNames)
+      const ser = (x) => ({
+        chain: x.chain,
+        ev: x.ev,
+        ...(x.rank ? { rank: x.rank, repairOf: x.repairOf } : {}),
+        score: x.score,
+        near: x.near,
+        seconds: x.seconds,
+        depth: x.depth,
+        ...(x.broken ? { broken: true } : {}),
+        ...(x.spent ? { spent: true } : {}),
+        ...(x.trimmed ? { trimmed: true } : {}),
+        tried: [...x.tried],
+      });
+      const snapshot = () => ({
+        id: t.id,
+        version: briefs.version || 1,
+        i,
+        q: JSON.parse(JSON.stringify(q)),
+        seen: [...seen],
+        root: [...root.tried],
+        open: open.filter((x) => x !== root).map(ser),
+        wide: triedArr.map(ser),
+      });
+      const checkpoint = async () => {
+        if (won) return;
+        st.inHand = snapshot();
+        await onTry(st);
+      };
+      // every try counted toward setting the question aside (tries in a row that brought it neither closer nor to parity), then
+      // written down
+      const tryIt = async (...args) => {
+        const out = await tryOne(...args);
+        q.sinceGain = out.closer || won ? 0 : (q.sinceGain || 0) + 1;
+        await checkpoint();
+        return out;
+      };
+      // SET ASIDE: `setAsideAfter` tries in a row with nothing closer and no parity, while another question waits (one not yet
+      // finished, one sent back, or one set aside that the arrangement has changed since). It comes back after them, on the
+      // arrangement they leave; where nothing has changed by then, it is searched until parity as before (measured 2026-11-17: 44
+      // tries in a row on one question, none closer, while 78 questions waited)
+      const others = () =>
+        st.reopen.length > 0 ||
+        list.some((x) => x.id !== t.id && !doneIds().has(x.id) && !asideOf().some((a) => a.id === x.id)) ||
+        asideOf().some((a) => a.id !== t.id && (a.asideAt || 0) < (briefs.version || 1));
+      const stalled = () =>
+        !won && !lastChance && pol.setAsideAfter > 0 && (q.sinceGain || 0) >= pol.setAsideAfter && others();
       const tick = async () => {
         await policyTick(st, { review, onPolicy, current: q });
         pol = st.policy;
-        if (!won && review && pol.suggestEvery && (q.sinceSuggest || 0) >= pol.suggestEvery) await suggest();
-        if (!won && teach && pol.teachEvery && (q.sinceTeach || 0) >= pol.teachEvery && lostAt(lastRow) !== 'writing')
+        // the larger model's help comes half as often each time it brings this question nothing (helpBackoff): each costs it
+        // started, asked and stopped
+        const every = (base, dry) => base * (pol.helpBackoff ? 2 ** (dry || 0) : 1);
+        if (!won && review && pol.suggestEvery && (q.sinceSuggest || 0) >= every(pol.suggestEvery, q.suggestDry))
+          await suggest();
+        if (
+          !won &&
+          teach &&
+          pol.teachEvery &&
+          (q.sinceTeach || 0) >= every(pol.teachEvery, q.teachDry) &&
+          lostAt(lastRow) !== 'writing'
+        )
           await teachNow();
         // BEYOND REARRANGING: so many tries, the larger model's teaching among them, and still short of parity. Flagged once, with
         // the evidence, and the next lever made ready (adapters.mjs): it never moves on before parity all the same
@@ -869,14 +1022,23 @@ export async function runLoop({
         // the checkers (who did not show it up), then the drafters whose answers stood instead
         const lostNow = lostAt(lastRow);
         const tr0 = (lastRow.trace || []).filter((x) => slotsById[x.slot]);
+        // THE DRAFTERS NEAREST THE ANSWER FIRST: by the share of inputs their answer already gets as the larger model's does (of
+        // words, the reader's probability), then the order they ran. Taken in order, the first two were always the first model's
+        // (measured 2026-11-17 on question 6: three rounds of briefs naming the missing idea went to the 1.2B model's two drafters,
+        // at 53% and nothing, while the 3B model's drafter at 87% was never taught)
+        const nearest = (xs) =>
+          xs
+            .map((x, k) => ({ x, k }))
+            .sort((p1, p2) => (p2.x.share ?? -1) - (p1.x.share ?? -1) || p1.k - p2.k)
+            .map((p1) => p1.x);
         const failing = [
           ...new Set(
             (lostNow === 'choosing'
               ? [
                   ...tr0.filter((x) => x.stage === 'check'),
-                  ...tr0.filter((x) => x.stage === 'draft' && x.same === false),
+                  ...nearest(tr0.filter((x) => x.stage === 'draft' && x.same === false)),
                 ]
-              : tr0.filter((x) => x.stage === 'draft' && x.same === false)
+              : nearest(tr0.filter((x) => x.stage === 'draft' && x.same === false))
             ).map((x) => x.slot),
           ),
         ].slice(0, 2);
@@ -889,6 +1051,7 @@ export async function runLoop({
           closer: 0,
           failed: 0,
         });
+        let gained = false;
         for (const sid of failing) {
           if (won || i >= cap) break;
           const tr = (lastRow.trace || []).find((x) => x.slot === sid && (x.stage === 'draft' || x.stage === 'check'));
@@ -904,6 +1067,7 @@ export async function runLoop({
           try {
             cands = (await teach(slotsById[sid], missed, lostNow)) || [];
             tc.asked++;
+            if (cands.refused) tc.refused = (tc.refused || 0) + cands.refused;
             q.taught = (q.taught || 0) + 1;
           } catch {
             tc.failed++;
@@ -936,12 +1100,15 @@ export async function runLoop({
             };
             const out = await tryIt(node, m, combo, m.briefs, method, { taught: true });
             tc.tried++;
+            if (won || out.closer) gained = true;
             if (won) tc.kept++;
             else if (out.closer) tc.closer++;
             await policyTick(st, { review, onPolicy, current: q });
             pol = st.policy;
           }
         }
+        q.teachDry = gained ? 0 : (q.teachDry || 0) + 1;
+        if (!gained) tc.dry = (tc.dry || 0) + 1;
       };
       // THE LARGER MODEL SUGGESTS WHAT TO TRY: after `suggestEvery` failed tries it is shown this question, what was tried and how close
       // each came, the arrangement the next tries build on, the found arrangements, and the changes still open from it by name. What
@@ -951,7 +1118,7 @@ export async function runLoop({
         q.sinceSuggest = 0;
         const node = open.filter((x) => !x.spent).sort((x, y) => y.score - x.score || x.depth - y.depth)[0] || root;
         const opts = orderFor(poolOf(node.base), {
-          ...node.ev,
+          ...(node.rank || node.ev),
           moves: st.moves,
           classes: st.classes,
           pin,
@@ -1038,12 +1205,32 @@ export async function runLoop({
           pol = st.policy;
         }
         q.sinceSuggest = 0;
+        const gained = log.came.some((c) => c !== 'no closer');
+        q.suggestDry = gained ? 0 : (q.suggestDry || 0) + 1;
+        if (!gained) sg.dry = (sg.dry || 0) + 1;
       };
 
+      // CARRIED ON: the search as it was written down after its last try (or when it was set aside), on the same arrangement
+      const held = carry || (st.asideSearch && st.asideSearch[t.id]);
+      if (st.asideSearch) delete st.asideSearch[t.id];
+      if (held && held.version === (briefs.version || 1)) {
+        Object.assign(q, held.q, { id: t.id, kind: t.kind, asked: K });
+        i = held.i;
+        for (const k of held.seen) seen.add(k);
+        for (const k of held.root) root.tried.add(k);
+        const back = (x) => {
+          const ap = x.chain.length ? applyNames(poolOf, eb, x.chain) : null;
+          if (x.chain.length && (!ap || ap.names.length !== x.chain.length)) return null;
+          return node0({ ...x, base: ap ? ap.briefs : eb, tried: new Set(x.tried) });
+        };
+        open.push(...held.open.map(back).filter(Boolean));
+        triedArr.push(...held.wide.map(back).filter(Boolean));
+        q.carried = (q.carried || 0) + 1;
+      }
       // FIRST, THE LIBRARY: every arrangement found so far, on top of the swarm as it stands, the most successful first
       for (const [k, e] of rankLibrary(st.library).entries()) {
-        if (won || i >= cap) break;
-        const ap = applyNames(poolOf, briefs, e.names);
+        if (won || i >= cap || stalled()) break;
+        const ap = applyNames(poolOf, eb, e.names);
         if (!ap || seen.has([...ap.names].sort().join(' + '))) continue;
         e.tried = (e.tried || 0) + 1;
         const m = {
@@ -1074,7 +1261,7 @@ export async function runLoop({
         await tick();
       }
       // THEN THE SEARCH, best first, until parity
-      while (!won && i < cap) {
+      while (!won && i < cap && !stalled()) {
         let node = open.filter((x) => !x.spent).sort((x, y) => y.score - x.score || x.depth - y.depth)[0];
         if (node && node.broken && (q.brokeTries || 0) >= pol.brokeBudget) {
           node.spent = true;
@@ -1093,8 +1280,9 @@ export async function runLoop({
           q.widened = (q.widened || 0) + 1;
           continue;
         }
+        const aim = node.rank || node.ev;
         const opts = orderFor(poolOf(node.base), {
-          ...node.ev,
+          ...aim,
           moves: st.moves,
           classes: st.classes,
           pin,
@@ -1109,7 +1297,7 @@ export async function runLoop({
         q.rounds = Math.max(q.rounds || 1, node.depth);
         let taken = 0;
         for (const m of opts) {
-          if (won || i >= cap || (pol.batch && taken >= pol.batch)) break;
+          if (won || i >= cap || stalled() || (pol.batch && taken >= pol.batch)) break;
           if (node.broken && (q.brokeTries || 0) >= pol.brokeBudget) break;
           if (node.broken) q.brokeTries = (q.brokeTries || 0) + 1;
           taken++;
@@ -1121,7 +1309,18 @@ export async function runLoop({
             from: node.near,
             place: node.tried.size,
             open: node.tried.size - taken + opts.length,
-            reasons: reasonsOf(m, node.ev, { moves: st.moves, classes: st.classes, pin, policy: pol, recent }),
+            reasons: [
+              ...(node.rank
+                ? [
+                    'aimed at ' +
+                      node.repairOf +
+                      ', which the arrangement it builds on breaks (lost in ' +
+                      node.rank.lost +
+                      ' there)',
+                  ]
+                : []),
+              ...reasonsOf(m, aim, { moves: st.moves, classes: st.classes, pin, policy: pol, recent }),
+            ],
           };
           const out = await tryIt(node, m, combo, m.briefs, method, { left: opts.length - taken });
           await tick();
@@ -1130,7 +1329,14 @@ export async function runLoop({
       }
       q.state = row.grade === 'right' ? 'reached' : 'not reached';
       if (!won) q.exhausted = i < cap;
+      if (stalled()) {
+        q.state = 'set aside';
+        q.asideAt = briefs.version || 1;
+        q.exhausted = false;
+        st.asideSearch = { ...(st.asideSearch || {}), [t.id]: snapshot() };
+      }
     }
+    st.inHand = null;
     q.reached = row.grade === 'right';
     q.briefs = briefs.version;
     if (q.reached) reached.push({ t, row });
@@ -1236,6 +1442,7 @@ export function tallyOf(st) {
     atParity: by('at parity'),
     reached: by('reached'),
     notReached: by('not reached'),
+    setAside: by('set aside'),
     notCompared: by('not compared'),
     kept: st.kept.length,
     asked,
@@ -1289,6 +1496,8 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const drop = num(arg('drop', lp.drop));
   const beam = Number(arg('beam', lp.beam || 3));
   const list = questions('train', each);
+  // what each question asks: a brief that names a function one of them asks for is passed over (support/teach.mjs givesAway)
+  const asks = list.map((t) => t.ask || '');
   // THE QUESTIONS WHOSE MARK IS NOT STABLE: the larger model asked them again (session.sh 02-target-self-train) and did not give an
   // answer equivalent to its own first one. Measured on the held questions, it was equivalent to itself on 56 of 84; on the kinds
   // of conversation, as few as 1 in 6
@@ -1324,7 +1533,8 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       } catch {
         /* none there, or half written */
       }
-    return out;
+    // (one written before briefs that give a question away were refused is passed over the same way)
+    return out.filter((c) => c && !givesAway(c.brief, asks));
   };
   const poolOf = (b0) => {
     const b = withExamples(b0, { each });
@@ -1442,7 +1652,15 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const had = readSafe(FILE, null);
   const resume = had && had.pass === pass && had.seed === (list[0] || {}).seed && had.each === each ? had.st : null;
   if (resume)
-    console.log('Carrying on: ' + resume.questions.length + ' of ' + list.length + ' questions were finished.');
+    console.log(
+      'Carrying on: ' +
+        resume.questions.filter((x) => x.state !== 'set aside').length +
+        ' of ' +
+        list.length +
+        ' questions were finished' +
+        (resume.inHand ? ', and ' + resume.inHand.id + ' carries on from try ' + resume.inHand.i : '') +
+        '.',
+    );
   // THE LOOP'S OWN POLICY, as it has evolved (loop-policy.mjs): carried from pass to pass in this configuration's folder, started
   // from the defaults and what training/policy.json names. A pass carried on from a stop carries on with the policy it had
   const { normal: normalP, defaults: defaultsP } = await import('./loop-policy.mjs');
@@ -1549,7 +1767,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   if (!kept) writePolicy(startPolicy);
   // NEW BRIEFS FOR A SLOT THAT FAILED ON THE QUESTION IN HAND, by the larger model (as write-briefs.mjs does once a pass, from a
   // pass's misses): added to this configuration's candidates, where the pool reads them, and returned for the loop to try
-  const { teachAsk, candidatesIn } = await import('./support/teach.mjs');
+  const { teachAsk, candidatesIn, refuseGiveaways, givesAway } = await import('./support/teach.mjs');
   const teach =
     process.env.SWARM_LOOP_REVIEW === '0'
       ? null
@@ -1562,7 +1780,12 @@ if (import.meta.url === 'file://' + process.argv[1]) {
             (await teacher.ask([{ role: 'user', content: teachAsk(slot, missed, lost) }], { maxTokens: 1800 })).text ||
               '',
           );
-          const fresh = candidatesIn(text, 'the larger model');
+          // (a brief that gives this question away is refused, said, and counted: support/teach.mjs givesAway)
+          const { kept: fresh, refused } = refuseGiveaways(
+            candidatesIn(text, 'the larger model'),
+            missed.map((x) => x.question),
+          );
+          for (const c of refused) console.log('  REFUSED "' + c.name + '": ' + c.refused);
           const file = path.join(WORKC, 'candidates', slot.id + '.json');
           let have = [];
           try {
@@ -1573,6 +1796,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
           const add = fresh.filter((c) => !have.some((h) => h.brief === c.brief));
           fs.mkdirSync(path.dirname(file), { recursive: true });
           writeSafe(file, JSON.stringify([...have, ...add], null, 2));
+          add.refused = refused.length;
           return add;
         };
   const swarm = await openSwarm(readBriefs(), { reuse: true });
@@ -1697,6 +1921,8 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         );
         console.log('  KEPT "' + entry.what + '": ' + entry.why);
       },
+      // where the question in hand stands, after every try: a stopped run carries on from that try
+      onTry: async (cur) => writeSafe(FILE, JSON.stringify({ pass, seed: (list[0] || {}).seed, each, st: cur })),
       onQuestion: async (q, row, cur) => {
         await releaseTeacher();
         writeSafe(FILE, JSON.stringify({ pass, seed: (list[0] || {}).seed, each, st: cur }));
@@ -1764,7 +1990,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   console.log(line('swarm (train)', c));
   rowsTo(
     'swarm-runs.jsonl',
-    st.rows.map((r) => ({ label: 'swarm', briefs: st.briefs.version, ...r })),
+    st.rows.map((r) => ({ label: 'swarm', briefs: st.briefs.version, adapters: swarm.adapters || [], ...r })),
   );
   save('swarm-train', {
     who: 'swarm',

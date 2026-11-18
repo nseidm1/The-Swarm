@@ -6,6 +6,8 @@
       "id": "crew",
       "name": "The Crew",
       "about": "The work of a seat on a team: programming, the conversation around it in Simple and in Developer, and an agent's steps with tools",
+      "specName": "Programming and its conversation",
+      "specAbout": "Programming, the conversation around it, and an agent's steps with tools",
       "kinds": [
         "write-arrays",
         "write-strings",

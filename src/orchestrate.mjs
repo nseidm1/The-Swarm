@@ -96,21 +96,36 @@ const said = (m) =>
       ? m.content.map((p) => (p && p.type === 'text' ? p.text : '')).join('')
       : '';
 
+// THE KIND OF A QUESTION, as the swarm can tell it from the question alone: code is asked for, or it is not. An arrangement may
+// differ by kind (briefs.kinds[kind]: its own slots and plan), kept where a change that brings one kind to parity loses only
+// questions of the other (training/loop.mjs). The question's kind picks the arrangement before anything is asked
+export const kindOf = (question) => (asksForCode(String(question || '')) ? 'code' : 'words');
+// what a kind's own arrangement holds: what a change can alter (its slots, its plan, its flow)
+export const KIND_PARTS = ['slots', 'plan', 'flow'];
+export function briefsFor(briefs, question, kind = kindOf(question)) {
+  const k = briefs && briefs.kinds && briefs.kinds[kind];
+  if (!k) return briefs;
+  const out = { ...briefs };
+  for (const part of KIND_PARTS) if (part in k) out[part] = k[part];
+  return out;
+}
+
 export async function answer(
   messages,
-  { briefs, ask, decide = null, behave = null, onStep = () => {}, onStart = () => {}, others = [] },
+  { briefs: given, ask, decide = null, behave = null, onStep = () => {}, onStart = () => {}, others = [] },
 ) {
   const t0 = Date.now();
-  const marker = briefs.marker || MARKER;
-  const plan = briefs.plan || {};
-  const stage = (name) => briefs.slots.filter((s) => s.stage === name);
+  const marker = given.marker || MARKER;
   const trace = [];
   // the conversation a slot is shown: what the person's own program set as the system line, and the last turns
   const talk = messages
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .map((m) => ({ role: m.role, content: said(m) }));
-  const kept = talk.slice(-(plan.keepTurns || 6));
+  const kept = talk.slice(-((given.plan || {}).keepTurns || 6));
   const question = kept.length ? kept[kept.length - 1].content : '';
+  const briefs = briefsFor(given, question);
+  const plan = briefs.plan || {};
+  const stage = (name) => briefs.slots.filter((s) => s.stage === name);
   // where code is asked for, the code a slot wrote is its answer, whatever it wrote after it
   const wantsCode = asksForCode(question);
   const finalOf = (text, m) => readFinal(text, m, wantsCode);

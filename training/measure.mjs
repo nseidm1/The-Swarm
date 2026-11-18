@@ -171,13 +171,14 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       );
     rowsTo(
       'swarm-runs.jsonl',
-      rows.map((r) => ({ label, briefs: swarm.briefs.version, ...r })),
+      rows.map((r) => ({ label, briefs: swarm.briefs.version, adapters: swarm.adapters || [], ...r })),
     );
     save(label + '-' + split, {
       who: label,
       split,
       seed: list.length ? list[0].seed : null,
       briefs: swarm.briefs.version,
+      adapters: swarm.adapters || [],
       cfg: CONFIG_ID, // which swarm, against which larger model: a plan is not made from another's measurement
       target: TARGET.id,
       ...c,

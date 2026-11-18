@@ -495,11 +495,15 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     // a slot's candidates: those a person wrote (training/candidates), and those the larger model wrote for this configuration
     // (write-briefs.mjs)
     const { WORKC } = await import('./support/bench.mjs');
+    // (a brief that holds code is passed over, as the loop passes it over: support/teach.mjs givesAway)
+    const { givesAway } = await import('./support/teach.mjs');
     const candidates = (slotId) =>
       [
         readSafe(path.join(ROOT, 'training', 'candidates', slotId + '.json'), []),
         readSafe(path.join(WORKC, 'candidates', slotId + '.json'), []),
-      ].flatMap((x) => (Array.isArray(x) ? x : []));
+      ]
+        .flatMap((x) => (Array.isArray(x) ? x : []))
+        .filter((c) => c && !givesAway(c.brief));
     const { WORKC: WORKC_ } = await import('./support/bench.mjs');
     const { CONFIG_KEY } = await import('../src/catalog.mjs');
     const { transferred } = await import('./support/across.mjs');
