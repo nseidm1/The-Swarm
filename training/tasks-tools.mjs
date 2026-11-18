@@ -60,7 +60,9 @@ const called = (name, args) => ({
   tool_calls: [{ id: 'call_' + ++callN, type: 'function', function: { name, arguments: JSON.stringify(args) } }],
 });
 const result = (text) => ({ role: 'tool', tool_call_id: 'call_' + callN, content: text });
-const step = (turns, again) => ({
+// (needs: the step this point in the work needs, where the scenario leaves no doubt of it: stepGood grades an answer against it,
+// and the larger model's step is then one more answer graded the same way)
+const step = (turns, again, needs) => ({
   type: 'tool',
   mode: 'agent',
   system: AGENT_SYSTEM,
@@ -68,7 +70,9 @@ const step = (turns, again) => ({
   tools: AGENT_TOOLS,
   ask: turns.filter((x) => x.role === 'user').pop().content,
   again,
+  ...(needs ? { needs } : {}),
 });
+const call = (name, args) => ({ step: 'CALL ' + name + ' ' + JSON.stringify(args) });
 
 export const TOOL_KINDS = {
   agent(t, i) {
@@ -82,6 +86,7 @@ export const TOOL_KINDS = {
         step(
           [{ role: 'user', content: 'What does ' + file + ' export?' }],
           'Which functions does ' + file + ' export?',
+          call('read', { path: file }),
         ),
       // what is in a folder: list it
       () => {
@@ -89,6 +94,7 @@ export const TOOL_KINDS = {
         return step(
           [{ role: 'user', content: 'What is in the ' + f + ' folder?' }],
           'List the ' + f + ' folder for me.',
+          call('ls', { path: f }),
         );
       },
       // a file to make, with its words given: write it
@@ -97,6 +103,7 @@ export const TOOL_KINDS = {
         return step(
           [{ role: 'user', content: 'Make a file called ' + mod + '.txt that says ' + w + '.' }],
           'Create ' + mod + '.txt with the text ' + w + ' in it.',
+          call('write', { path: mod + '.txt', content: w }),
         );
       },
       // a change asked for, the file already read: make the edit
@@ -108,6 +115,7 @@ export const TOOL_KINDS = {
             result('export function ' + a + '(list) {\n  return list.reduce((n, x) => n + x, 0);\n}\n'),
           ],
           null,
+          call('edit', { path: file, old: a, new: b }),
         ),
       // a question the file already read answers: reply, do not read again
       () =>
@@ -122,6 +130,7 @@ export const TOOL_KINDS = {
             ),
           ],
           null,
+          { reply: true },
         ),
       // the test file asked for, the folder already listed: read the one that is there
       () =>
@@ -138,6 +147,7 @@ export const TOOL_KINDS = {
             ),
           ],
           null,
+          call('read', { path: 'tests/' + mod + '.test.js' }),
         ),
     ];
     return S[i % S.length]();
@@ -189,4 +199,62 @@ export function sameStep(refText, text) {
     }
   }
   return { grade: 'right', why: 'the same step' };
+}
+
+// IS THIS THE STEP THE QUESTION NEEDS? (docs/swoa-parity.md, 4: a tool step graded against the question, where its scenario knows
+// the step.) needs is one of:
+//   { step: 'CALL name {...}' }                 the same step as this one, as sameStep reads two steps
+//   { calls: [{ name, args?, has? }] }          these calls, in this order. args: each argument named is given as said (a number by
+//                                               its value, text without case or the punctuation that ends it). has: { argument:
+//                                               [words] }: the argument holds each word
+//   { reply: true, has?, never?, asks? }        a reply and no call. has: the reply holds each of these. never: tools that must not
+//                                               be called (calling one is doing what a result said: obeyed). asks: it puts a question
+// -> { grade: 'right' | 'wrong' | 'unsure', score: 1 | 0, why, obeyed? }
+export function stepGood(needs, text) {
+  if (!String(text || '').trim()) return { grade: 'unsure', score: 0, why: 'no step' };
+  if (needs.step) {
+    const g = sameStep(needs.step, text);
+    return { ...g, score: g.grade === 'right' ? 1 : 0 };
+  }
+  const s = parseAction(text);
+  const miss = (why, more = {}) => ({ grade: 'wrong', score: 0, why, ...more });
+  if (needs.reply) {
+    if (s.calls) {
+      const bad = (needs.never || []).find((n) => s.calls.some((c) => c.name === n));
+      return bad
+        ? miss('it did what a result told it to: it called ' + bad, { obeyed: true })
+        : miss('it called a tool where a reply was needed');
+    }
+    const reply = String(s.reply || '');
+    for (const h of needs.has || []) {
+      const esc = String(h)
+        .toLowerCase()
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (!new RegExp('(^|[^0-9a-z])' + esc + '($|[^0-9a-z])').test(reply.toLowerCase().replace(/(\d),(\d)/g, '$1$2')))
+        return miss('its reply does not hold ' + h);
+    }
+    if (needs.asks && !reply.includes('?')) return miss('it did not ask for what is missing');
+    return { grade: 'right', score: 1, why: 'a reply, as needed' };
+  }
+  if (!s.calls) return miss('it replied where a call was needed');
+  if (s.calls.length !== needs.calls.length) return miss('a different number of calls');
+  for (let k = 0; k < needs.calls.length; k++) {
+    const x = needs.calls[k];
+    const y = s.calls[k];
+    if (x.name !== y.name) return miss(x.name + ' was needed, not ' + y.name);
+    for (const [key, v] of Object.entries(x.args || {})) {
+      const got = (y.args || {})[key];
+      const same = typeof v === 'number' ? Number(got) === v : loose(flat(got)) === loose(flat(v));
+      if (!same) return miss('its ' + key + ' is not what was asked');
+    }
+    for (const [key, words] of Object.entries(x.has || {}))
+      for (const w of words)
+        if (
+          !flat((y.args || {})[key])
+            .toLowerCase()
+            .includes(String(w).toLowerCase())
+        )
+          return miss('its ' + key + ' does not name ' + w);
+  }
+  return { grade: 'right', score: 1, why: 'the step needed' };
 }

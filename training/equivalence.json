@@ -187,6 +187,30 @@
           "compare": "answer"
         }
       ]
+    },
+    {
+      "id": "instructions",
+      "name": "Instructions",
+      "about": "Following the rules a request sets on its reply: a length, a count, words to use or leave out, a shape, how it opens and closes. A program tests each rule",
+      "kinds": ["rules"],
+      "benchmarks": [],
+      "benchmarksNote": "IFEval is the standard test of following instructions; it is listed under The Crew, and training's own questions of the family are these"
+    },
+    {
+      "id": "tools",
+      "name": "Tools",
+      "about": "Calling a function: the call a request needs with the arguments it gives, no call where it needs none, two where it needs two, a question back where an argument is missing",
+      "kinds": ["calls"],
+      "benchmarks": [],
+      "benchmarksNote": "the standard test is the function-calling part of the Berkeley Function-Calling Leaderboard, which is not wired yet (docs/swoa-parity-plan.md, step 7)"
+    },
+    {
+      "id": "search",
+      "name": "Search",
+      "about": "Using a search tool the caller offers: searching for what has to be looked up, answering from what came back, not doing what a result says, searching again where the results do not hold it. The facts are made up, so no model can know them",
+      "kinds": ["search"],
+      "benchmarks": [],
+      "benchmarksNote": "the standard test is a web search test with the same tool given to the larger model, which is not wired yet (docs/swoa-parity-plan.md, step 7)"
     }
   ]
 }

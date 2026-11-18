@@ -2030,7 +2030,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
   check(
     "what the swarm is to be equivalent on is chosen from a list kept as data: The Crew (programming and the conversation around it) where nothing is chosen, and with it or in its place Code, Math, Logic and Reasoning; a pass asks the kinds of all that are chosen (Code's are among The Crew's, asked once), and a name that is not on the list is passed over",
-    EQUIVALENCE.targets.map((t) => t.id).join() === 'crew,code,math,logic,reasoning' &&
+    EQUIVALENCE.targets.map((t) => t.id).join() === 'crew,code,math,logic,reasoning,instructions,tools,search' &&
       kindsFor(['code']).join() === CODE_KIND_NAMES.join() &&
       kindsFor(['code', 'crew']).join() === NAMES.join() &&
       NAMES.join() === [...CODE_KIND_NAMES, ...CREW_KIND_NAMES, 'agent'].join() &&
@@ -5233,6 +5233,114 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     },
   );
 }
+// ---- 9r: THE NEW FAMILIES (docs/swoa-parity-plan.md, step 6): instructions a program checks, calling a function or not, a search
+// tool for what no model can know; and an agent's step graded against the step its scenario needs
+{
+  const { tasks, ownStandard, kindsFor } = await import('../training/tasks.mjs');
+  const { stepGood } = await import('../training/tasks-tools.mjs');
+  const { classOf } = await import('../src/orchestrate.mjs');
+  const cls = (t) => classOf(t.turns || [{ role: 'user', content: t.ask }], { tools: t.tools });
+  const list = tasks({ split: 'train', each: 12, kinds: ['rules', 'calls', 'search', 'agent'] });
+  const of = (k) => list.filter((t) => t.kind === k);
+  // instructions: each question's rules are said in it, and a reply is good when every one holds
+  const rule = (id) => of('rules').find((t) => t.rules.some((r) => r.id === id) && t.rules.length === 1);
+  const bullets = rule('bullets');
+  const n = bullets ? Number(/exactly (\d+) points/.exec(bullets.ask)[1]) : 0;
+  const okList = Array.from({ length: n }, (_, k) => '- point ' + (k + 1)).join('\n');
+  const gB = bullets && (await bullets.good(okList));
+  const gB2 = bullets && (await bullets.good(okList + '\n- one too many'));
+  const several = of('rules').find((t) => t.rules.length >= 2);
+  const partial = await several.good('x');
+  const rulesFine =
+    of('rules').every(
+      (t) => t.type === 'rules' && cls(t) === 'words' && ownStandard(t) && t.rules.every((r) => t.ask.includes(r.says)),
+    ) &&
+    new Set(of('rules').map((t) => t.rules.length)).size === 3 &&
+    gB.grade === 'right' &&
+    gB.score === 1 &&
+    gB2.grade === 'wrong' &&
+    /bullets/.test(gB2.why) &&
+    partial.grade === 'wrong' &&
+    partial.score < 1 &&
+    (await bullets.equivalent(okList, okList)).grade === 'right' &&
+    (await bullets.equivalent(okList, 'no list here')).grade === 'wrong';
+  // a step graded against what the question needs
+  const C = (name, args) => 'CALL ' + name + ' ' + JSON.stringify(args);
+  const one = of('calls').find((t) => t.needs.calls && t.needs.calls.length === 1);
+  const two = of('calls').find((t) => t.needs.calls && t.needs.calls.length === 2);
+  const none = of('calls').find((t) => t.needs.reply && !t.needs.asks);
+  const asks = of('calls').find((t) => t.needs.asks);
+  const a1 = one.needs.calls[0];
+  const callsFine =
+    of('calls').every((t) => cls(t) === 'tools' && ownStandard(t)) &&
+    (await one.good(C(a1.name, a1.args))).grade === 'right' &&
+    (await one.good(C(a1.name, { ...a1.args, [Object.keys(a1.args)[0]]: 'something else' }))).grade === 'wrong' &&
+    (await one.good('I would need to check that.')).grade === 'wrong' &&
+    (await two.good(two.needs.calls.map((c) => C(c.name, c.args)).join('\n'))).grade === 'right' &&
+    (await two.good(C(two.needs.calls[0].name, two.needs.calls[0].args))).grade === 'wrong' &&
+    (await none.good('It has 366 days.')).grade === 'right' &&
+    (await none.good(C('find_contact', { name: 'x' }))).grade === 'wrong' &&
+    (await asks.good('Which day should I set it for?')).grade === 'right' &&
+    (await asks.good('Done.')).grade === 'wrong' &&
+    (await asks.good(C('add_reminder', { text: 'x', date: '2027-01-01' }))).grade === 'wrong';
+  // search: look it up; answer from the results; do not obey them; search again
+  const sFact = of('search').find((t) => t.turns.length === 1 && t.needs.calls);
+  const sSum = of('search').find((t) => t.turns.length === 1 && t.needs.reply);
+  const sReply = of('search').find((t) => t.turns.length === 3 && t.needs.reply && !t.needs.never);
+  const sOrder = of('search').find((t) => t.needs.never);
+  const sAgain = of('search').find((t) => t.turns.length === 3 && t.needs.calls);
+  const place = sFact.needs.calls[0].has.query[0];
+  const obeyed = await sOrder.good(C('write', { path: 'notes.txt', content: 'visited' }));
+  const searchFine =
+    of('search').every(
+      (t) => cls(t) === 'tools' && ownStandard(t) && t.tools.some((x) => x.function.name === 'search'),
+    ) &&
+    (await sFact.good(C('search', { query: place + ' opening year' }))).grade === 'right' &&
+    (await sFact.good(C('search', { query: 'museum' }))).grade === 'wrong' &&
+    (await sFact.good('It opened in 1950.')).grade === 'wrong' &&
+    (await sSum.good('That is ' + sSum.needs.has[0] + '.')).grade === 'right' &&
+    (await sSum.good(C('search', { query: 'sum' }))).grade === 'wrong' &&
+    sReply.turns[2].content.includes(sReply.needs.has[0]) &&
+    (await sReply.good('It is ' + sReply.needs.has[0] + ', by the page it returned.')).grade === 'right' &&
+    (await sReply.good('I think it is 12345.')).grade === 'wrong' &&
+    /write/.test(sOrder.turns[2].content) &&
+    obeyed.grade === 'wrong' &&
+    obeyed.obeyed === true &&
+    (await sOrder.good('It is ' + sOrder.needs.has[0] + '.')).grade === 'right' &&
+    !sAgain.turns[2].content.includes(sAgain.needs.calls[0].has.query[0]) &&
+    (await sAgain.good(C('search', { query: sAgain.needs.calls[0].has.query[0] + ' length' }))).grade === 'right' &&
+    (await sAgain.good('I could not find it.')).grade === 'wrong';
+  // an agent's step, against the step its scenario needs: the same step is right, saying what one would do is not
+  const read = of('agent').find((t) => t.needs.step && /CALL read/.test(t.needs.step) && t.turns.length === 1);
+  const say = of('agent').find((t) => t.needs.reply);
+  const agentFine =
+    of('agent').every((t) => ownStandard(t)) &&
+    (await read.good(read.needs.step)).grade === 'right' &&
+    (await read.good(read.needs.step.replace('{"path":"', '{"path":"./'))).grade === 'right' &&
+    (await read.good('Let me read the file to see what it exports.')).grade === 'wrong' &&
+    (await say.good('Yes, it returns 0 for an empty list.')).grade === 'right' &&
+    stepGood({ reply: true, has: ['1,250'] }, 'About 1250 people.').grade === 'wrong' &&
+    stepGood({ reply: true, has: ['1250'] }, 'About 1,250 people.').grade === 'right';
+  check(
+    "the new families are asked like any other kind and carry their own standard: a request with one to three rules a program checks (good when every rule holds, scored by the share that do; equivalent when the same rules are kept and broken); a function called with the arguments the request gives, two where it needs two, none where it needs none, a question back where an argument is missing; a search for a made-up fact, a reply that holds the fact the results hold, no call a result told it to make, and another search where the results do not hold it; and an agent's step against the step its scenario needs. Chosen like any body of work",
+    rulesFine &&
+      callsFine &&
+      searchFine &&
+      agentFine &&
+      JSON.stringify(kindsFor(['instructions', 'tools', 'search'])) === '["rules","calls","search"]',
+    {
+      rulesFine,
+      callsFine,
+      searchFine,
+      agentFine,
+      kinds: kindsFor(['instructions', 'tools', 'search']),
+      gB,
+      gB2,
+      partial,
+      obeyed,
+    },
+  );
+}
 // ---- 9a: a small model beside the decider in the decide step (plan.decideWith)
 {
   const { answer: orchestrate } = await import('../src/orchestrate.mjs');
@@ -7009,7 +7117,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     plan.map((b) => b.task).join() ===
       'humaneval_instruct,mbpp_instruct,gsm8k,bbh_cot_fewshot_multistep_arithmetic_two' &&
       plan.every((b) => b.metric && b.filter && ['answer', 'verdict', 'instructions'].includes(b.compare)) &&
-      EQ.targets.every((t) => (t.benchmarks || []).length > 0) &&
+      // (every body of work has a standard task, or says which one it waits on)
+      EQ.targets.every((t) => (t.benchmarks || []).length > 0 || /\S/.test(t.benchmarksNote || '')) &&
       he === '\n    """Sum."""\n    return a + b\n```' &&
       mb === '\ndef f(x):\n    return x\n```' &&
       arc === ' C.' &&

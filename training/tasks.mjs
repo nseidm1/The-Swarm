@@ -18,7 +18,10 @@ import { CODE_KINDS } from './tasks-code.mjs';
 import fs from 'node:fs';
 import { CREW_KINDS, CREW_KIND_NAMES, ownQuestion } from './tasks-crew.mjs';
 import { codeEquivalent, openEquivalent, talkEquivalent, codeOf, codeWhole } from './support/equivalent.mjs';
-import { TOOL_KINDS, sameStep } from './tasks-tools.mjs';
+import { TOOL_KINDS, sameStep, stepGood } from './tasks-tools.mjs';
+import { RULE_KINDS, rulesHeld } from './tasks-rules.mjs';
+import { CALL_KINDS } from './tasks-calls.mjs';
+import { SEARCH_KINDS } from './tasks-search.mjs';
 
 const rng = (seed) => () => {
   seed |= 0;
@@ -391,6 +394,10 @@ const ALL = {
   ...Object.fromEntries(Object.entries(KINDS).filter(([k]) => k !== 'trace')),
   ...CREW_KINDS,
   ...TOOL_KINDS,
+  // (the families a SwOA's proof measures and training did not ask: instructions a program checks, calling functions, search)
+  ...RULE_KINDS,
+  ...CALL_KINDS,
+  ...SEARCH_KINDS,
 };
 // the programming kinds, and with them the conversation a seat on a team carries: what a pass asks, unless its record says otherwise
 export const CODE_KIND_NAMES = [...Object.keys(CODE_KINDS), 'trace'];
@@ -574,7 +581,43 @@ export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, foc
           tools: made.tools,
           again: made.again,
           equivalent: async (refReply, reply) => sameStep(refReply, reply),
+          // (good: the step this point in the work needs, where the question was made knowing it: tasks-tools.mjs stepGood)
+          ...(made.needs ? { needs: made.needs, good: async (reply) => stepGood(made.needs, reply) } : {}),
           usable: (reply) => String(reply || '').trim().length > 0,
+          show: (reply) =>
+            String(reply || '')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .slice(0, 160),
+          wrap: (final) => final,
+        });
+      else if (made.type === 'rules')
+        // A REQUEST WITH RULES A PROGRAM CHECKS (tasks-rules.mjs): good when every rule holds; its score is the share that do. Two
+        // replies are equivalent when they keep and break the same rules
+        out.push({
+          ...base,
+          rules: made.rules.map((r) => ({ id: r.id, says: r.says })),
+          good: async (reply) => {
+            if (!String(reply || '').trim()) return { grade: 'unsure', score: 0 };
+            const held = rulesHeld(made.rules, reply);
+            const broke = made.rules.filter((r, k) => !held[k]).map((r) => r.id);
+            return {
+              grade: broke.length ? 'wrong' : 'right',
+              score: held.filter(Boolean).length / held.length,
+              ...(broke.length ? { why: 'it broke: ' + broke.join(', ') } : {}),
+            };
+          },
+          equivalent: async (refReply, reply) =>
+            !String(refReply || '').trim()
+              ? { grade: 'noref' }
+              : {
+                  grade:
+                    JSON.stringify(rulesHeld(made.rules, refReply)) === JSON.stringify(rulesHeld(made.rules, reply))
+                      ? 'right'
+                      : 'wrong',
+                },
+          toSpec: async (reply) => rulesHeld(made.rules, reply).every(Boolean),
+          usable: (reply) => String(reply || '').trim().length > 1,
           show: (reply) =>
             String(reply || '')
               .replace(/\s+/g, ' ')

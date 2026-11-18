@@ -836,7 +836,8 @@ def donut(parts, total, label):
     return "".join(out)
 
 
-KIND_WORDS = {"agent": "An agent's next step, with tools", "write-arrays": "Write a function: arrays", "write-strings": "Write a function: strings", "write-numbers": "Write a function: numbers",
+KIND_WORDS = {"rules": "Instructions: rules a program checks", "calls": "Calling a function, or not", "search": "Search: a tool for what is not known",
+              "agent": "An agent's next step, with tools", "write-arrays": "Write a function: arrays", "write-strings": "Write a function: strings", "write-numbers": "Write a function: numbers",
               "write-parsing": "Write a function: parsing", "fix": "Correct a function", "bug": "Say what is wrong", "trace": "Say what a program prints",
               "answer": "Simple: an everyday question", "request": "Simple: something it cannot do, or needs to ask about", "piece": "Simple: a piece of writing", "talk": "Simple: conversation",
               "practice": "Developer: a question of good practice", "shown": "Developer: their own project",
