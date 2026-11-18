@@ -376,6 +376,13 @@ button.mav{position:relative;border:0;font:inherit;color:inherit;text-align:left
   .avs{display:grid;grid-template-columns:repeat(var(--cols,3),minmax(0,1fr));justify-items:center;gap:6px 0}.av{min-width:56px;padding:4px 1px 2px}.st{padding:8px 4px 6px}
   .st.mk{margin-left:0}.mav.tgt{margin-left:0}
   .roster{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.roster .mav.tgt{grid-column:1/-1}.roster .mav{padding:6px 8px 6px 6px}.roster .mav b{font-size:12.5px}.roster .mav small{font-size:11px}}
+/* (a flow too long for its card, at any width: the phone's tiles, measured by fitPipes) */
+.pipe.wrapped{flex-wrap:wrap;gap:8px}.pipe.wrapped>.st,.pipe.wrapped>.loopg{flex-basis:auto;min-width:0}
+.pipe.wrapped .st,.pipe.wrapped .loopg,.pipe.wrapped .st:has(+.via){margin:0}.pipe.wrapped .st{flex-direction:column;align-items:stretch;gap:4px;padding:8px 6px 6px}.pipe.wrapped .st .stt{width:auto;white-space:nowrap;padding-left:4px}
+.pipe.wrapped .st::after,.pipe.wrapped .loopg::after{display:none}
+.pipe.wrapped .via{flex:0 0 auto;flex-direction:column;justify-content:center;align-items:center;align-self:stretch;margin:0;padding:6px;gap:4px;border-radius:var(--r);background:#eef0f8}.pipe.wrapped .via::after{display:none}
+.pipe.wrapped .loopg{flex-direction:row;flex-wrap:wrap;gap:8px;padding:8px}.pipe.wrapped .loopg>.st{margin:0;flex-basis:auto}
+.pipe.wrapped .avs{display:grid;grid-template-columns:repeat(var(--cols,3),minmax(0,1fr));justify-items:center;gap:6px 0}
 .qtrack{margin:0 0 14px;padding:12px 14px;border-radius:var(--r);background:var(--soft)}.qtrack .qhead{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;font-size:13px;color:var(--mist);font-weight:600}
 .qtrack .qhead b{color:var(--fog)}.qtrack .qnow{margin:6px 0 0;font-size:13.5px;font-weight:700;color:var(--fog);overflow-wrap:anywhere}.qtrack .qnow small{display:block;font-weight:600;color:var(--mist);font-size:12px;margin-top:2px}
 .qtrack .qnow .ql{display:block}.qtrack .qnow .qtext{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;padding:0;line-height:1.45;max-height:2.9em;overflow:hidden}.qtrack .qnow .it{float:left;margin:0 8px 0 0;display:inline-block;line-height:1.45;padding:0 8px;white-space:nowrap;border-radius:var(--r);background:var(--panel);color:var(--teal);font-size:12px;margin-right:6px}
@@ -725,6 +732,12 @@ async function busyTick(){const m=$('#busy');if(!m)return;let s;try{s=await (awa
   await swap('/fragment/eval','#evalwrap');await swap('/fragment/pretrain','#prewrap');await swap('/fragment/score','#score');
   if(s.busy==='training')watch();}
 setInterval(()=>{evTick();preTick();busyTick();},1500);
+// A FLOW TOO LONG FOR ITS CARD WRAPS: the steps sit in one row where they fit, and where they do not (a flow training has grown, a
+// narrow window, the inner screen of a folding phone) they wrap as tiles, as on a phone, instead of running past the card's edge.
+// Measured, not guessed by width: on load, on a resize or a fold, and whenever part of the page is drawn again
+function fitPipes(){document.querySelectorAll('.pipe').forEach(p=>{p.classList.remove('wrapped');if(p.scrollWidth>p.clientWidth+1)p.classList.add('wrapped');});}
+let fitQ=0;const fitSoon=()=>{if(fitQ)return;fitQ=requestAnimationFrame(()=>{fitQ=0;fitPipes();});};
+addEventListener('resize',fitSoon);new MutationObserver(fitSoon).observe(document.body,{childList:true,subtree:true});fitPipes();
 """
 
 

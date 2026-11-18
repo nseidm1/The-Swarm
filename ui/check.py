@@ -1036,5 +1036,11 @@ check("the decide step shows who decides: a small model beside the decider has i
       and "decide-judge" not in swarm_ui.avatars(dict(_d, briefs=dict(_b, plan={k: v for k, v in (_b.get("plan") or {}).items() if k not in ("decideWith", "decideBy")}))) and ">not asked<" in _most and 'data-av="decide-judge"' not in _most,
       _judge.group(0)[:200] if _judge else "no judge face")
 
+# A FLOW TOO LONG FOR ITS CARD WRAPS, AT ANY WIDTH: measured on the page (fitPipes, on load, on a resize or fold, and on every redraw),
+# not guessed by a breakpoint; a flow training grew ran past the card on a folding phone's inner screen and on a laptop
+check("a flow too long for its card wraps into tiles at any width, measured on the page on load, on a resize and on every redraw, instead of running past the card's edge",
+      "function fitPipes()" in swarm_ui.JS and "addEventListener('resize',fitSoon)" in swarm_ui.JS and "new MutationObserver(fitSoon)" in swarm_ui.JS
+      and ".pipe.wrapped{flex-wrap:wrap" in swarm_ui.CSS and ".pipe.wrapped .st::after,.pipe.wrapped .loopg::after{display:none}" in swarm_ui.CSS)
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)
