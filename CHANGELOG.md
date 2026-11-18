@@ -42,6 +42,21 @@ The first version.
 - **Training's briefs stay with their class, and aim at the larger model's answer.** A brief the larger model writes records the
   class of the question it was written for and is offered on that class only (the 91 written before, with no class, are no
   longer offered); the teacher is told the wanted answer is the standard and never to teach a role to be shorter than it.
+- **Parity means capability, in the proof and in training** ([docs/swoa-parity.md](docs/swoa-parity.md)).
+  - *The proof.* A SwOA's proof gives a **verdict for each capability** (parity, short, open) from the paired gap over its
+    tasks' questions against a margin of 0.05, and says what the SwOA does not claim. `evaluate.sh --proof` asks each task at
+    a size that can give a verdict (about 500 questions a capability), keeps the swarm's answers task by task, and carries on
+    where it stopped.
+  - *Grading.* An answer is graded by its question's own standard where it carries one (a correct solution, an answer, a
+    flaw, rules a program checks, the step a scenario needs); the larger model is counted by the same standard. Where a
+    question has none, the standard is the answers the larger model agrees with itself on, of up to three.
+  - *Keeping.* A change is kept when its class of questions got better (more than twice its error, no kind falling, the held
+    questions not falling), not when one question came to parity.
+  - *Questions.* Three new bodies of work: **instructions** (rules a program checks), **tools** (calling a function, or
+    not), **search** (a search tool and facts made up from the seed, so no model can know them).
+  - *Tools.* In a turn with tools a reply is now written by the answer procedure, shown what the tools returned (SwOA T.9);
+    before, the first drafter's reply went out unchecked. `plan.toolReply: "proposed"` keeps that.
+  - Knowledge reaches the module through tools the caller offers; a recipe holds no body of knowledge.
 - **Training reads its own signals on one line, and stops spending tries where none can pay.** Each slot's answer is read
   on the line the reply is read on (it was read at one half against the reply's 0.8, so "a slot had the answer" often
   meant an answer the reply could not pass). How the reply itself read counts first in whether a change came closer.

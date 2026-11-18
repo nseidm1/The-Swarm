@@ -219,10 +219,13 @@ const meanShare = (row) => {
 // replies nearer, 0.53 to 0.90, 0.64 to 0.82, 0.49 to 0.84, and only the one that crossed the line counted for anything). It counts
 // in steps of 0.05: a step up is closer, whatever the drafts did; less than a step is the same reading.
 export const READING_STEP = 0.05;
-// HOW CLOSENESS IS COUNTED, as a number written down with a search (2: the reply's own reading first, and every slot's answer read
-// on the reply's line). A search written down under another count is not carried on: its arrangements' scores, and where each
-// said the answer was lost, cannot be set beside ones counted now. The question is searched afresh, on the same bound.
-export const SCORING = 2;
+// HOW AN ANSWER IS GRADED AND CLOSENESS COUNTED, as a number written down with a search and with a pass's record (2: the reply's own
+// reading first, and every slot's answer read on the reply's line; 3: an answer graded by its question's own standard, or against
+// the answers the larger model agrees with itself on). A search written down under another number is not carried on: its
+// arrangements' scores, and where each said the answer was lost, cannot be set beside ones counted now; the question is searched
+// afresh, on the same bound. Nor is a pass's record of its questions: they are asked again from the first, since a class is scored
+// from every question's standing answer and one graded the old way would be set beside ones graded the new.
+export const SCORING = 3;
 const readingSteps = (row) =>
   typeof row.reading === 'number' ? Math.floor(Math.max(0, Math.min(1, row.reading)) / READING_STEP + 1e-9) : 0;
 export function closeness(row, ev = null, { partial = false } = {}) {
@@ -893,6 +896,8 @@ export async function runLoop({
       }
     }
     Object.assign(record, pairedOf(diffs.map((y) => y.d)));
+    // (one question is no class: there is no error to set its gain beside)
+    if (record.n < 2) return fail('its class has fewer than two questions to score it on');
     const fell = [...new Set(diffs.map((y) => y.kind))]
       .map((kind) => ({ kind, ...pairedOf(diffs.filter((y) => y.kind === kind).map((y) => y.d)) }))
       .filter((y) => y.gain < -classMargin);
@@ -2338,7 +2343,12 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   }
   const FILE = path.join(WORKC, 'loop.json');
   const had = readSafe(FILE, null);
-  const resume = had && had.pass === pass && had.seed === (list[0] || {}).seed && had.each === each ? had.st : null;
+  const sameRun = had && had.pass === pass && had.seed === (list[0] || {}).seed && had.each === each;
+  const resume = sameRun && (had.scoring || 1) === SCORING ? had.st : null;
+  if (sameRun && !resume)
+    console.log(
+      'This pass was begun under another way of grading answers: its questions are asked again from the first. What it kept stays kept.',
+    );
   if (resume) {
     const again = reopenComparable(
       resume,
@@ -2752,10 +2762,11 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         console.log('  KEPT "' + entry.what + '": ' + entry.why);
       },
       // where the question in hand stands, after every try: a stopped run carries on from that try
-      onTry: async (cur) => writeSafe(FILE, JSON.stringify({ pass, seed: (list[0] || {}).seed, each, st: cur })),
+      onTry: async (cur) =>
+        writeSafe(FILE, JSON.stringify({ pass, seed: (list[0] || {}).seed, each, scoring: SCORING, st: cur })),
       onQuestion: async (q, row, cur) => {
         await releaseTeacher();
-        writeSafe(FILE, JSON.stringify({ pass, seed: (list[0] || {}).seed, each, st: cur }));
+        writeSafe(FILE, JSON.stringify({ pass, seed: (list[0] || {}).seed, each, scoring: SCORING, st: cur }));
         save('questions', {
           pass,
           cfg: CONFIG_ID,

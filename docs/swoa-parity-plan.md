@@ -3,14 +3,66 @@
 The plan for the seven steps of [swoa-parity.md](swoa-parity.md), which says what parity means and why training has to be
 re-aimed. This says what each step changes, in which files, how it is checked, what it costs to run, and what waits on what.
 
-Status: plan, 2026-11-18. Nothing here is built.
+Status: built, 2026-11-18, except what needs a long run or a second harness. The next section says, step by step, what is
+built, what it measured and what is left. The steps after it are the plan as it was written: what each step was to do and
+how it is checked.
+
+## What is built, and what it measured
+
+| Step | Built | Measured | Left |
+|---|---|---|---|
+| 1 | The size of a proof run, task by task (`proofN` in `training/equivalence.json`, `evaluate.sh --proof`). A run that is stopped carries on from the task it stopped in: the module's answers are kept by arrangement and runtime, as the target's already were (`--fresh` asks again) | Nothing yet: the run has not been started | The run itself, about 14 hours, for a person to start. The trial of the tool tests: it downloads and installs a package, so it waits on a yes |
+| 2 | The paired gap, a verdict for each capability, what is claimed and what is not; in the SwOA, on its page, and in [swoa.md](swoa.md) 4.7 | The seven evaluations on record, read by the rule (below) | The margin, once step 1 has run |
+| 3 | One grading for every question that carries its own standard: code, a value, a planted flaw. The swarm, each slot and the target are scored by it | The pass on record, regraded (below) | Nothing |
+| 4 | The standard among the target's answers (`training/support/standard.mjs`), a third answer (`baseline.mjs --third`, in `session.sh`), "no standard" as a state | The standards from the two answers on record (below) | The third answers: asked the next time the session runs, under an hour of the target |
+| 5 | A change is kept by its class: raced on 8 questions, then the class, then the held questions; changes proposed for the class at the end of a pass; the gain and its error in the ledger. The page sets the module beside the target family by family | Nothing yet: no pass has run under it, so no change has been kept by it | A pass. The page still calls a question's states by their old names |
+| 6 | Three families of question (rules a program checks, calling functions, search with facts made up from the seed), an agent's step graded against the step its scenario needs, three bodies of work to choose | A probe of 10 questions a family on the module (below) | The families asked in a pass, and the target scored on them beside the module |
+| 7 | In a turn with tools a reply is written by the answer procedure, shown what the tools returned (`plan.toolReply: "proposed"` keeps a proposed reply). [swoa.md](swoa.md) Part T.9, and 4.2: a recipe holds no body of knowledge | The same probe, both ways (below) | The tool tests as proof, and the search behind them: both wait on the trial of step 1 |
+
+Tests when this was written: 187 in `tests/run.mjs` and 111 in `ui/check.py`, all passing.
+
+**Step 2, the evaluations on record.** All seven are IFEval. The two of 100 questions, both on an earlier lineup, read
+`short`: 0.60 against 0.79 (6 questions only the swarm had, 25 only the target), and 0.46 against 0.79 (6 and 39). Of the
+five of 20 questions four read `open`, as expected. One reads `short`, by a hair: 0.50 against 0.75 (1 and 6), where the
+plan expected `open` of every run this small. Nothing of 20 questions counts as proof (`PROOF_MIN_N` is 100), so no claim
+rests on it. The two on this lineup, 0.65 and 0.70 against 0.75, read `open`.
+
+**Step 3, the pass regraded.** Of the 30 code questions the swarm had 28 right against the target's own function, and has
+24 right against the question's correct solution. The target has 23 right by the same grading.
+
+**Step 4, the standards.** From two answers each: 32 of the 42 train questions have a standard and 10 have none; 28 of the
+42 held ones have one. Against the standard the swarm is right on 12 train questions where the pass had graded it right
+on 9. The plan expected two questions with no standard; with two answers there are ten. A third answer can only give more
+of them a standard, and how many are left decides "three answers or five" below.
+
+**Step 6, the probe.** Ten questions a family, asked of the module only, with its decider and without:
+
+| Family | Right, with the decider | Right, with none |
+|---|---|---|
+| Rules | 8 of 10 | 8 of 10 |
+| Calling functions | 8 of 10 | 8 of 10 |
+| Search | 10 of 10 | 6 of 10 |
+| An agent's step | 9 of 10 | 8 of 10 |
+
+What it missed: two rules (two words to use; an exact count of sentences); both function questions that lacked an argument
+only the person knows, where it called the function with a date it made up; one agent step, a read where an edit was needed.
+With no decider the four search questions it missed were the ones that had to search, and it replied. Forty questions say
+where to look, not how the module compares: the target has not been asked them.
+
+**Step 7, a reply answered against a reply proposed.** In the probe with the decider, eleven turns needed a reply. On
+nine the step was a reply, and it graded right both as proposed and as answered. On two the step was a call, so no reply
+was written either way. So answering the reply changed no grade on these questions, and it costs time: 1.7 to 12 seconds,
+where a proposed step took 1 to 2. The gap the plan expected in the search family's second case did not show: the proposed
+reply already gave the fact from the results. The questions are short and so is what their tools return, so this does not
+say what happens on a long result. Training can weigh the two (`plan.toolReply`).
 
 ## Where things stand
 
-- Training is stopped part way through pass 1: 45 of 84 train questions at parity, on the arrangement at version 17.
-- **The pass is not worth finishing as it is.** Steps 3 to 5 change what a question is graded against and what makes a
-  change kept, so more tries under the old rules buy nothing the new ones would keep. The machine is better spent on step 1.
-- The lineup measured throughout: `bonsai2-2b+lfm3-1.7b+jan-code-4b+kev-0.8b` against Nemotron 3.5 Lightning 30B.
+- Training is stopped. Started again, it asks the pass's questions from the first: the grading changed, and nothing graded
+  the old way is carried on (`SCORING` in `training/loop.mjs`). The changes kept so far stay, on the arrangement at
+  version 17.
+- The configuration measured throughout is `bonsai2-2b+lfm3-1.7b+jan-code-4b+kev-0.8b`, whose target is Nemotron 3.5
+  Lightning 30B. The target is whichever model the configuration names: nothing built here is fixed to this one.
 
 ## The order, and what waits on what
 

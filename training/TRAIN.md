@@ -2,8 +2,25 @@
 
 ## Training goes question by question
 
-The larger model answers every train question first; its answer is the mark. Then each question is put to the Swarm and
-stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mjs)):
+What training aims at, and why, is in [docs/swoa-parity.md](../docs/swoa-parity.md): parity is the module scoring no worse than
+its target on established tests, and training's own signal is whether an answer is good.
+
+**How an answer is graded.** By the strongest standard its question has:
+
+- **The question's own**, where it carries one ([`tasks.mjs`](tasks.mjs) `good`): code behaves as the question's correct
+  solution on its inputs; a value is the question's own answer; a flaw is the flaw the question was made with; a request with
+  rules keeps every rule a program checks; a tool step is the step the scenario needs. The larger model answers the same
+  questions and is counted by the same standard: it is one more answer, not the mark. On one pass's 30 code questions the
+  swarm was right on 28 against the larger model's answers and on 24 by the questions' own solutions, the larger model on 23.
+- **The answers the larger model agrees with itself on**, where the question has none (a reply in a conversation). It is
+  asked up to three times (steps `02-target`, `02-target-self`, `02-target-third`), and the standard is the answers that agree
+  ([`support/standard.mjs`](support/standard.mjs)). A reply is good against any of them, read at the reader's line. A
+  question none of whose answers agree has no standard: it is left out, and out of what the share is of.
+
+The larger model is the target of the configuration, whichever it is: nothing here names one.
+
+The larger model answers every train question first. Then each question is put to the Swarm and stays in hand until the
+Swarm's reply is good ("at parity", in the loop's record) ([`loop.mjs`](loop.mjs)):
 
 1. The Swarm answers as it stands. At parity: on to the next question.
 2. Not at parity: where the answer was lost is read from the slots (no drafter had it; a slot had it and it was not chosen;
@@ -34,9 +51,15 @@ stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mj
    that have reached parity most often come sooner, learned question after question and pass after pass (shown on the
    swarm's card). A change that does not reach parity but puts the answer on the table (a slot now has it) is built on: the
    next changes are tried on top of it, and what is kept is the changes together.
-3. A change that brings the question to parity is asked again on questions already at parity (the same kind first, then the
-   latest; 6, or `GUARD`). If none is lost it is **kept**: it is the arrangement for every question after, and an entry on
-   the ledger the spec is made from. If one is lost it is not kept, and the next change is tried.
+3. A change that brings the question to parity is a guess that it helps, and **its class decides** (`classKeep` in
+   [`policy.json`](policy.json), on). Every train question of the class is scored with the change and as the swarm stands
+   (right is 1; else how the reply read, or the share of the question's inputs it gets right), the same questions both
+   times. It is **kept** when the mean gain is more than twice its error and at least 0.02, no kind of question falls by
+   more than 0.05, and the held questions of the class do not fall by more than their error. It is raced on 8 questions
+   first, and asked on the rest only where those did not fall. Kept, it is the arrangement for every question of the class
+   after, and an entry on the ledger the spec is made from, with its gain. At the end of a pass the changes that most
+   often brought questions of a class closer are proposed for the class outright (6 a class). With `--no-class-keep` a change
+   is kept as before: asked again on up to 6 questions already at parity (`GUARD`) and 4 held ones, kept if none is lost.
 4. Changes are tried best first, with no limit on how many: from the closest arrangement open, and a change that comes closer
    is built on at once (up to 3 such arrangements open, `beam`). **How the reply itself read comes first** (the reader's
    probability that it says what the larger model's says, in steps of 0.05; each try's line shows it, `reads 0.84`): a
@@ -55,7 +78,7 @@ stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mj
    whose mark its own correct solution proves wrong (a question of code is made with that solution and the inputs it is tried
    on; the larger model's answer gives something else on one of them) is answered once and **set aside**: never searched, and
    never one a change must not lose (`wrongMarksOf`). So is a degenerate mark (the same few characters over and over, as
-   the 30B once answered a question about a folder), and one that a question made with its answer (what a program prints)
+   the larger model once answered a question about a folder), and one that a question made with its answer (what a program prints)
    proves wrong by that question's own grader. Parity there would teach the swarm the larger model's mistake (measured
    2026-11-17: Nemotron 3.5 Lightning 30B wrong on 7 of a pass's 30 code questions, and 3 of one run's 5 kept changes won on them). It may be
    **set aside** first: after `setAsideAfter` tries in a row (30) that brought it neither closer nor to parity, while another

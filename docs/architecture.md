@@ -24,7 +24,7 @@ answer is to be reached. That is the whole public surface, in three forms:
 | [`src/orchestrate.mjs`](../src/orchestrate.mjs) | The order of things: draft (and, for code, try), check, decide, write, and what happens when a slot fails. Knows nothing of servers |
 | [`src/members.mjs`](../src/members.mjs) | One model behind a llama.cpp server with several slots; never more conversations at once than slots |
 | [`src/decider.mjs`](../src/decider.mjs) | The decide step by a decision model: the request the decider is sent, how its answer is read, and when it counts as a decision |
-| [`src/tools.mjs`](../src/tools.mjs) | A turn with tools decided by the swarm: each drafter's step read as an action, the ones that are not calls the caller offered left out, the same ones made one, the decider where they differ |
+| [`src/tools.mjs`](../src/tools.mjs) | A turn with tools decided by the swarm: each drafter's step read as an action, the ones that are not calls the caller offered left out, the same ones made one, the decider where they differ; and a reply written by the answer procedure, shown what the tools returned |
 | [`src/spec.mjs`](../src/spec.mjs) | A swarm module from its SwOA spec ([swoa.md](swoa.md), the specification; [swoa-implementations.md](swoa-implementations.md), this repository's part): the spec read back and checked (format, version, pinned models and adapters, the recipe against its hash), the adapters found and checked by SHA-256, and what `createSwarm({ spec })` makes from it |
 | [`src/read.mjs`](../src/read.mjs) | Reading the answer out of what a slot wrote, and telling when two answers are the same |
 | [`src/behave.mjs`](../src/behave.mjs) | Which drafts of a function do the same: the calls to try, the drafts run on them, the drafts grouped by what they returned |
@@ -102,7 +102,7 @@ reading them.
 
 ## What it does not do yet
 
-- **Check a step with tools.** A turn with tools is decided by the drafters' proposals and the decider; no slot checks a step, and nothing is run to see what a call would do.
+- **Check a call.** A call in a turn with tools is decided by the drafters' proposals and the decider; no slot checks it, and nothing is run to see what it would do. (A reply in such a turn is answered as any answer is.)
 - **Decide how much to spend.** Every question gets four drafts. An easy one costs what a hard one does until the drafts
   agree.
 - **Speak while it thinks.** The reply is whole before any of it is sent; a streamed reply is the finished one, in pieces.

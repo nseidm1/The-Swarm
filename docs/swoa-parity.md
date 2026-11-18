@@ -4,7 +4,9 @@ Part of SwOA ([swoa.md](swoa.md)): a SwOA spec tunes a swarm module toward parit
 harness measures it. This says what that parity is, how a SwOA proves it, and how training has to change to aim at it.
 [swoa-classes.md](swoa-classes.md) is the design before this one: what is learned, kept with the class it was learned on.
 
-Status: design, 2026-11-18. Nothing here is built.
+Status: design, 2026-11-18. Built the same day, by the steps of [swoa-parity-plan.md](swoa-parity-plan.md), except what
+needs a long run or a second harness: the battery has not been run at proof size, and the tool tests (calling functions,
+search) are not wired. The plan says, step by step, what is built and what it measured.
 
 ## The question
 

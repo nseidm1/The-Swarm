@@ -226,7 +226,7 @@ How it behaves when things go its way, and when they do not:
 | The writer answers with a call to a tool | That is not sent: the answer that was settled goes out as it stands |
 | Nothing can be written | The answer and its work are the reply |
 | Nothing answers at all | `ok: false` and no reply. Nothing is made up |
-| The request carries tools (an agent's turn) | With `"tools": "swarm"`: every drafter proposes the next step with the tools offered; a call to a tool not offered, or with arguments that are not an object, is left out; the same steps are one; the decider picks where they differ; it goes back as `tool_calls`, streamed or not ([`src/tools.mjs`](src/tools.mjs)). Otherwise to the one small model the setting names, alone and untouched (the model in place `a` where nothing is chosen) |
+| The request carries tools (an agent's turn) | With `"tools": "swarm"`: every drafter proposes the next step with the tools offered; a call to a tool not offered, or with arguments that are not an object, is left out; the same steps are one; the decider picks where they differ; it goes back as `tool_calls`, streamed or not. Where the step is a reply, the reply is written as any answer is (drafted, checked, decided, written), shown what the tools returned ([`src/tools.mjs`](src/tools.mjs)). Otherwise to the one small model the setting names, alone and untouched (the model in place `a` where nothing is chosen) |
 
 [docs/architecture.md](docs/architecture.md) has the files, what each slot is sent, and each kind of failure.
 
