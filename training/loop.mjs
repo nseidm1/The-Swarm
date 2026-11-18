@@ -422,6 +422,26 @@ export function coverageOf(list, { ref = new Map(), readerOk = () => true } = {}
   }));
 }
 
+// A RESUMED PASS ASKS AGAIN WHAT IT COULD NOT COMPARE BEFORE (found 2026-11-18): a pass carried on from its record keeps every
+// question's state, and "not compared" counts as finished. A question set down as not compared because its reader was not
+// believed (Kev 0.8B, 15 of 20) stayed so after a judge that passes its check (Jeffan 4B) was chosen and the pass started again:
+// the coverage gate found all 84 comparable while 42 of them were never asked. So, on carrying on, a not-compared question that
+// can be compared now (the larger model answered it, and its reader is believed) is taken off the record, and asked again.
+//   reopenComparable(st, list, comparable: (t) -> bool) -> the ids taken off (st is changed in place)
+export function reopenComparable(st, list, comparable) {
+  if (!st || !Array.isArray(st.questions)) return [];
+  const byId = new Map((list || []).map((t) => [t.id, t]));
+  const ids = st.questions
+    .filter((q) => q.state === 'not compared' && byId.has(q.id) && comparable(byId.get(q.id)))
+    .map((q) => q.id);
+  if (!ids.length) return [];
+  const gone = new Set(ids);
+  st.questions = st.questions.filter((q) => !gone.has(q.id));
+  if (Array.isArray(st.rows)) st.rows = st.rows.filter((r) => !gone.has(r.id));
+  if (st.inHand && gone.has(st.inHand.id)) st.inHand = null;
+  return ids;
+}
+
 export function guardOf(reached, t, n, lost = {}, pairs = {}) {
   const same = reached.filter((r) => r.t.kind === t.kind).reverse();
   const rest = reached.filter((r) => r.t.kind !== t.kind).reverse();
@@ -1768,6 +1788,20 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const FILE = path.join(WORKC, 'loop.json');
   const had = readSafe(FILE, null);
   const resume = had && had.pass === pass && had.seed === (list[0] || {}).seed && had.each === each ? had.st : null;
+  if (resume) {
+    const again = reopenComparable(
+      resume,
+      list,
+      (t) => ref.get(t.id) !== undefined && (!(t.type === 'open' || t.type === 'talk') || readerOk(WORKC, t.type)),
+    );
+    if (again.length)
+      console.log(
+        again.length +
+          ' questions this pass had set down as not compared can be compared now (' +
+          [...new Set(again.map((id) => (list.find((t) => t.id === id) || {}).kind))].join(', ') +
+          '): they are asked again.',
+      );
+  }
   if (resume)
     console.log(
       'Carrying on: ' +

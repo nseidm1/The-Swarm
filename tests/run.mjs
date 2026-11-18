@@ -6236,6 +6236,45 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+// ---- A RESUMED PASS ASKS AGAIN WHAT IT COULD NOT COMPARE BEFORE: a not-compared question that can be compared now is taken off
+// the record (questions and rows), and one that still cannot, or that was finished another way, is left as it was
+{
+  const { reopenComparable } = await import('../training/loop.mjs');
+  const list = [
+    { id: 'b1', kind: 'bug', type: 'open' },
+    { id: 'b2', kind: 'bug', type: 'open' },
+    { id: 't1', kind: 'talk', type: 'talk' },
+    { id: 'w1', kind: 'write-arrays', type: 'code' },
+  ];
+  const st = {
+    questions: [
+      { id: 'b1', state: 'not compared' },
+      { id: 'b2', state: 'not compared' },
+      { id: 't1', state: 'not compared' },
+      { id: 'w1', state: 'at parity' },
+    ],
+    rows: [
+      { id: 'b1', grade: 'noref' },
+      { id: 'b2', grade: 'noref' },
+      { id: 't1', grade: 'noref' },
+      { id: 'w1', grade: 'right' },
+    ],
+    inHand: { id: 'b2' },
+  };
+  // the reader of answers in words is believed now; the reader of conversations still is not; b2 has no answer from the larger model
+  const again = reopenComparable(st, list, (t) => t.id !== 'b2' && t.type !== 'talk');
+  check(
+    'a resumed pass asks again a question it had set down as not compared once it can be compared (its reader believed, the larger model having answered), and leaves the rest as they were',
+    JSON.stringify(again) === '["b1"]' &&
+      JSON.stringify(st.questions.map((q) => q.id)) === '["b2","t1","w1"]' &&
+      JSON.stringify(st.rows.map((r) => r.id)) === '["b2","t1","w1"]' &&
+      st.inHand &&
+      st.inHand.id === 'b2' &&
+      JSON.stringify(reopenComparable({ questions: [] }, list, () => true)) === '[]',
+    { again, st },
+  );
+}
+
 // ---- CLASSES OF INPUT (docs/swoa-classes.md steps 1 and 2): what the arrangement is chosen by, the move of what was
 // learned to the class it was learned on, and the gate that stops a pass with a kind it cannot compare
 {
