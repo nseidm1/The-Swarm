@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { tasks } from './tasks.mjs';
 import { classOf } from '../src/orchestrate.mjs';
 import { withPlaces } from '../src/index.mjs';
-import { LEARNED_DIR, toClasses, writeLearned } from '../src/learned.mjs';
+import { LEARNED_DIR, toClasses, scopeShared, writeLearned } from '../src/learned.mjs';
 import { PLACES } from '../src/catalog.mjs';
 
 const BRIEFS_FILE = fileURLToPath(new URL('../src/briefs.json', import.meta.url));
@@ -54,7 +54,27 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     }
     const r = toClasses(learned, { classOfKind, start: startFor(learned.config) });
     if (r.already) {
-      console.log(f + ': moved before (' + learned.migrated.at + '), left as it is');
+      // moved before: what a trainer kept in the shared arrangement since (before changes were scoped by class) goes to its class
+      const sc = scopeShared(learned, { classOfKind, start: startFor(learned.config) });
+      if (!sc.moved) {
+        console.log(
+          f +
+            ': moved before (' +
+            learned.migrated.at +
+            '), nothing kept in the shared arrangement since: left as it is',
+        );
+        continue;
+      }
+      console.log(
+        f +
+          ': ' +
+          (apply ? 'moved' : 'would move') +
+          ' what was kept in the shared arrangement since (change ' +
+          sc.entries.join(', ') +
+          ') to kinds.' +
+          sc.moved,
+      );
+      if (apply) writeLearned(sc.learned, { config: learned.config, target: learned.target });
       continue;
     }
     if (!r.moved) {

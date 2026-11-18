@@ -5247,7 +5247,23 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const wrong = { grade: 'wrong', path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: false }] };
   const asked = [];
   const written = [];
-  const lib = [{ names: ['p', 'q'], what: 'several: p + q', from: { question: 'old' }, reached: ['old'], tried: 0 }];
+  // (found on a question of the same class, words; and one found on a code question, which questions in words never try)
+  const lib = [
+    {
+      names: ['p', 'q'],
+      what: 'several: p + q',
+      from: { question: 'old', class: 'words' },
+      reached: ['old'],
+      tried: 0,
+    },
+    {
+      names: ['s'],
+      what: 's',
+      from: { question: 'old-code', class: 'code' },
+      reached: ['old-code', 'x', 'y'],
+      tried: 0,
+    },
+  ];
   const st = await runLoop({
     list: [
       { id: 'easy', kind: 'k' },
@@ -5298,8 +5314,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     attempt: async () => ({ grade: 'right', trace: [] }),
   });
   check(
-    'the arrangements found so far are tried first on a question short of parity, the most successful first, applied on top of the swarm as it stands; one that brings it to parity and loses none is kept, and the library credits it with the question; what the search finds is added to the library; a standing conflict (the same question lost `swapAfter` times) is swapped: the change is kept, the question it loses goes back in hand and is taken next, its record replaced, not added; a trial carried from before goes on',
+    'the arrangements found so far on questions of its class are tried first on a question short of parity (one found on another class never is), the most successful first, applied on top of the swarm as it stands; one that brings it to parity and loses none is kept, and the library credits it with the question; what the search finds is added to the library; a standing conflict (the same question lost `swapAfter` times) is swapped: the change is kept, the question it loses goes back in hand and is taken next, its record replaced, not added; a trial carried from before goes on',
     asked.indexOf('needs-pq:p+q') === asked.indexOf('needs-pq:') + 1 &&
+      lib.find((e) => e.what === 's').tried === 0 &&
       st.kept[0].kind === 'library' &&
       st.kept[0].fromLibrary.question === 'old' &&
       last.find((e) => e.what === 'several: p + q').reached.join() === 'old,needs-pq' &&
@@ -5520,7 +5537,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   // closeness: the same nearest answer, more of the drafts near: closer
   const tr = (xs) => ({ trace: xs.map((share) => ({ stage: 'draft', same: false, share })) });
   const nearer = closeness(tr([0.5, 0.5]), null, { partial: true }) > closeness(tr([0.5, 0]), null, { partial: true });
-  // kind branch: B (code) needs x, and x loses A (words): kept for code only, and A stays at parity
+  // scoped by class: B (code) needs x in its plan, and x would lose A and C (words): kept in the code class's own arrangement only,
+  // and A and C keep the shared one they are at parity with
   const CODE = 'Write a JavaScript function `f(n)` that returns n.';
   const kb = await runLoop({
     list: [
@@ -5529,13 +5547,25 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       { id: 'C', kind: 'k', ask: 'What is two plus two?' },
     ],
     briefs: B0(),
-    poolOf: (bb) => ['x'].filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k)),
+    poolOf: (bb) =>
+      bb.plan && bb.plan.x
+        ? []
+        : [
+            {
+              key: 'x',
+              id: 'x',
+              name: 'x',
+              kind: 'arrangement',
+              area: 'plan',
+              briefs: { ...bb, plan: { ...(bb.plan || {}), x: true } },
+            },
+          ],
     policy: { setAsideAfter: 0, suggestEvery: 0, teachEvery: 0 },
     attempt: async (bb, t) =>
-      (t.id === 'A' || t.id === 'C') === bb.has.includes('x') ? wrong : { grade: 'right', trace: [] },
+      (t.id === 'A' || t.id === 'C') === !!(bb.plan && bb.plan.x) ? wrong : { grade: 'right', trace: [] },
   });
   check(
-    'a question that stops coming closer is set aside while another waits and comes back after it; a stopped run carries on from its last try without asking its first tries again; the larger model is asked less often where its suggestions bring nothing; closeness counts how near all the drafts came; and a change that loses only questions of the other kind is kept for its own kind, the others keeping theirs',
+    'a question that stops coming closer is set aside while another waits and comes back after it; a stopped run carries on from its last try without asking its first tries again; the larger model is asked less often where its suggestions bring nothing; closeness counts how near all the drafts came; and a change found on a question of one class is kept in the arrangement of that class only, the others keeping the shared one',
     firsts.join() === 'A,B,A' &&
       A.state === 'not reached' &&
       A.setAside === 1 &&
@@ -5543,10 +5573,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       !asked2.some((x) => asked1.includes(x)) &&
       on < off &&
       nearer &&
-      kb.kept.at(-1).kindOnly === 'code' &&
-      kb.briefs.kinds.code.has === undefined &&
+      kb.kept.at(-1).class === 'code' &&
+      kb.briefs.kinds.code.plan.x === true &&
       'flow' in kb.briefs.kinds.code &&
-      !kb.briefs.has.includes('x') &&
+      !(kb.briefs.plan && kb.briefs.plan.x) &&
+      !kb.briefs.kinds.words &&
       kb.questions.find((x) => x.id === 'A').state === 'at parity' &&
       kb.questions.find((x) => x.id === 'C').state === 'at parity',
     {
@@ -5558,7 +5589,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       asked2: asked2.slice(0, 4),
       on,
       off,
-      kept: kb.kept.map((k) => k.kindOnly),
+      kept: kb.kept.map((k) => k.class),
       kinds: kb.briefs.kinds,
     },
   );
@@ -5715,7 +5746,15 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     ],
     briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
     poolOf: (bb) => ['x', 'y', 'z'].filter((k) => !bb.has.includes(k)).map((k) => mk(bb, k)),
-    library: [{ names: ['y', 'x'], what: 'several: y + x', from: { question: 'old' }, reached: ['old'], tried: 0 }],
+    library: [
+      {
+        names: ['y', 'x'],
+        what: 'several: y + x',
+        from: { question: 'old', class: 'words' },
+        reached: ['old'],
+        tried: 0,
+      },
+    ],
     attempt: async (bb, t, at) => (
       notes.push(at),
       t.id === 'easy' || (t.id === 'q' && bb.has.includes('x'))
@@ -6267,6 +6306,107 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       st.inHand.id === 'b2' &&
       JSON.stringify(reopenComparable({ questions: [] }, list, () => true)) === '[]',
     { again, st },
+  );
+}
+
+// ---- SCOPED, AND KEPT ONLY ON EVIDENCE THAT GENERALIZES (docs/swoa-classes.md steps 3 and 4): a brief that quotes its own question
+// is refused before it is asked; a change that loses a held question of its class at parity is not kept, and one that holds is
+{
+  const { runLoop, specificTokens, quotesQuestion } = await import('../training/loop.mjs');
+  const ROUND =
+    'Write a JavaScript function `roundHalf(n, step)` that rounds n to the nearest multiple of step, "half up": -25 gives -20. Give the function in one code block.';
+  const OTHER =
+    'Write a JavaScript function `rotate(list)` that returns a new array. Give the function in one code block.';
+  const toks = specificTokens({ ask: ROUND }, [{ ask: OTHER }]);
+  const old = { slots: [{ id: 'a1', stage: 'draft', brief: 'Draft it.' }] };
+  const helpers =
+    toks.includes('roundHalf') &&
+    toks.includes('-25') &&
+    toks.includes('half up') &&
+    !toks.includes('list') &&
+    quotesQuestion({ slots: [{ id: 'a1', stage: 'draft', brief: 'For negatives, -25 rounds to -20.' }] }, old, toks) ===
+      '-25' &&
+    quotesQuestion(
+      { slots: [{ id: 'a1', stage: 'draft', brief: 'Check each constraint before answering.' }] },
+      old,
+      toks,
+    ) === '' &&
+    quotesQuestion(old, old, toks) === '';
+  // the pool: one change quotes the question, one is general; the general one brings it to parity
+  const right = { grade: 'right', trace: [] };
+  const wrongD = { grade: 'wrong', path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: false }] };
+  const brief = (bb, text) => ({ ...bb, slots: [{ id: 'a1', stage: 'draft', brief: text }] });
+  const pool = (bb) =>
+    bb.slots[0].brief === 'Draft it.'
+      ? [
+          {
+            key: 'quote',
+            id: 'quote',
+            name: 'quote',
+            kind: 'brief',
+            area: 'briefs',
+            slot: 'a1',
+            briefs: brief(bb, 'Remember: -25 rounds to -20.'),
+          },
+          {
+            key: 'general',
+            id: 'general',
+            name: 'general',
+            kind: 'brief',
+            area: 'briefs',
+            slot: 'a1',
+            briefs: brief(bb, 'Check each constraint.'),
+          },
+        ]
+      : [];
+  const B1 = () => ({ version: 1, slots: [{ id: 'a1', stage: 'draft', brief: 'Draft it.' }], plan: {} });
+  const asked = [];
+  const run = (heldOk) =>
+    runLoop({
+      list: [
+        { id: 'r', kind: 'write-numbers', ask: ROUND },
+        { id: 'o', kind: 'write-arrays', ask: OTHER },
+      ],
+      heldQs: [{ id: 'h', kind: 'write-arrays', ask: OTHER }],
+      heldGuard: 2,
+      briefs: B1(),
+      poolOf: pool,
+      policy: { setAsideAfter: 0, suggestEvery: 0, teachEvery: 0 },
+      attempt: async (bb, t, at) => {
+        const b0 = (bb.slots[0] || {}).brief;
+        asked.push(t.id + ':' + b0 + (at && at.held ? ':held' : ''));
+        if (t.id === 'r') return b0 === 'Check each constraint.' ? right : wrongD;
+        if (t.id === 'h') return b0 === 'Check each constraint.' && !heldOk ? wrongD : right;
+        return right;
+      },
+    });
+  const lost = await run(false);
+  const askedLost = asked.splice(0);
+  const kept = await run(true);
+  const rq = (st) => st.questions.find((x) => x.id === 'r');
+  check(
+    'a brief that quotes its own question (a name, a number or a quoted phrase only it has) is refused before it is asked, at no cost of a try; a change that brings a question to parity but loses a held question of its class that was at parity is not kept; one that holds on them is kept in its class, with the held check on its record',
+    helpers &&
+      !askedLost.some((x) => x.includes('-25 rounds')) &&
+      lost.specificRefused >= 1 &&
+      rq(lost).state !== 'reached' &&
+      askedLost.includes('h:Check each constraint.:held') &&
+      !lost.kept.length &&
+      rq(kept).state === 'reached' &&
+      kept.kept.length === 1 &&
+      kept.kept[0].class === 'code' &&
+      kept.kept[0].heldGuard.kept === 1 &&
+      kept.kept[0].heldGuard.lost === 0 &&
+      kept.briefs.kinds.code.slots[0].brief === 'Check each constraint.' &&
+      kept.briefs.slots[0].brief === 'Draft it.',
+    {
+      toks,
+      askedLost,
+      lostKept: lost.kept,
+      lostState: rq(lost).state,
+      keptState: rq(kept).state,
+      keptEntry: kept.kept[0],
+    },
   );
 }
 

@@ -442,6 +442,48 @@ export function reopenComparable(st, list, comparable) {
   return ids;
 }
 
+// A BRIEF MAY NOT QUOTE ITS OWN QUESTION (docs/swoa-classes.md, step 4): what is particular to the question a change was found on
+// (a name it gives, a number, a quoted string), beyond what its class's other questions share, has no place in what a slot is told
+// for every question of the class. Found 2026-11-18: "When the distance from the lower multiple is exactly half the step ... round up"
+// drafted every question asked in words, because it brought one rounding question to parity.
+//   specificTokens(t, others) -> the tokens particular to question t (others: the other questions of its class)
+//   quotesQuestion(newBriefs, oldBriefs, tokens) -> the first token a brief that changed now carries, or ''
+const textOfQ = (t) =>
+  String(t.ask || '') +
+  ' ' +
+  (t.turns || [])
+    .filter((m) => m.role === 'user')
+    .map((m) => (typeof m.content === 'string' ? m.content : ''))
+    .join(' ');
+export function specificTokens(t, others = []) {
+  const grab = (text) => {
+    const out = new Set();
+    for (const m of text.matchAll(/`([^`\n]{2,40})`/g)) out.add(m[1].trim());
+    for (const m of text.matchAll(/\b([A-Za-z_][A-Za-z0-9_]{2,})\s*\(/g)) out.add(m[1]);
+    for (const m of text.matchAll(/(?:^|[^\w.])(-?\d+(?:\.\d+)?)(?![\w.])/g))
+      if (Math.abs(Number(m[1])) > 10 || /[.-]/.test(m[1])) out.add(m[1]);
+    for (const m of text.matchAll(/["“']([^"”'\n]{3,40})["”']/g)) out.add(m[1].trim());
+    return out;
+  };
+  const mine = grab(textOfQ(t));
+  const common = new Set();
+  for (const o of others) for (const x of grab(textOfQ(o))) common.add(x);
+  return [...mine].filter((x) => x && !common.has(x));
+}
+export function quotesQuestion(newBriefs, oldBriefs, tokens = []) {
+  if (!tokens.length) return '';
+  const was = new Map(((oldBriefs && oldBriefs.slots) || []).map((x) => [x.id, x.brief]));
+  const told = ((newBriefs && newBriefs.slots) || [])
+    .filter((x) => x.brief && x.brief !== was.get(x.id))
+    .map((x) => x.brief);
+  for (const tok of tokens) {
+    const esc = tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp('(^|[^\\w])' + esc + '($|[^\\w])');
+    if (told.some((b) => re.test(b))) return tok;
+  }
+  return '';
+}
+
 export function guardOf(reached, t, n, lost = {}, pairs = {}) {
   const same = reached.filter((r) => r.t.kind === t.kind).reverse();
   const rest = reached.filter((r) => r.t.kind !== t.kind).reverse();
@@ -562,6 +604,10 @@ export async function runLoop({
   onPolicy = async () => {},
   library = [],
   onLibrary = async () => {},
+  // THE HELD GUARD (docs/swoa-classes.md, step 4): held questions, with the larger model's answers, a change must not lose before it
+  // is kept: up to heldGuard of its own class, in their order. Used only to accept a change, never to find one
+  heldQs = [],
+  heldGuard = 4,
   // the larger model writing new briefs for a slot that failed on this question: teach(slot, missed) -> [{ name, brief }], written
   // where the pool reads candidates (null: never)
   teach = null,
@@ -605,11 +651,18 @@ export async function runLoop({
   const kindOfT = (t) => inputClassOf(t.turns || [{ role: 'user', content: t.ask }], { tools: t.tools });
   const flat = (b, k) => briefsFor(b, '', k);
   const ownOf = (nb) => Object.fromEntries(KIND_PARTS.map((p) => [p, nb[p] === undefined ? null : nb[p]]));
-  // the arrangement a change made for a question of kind k, folded back: into that kind's own where it has one, else the shared one
-  const fold = (nb, k, base) =>
-    base.kinds && base.kinds[k]
-      ? { ...base, kinds: { ...base.kinds, [k]: ownOf(nb) } }
-      : { ...nb, ...(base.kinds ? { kinds: base.kinds } : {}) };
+  // the arrangement a change made for a question of class k, folded back: ALWAYS into that class's own arrangement (made the first
+  // time from the shared one), never into the shared one, which every class with none of its own runs (docs/swoa-classes.md, step
+  // 3). Before, a change went into the shared arrangement unless it lost a question of another class: so briefs written for one code
+  // question drafted every essay
+  // (what a change sets outside a class's parts, its slots, plan and flow, belongs to every class and goes where it always did, to
+  // the shared arrangement: the pool of worked examples, the marker)
+  const fold = (nb, k, base) => {
+    const out = { ...base };
+    for (const key of Object.keys(nb))
+      if (!KIND_PARTS.includes(key) && key !== 'kinds' && key !== 'version') out[key] = nb[key];
+    return { ...out, kinds: { ...(base.kinds || {}), [k]: ownOf(nb) } };
+  };
   // whether a change to the arrangement of kind k can change how a question of kind k2 is answered: both on the same arrangement
   const shares = (b, k, k2) => k === k2 || (!(b.kinds && b.kinds[k]) && !(b.kinds && b.kinds[k2]));
   // THE NEXT QUESTION: one sent back in hand; else the next not yet finished; else one SET ASIDE (it stopped coming closer while others
@@ -631,6 +684,11 @@ export async function runLoop({
     let pol = st.policy;
     const K = kindOfT(t);
     const eb = flat(briefs, K);
+    // what is particular to this question among its class's (specificTokens): a change whose briefs carry it is refused, untried
+    const specific = specificTokens(
+      t,
+      list.filter((x) => x.id !== t.id && kindOfT(x) === K),
+    );
     const n = st.questions.filter((x) => x.state !== 'reopened' && x.state !== 'set aside' && x.id !== t.id).length + 1;
     let row = await attempt(eb, t, { n, of: list.length, attempt: 0, cap, move: '' });
     const was = st.questions.find((x) => x.id === t.id);
@@ -753,6 +811,14 @@ export async function runLoop({
       };
       const tryOne = async (node, m, combo, newBriefs, method, extra = {}) => {
         seen.add([...combo].sort().join(' + '));
+        // A BRIEF THAT QUOTES ITS OWN QUESTION IS REFUSED BEFORE IT IS ASKED: it costs no try (docs/swoa-classes.md, step 4)
+        const quoted = quotesQuestion(newBriefs, node.base, specific);
+        if (quoted) {
+          q.specific = (q.specific || 0) + 1;
+          st.specificRefused = (st.specificRefused || 0) + 1;
+          console.log('  refused ' + combo.join(' + ').slice(0, 70) + ' (a brief quotes the question: ' + quoted + ')');
+          return { closer: false };
+        }
         i++;
         onAttempt({ q, m, n: i });
         const r = await attempt(newBriefs, t, {
@@ -852,8 +918,9 @@ export async function runLoop({
         cls.reached++;
         let what = combo.join(' + ');
         // at parity here: does it hold on the questions that were already there? (the one changes lose most, first)
+        // (the change goes into this class's own arrangement only, so only this class's questions can lose by it)
         const again = guardOf(
-          reached.filter((x) => shares(briefs, K, kindOfT(x.t))),
+          reached.filter((x) => kindOfT(x.t) === K),
           t,
           guard,
           st.lostOn || {},
@@ -932,6 +999,40 @@ export async function runLoop({
             what = combo.join(' + ');
           }
         }
+        // THE HELD GUARD (docs/swoa-classes.md, step 4): on up to heldGuard held questions of this class, it must lose none that the
+        // arrangement as it stands answers at parity. Held answers decide only whether a change is kept, never which one is found
+        const hq = heldGuard > 0 ? heldQs.filter((h) => kindOfT(h) === K).slice(0, heldGuard) : [];
+        if (hq.length) {
+          st.heldBase = st.heldBase || {};
+          const hk = (briefs.version || 1) + '|' + K;
+          const hb = (st.heldBase[hk] = st.heldBase[hk] || {});
+          const lostHeld = [];
+          let askedHeld = 0;
+          let keptHeld = 0;
+          const at = { n, of: list.length, attempt: i, round: node.depth, cap, method };
+          for (const h of hq) {
+            if (hb[h.id] === undefined)
+              hb[h.id] = (
+                await attempt(flat(briefs, K), h, { ...at, move: 'held, as it stands', guard: h.id, held: true })
+              ).grade;
+            if (hb[h.id] !== 'right') continue;
+            askedHeld++;
+            const hr = await attempt(newBriefs, h, { ...at, move: what, guard: h.id, held: true });
+            if (hr.grade === 'right') keptHeld++;
+            else {
+              lostHeld.push(h.id);
+              break;
+            }
+          }
+          a.heldGuard = { asked: askedHeld, kept: keptHeld, lost: lostHeld.length };
+          if (lostHeld.length) {
+            a.lostOnHeld = lostHeld[0];
+            mv.lostElsewhere++;
+            counted('parity');
+            console.log('  not kept: it lost the held question ' + lostHeld[0] + ', at parity as the swarm stood');
+            return { closer: false };
+          }
+        }
         // KEPT: the arrangement is now this one, for this question and every one after
         briefs = branch
           ? {
@@ -956,6 +1057,8 @@ export async function runLoop({
           ...(a.pruned ? { pruned: a.pruned } : {}),
           ...(swap ? { swapped: lostIds.join(', ') } : {}),
           ...(branch ? { kindOnly: K, wouldLose: lostIds.join(', ') } : {}),
+          class: K,
+          ...(a.heldGuard ? { heldGuard: a.heldGuard } : {}),
           why:
             'it brought ' +
             t.id +
@@ -1001,7 +1104,7 @@ export async function runLoop({
         st.kept.push({ ...entry, briefs: briefs.version });
         await keep(briefs, entry);
         // the library grows (or the entry it repeats is credited with one more question)
-        addToLibrary(st.library, combo, { question: t.id, pass: undefined, lostAt: lost });
+        addToLibrary(st.library, combo, { question: t.id, pass: undefined, lostAt: lost, class: K });
         await onLibrary(st.library);
         again.forEach((g, k) => {
           if (!rows[k] || (branch && kindOfT(g.t) !== K)) return;
@@ -1326,6 +1429,13 @@ export async function runLoop({
       // FIRST, THE LIBRARY: every arrangement found so far, on top of the swarm as it stands, the most successful first
       for (const [k, e] of rankLibrary(st.library).entries()) {
         if (won || i >= cap || stop()) break;
+        // (a found arrangement is tried only on questions of the class it was found on: docs/swoa-classes.md, step 3)
+        // (an entry from before entries named their class: the question it was found on, or one of the same kind, gives it)
+        const fromQ =
+          e.from &&
+          (byId[e.from.question] || list.find((x) => x.kind && String(e.from.question).includes('-' + x.kind + '-')));
+        const libClass = (e.from && e.from.class) || (fromQ ? kindOfT(fromQ) : null);
+        if (libClass !== K) continue;
         const ap = applyNames(poolOf, eb, e.names);
         if (!ap || seen.has([...ap.names].sort().join(' + '))) continue;
         e.tried = (e.tried || 0) + 1;
@@ -1744,6 +1854,20 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     process.exit(0);
   }
   const ref = needReference(list, 'train');
+  // THE HELD QUESTIONS THE HELD GUARD ASKS (docs/swoa-classes.md, step 4), with the larger model's answers to them (session.sh
+  // 02-target): graded as the train questions are. Where it has not answered them, there is no held guard this pass
+  const heldAll = questions('held', each);
+  const heldRef = B.reference(heldAll);
+  for (const [k, v] of heldRef) ref.set(k, v);
+  const heldQs = heldAll.filter((t) => heldRef.get(t.id) !== undefined);
+  const heldGuard = Number(arg('held-guard', lp.heldGuard ?? 4));
+  console.log(
+    heldQs.length
+      ? 'Held guard: a change is kept only if it loses none of up to ' +
+          heldGuard +
+          ' held questions of its class at parity.'
+      : 'Held guard: the larger model has not answered the held questions, so changes are kept on the train questions alone.',
+  );
   // THE COVERAGE GATE (coverageOf): the reader's verdict made current first (a judge chosen since its check is checked now), then
   // every kind counted. A kind with nothing to compare stops the pass before anything is trained: exit 3, which session.sh stops on
   B.readerCurrent(list);
@@ -1963,6 +2087,8 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   try {
     st = await runLoop({
       list,
+      heldQs,
+      heldGuard,
       briefs: readBriefs(),
       poolOf,
       cap,

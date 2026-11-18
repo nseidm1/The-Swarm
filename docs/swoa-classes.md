@@ -4,7 +4,10 @@ Part of SwOA ([swoa.md](swoa.md)): a SwOA spec tunes a swarm module toward parit
 harness measures it. This is how SwOA training keeps what it learns on one class of input from changing the module's behaviour
 on every other class.
 
-Status: design, 2026-11-18. Steps 1 and 2 are built (classes, migration, coverage gate); 3 to 6 are not.
+Status: design, 2026-11-18. Steps 1 to 4 are built: classes, migration, coverage gate, scoping by class, the held guard and the
+specificity check. Promotion to the shared arrangement (in 2) is not built: the shared arrangement stays the starting one. Steps
+5 and 6 are not built (proof per class; evaluation by class). The held guard asks the pass's held questions, so the held
+measurement at a pass's end is no longer wholly apart from what was kept; a separate validation split would restore that.
 
 ## The question
 
@@ -181,9 +184,9 @@ Each step lands on its own, with its own check.
    arrangement's hash and a code prompt with `kinds.code`; a request with tools is `tools`; a second-turn message is `talk`.
 2. **Coverage gate.** Check: with a reader that fails its check, the pass stops naming every kind with nothing to compare,
    even when other kinds of the same class are compared; with `--skip-kinds` it runs and the pass records the skip.
-3. **Scope by default and promotion.** Check: a change kept on a code question changes only `kinds.code`; promotion happens
+3. **Scope by default and promotion.** (Built, without promotion.) Check: a change kept on a code question changes only `kinds.code`; promotion happens
    only when held questions of every newly reached class hold.
-4. **Held guard and specificity.** Check: a brief quoting its question's literals is refused before it is asked; a change that
+4. **Held guard and specificity.** (Built.) Check: a brief quoting its question's literals is refused before it is asked; a change that
    loses a held question at parity is not kept; both are on the ledger.
 5. **Per-class proof and provisional.** Check: with no ended pass, the server runs the shared arrangement for code too; after
    `pass.mjs end`, `proof.code` is written and the server runs `kinds.code`.

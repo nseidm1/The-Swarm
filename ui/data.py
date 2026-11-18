@@ -321,7 +321,7 @@ def load(root):
     # stands now carries it (the current run's own record says so)
     wins = _rows(root / ".work" / "library" / ("%s--%s-wins.jsonl" % (safe(cfg), safe((target or {}).get("id", "")))))
     # (less what a move to classes did not carry: src/learned.mjs toClasses names them in migrated.dropped)
-    dropped = set(((learned or {}).get("migrated") or {}).get("dropped") or [])
+    dropped = set(((learned or {}).get("migrated") or {}).get("dropped") or []) | set(((learned or {}).get("discarded") or {}).get("entries") or [])
     now_keys = {(x.get("what"), (x.get("question") or {}).get("id")) for x in (learned or {}).get("ledger") or [] if x.get("n") not in dropped}
     wins = [dict(w, inArrangement=(w.get("what"), (w.get("question") or {}).get("id")) in now_keys) for w in sorted(wins, key=lambda w: w.get("at", ""))]
     if learned:
@@ -422,7 +422,7 @@ def load(root):
         "policy": _merge(_json(root / "training" / "policy.json", {}), state.get("policy") or {}),
         "learned": {"ledger": (learned or {}).get("ledger") or [], "passes": (learned or {}).get("passes") or [], "startedFrom": started_from.get("version"), "wins": wins,
                     # (a move to classes, where one was made: which kept changes it did not carry; src/learned.mjs toClasses)
-                    "migrated": (learned or {}).get("migrated")},
+                    "migrated": (learned or {}).get("migrated"), "discarded": (learned or {}).get("discarded")},
         "state": state,
         # asking: the kinds the pass under way asks, where this configuration's record says (a choice takes effect with the next pass)
         "equivalence": {"targets": equiv.get("targets", []), "chosen": picked, "asking": state.get("kinds")},
@@ -564,9 +564,10 @@ def swoa_proof(d, arrangement_sha, pins):
 
 
 def learned_live(learned):
-    """How many kept changes the arrangement carries now: all of them, less those a move to classes did not carry (src/learned.mjs toClasses)."""
+    """How many kept changes the arrangement carries now: all of them, less those a move to classes did not carry (src/learned.mjs toClasses)
+    and those discarded to be earned again (learned.discarded)."""
     ledger = (learned or {}).get("ledger") or []
-    dropped = set(((learned or {}).get("migrated") or {}).get("dropped") or [])
+    dropped = set(((learned or {}).get("migrated") or {}).get("dropped") or []) | set(((learned or {}).get("discarded") or {}).get("entries") or [])
     return sum(1 for e in ledger if e.get("n") not in dropped)
 
 

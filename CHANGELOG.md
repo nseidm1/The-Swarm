@@ -19,6 +19,10 @@ The first version.
   module first serves it, wherever the file came from; a file once checked is not hashed again while it is unchanged. A
   message whose content is a list of parts is read as its text parts (for the seed and a tool turn's question), as the
   SwOA specification says.
+- **Learned changes stay with their class, and must generalize.** A change kept on a question goes into its class's own
+  arrangement, never the shared one; a found arrangement is reused only within its class; a change must lose none of up to 4
+  held questions of its class at parity before it is kept; and a change whose briefs quote the question it was found on is
+  refused before it is tried. Before, briefs written for one rounding question drafted every essay.
 - **No kind trained on nothing.** A pass stops before training when a kind of question has nothing to compare (a reader that
   failed its check), and says which and why; `SKIP_KINDS` leaves kinds out on purpose.
 - **The module.** Two small models served by llama.cpp, four slots each, answer as one model: messages in, one reply out, at an

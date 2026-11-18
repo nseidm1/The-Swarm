@@ -53,12 +53,14 @@ stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mj
    taken next. Sooner, where every question they have lost is among the same few (`stableMax`, 2): once those losses together
    reach `stableAfter` (6), a change that loses only those is kept and they all go back in hand. Once each way for a pair, so
    two questions cannot trade places for ever.
-8. **A conflict between kinds is not a conflict.** The swarm can tell from a question alone whether it asks for code
-   (`src/orchestrate.mjs` `kindOf`). Where a change brings the question in hand to parity and every question it loses is of the
-   other kind, it is kept for its own kind only (`kindBranch`): `briefs.kinds.code` (or `.words`) holds that kind's own slots,
-   plan and flow, the swarm answers each question with the arrangement for its kind (`briefsFor`), and the questions of the
-   other kind keep the one they were at parity with. A change is checked only on questions answered with the arrangement it
-   changes.
+8. **What is learned on a class stays with that class** (docs/swoa-classes.md). The swarm sorts every request from the request
+   alone into a class (`src/orchestrate.mjs` `classOf`: tools, talk, code, words), and training sorts its questions the same way.
+   A change kept on a question goes into that class's own arrangement (`briefs.kinds.<class>`: its slots, plan and flow), never
+   into the shared one, which every class without its own runs; it is checked only on that class's questions, and a found
+   arrangement is tried only on questions of the class it was found on. Before it is kept it must also lose none of up to
+   `heldGuard` (4) held questions of its class at parity (the held guard: held answers decide only whether a change is kept,
+   never which is found); and a change whose briefs quote the question it was found on (a name, a number or a quoted phrase
+   no other question of its class has) is refused before it is tried.
 9. **A stopped run carries on from its last try.** Where the question in hand stands (its record, what was tried, every
    arrangement open or tried, by the changes that make it) is written to `loop.json` after every try; carried on with the same
    arrangement, the search goes on from there instead of from its first try.

@@ -113,3 +113,40 @@ export function writeLearned(body, { config = CONFIG_ID, target = TARGET.id } = 
   write(learnedFile(config, target), body);
   return body;
 }
+
+// WHAT WAS KEPT IN THE SHARED ARRANGEMENT SINCE THE MOVE TO CLASSES, MOVED TO ITS CLASS (docs/swoa-classes.md, step 3). A trainer that
+// started before changes were scoped by class goes on folding them into the shared arrangement, which every class without one of its
+// own runs. This moves the shared slots, plan and flow into briefs.kinds[<class>], for the class most of the changes kept since the
+// last move were found on (where that class has none of its own yet), and puts the starting arrangement back as the shared one.
+// Pure, as toClasses: -> { learned, moved: <class> | null, entries: [ledger n] }
+export function scopeShared(learned, { classOfKind = {}, start, now = new Date() } = {}) {
+  const since = (learned && (learned.scoped || learned.migrated) && (learned.scoped || learned.migrated).at) || '';
+  if (!learned || !learned.briefs || !since) return { learned, moved: null, entries: [] };
+  const after = (learned.ledger || []).filter((e) => (e.at || '') > since);
+  const classOf = (e) => e.class || classOfKind[(e && e.question && e.question.kind) || ''] || null;
+  const count = {};
+  for (const e of after) if (classOf(e)) count[classOf(e)] = (count[classOf(e)] || 0) + 1;
+  const kinds = learned.briefs.kinds || {};
+  const moved = Object.keys(count).sort((a, b) => count[b] - count[a] || a.localeCompare(b))[0] || null;
+  if (!moved || kinds[moved]) return { learned, moved: null, entries: [] };
+  const b = learned.briefs;
+  const own = { slots: b.slots, plan: b.plan, ...(b.flow ? { flow: b.flow } : {}) };
+  const shared = {
+    ...b,
+    slots: start.slots,
+    plan: start.plan,
+    version: (Number(b.version) || 1) + 1,
+    kinds: { ...kinds, [moved]: own },
+  };
+  delete shared.flow;
+  if (start.flow) shared.flow = start.flow;
+  const entries = after.filter((e) => classOf(e) === moved).map((e) => e.n);
+  const ledger = (learned.ledger || []).map((e) =>
+    (e.at || '') > since && !e.class && classOf(e) ? { ...e, class: classOf(e) } : e,
+  );
+  return {
+    learned: { ...learned, briefs: shared, ledger, scoped: { at: now.toISOString(), to: moved, entries } },
+    moved,
+    entries,
+  };
+}
