@@ -671,25 +671,28 @@ min in all.
 ### Every small model alone, 2026-11-17
 
 Each small model in the catalog, by itself, on the same 84 held questions of The Crew, its answers compared with Nemotron
-3.5 Lightning 30B's by Jeffan 4B: what the [recommended changes](#recommended-changes) weigh a model by. Ten were fetched for
+3.5 Lightning 30B's by Jeffan 4B: what the [recommended changes](#recommended-changes) weigh a model by. Twelve were fetched for
 this and taken out again afterwards (`node training/setup.mjs --model <id>`, `node training/baseline.mjs --who model:<id>
 --split held`).
 
 | Small model | The same as Nemotron | | Small model | The same as Nemotron |
 |---|---|---|---|---|
-| Bonsai 2 27B | 62 of 84 (73.8%) | | Bonsai 2 2B | 34 (40.5%) |
-| Bonsai 2 9B | 61 (72.6%) | | Gemma 4 E4B | 33 (39.3%) |
-| Qwen3.5 4B | 54 (64.3%) | | Gemma 4 E2B | 33 (39.3%) |
-| LFM3 1.7B | 44 (52.4%) | | Qwen3 1.7B | 28 (33.3%) |
-| Nemotron 3 Nano 4B | 42 (50.0%) | | Ministral 3 3B | 27 (32.1%) |
-| Granite 4.2 3B | 41 (48.8%) | | LFM2.5 1.2B | 22 (26.6%, mean of 3) |
-| Bonsai 2 4B | 37 (44.0%) | | Qwen3.5 2B | 22 (25.6%, mean of 2) |
-| | | | SmolLM2 1.7B | 13 (15.5%) |
+| Bonsai 2 27B | 62 of 84 (73.8%) | | Gemma 4 E4B | 33 (39.3%) |
+| Bonsai 2 9B | 61 (72.6%) | | Gemma 4 E2B | 33 (39.3%) |
+| Qwen3.5 4B | 54 (64.3%) | | Qwen3 1.7B | 28 (33.3%) |
+| Jan-Code 4B | 46 (54.8%) | | Ministral 3 3B | 27 (32.1%) |
+| LFM3 1.7B | 44 (52.4%) | | LFM2.5 1.2B | 22 (26.6%, mean of 3) |
+| Nemotron 3 Nano 4B | 42 (50.0%) | | Qwen3.5 2B | 22 (25.6%, mean of 2) |
+| Granite 4.2 3B | 41 (48.8%) | | Qwen2.5-Coder 1.5B | 20 (23.8%) |
+| Bonsai 2 4B | 37 (44.0%) | | SmolLM2 1.7B | 13 (15.5%) |
+| Bonsai 2 2B | 34 (40.5%) | | | |
 
 - **One model's runs differ by up to 14 of 84** (LFM2.5 1.2B: 16, 21 and 30 on the same questions), so a lead of less than
   that says nothing, and the recommendations ask for more.
 - **Qwen3 4B is left out:** it gave no answer on 30 of the 84, which says it was served wrongly here (it is a model that
   thinks first), not how it answers.
+- **The two models made for code do not lead:** Jan-Code 4B (46) is below Qwen3.5 4B, the general model of its size, and
+  Qwen2.5-Coder 1.5B (20) near the bottom. The Crew's questions are code and the conversation around it, and tools.
 - **The three in the swarm trained so far are among the weakest alone.** Bonsai 2 9B and 27B give Nemotron's answer about
   three times as often as LFM2.5 1.2B or Qwen3.5 2B. Alone is not in a swarm: a pass is what would tell.
 

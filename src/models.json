@@ -185,6 +185,34 @@
       "sampling": {}
     },
     {
+      "id": "qwen25-coder-1.5b",
+      "name": "Qwen2.5-Coder 1.5B",
+      "by": "Alibaba (Qwen)",
+      "params": 1.5,
+      "repo": "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF",
+      "rev": "f86cb2c1fa58255f8052cc32aeede1b7482d4361",
+      "file": "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf",
+      "bytes": 1117320768,
+      "sha256": "cc324af070c2ecbfd324a30884d2f951a7ff756aba85cb811a6ec436933bb046",
+      "license": "Apache-2.0",
+      "serve": ["--reasoning-budget", "0"],
+      "sampling": {}
+    },
+    {
+      "id": "jan-code-4b",
+      "name": "Jan-Code 4B",
+      "by": "Jan (Menlo Research)",
+      "params": 4,
+      "repo": "janhq/Jan-code-4b-gguf",
+      "rev": "76682f4d57a07a09e7bdaf11eb380dba823e0418",
+      "file": "Jan-code-4b-Q4_K_M.gguf",
+      "bytes": 2716066656,
+      "sha256": "6f9bcb1fdced9494fc477af6ca7e6c0e203540da5343d370eb89c1391b3644e0",
+      "license": "Apache-2.0",
+      "serve": ["--reasoning-budget", "0"],
+      "sampling": {}
+    },
+    {
       "id": "gemma4-e2b",
       "name": "Gemma 4 E2B",
       "by": "Google",
