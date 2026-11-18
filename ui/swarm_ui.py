@@ -600,12 +600,12 @@ document.addEventListener('click',async(ev)=>{
     b.disabled=false;if(!r.ok){alert(await r.text());return;}
     $('#equiv').innerHTML=await r.text();$('#qedit').close();}
 });
-// THE OUTPUT SPEC: what the swarm as it stands is, in one document
+// THE SwOA SPEC: what the swarm module as it stands is, in one document
 document.addEventListener('click',async(ev)=>{
   if(ev.target.closest('#spec-open')){await swap('/fragment/spec','#spec-body');$('#spec').showModal();return;}
   if(ev.target.id==='spec-close'||ev.target.id==='spec'){$('#spec').close();return;}
   if(ev.target.id==='spec-publish'){const r=await fetch('/spec/publish',{method:'POST',headers:{'x-swarm':'1'}});if(r.ok){$('#spec-body').innerHTML=await r.text();}else{ev.target.title=await r.text();}return;}
-  if(ev.target.id==='spec-save'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([$('#spec-json').textContent],{type:'application/json'}));a.download='swarm-spec.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);return;}
+  if(ev.target.id==='spec-save'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([$('#spec-json').textContent],{type:'application/json'}));a.download=($('#spec-json').dataset.name||'swarm')+'.swoa.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);return;}
   if(ev.target.id==='spec-copy'){try{await navigator.clipboard.writeText($('#spec-json').textContent);ev.target.textContent='Copied';}catch(e){ev.target.textContent='Select it below';}}
 });
 // while a pass runs, its steps are asked for again every few seconds; when it ends the rest of the page is read again once
@@ -2938,6 +2938,8 @@ def spec_panel(d):
                row("SwOA", "<code>%s</code><br><span class='muted'>%s</span>" % (e(sp["swoa"]["recipeSha256"][:16]), e(sp["swoa"]["is"])))
                + row("Base module", "<code>%s</code>" % e(sp["swoa"]["baseModuleSha256"][:16])) + row("Arrangement", "<code>%s</code>" % e(sp["swoa"]["arrangementSha256"][:16]))
                + row("Format", "<code>%s</code> version %s (docs/swoa.md)" % (e(sp["swoa"]["format"]), e(str(sp["swoa"]["version"]))))
+               + row("Runtime", "%s %s" % (e(str((sp.get("runtime") or {}).get("library") or "")), e(str((sp.get("runtime") or {}).get("version") or ""))))
+               + row("Written", e(str(sp["swoa"].get("writtenAt") or "")))
                + "".join(row(k.capitalize(), "<code>%s</code>" % e(v)) for k, v in st_.items())))
     return (
         '<div class="spec-head"><div><div class="kicker">SwOA spec</div><h3 style="font-size:24px">%s</h3><div class="muted small">%s</div></div>'
@@ -2946,10 +2948,10 @@ def spec_panel(d):
         "%s%s<h4>What it is</h4><table class='spec'>%s%s%s%s%s%s%s%s</table>"
         "<h4>The flow</h4><p class='small' style='margin:0'>%s <span class='muted'>(%s)</span></p>"
         "<h4>The arrangement (briefs v%s)</h4><table class='spec slots4'><tr><th>Slot</th><th>Stage</th><th>What it is for</th><th>Model</th></tr>%s"
-        "<tr><td><code>decide</code></td><td>decide</td><td>Decides which answer stands</td><td>%s</td></tr></table>"
-        '<h4>As JSON</h4><pre class="tail" id="spec-json" style="max-height:320px">%s</pre>'
+        "<tr><td><code>decide</code></td><td>decide</td><td>Decides which answer stands</td><td>%s</td></tr></table>%s"
+        '<h4>As JSON</h4><p class="muted small" style="margin:0 0 6px">As it is published: what is this runtime&#39;s own (how it starts here) is left out. Copy and Save take this.</p><pre class="tail" id="spec-json" data-name="%s" style="max-height:320px">%s</pre>'
         % (
-            e(sp["id"]), e(sp["what"]), publish_button,
+            e(sp["swoa"]["name"]), e(sp["what"]), publish_button,
             state_cls, e(("%s%% of the way to parity" % fmt_pct(t["progressPercent"])) if t.get("progressPercent") is not None and t["state"] != "at parity"
                          else ("In training: pass %d under way" % ip["pass"]) if t["state"] == "not measured" and ip else t["state"].capitalize()), e(t["target"].get("name") or ""),
             e(t["parityMeans"]), published_line,
@@ -2958,12 +2960,12 @@ def spec_panel(d):
             row("Offered as", "<br>".join(e(x) for x in sp["interface"]["as"])),
             row("Not yet", "<br>".join(e(x) for x in sp["interface"]["notYet"])),
             "".join(row("Small model %d (place %s)" % (i + 1, k), mem(m)) for i, (k, m) in enumerate(sp["members"].items())), adapter_rows,
-            row("Decides", "%s <span class='muted'>· %s · %s</span><br><code>%s</code>" % (e(sp["decider"].get("name") or ""), e(sp["decider"].get("by") or ""), e(sp["decider"].get("license") or ""), e(sp["decider"].get("run") or ""))),
+            row("Decides", "%s <span class='muted'>· %s · %s</span>%s" % (e(sp["decider"].get("name") or ""), e(sp["decider"].get("by") or ""), e(sp["decider"].get("license") or ""), decider_pins(sp["decider"]))),
             row("Against %s" % e(t["target"].get("name") or ""), ("<b>%s</b> of the way to parity. %d held questions: %d equivalent, %d different, %d no answer<ul style='margin:6px 0 0;padding-left:18px'>%s</ul>" % (e(fmt_pct(t["progressPercent"]) + "%"), t["heldQuestions"], t["equivalent"], t["different"], t["noAnswer"], kinds)) if t["state"] != "not measured" else "Not measured: no pass has put this swarm and this target to the same held questions.")
             + row("Served", "%d slots on each small model, %d tokens of context a slot; about %s GB of memory (an estimate); engine %s %s" % (sp["serving"]["slots"], sp["serving"]["contextPerSlot"], sp["serving"]["memoryGbEstimate"], e(sp["engine"].get("name") or ""), e(sp["engine"].get("version") or ""))),
             e(" → ".join(_flow_words(x) for x in sp["arrangement"]["flow"])), e(sp["arrangement"]["flowIs"]),
-            e(str(sp["arrangement"]["briefsVersion"])), slots, e(sp["decider"].get("id") or ""),
-            e(json.dumps(sp, indent=2)),
+            e(str(sp["arrangement"]["briefsVersion"])), slots, e(sp["decider"].get("id") or ""), class_arrangements(sp),
+            e(sp["swoa"]["name"]), e(json.dumps(data.published(sp), indent=2)),
         )
     )
 
@@ -3448,6 +3450,48 @@ def main_body(d):
         '<h2 id="arrangement">Train</h2>%s'
         % (e(busy_with()), memory_card(d), eval_block(d), pretrain_block(d), arrangement(d))
     )
+
+
+def decider_pins(dec):
+    """WHAT PINS THE DECISION MODEL (SwOA specification E.2): its weights and, unless the module's engine serves it, its server
+    program at a commit, whatever its kind. Said where something is missing, since then it is not the one the recipe names."""
+    sv = dec.get("serve") or {}
+    out = ["<br><span class='muted'>kind</span> <code>%s</code>" % e(str(sv.get("kind") or "(none)"))]
+    if sv.get("file") and sv.get("sha256"):
+        out.append("<br><span class='muted'>weights</span> <code>%s</code> <code>sha256 %s</code>" % (e(sv["file"]), e(sv["sha256"])))
+    elif sv.get("weights") and sv.get("weightsRev"):
+        out.append("<br><span class='muted'>weights</span> <code>%s @ %s</code>" % (e(sv["weights"]), e(str(sv["weightsRev"])[:12])))
+    elif dec.get("run") and dec.get("rev"):
+        out.append("<br><span class='muted'>weights</span> <code>%s @ %s</code>" % (e(dec["run"]), e(str(dec["rev"])[:12])))
+    else:
+        out.append("<br><b class='bad'>weights not pinned</b>")
+    if sv.get("code") and sv.get("codeRev"):
+        out.append("<br><span class='muted'>server</span> <code>%s @ %s</code>" % (e(sv["code"]), e(str(sv["codeRev"])[:12])))
+    elif sv.get("kind") != "llama":
+        out.append("<br><b class='bad'>server program not pinned</b>")
+    return "".join(out)
+
+
+def class_arrangements(sp):
+    """THE ARRANGEMENT FOR EACH CLASS OF INPUT THAT HAS ITS OWN (SwOA specification 4.3, 4.4): its slots, what each is told, its plan
+    and its flow; and which classes run the shared arrangement above."""
+    kinds = ((sp.get("recipe") or {}).get("briefs") or {}).get("kinds") or {}
+    models = {k: (m or {}).get("id") for k, m in (sp.get("members") or {}).items()}
+    out = []
+    for c in ("tools", "talk", "code", "words"):
+        k = kinds.get(c)
+        if not k:
+            continue
+        rows = "".join("<tr><td><code>%s</code></td><td>%s</td><td>%s<details class='told'><summary>What it is told</summary><div>%s</div></details></td><td>%s</td></tr>"
+                       % (e(x.get("id", "")), e(x.get("stage", "")), e(x.get("purpose", "")), e(x.get("brief", "")), e(str(models.get(x.get("member")) or ""))) for x in k.get("slots") or [])
+        flow = " → ".join(_flow_words(x) for x in k["flow"]) if k.get("flow") else "the shared flow"
+        plan = ", ".join("%s %s" % (e(str(a)), e(json.dumps(b))) for a, b in (k.get("plan") or {}).items()) or "the shared plan"
+        out.append("<h4>The %s arrangement (its own)</h4><p class='small' style='margin:0 0 6px'><span class='muted'>Flow:</span> %s<br><span class='muted'>Plan:</span> %s</p>"
+                   "%s" % (e(c), e(flow), plan, ("<table class='spec slots4'><tr><th>Slot</th><th>Stage</th><th>What it is for</th><th>Model</th></tr>%s</table>" % rows) if rows else "<p class='muted small'>the shared slots</p>"))
+    shared = [c for c in ("tools", "talk", "code", "words") if c not in kinds]
+    lead = "<p class='muted small' style='margin:8px 0 0'>Input is sorted into four classes from the request alone (tools, talk, code, words). %s run%s the shared arrangement above.</p>" % (
+        e(", ".join(shared)) if shared else "None", "s" if len(shared) == 1 else "")
+    return lead + "".join(out)
 
 
 def proof_block(sp):

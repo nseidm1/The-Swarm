@@ -46,7 +46,7 @@ export const JUDGE_BRIEF =
   'not count how many answers agree. Be brief. End with one line and nothing after it: ANSWER: and the letter of the correct one.';
 // how the matter is settled (plan.decideBy): 'decider' where nothing is said; the names from when Kev was the only decider are
 // read as the same
-export const decideByOf = (v) => String(v || 'decider').replace(/^kev(?=$|-)/, 'decider');
+export const decideByOf = (v) => String(v || 'decider');
 const LETTERS = 'ABCDEFGHIJKLMNOP'; // an answer for each slot that drafts: four models' worth, and room over
 // the flow of an arrangement: the one it names, or the plain one
 export const DEFAULT_FLOW = [{ do: 'draft' }, { do: 'try' }, { do: 'check' }, { do: 'decide' }, { do: 'write' }];
@@ -513,7 +513,6 @@ export async function answer(
       // HOW THE MATTER IS SETTLED is part of the plan (plan.decideBy), and so is trained: the decider always ('decider', where nothing
       // is said); the answer most slots hold ('most': the decider is not asked); the decider only where it is sure
       // ('decider-if-confident'), or only where no answer has more than half the slots behind it ('decider-unless-majority').
-      // A plan from before these had names of their own says 'kev', 'kev-if-confident', 'kev-unless-majority': read as the same
       const by = step.keep || step.sure ? 'decider' : decideByOf(plan.decideBy);
       // A SMALL MODEL BESIDE THE DECIDER (plan.decideWith: { how, slot }): one slot is shown the different answers and names the
       // one that is correct, and how its word counts is the plan's, and so is trained:

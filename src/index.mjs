@@ -35,8 +35,21 @@ export const BRIEFS_FILE = fileURLToPath(new URL('./briefs.json', import.meta.ur
 export const readBriefs = (file) => {
   if (file) return JSON.parse(fs.readFileSync(file, 'utf8'));
   const learned = readLearned();
-  return learned ? learned.briefs : withPlaces(JSON.parse(fs.readFileSync(BRIEFS_FILE, 'utf8')), Object.keys(MEMBERS));
+  return learned
+    ? kindsAsSpecified(learned.briefs)
+    : withPlaces(JSON.parse(fs.readFileSync(BRIEFS_FILE, 'utf8')), Object.keys(MEMBERS));
 };
+// A CLASS'S OWN ARRANGEMENT HOLDS ITS SLOTS, PLAN AND FLOW, AND NOTHING ELSE (SwOA specification 4.3, `kinds`): anything else found
+// there (a mark a migration once left, a field a later version adds) is not part of what the module runs, and not part of its hash
+export const KIND_KEYS = ['slots', 'plan', 'flow'];
+export function kindsAsSpecified(briefs) {
+  if (!briefs || !briefs.kinds) return briefs;
+  const kinds = {};
+  for (const [c, k] of Object.entries(briefs.kinds))
+    if (k && typeof k === 'object')
+      kinds[c] = Object.fromEntries(KIND_KEYS.filter((p) => p in k).map((p) => [p, k[p]]));
+  return { ...briefs, kinds };
+}
 // THE STARTING ARRANGEMENT FOR THE PLACES THAT ARE FILLED. briefs.json is written for two. A third or fourth small model begins as
 // two more DRAFTERS (told what the first model's plain drafter and the second's other-way drafter are told): drafting is where
 // another model's different mistakes count, and what else it should do is for training to find. Slots on a place that is not

@@ -1095,9 +1095,7 @@ pool, or nothing.
 Let TABLE be distinct and TALLY be votes, both fixed at the start of the step.
 
 **How it is settled** (BY): if the step has `keep` or `sure`, BY is `decider`. Otherwise BY is
-`plan.decideBy`, or `decider` if absent/empty; a value that is exactly `kev`, or begins with
-`kev-`, has that leading `kev` replaced by `decider` (so `kev-if-confident` reads as
-`decider-if-confident`). Meaningful values: `decider`, `most`, `decider-if-confident`,
+`plan.decideBy`, or `decider` if absent/empty. Meaningful values: `decider`, `most`, `decider-if-confident`,
 `decider-unless-majority`. Any other value behaves as `decider`.
 
 **With a model beside it** (WITH): true when the step has neither `keep` nor `sure`, BY is not
@@ -1402,7 +1400,7 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `byBehaviour` | boolean | true | `false` turns off probe, try and everything that depends on tried |
 | `agreeSkipsChecks` | boolean | true | `false` stops dispute steps being passed over when settled |
 | `onePerAnswer` | boolean | false | sheet shows one row per distinct answer even when not tried |
-| `decideBy` | text | `decider` | O.6.6 BY; `kev…` aliases |
+| `decideBy` | text | `decider` | O.6.6 BY |
 | `decideMin` | number | 0.6 | threshold for `if-close` and `decider-if-confident` (an explicit 0 is honoured) |
 | `decideWith` | object | none | `{how, slot, brief, maxTokens, weight}` — the model beside the decider (O.6.6); `weight` default 0.35 (an explicit 0 is honoured) |
 | `probe` | object | none | `{member, brief, maxTokens}` for the probe slot |
@@ -2250,62 +2248,72 @@ Two runtimes conform when they send requests that are equal as JSON values. Leng
 
 #### E.1 The recipe's `decider` object
 
-E.1.1 `recipe.decider` names the module's decision model. It is part of the base module and of the recipe's hash: a module
-built with any other decision model is a different module.
+E.1.1 `recipe.decider` names the module's decision model: any model that answers the protocol of section D. No decision model
+is the standard one; the recipe names one. It is part of the base module and of the recipe's hash: a module built with any
+other decision model is a different module.
 
-E.1.2 Members of `recipe.decider` (all strings unless noted). A recipe MUST carry `id` and `name`; the rest are present
+E.1.2 Members of `recipe.decider` (all strings unless noted). A recipe MUST carry `id`, `name` and `serve`; the rest are present
 where they apply. Members whose value would be null, an empty list or an empty object are omitted.
 
 | Member | Meaning |
 |---|---|
-| `id` | the decision model's identifier (for example `kev-0.8b`, `jeffan-4b`) |
+| `id` | the decision model's identifier |
 | `name` | its human name |
 | `by` | its maker |
 | `params` | number: parameters, in billions |
-| `run` | for `serve.kind` `kev`: the run reference the Kev server loads, `<repo>@<tag>` (for example `jaredpalmer/kev-0.8b@v1.0`) |
-| `rev` | for `kev`: the pinned weights commit of that repository |
+| `run` | where its kind loads weights by a run reference, `<repo>@<tag>` |
+| `rev` | where `run` is used: the pinned commit of the weights' repository |
 | `memGb` | number: approximate memory it needs, in GB |
 | `license` | its licence |
 | `needs` | the hardware it needs, in words |
 | `runsOn` | array of `"mac"` (Apple silicon) and/or `"cuda"` (an NVIDIA GPU) |
-| `serve` | object: how it is served (E.2). Absent means `{ "kind": "kev" }` |
+| `serve` | object: how it is served and pinned (E.2, E.3); `serve.kind` names the way |
 
-#### E.2 `decider.serve`, by `kind`
+#### E.2 Pinned, whatever its kind
 
-E.2.1 `serve.kind` = `"kev"`. The decision model is served by the Kev server program (`https://github.com/jaredpalmer/kev`)
-loading the run `decider.run`. A runtime that starts it MUST install that program with its `serve` extra under Python 3.13
-and start its serve module with that run, a host and a port. Where `decider.run` is absent, the run is
-`jaredpalmer/kev-4b@v1.0`; a recipe SHOULD always carry `run`.
+E.2.1 The same recipe MUST always mean the same decision model: the same weights, served by the same program. So, whatever its
+`serve.kind`, a recipe MUST pin both:
 
-E.2.2 `serve.kind` = `"startlux-mlx"`. Apple silicon only. Members: `code` (the server's git repository), `codeRev` (the
-commit to check out), `weights` (a Hugging Face repository), `weightsRev` (its pinned revision), `bytes` (the weights'
-size). A runtime that starts it MUST install the repository at `codeRev` with its `mlx` extra, fetch `weights` at
-`weightsRev`, and run its `startlux-decide serve` command with `--model <weights folder> --backend mlx --host <h> --port <p>
---name <decider.id>`.
+- **The weights**: by `serve.file` with `serve.sha256` (a single file, fetched from `serve.weights` at `serve.weightsRev`), by
+  `serve.weights` with `serve.weightsRev` (a repository at a commit), or by `decider.run` with `decider.rev`.
+- **The server program**, unless the decision model is served by the module's own engine (`recipe.engine`): by `serve.code`
+  (its git repository) and `serve.codeRev` (the commit, 40 hex).
 
-E.2.3 `serve.kind` = `"llama"`. A GGUF file served by the same llama.cpp server the module's members use (`recipe.engine`),
-which answers `/v1/systemone` itself. Members: `weights` (Hugging Face repository), `weightsRev`, `file` (the GGUF file
-name), `bytes`, `sha256`, `args` (array: the maker's server flags, in order), `how` (prose). A runtime that starts it MUST
-fetch `https://huggingface.co/<weights>/resolve/<weightsRev>/<file>`, MUST refuse the file unless its SHA-256 equals
-`sha256`, and MUST start the engine's server with `-m <file>`, then every entry of `args` in order, then the host and port.
+E.2.2 A runtime that starts the decision model MUST start it from exactly what is pinned, MUST refuse a weights file whose
+SHA-256 is not `serve.sha256`, and MUST NOT serve the program from any commit other than `serve.codeRev`. A decision model
+that is not pinned this way MUST NOT be presented as the one the recipe names.
 
-E.2.4 `serve.kind` = `"cuda"` (or any kind not listed above). The runtime does not start it. `needs` states the hardware and
-`how` the maker's own instructions (with `weights`/`weightsRev` pinning the weights). An operator starts it, and the runtime
-attaches to its address (E.3).
+#### E.3 Kinds
 
-#### E.3 Attaching
+E.3.1 `serve.kind` says how a decision model of that kind is started. The kinds this version describes are below, in no order
+of preference. A runtime MAY support any of them, and others; a kind it does not support it attaches to instead (E.4).
 
-E.3.1 Whatever the kind, the module reaches the decision model only by a **base address** (scheme, host, port; for
+- **`kev`**: a Kev decision model, served by the Kev server program (`serve.code`, `serve.codeRev`) loading the run
+  `decider.run`. To start it: install the program at `serve.codeRev` with its `serve` extra under Python 3.13, and start its
+  serve module with that run, a host and a port.
+- **`startlux-mlx`**: Apple silicon only. To start it: install the program at `serve.codeRev` with its `mlx` extra, fetch
+  `serve.weights` at `serve.weightsRev`, and run its `startlux-decide serve` command with `--model <weights folder> --backend
+  mlx --host <h> --port <p> --name <decider.id>`.
+- **`llama`**: a GGUF file served by the module's own llama.cpp server (`recipe.engine`), which answers `/v1/systemone` itself;
+  no separate program is pinned. Further members: `bytes`, `args` (array: the maker's server flags, in order), `how` (prose).
+  To start it: fetch `https://huggingface.co/<serve.weights>/resolve/<serve.weightsRev>/<serve.file>`, check its SHA-256,
+  and start the engine's server with `-m <file>`, then every entry of `args` in order, then the host and port.
+- **`cuda`**, or any kind not listed here: the runtime does not start it. `needs` states the hardware and `how` the maker's
+  own instructions; an operator starts it, from what E.2 pins, and the runtime attaches to its address (E.4).
+
+#### E.4 Attaching
+
+E.4.1 Whatever the kind, the module reaches the decision model only by a **base address** (scheme, host, port; for
 example `http://127.0.0.1:8009`) at which `POST /v1/systemone` answers per section D. A runtime MUST let that address be
-supplied by configuration, and MAY start the decision model itself per E.2 and use the address it started it at. A runtime
+supplied by configuration, and MAY start the decision model itself per E.3 and use the address it started it at. A runtime
 that starts one SHOULD start it at `127.0.0.1`, port `8009`.
 
-E.3.2 An empty or absent address means no decision model is configured (D.7.1).
+E.4.2 An empty or absent address means no decision model is configured (D.7.1).
 
-E.3.3 The protocol carries no model identity (`model` is always `decider`, D.3.3). A runtime SHOULD ensure, by how it starts
-or configures the endpoint, that the model answering is the one `recipe.decider` names.
+E.4.3 The protocol carries no model identity (`model` is always `decider`, D.3.3). A runtime MUST ensure, by starting it from what E.2
+pins or by an operator's assurance, that the model answering is the one `recipe.decider` names.
 
-E.3.4 The module MUST NOT wait for the decision model to become ready before answering requests; until it answers, its
+E.4.4 The module MUST NOT wait for the decision model to become ready before answering requests; until it answers, its
 decisions decide nothing (D.7). A runtime MAY check readiness before serving.
 
 ---

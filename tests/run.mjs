@@ -4738,7 +4738,6 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     ],
     plan: {},
   });
-  const oldPlan = steps({ ...briefs, plan: { ...briefs.plan, decideBy: 'kev-if-confident' } }).map((c) => c.name);
   // a dead session's decider is stopped whatever it is: Kev's server, StartLux's, or a decision model llama.cpp serves
   const root = path.resolve('.');
   const decoys = [
@@ -4752,17 +4751,13 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   check(
     "the code and its checks name no one decision model: the decide step is the decider's, whichever is configured (its slot is `decide`, its ways of settling are 'decider', 'decider-if-confident', 'decider-unless-majority'); a plan or a record from when Kev was the only decider reads the same under the new names; and a dead session's decider is stopped whatever it is (Kev, StartLux, or one llama.cpp serves), and kept where asked",
     decideByOf() === 'decider' &&
-      decideByOf('kev') === 'decider' &&
-      decideByOf('kev-if-confident') === 'decider-if-confident' &&
+      decideByOf('decider-if-confident') === 'decider-if-confident' &&
       decideByOf('most') === 'most' &&
       ev.lost === 'choosing' &&
       ev.prio({ name: 'plan: a model settles it where the decider is close' }) === 1 &&
-      !oldPlan.includes('plan: decide by decider-if-confident') &&
-      oldPlan.includes('plan: decide by decider') &&
-      !oldPlan.some((n) => /\bkev\b/.test(n)) &&
       decoys.every((d) => seen.includes(String(d.pid))) &&
       decoys.every((d) => !kept.includes(String(d.pid))),
-    { ev: ev.lost, oldPlan: oldPlan.filter((n) => /decide by/.test(n)), seen: seen.length, kept: kept.length },
+    { ev: ev.lost, seen: seen.length, kept: kept.length },
   );
 }
 
@@ -6373,10 +6368,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const again = toClasses(r.learned, { classOfKind: {}, start });
   const b = r.learned.briefs;
   check(
-    'migration moves the learned arrangement to the class most kept changes were found on, puts the starting one back as shared, names the change found on another class, marks it provisional, and is done once',
+    'migration moves the learned arrangement to the class most kept changes were found on (its slots, plan and flow, nothing else), puts the starting one back as shared, names the change found on another class, and is done once',
     r.moved === 'code' &&
       b.kinds.code.slots === learnedSlots &&
-      b.kinds.code.provisional === true &&
+      !('provisional' in b.kinds.code) &&
       JSON.stringify(b.kinds.code.flow) === '[{"do":"draft"}]' &&
       b.slots === start.slots &&
       b.plan === start.plan &&

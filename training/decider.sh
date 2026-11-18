@@ -43,7 +43,12 @@ case "$D_KIND" in
     case "$cmd" in
       install)
         cd "$K" || exit 1
-        [ -d src/.git ] || git clone --depth 1 https://github.com/jaredpalmer/kev.git src || exit 1
+        # the Kev server at the commit the recipe pins (decider.serve.code, codeRev): the same program on every machine
+        [ -d src/.git ] || git clone -q "${D_CODE:-https://github.com/jaredpalmer/kev.git}" src || exit 1
+        if [ -n "$D_CODE_REV" ]; then
+          git -C src cat-file -e "$D_CODE_REV^{commit}" 2>/dev/null || git -C src fetch -q origin "$D_CODE_REV" 2>/dev/null || git -C src fetch -q --unshallow origin 2>/dev/null || git -C src fetch -q origin
+          git -C src checkout -q "$D_CODE_REV" || exit 1
+        fi
         UV=$(uv_in "$K") || exit 1
         cd src && $UV python install 3.13 && $UV sync --extra serve
         ;;
@@ -52,6 +57,10 @@ case "$D_KIND" in
         PORT=${1:-8009}
         [ -x "$K/uvenv/bin/uv" ] || { echo "Kev is not installed here. First: bash training/decider.sh install"; exit 1; }
         cd "$K/src" || exit 1
+        # (served only at the pinned commit: another Kev server would decide differently from the same recipe)
+        if [ -n "$D_CODE_REV" ] && [ "$(git rev-parse HEAD 2>/dev/null)" != "$D_CODE_REV" ]; then
+          echo "The Kev server here is not at the commit the recipe pins ($D_CODE_REV). Run: bash training/decider.sh install"; exit 1
+        fi
         [ -n "$DECIDER_NO_PORT_FILE" ] || echo "$PORT" > "$PORT_FILE"
         exec $UV run --extra serve python -m kev.serve --run "$RUN" --host 127.0.0.1 --port "$PORT"
         ;;

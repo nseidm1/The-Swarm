@@ -320,7 +320,9 @@ def load(root):
     # with the question it brought to parity, from every run of this configuration, oldest first; marked where the arrangement as it
     # stands now carries it (the current run's own record says so)
     wins = _rows(root / ".work" / "library" / ("%s--%s-wins.jsonl" % (safe(cfg), safe((target or {}).get("id", "")))))
-    now_keys = {(x.get("what"), (x.get("question") or {}).get("id")) for x in (learned or {}).get("ledger") or []}
+    # (less what a move to classes did not carry: src/learned.mjs toClasses names them in migrated.dropped)
+    dropped = set(((learned or {}).get("migrated") or {}).get("dropped") or [])
+    now_keys = {(x.get("what"), (x.get("question") or {}).get("id")) for x in (learned or {}).get("ledger") or [] if x.get("n") not in dropped}
     wins = [dict(w, inArrangement=(w.get("what"), (w.get("question") or {}).get("id")) in now_keys) for w in sorted(wins, key=lambda w: w.get("at", ""))]
     if learned:
         briefs = learned["briefs"]
@@ -664,6 +666,9 @@ def spec(d):
     serving = dict(SERVING, memoryGbEstimate=fp.get("swarm") or round(sum(gb((m or {}).get("bytes", 0)) for m in d["members"].values()) * 1.25 + 1, 1),
                    memoryIs="an estimate: the small models' files, their contexts and the decider; not measured")
     run_briefs = {k: v for k, v in b.items() if k != "about"}  # what createSwarm runs, exactly
+    # (a class's own arrangement is its slots, plan and flow, nothing else: SwOA specification 4.3; src/index.mjs kindsAsSpecified)
+    if isinstance(run_briefs.get("kinds"), dict):
+        run_briefs["kinds"] = {c: {p: k[p] for p in ("slots", "plan", "flow") if p in k} for c, k in run_briefs["kinds"].items() if isinstance(k, dict)}
     tools = d.get("tools") or "a"
     one = (members.get(tools) or {}) if tools != "swarm" else {}
     pins, made = spec_adapters(d)

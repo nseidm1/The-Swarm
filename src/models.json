@@ -337,7 +337,9 @@
       "license": "Apache-2.0",
       "needs": "a 32 GB Mac, or a 24 GB GPU",
       "serve": {
-        "kind": "kev"
+        "kind": "kev",
+        "code": "https://github.com/jaredpalmer/kev.git",
+        "codeRev": "2074cc44256200bb37540103fa4572901faa10f3"
       },
       "runsOn": ["mac", "cuda"],
       "index": {
@@ -356,7 +358,9 @@
       "license": "Apache-2.0",
       "needs": "any Apple silicon Mac, or a 4 GB GPU",
       "serve": {
-        "kind": "kev"
+        "kind": "kev",
+        "code": "https://github.com/jaredpalmer/kev.git",
+        "codeRev": "2074cc44256200bb37540103fa4572901faa10f3"
       },
       "runsOn": ["mac", "cuda"],
       "index": {
@@ -375,7 +379,9 @@
       "license": "Apache-2.0",
       "needs": "a 32 GB Mac or larger",
       "serve": {
-        "kind": "kev"
+        "kind": "kev",
+        "code": "https://github.com/jaredpalmer/kev.git",
+        "codeRev": "2074cc44256200bb37540103fa4572901faa10f3"
       },
       "runsOn": ["mac", "cuda"],
       "index": {
@@ -394,7 +400,9 @@
       "license": "Apache-2.0",
       "needs": "a 96 GB Mac, or an 80 GB GPU",
       "serve": {
-        "kind": "kev"
+        "kind": "kev",
+        "code": "https://github.com/jaredpalmer/kev.git",
+        "codeRev": "2074cc44256200bb37540103fa4572901faa10f3"
       },
       "runsOn": ["mac", "cuda"],
       "index": {

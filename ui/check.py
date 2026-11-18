@@ -614,8 +614,8 @@ with tempfile.TemporaryDirectory() as tmp:
     code_s, sp = get(base + "/fragment/spec")
     spec = data.spec(data.load(root))
     check("the SwOA spec says what the swarm as it stands is: what goes in and comes out, each model with its pinned file and SHA-256, the decider, every slot and what it is for, and where it stands against the larger model, to read and to copy as JSON",
-          code_s == 200 and "SwOA spec" in sp and "<h4>Proof</h4>" in sp and d["members"]["a"]["sha256"] in sp and d["members"]["b"]["file"] in sp and "<code>decide</code>" in sp and ("% of the way to parity against" in sp or "At parity against" in sp) and spec["trainedAgainst"]["progressPercent"] == p["percent"] and 'id="spec-json"' in sp
-          and "As a model chooser lists it" in sp and "What it is told" in sp and 'id="spec-save"' in sp and "Commercial use" in sp and "swarm-spec.json" in html
+          code_s == 200 and "SwOA spec" in sp and "<h4>Proof</h4>" in sp and 'id="spec-json" data-name="' in sp and "&quot;start&quot;" not in sp and "run the shared arrangement above" in sp and "<th>Runtime</th>" in sp and "<span class='muted'>kind</span>" in sp and d["members"]["a"]["sha256"] in sp and d["members"]["b"]["file"] in sp and "<code>decide</code>" in sp and ("% of the way to parity against" in sp or "At parity against" in sp) and spec["trainedAgainst"]["progressPercent"] == p["percent"] and 'id="spec-json"' in sp
+          and "As a model chooser lists it" in sp and "What it is told" in sp and 'id="spec-save"' in sp and "Commercial use" in sp and "+'.swoa.json'" in html
           and spec["trainedAgainst"]["state"] in ("at parity", "not at parity") and spec["trainedAgainst"]["equivalent"] == p["equivalent"] and len(spec["arrangement"]["slots"]) == len(d["briefs"]["slots"])
           and spec["members"]["a"]["sha256"] == d["members"]["a"]["sha256"] and spec["interface"]["out"] == "one reply" and "fundamentally equivalent" in spec["trainedAgainst"]["parityMeans"], sp[:200])
     # TURNS WITH TOOLS: who takes an agent's turn is a toggle in Configuration, saved beside the models, said in the folded line, and

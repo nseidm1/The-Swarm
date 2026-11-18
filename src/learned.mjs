@@ -85,7 +85,7 @@ export function toClasses(learned, { classOfKind = {}, start, now = new Date() }
   const moved = Object.keys(count).sort((a, b) => count[b] - count[a] || a.localeCompare(b))[0] || null;
   if (!moved) return { learned, moved: null, dropped: [], already: false };
   const b = learned.briefs;
-  const own = { slots: b.slots, plan: b.plan, ...(b.flow ? { flow: b.flow } : {}), provisional: true };
+  const own = { slots: b.slots, plan: b.plan, ...(b.flow ? { flow: b.flow } : {}) };
   const shared = { ...b, slots: start.slots, plan: start.plan, version: (Number(b.version) || 1) + 1 };
   delete shared.flow;
   if (start.flow) shared.flow = start.flow;
