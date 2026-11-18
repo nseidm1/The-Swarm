@@ -401,27 +401,35 @@ const ALL = {
 };
 // the programming kinds, and with them the conversation a seat on a team carries: what a pass asks, unless its record says otherwise
 export const CODE_KIND_NAMES = [...Object.keys(CODE_KINDS), 'trace'];
-// WHAT THE SWARM IS TO BE EQUIVALENT ON IS CHOSEN (equivalence.json; the page, under the models; src/config.json): The Crew, and
-// with it or in its place Math, Logic, Reasoning. Each is a list of kinds, and a pass asks the kinds of all that are chosen.
+// WHAT THE SWARM IS TRAINED ON IS EVERY BODY OF WORK (equivalence.json): The Crew, Code, Math, Logic, Reasoning, Instructions,
+// Tools, Search. Each is a list of kinds, and a pass asks the kinds of them all. NOTHING IS CHOSEN (console ruling 2026-11-18;
+// a person once ticked which, and a pass asked those alone): the module chooses its arrangement by the class of a request, not
+// by the body of work, and a change is kept when its class got better with no kind falling, so a kind a pass does not ask is a
+// kind nothing protects. What a pass asks more of is what it measured the swarm short on (focus), not what somebody picked.
 export const EQUIVALENCE = JSON.parse(fs.readFileSync(new URL('./equivalence.json', import.meta.url), 'utf8'));
-// the kinds of the ones chosen, in the order the kinds are made in; a name that is not one of them is passed over, and with none
-// left it is the ones chosen where nobody has chosen
-export function kindsFor(ids) {
+export const BODIES = EQUIVALENCE.targets.map((t) => t.id);
+// the kinds of the bodies of work named, in the order the kinds are made in: of every one, where none is named. A name that is
+// not one of them is passed over, and with none left it is every one
+export function kindsFor(ids = BODIES) {
   const of = (list) => EQUIVALENCE.targets.filter((t) => (list || []).includes(t.id));
-  const picked = of(ids).length ? of(ids) : of(EQUIVALENCE.default);
+  const picked = of(ids).length ? of(ids) : EQUIVALENCE.targets;
   const want = new Set(picked.flatMap((t) => t.kinds));
   return Object.keys(ALL).filter((k) => want.has(k));
 }
-export const KIND_NAMES = kindsFor(EQUIVALENCE.default);
-// THE QUESTIONS A PERSON WROTE for each of the ones chosen (training/questions/<id>.json, edited from the page): { id: [{ ask,
-// mode }] }. A file that is missing or will not read is no questions.
+export const KIND_NAMES = kindsFor();
+// THE BODIES OF WORK A LIST OF KINDS COVERS: those whose every kind is among them (Code's are among The Crew's, so a pass that
+// asks The Crew's covers both). What a pass asked is said by this, from the pass's own questions, and never from a setting
+export const bodiesOf = (kinds) =>
+  EQUIVALENCE.targets.filter((t) => t.kinds.length && t.kinds.every((k) => (kinds || []).includes(k))).map((t) => t.id);
+// THE QUESTIONS A PERSON WROTE for each body of work (training/questions/<id>.json, edited from the page): { id: [{ ask,
+// mode }] }, of every one where none is named. They are asked beside the ones made: an addition, never a filter. A file that is
+// missing or will not read is no questions.
 export const QUESTIONS_DIR = process.env.SWARM_QUESTIONS_DIR || new URL('./questions/', import.meta.url).pathname;
 export const MOST_OWN = 200;
-export function readOwn(ids) {
+export function readOwn(ids = BODIES) {
   const out = {};
-  const known = EQUIVALENCE.targets.map((t) => t.id);
-  const chosen = (ids || []).filter((i) => known.includes(i));
-  for (const id of chosen.length ? chosen : EQUIVALENCE.default) {
+  const named = (ids || []).filter((i) => BODIES.includes(i));
+  for (const id of named.length ? named : BODIES) {
     try {
       const j = JSON.parse(fs.readFileSync(QUESTIONS_DIR.replace(/\/?$/, '/') + id + '.json', 'utf8'));
       const list = (Array.isArray(j.questions) ? j.questions : [])

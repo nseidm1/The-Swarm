@@ -316,13 +316,12 @@ export function lorasFor(config, members, work, targetId, modelsDir) {
 }
 
 // ready: whether each small model can be trained here. train [<model file>] [--iters N]: the larger model's answers to this
-// pass's train questions (of what is chosen under the models; never a benchmark's, never a held one) exported, and an adapter
+// pass's train questions (of every body of work the pass asks; never a benchmark's, never a held one) exported, and an adapter
 // trained, converted and checked for each model that can be (or the one named). While it runs it writes .work/pretrain/live.json
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const cmd = process.argv[2];
   const B = await import('./support/bench.mjs');
-  const { MEMBERS, readConfig, TARGET } = await import('../src/catalog.mjs');
-  const CONFIG = readConfig();
+  const { MEMBERS, TARGET } = await import('../src/catalog.mjs');
   const work = path.join(B.REPO_ROOT, '.work');
   const models = Object.values(MEMBERS).map((m) => ({ name: m.name, file: path.join(B.modelsDir(), m.file) }));
   if (cmd === 'ready') {
@@ -336,7 +335,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   }
   const named = process.argv[3] && !process.argv[3].startsWith('--') ? process.argv[3] : '';
   const iters = Number(B.arg('iters', 100));
-  const items = CONFIG.equivalence || ['crew'];
+  // THE ANSWERS IT LEARNS FROM: the larger model's, to this pass's train questions. items: the bodies of work those questions
+  // cover, read from the questions themselves (tasks.mjs bodiesOf), so an adapter's record says what it learned and not a setting
+  const { messagesOf, bodiesOf } = await import('./tasks.mjs');
+  const list = B.questions('train');
+  const items = bodiesOf([...new Set(list.map((t) => t.kind))]);
   const pick = models.filter((x) => !named || path.basename(x.file) === named || x.name === named);
   const liveFile = path.join(work, 'pretrain', 'live.json');
   const live = {
@@ -363,7 +366,6 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     write();
     process.exit(143);
   });
-  const { messagesOf } = await import('./tasks.mjs');
   const fail = (step) => {
     live.phase = 'failed';
     live.step = step;
@@ -374,7 +376,6 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   // FIRST, WHAT IT NEEDS, FETCHED AS IT GOES (a fresh clone has none of it): the answers it learns from; the engine and the small
   // models' files (setup.mjs --small: an adapter is checked against the file the swarm serves); MLX, once; and each model's
   // original weights, for the models being adapted only
-  const list = B.questions('train');
   const ref = B.reference(list);
   if (ref.size < list.length)
     fail(

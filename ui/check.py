@@ -235,9 +235,10 @@ with tempfile.TemporaryDirectory() as tmp:
     check("an answer nobody compared is not counted as a wrong one: a slot's code with no mark from the trainer is left out of its record (answered, not judged), a short answer is judged by its words, a checker's mark is taken as it is, and the reply by its grade; the face says not judged rather than 0",
           rr.get("a-direct", {}).get("judged") == 1 and rr["a-direct"]["right"] == 1 and rr["a-direct"]["ran"] == 2 and rr.get("a-critic", {}).get("judged") == 1 and rr["a-critic"]["right"] == 0
           and rr.get("a-writer", {}).get("judged") == 1, rr)
-    check("the models and what the swarm is equivalent on are one section, Configuration, that folds (open to begin with) and folded says in a line what the swarm is; the line is drawn again when either changes",
-          '<details class="cfg fold" data-keep="cfg" open>' in html and html.index('data-keep="cfg"') < html.index('id="picks"') < html.index('id="equiv"') and 'id="cfg-meta"' in html
-          and " decides · against " in html.split('id="cfg-meta">')[1][:200] and get(base + "/fragment/cfgmeta")[0] == 200 and "swap('/fragment/cfgmeta','#cfg-meta')" in html, html.split('id="cfg-meta">')[1][:160])
+    check("the models, who takes turns with tools and a person's own questions are one section, Configuration, that folds (open to begin with) and folded says in a line what the swarm is (its models, its decider, its larger model, who takes turns with tools, and no body of work: none is chosen); the line is drawn again when one changes",
+          '<details class="cfg fold" data-keep="cfg" open>' in html and html.index('data-keep="cfg"') < html.index('id="picks"') < html.index('id="tools"') < html.index('id="ownq"') < html.index('id="body"') and 'id="cfg-meta"' in html
+          and " decides · against " in html.split('id="cfg-meta">')[1][:200] and " · on " not in html.split('id="cfg-meta">')[1].split("</span>")[0] and " · tools: " in html.split('id="cfg-meta">')[1].split("</span>")[0]
+          and get(base + "/fragment/cfgmeta")[0] == 200 and "swap('/fragment/cfgmeta','#cfg-meta')" in html, html.split('id="cfg-meta">')[1][:160])
     check("a page that is closed or reloaded before its answer has been sent leaves nothing printed as an error, and the next request is answered as usual",
           "Traceback" not in noise.getvalue() and "BrokenPipe" not in noise.getvalue() and get(base + "/api/live")[0] == 200, noise.getvalue()[-300:])
     # ONE NUMBER, SAID ONE WAY: every place on the page that says how far the swarm is says the same percentage, from the same count
@@ -298,31 +299,52 @@ with tempfile.TemporaryDirectory() as tmp:
           and c4 == 200 and cfg4.get("c") == third["id"] and cfg4.get("d") == fourth["id"] and with4.count('class="slot d"') == 2
           and cback == 200 and cfg_up.get("c") == fourth["id"] and "d" not in cfg_up and "c" not in cfg_two and "d" not in cfg_two and cfg_two["a"] == d["members"]["a"]["id"]
           and send("/config", {"d": fourth["id"]})[0] == 200 and json.loads((root / "src" / "config.json").read_text()).get("c") == fourth["id"] and send("/config", {"c": ""})[0] == 200, [c3, c4, cfg4, cfg_up, cfg_two])
-    row = swarm_ui.equiv(data.load(root))
-    e_ok, _ = send("/config", {"equivalence": ["reasoning", "crew"]})
-    e_cfg = json.loads((root / "src" / "config.json").read_text())
-    row2 = get(base + "/fragment/equiv")[1]
-    check("under the models, a box to tick for each body of work the swarm can be brought to equivalence on: The Crew ticked where nothing was chosen, then Code, Math, Logic and Reasoning, each saying what it is; ticking writes the choice down in the list's own order beside the models, and the row is drawn again in place, with who takes a turn with tools under the boxes and no description under either; none, or one that is not listed, is refused and nothing is written",
-          row.startswith('<fieldset class="equiv" id="equiv">') and row.count('data-equiv="') == 8 and "<b>Instructions</b>" in row and "<b>Tools</b>" in row and "<b>Search</b>" in row and row.count(" checked") == 1 and 'data-equiv="crew" checked' in row and "<b>The Crew</b>" in row and "<b>Code</b>" in row and "<b>Math</b>" in row and "<b>Logic</b>" in row and "<b>Reasoning</b>" in row
-          and "Parity is equivalence" not in row and 'id="tools"' in row and 'data-tools="swarm"' in row and "An agent&#x27;s turn" not in row and 'id="equiv"' in html and html.index('id="picks"') < html.index('id="equiv"') < html.index('id="body"')
-          and e_ok == 200 and e_cfg["equivalence"] == ["crew", "reasoning"] and e_cfg["a"] == d["members"]["a"]["id"] and not row2.startswith("<fieldset") and row2.count(" checked") == 2 and 'id="tools"' in row2
-          and send("/config", {"equivalence": []})[0] == 400 and send("/config", {"equivalence": ["crew", "poetry"]})[0] == 400 and send("/config", {"equivalence": "crew"})[0] == 400
-          and json.loads((root / "src" / "config.json").read_text())["equivalence"] == ["crew", "reasoning"] and send("/config", {"equivalence": ["crew"]})[0] == 200, [e_ok, e_cfg.get("equivalence"), row.count(" checked")])
-    pens = swarm_ui.equiv(data.load(root))
+    # NOTHING CHOOSES WHAT THE SWARM IS TRAINED ON (console ruling 2026-11-18): the boxes to tick, "Equivalent on", are gone. Under
+    # the pills are two rows: who takes a turn with tools, and a button for each body of work that opens a person's own questions
+    cfg_html = swarm_ui.config_section(data.load(root))
+    e_no, e_why = send("/config", {"equivalence": ["reasoning", "crew"]})
+    cfg_file = root / "src" / "config.json"
+    cfg_was = cfg_file.read_text()
+    cfg_file.write_text(json.dumps({**json.loads(cfg_was), "equivalence": ["math"]}))
+    asked_old = data.load(root)["equivalence"]["asked"]
+    t_ok, _ = send("/config", {"tools": "swarm"})
+    cfg_after = json.loads(cfg_file.read_text())
+    cfg_file.write_text(cfg_was)
+    eq_all = data.load(root)["equivalence"]
+    tg = eq_all["targets"]
+    parts_nc = {
+        "no boxes": "Equivalent on" not in html and "data-equiv" not in html and 'class="equiv"' not in html and 'class="tick"' not in html and 'class="tick on"' not in html and "data-qedit" in html and "{equivalence:" not in html and "/fragment/equiv" not in html,
+        "two rows": cfg_html.count('class="cfgrow"') == 2 and '<span class="cfgl">Turns with tools</span><div class="tools" id="tools">' in cfg_html and '<span class="cfgl">Your own questions</span><div class="ownq" id="ownq">' in cfg_html,
+        "no description": 'data-tools="swarm"' in cfg_html and "An agent&#x27;s turn" not in cfg_html and "<p>" not in cfg_html and "<p " not in cfg_html and "<small>The " not in cfg_html,
+        "eight buttons": cfg_html.count('class="ownb"') == 8 and all('data-qedit="%s"' % i in cfg_html for i in ("crew", "code", "math", "logic", "reasoning", "instructions", "tools", "search")),
+        "refused": e_no == 400 and "every body of work" in e_why and "equivalence" not in json.loads(cfg_was) and get(base + "/fragment/equiv")[0] == 404,
+        "leftover": asked_old == eq_all["asked"] and t_ok == 200 and "equivalence" not in cfg_after and cfg_after["tools"] == "swarm",
+        "asked": "chosen" not in eq_all and eq_all["asked"] == data.bodies_asked(tg, data.load(root)["state"]) == [t["id"] for t in tg] and len(tg) == 8
+                 and "A pass asks every body of work: <b>28</b> kinds of question" in swarm_ui.main_body(data.load(root)),
+        "record": data.bodies_asked(tg, {"kinds": next(t["kinds"] for t in tg if t["id"] == "crew"), "history": [{"pass": 1}]}) == ["crew", "code"]
+                  and data.bodies_asked(tg, {"history": [{"pass": 1}]}) == ["code"] and data.bodies_asked(tg, {"kinds": ["chain"]}) == [] and data.bodies_asked(tg, {}) == [t["id"] for t in tg],
+        # (and a SwOA says what its training asked from the questions of the pass in hand, where it has asked any)
+        "swoa": data.bodies_trained({"equivalence": {"targets": tg, "asked": ["math"]}, "loop": {"list": [{"kind": k} for k in next(t["kinds"] for t in tg if t["id"] == "crew")]}}) == ["crew", "code"]
+                and data.bodies_trained({"equivalence": {"targets": tg, "asked": ["math"]}, "loop": None}) == ["math"]
+                and data.bodies_trained({"equivalence": {"targets": tg, "asked": ["math"]}, "loop": {"list": [{"kind": "chain"}]}}) == [],
+    }
+    check("what the swarm is trained on is not chosen: no box to tick anywhere on the page, nothing called Equivalent on, and the page's script sends no such choice; under the pills are two rows, each with its label and no description: who takes a turn with tools, and a button for each of the eight bodies of work that opens a person's own questions; a choice sent to the configuration is refused and nothing is written, and one left in the file from when there was one is not read and is taken out the next time the file is written; a pass asks every body of work, unless its record names the kinds it began with (a body is asked where every kind of it is; a record from before there was a list is of the programming kinds); and a SwOA says which bodies of work its training asked from the questions of the pass in hand as they were asked, so a pass begun when fewer were asked claims no more",
+          all(parts_nc.values()), {k: v for k, v in parts_nc.items() if not v} or [e_no, e_why, asked_old, sorted(cfg_after)])
+    pens = swarm_ui.own_questions(data.load(root))
     panel_q = get(base + "/fragment/questions?id=crew")[1]
     q_ok, q_row = send("/questions", {"id": "crew", "questions": [{"ask": "  Move my dentist to Friday.  "}, {"ask": "Is a sleep a fix?", "mode": "developer"}, {"ask": " "}]})
     q_file = json.loads((root / "training" / "questions" / "crew.json").read_text())
     panel_q2 = get(base + "/fragment/questions?id=crew")[1]
     m_ok, _ = send("/questions", {"id": "math", "questions": [{"ask": "What is 17 times 23?", "mode": "developer"}]})
     m_file = json.loads((root / "training" / "questions" / "math.json").read_text())
-    check("each body of work has a little pencil at its top right that opens its questions: the kinds the trainer makes (not edited) and the questions a person wrote, one row each, with Simple or Developer for The Crew; saving writes them whole (blank ones dropped, a mode only where it means something), the box then says how many there are, and the next opening shows them; an unknown body of work, more than 200, or a list that is not one is refused",
-          pens.count('class="pencil"') == 8 and 'data-qedit="crew"' in pens and "Edit the questions for The Crew" in pens and 'id="qedit"' in html
+    check("each body of work has a button under the pills that opens its questions: the kinds the trainer makes (not edited) and the questions a person wrote, one row each, with Simple or Developer for The Crew; saving writes them whole (blank ones dropped, a mode only where it means something), the button then says how many there are, and the next opening shows them; they are asked beside the ones made, an addition and never a choice; an unknown body of work, more than 200, or a list that is not one is refused",
+          pens.count('class="ownb"') == 8 and 'data-qedit="crew"' in pens and "Your own questions for The Crew: none written" in pens and 'id="qedit"' in html and pens.startswith('<div class="ownq" id="ownq">')
           and "Questions: The Crew" in panel_q and "Made by the trainer" in panel_q and "Simple: a piece of writing" in panel_q and "Developer: their own project" in panel_q and "Write a function: arrays" in panel_q and panel_q.count('class="qrow"') == 1 and "0 of 200" in panel_q
-          and q_ok == 200 and q_file == {"questions": [{"ask": "Move my dentist to Friday."}, {"ask": "Is a sleep a fix?", "mode": "developer"}]} and "2 of your own" in q_row
+          and q_ok == 200 and q_file == {"questions": [{"ask": "Move my dentist to Friday."}, {"ask": "Is a sleep a fix?", "mode": "developer"}]} and "The Crew <em>2</em>" in q_row and "Your own questions for The Crew: 2 written" in q_row and not q_row.startswith("<div") and '<div class="kicker">A body of work</div>' in panel_q and "<h4>Your own questions</h4>" in panel_q
           and panel_q2.count('class="qrow"') == 3 and "Move my dentist to Friday." in panel_q2 and '<option value="developer" selected>' in panel_q2 and "2 of 200" in panel_q2
           and m_ok == 200 and m_file == {"questions": [{"ask": "What is 17 times 23?"}]} and "data-q-mode" not in get(base + "/fragment/questions?id=math")[1].split("<template")[0]
           and send("/questions", {"id": "poetry", "questions": []})[0] == 400 and send("/questions", {"id": "crew", "questions": "x"})[0] == 400 and send("/questions", {"id": "crew", "questions": [{"ask": "q"}] * 201})[0] == 400
-          and json.loads((root / "training" / "questions" / "crew.json").read_text()) == q_file and "nothing called that" in get(base + "/fragment/questions?id=nope")[1], [q_ok, q_file, m_file])
+          and json.loads((root / "training" / "questions" / "crew.json").read_text()) == q_file and "no body of work called that" in get(base + "/fragment/questions?id=nope")[1], [q_ok, q_file, m_file])
     # EVALUATE THE SWARM and PRETRAIN: above Training progress; started and stopped from the page, one at a time with training
     ev0 = get(base + "/fragment/eval")[1]
     # (MLX runs on Apple silicon only: there Pretrain installs it and can be pressed; anywhere else, CI's Linux among them, it says
@@ -339,6 +361,8 @@ with tempfile.TemporaryDirectory() as tmp:
           busy0 == {"busy": ""} and 'id="busy" data-busy=""' in body0 and "busyTick" in get(base + "/")[1],
           json.dumps(busy0))
     bad_size = send("/eval/start", {"limit": 7})[0]
+    # (which bodies of work a run asks: none, one that is not listed, one with no standard test, or not a list, is refused)
+    bad_items = [send("/eval/start", {"limit": 20, "items": x})[0] for x in ([], ["poetry"], ["instructions"], "crew")]
     foreign = send("/eval/start", {"limit": 20}, {"x-swarm": "0"})[0]
     pre0 = get(base + "/fragment/pretrain")[1]
     pre_btn = pre0.split('id="pre-go"')[1][:30] if 'id="pre-go"' in pre0 else ""
@@ -362,8 +386,8 @@ with tempfile.TemporaryDirectory() as tmp:
           "75%</b> <span>15 of 20 the same" in ev_mix and "another configuration" not in ev_mix
           and "Not evaluated as the swarm is now" in ev_none and "of another configuration" in ev_none and "the same</span>" not in ev_none.split("Not evaluated")[0].split("evrow")[-1] and "20%</b>" not in ev_none,
           [ev_mix.count("75%"), "Not evaluated" in ev_none])
-    # A PROOF RUN ASKS EVERY BODY OF WORK THAT HAS A STANDARD TEST: what a run asked beyond what is chosen is shown after it, said
-    # to be measured for the proof, with what each model was asked by; and a task that was not asked says why, with no bar
+    # THE EVALUATE CARD LISTS EVERY BODY OF WORK THAT HAS A STANDARD TEST, asked in the last run or not, with what each model was
+    # asked by; a task that was not asked says why, with no bar
     ev_proof = dict(ev_mine, proof=True, limit=0, harness="lm-evaluation-harness 0.4.13 and bfcl-eval 2026.3.23", results=ev_mine["results"] + [
         {"item": "tools", "task": "bfcl_simple_python", "name": "BFCL one function", "metric": "accuracy", "filter": "none", "compare": "verdict", "harness": "bfcl",
          "target": {"value": 0.7, "n": 100}, "swarm": {"value": 0.65, "n": 100}, "agree": {"of": 100, "same": 80, "bothRight": 55, "bothWrong": 25, "differ": 20, "onlyTarget": 12, "onlySwarm": 8, "examples": []}},
@@ -371,19 +395,19 @@ with tempfile.TemporaryDirectory() as tmp:
          "failed": "not asked: it searches the web through a service that needs a key (SERPAPI_API_KEY), which a person supplies"}])
     (root / ".work" / "eval" / "results.json").write_text(json.dumps(ev_proof))
     ev_pr = get(base + "/fragment/eval")[1]
-    check("after a proof run the Evaluate card shows every body of work it asked, those not chosen for training said to be so; it names the tool tests; a task that was not asked says why and draws no bar; and the size offered again is a proof run",
-          'data-evt="bfcl_simple_python"' in ev_pr and "not chosen for training; measured all the same" in ev_pr and "Berkeley Function-Calling Leaderboard (bfcl-eval 2026.3.23)" in ev_pr
+    check("the Evaluate card lists every body of work that has a standard test, whichever the last run asked, and none is said to be chosen or not chosen for training; after a proof run it names the tool tests; a task that was not asked says why and draws no bar; one the run did not reach says it is not evaluated yet; and the size offered again is a proof run",
+          'data-evt="bfcl_simple_python"' in ev_pr and "chosen for training" not in ev_pr and "Nothing is chosen" not in ev_pr and "Berkeley Function-Calling Leaderboard (bfcl-eval 2026.3.23)" in ev_pr
           and "80 of 100 the same" in ev_pr and "Scored by the test&#x27;s own checker" in ev_pr and "not asked: it searches the web through a service that needs a key" in ev_pr
           and '<span class="muted small">not asked</span>' in ev_pr and '<option value="-1" selected>' in ev_pr and "a proof run: its own number of questions a task" in ev_pr
-          and 'data-evt="gsm8k"' not in ev_pr
-          # (each body of work folds under its heading and says in a line what it holds: what is chosen for training open, the rest folded)
-          and '<details class="psec evitem" data-keep="eval-crew" open>' in ev_pr and '<details class="psec evitem" data-keep="eval-tools">' in ev_pr
+          and 'data-evt="gsm8k"' in ev_pr and "not evaluated yet" in ev_pr.split('data-evt="gsm8k"')[1].split('data-evt="')[0]
+          # (each body of work folds under its heading and says in a line what it holds: every one folded to begin with)
+          and '<details class="psec evitem" data-keep="eval-crew">' in ev_pr and '<details class="psec evitem" data-keep="eval-tools">' in ev_pr and 'class="psec evitem" data-keep="eval-instructions"' not in ev_pr
           and '<span class="pmeta" data-evm="tools">5 tasks · the same on 80 of 100 questions · 4 not evaluated</span>' in ev_pr
           # (and the whole breakdown is one section that folds, folded to begin with, with a line for all of it)
-          and '<details class="psec evall" data-keep="eval-all"><summary><h4>Every task, by body of work <span class="muted small">3 bodies of work · 8 tasks</span></h4>' in ev_pr
-          and '<span class="pmeta" data-evm="*">8 tasks · the same on 95 of 120 questions · 6 not evaluated</span>' in ev_pr
+          and '<details class="psec evall" data-keep="eval-all"><summary><h4>Every task, by body of work <span class="muted small">7 bodies of work · 23 tasks</span></h4>' in ev_pr
+          and '<span class="pmeta" data-evm="*">23 tasks · the same on 95 of 120 questions · 21 not evaluated</span>' in ev_pr
           and '<span class="pmeta" data-evm="search">not asked: it searches the web through a service that needs a key' in ev_pr
-          and ev_pr.count('<details class="psec evitem"') == 3 and ev_pr.count("</div></details>") == 4 and "<section" not in ev_pr, ev_pr[:300])
+          and ev_pr.count('<details class="psec evitem"') == 7 and ev_pr.count("</div></details>") == 8 and "<section" not in ev_pr, ev_pr[:300])
     # (and while a run is under way, or stopped: a task that was not asked says so once, with no bar and no "failed")
     (root / ".work" / "eval" / "live.json").write_text(json.dumps({"phase": "stopped", "step": "Stopped from the page", "runId": "r", "proof": True, "tasks": [
         {"item": "crew", "task": "ifeval", "name": "IFEval", "target": {"state": "done", "done": 20, "of": 20}, "swarm": {"state": "stopped", "done": 3, "of": 20}},
@@ -422,7 +446,7 @@ with tempfile.TemporaryDirectory() as tmp:
     a_off = send("/config", {"adapters": False})[0]
     a_cfg2 = json.loads((root / "src" / "config.json").read_text())
     # while an evaluation runs (this process stands in for it), training and pretraining wait, and each says why
-    (root / ".work" / "eval" / "ui-run.json").write_text(json.dumps({"pid": os.getpid(), "at": "now", "limit": 100}))
+    (root / ".work" / "eval" / "ui-run.json").write_text(json.dumps({"pid": os.getpid(), "at": "now", "limit": 100, "items": ["crew", "code"]}))
     held_pre = send("/pretrain/start", {})
     a_member = d["members"]["a"]
     a_orig = json.loads((Path(__file__).resolve().parent.parent / "training" / "originals.json").read_text())["models"].get(a_member["file"]) or {}
@@ -442,18 +466,20 @@ with tempfile.TemporaryDirectory() as tmp:
     # (the run ends without finishing: no result was written, and the last one that finished is shown again, as it was)
     ev_after = get(base + "/fragment/eval")[1]
     (root / ".work" / "eval" / "results.json").unlink()
-    check("Memory saved first, its share at the top left as the cards after it have theirs; then, above Train, Evaluate the swarm and Pretrain: Evaluate says what it does (standard benchmarks of lm-evaluation-harness, asked of the larger model and the swarm, kept apart from training), has a size to choose (a proof run among them) and a button, names the tool tests only where what is chosen is measured by them, and has a row for every task of what is chosen; an unknown size or a request from elsewhere is refused; once evaluated it says how many questions had the same answer, split by whether both were right, with each model's score and when; Pretrain lists each small model and, where MLX is not installed, says Pretrain installs it and can be pressed on Apple silicon, or that it is not available on any other machine; the adapters switch is written beside the models and refuses anything but on or off; and while an evaluation runs, its headline shows moving bars where the share and the count will be and the questions chosen, the last result returning as it was when the run ends unfinished (Pretrain the same, the adapter that stood still standing beside an attempt that was not kept), it can be stopped from its section, and training and pretraining wait for it and say so",
+    check("Memory saved first, its share at the top left as the cards after it have theirs; then, above Train, Evaluate the swarm and Pretrain: Evaluate says what it does (standard benchmarks of lm-evaluation-harness, asked of the larger model and the swarm, kept apart from training), has a size to choose (a proof run among them) and a button, names each harness a body of work is measured by, has a row for every task of every body of work that has a standard test, and a box for each of those bodies, ticked to begin with, that says which of them this run asks (kept on the device and sent with the press: a choice for one run, never of what the swarm is trained on); an unknown size, no body of work, one that is not listed, or a request from elsewhere is refused; once evaluated it says how many questions had the same answer, split by whether both were right, with each model's score and when; Pretrain lists each small model and, where MLX is not installed, says Pretrain installs it and can be pressed on Apple silicon, or that it is not available on any other machine; the adapters switch is written beside the models and refuses anything but on or off; and while an evaluation runs, its headline shows moving bars where the share and the count will be and the questions chosen, the last result returning as it was when the run ends unfinished (Pretrain the same, the adapter that stood still standing beside an attempt that was not kept), it can be stopped from its section, and training and pretraining wait for it and say so",
           html.index('<h2>Memory saved</h2>') < html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2>Pretrain</h2>') < html.index('<h2 id="arrangement">Train</h2>')
           and '<h2>Memory saved</h2><div class="panel memcard"><div class="proghead"><span class="memnum"><b class="pct">' in html and 'class="memh"' not in html.split('<h2>Memory saved</h2>')[1].split('<h2>')[0]
-          and "lm-evaluation-harness 0.4.13" in ev0 and 'id="ev-go"' in ev0 and ev0.count("<option") == 4 and "a proof run" in ev0 and "Function-Calling" not in ev0 and 'data-evt="ifeval"' in ev0 and "not evaluated yet" in ev0 and api0.get("running") is False
-          and bad_size == 400 and foreign == 403
+          and "lm-evaluation-harness 0.4.13" in ev0 and 'id="ev-go"' in ev0 and ev0.count("<option") == 4 and "a proof run" in ev0 and "Function-Calling" in ev0 and 'data-evt="ifeval"' in ev0 and 'data-evt="gsm8k"' in ev0 and ev0.count('data-evt="') == 23 and "not evaluated yet" in ev0 and api0.get("running") is False
+          and 'class="evask"' in ev0 and ev0.count('data-ev-item="') == 7 and ev0.count('" checked>') == 7 and 'data-ev-item="instructions"' not in ev0 and '<span class="cfgl">Asks</span>' in ev0
+          and "items:its.filter(x=>x.checked)" in swarm_ui.JS and "localStorage.setItem('swarm.eval.off'" in swarm_ui.JS and "function evAsk()" in swarm_ui.JS
+          and bad_size == 400 and foreign == 403 and bad_items == [400, 400, 400, 400]
           and 'id="pre-go"' in pre0 and pre_ok and pre0.count('class="prerow"') == len([k for k in ("a", "b", "c", "d") if k in d["members"]])
           and "75%</b> <span>15 of 20 the same" in ev1 and "9 both right · 6 both wrong · 5 differ" in ev1 and "Last evaluated 2026-11-17 12:00 UTC" in ev1 and "without adapters" in ev1
           and a_on == 200 and a_cfg.get("adapters") is True and a_bad == 400 and a_off == 200 and "adapters" not in a_cfg2
           and held_pre[0] == 409 and "Wait for an evaluation" in held_pre[1] and held_by == "an evaluation" and 'id="ev-stop"' in held_ev and 'id="ev-go"' not in held_ev
           and 'class="pct busy"' in held_ev and 'class="busyn"' in held_ev
           and 'class="pct busy"' in pre_run and "of %d adapted" % pre0.count('class="prerow"') in pre_run and "pct busy" not in pre_stop and '<b class="pct">1</b>' in pre_stop
-          and "Adapted</b> 2026-11-17" in pre_stop and "a later attempt was not kept: llama.cpp did not load it" in pre_stop and "of 100 questions" in held_ev and "75%</b><span>equivalent" not in held_ev
+          and "Adapted</b> 2026-11-17" in pre_stop and "a later attempt was not kept: llama.cpp did not load it" in pre_stop and "of 300 questions" in held_ev and 'class="evask"' not in held_ev and "75%</b><span>equivalent" not in held_ev
           and "75%</b><span>equivalent<small>15 of 20 questions" in ev_after and "pct busy" not in ev_after,
           {"order": html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2>Pretrain</h2>') < html.index('<h2 id="arrangement">Train</h2>'),
            "ev0": ["lm-evaluation-harness 0.4.13" in ev0, 'id="ev-go"' in ev0, ev0.count("<option"), 'data-evt="ifeval"' in ev0, "not evaluated yet" in ev0, api0.get("running")],
@@ -716,7 +742,7 @@ with tempfile.TemporaryDirectory() as tmp:
     check("who takes an agent's turn (a request with tools) is a choice in Configuration: the swarm, or any one of its small models by name (the list is the swarm's own small models, and is drawn again when a pill changes); the model in place a where nothing is chosen; saved by the model's id, said in the folded line, part of the spec's recipe and of what it says it can do; a model not in the swarm, or any other word, is refused",
           'id="tools"' in tg0 and 'data-tools="swarm"' in tg0 and ('class="seg on" data-tools="%s"' % ida) in tg0 and ('data-tools="%s"' % idb) in tg0 and ("%s alone" % nb) in tg0
           and "%s alone" % d["members"]["a"]["name"] in tg0 and "swap('/fragment/tools','#tools')" in tg0 and tg0.count("swap('/fragment/tools','#tools')") >= 3
-          and b_ok == 200 and b_cfg.get("tools") == idb and ('class="seg on" data-tools="%s"' % idb) in b_row and ("%s alone" % nb) in b_meta and not b_row.startswith("<fieldset")
+          and b_ok == 200 and b_cfg.get("tools") == idb and ('class="seg on" data-tools="%s"' % idb) in b_row and ("%s alone" % nb) in b_meta and not b_row.startswith("<div class=\"tools\"")
           and b_spec["recipe"]["serving"]["tools"] == idb and nb in b_spec["interface"]["capabilities"]["tools"] and lead_spec["recipe"]["serving"]["tools"] == ida
           and t_ok == 200 and t_bad == 400 and t_out == 400 and t_cfg.get("tools") == "swarm" and 'class="seg on" data-tools="swarm"' in t_row and "tools: the swarm" in t_meta
           and sw_spec["recipe"]["serving"]["tools"] == "swarm" and sw_spec["swoa"]["recipeSha256"] != lead_spec["swoa"]["recipeSha256"]
@@ -795,13 +821,13 @@ with tempfile.TemporaryDirectory() as tmp:
     # engine's pinned builds, a card a model chooser can list, what it needs of a machine, what it can and
     # cannot do as a model, and a hash of the recipe that src/spec.mjs computes the same way
     rc = spec["recipe"]
-    check("the spec holds everything needed to make the swarm again and offer it: every slot with what it is told, the decider's serving recipe, the engine's pinned builds, a card a model chooser can list (engine swarm, memory, what it is equivalent on and where it stands), what it needs of a machine (platforms, memory, disk, licences, whether it may be used commercially), what it can and cannot do (tools go to one model alone), how to start it, and a format, version and hash",
+    check("the spec holds everything needed to make the swarm again and offer it: every slot with what it is told, the decider's serving recipe, the engine's pinned builds, a card a model chooser can list (engine swarm, memory, the bodies of work its training asked, read from its passes and never from a setting, and where it stands), what it needs of a machine (platforms, memory, disk, licences, whether it may be used commercially), what it can and cannot do (tools go to one model alone), how to start it, and a format, version and hash",
           spec["swoa"]["format"] == "swoa" and spec["swoa"]["version"] == 1 and len(spec["swoa"]["recipeSha256"]) == 64 and spec["swoa"]["recipeSha256"] == data.recipe_sha256(rc)
           and spec["swoa"]["baseModuleSha256"] == data.recipe_sha256({k: rc[k] for k in ("members", "decider", "engine")}) and spec["swoa"]["arrangementSha256"] == data.recipe_sha256(rc["briefs"])
           and spec["baseModule"]["members"] == rc["members"] and isinstance(spec["proof"]["results"], list) and "goal" in spec["proof"]
           and all(s_.get("brief") for s_ in rc["briefs"]["slots"]) and all(s_.get("brief") for s_ in spec["arrangement"]["slots"]) and rc["briefs"]["slots"] == d["briefs"]["slots"]
           and rc["members"]["a"]["sha256"] == d["members"]["a"]["sha256"] and rc["decider"].get("serve") and rc["engine"].get("builds") and rc["serving"]["slots"] == data.SERVING["slots"]
-          and spec["card"]["engine"] == "swarm" and spec["card"]["memGb"] > 0 and "Programming and its conversation" in spec["card"]["equivalentOn"] and "Crew" not in json.dumps(spec) and spec["card"]["badge"] and spec["card"]["plain"].startswith("Two small models")
+          and spec["card"]["engine"] == "swarm" and spec["card"]["memGb"] > 0 and "Programming and its conversation" in spec["card"]["trainedOn"] and "equivalentOn" not in json.dumps(spec) and spec["trainedAgainst"]["trainedOn"][0]["kinds"] and "Crew" not in json.dumps(spec) and spec["card"]["badge"] and spec["card"]["plain"].startswith("Two small models")
           and spec["requirements"]["commercialUse"] is True and spec["requirements"]["licenses"] and spec["requirements"]["diskGb"] > 0 and spec["requirements"]["platforms"]
           and "alone" in spec["interface"]["capabilities"]["tools"] and "serveSwarm({ ...spec.card, spec }" in spec["interface"]["start"]["host"] and "--spec" in spec["interface"]["start"]["terminal"],
           {k: spec.get(k) for k in ("spec", "card", "requirements")})
@@ -1084,13 +1110,13 @@ with tempfile.TemporaryDirectory() as tmp:
     (fake / ".work" / "train" / "setup.json").write_text(json.dumps({"at": time.time() * 1000, "steps": [{"what": "The engine (llama.cpp)", "state": "ready"}, {"what": "Small model 1 (Qwen3.5 2B)", "state": "fetching", "done": 600 * 2**20, "of": 1200 * 2**20}]}))
     check("while a session runs no model can be changed", post("/config", b'{"a":"x"}')[0] == 409)
     (fake / "src").mkdir(exist_ok=True)
-    eq_run = post("/config", b'{"equivalence":["crew","logic"]}')[0]
-    eq_cfg = json.loads((fake / "src" / "config.json").read_text()).get("equivalence")
+    tl_run = post("/config", b'{"tools":"swarm"}')[0]
+    tl_cfg = json.loads((fake / "src" / "config.json").read_text()).get("tools")
     q_run = post("/questions", b'{"id":"crew","questions":[{"ask":"hello"}]}')[0]
     check("while a session runs nothing can be uninstalled", post("/uninstall", b'{"id":"train:measured"}')[0] == 409)
-    check("the questions a person wrote can be changed while a session runs, like what it is equivalent on", q_run == 200)
-    check("what the swarm is to be equivalent on can be changed while a session runs (a pass ends on the questions it began with), but not together with a model",
-          eq_run == 200 and eq_cfg == ["crew", "logic"] and post("/config", b'{"equivalence":["crew"],"a":"x"}')[0] == 409, [eq_run, eq_cfg])
+    check("the questions a person wrote can be changed while a session runs (a pass ends on the questions it began with, and the next one asks these)", q_run == 200)
+    check("who takes turns with tools can be changed while a session runs (it keeps what it began with), but not together with a model",
+          tl_run == 200 and tl_cfg == "swarm" and post("/config", b'{"tools":"swarm","a":"x"}')[0] == 409, [tl_run, tl_cfg])
     check("what is folded keeps its state: open or folded is kept on the device and put back each time a part is drawn again, saved on a click of the heading, not on every toggle; and the decider is named with what it is doing",
           "details.fold>summary" in html and "keepOpen($(into))" in html and "swarm.open." in html and "closest('details[data-keep]>summary')" in html and "addEventListener('toggle'" not in html
           and swarm_ui.decider_state(False) in ("not running", "ready", "busy") and swarm_ui.decider_state(True) in ("starting", "ready", "busy"))

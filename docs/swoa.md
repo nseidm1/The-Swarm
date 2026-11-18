@@ -196,7 +196,8 @@ published with the loss in its proof. A SwOA claims parity only capability by ca
 A writer MAY add members for people and for model catalogs, for example `card` (one entry for a model chooser), `requirements`
 (memory, disk, platforms, licences), `interface` (the endpoints it answers; and `interface.webSearch`: what T.10 says of a search
 tool, for this module, with what its proof measured of it), `equivalence` and `trainedAgainst` (where training's
-own held questions stand), `learned` (what training kept, with its evidence), and the recipe laid out to read (`members`,
+own held questions stand, and `trainedOn`: the bodies of work its training asked, as the questions of its passes say and
+not as a setting does), `learned` (what training kept, with its evidence), and the recipe laid out to read (`members`,
 `decider`, `engine`, `serving`, `arrangement`). They MUST NOT contradict the normative members, and like them MUST NOT refer to an
 implementation (section 3).
 

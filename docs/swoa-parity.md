@@ -97,8 +97,8 @@ together, and lists each task's own gap beneath. There is no single yes or no un
 | Capability | Test | Harness | Today |
 |---|---|---|---|
 | Following instructions | IFEval | lm-evaluation-harness | measured, 20 questions on this lineup |
-| Reasoning: arithmetic, logic, procedures | GSM8K; the BBH tasks named in `equivalence.json` | lm-evaluation-harness | defined (`math`, `logic`, `reasoning`), not chosen |
-| Code | HumanEval, MBPP | lm-evaluation-harness | defined (`code`), not chosen |
+| Reasoning: arithmetic, logic, procedures | GSM8K; the BBH tasks named in `equivalence.json` | lm-evaluation-harness | in the battery (`math`, `logic`, `reasoning`) and asked in every pass; the proof run of 2026-11-18 was stopped before the module was asked |
+| Code | HumanEval, MBPP | lm-evaluation-harness | in the battery (`code`) and asked in every pass; the proof run of 2026-11-18 was stopped before the module was asked |
 | Tool use: calling functions | five function-calling categories of BFCL: one function, one of several, several calls at once, several calls of several functions, no function fits | Berkeley Function-Calling Leaderboard (`bfcl-eval` 2026.3.23) | wired (`tools`), tried on 20 questions a category |
 | Knowledge, with a search tool offered | BFCL's two web search categories (100 multi-hop questions each) | the same | wired (`search`), its searches through a SearXNG served on the measuring machine for the run (no key); tried with a stand-in model, not asked of the two yet |
 | Conversation, advice, writing | none is standard | | a training measure only: reported beside the proof, never as proof |
@@ -215,7 +215,9 @@ Training asks its own questions, made from a seed, in the families the proof mea
 The harness's own questions are never asked in training ([swoa.md](swoa.md) 4.7), and **a harness result never decides what
 is kept**: it is read as proof or as a check, after the fact.
 
-- Chosen together: `crew`, `code`, `math`, `logic`, `reasoning` (all exist in `training/equivalence.json`).
+- Asked together, in every pass: every body of work in `training/equivalence.json`. Nothing is chosen (2026-11-18; a
+  person once ticked which): the module picks its arrangement by the class of a request, and a change is kept only when no
+  kind of its class fell, so a kind a pass does not ask is a kind nothing protects.
 - New: instructions (rules a program checks); calling functions (a schema, and a request that needs it, does not need it,
   or lacks an argument); search (recorded results, as in section 3).
 

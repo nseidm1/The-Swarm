@@ -65,17 +65,16 @@ export const questions = (split, each = Number(arg('each', 6))) => {
     tasks({
       split: s,
       each,
-      // the kinds this configuration's pass asks: its record says (a pass ends on the questions it began with, whatever is
-      // chosen meanwhile; one begun before there was a choice ends on the programming kinds); a first pass asks what is chosen
-      kinds: kinds.length
-        ? kinds
-        : state.kinds || ((state.history || []).length ? CODE_KIND_NAMES : kindsFor(readConfig().equivalence)),
+      // the kinds this configuration's pass asks: its record says (a pass ends on the questions it began with: one begun when a
+      // person still chose which bodies of work ends on those, one begun before there was a list ends on the programming
+      // kinds); a first pass asks the kinds of every body of work
+      kinds: kinds.length ? kinds : state.kinds || ((state.history || []).length ? CODE_KIND_NAMES : kindsFor()),
       seed: state.seeds[s],
       focus: state.focus,
       tiers: state.tiers || {},
       // the questions a person wrote: as the pass's record has them (a pass ends on the questions it began with); a first pass
       // reads them as they are now; a pass begun before they could be written, and a run told which kinds to ask, has none
-      own: kinds.length ? {} : state.own || ((state.history || []).length ? {} : readOwn(readConfig().equivalence)),
+      own: kinds.length ? {} : state.own || ((state.history || []).length ? {} : readOwn()),
     });
   // the held questions, each put a second way (tasks.mjs: reword); they are compared with the larger model's answer to the first
   return split === 'reworded' ? reworded(of('held')) : of(split);

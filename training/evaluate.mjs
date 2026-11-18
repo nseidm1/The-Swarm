@@ -1,5 +1,5 @@
 // evaluate.mjs - EVALUATE THE SWARM: how equivalent it is to the larger model, measured by a standard any lab would recognise and
-// kept apart from training. For each body of work chosen under the models (training/equivalence.json, benchmarks), the standard
+// kept apart from training. For each body of work that has standard tasks (training/equivalence.json, benchmarks), the standard
 // tasks of EleutherAI's lm-evaluation-harness (pinned 0.4.13, installed by training/evaluate.sh into .work/lmeval) are asked of
 // the larger model and then of the swarm, each through the harness's own chat client, prompts, extraction and metrics. Then
 // every question's two answers are compared (support/harness_agree.py): the same answer, the same verdict on the task's tests,
@@ -68,7 +68,8 @@ export const HARNESS_ID = { name: 'lm-evaluation-harness', version: '0.4.13' };
 // (bumped when what is done around the harness changes, so that kept answers of the larger model are not reused across it)
 const RELAY_VERSION = 1;
 
-// the tasks to run, from what is chosen: [{ item, itemName, task, name, metric, filter, compare }]
+// the tasks to run, of the bodies of work named: [{ item, itemName, task, name, metric, filter, compare }]
+// (every body of work that has a standard task, unless a run names which: --items, or the page's Evaluate)
 export function planOf(targets, ids) {
   const out = [];
   for (const t of targets.filter((x) => ids.includes(x.id)))
@@ -279,9 +280,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   // that a capability's tasks together come to about five hundred questions, which is what a verdict needs (docs/swoa-parity.md)
   const proof = B.has('proof');
   const limitOf = (b) => sizeOf(b, { proof, limit });
-  const ids = B.arg('items') ? String(B.arg('items')).split(',') : CONFIG.equivalence || EQ.default;
+  const ids = B.arg('items') ? String(B.arg('items')).split(',') : EQ.targets.map((t) => t.id);
   const plan = planOf(EQ.targets, ids);
-  // (--needs: which harnesses what is chosen needs installed, for training/evaluate.sh, and nothing else)
+  // (--needs: which harnesses the tasks of this run need installed, for training/evaluate.sh, and nothing else)
   if (B.has('needs')) {
     console.log(needsOf(plan).join(' '));
     process.exit(0);
@@ -594,7 +595,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     isToolTest(b) ? bfclScore(dir, b.category, idsFor(b).length) : scoreOf(filesOf(dir, b.task).results, b);
 
   if (!plan.length) {
-    end('failed', 'Nothing chosen under the models has a benchmark');
+    end('failed', 'None of the bodies of work named has a benchmark');
     process.exit(1);
   }
   if (plan.some(isToolTest) && !bfclInstalled()) {

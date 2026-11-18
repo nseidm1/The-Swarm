@@ -269,10 +269,10 @@ def load(root):
     # the swarm as it is configured: which models, out of the ones that can be chosen (src/models.json, src/config.json)
     registry = _json(root / "src" / "models.json", {"small": [], "deciders": [], "targets": [], "engine": {}})
     chosen = _json(root / "src" / "config.json", {})
-    # what the swarm is to be equivalent on: the ones that can be chosen (training/equivalence.json), and the ones that are
-    equiv = _json(root / "training" / "equivalence.json", None) or _json(Path(__file__).resolve().parent.parent / "training" / "equivalence.json", {"default": [], "targets": []})
-    known = [t["id"] for t in equiv.get("targets", [])]
-    picked = [i for i in (chosen.get("equivalence") or []) if i in known] or [i for i in equiv.get("default", []) if i in known]
+    # THE BODIES OF WORK (training/equivalence.json): what the swarm is trained on, every one of them, and measured on. Nothing
+    # is chosen (console ruling 2026-11-18: the boxes to tick under the models are gone, and "equivalence" in src/config.json
+    # with them)
+    equiv = _json(root / "training" / "equivalence.json", None) or _json(Path(__file__).resolve().parent.parent / "training" / "equivalence.json", {"targets": []})
     # and the questions a person wrote for each (training/questions/<id>.json, edited from the page)
     for t in equiv.get("targets", []):
         own = _json(root / "training" / "questions" / (t["id"] + ".json"), {}) or {}
@@ -425,8 +425,8 @@ def load(root):
                     # (a move to classes, where one was made: which kept changes it did not carry; src/learned.mjs toClasses)
                     "migrated": (learned or {}).get("migrated"), "discarded": (learned or {}).get("discarded")},
         "state": state,
-        # asking: the kinds the pass under way asks, where this configuration's record says (a choice takes effect with the next pass)
-        "equivalence": {"targets": equiv.get("targets", []), "chosen": picked, "asking": state.get("kinds")},
+        # asked: the bodies of work the pass in hand asks (bodies_asked): every one, unless its record is of a pass that asked fewer
+        "equivalence": {"targets": equiv.get("targets", []), "asked": bodies_asked(equiv.get("targets", []), state)},
         "targets": targets,
         "target": target,
         "registry": registry,
@@ -746,6 +746,32 @@ def spec_adapters(d):
     return pins, made
 
 
+def bodies_asked(targets, state):
+    """THE BODIES OF WORK A PASS ASKS (training/support/bench.mjs questions, training/tasks.mjs bodiesOf): every one, unless this
+    configuration's record names the kinds its pass began with. A pass ends on the questions it began with: one begun when a
+    person still chose which bodies of work ends on those, and a record from before there was a list, on the programming kinds.
+    A body of work is asked where every kind of it is (Code's are among The Crew's). Read from the record, never from a setting.
+    -> their ids, in the list's order"""
+    kinds = (state or {}).get("kinds")
+    if not kinds:
+        if not (state or {}).get("history"):
+            return [t["id"] for t in targets]
+        kinds = next((t.get("kinds") for t in targets if t.get("id") == "code"), [])
+    return [t["id"] for t in targets if t.get("kinds") and all(k in kinds for k in t["kinds"])]
+
+
+def bodies_trained(d):
+    """THE BODIES OF WORK ITS TRAINING ASKED, as a SwOA says it: read from the questions of the pass in hand as they were last
+    asked (training/loop.mjs keeps them, each with its kind), so that a pass begun when fewer were asked says so of itself and
+    nothing is claimed that no question was asked of. Where no pass has asked a question yet, the bodies a pass asks
+    (bodies_asked). A body of work counts where every kind of it was asked. -> their ids, in the list's order"""
+    eq = d.get("equivalence") or {}
+    kinds = {q.get("kind") for q in ((d.get("loop") or {}).get("list") or []) if isinstance(q, dict)}
+    if not kinds:
+        return list(eq.get("asked") or [])
+    return [t["id"] for t in eq.get("targets", []) if t.get("kinds") and all(k in kinds for k in t["kinds"])]
+
+
 def equivalence_of(d, b, pins):
     """The equivalence the spec reports: the share of the held questions on which the swarm's answer is equivalent to the larger
     model's, for the arrangement every swarm starts from (src/briefs.json's version) and for the one training made (this
@@ -815,9 +841,13 @@ def spec(d):
     t = d["target"] or {}
     names = [m.get("name", k) for k, m in members.items()]
     eq = d.get("equivalence") or {}
-    # (what it is equivalent on, by what the work is, not by the product it was first measured for: specName, specAbout)
+    # WHAT ITS TRAINING ASKED: the bodies of work of the pass in hand (bodies_trained), each by what the work is, not by the
+    # product it was first measured for (specName, specAbout). Every one of them, unless the pass was begun when fewer were asked
+    trained = bodies_trained(d)
     on = [{"id": x["id"], "name": x.get("specName") or x.get("name", x["id"]), "about": x.get("specAbout") or x.get("about", ""), "kinds": x.get("kinds", [])}
-          for x in eq.get("targets", []) if x["id"] in (eq.get("chosen") or [])]
+          for x in eq.get("targets", []) if x["id"] in trained]
+    # (in a sentence: every body of work is not listed by name, where that is what it is)
+    on_words = "every body of work it is trained on" if on and len(on) == len(eq.get("targets", [])) else ", ".join(x["name"] for x in on)
     badge = (("At parity with %s" % t.get("name")) if p["level"] else ("%s%% of the way to parity with %s" % (("%.1f" % p["percent"]).rstrip("0").rstrip("."), t.get("name")))) if p and t else "Not yet measured"
     runs_on = dec.get("runsOn") or ["mac", "cuda", "cpu"]
     now = pass_in_hand(d)
@@ -841,8 +871,8 @@ def spec(d):
         "name": "The Swarm",
         "id": "swarm-" + "+".join(m.get("id", "") for m in members.values()),
         "what": "%s small models that answer as one, trained toward parity with a larger model: scoring no worse than it, within a margin, on established tests of what it can do." % ["One", "Two", "Three", "Four"][max(0, min(3, n_small - 1))],
-        # ONE ITEM FOR A MODEL CHOOSER (id, name, size, params, memGb, pace, badge, plain), with engine 'swarm'; what it is
-        # equivalent on and where it stands are said on its face
+        # ONE ITEM FOR A MODEL CHOOSER (id, name, size, params, memGb, pace, badge, plain), with engine 'swarm'; what its
+        # training asked and where it stands are said on its face
         "card": {
             "id": "swarm-" + "+".join(m.get("id", "") for m in members.values()), "engine": "swarm", "family": "Swarm", "name": "The Swarm",
             "size": ["One", "Two", "Three", "Four"][max(0, min(3, n_small - 1))] + " small models",
@@ -852,12 +882,12 @@ def spec(d):
             "pace": "unmeasured" if spr is None else "quick" if spr < 8 else "steady" if spr < 30 else "thorough",
             "secondsPerReply": spr,
             "badge": badge,
-            "equivalentOn": [x["name"] for x in on],
+            "trainedOn": [x["name"] for x in on],
             "plain": "%s (%s), decided by %s, answering as one. %s." % (
                 ["One small model", "Two small models", "Three small models", "Four small models"][max(0, min(3, n_small - 1))],
                 ", ".join(names[:-1]) + (" and " if len(names) > 1 else "") + names[-1] if names else "",
                 dec.get("name", "a decision model"),
-                ("%s, on %s" % (badge, ", ".join(x["name"] for x in on))) if p and on else badge if p
+                ("%s, on %s" % (badge, on_words)) if p and on else badge if p
                 else ("In its first pass of training against %s%s" % (t.get("name") or "a larger model", (": %s%% of this pass's train questions%s, which are not parity" % (("%.1f" % now["trainSoFar"]["percent"]).rstrip("0").rstrip("."), " so far" if (now["trainSoFar"].get("of") or 0) > now["trainSoFar"]["answered"] else "")) if now and now.get("trainSoFar") else "") if now and now["pass"] == 1
                 else "Not yet measured against %s" % (t.get("name") or "a larger model"))),
         },
@@ -951,7 +981,8 @@ def spec(d):
             "noAnswer": p["none"] if p else None,
             "byKind": {k: {"equivalent": sum(1 for r in held if r["kind"] == k and r.get("grade") == "right"), "of": sum(1 for r in held if r["kind"] == k and r.get("grade") != "noref")} for k in dict.fromkeys(r["kind"] for r in held)},
             "passes": d["state"].get("pass", 0),
-            "equivalentOn": on,
+            "trainedOn": on,
+            "trainedOnIs": "the bodies of work its training asked, every kind of each: read from the questions of the pass in hand as they were asked, never from a setting. A pass asks every body of work there is; fewer are listed where the pass was begun when fewer were asked",
             "secondsPerReply": spr,
             # how often the larger model's own second answer is equivalent to its first: the noise floor under parity; and how many of
             # the swarm's different answers the reader could not decide

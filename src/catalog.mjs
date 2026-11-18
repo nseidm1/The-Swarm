@@ -46,8 +46,6 @@ export function readConfig() {
   }
   out.decider = pick(REGISTRY.deciders, c.decider).id;
   out.target = pick(REGISTRY.targets, c.target).id;
-  // what the swarm is to be equivalent on, where it has been chosen (training/equivalence.json names them): kept as it is
-  if (Array.isArray(c.equivalence) && c.equivalence.length) out.equivalence = c.equivalence.map(String);
   // who takes turns with tools, and whether each small model is served with its adapter: the page's choices, kept as they are
   // (they were left out here, so the page said "decided by the swarm" while the swarm went on giving them to its lead, and the
   // adapters switch reached nothing)
@@ -87,7 +85,6 @@ export function writeConfig(patch) {
       throw new Error('place ' + PLACES[PLACES.indexOf(k) - 1] + ' is empty: fill it first');
     next[k] = patch[k];
   }
-  if (Array.isArray(patch.equivalence) && patch.equivalence.length) next.equivalence = patch.equivalence.map(String);
   if (patch.judge !== undefined) {
     if (patch.judge === null || patch.judge === '') delete next.judge;
     else if (!REGISTRY.deciders.find((m) => m.id === patch.judge)) throw new Error('no judge called ' + patch.judge);

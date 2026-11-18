@@ -2,7 +2,8 @@
 # evaluate.sh - EVALUATE THE SWARM against the larger model on standard benchmarks (training/evaluate.mjs says how). Started by the
 # page's Evaluate the swarm, or by hand:
 #   sh training/evaluate.sh [--limit N] [--items crew,math]
-# First what it needs: the harnesses what is chosen is measured by, each installed here the first time (lm-evaluation-harness
+# With no --items it asks every body of work that has a standard task.
+# First what it needs: the harnesses its tasks are measured by, each installed here the first time (lm-evaluation-harness
 # 0.4.13 in .work/lmeval; for calling functions and searching, the tool tests, bfcl-eval 2026.3.23, in .work/bfcl; and for the
 # web search test the search that stands behind it, SearXNG at a pinned revision, in .work/searxng), the configured
 # models (training/setup.mjs, as a training session readies them) and the decider, loaded for this run and unloaded when it ends.
@@ -25,7 +26,7 @@ say() {
 # into that harness's folder (UV_PYTHON_INSTALL_DIR), not the machine's own ~/.local/share/uv: the Uninstall Helper takes the
 # folder out whole. And it is always one uv fetched (only-managed), never the machine's: on an Apple silicon Mac the machine's may
 # be an Intel one.
-# what is chosen needs installed: "lmeval", "bfcl", "searxng", or several
+# what the tasks of this run need installed: "lmeval", "bfcl", "searxng", or several
 NEEDS=$("$NODE" training/evaluate.mjs --needs "$@" 2>/dev/null || echo lmeval)
 UV=$(command -v uv || true)
 [ -n "$UV" ] || [ ! -x "$ROOT/.work/kev/uvenv/bin/uv" ] || UV="$ROOT/.work/kev/uvenv/bin/uv"

@@ -1397,8 +1397,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const { configText } = await import('../src/catalog.mjs');
   check(
     "the configuration is written as the repository's formatter writes it (a short list on one line), so one chosen on the page and committed passes the format check",
-    configText({ a: 'x', equivalence: ['crew', 'math'] }) === '{\n  "a": "x",\n  "equivalence": ["crew", "math"]\n}\n',
-    configText({ a: 'x', equivalence: ['crew', 'math'] }),
+    configText({ a: 'x', list: ['one', 'two'] }) === '{\n  "a": "x",\n  "list": ["one", "two"]\n}\n',
+    configText({ a: 'x', list: ['one', 'two'] }),
   );
   const mine = readPolicy({ policy: { loop: { cap: 12 } } });
   check(
@@ -1468,7 +1468,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     JSON.stringify({ ...JSON.parse(was), tools: 'swarm', adapters: true, judge: 'jeffan-4b' }),
   );
   const read = readConfig();
-  const kept = writeConfig({ equivalence: ['crew'] });
+  const kept = writeConfig({ a: read.a });
   const onDisk = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
   const judgeOff = writeConfig({ judge: '' }).judge;
   fs.writeFileSync(CONFIG_FILE, JSON.stringify({ ...JSON.parse(was), adapters: 'yes' }));
@@ -1571,7 +1571,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
 {
   const { replay, WAYS } = await import('../training/replay.mjs');
   const { knownPairs, checkReader } = await import('../training/readers.mjs');
-  const { reword, reworded } = await import('../training/tasks.mjs');
+  const { reword, reworded, kindsFor: kindsOfBodies } = await import('../training/tasks.mjs');
   const { flipsBetween } = await import('../training/pass.mjs');
   const { makePlan } = await import('../training/plan.mjs');
   const { steps } = await import('../training/arrange.mjs');
@@ -1747,15 +1747,24 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     fl,
   );
   // every question a second way, and a bar that is held asked more of
-  const held = tasks({ split: 'held', each: 2 });
+  // (the kinds that have a second wording are those of programming and its conversation; the others have none yet)
+  const held = tasks({ split: 'held', each: 2, kinds: kindsOfBodies(['crew']) });
   const second = reworded(held);
+  const noSecond = reworded(
+    tasks({
+      split: 'held',
+      each: 2,
+      kinds: kindsOfBodies(['math', 'logic', 'reasoning', 'instructions', 'tools', 'search']),
+    }),
+  );
   const w = held.find((t) => t.kind === 'write-arrays');
   const body = w.ask.replace(/^Write a JavaScript function `[^`]+` that /, '');
   const refs = reference(second);
   const more = tasks({ split: 'held', each: 2, tiers: { fix: 2 } });
   check(
-    "every held question has a second wording that changes how it is put and nothing of what it asks, and is compared with the larger model's answer to the first; and a kind that is asked more of keeps the questions it had and adds to them",
+    "a held question of programming or of its conversation has a second wording that changes how it is put and nothing of what it asks, and is compared with the larger model's answer to the first; a kind with no second wording (arithmetic, logic, procedures, rules, calls, searching) is left out of that check and never counted as passing it; and a kind that is asked more of keeps the questions it had and adds to them",
     second.length === held.length &&
+      noSecond.length === 0 &&
       second.every(
         (t, i) =>
           t.ask !== held[i].ask &&
@@ -1984,10 +1993,13 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     CODE_KIND_NAMES,
     CREW_KIND_NAMES,
     EQUIVALENCE,
+    BODIES,
     kindsFor,
+    bodiesOf,
     messagesOf,
     reworded,
   } = await import('../training/tasks.mjs');
+  const CREW_NAMES = [...CODE_KIND_NAMES, ...CREW_KIND_NAMES, 'agent'];
   const { talkEquivalent, faultsOf } = await import('../training/support/equivalent.mjs');
   const { talkPairs, checkReader } = await import('../training/readers.mjs');
   const tr = make({ split: 'train', each: 6, kinds: CREW_KIND_NAMES });
@@ -2029,22 +2041,32 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { n: tr.length, again: again.length },
   );
   check(
-    "what the swarm is to be equivalent on is chosen from a list kept as data: The Crew (programming and the conversation around it) where nothing is chosen, and with it or in its place Code, Math, Logic and Reasoning; a pass asks the kinds of all that are chosen (Code's are among The Crew's, asked once), and a name that is not on the list is passed over",
-    EQUIVALENCE.targets.map((t) => t.id).join() === 'crew,code,math,logic,reasoning,instructions,tools,search' &&
-      kindsFor(['code']).join() === CODE_KIND_NAMES.join() &&
-      kindsFor(['code', 'crew']).join() === NAMES.join() &&
-      NAMES.join() === [...CODE_KIND_NAMES, ...CREW_KIND_NAMES, 'agent'].join() &&
-      kindsFor(['crew']).join() === NAMES.join() &&
+    "what the swarm is trained on is every body of work of a list kept as data (The Crew, Code, Math, Logic, Reasoning, Instructions, Tools, Search), and nothing is chosen: a pass asks the kinds of them all, each once (Code's are among The Crew's); the list has no default, since there is nothing to fall back to; the kinds of some can still be named (a record, a check), a name that is not one is passed over, and with none left it is every one; what a list of kinds covers is said from the kinds (a pass that asked The Crew's covered Code too); and every kind of every body makes a question",
+    BODIES.join() === 'crew,code,math,logic,reasoning,instructions,tools,search' &&
+      EQUIVALENCE.default === undefined &&
+      NAMES.length === 28 &&
+      new Set(NAMES).size === 28 &&
+      NAMES.join() === kindsFor(BODIES).join() &&
+      kindsFor().join() === NAMES.join() &&
       kindsFor([]).join() === NAMES.join() &&
       kindsFor(['nothing']).join() === NAMES.join() &&
+      kindsFor(['code']).join() === CODE_KIND_NAMES.join() &&
+      kindsFor(['code', 'crew']).join() === CREW_NAMES.join() &&
+      kindsFor(['crew']).join() === CREW_NAMES.join() &&
       kindsFor(['math']).slice().sort().join() === 'chain,count,rate,shop,units' &&
-      kindsFor(['math', 'crew']).length === NAMES.length + 5 &&
+      kindsFor(['math', 'crew']).length === CREW_NAMES.length + 5 &&
       kindsFor(['logic', 'reasoning']).length === 6 &&
       make({ split: 'held', each: 2, kinds: kindsFor(['math', 'logic', 'reasoning']) }).length === 22 &&
+      make({ split: 'train', each: 6 }).length === 168 &&
+      make({ split: 'held', each: 6 }).length === 168 &&
+      bodiesOf(NAMES).join() === BODIES.join() &&
+      bodiesOf(CREW_NAMES).join() === 'crew,code' &&
+      bodiesOf(CODE_KIND_NAMES).join() === 'code' &&
+      bodiesOf(['chain', 'own-crew']).join() === '' &&
       EQUIVALENCE.targets.every((t) =>
         t.kinds.every((k) => make({ split: 'train', each: 1, kinds: [k] }).length === 1),
       ),
-    kindsFor(['math', 'logic']),
+    { bodies: BODIES, kinds: NAMES.length },
   );
   // the conduct of a reply, read off its words
   const about = { limit: 20, claims: true, simple: true };
@@ -2185,7 +2207,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   // which kinds a pass asks: what its record says; a record from before there was a choice ends its pass on programming
   const { readState, writeState } = await import('../training/state.mjs');
   const { questions } = await import('../training/support/bench.mjs');
-  const { readConfig, writeConfig } = await import('../src/catalog.mjs');
+  const { readConfig, writeConfig, CONFIG_FILE } = await import('../src/catalog.mjs');
   const was = readState();
   const kindsOf = (list) => [...new Set(list.map((q) => q.kind))].join();
   writeState({ ...was, kinds: ['chain', 'order'], history: [{ pass: 1 }] });
@@ -2197,14 +2219,14 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const fresh = { ...was, history: [] };
   delete fresh.kinds;
   writeState(fresh);
-  const cfg = readConfig();
-  writeConfig({ equivalence: ['math'] });
-  const chosen = kindsOf(questions('held', 2));
-  const kept = readConfig().equivalence;
-  writeConfig({ a: cfg.a });
-  const stillKept = readConfig().equivalence;
-  writeConfig({ equivalence: ['crew'] });
+  // (a first pass asks every kind; a configuration file that still names a choice, from when there was one, changes nothing)
   const first = kindsOf(questions('held', 2));
+  const cfgWas = fs.readFileSync(CONFIG_FILE, 'utf8');
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify({ ...JSON.parse(cfgWas), equivalence: ['math'] }));
+  const withOldChoice = kindsOf(questions('held', 2));
+  const readOld = readConfig().equivalence;
+  const writtenOld = writeConfig({ a: readConfig().a }).equivalence;
+  fs.writeFileSync(CONFIG_FILE, cfgWas);
   // the questions a person wrote: read from their own folder, asked after the ones made, every second one held back
   const { readOwn, QUESTIONS_DIR, MOST_OWN } = await import('../training/tasks.mjs');
   fs.mkdirSync(QUESTIONS_DIR, { recursive: true });
@@ -2233,14 +2255,13 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     .filter((x) => x.kind.startsWith('own-'))
     .map((x) => x.ask);
   writeState({ ...was, kinds: ['answer'], history: [] });
-  writeConfig({ equivalence: ['crew'] });
   const firstPass = questions('train', 1)
     .filter((x) => x.kind.startsWith('own-'))
     .map((x) => x.ask);
   const crewTr = ownTr.filter((x) => x.kind === 'own-crew');
   writeState(was);
   check(
-    'a person can write questions of their own for each body of work (one file each, edited from the page): blank ones and a file that will not read are no questions; the first, third ... are train questions and the second, fourth ... held, so nothing measured is what was chosen on; for The Crew each goes to the seat its mode names, for the others with a plain instruction to answer; each is judged as a reply in a conversation; a pass asks those its record kept, and a first pass those written now',
+    'a person can write questions of their own for each body of work (one file each, edited from the page): blank ones and a file that will not read are no questions; the first, third ... are train questions and the second, fourth ... held, so nothing measured is what was chosen on; for The Crew each goes to the seat its mode names, for the others with a plain instruction to answer; each is judged as a reply in a conversation; a pass asks those its record kept, and a first pass those written now for every body of work (an addition to its questions, never a choice among them)',
     MOST_OWN === 200 &&
       Object.keys(own).join() === 'crew,math' &&
       own.crew.length === 3 &&
@@ -2259,18 +2280,19 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       [...ownTr, ...ownHe].every((x) => x.type === 'talk' && typeof x.equivalent === 'function' && x.again === null) &&
       reworded(ownHe).length === 0 &&
       fromRecord.join() === 'What is 2 + 2?' &&
-      firstPass.join('|') === 'Move my dentist to Friday.|thanks!',
+      firstPass.join('|') === 'Move my dentist to Friday.|thanks!|What is 17 times 23?',
     { train: ownTr.map((x) => x.id), held: ownHe.map((x) => x.id), fromRecord, firstPass },
   );
   check(
-    'a pass asks the kinds its record names, so that it ends on the questions it began with whatever is chosen meanwhile; a record from before there was a choice ends its pass on the programming questions; a first pass asks what is chosen; and the choice is kept in the configuration through a change of model',
+    'a pass asks the kinds its record names, so that it ends on the questions it began with (one begun when a person still chose which bodies of work ends on those); a record from before there was a list ends its pass on the programming questions; a first pass asks the kinds of every body of work; and a choice left in a configuration file from when there was one is neither read nor written again',
     byRecord === 'chain,order' &&
       before === CODE_KIND_NAMES.join() &&
-      chosen.split(',').sort().join() === 'chain,count,rate,shop,units' &&
-      kept.join() === 'math' &&
-      stillKept.join() === 'math' &&
-      first === NAMES.join(),
-    { byRecord, before, chosen, kept },
+      first === NAMES.join() &&
+      NAMES.length === 28 &&
+      withOldChoice === first &&
+      readOld === undefined &&
+      writtenOld === undefined,
+    { byRecord, before, first, readOld },
   );
 }
 // ---- 6q: more deciders: every one takes the same request, and each says how it is started and where it can run

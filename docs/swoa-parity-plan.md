@@ -11,12 +11,12 @@ how it is checked.
 
 | Step | Built | Measured | Left |
 |---|---|---|---|
-| 1 | The size of a proof run, task by task (`proofN` in `training/equivalence.json`, `evaluate.sh --proof`, and a proof run among the sizes the page offers). A run that is stopped carries on from the task it stopped in: the module's answers are kept by arrangement and runtime, as the target's already were (`--fresh` asks again). The tool tests tried, and wired (step 7) | The trial of the tool tests (below). The battery at proof size: started 2026-11-18, and its results are the next thing to read | The margin, once the battery has run |
+| 1 | The size of a proof run, task by task (`proofN` in `training/equivalence.json`, `evaluate.sh --proof`, and a proof run among the sizes the page offers). A run that is stopped carries on from the task it stopped in: the module's answers are kept by arrangement and runtime, as the target's already were (`--fresh` asks again). The tool tests tried, and wired (step 7) | The trial of the tool tests (below). The battery at proof size: started 2026-11-18 and stopped by hand after 86 minutes, the target asked 7 of 21 tasks (its answers kept) and the module none. No result came of it: it is to be run again | The margin, once the battery has run |
 | 2 | The paired gap, a verdict for each capability, what is claimed and what is not; in the SwOA, on its page, and in [swoa.md](swoa.md) 4.7 | The seven evaluations on record, read by the rule (below) | Nothing |
 | 3 | One grading for every question that carries its own standard: code, a value, a planted flaw. The swarm, each slot and the target are scored by it | The pass on record, regraded (below) | Nothing |
 | 4 | The standard among the target's answers (`training/support/standard.mjs`), a third answer (`baseline.mjs --third`, in `session.sh`), "no standard" as a state | The third answers asked, and the standards from all three (below) | Nothing. Three answers or five is decided on what is below |
 | 5 | A change is kept by its class: raced on 8 questions, then the class, then the held questions; changes proposed for the class at the end of a pass; the gain and its error in the ledger, on the page and in the SwOA's learned record, which states the rule. The page says "good" of a question, not "parity": good as it stood, made good by a change, not good yet; its head is the share of answers good, with the module beside the target; and it says how a change is kept as the policy has it | Nothing yet: no pass has run under it, so no change has been kept by it | A pass |
-| 6 | Three families of question (rules a program checks, calling functions, search with facts made up from the seed), an agent's step graded against the step its scenario needs, three bodies of work to choose | A probe of 10 questions a family on the module (below) | The families asked in a pass, and the target scored on them beside the module |
+| 6 | Three families of question (rules a program checks, calling functions, search with facts made up from the seed), an agent's step graded against the step its scenario needs, three bodies of work. From 2026-11-18 a pass asks them with the other five: nothing is chosen (the boxes to tick are gone from the page, and `equivalence` from `src/config.json`) | A probe of 10 questions a family on the module (below) | The families asked in a pass, and the target scored on them beside the module |
 | 7 | In a turn with tools a reply is written by the answer procedure, shown what the tools returned (`plan.toolReply: "proposed"` keeps a proposed reply). [swoa.md](swoa.md) Part T.9, and 4.2: a recipe holds no body of knowledge. The tool tests as proof: a second harness (`training/support/bfcl.mjs`, `bfcl-eval` 2026.3.23 in `.work/bfcl`), five function-calling categories under Tools and two web search categories under Search, each result naming its harness and the tools offered; the target asked two ways and counted by the better over the capability | The trial (below), and a reply answered against a reply proposed (below) | The web search test asked of the two models: its search is wired (a SearXNG served for the run, no key) and tried with a stand-in model; the proof run under way began before that, so a proof run after it asks only this |
 
 Tests when this was written: 193 in `tests/run.mjs` and 123 in `ui/check.py`, all passing.
@@ -104,13 +104,20 @@ say what happens on a long result. Training can weigh the two (`plan.toolReply`)
 
 ## Where things stand
 
-- **The battery is being measured at proof size**, started from the page on 2026-11-18 at 15:25: crew, code, math, logic,
-  reasoning and tools, 21 tasks and about 3,140 questions for each of the two models, the target's tool questions twice.
-  It is the first proof, on the arrangement as it stands (version 17) and before any pass under the new rules. Most of a
-  day; stopped, it carries on from the task it stopped in. Search is in it and not asked: its search was wired after the run began. A proof run after it asks only that.
-- Training is stopped, and waits for the battery: each needs the models to itself. Started again, it asks the pass's
-  questions from the first: the grading changed, and nothing graded the old way is carried on (`SCORING` in
-  `training/loop.mjs`); the page says so. The changes kept so far stay, on the arrangement at version 17.
+- **The battery was started at proof size and stopped partway.** Started from the page on 2026-11-18 at 20:25 UTC: crew,
+  code, math, logic, reasoning and tools, 21 tasks and about 3,140 questions for each of the two models, the target's tool
+  questions twice, on the arrangement as it stood (version 17) and before any pass under the new rules. Stopped by hand at
+  21:51: the target had been asked 7 of the 21 tasks (1,741 questions; IFEval, HumanEval, MBPP, GSM8K, BBH multistep
+  arithmetic, logical deduction and date understanding) and the module none. No result was written. The target's answers
+  to those seven are kept, so a proof run started again asks it only the rest, then the module all of them. Search was in
+  it and not asked: its search was wired after the run began.
+- **Nothing is chosen for training any more** (2026-11-18). A pass asks every body of work: 28 kinds of question, 168 train
+  and 168 held at six of each, where it asked The Crew's 14 and 84. The boxes to tick under the models are gone, and
+  `equivalence` from `src/config.json`; Evaluate has boxes of its own for which bodies of work one run asks. The SwOA says
+  which bodies its training asked from the questions of the pass in hand (`trainedAgainst.trainedOn`).
+- Training is stopped. Started again, it asks the pass's questions from the first: the grading changed, and nothing graded
+  the old way is carried on (`SCORING` in `training/loop.mjs`); the page says so. The questions are now those of every
+  body of work. The changes kept so far stay, on the arrangement at version 17.
 - The configuration measured throughout is `bonsai2-2b+lfm3-1.7b+jan-code-4b+kev-0.8b`, whose target is Nemotron 3.5
   Lightning 30B. The target is whichever model the configuration names: nothing built here is fixed to this one.
 
@@ -155,6 +162,8 @@ questions.
    (`.work/eval/target/`), so it answers once.
 2. *The run.* `bash training/evaluate.sh --items crew,code,math,logic,reasoning --proof`. What is chosen for training does not
    change (`src/config.json` stays `crew`): the harness is only measured here.
+   (As planned. From 2026-11-18 nothing is chosen for training: a pass asks every body of work, and `--proof` with no
+   `--items` asks every body that has a standard test.)
 3. *The tool tests, tried.* A time-boxed trial of BFCL against the module's own endpoint (`tools: "swarm"`), in a folder of
    its own beside `.work/lmeval`: 20 questions of one function-calling category, for the module and for the target. It
    settles three things step 7 needs: which way BFCL is pointed at an OpenAI-compatible endpoint (its own package, pinned, or

@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { REPO_ROOT, RESULTS, WORK, aloneLabel } from './support/bench.mjs';
-import { MEMBERS, DECIDER, CONFIG_ID, writeConfig, readConfig } from '../src/catalog.mjs';
+import { MEMBERS, DECIDER, CONFIG_ID, writeConfig } from '../src/catalog.mjs';
 import { readState, writeState, seedState, readTargets, targetOf, parity, STANDING } from './state.mjs';
 import { readBriefs, notePass, readLearned } from '../src/index.mjs';
 import { readPolicy } from './policy.mjs';
@@ -95,10 +95,11 @@ export function endPass(state, { swarmRows, train, briefs, targets, now = new Da
   const next = { ...state, pass: state.pass + 1, target: rung.id, history: [...state.history, done] };
   // new train questions every pass; the held ones stay while this target is chased
   next.seeds = { ...state.seeds, train: state.seeds.train + 104729 };
-  // the next pass asks the kinds of what the swarm is to be equivalent on, as it is chosen now (equivalence.json, src/config.json)
-  next.kinds = kindsFor(readConfig().equivalence);
+  // the next pass asks the kinds of every body of work (equivalence.json): kept with the pass, so that it ends on the questions it
+  // began with whatever is added to the list meanwhile
+  next.kinds = kindsFor();
   // and the questions a person wrote for them, as they are now: kept with the pass, so that a change made while it runs waits
-  next.own = readOwn(readConfig().equivalence);
+  next.own = readOwn();
   // more of the kinds it answers differently from the larger model on (two more for each such question, to at most six more)
   next.focus = {};
   if (p) for (const k of p.trailing) next.focus[k.kind] = Math.min(6, 2 * k.differ);

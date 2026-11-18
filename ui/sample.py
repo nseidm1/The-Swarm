@@ -117,6 +117,9 @@ def main(dest, config=None):
         for i, n in enumerate([5, 6, 8, 9])
     ]
     state["pass"] = 4
+    # (its passes asked every body of work, as a pass does: the kinds are kept with the record. One with a history and no kinds
+    # is read as a record from before there was a list of them, which asked the programming kinds alone)
+    state["kinds"] = list(dict.fromkeys(k for t in json.loads((HERE / "training" / "equivalence.json").read_text())["targets"] for k in t["kinds"]))
     # a made-up plan for the pass in hand, partway through, so that the plan can be seen as it reads while a pass runs
     plan = {
         "pass": 5, "at": "2026-11-14T09:00:00Z", "basedOn": "this-pass", "measured": {"compared": 24, "equivalent": 17, "differ": 6, "none": 1},

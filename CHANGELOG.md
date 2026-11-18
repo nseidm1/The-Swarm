@@ -76,9 +76,23 @@ The first version.
 - **A reply no longer ends by saying where it came from.** A small writer gave the answer and then, in a paragraph of its
   own, said it was "settled based on the provided draft": 7 of the swarm's 39 replies in words on the function-calling
   test. Such closing paragraphs are cut, and the answer before them goes out as it was written (SwOA specification R.1.14).
-- **A proof run from the page.** *Evaluate* offers a fourth size, a proof run: every body of work that has a standard test,
-  chosen for training or not, each task at the size a verdict needs (five hundred questions or more a body of work, never
-  fewer than a hundred of one task). A run that is stopped carries on from the task it stopped in.
+- **Training asks every body of work; nothing is chosen.** The boxes to tick under the models ("Equivalent on") are gone,
+  and `equivalence` from `src/config.json`: one left in a configuration file is not read, and the dashboard takes it out the
+  next time it writes the file. A pass asks the kinds of all eight bodies of work (28 kinds; 168 train questions and 168
+  held at six of each, where The Crew alone was 84), and more of the kinds the pass before found the swarm short on. The
+  reason: the module picks its arrangement by the class of a request, not by the body of work, and a change is kept only
+  when no kind of its class fell, so a kind a pass did not ask was a kind nothing protected. A pass is about twice as long.
+  A pass in hand ends on the questions it began with. Under the pills are two rows instead: who takes turns with tools, and
+  a button for each body of work that opens your own questions for it, which are asked beside the ones made. In a SwOA,
+  `card.equivalentOn` and `trainedAgainst.equivalentOn` are now `trainedOn`: the bodies of work its training asked, read
+  from the questions of the pass in hand and not from a setting.
+- **Evaluate says which bodies of work it asks.** Under **Asks**, a box for each body of work that has a standard test,
+  every one ticked to begin with: untick some for a quicker look, or tick one to ask it by itself. It is a choice for one
+  run, kept on the device, and applies to a proof run too. The card lists every such body of work, each folded to begin
+  with; `evaluate.sh` with no `--items` asks them all.
+- **A proof run from the page.** *Evaluate* offers a fourth size, a proof run: each task at the size a verdict needs (five
+  hundred questions or more a body of work, never fewer than a hundred of one task). A run that is stopped carries on from
+  the task it stopped in.
 - **What a run installs is its own, and is made again where it is broken.** Evaluate and Pretrain install what they need
   the first time (lm-evaluation-harness, the tool tests, MLX). The Python `uv` fetches for each now goes into that
   program's own folder in `.work`, never the machine's `~/.local/share/uv`, so the Uninstall Helper takes it out with the
@@ -120,8 +134,9 @@ The first version.
   answers, plans from where the answers were lost, tries other briefs and arrangements, keeps a change only on evidence, and
   hands what it learned to the next pass.
 - **What equivalence means.** The work of a seat on a team (The Crew): programming, and the conversation around it in Simple
-  and Developer, judged on the act, the substance and the conventions. Chosen on the dashboard under the models, with Math,
-  Logic and Reasoning as further choices. Each has a pencil that opens its questions, to which a person can add their own.
+  and Developer, judged on the act, the substance and the conventions. It is one body of work of a list (Code, Math, Logic,
+  Reasoning, Instructions, Tools and Search are the others), all of them asked in every pass. Each has a button under the
+  models that opens its questions, to which a person can add their own.
 - **Parity reads meaning, and says how sure it is.** The reader is checked on paraphrases and near-misses (one fact changed)
   before it is believed; an undecided reading is counted apart and decides nothing; the larger model answers twice, and how
   often it agrees with itself is shown as the noise floor; a judge apart from the decider can read equivalence; and an agent

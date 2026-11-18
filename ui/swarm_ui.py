@@ -99,14 +99,16 @@ details.cfg>summary .fmeta{flex:1 1 320px;font-size:13px;font-weight:600;color:v
   details.cfg.fold>summary::after{grid-column:2;grid-row:1}details.cfg>summary #rec-slot:empty{display:none}details.cfg>summary #rec-slot,details.cfg>summary .fmeta{grid-column:1/-1}
   details.cfg>summary .fmeta{font-size:12.5px;line-height:1.45}}details.cfg[open]>summary .fmeta{display:none}details.cfg.shutting>summary .fmeta{display:block}
 details.cfg[open]>summary{margin-bottom:0}details.cfg .picks{margin-top:10px}
-/* what it is to be equivalent on: one box to tick for each, in a row that wraps; each takes the room its words need and no less */
-.equiv{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);margin:10px 0 0;padding:12px 16px 12px;min-width:0}
-.equiv legend{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--mist);padding:0 6px}
-.equiv .ticks{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 10px}
-.tick{position:relative;border:1px solid var(--line);border-radius:var(--r);min-width:0}.tick label{display:flex;gap:10px;align-items:flex-start;padding:9px 40px 9px 12px;cursor:pointer;min-width:0}
-.pencil{position:absolute;top:6px;right:6px;width:28px;height:28px;border:0;border-radius:var(--r);background:none;color:var(--mist);cursor:pointer;display:grid;place-items:center;padding:0}
-.pencil:hover,.pencil:focus-visible{background:var(--soft);color:var(--teal)}.pencil svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round}
-.tick small em{font-style:normal;font-weight:700;color:var(--teal)}
+/* under the pills, two rows, each a label and what it holds: who takes a turn with tools, and the questions a person wrote (one
+   button for each body of work, which opens its questions). Nothing here chooses what the swarm is trained on: it is trained on
+   every body of work */
+.cfgrows{display:grid;gap:10px;margin:12px 0 0;min-width:0}.cfgrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;min-width:0}
+.cfgl{flex:0 0 148px;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--mist)}
+.ownq{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.ownb{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);font:inherit;font-size:13px;font-weight:700;color:var(--fog);padding:6px 10px;cursor:pointer}
+.ownb em{font-style:normal;color:var(--teal)}.ownb svg{width:13px;height:13px;fill:none;stroke:var(--mist);stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round}
+.ownb:hover,.ownb:focus-visible{border-color:var(--teal2);color:var(--teal)}.ownb:hover svg,.ownb:focus-visible svg{stroke:var(--teal)}
+@media (max-width:560px){.cfgl{flex-basis:100%}}
 dialog#qedit{border:0;border-radius:var(--r);padding:26px;max-width:min(760px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}
 dialog#qedit::backdrop{background:rgba(11,40,38,.45)}dialog#qedit h4{margin:22px 0 6px}
 .qlist{list-style:none;margin:0;padding:0;display:grid;gap:8px}.qrow{display:flex;gap:8px;align-items:flex-start;min-width:0}
@@ -116,9 +118,6 @@ dialog#qedit::backdrop{background:rgba(11,40,38,.45)}dialog#qedit h4{margin:22px
 .qbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}.qbar #qcount{margin-right:auto}
 .qmade{margin:0;padding-left:18px;columns:2 220px;font-size:13px;color:var(--mist)}
 @media (max-width:560px){.qrow:has(select){flex-wrap:wrap}.qrow:has(select) .qside{width:100%;justify-content:flex-end}}
-.tick.on{border-color:var(--teal2);background:#eefaf6}.tick input{flex:none;width:17px;height:17px;margin:2px 0 0;accent-color:var(--teal)}
-.tick span{display:grid;gap:2px;min-width:0}.tick b{font-size:14.5px;font-weight:800}.tick small{font-size:12px;line-height:1.35;color:var(--mist);overflow-wrap:anywhere}
-.equiv p{margin:10px 2px 0}
 /* two groups: the small models, and what they are set against (the decider and the larger model). In one row where both fit; where
    they do not, the second group goes under the first whole, so a row is never one stray pill */
 .picks>.group{display:flex;flex-wrap:wrap;gap:10px;flex:1 1 auto;min-width:0}.picks>.group.small{flex-grow:3}.picks>.group.against{flex-grow:2}
@@ -269,6 +268,10 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .memcard .progline,.evalp .progline,.prep .progline{flex:1 1 320px;font-size:14px;color:var(--fog);line-height:1.45}.evctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .evctl select{font:inherit;font-weight:700;padding:10px 40px 10px 14px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);cursor:pointer;-webkit-appearance:none;appearance:none;background:var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%235b6b68' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 16px center/12px 8px}
 .evctl select:focus-visible{outline:2px solid var(--teal2);outline-offset:2px}
+/* which bodies of work an evaluation asks: a box for each, under the card's heading, every one ticked to begin with */
+.evask{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:12px 0 0;min-width:0}.evask .cfgl{flex:0 0 auto;margin-right:6px}
+.evask label{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);font-size:13px;font-weight:700;color:var(--fog);padding:6px 10px;cursor:pointer}
+.evask input{width:15px;height:15px;margin:0;accent-color:var(--teal)}.evask label:has(input:checked){border-color:var(--teal2);background:#eefaf6}.evask label:has(input:disabled){cursor:default;opacity:.6}
 .evalp>.state,.prep>.state,.evnow{margin-top:12px}.evq{margin-top:8px;padding:10px 12px;border-radius:var(--r);background:var(--soft);font-size:13px}
 .evq .evql{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}.evq .evql span{color:var(--mist);font-size:12px}.evq p{margin:6px 0 0;overflow-wrap:anywhere;line-height:1.45}
 .evitem{margin-top:18px}.evitem h4{margin:0 0 6px;font-size:15px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.evitem .psecb>p{margin:0 0 10px;line-height:1.45}
@@ -521,7 +524,7 @@ document.addEventListener('click',(ev)=>{
 // (saved on a click of its heading, and not on every toggle: a section that loads open fires one too, which would put "open" back)
 document.addEventListener('click',(ev)=>{const sm=ev.target.closest('details[data-keep]>summary');if(!sm)return;const d=sm.parentElement;setTimeout(()=>{try{localStorage.setItem('swarm.open.'+d.dataset.keep,d.open?'1':'0');}catch(e){}},0);});
 document.addEventListener('DOMContentLoaded',()=>keepOpen());
-async function swap(url,into,opts){const r=await fetch(url,opts);$(into).innerHTML=await r.text();keepOpen($(into));if(typeof sinceTick==='function')sinceTick();}
+async function swap(url,into,opts){const r=await fetch(url,opts);$(into).innerHTML=await r.text();keepOpen($(into));if(typeof sinceTick==='function')sinceTick();if(typeof evAsk==='function')evAsk();}
 document.addEventListener('click',async(ev)=>{
   const q=ev.target.closest('.q');
   if(q){document.querySelectorAll('.q[aria-current]').forEach(x=>x.removeAttribute('aria-current'));q.setAttribute('aria-current','true');
@@ -543,17 +546,11 @@ document.addEventListener('click',async(ev)=>{
 document.addEventListener('change',async(ev)=>{const s=ev.target.closest('[data-pick]');if(!s)return;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({[s.dataset.pick]:s.value})});
   if(r.ok){$('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');liveTick();}else{alert(await r.text());await swap('/fragment/picks','#picks');}});
-// WHAT IT IS TO BE EQUIVALENT ON: the boxes ticked are written down, and the row drawn again in place
 // TURNS WITH TOOLS: who takes an agent's turn, saved as a pill's choice is, and the row and the folded line drawn again in place
 document.addEventListener('click',async(ev)=>{const b=ev.target.closest('[data-tools]');if(!b||b.classList.contains('on'))return;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({tools:b.dataset.tools})});
   if(!r.ok){alert(await r.text());return;}
   await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');});
-document.addEventListener('change',async(ev)=>{const b=ev.target.closest('[data-equiv]');if(!b)return;
-  const want=[...document.querySelectorAll('[data-equiv]:checked')].map(x=>x.dataset.equiv);
-  const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({equivalence:want})});
-  if(!r.ok)alert(await r.text());
-  await swap('/fragment/equiv','#equiv');await swap('/fragment/cfgmeta','#cfg-meta');});
 // THE ARRANGEMENT'S FACES: choosing one opens that slot's card below the row (what it is told, its record, what is being tried
 // on it); choosing it again closes it. The card is painted live like the faces, since it carries the same data-live.
 document.addEventListener('click',(ev)=>{
@@ -595,7 +592,8 @@ document.addEventListener('click',async(ev)=>{
   if(!r.ok){alert(await r.text());await swap('/fragment/tidy','#tidy-body');return;}
   $('#tidy-body').innerHTML=await r.text();
 });
-// THE QUESTIONS FOR ONE BODY OF WORK: the pencil opens them; a row is added, changed or taken out, and Save writes them all
+// THE QUESTIONS A PERSON WROTE FOR ONE BODY OF WORK: its button under the pills opens them; a row is added, changed or taken
+// out, and Save writes them all
 const qCount=()=>{const n=document.querySelectorAll('#qlist .qrow').length;const c=$('#qcount');if(c)c.textContent=n+' of 200';const a=$('#qadd');if(a)a.disabled=n>=200;};
 document.addEventListener('click',async(ev)=>{
   const pen=ev.target.closest('[data-qedit]');
@@ -607,7 +605,7 @@ document.addEventListener('click',async(ev)=>{
     const questions=[...document.querySelectorAll('#qlist .qrow')].map(li=>({ask:li.querySelector('[data-q-ask]').value,mode:(li.querySelector('[data-q-mode]')||{}).value||undefined}));
     const r=await fetch('/questions',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({id:$('#qlist').dataset.target,questions})});
     b.disabled=false;if(!r.ok){alert(await r.text());return;}
-    $('#equiv').innerHTML=await r.text();$('#qedit').close();}
+    $('#ownq').innerHTML=await r.text();$('#qedit').close();}
 });
 // THE SwOA SPEC: what the swarm module as it stands is, in one document
 document.addEventListener('click',async(ev)=>{
@@ -713,10 +711,22 @@ setInterval(liveTick,1500);liveTick();
 // EVALUATE THE SWARM and PRETRAIN: started and stopped from their own buttons, and followed IN PLACE while they run (the bars, the
 // question being asked, how long a question takes, the step a model is on); each section is drawn again only when its run ends
 async function evPost(url,into,body){const r=await fetch(url,{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify(body||{})});
-  if(!r.ok){alert(await r.text());return;}$(into).innerHTML=await r.text();}
+  if(!r.ok){alert(await r.text());evAsk();return;}$(into).innerHTML=await r.text();keepOpen($(into));evAsk();}
+// WHICH BODIES OF WORK AN EVALUATION ASKS: every one to begin with; a person unticks some for a quicker look, and the device keeps
+// which. It is a choice for one run, not a setting of the swarm: training asks every body of work whatever is ticked here. The
+// boxes are drawn ticked, and painted from what the device kept whenever the card is drawn again
+function evOff(){try{const v=JSON.parse(localStorage.getItem('swarm.eval.off')||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
+function evAsk(){const bs=[...document.querySelectorAll('[data-ev-item]')];if(!bs.length)return;const off=evOff();
+  bs.forEach(b=>{b.checked=!off.includes(b.dataset.evItem);});if(!bs.some(b=>b.checked))bs.forEach(b=>{b.checked=true;});
+  const go=$('#ev-go');if(go&&!go.dataset.held)go.disabled=false;}
+document.addEventListener('change',(ev)=>{const b=ev.target.closest('[data-ev-item]');if(!b)return;const bs=[...document.querySelectorAll('[data-ev-item]')];
+  try{localStorage.setItem('swarm.eval.off',JSON.stringify(bs.filter(x=>!x.checked).map(x=>x.dataset.evItem)));}catch(e){}
+  const go=$('#ev-go');if(go&&!go.dataset.held)go.disabled=!bs.some(x=>x.checked);});
+document.addEventListener('DOMContentLoaded',evAsk);
 document.addEventListener('click',async(ev)=>{
   const b=ev.target.closest('#ev-go,#ev-stop,#pre-go,#pre-stop');if(!b)return;b.disabled=true;
-  if(b.id==='ev-go')await evPost('/eval/start','#evalwrap',{limit:Number(($('#ev-size')||{}).value||0)});
+  if(b.id==='ev-go'){const its=[...document.querySelectorAll('[data-ev-item]')];
+    await evPost('/eval/start','#evalwrap',{limit:Number(($('#ev-size')||{}).value||0),...(its.length?{items:its.filter(x=>x.checked).map(x=>x.dataset.evItem)}:{})});}
   else if(b.id==='ev-stop')await evPost('/eval/stop','#evalwrap');
   else if(b.id==='pre-go')await evPost('/pretrain/start','#prewrap');
   else await evPost('/pretrain/stop','#prewrap');
@@ -1133,7 +1143,7 @@ def viz_block(d):
     return ('<div class="panel viz"><p class="vintro">Every part of training, coded so it can be named (B3, D2). Lanes run top to bottom; '
             "steps run in the order of the arrows. The marked box is where the loop is now.</p>%s%s%s%s%s</div>" % (
                 lane("A", "Once a pass", [
-                    box("A1", "", "Questions", "Train questions are trained on; held questions are only checked."),
+                    box("A1", "", "Questions", "Of every body of work. Train questions are trained on; held questions are only checked."),
                     box("A2", "", "The standard", "The question's own where it has one; else the answers %s agrees with itself on." % tname),
                     box("A3", "", "The plan", "The moves the search draws its changes from.")]),
                 lane("B", "Each question, until its answer is good", [
@@ -1353,7 +1363,14 @@ def plan_panel(d):
     pol = d.get("policy") or {}
     lpol, ppol = pol.get("loop") or {}, pol.get("plan") or {}
     cap_, drop_ = lpol.get("cap"), lpol.get("drop")
-    out.append('<h4>How it is training</h4><p class="small" style="margin:0">A question stays in hand until its answer is good: it never moves on before%s. The arrangements found so far are tried on it first, the most successful first. Then changes are tried best first: from the closest arrangement open, and a change that comes closer is built on at once, with up to <b>%s</b> such arrangements open at a time; where every arrangement open has been tried, the search widens and builds on every arrangement it tried. '
+    # (what a pass asks is not chosen: every body of work, so many kinds of question in all; the bodies its record names, where
+    # the pass in hand was begun when fewer were asked)
+    eqd = d.get("equivalence") or {}
+    asked_b = [t for t in eqd.get("targets", []) if t["id"] in (eqd.get("asked") or [])]
+    n_kinds = len({k for t in asked_b for k in t.get("kinds", [])})
+    asks = ("A pass asks %s: <b>%d</b> kinds of question, and more of the kinds the pass before found the swarm short on. "
+            % ("every body of work" if len(asked_b) == len(eqd.get("targets", [])) else e(", ".join(t["name"] for t in asked_b)), n_kinds)) if asked_b else ""
+    out.append('<h4>How it is training</h4><p class="small" style="margin:0">' + asks.replace("%", "%%") + 'A question stays in hand until its answer is good: it never moves on before%s. The arrangements found so far are tried on it first, the most successful first. Then changes are tried best first: from the closest arrangement open, and a change that comes closer is built on at once, with up to <b>%s</b> such arrangements open at a time; where every arrangement open has been tried, the search widens and builds on every arrangement it tried. '
                "%s%s %s"
                "A slot asked exactly what it was asked before answers as it did, without being asked again, so a try that changes one slot asks only what changed. The plan lists <b>%s</b> arrangements one change from here first, and <b>%s</b> that are %s changes from here at once.</p>"
                % ((" (or after <b>%s</b> changes, a bound a person set)" % e(str(cap_))) if cap_ else "", e(str(lpol.get("beam", 3))),
@@ -1432,7 +1449,11 @@ def plan_panel(d):
         bits += ["%s: %d against %d" % (r["decider"], r.get("theirsRight", 0), r.get("nowRight", r.get("kevRight", 0))) for r in rep.get("results") or []]
     if bits:
         meta["what-only-you-can-change"] = " · ".join(bits)
-    meta["how-it-is-training"] = ("until its answer is good, best first, building on the %s closest · %s" % (
+    # (first, what a pass asks: every body of work, or the ones its record names where the pass in hand was begun on fewer)
+    eqm = d.get("equivalence") or {}
+    asked_m = [t for t in eqm.get("targets", []) if t["id"] in (eqm.get("asked") or [])]
+    meta["how-it-is-training"] = ("%suntil its answer is good, best first, building on the %s closest · %s" % (
+        ("every body of work · " if len(asked_m) == len(eqm.get("targets", [])) else ", ".join(t["name"] for t in asked_m) + " · ") if asked_m else "",
         lpol.get("beam", 3), "a change kept when its class got better" if lpol.get("classKeep") is True else "asked again on %s before a keep" % lpol.get("guard", 6)))
     fl = {k: v for k, v in sv["focus"].items() if v}
     meta["steer-it"] = " · ".join([", ".join("%s %s" % (dict((a, nm) for a, nm, _ in STEER_AREAS).get(k, k), v) for k, v in fl.items()) or "as planned"]
@@ -2525,11 +2546,9 @@ def pills(d):
 
 
 def cfg_meta(d):
-    """The configuration in a line: the small models, the decider, the larger model, and what it is equivalent on."""
+    """The configuration in a line: the small models, the decider, the larger model, and who takes turns with tools."""
     mem = " + ".join(m["name"] for m in d["members"].values() if m)
-    q = d.get("equivalence") or {}
-    on = ", ".join(t["name"] for t in q.get("targets", []) if t["id"] in q.get("chosen", []))
-    return "%s · %s decides%s · against %s%s · tools: %s" % (mem, (d.get("decider") or {}).get("name", "?"), (" · %s judges" % d["judge"]["name"]) if d.get("judge") else "", (d.get("target") or {}).get("name", "?"), (" · on " + on) if on else "",
+    return "%s · %s decides%s · against %s · tools: %s" % (mem, (d.get("decider") or {}).get("name", "?"), (" · %s judges" % d["judge"]["name"]) if d.get("judge") else "", (d.get("target") or {}).get("name", "?"),
                                                      "the swarm" if d.get("tools") == "swarm" else "%s alone" % ((d.get("members") or {}).get(d.get("tools")) or {}).get("name", "one model"))
 
 
@@ -2799,12 +2818,16 @@ def recs_panel(d):
 
 
 def config_section(d):
-    """The pills and Equivalent on, in one section that folds (open to begin with); folded, it says in a line what it is. Beside its
-    heading, a note when the evidence recommends a change to it."""
+    """The pills, and under them who takes turns with tools and the questions a person wrote, in one section that folds (open to
+    begin with); folded, it says in a line what it is. Beside its heading, a note when the evidence recommends a change to it.
+    NOTHING HERE CHOOSES WHAT THE SWARM IS TRAINED ON (console ruling 2026-11-18: the boxes to tick, "Equivalent on", are gone):
+    a pass asks every body of work, and what it asks more of is what it measured the swarm short on."""
     n = len([r for r in recommendations(d) if r.get("apply")])
     badge = ('<button type="button" class="recbadge" id="rec-open" title="Open the recommended configuration changes"><i></i>%d recommendation%s</button>' % (n, "" if n == 1 else "s")) if n else ""
     return ('<details class="cfg fold" data-keep="cfg" open><summary><span class="cfgh">Configuration</span><span id="rec-slot">%s</span><span class="fmeta" id="cfg-meta">%s</span></summary>'
-            '<div class="foldb">%s%s</div></details>' % (badge, e(cfg_meta(d)), pills(d), equiv(d)))
+            '<div class="foldb">%s<div class="cfgrows"><div class="cfgrow"><span class="cfgl">Turns with tools</span>%s</div>'
+            '<div class="cfgrow"><span class="cfgl">Your own questions</span>%s</div></div></div></details>'
+            % (badge, e(cfg_meta(d)), pills(d), tools_toggle(d), own_questions(d)))
 
 
 def tools_toggle(d, inner=False):
@@ -2817,27 +2840,24 @@ def tools_toggle(d, inner=False):
     # one choice for the swarm, and one for each small model in it, by its name: the list follows the pills
     seg = lambda val, label, sel: '<button type="button" class="seg%s" data-tools="%s" aria-pressed="%s">%s</button>' % (" on" if sel else "", e(val), "true" if sel else "false", label)  # noqa: E731
     segs = seg("swarm", "Decided by the swarm", on) + "".join(seg(m["id"], "%s alone" % e(m["name"]), cur == k) for k, m in mem)
-    # (in the Equivalent on card, under its boxes, with no description: console instruction 2026-11-17)
+    # (a row of Configuration, under the pills, with a label and no description: it was under the boxes to tick while there were any)
     body = '<div class="tgl" role="group" aria-label="Who takes a turn with tools">%s</div>' % segs
     return body if inner else '<div class="tools" id="tools">%s</div>' % body
 
 
-def equiv(d, inner=False):
-    """What the swarm is to be equivalent on: one box to tick for each body of work, under the models. More than one can be
-    ticked. It can be changed while a session runs: a pass ends on the questions it began with, and the next one asks these."""
-    q = d.get("equivalence") or {"targets": [], "chosen": []}
+def own_questions(d, inner=False):
+    """THE QUESTIONS A PERSON WROTE, a button for each body of work (training/equivalence.json), which opens that body's questions
+    to change, add to or take out. They are asked beside the ones the trainer makes: an addition, never a choice of what is
+    trained on. A button says how many of a person's own there are, where there are any; what the body of work is, is its title
+    and the head of what it opens."""
     own = lambda t: len(t.get("own") or [])  # noqa: E731
-    boxes = "".join(
-        '<div class="tick%s"><label title="%s"><input type="checkbox" data-equiv="%s"%s><span><b>%s</b><small>%s%s</small></span></label>'
-        '<button class="pencil" type="button" data-qedit="%s" title="Edit the questions for %s" aria-label="Edit the questions for %s">'
-        '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M13.6 3.2a1.8 1.8 0 0 1 2.6 0l.6.6a1.8 1.8 0 0 1 0 2.6l-9.3 9.3-3.8 1.1 1.1-3.8z"/><path d="M12.2 4.6l3.2 3.2"/></svg></button></div>'
-        % (" on" if t["id"] in q["chosen"] else "", e(t.get("about", "")), e(t["id"]), " checked" if t["id"] in q["chosen"] else "", e(t["name"]), e(t.get("about", "")),
-           (" <em>· %d of your own</em>" % own(t)) if own(t) else "", e(t["id"]), e(t["name"]), e(t["name"]))
-        for t in q["targets"])
-    # (and who takes a turn with tools, the switch under the boxes; no description under either: console instruction 2026-11-17)
-    body = '<legend>Equivalent on</legend><div class="ticks">%s</div>%s' % (boxes, tools_toggle(d))
+    body = "".join(
+        '<button class="ownb" type="button" data-qedit="%s" title="%s" aria-label="Your own questions for %s%s">%s%s'
+        '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M13.6 3.2a1.8 1.8 0 0 1 2.6 0l.6.6a1.8 1.8 0 0 1 0 2.6l-9.3 9.3-3.8 1.1 1.1-3.8z"/><path d="M12.2 4.6l3.2 3.2"/></svg></button>'
+        % (e(t["id"]), e(t.get("about", "")), e(t["name"]), (": %d written" % own(t)) if own(t) else ": none written", e(t["name"]), (" <em>%d</em>" % own(t)) if own(t) else "")
+        for t in (d.get("equivalence") or {}).get("targets", []))
     # (drawn again in place, it is what is inside the row that is sent)
-    return body if inner else '<fieldset class="equiv" id="equiv">%s</fieldset>' % body
+    return body if inner else '<div class="ownq" id="ownq">%s</div>' % body
 
 
 MOST_OWN = 200  # the same bound as training/tasks.mjs
@@ -2848,7 +2868,7 @@ def questions_panel(d, tid):
     questions a person wrote, one row each, to change, add to or take out. Saved to training/questions/<id>.json."""
     t = next((x for x in (d.get("equivalence") or {}).get("targets", []) if x["id"] == tid), None)
     if not t:
-        return '<p class="muted">There is nothing called that to be equivalent on.</p>'
+        return '<p class="muted">There is no body of work called that.</p>'
     crew = tid == "crew"
 
     def row(qn):
@@ -2862,7 +2882,7 @@ def questions_panel(d, tid):
     made = "".join("<li>%s</li>" % e(KIND_WORDS.get(k, k)) for k in t.get("kinds", []))
     rows = "".join(row(x) for x in t.get("own") or [])
     return (
-        '<div class="spec-head"><div><div class="kicker">Equivalent on</div><h3 style="font-size:22px;margin-top:4px">Questions: %s</h3></div>'
+        '<div class="spec-head"><div><div class="kicker">A body of work</div><h3 style="font-size:22px;margin-top:4px">Questions: %s</h3></div>'
         '<button class="btn stop top" id="qedit-close" type="button">Close</button></div>'
         '<p class="muted small" style="margin:8px 0 0">%s</p>'
         '<h4>Your own questions</h4>'
@@ -3043,7 +3063,7 @@ def spec_panel(d):
             '<p class="muted small" style="margin:6px 0 0">The entry a model chooser takes, with <code>engine: swarm</code>; it is started with <code>%s</code>.</p>'
             "<h4>What it needs</h4><table class='spec'>%s</table><h4>What it can do as a model</h4><table class='spec'>%s</table>%s<h4>To make it</h4><table class='spec'>%s</table>"
             % (e(c["name"]), e(c["size"]), e(str(c["memGb"])), e(c["pace"] if c.get("secondsPerReply") is None else "%s s a reply" % c["secondsPerReply"]), e(c["badge"]), e(c["plain"]),
-               ('<div class="hcon">%s</div>' % "".join("<span>%s</span>" % e(x) for x in c["equivalentOn"])) if c["equivalentOn"] else "", e(st_["host"]),
+               ('<div class="hcon">%s</div>' % "".join("<span>%s</span>" % e(x) for x in c["trainedOn"])) if c["trainedOn"] else "", e(st_["host"]),
                row("Platforms", e(", ".join(rq["platforms"])) + "<br><span class='muted'>%s</span>" % e(rq["platformsAre"])) + row("Memory", "about %s GB (an estimate)" % e(str(rq["memoryGb"])))
                + row("Disk", "%s GB of model files" % e(str(rq["diskGb"]))) + row("Engine", e(rq["engine"])) + row("Node", e(rq["node"])) + (row("The decider", e(rq["decider"])) if rq.get("decider") else "")
                + row("Licences", e("; ".join(rq["licenses"]))) + row("Commercial use", ("<b>Allowed by every licence listed</b>" if rq["commercialUse"] else "<b class='bad'>Not allowed</b>: a licence says non-commercial") + "<br><span class='muted'>Read every licence above before offering it</span>"),
@@ -3346,11 +3366,6 @@ def busy(ghost="00%"):
     return '<b class="pct busy" role="progressbar" aria-label="Being measured"><span aria-hidden="true">%s</span><i></i></b>' % ghost
 
 
-def chosen_items(eq):
-    """The bodies of work ticked under the models, in the list's order."""
-    return [t for t in eq.get("targets", []) if t["id"] in (eq.get("chosen") or [])]
-
-
 def eval_of_config(root, d):
     """THE EVALUATION OF THE SWARM AS IT IS APPLIED: the newest that finished (.work/eval/history.jsonl, then results.json) of this
     configuration (the same small models, decider and larger model: its key) served as it is now (with the same adapters, or with
@@ -3386,16 +3401,16 @@ def eval_block(d):
     res, any_res = eval_of_config(root, d)
     tname = (d.get("target") or {}).get("name", "the larger model")
     eq = d.get("equivalence") or {}
-    chosen = chosen_items(eq)
     running = live.get("running")
     shown = live if (running or live.get("phase") in ("stopped", "failed")) and live.get("tasks") else None
     by_task = {r["task"]: dict(r, targetName=res.get("target") or tname) for r in res.get("results", [])}
     lrows = {t["task"]: t for t in (shown or {}).get("tasks", [])}
-    # WHAT IS SHOWN: what is chosen, and after it any other body of work the run under way, or the last one, asked (a proof run
-    # asks every body that has a standard test)
-    listed = chosen + [t for t in eq.get("targets", []) if t not in chosen and any(b["task"] in lrows or b["task"] in by_task for b in t.get("benchmarks") or [])]
+    # WHAT IS SHOWN: every body of work that has a standard task. Which of them a run asks is ticked here, beside the button, for
+    # that run alone (every one to begin with, kept on the device): it is not a setting of the swarm, and training asks every
+    # body of work whatever is ticked here
+    listed = [t for t in eq.get("targets", []) if t.get("benchmarks")]
     held = busy_with()
-    # the headline: of every question compared in the last evaluation (of what is chosen now), how many had the same answer
+    # the headline: of every question compared in the last evaluation, how many had the same answer
     comp = [by_task[b["task"]] for t in listed for b in t.get("benchmarks", []) if b["task"] in by_task and by_task[b["task"]].get("agree")]
     same = sum(r["agree"]["same"] for r in comp)
     of = sum(r["agree"]["of"] for r in comp)
@@ -3406,7 +3421,9 @@ def eval_block(d):
     # or failed, a run writes no result, and the last one that finished is shown again as it was
     if running:
         size_run = PROOF_SIZE if live.get("proof") else (job_state("eval") or {}).get("limit", live.get("limit"))
-        every = [b for t in (listed if size_run == PROOF_SIZE else chosen) for b in t.get("benchmarks") or [] if size_run != PROOF_SIZE or b["task"] in lrows]
+        # (the tasks of this run: the ones it says it is asking; before it has said, those of the bodies of work it was started with)
+        asked_ids = (job_state("eval") or {}).get("items") or [t["id"] for t in listed]
+        every = [b for t in listed for b in t.get("benchmarks") or [] if (b["task"] in lrows if lrows else t["id"] in asked_ids)]
         # (a proof run asks each task its own size; where one of them is every question the sum is not known before it runs)
         asked_n = ((sum(int(b.get("proofN") or 0) for b in every) if all(b.get("proofN") for b in every) else 0) if size_run == PROOF_SIZE
                    else int(size_run) * len(every)) if size_run else 0
@@ -3417,16 +3434,24 @@ def eval_block(d):
     if running:
         ctl = '<button class="btn stop top" id="ev-stop" type="button">Stop evaluation</button>'
     else:
-        ctl = ('<select id="ev-size" aria-label="How many questions of each task"%s>%s</select><button class="btn top" id="ev-go" type="button"%s>Evaluate</button>'
-               % (" disabled" if held else "", opts, " disabled" if held or not chosen else ""))
+        ctl = ('<select id="ev-size" aria-label="How many questions of each task"%s>%s</select><button class="btn top" id="ev-go" type="button"%s%s>Evaluate</button>'
+               % (" disabled" if held else "", opts, ' data-held="1"' if held else "", " disabled" if held or not listed else ""))
     out = ['<div class="panel evalp" id="evalbox" data-phase="%s" data-run="%s"%s>' % (e(live.get("phase") or ""), e(live.get("runId") or ""), ' data-running="1"' if running else ""),
            '<div class="proghead">%s<span class="progline">Standard benchmarks (%s), asked of %s and of the swarm, '
            'and every question&#39;s two answers compared. Kept apart from training: training never asks a benchmark&#39;s question.</span>'
            '<span class="evctl">%s</span></div>'
-           # (the harnesses of what is chosen: the tool tests are named only where a chosen body of work is measured by them)
+           # (the harnesses of what is listed: the tool tests are named only where a body of work is measured by them)
            % (head, "; ".join(HARNESS_WORDS[k] for k in ("lm", "bfcl") if any((b.get("harness") or "lm") == k for t in listed for b in t.get("benchmarks") or [])) or HARNESS_WORDS["lm"], e(tname), ctl)]
     if held and not running:
         out.append('<div class="state warn"><i></i><span>%s is running: an evaluation waits for it, since each needs the models to itself.</span></div>' % e(held[0].upper() + held[1:]))
+    if listed and not running:
+        # WHICH BODIES OF WORK THIS EVALUATION ASKS: a box for each, every one ticked to begin with. Unticking some makes a
+        # quicker look (every body at twenty a task is some 460 questions of each model); what is ticked is kept on the device
+        # (the page's evAsk) and sent with the press of Evaluate. A proof run asks what is ticked too: a proof is said
+        # capability by capability, so one body of work can be proved, or asked again, by itself
+        out.append('<div class="evask" role="group" aria-label="Which bodies of work this evaluation asks"><span class="cfgl">Asks</span>%s</div>'
+                   % "".join('<label title="%s"><input type="checkbox" data-ev-item="%s" checked%s>%s</label>'
+                             % (e(", ".join(b["name"] for b in t["benchmarks"])), e(t["id"]), " disabled" if held else "", e(t["name"])) for t in listed))
     # WHAT IS HAPPENING NOW (painted again in place from /api/eval)
     if running or (shown and live.get("phase") in ("stopped", "failed")):
         cls = "on" if running else ("warn" if live.get("phase") == "failed" else "")
@@ -3438,8 +3463,8 @@ def eval_block(d):
                    % (cls, e(live.get("step") or ""), "" if now else ' hidden',
                       e(("%s · %s · question %s%s" % ("the swarm" if now.get("who") == "swarm" else tname, now.get("name", ""), now.get("i", ""), (" of %s" % now["of"]) if now.get("of") else "")) if now else ""),
                       e(" ".join(str(now.get("ask", "")).split())[-300:]), e(("Last answer (%.0f s): " % last["seconds"] + " ".join(str(last.get("reply", "")).split())[:240]) if last.get("seconds") is not None else "")))
-    if not chosen:
-        out.append('<p class="muted">Nothing is chosen under the models.</p>')
+    if not listed:
+        out.append('<p class="muted">No body of work has a standard task.</p>')
     # THE WHOLE BREAKDOWN FOLDS, AND IS FOLDED TO BEGIN WITH (console instruction 2026-11-18): one section that holds every body of
     # work, saying in a line where the run is, or what the last evaluation came to. Inside it each body of work folds by itself
     if listed:
@@ -3454,13 +3479,12 @@ def eval_block(d):
         tc = [by_task[b["task"]] for b in bms if b["task"] in by_task and by_task[b["task"]].get("agree") and not shown]
         isame, iof = sum(r["agree"]["same"] for r in tc), sum(r["agree"]["of"] for r in tc)
         # A BODY OF WORK FOLDS UNDER ITS HEADING (as the plan's sections do: details.psec, kept on the device), and says in a line what
-        # it holds while folded. Open to begin with: the one being asked, while a run is shown; else what is chosen for training
+        # it holds while folded. Folded to begin with, but for the one being asked while a run is shown
         live_rows = [lrows[b["task"]] for b in bms if b["task"] in lrows]
         asking = any((r.get(w) or {}).get("state") == "asking" for r in live_rows for w in ("target", "swarm"))
-        out.append('<details class="psec evitem" data-keep="eval-%s"%s><summary><h4>%s%s%s</h4><span class="pmeta" data-evm="%s">%s</span></summary><div class="psecb">'
-                   % (e(t["id"]), " open" if (asking if shown else t in chosen) else "", e(t["name"]),
+        out.append('<details class="psec evitem" data-keep="eval-%s"%s><summary><h4>%s%s</h4><span class="pmeta" data-evm="%s">%s</span></summary><div class="psecb">'
+                   % (e(t["id"]), " open" if shown and asking else "", e(t["name"]),
                       (' <span class="pill">%s%% equivalent</span>' % fmt_pct(data.percent(isame, iof))) if iof else "",
-                      "" if t in chosen else ' <span class="muted small">not chosen for training; measured all the same</span>',
                       e(t["id"]), e(_ev_meta_live(live_rows, tname) if live_rows else _ev_meta_done(bms, by_task))))
         if t.get("benchmarksNote"):
             out.append('<p class="muted small">%s.</p>' % e(t["benchmarksNote"]))
@@ -3484,7 +3508,8 @@ def eval_block(d):
                                 "swarm": {"state": "done", "done": (r.get("swarm") or {}).get("n") or 0, "of": (r.get("swarm") or {}).get("n")}}, "target", tname) + \
                        _ev_bar({"swarm": {"state": "done", "done": (r.get("swarm") or {}).get("n") or 0, "of": (r.get("swarm") or {}).get("n")}}, "swarm", "The swarm")
             else:
-                bars = '<span class="muted small">not evaluated yet</span>'
+                # (a body of work the run that is shown was not asked to put: said so, and not as if nothing had ever measured it)
+                bars = '<span class="muted small">%s</span>' % ("not in this run" if shown else "not evaluated yet")
             out.append('<div class="evrow" data-evt="%s"><div class="evname"><b>%s</b><small>Scored by %s · equivalent: %s</small></div><div class="evbars">%s</div><div class="evag" data-ag>%s</div></div>'
                        % (e(b["task"]), e(b["name"]), e(METRIC_WORDS.get(b["metric"], b["metric"].replace("_", " "))), e(COMPARE_WORDS.get(b["compare"], "")), bars, _ev_agree(r) if (r or lr) else ""))
         out.append("</div></details>")
@@ -3533,7 +3558,7 @@ def _iter_of(log):
 
 def pretrain_block(d):
     """PRETRAIN: a LoRA adapter for each small model of the swarm, trained with MLX on the larger model's answers to the train
-    questions of what is chosen (never a benchmark's, never a held one), and kept where llama.cpp finds those answers likelier with
+    questions of the pass (never a benchmark's, never a held one), and kept where llama.cpp finds those answers likelier with
     it. Whether the swarm is served with them is a switch; Evaluate the swarm, before and after, says what they bought."""
     root = Path(ARGS.root)
     live = job_live("pretrain")
@@ -3601,7 +3626,10 @@ def pretrain_block(d):
         none_can = not any((orig.get((m or {}).get("file")) or {}) and not (orig.get((m or {}).get("file")) or {}).get("cannot") for m in (d.get("members") or {}).values() if m)
         ctl = ('<button class="btn top" id="pre-go" type="button"%s>Pretrain</button>'
                % ((' disabled title="None of the swarm\'s small models can be adapted here: each says why"' if none_can and apple else "") or (" disabled" if held or not apple else "")))
-    items = ", ".join(t["name"] for t in (d.get("equivalence") or {}).get("targets", []) if t["id"] in ((d.get("equivalence") or {}).get("chosen") or []))
+    # (the bodies of work this pass's train questions cover: every one, unless its record is of a pass that asked fewer)
+    eqv = d.get("equivalence") or {}
+    asked = [t["name"] for t in eqv.get("targets", []) if t["id"] in (eqv.get("asked") or [])]
+    items = "every body of work" if asked and len(asked) == len(eqv.get("targets", [])) else ", ".join(asked)
     out = ['<div class="panel prep" id="prebox"%s>' % (' data-running="1"' if running else ""),
            '<div class="proghead"><span class="memnum"%s>%s<span>of %d adapted<small>LoRA, with MLX</small></span></span>'
            '<span class="progline">Each small model learns %s&#39;s answers to the train questions of %s: never a benchmark&#39;s, never a held one. '
@@ -3609,7 +3637,7 @@ def pretrain_block(d):
            # (while it runs, how many are adapted is not known until each model's run is checked: a bar that moves in place of the
            # number; stopped or failed, the adapters that were there are there still, and the number comes back as it was)
            % (' aria-busy="true"' if running else "", busy("0") if running else '<b class="pct">%d</b>' % good, len(rows),
-              e(tgt.get("name", "the larger model")), e(items or "what is chosen"), ctl)]
+              e(tgt.get("name", "the larger model")), e(items or "this pass"), ctl)]
     if held and not running:
         out.append('<div class="state warn"><i></i><span>%s is running: pretraining waits for it.</span></div>' % e(held[0].upper() + held[1:]))
     elif not apple and not running:
@@ -3898,8 +3926,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(('<button type="button" class="recbadge" id="rec-open" title="Open the recommended configuration changes"><i></i>%d recommendation%s</button>' % (n, "" if n == 1 else "s")) if n else "")
         if u.path == "/fragment/cfgmeta":
             return self._send(e(cfg_meta(d)))
-        if u.path == "/fragment/equiv":
-            return self._send(equiv(d, inner=True))
+        if u.path == "/fragment/ownq":
+            return self._send(own_questions(d, inner=True))
         if u.path == "/fragment/tools":
             return self._send(tools_toggle(d, inner=True))
         if u.path == "/fragment/tidy":
@@ -3935,17 +3963,21 @@ class Handler(BaseHTTPRequestHandler):
                 stop_job("eval")
                 return self._send(eval_block(data.load(ARGS.root)))
             try:
-                asked = json.loads(self.rfile.read(min(int(self.headers.get("content-length", 0)), 200)) or b"{}")
+                asked = json.loads(self.rfile.read(min(int(self.headers.get("content-length", 0)), 2000)) or b"{}")
             except ValueError:
                 asked = {}
             limit = asked.get("limit") if isinstance(asked, dict) else None
             if limit not in [n for n, _ in EVAL_SIZES]:
                 return self._send("Choose how many questions of each task.", 400, "text/plain; charset=utf-8")
-            # (a proof run asks every body of work that has a standard test, chosen for training or not: a proof is of the
-            # module, capability by capability)
+            # WHICH BODIES OF WORK IT ASKS: the ones ticked beside the button, of those that have a standard task; every one
+            # where the request names none. At least one, and none that is not on the list
             battery = [t["id"] for t in (data.load(ARGS.root).get("equivalence") or {}).get("targets", []) if t.get("benchmarks")]
-            why = start_job("eval", ["sh", "training/evaluate.sh"] + (["--proof", "--items", ",".join(battery)] if limit == PROOF_SIZE else ["--limit", str(limit)] if limit else []),
-                            keep={"limit": limit, **({"proof": True, "items": battery} if limit == PROOF_SIZE else {})})
+            items = asked.get("items", battery) if isinstance(asked, dict) else battery
+            if not isinstance(items, list) or not items or any(i not in battery for i in items):
+                return self._send("Tick at least one body of work to ask.", 400, "text/plain; charset=utf-8")
+            items = [i for i in battery if i in items]
+            why = start_job("eval", ["sh", "training/evaluate.sh"] + (["--proof"] if limit == PROOF_SIZE else ["--limit", str(limit)] if limit else []) + ["--items", ",".join(items)],
+                            keep={"limit": limit, "items": items, **({"proof": True} if limit == PROOF_SIZE else {})})
             if why:
                 return self._send(why, 409, "text/plain; charset=utf-8")
             time.sleep(0.3)
@@ -4052,7 +4084,7 @@ class Handler(BaseHTTPRequestHandler):
             tmp = out / (tid + ".json.tmp")
             tmp.write_text(json.dumps({"questions": keep}, indent=2, ensure_ascii=False) + "\n")
             tmp.replace(out / (tid + ".json"))
-            return self._send(equiv(data.load(ARGS.root), inner=True))
+            return self._send(own_questions(data.load(ARGS.root), inner=True))
         if path == "/config":
             # a model chosen in one of the pills: written to src/config.json, unless a session is running or it is not one that can be chosen
             try:
@@ -4061,18 +4093,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send("Not understood.", 400, "text/plain; charset=utf-8")
             if not isinstance(asked, dict):
                 return self._send("Not understood.", 400, "text/plain; charset=utf-8")
-            # (what it is to be equivalent on can be changed while a session runs: a pass ends on the questions it began with)
-            if (run_state() or {}).get("running") and set(asked) - {"equivalence", "tools", "adapters"}:
+            # (who takes turns with tools, and the adapters, can be changed while a session runs: it keeps what it began with)
+            if (run_state() or {}).get("running") and set(asked) - {"tools", "adapters"}:
                 return self._send("A session is running: stop it before changing a model.", 409, "text/plain; charset=utf-8")
             root = Path(ARGS.root)
             reg = data._json(root / "src" / "models.json", {})
             now = data._json(root / "src" / "config.json", {})
+            # WHAT THE SWARM IS TRAINED ON IS NOT A SETTING (console ruling 2026-11-18): a pass asks every body of work. A choice
+            # asked for is refused, and one left in the file from when there was one is taken out the next time it is written
             if "equivalence" in asked:
-                known = [t["id"] for t in (data.load(ARGS.root).get("equivalence") or {}).get("targets", [])]
-                want = asked["equivalence"]
-                if not isinstance(want, list) or not want or any(i not in known for i in want):
-                    return self._send("Tick at least one, from the ones listed.", 400, "text/plain; charset=utf-8")
-                now["equivalence"] = [i for i in known if i in want]
+                return self._send("The swarm is trained on every body of work: there is nothing to choose.", 400, "text/plain; charset=utf-8")
+            now.pop("equivalence", None)
             if "adapters" in asked:
                 # served with the adapters Pretrain trained, or without (from the next time the swarm is loaded)
                 if not isinstance(asked["adapters"], bool):
