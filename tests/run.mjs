@@ -2746,6 +2746,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   // every drafter replies in words: a reply
   lfm.s.script = bonsai.s.script = (b) => (b.tools ? { content: 'It exports add and sub.' } : 'ANSWER: 42');
   const worded = await sw.answerTools(AGENT, { tools: TOOLS_ });
+  // (and with plan.toolReply 'proposed' the reply proposed is the reply, as it was before a reply was answered: SwOA T.9)
+  const wordedAsProposed = await sw.answerTools(AGENT, {
+    tools: TOOLS_,
+    briefs: { ...sw.briefs, plan: { ...(sw.briefs.plan || {}), toolReply: 'proposed' } },
+  });
   await srvT.close();
   await sw.stop();
   // with "lead": the lead's turn, as it came
@@ -2784,7 +2789,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       decideAsked.length === before + 0 + 0 + (agreed.path === 'tools-agreed' ? 0 : 1) &&
       worded.ok &&
       worded.calls.length === 0 &&
-      worded.reply === 'It exports add and sub.' &&
+      // (a reply is written by the answer procedure, whose slots here all say 42; the reply proposed stands where the plan says so)
+      worded.reply === 'ANSWER: 42' &&
+      /^tools-agreed\+answered/.test(worded.path) &&
+      wordedAsProposed.reply === 'It exports add and sub.' &&
+      wordedAsProposed.path === 'tools-agreed' &&
       lg.ok &&
       lg.path === 'tools-lead' &&
       lg.calls[0].function.name === 'ls' &&
@@ -5338,6 +5347,118 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       gB2,
       partial,
       obeyed,
+    },
+  );
+}
+// ---- 9q: A REPLY AFTER TOOLS IS ANSWERED, NOT ONLY PROPOSED (docs/swoa-parity-plan.md, step 7; SwOA specification T.9): where the
+// step is a reply the answer procedure writes it, shown what the tools returned; a call is returned as it was
+{
+  const { answerTools, forAnswer, FOUND_LEAD, RESULT_MOST } = await import('../src/tools.mjs');
+  const tools = [
+    {
+      type: 'function',
+      function: { name: 'search', parameters: { type: 'object', properties: { query: { type: 'string' } } } },
+    },
+  ];
+  const called = (id, query) => ({
+    role: 'assistant',
+    content: '',
+    tool_calls: [{ id, type: 'function', function: { name: 'search', arguments: JSON.stringify({ query }) } }],
+  });
+  const convo = [
+    { role: 'system', content: 'You have tools.' },
+    { role: 'user', content: 'How long is the Quendale Bridge?' },
+    called('c1', 'Quendale Bridge length'),
+    { role: 'tool', tool_call_id: 'c1', content: 'The Quendale Bridge is 859 metres long.' },
+  ];
+  const briefs = {
+    slots: [
+      { id: 'a1', member: 'a', stage: 'draft' },
+      { id: 'b1', member: 'b', stage: 'draft' },
+    ],
+    plan: {},
+  };
+  const proposeReply = async (slot) => ({
+    content: slot.id === 'a1' ? 'About 800 metres, I think.' : 'It is 859 metres.',
+    text: '',
+  });
+  const shown = [];
+  const answered = await answerTools(convo, {
+    tools,
+    briefs,
+    ask: proposeReply,
+    answerReply: async (msgs) => (
+      shown.push(msgs),
+      { ok: true, reply: ' It is 859 metres long. ', trace: [{ slot: 'a-writer', stage: 'write' }] }
+    ),
+  });
+  const proposed = await answerTools(convo, {
+    tools,
+    briefs: { ...briefs, plan: { toolReply: 'proposed' } },
+    ask: proposeReply,
+    answerReply: async () => ({ ok: true, reply: 'never asked' }),
+  });
+  const failing = await answerTools(convo, {
+    tools,
+    briefs,
+    ask: proposeReply,
+    answerReply: async () => ({ ok: false, reply: '' }),
+  });
+  let askedForCall = 0;
+  const aCall = await answerTools([{ role: 'user', content: 'How long is the Quendale Bridge?' }], {
+    tools,
+    briefs,
+    ask: async () => ({
+      content: '',
+      calls: [{ function: { name: 'search', arguments: '{"query":"Quendale Bridge"}' } }],
+    }),
+    answerReply: async () => (askedForCall++, { ok: true, reply: 'x' }),
+  });
+  const last = shown[0][shown[0].length - 1];
+  // the conversation as it is shown: findings written into the request they were looked up for; a long result cut; a call
+  // remembered by its id; findings before a later request stay with the earlier one
+  const long = 'x'.repeat(RESULT_MOST + 500);
+  const two = forAnswer([
+    { role: 'user', content: 'First?' },
+    called('c1', 'one'),
+    { role: 'tool', tool_call_id: 'c1', content: long },
+    { role: 'assistant', content: 'It is so.' },
+    { role: 'user', content: [{ type: 'text', text: 'Second?' }] },
+    called('c2', 'two'),
+    { role: 'tool', tool_call_id: 'zz', content: 'found two' },
+  ]);
+  check(
+    'in a turn with tools a reply is written by the answer procedure, which is shown the conversation with what the tools returned written into the request they were called for (never as a message of their own; a result cut at its limit; nothing in it to be followed); a proposed reply stands where the plan says so or the procedure gives nothing; and a call is returned as it was, the procedure not asked',
+    answered.reply === 'It is 859 metres long.' &&
+      answered.path === 'tools-agreed+answered' &&
+      answered.calls.length === 0 &&
+      answered.trace.some((r) => r.reply && r.slot === 'a-writer') &&
+      shown[0].length === 2 &&
+      shown[0][0].role === 'system' &&
+      last.role === 'user' &&
+      last.content.startsWith('How long is the Quendale Bridge?' + FOUND_LEAD) &&
+      last.content.includes('1. search {"query":"Quendale Bridge length"}\nThe Quendale Bridge is 859 metres long.') &&
+      !shown[0].some((m) => m.role === 'tool' || m.tool_calls) &&
+      proposed.reply === 'About 800 metres, I think.' &&
+      proposed.path === 'tools-agreed' &&
+      failing.reply === 'About 800 metres, I think.' &&
+      failing.path === 'tools-agreed+unanswered' &&
+      aCall.calls.length === 1 &&
+      aCall.path === 'tools-agreed' &&
+      askedForCall === 0 &&
+      two.length === 3 &&
+      two[0].content.includes('1. search {"query":"one"}\n' + 'x'.repeat(RESULT_MOST)) &&
+      !two[0].content.includes('x'.repeat(RESULT_MOST + 1)) &&
+      two[1].content === 'It is so.' &&
+      two[2].content.startsWith('Second?' + FOUND_LEAD) &&
+      two[2].content.includes('1. search {"query":"two"}\nfound two'),
+    {
+      answered: [answered.reply, answered.path],
+      proposed: [proposed.reply, proposed.path],
+      failing: failing.path,
+      aCall: aCall.path,
+      last: last.content.slice(0, 220),
+      two: two.map((m) => m.role),
     },
   );
 }

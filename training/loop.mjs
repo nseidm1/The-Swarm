@@ -658,7 +658,7 @@ export function addToLibrary(lib, names, from) {
 // offered); one a person wrote, for any class; with no class asked for, all of them (training/loop.mjs fileCands)
 export const offeredOn = (cands, cls = null) =>
   (cands || []).filter((c) => c && (!cls || !c.written || (c.class === cls && !!c.add)));
-// A DEGENERATE REPLY: one that is mostly the same few characters over and over (measured 2026-11-18: the 30B answered "What is in
+// A DEGENERATE REPLY: one that is mostly the same few characters over and over (measured 2026-11-18: the larger model answered "What is in
 // the docs folder?" with one three-character phrase repeated to its token limit). Of a reply's four-character pieces, fewer than one
 // in ten different, over at least sixty characters
 export function degenerate(text) {

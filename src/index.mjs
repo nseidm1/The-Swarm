@@ -286,6 +286,16 @@ export async function createSwarm(opts = {}) {
         ask,
         decide,
         lead: opts.lead || 'a',
+        // (where the step is a reply, the answer procedure writes it, shown what the tools returned: SwOA specification T.9)
+        answerReply: (shown) =>
+          orchestrate(shown, {
+            briefs: o.briefs || briefs,
+            ask,
+            others: Object.keys(members).sort((x, y) => (Number(MEM[y]?.params) || 0) - (Number(MEM[x]?.params) || 0)),
+            decide,
+            behave,
+            print: behave ? printed : null,
+          }),
       });
       return last;
     },

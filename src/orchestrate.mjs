@@ -817,7 +817,7 @@ export async function answer(
   const ONLY_IF_DISPUTED = new Set(['check', 'revise', 'decide', 'repeat']);
   // A PROGRAM THE QUESTION ASKS THE OUTPUT OF IS RUN, not worked out (SwOA specification R.4): started with the drafts, and once
   // the drafting is over what it printed settles the matter, whatever the drafts said (measured 2026-11-18: on six questions of
-  // what a short program prints the 30B's own reply was wrong once; running it is never wrong). Where it cannot be run, nothing
+  // what a short program prints the larger model's own reply was wrong once; running it is never wrong). Where it cannot be run, nothing
   // changes
   const program = plan.runPrograms !== false && print ? programOf(question) : '';
   const printing = program ? Promise.resolve(print(program)).catch(() => null) : null;
