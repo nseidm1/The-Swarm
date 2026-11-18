@@ -2,7 +2,8 @@
   "about": "HOW THE TRAINER TRAINS: its settings, as data. The trainers read this and nothing of it is written into their code. A configuration can carry its own values over these (`policy` in its record under training/states/), set by a person.",
   "questions": {
     "each": 6,
-    "about": "How many questions of each kind a pass asks: its train questions, taken one at a time, and its held questions, which measure it. EACH, or --each, names another number for one run."
+    "shortMore": 2,
+    "about": "How many questions of each kind a pass asks: its train questions, taken one at a time, and its held questions, which measure it. EACH, or --each, names another number for one run. shortMore: how many more train questions of each kind the next pass asks where the proof found the swarm short on the capability that kind belongs to (training/support/emphasis.mjs; 0: the proof is not read). It is added to what the pass's own held questions ask more of (two for each one missed), to at most six more of a kind in all. Only a capability's verdict is read from the proof, never a question of the harness."
   },
   "loop": {
     "cap": null,

@@ -7,12 +7,14 @@
 // What a pass leaves is in state.json (see state.mjs) and, for a person, a section in training/passes.md.
 import fs from 'node:fs';
 import path from 'node:path';
-import { REPO_ROOT, RESULTS, WORK, aloneLabel } from './support/bench.mjs';
-import { MEMBERS, DECIDER, CONFIG_ID, writeConfig } from '../src/catalog.mjs';
+import { REPO_ROOT, RESULTS, WORK, aloneLabel, modelsDir } from './support/bench.mjs';
+import { MEMBERS, DECIDER, CONFIG_ID, CONFIG_KEY, readConfig, writeConfig } from '../src/catalog.mjs';
 import { readState, writeState, seedState, readTargets, targetOf, parity, STANDING } from './state.mjs';
 import { readBriefs, notePass, readLearned } from '../src/index.mjs';
 import { readPolicy } from './policy.mjs';
-import { kindsFor, readOwn } from './tasks.mjs';
+import { kindsFor, readOwn, EQUIVALENCE } from './tasks.mjs';
+import { proofFocus, readEvaluations } from './support/emphasis.mjs';
+import { lorasFor } from './adapters.mjs';
 
 // what to ask arXiv when the swarm trails on a kind of question
 export const ASK_FOR = {
@@ -71,7 +73,8 @@ export function orderOf(report, slots) {
 const rank = (id) => (/critic|recompute/.test(id) ? 0 : /writer/.test(id) ? 1 : 2);
 
 // swarmRows: the swarm's answers to the held questions, each graded against what the larger model answered (bench.mjs run)
-export function endPass(state, { swarmRows, train, briefs, targets, now = new Date() }) {
+// emphasis: what the proof found short, for the next pass's questions (support/emphasis.mjs proofFocus), or nothing
+export function endPass(state, { swarmRows, train, briefs, targets, now = new Date(), emphasis = null }) {
   const rung = targets.find((t) => t.id === state.target) || targets[0];
   const p = parity(swarmRows);
   const done = {
@@ -84,6 +87,9 @@ export function endPass(state, { swarmRows, train, briefs, targets, now = new Da
     decider: DECIDER.name,
     level: !!(p && p.level),
   };
+  // (a pass whose questions were weighted by a proof says so in its own line of the record: which proof, and what it found short)
+  if (state.focusFrom && state.focusFrom.proof)
+    done.proofRead = { at: state.focusFrom.proof.at, short: (state.focusFrom.proof.short || []).map((c) => c.id) };
   if (p)
     Object.assign(done, {
       percent: p.percent,
@@ -100,9 +106,18 @@ export function endPass(state, { swarmRows, train, briefs, targets, now = new Da
   next.kinds = kindsFor();
   // and the questions a person wrote for them, as they are now: kept with the pass, so that a change made while it runs waits
   next.own = readOwn();
-  // more of the kinds it answers differently from the larger model on (two more for each such question, to at most six more)
+  // WHAT THE NEXT PASS ASKS MORE OF, from the two measurements there are, to at most six more of a kind in all:
+  //   its own held questions   the kinds it answers differently from the larger model on: two more for each such question
+  //   the proof                the kinds of a capability the harness found the swarm short on (support/emphasis.mjs): so many
+  //                            more of each as the policy says (questions.shortMore). Only the verdict is read, never a question
+  // focusFrom keeps which came from where, with the proof that was read: the page and the SwOA say it
+  const fromHeld = {};
+  if (p) for (const k of p.trailing) fromHeld[k.kind] = Math.min(6, 2 * k.differ);
+  const fromProof = (emphasis && emphasis.focus) || {};
   next.focus = {};
-  if (p) for (const k of p.trailing) next.focus[k.kind] = Math.min(6, 2 * k.differ);
+  for (const k of new Set([...Object.keys(fromHeld), ...Object.keys(fromProof)]))
+    next.focus[k] = Math.min(6, (fromHeld[k] || 0) + (fromProof[k] || 0));
+  next.focusFrom = { held: fromHeld, ...(emphasis && emphasis.from ? { proof: emphasis.from } : {}) };
   next.order = orderOf(train, briefs.slots);
   next.questions = [
     ...new Set([
@@ -120,11 +135,33 @@ export function endPass(state, { swarmRows, train, briefs, targets, now = new Da
       next.target = climbed.id;
       next.seeds.held = state.seeds.held + 15485863; // a new target is met on questions nothing has been chosen on
       next.focus = {};
+      next.focusFrom = {}; // (what was short against the last target says nothing of the next)
     }
   }
   return { next, done, parity: p, rung, climbed };
 }
 
+// what a pass's questions took from the proof, in words: the capabilities found short, each with its gap and what it rests on
+export const proofWords = (from) => {
+  const pr = from && from.proof;
+  if (!pr) return '';
+  if (!pr.short || !pr.short.length)
+    return ' (the proof was read, of ' + String(pr.at).slice(0, 10) + ': no capability is short in it)';
+  return (
+    ' (the proof of ' +
+    String(pr.at).slice(0, 10) +
+    ' found the swarm short on ' +
+    pr.short
+      .map(
+        (c) =>
+          c.name + ', by ' + Math.abs(c.gap).toFixed(3) + ' on ' + c.n + ' questions' + (c.proof ? '' : ', a check'),
+      )
+      .join('; ') +
+    ': ' +
+    pr.more +
+    ' more of each of its kinds)'
+  );
+};
 // the held questions asked at the end of both passes: those that were equivalent and are not now (lost), and the other way (won)
 export function flipsBetween(before, rows) {
   const was = new Set(before.heldRight || []);
@@ -170,6 +207,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
               .map(([k, n]) => k + ' +' + n)
               .join(', ')
           : '') +
+        proofWords(state.focusFrom) +
         '. Held questions: seed ' +
         state.seeds.held +
         '.',
@@ -214,12 +252,25 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     for (const i of state.ideas)
       if (i.status === 'open')
         i.status = kept.has(i.hash) ? 'kept' : (state.tried[i.slot] || []).includes(i.hash) ? 'dropped' : 'open';
+    // WHAT THE PROOF SAYS, for the next pass's questions (support/emphasis.mjs): the capabilities the newest evaluations of this
+    // configuration, served as it is served now, found short. Read here, at the end of a pass, and kept with the next one's
+    // record, so that a pass ends on the questions it began with whatever is evaluated meanwhile
+    const served = Object.keys(
+      lorasFor(readConfig(), MEMBERS, path.join(REPO_ROOT, '.work'), rung.id, modelsDir()),
+    ).map((k) => MEMBERS[k].name);
+    const emphasis = proofFocus({
+      rows: readEvaluations(),
+      configuration: CONFIG_KEY,
+      adapters: served,
+      more: (readPolicy(state).questions || {}).shortMore ?? 2,
+      targets: EQUIVALENCE.targets,
+    });
     const {
       next,
       done,
       parity: p,
       climbed,
-    } = endPass(state, { swarmRows, train: result('swarm-train'), briefs, targets });
+    } = endPass(state, { swarmRows, train: result('swarm-train'), briefs, targets, emphasis });
     // NO FLIP GOES UNNAMED: an answer that was equivalent at the end of the last pass and is not now, and the other way. A total
     // that rose by one can hide one that was lost.
     const before = ((readLearned() || {}).passes || [])
@@ -333,6 +384,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       (Object.keys(next.focus).length
         ? 'more questions of ' + Object.keys(next.focus).join(', ')
         : 'no kind singled out') +
+      proofWords(next.focusFrom) +
       '; slots in this order: ' +
       next.order.join(', ') +
       '; ' +

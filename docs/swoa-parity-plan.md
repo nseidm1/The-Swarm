@@ -19,7 +19,7 @@ how it is checked.
 | 6 | Three families of question (rules a program checks, calling functions, search with facts made up from the seed), an agent's step graded against the step its scenario needs, three bodies of work. From 2026-11-18 a pass asks them with the other five: nothing is chosen (the boxes to tick are gone from the page, and `equivalence` from `src/config.json`) | A probe of 10 questions a family on the module (below) | The families asked in a pass, and the target scored on them beside the module |
 | 7 | In a turn with tools a reply is written by the answer procedure, shown what the tools returned (`plan.toolReply: "proposed"` keeps a proposed reply). [swoa.md](swoa.md) Part T.9, and 4.2: a recipe holds no body of knowledge. The tool tests as proof: a second harness (`training/support/bfcl.mjs`, `bfcl-eval` 2026.3.23 in `.work/bfcl`), five function-calling categories under Tools and two web search categories under Search, each result naming its harness and the tools offered; the target asked two ways and counted by the better over the capability | The trial (below), and a reply answered against a reply proposed (below) | The web search test asked of the two models: its search is wired (a SearXNG served for the run, no key) and tried with a stand-in model; the proof run under way began before that, so a proof run after it asks only this |
 
-Tests when this was written: 193 in `tests/run.mjs` and 123 in `ui/check.py`, all passing.
+Tests when this was written: 195 in `tests/run.mjs` and 124 in `ui/check.py`, all passing.
 
 **Step 1 and 7, the trial of the tool tests.** `bfcl-eval` installs with `uv` and a Python 3.12 (it pins a numpy with no
 build for a newer one), about 2 GB, and needs `soundfile`, which it does not name. It is pointed at a model through the one
@@ -115,6 +115,10 @@ say what happens on a long result. Training can weigh the two (`plan.toolReply`)
   and 168 held at six of each, where it asked The Crew's 14 and 84. The boxes to tick under the models are gone, and
   `equivalence` from `src/config.json`; Evaluate has boxes of its own for which bodies of work one run asks. The SwOA says
   which bodies its training asked from the questions of the pass in hand (`trainedAgainst.trainedOn`).
+- **A pass asks more of what the proof found short** (2026-11-18; `training/support/emphasis.mjs`). Read at the end of a pass,
+  for the next: a capability whose verdict is `short` has two more train questions of each of its kinds. Only the verdict is
+  read. On the evaluations on record nothing is short (Instructions, 20 questions, and Tools, 100, both read open), so it
+  has weighted no pass yet. And every kind of question now has a second wording: 164 of the 168 held questions, where 80 had.
 - Training is stopped. Started again, it asks the pass's questions from the first: the grading changed, and nothing graded
   the old way is carried on (`SCORING` in `training/loop.mjs`); the page says so. The questions are now those of every
   body of work. The changes kept so far stay, on the arrangement at version 17.

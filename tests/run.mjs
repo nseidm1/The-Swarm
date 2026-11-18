@@ -1747,24 +1747,83 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     fl,
   );
   // every question a second way, and a bar that is held asked more of
-  // (the kinds that have a second wording are those of programming and its conversation; the others have none yet)
+  // (every kind has a second wording: a programming question by its form, every other kind from its own draw)
   const held = tasks({ split: 'held', each: 2, kinds: kindsOfBodies(['crew']) });
   const second = reworded(held);
-  const noSecond = reworded(
-    tasks({
-      split: 'held',
-      each: 2,
-      kinds: kindsOfBodies(['math', 'logic', 'reasoning', 'instructions', 'tools', 'search']),
-    }),
-  );
+  // the kinds beyond programming and its conversation: arithmetic, logic, procedures, rules, calls, searching
+  const others = tasks({
+    split: 'held',
+    each: 6,
+    kinds: kindsOfBodies(['math', 'logic', 'reasoning', 'instructions', 'tools', 'search']),
+  });
+  const others2 = reworded(others);
+  const digits = (x) => (String(x).match(/\d+(?:\.\d+)?/g) || []).sort().join();
+  const quoted = (x) => (String(x).match(/"[^"]*"/g) || []).sort().join();
+  const firstOf = (t) => others.find((x) => x.id === t.refId);
+  const valueKinds = kindsOfBodies(['math', 'logic', 'reasoning']);
+  const rightBoth = [];
+  for (const t of others2.filter((x) => valueKinds.includes(x.kind)))
+    rightBoth.push(
+      t.want === firstOf(t).want &&
+        (await t.good('ANSWER: ' + t.want)).grade === 'right' &&
+        (await firstOf(t).good('ANSWER: ' + t.want)).grade === 'right',
+    );
+  const everyKind = tasks({ split: 'held', each: 6 });
+  const everyKind2 = reworded(everyKind);
+  const without = everyKind.filter((t) => !everyKind2.some((x) => x.refId === t.id)).map((t) => t.kind);
   const w = held.find((t) => t.kind === 'write-arrays');
   const body = w.ask.replace(/^Write a JavaScript function `[^`]+` that /, '');
   const refs = reference(second);
   const more = tasks({ split: 'held', each: 2, tiers: { fix: 2 } });
   check(
-    "a held question of programming or of its conversation has a second wording that changes how it is put and nothing of what it asks, and is compared with the larger model's answer to the first; a kind with no second wording (arithmetic, logic, procedures, rules, calls, searching) is left out of that check and never counted as passing it; and a kind that is asked more of keeps the questions it had and adds to them",
+    "every kind of held question has a second wording that changes how it is put and nothing of what it asks, and is compared with the larger model's answer to the first: a programming question by its form, every other kind from its own draw, with every number and quoted word of the first in the second, every rule word for word and in the same order, every argument a call needs said outright, and the same answer good for both; a step that is followed by a search and what it returned keeps them as they were and puts only the question another way; the only questions without one are a message there is no other way to put and an agent's steps that end on what a tool returned (4 of 168); and a kind that is asked more of keeps the questions it had and adds to them",
     second.length === held.length &&
-      noSecond.length === 0 &&
+      others.length === 84 &&
+      others2.length === 84 &&
+      others2.every(
+        (t) =>
+          t.ask &&
+          t.ask !== firstOf(t).ask &&
+          t.id === t.refId + '~2' &&
+          t.split === 'reworded' &&
+          digits(t.ask) === digits(firstOf(t).ask) &&
+          quoted(t.ask) === quoted(firstOf(t).ask),
+      ) &&
+      rightBoth.length === 66 &&
+      rightBoth.every(Boolean) &&
+      // a request with rules: every rule word for word, in the same order, after the request
+      others2
+        .filter((t) => t.kind === 'rules')
+        .every(
+          (t) =>
+            t.ask.endsWith(t.rules.map((r) => r.says).join(' ')) &&
+            firstOf(t).ask.endsWith(t.rules.map((r) => r.says).join(' ')),
+        ) &&
+      // a call: every argument it needs is said outright in the second wording too, and the step needed is the same
+      others2
+        .filter((t) => t.kind === 'calls')
+        .every(
+          (t) =>
+            t.needs === firstOf(t).needs &&
+            t.turns.length === 1 &&
+            t.turns[0].content === t.ask &&
+            (t.needs.calls || []).every((c) => Object.values(c.args).every((v) => t.ask.includes(String(v)))),
+        ) &&
+      // a search: what follows the question (the search made, what it returned) is as it was, and the question alone is put another way
+      others2
+        .filter((t) => t.kind === 'search')
+        .every(
+          (t) =>
+            t.needs === firstOf(t).needs &&
+            t.turns.length === firstOf(t).turns.length &&
+            t.turns[0].role === 'user' &&
+            t.turns[0].content === t.ask &&
+            t.turns.slice(1).every((m, i) => m === firstOf(t).turns[i + 1]),
+        ) &&
+      others2.filter((t) => t.kind === 'search' && t.turns.length === 3).length >= 3 &&
+      everyKind.length === 168 &&
+      everyKind2.length === 164 &&
+      without.sort().join() === 'agent,agent,agent,answer' &&
       second.every(
         (t, i) =>
           t.ask !== held[i].ask &&
@@ -1788,7 +1847,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           .filter((t) => t.kind === 'fix')
           .map((t) => t.ask)
           .join(),
-    { n: second.length, sample: reword(w.ask).slice(0, 70) },
+    { n: second.length, others: others2.length, without, sample: reword(w.ask).slice(0, 70) },
   );
 }
 // ---- 6m: STOPPING AND STARTING, FOR EACH CONFIGURATION, GOES ON FROM WHERE IT WAS LEFT
@@ -4351,6 +4410,140 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       tasks({ split: 'train', each: 2, seed: 6 })[0].ask !== more[0].ask &&
       more[0].seed === 5,
     more.length,
+  );
+  // ---- what the proof found short is asked more of in the next pass (training/support/emphasis.mjs)
+  const { pairedGap, verdictOf, capabilitiesOf, capabilityOf, proofFocus, readEvaluations } =
+    await import('../training/support/emphasis.mjs');
+  const { EQUIVALENCE: EQL } = await import('../training/tasks.mjs');
+  const { proofWords } = await import('../training/pass.mjs');
+  const res = (item, task, n, onlySwarm, onlyTarget) => ({
+    item,
+    itemName: item === 'crew' ? 'The Crew' : item[0].toUpperCase() + item.slice(1),
+    task,
+    swarm: { value: 0.5, n },
+    target: { value: 0.6, n },
+    agree: { of: n, same: n - onlySwarm - onlyTarget, onlySwarm, onlyTarget },
+  });
+  const evals = [
+    // an older proof: Math short (two tasks, 500 questions together), The Crew's test short, Logic open, Code at parity
+    {
+      at: '2026-11-10T00:00:00Z',
+      configuration: 'mine',
+      adapters: [],
+      results: [
+        res('math', 'gsm8k', 300, 20, 50),
+        res('math', 'bbh_arith', 200, 10, 30),
+        res('crew', 'ifeval', 541, 30, 90),
+        res('logic', 'bbh_logic', 100, 20, 26),
+        res('code', 'humaneval_instruct', 500, 60, 62),
+      ],
+    },
+    // a newer check of one Math task, 20 questions: it does not stand in for that task's proof
+    { at: '2026-11-12T00:00:00Z', configuration: 'mine', adapters: [], results: [res('math', 'gsm8k', 20, 5, 5)] },
+    // another configuration's, and this one's served with adapters: neither is of this module as it is served
+    {
+      at: '2026-11-13T00:00:00Z',
+      configuration: 'other',
+      adapters: [],
+      results: [res('code', 'humaneval_instruct', 500, 10, 90)],
+    },
+    {
+      at: '2026-11-13T00:00:00Z',
+      configuration: 'mine',
+      adapters: ['A'],
+      results: [res('code', 'humaneval_instruct', 500, 10, 90)],
+    },
+  ];
+  const caps = capabilitiesOf(evals, { configuration: 'mine', adapters: [], targets: EQL.targets });
+  const capOf = (id) => caps.find((c) => c.id === id) || {};
+  const pfocus = proofFocus({ rows: evals, configuration: 'mine', adapters: [], more: 2, targets: EQL.targets });
+  const g1 = pairedGap({ n: 500, onlySwoa: 30, onlyTarget: 80 });
+  check(
+    "a capability's verdict is read from a proof by the rule of the SwOA specification (4.7), the same numbers the page reads: the gap paired question by question, its error, and parity, short or open against a margin of 0.05; over this configuration's evaluations as it is served now (another configuration's, or one served with other adapters, is not its proof), the newest result of each task at proof size before a newer check, the tasks of a capability together; and a capability is the body of work whose kinds train what a task measures: the one the task is listed under, or the one it names (IFEval is listed under The Crew and measures Instructions), named by the work and never by a product",
+    g1.gap === -0.1 &&
+      g1.gapStderr === 0.0205 &&
+      verdictOf(g1.gap, g1.gapStderr) === 'short' &&
+      verdictOf(-0.06, 0.0676) === 'open' &&
+      verdictOf(-0.004, 0.0221) === 'parity' &&
+      pairedGap({ n: 0, onlySwoa: 1, onlyTarget: 1 }) === null &&
+      pairedGap({ n: 10 }) === null &&
+      caps.map((c) => c.id).join() === 'code,instructions,logic,math' &&
+      capOf('instructions').name === 'Instructions' &&
+      capOf('instructions').tasks.join() === 'ifeval' &&
+      capabilityOf('ifeval', 'crew', 'The Crew', EQL.targets).id === 'instructions' &&
+      capabilityOf('gsm8k', 'math', 'Math', EQL.targets).id === 'math' &&
+      capabilityOf('a_task_not_listed', 'crew', 'The Crew', EQL.targets).id === 'crew' &&
+      capabilityOf('ifeval', 'crew', 'The Crew').id === 'crew' &&
+      !JSON.stringify(caps).includes('Crew') &&
+      capOf('math').verdict === 'short' &&
+      capOf('math').n === 500 &&
+      capOf('math').gap === -0.1 &&
+      capOf('math').proof === true &&
+      capOf('math').tasks.join() === 'bbh_arith,gsm8k' &&
+      capOf('instructions').verdict === 'short' &&
+      capOf('instructions').n === 541 &&
+      capOf('logic').verdict === 'open' &&
+      capOf('code').verdict === 'parity' &&
+      capOf('code').n === 500 &&
+      capOf('code').gap === -0.004 &&
+      capabilitiesOf(evals, { configuration: 'mine', adapters: ['A'] }).length === 1 &&
+      capabilitiesOf(evals, { configuration: 'nobody' }).length === 0 &&
+      readEvaluations(path.join(os.tmpdir(), 'no-such-folder-of-evaluations')).length === 0,
+    caps,
+  );
+  const e7 = endPass(state, { swarmRows: far, train, briefs, targets, emphasis: pfocus });
+  const e8 = endPass(state, {
+    swarmRows: far,
+    train,
+    briefs,
+    targets,
+    emphasis: { focus: { trap: 5 }, from: { at: 'x', more: 5, short: [], read: [] } },
+  });
+  const e9 = endPass({ ...state, focusFrom: e7.next.focusFrom }, { swarmRows: far, train, briefs, targets });
+  const e10 = endPass(state, { swarmRows: whole, train, briefs, targets, emphasis: pfocus });
+  const weighted = tasks({ split: 'train', each: 6, focus: e7.next.focus });
+  const heldUnweighted = tasks({ split: 'held', each: 6, focus: e7.next.focus });
+  check(
+    "what the proof found the swarm short on is asked more of in the next pass: so many more train questions of each kind of the body of work that trains the capability (a capability is a body of work: IFEval's is Instructions, though the test is listed under The Crew), added to what the pass's own held questions ask more of, to at most six more of a kind; only a short verdict asks more, an open one or parity nothing; the pass keeps which came from where with the proof it read, a pass that was weighted by one says so in its own line of the record, and a new target starts with neither; nothing is read where the policy says 0 or no evaluation is this configuration's; and the held questions are never weighted",
+    Object.keys(pfocus.focus).sort().join() === 'chain,count,rate,rules,shop,units' &&
+      Object.values(pfocus.focus).every((n) => n === 2) &&
+      pfocus.from.more === 2 &&
+      pfocus.from.at === '2026-11-10T00:00:00Z' &&
+      pfocus.from.short.map((c) => c.id).join() === 'instructions,math' &&
+      pfocus.from.short[0].kinds.join() === 'rules' &&
+      pfocus.from.short[1].kinds.slice().sort().join() === 'chain,count,rate,shop,units' &&
+      pfocus.from.read.map((c) => c.id + ':' + c.verdict).join() ===
+        'code:parity,instructions:short,logic:open,math:short' &&
+      proofFocus({ rows: evals, configuration: 'mine', adapters: [], more: 0, targets: EQL.targets }).from === null &&
+      proofFocus({ rows: evals, configuration: 'nobody', more: 2, targets: EQL.targets }).from === null &&
+      Object.keys(proofFocus({ rows: evals, configuration: 'nobody', more: 2, targets: EQL.targets }).focus).length ===
+        0 &&
+      e7.next.focus.trap === 4 &&
+      e7.next.focus.rules === 2 &&
+      e7.next.focus.chain === 2 &&
+      e7.next.focusFrom.held.trap === 4 &&
+      e7.next.focusFrom.held.rules === undefined &&
+      e7.next.focusFrom.proof.short.length === 2 &&
+      e7.done.proofRead === undefined &&
+      e1.next.focusFrom.proof === undefined &&
+      e1.next.focus.rules === undefined &&
+      e8.next.focus.trap === 6 &&
+      e9.done.proofRead.at === '2026-11-10T00:00:00Z' &&
+      e9.done.proofRead.short.join() === 'instructions,math' &&
+      e9.next.focusFrom.proof === undefined &&
+      e10.climbed.id === 'large' &&
+      Object.keys(e10.next.focus).length === 0 &&
+      Object.keys(e10.next.focusFrom).length === 0 &&
+      weighted.filter((t) => t.kind === 'rules').length === 8 &&
+      weighted.filter((t) => t.kind === 'chain').length === 8 &&
+      weighted.filter((t) => t.kind === 'order').length === 6 &&
+      heldUnweighted.filter((t) => t.kind === 'rules').length === 6 &&
+      /found the swarm short on Instructions, by 0\.111 on 541 questions; Math, by 0\.100 on 500 questions: 2 more of each of its kinds/.test(
+        proofWords(e7.next.focusFrom),
+      ) &&
+      /no capability is short in it/.test(proofWords({ proof: { at: '2026-11-10', short: [] } })) &&
+      proofWords({ held: {} }) === '',
+    { focus: pfocus.focus, from: pfocus.from, words: proofWords(e7.next.focusFrom) },
   );
   const rungs = readTargets();
   const { targetOf } = await import('../training/state.mjs');

@@ -213,7 +213,11 @@ those eight did not fall.
 
 Training asks its own questions, made from a seed, in the families the proof measures; the held split of each stays apart.
 The harness's own questions are never asked in training ([swoa.md](swoa.md) 4.7), and **a harness result never decides what
-is kept**: it is read as proof or as a check, after the fact.
+is kept**: it is read as proof or as a check, after the fact. One thing of it is read forward (2026-11-18): a capability's
+verdict. Where the proof finds a capability short, the next pass asks more of training's own questions of that capability's
+kinds. That is all it does: no question of the harness, no answer to one and no list of what was got wrong reaches training,
+and the SwOA says which proof was read and which passes it weighted, since a proof that has steered training is not blind to
+it.
 
 - Asked together, in every pass: every body of work in `training/equivalence.json`. Nothing is chosen (2026-11-18; a
   person once ticked which): the module picks its arrangement by the class of a request, and a change is kept only when no

@@ -1456,5 +1456,59 @@ check("the SwOA spec says what web search is to the module and how it is used: a
       and "webSearch" in _real["interface"] and _real["interface"]["webSearch"]["limits"]["charactersOfOneResult"] == _each and "<h4>Web search</h4>" in swarm_ui.spec_panel(_d),
       [_ws["limits"], _ws_m["measured"], _wsb[:200]])
 
+# WHAT A PASS ASKS MORE OF BECAUSE A PROOF FOUND THE MODULE SHORT (training/support/emphasis.mjs), as the page and the SwOA say it:
+# the rule a verdict is read by is the same numbers on both sides (tests/run.mjs holds the same cases), a capability is the body of
+# work that trains what a task measures, and a proof that weighted a pass is said to have, under the proof and on the card
+_tg5 = json.loads((Path(__file__).resolve().parent.parent / "training" / "equivalence.json").read_text())["targets"]
+_g5 = data.paired_gap({"of": 500, "onlySwarm": 30, "onlyTarget": 80})
+_st5 = {"focus": {"trap": 4, "rules": 2},
+        "focusFrom": {"held": {"trap": 4}, "proof": {"at": "2026-11-20T10:00:00Z", "more": 2,
+                                                      "short": [{"id": "instructions", "name": "Instructions", "n": 541, "gap": -0.1109, "gapStderr": 0.0197, "proof": True, "kinds": ["rules"]}],
+                                                      "read": [{"id": "instructions", "verdict": "short", "n": 541, "gap": -0.1109}]}},
+        "history": [{"pass": 1}, {"pass": 2, "proofRead": {"at": "2026-11-12T00:00:00Z", "short": ["math", "crew"]}}]}
+_em5 = data.emphasis_of(_tg5, _st5)
+_em5_old = data.emphasis_of(_tg5, {"focus": {"fix": 4}, "history": [{"pass": 1}]})
+_em5_none = data.emphasis_of(_tg5, {"focus": {"fix": 2}, "focusFrom": {"held": {"fix": 2}, "proof": {"at": "2026-11-20T10:00:00Z", "more": 2, "short": [], "read": [{"id": "code", "verdict": "parity", "n": 500, "gap": -0.004}]}}})
+_words5 = data.proof_read_words(_em5)
+_mw5 = swarm_ui.more_words({"emphasis": _em5})
+_card5 = data.swoa_card({"swoa": {}, "target": {"name": "T"}, "proof": {"results": [], "capabilities": []}, "baseModule": {"members": {}, "decider": {}}, "runtime": {}, "trainedAgainst": {"emphasis": _em5}})
+_pb5 = swarm_ui.proof_block({"target": {"name": "T"}, "proof": {"rule": "r", "margin": 0.05, "capabilities": [], "results": []}, "trainedAgainst": {"emphasis": _em5}})
+with _tf.TemporaryDirectory() as _t5:
+    _r5 = Path(_t5)
+    (_r5 / ".work" / "eval").mkdir(parents=True)
+    _row5 = {"at": "2026-11-18T20", "runId": "r", "configuration": "c--t", "arrangementSha256": "A", "harness": "lm-evaluation-harness 0.4.13 and bfcl-eval 2026.3.23",
+             "harnessId": {"name": "lm-evaluation-harness", "version": "0.4.13"}, "adapters": [], "results": [
+                 {"task": "ifeval", "name": "IFEval", "item": "crew", "itemName": "The Crew", "metric": "m", "filter": "none",
+                  "swarm": {"value": 0.7, "stderr": 0.04, "n": 120, "of": 541}, "target": {"value": 0.75, "stderr": 0.04, "n": 120, "of": 541}},
+                 {"task": "bfcl_simple_python", "name": "BFCL one function", "item": "tools", "itemName": "Tools", "metric": "accuracy", "filter": "none",
+                  "harnessId": {"name": "bfcl-eval", "version": "2026.3.23"}, "swarm": {"value": 0.9, "stderr": 0.02, "n": 150, "of": 400}, "target": {"value": 0.92, "stderr": 0.02, "n": 150, "of": 400},
+                  "agree": {"of": 150, "same": 139, "onlySwarm": 5, "onlyTarget": 6}}]}
+    (_r5 / ".work" / "eval" / "history.jsonl").write_text(json.dumps(_row5) + "\n")
+    _p5 = data.swoa_proof({"root": str(_r5), "key": "c--t", "members": {}, "equivalence": {"targets": _tg5}}, "A", {})
+_real5 = data.spec(_d)
+parts5 = {
+    "the rule": _g5["gap"] == -0.1 and _g5["gapStderr"] == 0.0205 and data.verdict_of(_g5["gap"], _g5["gapStderr"]) == "short" and data.verdict_of(-0.06, 0.0676) == "open" and data.verdict_of(-0.004, 0.0221) == "parity",
+    "capability": data.capability_of(_tg5, "ifeval", "crew", "The Crew") == ("instructions", "Instructions") and data.capability_of(_tg5, "gsm8k", "math", "Math") == ("math", "Math")
+                  and data.capability_of(_tg5, "not_listed", "crew", "The Crew") == ("crew", "The Crew") and data.capability_of([], "ifeval", "crew", "The Crew") == ("crew", "The Crew"),
+    "in the proof": {x["task"]: x["item"] for x in _p5["results"]} == {"ifeval": "instructions", "bfcl_simple_python": "tools"} and sorted(c["id"] for c in _p5["capabilities"]) == ["instructions", "tools"]
+                    and next(c["name"] for c in _p5["capabilities"] if c["id"] == "instructions") == "Instructions" and "Crew" not in json.dumps(_p5),
+    "emphasis": _em5["kinds"] == {"trap": 4, "rules": 2} and _em5["fromHeld"] == {"trap": 4} and _em5["fromProof"]["short"][0]["name"] == "Instructions" and _em5["fromProof"]["more"] == 2
+                and _em5["fromProof"]["readAt"] == "2026-11-20T10:00:00Z" and "never a question of the harness" in _em5["is"] and "Crew" not in json.dumps(_em5)
+                and _em5["passesWeightedByAProof"] == [{"pass": 2, "proofAt": "2026-11-12T00:00:00Z", "short": ["Math", "Programming and its conversation"]}],
+    "a record before it": _em5_old["fromHeld"] == {"fix": 4} and _em5_old["fromProof"] is None and _em5_old["passesWeightedByAProof"] == [] and data.proof_read_words(_em5_old) == "",
+    "words": "pass 2 asked more of the kinds of Math, Programming and its conversation (the proof of 2026-11-12)" in _words5
+             and "the pass in hand asks 2 more of each kind of Instructions, short by 0.111 on 541 questions (the proof of 2026-11-20)" in _words5 and "never a question of the harness" in _words5,
+    "said under the proof": _words5 in _card5 and swarm_ui.e(_words5) in _pb5 and "Training has read" not in swarm_ui.proof_block({"target": {"name": "T"}, "proof": {"rule": "r", "capabilities": [], "results": []}})
+                            and "Training has read" not in data.swoa_card({"swoa": {}, "target": {"name": "T"}, "proof": {"results": []}, "baseModule": {"members": {}, "decider": {}}, "runtime": {}}),
+    "on the page": "This pass asks more of:" in _mw5 and "+4" in _mw5 and "The proof of 2026-11-20 found the swarm short on Instructions, by 0.111 on 541 questions: 2 more of each of its kinds." in _mw5
+                   and "Only the verdict is read from a proof, never one of its questions." in _mw5 and swarm_ui.more_words({"emphasis": _em5_old}).startswith("This pass asks more of:")
+                   and "proof" not in swarm_ui.more_words({"emphasis": _em5_old}) and swarm_ui.more_words({}) == ""
+                   and "The proof of 2026-11-20 was read: no capability is short in it." in swarm_ui.more_words({"emphasis": _em5_none})
+                   and "by the proof, where an evaluation has found a capability short" in swarm_ui.main_body(_d),
+    "in the SwOA": isinstance(_real5["trainedAgainst"]["emphasis"], dict) and set(_real5["trainedAgainst"]["emphasis"]) == {"is", "kinds", "fromHeld", "fromProof", "passesWeightedByAProof"},
+}
+check("what a pass asks more of is said with where it came from: the kinds its own held questions found the swarm short on, and the kinds of a capability a proof found it short on, with the proof's date, the gap and the questions it rests on; a verdict is read by the same rule and the same numbers as the proof on the page; a capability is the body of work that trains what a task measures (IFEval's is Instructions, though it is listed under The Crew), named by the work and never by a product, in the proof too; a record from before a proof was read is all from its held questions; and a proof that has weighted a pass is said to have, under the proof in the SwOA dialog, on the SwOA card and in the SwOA itself (trainedAgainst.emphasis), with what was read of it and what never is",
+      all(parts5.values()), {k: v for k, v in parts5.items() if not v} or _words5)
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

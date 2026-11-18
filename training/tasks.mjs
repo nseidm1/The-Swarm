@@ -174,6 +174,9 @@ const NAMES = ['Ada', 'Ben', 'Cleo', 'Dev', 'Esme', 'Finn', 'Gia', 'Hugo', 'Ines
 const THINGS = ['apples', 'pencils', 'tickets', 'bricks', 'stamps', 'cards', 'bolts', 'seeds'];
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+// EACH KIND SAYS ITS QUESTION A SECOND WAY (again), from the same numbers and names: how it is put changes (what is asked comes
+// first where it came last, or the facts are led into another way) and nothing of what it asks. Every number, name and step is
+// there, in the same order; nothing more is drawn from the seed for it, so the first wording is made exactly as it was.
 const KINDS = {
   // several operations in a row: one slip and the whole thing is wrong
   chain(t) {
@@ -185,6 +188,7 @@ const KINDS = {
     const want = (a * b - c) * d + e;
     return {
       ask: `Start with ${a}. Multiply it by ${b}. Subtract ${c}. Multiply the result by ${d}. Add ${e}. What number do you have?`,
+      again: `What number do you have at the end of these steps? Start with ${a}. Multiply it by ${b}. Subtract ${c}. Multiply the result by ${d}. Add ${e}.`,
       want,
       grade: number(want),
     };
@@ -202,6 +206,7 @@ const KINDS = {
     const want = left * price;
     return {
       ask: `${who}, who is ${age}, buys ${boxes} boxes of ${thing} with ${per} in each box, gives ${gave} of them away, and sells every one that is left for $${price} each. How many dollars does ${who} take in?`,
+      again: `How many dollars does ${who} take in? Here is what happened: ${who}, who is ${age}, buys ${boxes} boxes of ${thing} with ${per} in each box, gives ${gave} of them away, and sells every one that is left for $${price} each.`,
       want,
       grade: number(want),
     };
@@ -213,6 +218,7 @@ const KINDS = {
     const want = Math.round(((a * b) / (a + b)) * 60);
     return {
       ask: `One pump fills a tank in ${a} hours. A second pump fills the same tank in ${b} hours. Running both together, how many minutes does it take to fill the tank?`,
+      again: `Work out how many minutes it takes to fill a tank with two pumps running together. One pump fills the tank in ${a} hours. The second pump fills the same tank in ${b} hours.`,
       want,
       grade: number(want),
     };
@@ -224,6 +230,7 @@ const KINDS = {
     const want = DAYS[(from + n) % 7];
     return {
       ask: `Today is ${DAYS[from]}. What day of the week will it be ${n} days from now?`,
+      again: `What day of the week will it be ${n} days from now, if today is ${DAYS[from]}?`,
       want,
       grade: choice(want, DAYS),
     };
@@ -236,7 +243,13 @@ const KINDS = {
       facts.push(i % 2 ? `${who[i + 1]} is shorter than ${who[i]}.` : `${who[i]} is taller than ${who[i + 1]}.`);
     const which = t.pick(['tallest', 'shortest', 'second tallest']);
     const want = which === 'tallest' ? who[0] : which === 'shortest' ? who[4] : who[1];
-    return { ask: `${t.mix(facts).join(' ')} Who is the ${which}?`, want, grade: choice(want, who) };
+    const told = t.mix(facts).join(' ');
+    return {
+      ask: `${told} Who is the ${which}?`,
+      again: `Who is the ${which}? These are the facts. ${told}`,
+      want,
+      grade: choice(want, who),
+    };
   },
   // counting letters: a thing small models get wrong by guessing
   letters(t) {
@@ -256,6 +269,7 @@ const KINDS = {
     const want = word.split(letter).length - 1;
     return {
       ask: `How many times does the letter "${letter}" appear in the word "${word}"?`,
+      again: `Look at the word "${word}". How many times is the letter "${letter}" in it?`,
       want,
       grade: number(want),
     };
@@ -284,12 +298,13 @@ const KINDS = {
     const other = t.pick(['q1', 'q2', 'q3'].filter((x) => x !== q));
     const want = row[q] - row[other];
     const name = { q1: 'the first quarter', q2: 'the second quarter', q3: 'the third quarter' };
+    const told = rows
+      .map((r) => `${r.n} sold ${r.q1} units in the first quarter, ${r.q2} in the second and ${r.q3} in the third.`)
+      .join(' ');
+    const asked = `How many more units did ${row.n} sell in ${name[q]} than in ${name[other]}? (Give a negative number if fewer.)`;
     return {
-      ask:
-        rows
-          .map((r) => `${r.n} sold ${r.q1} units in the first quarter, ${r.q2} in the second and ${r.q3} in the third.`)
-          .join(' ') +
-        ` How many more units did ${row.n} sell in ${name[q]} than in ${name[other]}? (Give a negative number if fewer.)`,
+      ask: told + ' ' + asked,
+      again: asked + ' The figures: ' + told,
       want,
       grade: number(want),
     };
@@ -303,6 +318,7 @@ const KINDS = {
         const ball = (total - d) / 2;
         return {
           ask: `A notebook and a pen cost ${total} cents together. The notebook costs ${d} cents more than the pen. How many cents does the pen cost?`,
+          again: `How many cents does the pen cost, if a notebook and a pen cost ${total} cents together and the notebook costs ${d} cents more than the pen?`,
           want: ball,
         };
       },
@@ -310,6 +326,7 @@ const KINDS = {
         const n = t.int(5, 40);
         return {
           ask: `${n} machines take ${n} minutes to make ${n} parts. How many minutes do 100 machines take to make 100 parts?`,
+          again: `How many minutes do 100 machines take to make 100 parts, given that ${n} machines take ${n} minutes to make ${n} parts?`,
           want: n,
         };
       },
@@ -317,6 +334,7 @@ const KINDS = {
         const days = t.int(12, 60);
         return {
           ask: `A patch of moss doubles in size every day. It takes ${days} days to cover a whole wall. On which day did it cover half the wall? Give the number of the day.`,
+          again: `On which day did a patch of moss cover half of a wall, if it doubles in size every day and takes ${days} days to cover the whole wall? Give the number of the day.`,
           want: days - 1,
         };
       },
@@ -324,6 +342,7 @@ const KINDS = {
         const pos = t.int(2, 9);
         return {
           ask: `In a race you overtake the runner who is in position ${pos}. What position are you in now? Give the number.`,
+          again: `What position are you in after you overtake the runner who is in position ${pos} in a race? Give the number.`,
           want: pos,
         };
       },
@@ -331,6 +350,7 @@ const KINDS = {
         const n = t.int(3, 9);
         return {
           ask: `A drawer holds ${n * 2} black socks and ${n * 3} white socks, mixed. Without looking, how many socks must you take out to be certain of a matching pair?`,
+          again: `How many socks must you take out, without looking, to be certain of a matching pair, from a drawer that holds ${n * 2} black socks and ${n * 3} white socks, mixed?`,
           want: 3,
         };
       },
@@ -356,6 +376,7 @@ const KINDS = {
     const want = (up ? word.toUpperCase() : word).split('').reverse().join('').slice(0, -1);
     return {
       ask: `Take the word "${word}". ${up ? 'Write it in capital letters. ' : ''}Reverse it. Then remove its last letter. What is left?`,
+      again: `What is left of the word "${word}" after these steps, taken in this order? ${up ? 'Write it in capital letters. ' : ''}Reverse it. Then remove its last letter.`,
       want,
       grade: exact(want),
     };
@@ -367,6 +388,7 @@ const KINDS = {
     const want = Math.round((km / (mins / 60)) * 100) / 100;
     return {
       ask: `A cyclist rides ${km} kilometres in ${mins} minutes at a steady speed. What is the speed in kilometres per hour?`,
+      again: `What is the speed, in kilometres per hour, of a cyclist who rides ${km} kilometres in ${mins} minutes at a steady speed?`,
       want,
       grade: number(want),
     };
@@ -380,6 +402,7 @@ const KINDS = {
     const want = all.filter((x) => x % by === 0).length;
     return {
       ask: `How many whole numbers from ${from} to ${to}, counting both ends, can be divided by ${by} with nothing left over?`,
+      again: `Count the whole numbers from ${from} to ${to}, both ends included, that can be divided by ${by} with nothing left over. How many are there?`,
       want,
       grade: number(want),
     };
@@ -469,7 +492,10 @@ export const SEEDS = { train: 1009, held: 7919 };
 //   wrap(final)                                         what one slot settled on, put as a reply, so that it can be compared too
 // EVERY QUESTION A SECOND WAY. Equivalence that holds for one wording of a question and not for another is not fundamental. The
 // second wording changes how the question is put and nothing of what it asks: the description of what the function does is
-// word for word the same. A question with no second wording is left out.
+// word for word the same, and so is every number, name, rule and argument of the other kinds (each kind that is not a
+// programming question says its own second wording, from the same draw: `again`). A question with no second wording is left
+// out: a few of a conversation's (a message there is no other way to put) and of an agent's steps (those that end on what a
+// tool returned).
 export function reword(ask) {
   const s = String(ask);
   const fix = 'This function is meant to do the following, and it is wrong.\n\nWhat it should do: ';
@@ -501,15 +527,19 @@ export const reworded = (list) =>
   list
     .map((t) => {
       // a conversation carries its own second wording (tasks-crew.mjs): the last message put another way, the rest as it was
-      // (a step in an agent's work is put another way only where its last turn is the person's own)
-      const ask = t.type === 'talk' || t.type === 'tool' ? t.again : reword(t.ask);
+      // (a step in an agent's work is put another way where its last turn is the person's own; one whose question is followed by
+      // a search and what it returned gives its turns whole, the question put another way and the rest as they were: againTurns).
+      // A kind whose answer is a value or a piece kept to rules says its own second wording too (again); a programming question
+      // is put another way by its form (reword)
+      const ask = t.type === 'talk' || t.type === 'tool' ? t.again : t.again || reword(t.ask);
+      const turns = t.againTurns || (t.turns && ask ? [...t.turns.slice(0, -1), { role: 'user', content: ask }] : null);
       return {
         ...t,
         id: t.id + '~2',
         split: 'reworded',
         refId: t.id,
         ask,
-        ...(t.turns && ask ? { turns: [...t.turns.slice(0, -1), { role: 'user', content: ask }] } : {}),
+        ...(turns && ask ? { turns } : {}),
       };
     })
     .filter((t) => t.ask);
@@ -588,6 +618,7 @@ export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, foc
           turns: made.turns,
           tools: made.tools,
           again: made.again,
+          ...(made.againTurns ? { againTurns: made.againTurns } : {}),
           equivalent: async (refReply, reply) => sameStep(refReply, reply),
           // (good: the step this point in the work needs, where the question was made knowing it: tasks-tools.mjs stepGood)
           ...(made.needs ? { needs: made.needs, good: async (reply) => stepGood(made.needs, reply) } : {}),
@@ -604,6 +635,7 @@ export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, foc
         // replies are equivalent when they keep and break the same rules
         out.push({
           ...base,
+          again: made.again || null,
           rules: made.rules.map((r) => ({ id: r.id, says: r.says })),
           good: async (reply) => {
             if (!String(reply || '').trim()) return { grade: 'unsure', score: 0 };
@@ -668,6 +700,7 @@ export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, foc
         const gradeFor = graderFor(made.grade.type, made.grade.among);
         out.push({
           ...base,
+          again: made.again || null,
           want: made.want,
           grade: made.grade,
           read,

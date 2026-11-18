@@ -444,6 +444,8 @@ export function makePlan({
       ? { compared: replayed.compared, actual: replayed.actual, ceiling: replayed.ceiling, ways: replayed.ways }
       : null,
     focus: Object.entries(state.focus || {}).map(([kind, more]) => ({ kind, more })),
+    // (which of those its own held questions asked for, and which the proof did: training/pass.mjs endPass)
+    focusFrom: state.focusFrom || null,
     moves,
     // WHAT A PERSON CAN STEER (support/steer.mjs): the areas, what is asked of them now, and every move open to this pass with its
     // area, for the page to pin or skip any of them

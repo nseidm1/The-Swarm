@@ -4,7 +4,8 @@
 // a capability a SwOA proves on an established test (docs/swoa-parity.md: the battery); these are training's own questions of
 // that family, each with the step it needs (needs), so that an answer is graded against the question and not against a model.
 // Made from a seed. Every argument a call needs is said outright in the request, in the form the function asks for it.
-//   CALL_KINDS.calls(t, i) -> { type: 'tool', mode: 'agent', system, turns, tools, ask, again: null, needs }
+// Each request is put a second way too (again): another form of words, with every argument said outright as before.
+//   CALL_KINDS.calls(t, i) -> { type: 'tool', mode: 'agent', system, turns, tools, ask, again, needs }
 const fn = (name, about, props, required) => ({
   type: 'function',
   function: { name, description: about, parameters: { type: 'object', properties: props, required } },
@@ -56,14 +57,21 @@ const NONE = [
   'Is a tomato a fruit or a vegetable?',
   'How many days are there in a leap year?',
 ];
-const turn = (content, needs) => ({
+// (the same four, put a second way: none of them needs a function either)
+const NONE_AGAIN = [
+  'ETA: what do the letters stand for?',
+  'That is everything for now, thank you.',
+  'A tomato: is it a fruit or a vegetable?',
+  'In a leap year, how many days are there?',
+];
+const turn = (content, again, needs) => ({
   type: 'tool',
   mode: 'agent',
   system: CALL_SYSTEM,
   turns: [{ role: 'user', content }],
   tools: CALL_TOOLS,
   ask: content,
-  again: null,
+  again,
   needs,
 });
 
@@ -79,29 +87,49 @@ export const CALL_KINDS = {
     const S = [
       // the request needs one function, and gives everything it takes
       () =>
-        turn('What will the weather be in ' + city + ' on ' + date + ', in ' + unit + '?', {
-          calls: [{ name: 'get_weather', args: { city, date, unit } }],
-        }),
+        turn(
+          'What will the weather be in ' + city + ' on ' + date + ', in ' + unit + '?',
+          'Tell me the weather for ' + date + ' in ' + city + ', in ' + unit + '.',
+          { calls: [{ name: 'get_weather', args: { city, date, unit } }] },
+        ),
       // it needs none of them: a reply, and no call
-      () => turn(t.pick(NONE), { reply: true }),
+      () => {
+        const q = t.pick(NONE);
+        return turn(q, NONE_AGAIN[NONE.indexOf(q)], { reply: true });
+      },
       // it needs two: both calls, in the order asked
       () =>
-        turn('Convert ' + amount + ' ' + from + ' to ' + to + ', and look up the details for ' + person + '.', {
-          calls: [
-            { name: 'convert_currency', args: { amount, from, to } },
-            { name: 'find_contact', args: { name: person } },
-          ],
-        }),
+        turn(
+          'Convert ' + amount + ' ' + from + ' to ' + to + ', and look up the details for ' + person + '.',
+          'Two things, in this order: convert ' +
+            amount +
+            ' ' +
+            from +
+            ' to ' +
+            to +
+            ', then look up the details for ' +
+            person +
+            '.',
+          {
+            calls: [
+              { name: 'convert_currency', args: { amount, from, to } },
+              { name: 'find_contact', args: { name: person } },
+            ],
+          },
+        ),
       // an argument is missing that only the person knows (the day): a question back, not a call with a guess in it
-      () => turn('Add a reminder to ' + chore + '.', { reply: true, asks: true }),
+      () =>
+        turn('Add a reminder to ' + chore + '.', 'Please add a reminder: ' + chore + '.', { reply: true, asks: true }),
       // another single call, of another function
       () =>
-        turn('How much is ' + amount + ' ' + from + ' in ' + to + '?', {
-          calls: [{ name: 'convert_currency', args: { amount, from, to } }],
-        }),
+        turn(
+          'How much is ' + amount + ' ' + from + ' in ' + to + '?',
+          'Convert ' + amount + ' ' + from + ' into ' + to + ' for me.',
+          { calls: [{ name: 'convert_currency', args: { amount, from, to } }] },
+        ),
       // and one whose arguments are all there: the call, not a question back
       () =>
-        turn('Add a reminder to ' + chore + ' on ' + date + '.', {
+        turn('Add a reminder to ' + chore + ' on ' + date + '.', 'For ' + date + ', add a reminder to ' + chore + '.', {
           calls: [{ name: 'add_reminder', args: { text: chore, date } }],
         }),
     ];

@@ -417,6 +417,8 @@ def load(root):
         # training question by question (training/loop.mjs): this configuration's, against this larger model
         "loop": (lambda q: q if q and q.get("target") == (target or {}).get("id") else None)(_json(results / "questions.json", None)),
         "scoring": scoring_now(root),
+        # what the pass in hand asks more of, and why: its own held questions, and a proof where one was read (emphasis_of)
+        "emphasis": emphasis_of(equiv.get("targets", []), state),
         "sample": (root / ".sample").exists(),
         "briefs": briefs,
         # how this swarm is trained now: the settings every swarm starts with, and over them this configuration's own changes
@@ -528,6 +530,61 @@ NOT_CLAIMED = ["long conversations (the module keeps the last turns of one)", "s
                "anything but text", "knowledge with no tool offered"]
 
 
+def capability_of(targets, task, item, item_name):
+    """THE CAPABILITY A TASK MEASURES (training/support/emphasis.mjs capabilityOf reads it the same way): the body of work the task
+    is listed under in training/equivalence.json, unless the task names another whose kinds are training's own questions of what
+    it measures (trains: IFEval is listed under The Crew, and what it measures, following instructions, is the capability
+    Instructions). Named by the work, not by the product it was first measured for (specName). A task the list does not hold is
+    of the body of work its result names. -> (id, name)"""
+    for t in targets or []:
+        for b in t.get("benchmarks") or []:
+            if b.get("task") == task:
+                c = next((x for x in targets if x.get("id") == (b.get("trains") or t.get("id"))), t)
+                return c.get("id"), c.get("specName") or c.get("name") or c.get("id")
+    return item, item_name
+
+
+def emphasis_of(targets, state):
+    """WHAT A PASS OF TRAINING ASKS MORE OF, AND WHY (training/pass.mjs endPass; training/support/emphasis.mjs), from this
+    configuration's record: the kinds its own held questions found the module short on, and the kinds of a capability a proof
+    found it short on. kinds: so many more of each in the pass in hand; fromHeld, fromProof: which came from where, with the
+    proof that was read; passesWeightedByAProof: the passes before it whose questions a proof weighted. A record from before
+    the proof was read has no fromProof, and all it asks more of is from its held questions."""
+    st = state or {}
+    ff = st.get("focusFrom") if isinstance(st.get("focusFrom"), dict) else {}
+    kinds = {k: v for k, v in (st.get("focus") or {}).items() if v}
+    pr = ff.get("proof") if isinstance(ff.get("proof"), dict) else None
+    names = {t.get("id"): t.get("specName") or t.get("name") or t.get("id") for t in targets or []}
+    return {
+        "is": "what a pass of training asks more of: the kinds of question its own held questions found the module short on, and the kinds of a capability a proof found it short on. Of a proof only each capability's verdict is read, with the gap and the count it rests on: never a question of the harness, an answer to one, or which of them the module got wrong. A verdict decides how many of training's own questions a pass makes of a kind, and never whether a change is kept. A proof that has weighted training is not blind to it: the passes it weighted are listed",
+        "kinds": kinds,
+        "fromHeld": dict(ff.get("held") or {}) if "held" in ff else dict(kinds),
+        "fromProof": ({"readAt": pr.get("at"), "more": pr.get("more"),
+                       "short": [{k: c.get(k) for k in ("id", "name", "n", "gap", "gapStderr", "proof", "kinds")} for c in pr.get("short") or []],
+                       "read": pr.get("read") or []} if pr else None),
+        "passesWeightedByAProof": [{"pass": h.get("pass"), "proofAt": (h.get("proofRead") or {}).get("at"),
+                                    "short": [names.get(i, i) for i in (h.get("proofRead") or {}).get("short") or []]}
+                                   for h in st.get("history") or [] if isinstance(h, dict) and (h.get("proofRead") or {}).get("short")],
+    }
+
+
+def proof_read_words(em):
+    """In a sentence, for a reader of the proof: whether training has read it, and what it asked more of because of it. '' where
+    no proof has weighted a pass."""
+    em = em or {}
+    bits = ["pass %s asked more of the kinds of %s (the proof of %s)" % (x.get("pass"), ", ".join(x.get("short") or []), str(x.get("proofAt") or "")[:10])
+            for x in em.get("passesWeightedByAProof") or []]
+    fp = em.get("fromProof") or {}
+    if fp.get("short"):
+        bits.append("the pass in hand asks %s more of each kind of %s (the proof of %s)" % (
+            fp.get("more"), "; ".join("%s, short by %.3f on %s questions%s" % (c.get("name"), abs(c.get("gap") or 0), c.get("n"), "" if c.get("proof") else ", a check") for c in fp["short"]),
+            str(fp.get("readAt") or "")[:10]))
+    if not bits:
+        return ""
+    return ("Training has read a proof of this module: %s. Only each capability's verdict was read, to choose how many of training's own questions a pass asks of a kind: "
+            "never a question of the harness, an answer to one, or whether a change is kept." % "; ".join(bits))
+
+
 def paired_gap(agree):
     from math import sqrt
     a = agree or {}
@@ -577,6 +634,8 @@ def swoa_proof(d, arrangement_sha, pins):
     except OSError:
         pass
     want_adapters = sorted((d["members"].get(k) or {}).get("name", k) for k in (pins or {}))
+    # (a result is listed under the capability its task measures: capability_of)
+    bodies = (d.get("equivalence") or {}).get("targets") or []
     best = {}
     for r in rows:
         if r.get("configuration") != d.get("key") or r.get("arrangementSha256") != arrangement_sha:
@@ -592,7 +651,8 @@ def swoa_proof(d, arrangement_sha, pins):
                 continue
             n = int(sw.get("n") or 0)
             pg = paired_gap(x.get("agree"))
-            e = {"harness": h, "task": x.get("task"), "name": x.get("name"), "item": x.get("item"), "itemName": x.get("itemName"), "metric": x.get("metric"), "filter": x.get("filter"),
+            cap_id, cap_name = capability_of(bodies, x.get("task"), x.get("item"), x.get("itemName"))
+            e = {"harness": h, "task": x.get("task"), "name": x.get("name"), "item": cap_id, "itemName": cap_name, "metric": x.get("metric"), "filter": x.get("filter"),
                  "n": n, "of": sw.get("of"),
                  "swoa": {"value": sw["value"], "stderr": sw.get("stderr")}, "target": {"value": tg["value"], "stderr": tg.get("stderr")},
                  "gap": round(sw["value"] - tg["value"], 4),
@@ -983,6 +1043,8 @@ def spec(d):
             "passes": d["state"].get("pass", 0),
             "trainedOn": on,
             "trainedOnIs": "the bodies of work its training asked, every kind of each: read from the questions of the pass in hand as they were asked, never from a setting. A pass asks every body of work there is; fewer are listed where the pass was begun when fewer were asked",
+            # WHAT TRAINING ASKED MORE OF, AND WHETHER A PROOF WEIGHTED IT (emphasis_of): a reader of the proof is owed that
+            "emphasis": d.get("emphasis") or emphasis_of((d.get("equivalence") or {}).get("targets") or [], d.get("state") or {}),
             "secondsPerReply": spr,
             # how often the larger model's own second answer is equivalent to its first: the noise floor under parity; and how many of
             # the swarm's different answers the reader could not decide
@@ -1092,6 +1154,9 @@ def swoa_card(sp):
         ("; the target was asked two ways and is counted by the one it scores higher by over the capability, here %s (on this task, %s)" % (way_words.get(e.get("targetAsked"), e.get("targetAsked")), ", ".join("%s: %.3f" % (way_words.get(k, k), v.get("value") or 0) for k, v in e["targetWays"].items()))) if e.get("targetWays") else "")
         for e in pr.get("results") or [] if e.get("tools")]
     body += ([""] + offered) if offered else []
+    # (where training read a proof to choose what its own questions ask more of: said under the proof)
+    read = proof_read_words((sp.get("trainedAgainst") or {}).get("emphasis"))
+    body += ["", read] if read else []
     body += ["", "## Hashes", "", "- base module: `%s`" % h.get("baseModuleSha256"), "- arrangement: `%s`" % h.get("arrangementSha256"),
              "- SwOA (recipe): `%s`" % h.get("recipeSha256"), "", "Format: [SwOA specification](%s), version %s." % (SWOA_SPEC_URL, h.get("version")), ""]
     return "\n".join(y + body)

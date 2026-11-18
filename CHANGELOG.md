@@ -86,6 +86,18 @@ The first version.
   a button for each body of work that opens your own questions for it, which are asked beside the ones made. In a SwOA,
   `card.equivalentOn` and `trainedAgainst.equivalentOn` are now `trainedOn`: the bodies of work its training asked, read
   from the questions of the pass in hand and not from a setting.
+- **A pass asks more of what the proof found short.** At the end of a pass the evaluations on record are read for each
+  capability's verdict; a capability found short has two more train questions of each of its kinds in the next pass
+  (`questions.shortMore` in `training/policy.json`; 0 turns it off), added to what the pass's own held questions ask more of.
+  Only the verdict is read from a proof: never one of its questions, an answer to one, or which the swarm got wrong; and it
+  never decides whether a change is kept. The pass's record, the page and the SwOA (`trainedAgainst.emphasis`, and a line
+  under the proof on its card) say which proof was read and which passes it weighted. The SwOA specification says what a
+  trainer may read of a proof (4.7). In a proof, a capability is now the body of work that trains what a task measures:
+  IFEval's is Instructions, where it read The Crew.
+- **Every kind of question has a second wording.** The check that asks each held question a second way covered The Crew's
+  kinds only, 80 of a pass's 168 held questions. The kinds of Math, Logic, Reasoning, Instructions, Tools and Search now say
+  their own second wording, with the same numbers, names, rules and arguments: 164 of 168. A first wording is made exactly
+  as it was.
 - **Evaluate says which bodies of work it asks.** Under **Asks**, a box for each body of work that has a standard test,
   every one ticked to begin with: untick some for a quicker look, or tick one to ask it by itself. It is a choice for one
   run, kept on the device, and applies to a proof run too. The card lists every such body of work, each folded to begin

@@ -37,8 +37,9 @@ question the trainer makes, the questions you write for it, and the standard tes
 ([`training/equivalence.json`](training/equivalence.json)). Today they are The Crew, Code, Math, Logic, Reasoning,
 Instructions, Tools and Search. **A pass of training asks every one of them, and nothing is chosen.** The module picks its
 arrangement by the class of a request, not by the body of work, and a change is kept only when its class got better and no
-kind of question fell: a kind a pass does not ask is a kind nothing protects. What a pass asks more of is what the pass
-before measured the swarm short on. Each body of work is an entry in that file, so another project's is added the same way:
+kind of question fell: a kind a pass does not ask is a kind nothing protects. What a pass asks more of is what the swarm
+was measured short on: by the pass before, on its own held questions, and by the proof, where an evaluation found a
+capability short (only that verdict is read, never a question of the test). Each body of work is an entry in that file, so another project's is added the same way:
 its own questions alone, the kinds that exist, or new kinds written in [`training/tasks.mjs`](training/tasks.mjs) where none
 fits. In training an answer is graded by the strongest standard its question has: a function is run against the question's
 own correct solution, a value is the question's own answer, a request with rules is checked rule by rule by a program, a
@@ -342,14 +343,14 @@ training ([`src/spec.mjs`](src/spec.mjs)); **Publish to specs/** writes it, with
 |---|---|
 | `swoa` | The header: format `swoa`, version 1, its name, and three hashes: the base module it applies to, the arrangement it tunes, and the whole recipe |
 | `baseModule`, `target` | What it is applied to (the small models, the decider, the engine, each pinned) and the larger model it was trained toward |
-| `proof` | Harness results for the module and for its target on the same questions, measured on exactly this SwOA: each task's two scores and the gap between them (paired, question by question), at least 100 questions a task to count as proof; a verdict for each capability over its tasks together (`parity`, `short`, or `open`, against a margin of 0.05); what a test with tools offered each model; and what the SwOA does not claim |
+| `proof` | Harness results for the module and for its target on the same questions, measured on exactly this SwOA: each task's two scores and the gap between them (paired, question by question), at least 100 questions a task to count as proof; a verdict for each capability over its tasks together (`parity`, `short`, or `open`, against a margin of 0.05), a capability being the body of work that trains what a task measures (IFEval's is Instructions); what a test with tools offered each model; and what the SwOA does not claim |
 | `recipe` | What a swarm is built from: each small model's pinned file (repository, revision, size, SHA-256, how it is served), the decider and its serving recipe, the engine's pinned builds, slots and context, the arrangement (the flow, every slot with what it is told, and an arrangement of its own for a kind of question where training kept one), and, where the swarm is served with them, each small model's LoRA adapter by file and SHA-256. Hashed: `spec.recipeSha256` |
 | `equivalence` | How far training took it, by training's own measure and not the proof: the share of training's held questions it answers well, for the arrangement every swarm starts from and for the trained one, both served as the recipe says (with its adapters, where it pins them), and the gain in points. A side not measured that way says so |
 | `adapters` | How each pinned adapter was made: what it learned (the larger model's answers to so many train questions), the original weights and revision it was trained from, its steps, loss and llama.cpp perplexity, and the command that makes it again. The files are not in the spec (10 to 15 MB each, more than a commit here takes) |
 | `card` | One item for a model chooser (`id`, `name`, `size`, `params`, `memGb`, `pace`, `badge`, `plain`), with `engine: "swarm"`, the bodies of work its training asked (`trainedOn`, named by the work) and where it stands |
 | `requirements` | What it needs of a machine: platforms (where the decider runs), memory, disk, engine, Node, every licence, and whether it may be used commercially |
 | `interface` | What it is as a model: its endpoints, what it can and cannot do (who takes a turn with tools: the swarm, or which of its small models), how to start it, and `webSearch`: what web search is to it (a tool the caller offers and runs, never something the module does), whose each part is, the three steps of using it, the limits it keeps to, and what its proof measured of it |
-| `trainedAgainst`, `learned` | Where it stands on training's own held questions, kind by kind, and the bodies of work its training asked with their kinds (`trainedOn`: read from the questions of the pass in hand as they were asked, never from a setting); and every change it kept with the evidence, with the rule a change is kept by |
+| `trainedAgainst`, `learned` | Where it stands on training's own held questions, kind by kind; the bodies of work its training asked with their kinds (`trainedOn`: read from the questions of the pass in hand as they were asked, never from a setting); what a pass asked more of and whether a proof's verdicts weighted it (`emphasis`: the kinds, which came from its held questions and which from a proof, the proof that was read, and the passes it weighted); and every change it kept with the evidence, with the rule a change is kept by |
 
 ```js
 import { createSwarm, serveSwarm, readSpec } from 'the-swarm';
@@ -594,8 +595,16 @@ named.
   Where none is named, the decider judges, and the dashboard recommends one.
 - **No flip goes unnamed.** Each pass names the held questions that were equivalent at the end of the last pass and are not
   now, and those that were won: a total that did not move can hide both.
-- **Every held question is asked a second way.** The wording changes and what is asked does not. Equivalence that holds for
-  one wording only is not fundamental, and is reported beside the first.
+- **Every held question is asked a second way.** The wording changes and what is asked does not: every number, name, rule
+  and argument is the same. Every kind of question has a second wording (164 of a pass's 168 held questions; the four
+  without are a message there is no other way to put and three steps that end on what a tool returned). Equivalence that
+  holds for one wording only is not fundamental, and is reported beside the first.
+- **What the proof finds short is asked more of.** At the end of a pass the newest evaluations of the configuration are read
+  for each capability's verdict. A capability found short has two more train questions of each of its kinds in the next pass
+  (`questions.shortMore` in the policy; 0 turns it off), on top of what the pass's own held questions ask more of, to at most
+  six more of a kind. Only the verdict is read: never a question of the test, an answer to one, or which the swarm got
+  wrong, and a verdict never decides whether a change is kept. A proof that has weighted a pass is no longer blind to it, so
+  the pass's record, the page and the SwOA say that it was read, and of which date.
 - **A bar that is held tightens.** A kind of question the Swarm has been at parity on for three passes is asked more of.
 - **How it trains is data.** The loop's limits, what the plan lists first and how much each kind of move counts for are in
   [`training/policy.json`](training/policy.json), not in code. A configuration can carry its own values over them.
@@ -612,6 +621,7 @@ named.
 | `training/baseline.mjs` | One model by itself: the larger model (`--self` and `--third`: asked again, for the standard among its answers), and each small model |
 | `training/tasks.mjs` and `tasks-*.mjs` | The questions, made from a seed, each with the standard its answer is graded by: code, the conversation of a seat, rules a program checks, calling a function, a search tool, an agent's steps. A pass asks the kinds of every body of work in `training/equivalence.json` |
 | `training/support/standard.mjs` | The standard for a question that carries none: the answers the larger model agrees with itself on |
+| `training/support/emphasis.mjs` | What the next pass asks more of because the proof found the swarm short there: each capability's verdict from the evaluations on record, by the rule of the SwOA specification, and the kinds of the body of work that trains it. It reads a verdict and nothing else of a proof |
 | `training/measure.mjs` | The Swarm, and every slot on its own account |
 | `training/loop.mjs` | Training itself, question by question: each train question stays in hand until the swarm's answer to it is good, changes are tried on it one at a time, and one is kept when the questions of its class got better with it |
 | `training/write-briefs.mjs` | New briefs for the slots that are failing, written each pass by the larger model from their misses on train questions |
@@ -621,7 +631,7 @@ named.
 | `training/support/steer.mjs` | What a person asked of the plan from the dashboard: areas leaned on or left out, moves put first or skipped |
 | `training/replay.mjs` | One measurement replayed under each way of choosing between the answers, with no model asked again |
 | `training/readers.mjs` | Checks the reader of answers in words on pairs anyone can judge, before its grades are believed |
-| `training/policy.json` | How the trainer trains, as data: how many changes are tried on a question, how a change is kept (by its class: how many questions it is raced on, the gain it must show, how far a kind may fall), what the plan lists first |
+| `training/policy.json` | How the trainer trains, as data: how many questions of each kind a pass asks and how many more where the proof found the capability short, how many changes are tried on a question, how a change is kept (by its class: how many questions it is raced on, the gain it must show, how far a kind may fall), what the plan lists first |
 | `training/arrange.mjs` | Arrangements one step from the current one. The flow: answers sent back to their drafters, a loop of checking and revising, a decision that narrows before the one that settles, a decision that settles early only if it is sure, each of them and a check or a revision put after every step in turn, a second writer, a step taken out, two steps changing places. The slots: one moved to the other model, a drafter or checker added or dropped, what a checker sees, how freely a drafter samples |
 | `training/decider.sh` | Installs and runs the configured decider beside the Swarm, by the recipe its entry gives (Kev; StartLux through MLX; a GGUF file through llama.cpp); `ready` says whether it is installed |
 | `training/search.json`, `training/support/search.mjs`, `training/support/bfcl_search.py` | The search behind the web search test: which service and at which revision; serving it for a run; and putting it behind the test's own search function, with what each query returned kept for the day |
@@ -685,7 +695,7 @@ npm test
 python3 ui/check.py
 ```
 
-One hundred and ninety-three checks of the module and the trainers, and one hundred and twenty-three of the dashboard. Stand-in servers take the place of the
+One hundred and ninety-five checks of the module and the trainers, and one hundred and twenty-four of the dashboard. Stand-in servers take the place of the
 models, the decider and Hugging Face, so nothing is fetched, started or installed, and both finish in well under a minute. Evaluate the
 swarm's relays (the tool tests' among them), its comparison of answers, the adapters the swarm is served with, and the Evaluate, Pretrain and Uninstall Helper
 sections are checked the same way. They cover what
@@ -958,8 +968,12 @@ What has not:
   questions and 168 held at six of each, where it asked The Crew's 14 kinds and 84. So a pass is about twice as long. The
   kinds of Math, Logic, Reasoning, Instructions, Tools and Search are built and checked, and none has been asked in a pass
   on real models; The Crew's own kinds, the conversation and an agent's steps among them, have.
-- **A second wording for every held question.** The check that asks each held question a second way has a second wording
-  for The Crew's kinds only: 80 of the 168 held questions. The others are left out of it, and never counted as passing.
+- **The second wordings of the new kinds, on real models.** Every kind has a second wording now (164 of the 168 held
+  questions; it was 80), each checked to carry the same numbers, names, rules and arguments and to have the same answer.
+  None of the 84 written on 2026-11-18 has been asked of a model yet.
+- **A pass weighted by the proof.** Built and checked against made-up evaluations, and read against the ones on record:
+  Instructions (20 questions) and Tools (100) both read open, so nothing is short and nothing would be asked more of. It
+  first has something to act on when a proof run finishes; and it takes effect at the end of a pass, for the next one.
 - **The web search test, on the two models.** Wired, with a search of this machine's own behind it, and tried end to end
   with a stand-in model. The larger model and the swarm have not been asked it yet.
 - **Ten of the nineteen small models in a swarm, two of the four Kev sizes, and fourteen of the fifteen larger models.**

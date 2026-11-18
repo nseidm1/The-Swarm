@@ -5,7 +5,7 @@
 // larger model wrote: the question is its own standard.
 // Made from a seed, like every other kind. A question's rules never contradict each other: at most one about its size or shape,
 // one about its words, one about its letters and edges.
-//   RULE_KINDS.rules(t, i) -> { type: 'rules', ask, rules: [{ id, says, holds(reply) }] }
+//   RULE_KINDS.rules(t, i) -> { type: 'rules', ask, again (the same request put a second way), rules: [{ id, says, holds(reply) }] }
 //   rulesHeld(rules, reply) -> [true | false, ...]   which rules a reply keeps
 const TOPICS = [
   'how to make a cup of tea',
@@ -149,6 +149,12 @@ export const RULE_KINDS = {
       type: 'rules',
       rules: kept,
       ask: 'Write a few lines about ' + topic + '. ' + kept.map((r) => r.says).join(' '),
+      // (a second way: the request led into another way, every rule word for word and in the same order after it)
+      again:
+        'I would like a few lines about ' +
+        topic +
+        ', please, and they must keep to what follows. ' +
+        kept.map((r) => r.says).join(' '),
     };
   },
 };

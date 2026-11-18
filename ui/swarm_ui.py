@@ -876,6 +876,28 @@ KIND_WORDS = {"rules": "Instructions: rules a program checks", "calls": "Calling
 
 
 
+def more_words(d, kinds=True):
+    """WHAT THE PASS IN HAND ASKS MORE OF, AND WHY, in a sentence or two (data.emphasis_of): the kinds, so many more of each, and
+    which of them its own held questions asked for and which the proof did, with the capability the proof found short, by how
+    much and on how many questions. '' where the pass asks no more of anything."""
+    em = d.get("emphasis") or {}
+    if not em.get("kinds"):
+        return ""
+    word = lambda k: KIND_WORDS.get(k, k)  # noqa: E731
+    out = []
+    if kinds:
+        out.append("This pass asks more of: %s." % ", ".join("%s +%s" % (e(word(k)), e(str(n))) for k, n in em["kinds"].items()))
+    fp = em.get("fromProof") or {}
+    if fp.get("short"):
+        out.append("The proof of %s found the swarm short on %s: %s more of each of its kinds. Only the verdict is read from a proof, never one of its questions."
+                   % (e(str(fp.get("readAt") or "")[:10]),
+                      e("; ".join("%s, by %.3f on %s questions%s" % (c.get("name"), abs(c.get("gap") or 0), c.get("n"), "" if c.get("proof") else " (a check)") for c in fp["short"])),
+                      e(str(fp.get("more")))))
+    elif fp:
+        out.append("The proof of %s was read: no capability is short in it." % e(str(fp.get("readAt") or "")[:10]))
+    return " ".join(out) + " " if out else ""
+
+
 def how_far(equivalent, compared):
     """HOW FAR ALONG, SAID ONE WAY wherever it is said: the percentage, then the count it is made of. '59.5% · 25 of 42'.
     The page has many places that say it (the strip, the header, the passes, each kind, each model alone, the spec); they all say
@@ -1341,8 +1363,8 @@ def plan_panel(d):
         else:
             out.append('<p class="muted small" style="margin:0">Nothing in it points at one stage more than another.</p>')
     if p.get("focus"):
-        out.append('<h4>Questions</h4><p class="small" style="margin:0">New train questions, with more of the kinds the last pass answered differently on: %s.</p>'
-                   % ", ".join("<b>%s</b> +%s" % (e(x["kind"]), e(str(x["more"]))) for x in p["focus"]))
+        out.append('<h4>Questions</h4><p class="small" style="margin:0">New train questions, with more of the kinds the swarm was found short on: %s. %s</p>'
+                   % (", ".join("<b>%s</b> +%s" % (e(x["kind"]), e(str(x["more"]))) for x in p["focus"]), more_words(d, kinds=False)))
     # WHAT THE SWARM CANNOT TRY BY ITSELF, measured for a person to decide (members-probe.mjs, decider-replay.mjs)
     wd = work_of(d["root"], d.get("key"))
     mem = data._json(wd / "members.json", None)
@@ -1368,8 +1390,8 @@ def plan_panel(d):
     eqd = d.get("equivalence") or {}
     asked_b = [t for t in eqd.get("targets", []) if t["id"] in (eqd.get("asked") or [])]
     n_kinds = len({k for t in asked_b for k in t.get("kinds", [])})
-    asks = ("A pass asks %s: <b>%d</b> kinds of question, and more of the kinds the pass before found the swarm short on. "
-            % ("every body of work" if len(asked_b) == len(eqd.get("targets", [])) else e(", ".join(t["name"] for t in asked_b)), n_kinds)) if asked_b else ""
+    asks = ("A pass asks %s: <b>%d</b> kinds of question, and more of the kinds the swarm was found short on: by the pass before, on its own held questions, and by the proof, where an evaluation has found a capability short. %s"
+            % ("every body of work" if len(asked_b) == len(eqd.get("targets", [])) else e(", ".join(t["name"] for t in asked_b)), n_kinds, more_words(d))) if asked_b else ""
     out.append('<h4>How it is training</h4><p class="small" style="margin:0">' + asks.replace("%", "%%") + 'A question stays in hand until its answer is good: it never moves on before%s. The arrangements found so far are tried on it first, the most successful first. Then changes are tried best first: from the closest arrangement open, and a change that comes closer is built on at once, with up to <b>%s</b> such arrangements open at a time; where every arrangement open has been tried, the search widens and builds on every arrangement it tried. '
                "%s%s %s"
                "A slot asked exactly what it was asked before answers as it did, without being asked again, so a try that changes one slot asks only what changed. The plan lists <b>%s</b> arrangements one change from here first, and <b>%s</b> that are %s changes from here at once.</p>"
@@ -1440,7 +1462,8 @@ def plan_panel(d):
         meta["what-the-measurement-showed"] = "%d compared · %d equivalent · %d finding%s%s" % (
             m.get("compared", 0), m.get("equivalent", 0), len(finds), "" if len(finds) == 1 else "s", (", the largest: %s on %d" % (FOUND.get(top["id"].split(":")[0], top["id"]), top.get("answers", 0))) if top else "")
     if p.get("focus"):
-        meta["questions"] = "%d more train questions across %d kinds the last pass answered differently on" % (sum(int(x.get("more", 0)) for x in p["focus"]), len(p["focus"]))
+        meta["questions"] = "%d more train questions across %d kinds the swarm was found short on%s" % (
+            sum(int(x.get("more", 0)) for x in p["focus"]), len(p["focus"]), ", some of them by the proof" if ((d.get("emphasis") or {}).get("fromProof") or {}).get("short") else "")
     bits = []
     if isinstance(mem, dict) and mem.get("pass") == n:
         best = next((x for x in mem.get("models") or [] if "drafts" in x), None)
@@ -3793,7 +3816,10 @@ def proof_block(sp):
                 "<p class='muted small' style='margin:6px 0 10px'>Not claimed: %s.</p>%s"
                 % (e(str(pr.get("margin"))), caps, e("; ".join((pr.get("claims") or {}).get("notClaimed") or [])), body))
     rule = str(pr.get("rule") or "")
-    return "<h4>Proof</h4><p class='muted small' style='margin:0 0 6px'>%s.</p>%s" % (e(rule[:1].upper() + rule[1:]), body)
+    # (where training has read a proof to choose what its own questions ask more of: said here, under the proof it read)
+    read = data.proof_read_words((sp.get("trainedAgainst") or {}).get("emphasis"))
+    return "<h4>Proof</h4><p class='muted small' style='margin:0 0 6px'>%s.</p>%s%s" % (
+        e(rule[:1].upper() + rule[1:]), body, ("<p class='muted small' style='margin:10px 0 0'>%s</p>" % e(read)) if read else "")
 
 
 def chips(d):

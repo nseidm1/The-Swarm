@@ -164,7 +164,7 @@ pins none); and (b) it asked at least **100** questions of its task. A result th
 be marked `proof: false`. A result that does not meet (a) MUST NOT be listed.
 
 **Verdicts.** A capability is what one or more tasks measure together (following instructions, reasoning, code, the use of
-tools). Each entry of `capabilities` is `{ id, name, tasks, n, gap, gapStderr, margin, verdict, proof }`: over the `pairs` of every
+tools); a result's `item` names it, whatever list of tests a measurer keeps the task in. Each entry of `capabilities` is `{ id, name, tasks, n, gap, gapStderr, margin, verdict, proof }`: over the `pairs` of every
 listed result of the capability, summed, `n` questions, `gap = (onlySwoa - onlyTarget) / n`, and `gapStderr` as above. Then
 `verdict` is:
 
@@ -186,7 +186,12 @@ and the service (`search`); answers of one model given on another day, or throug
 them. Where the measurer keeps what a query returned and gives the same to both models, the result SHOULD say so (`search.kept`):
 the two are then compared on the same findings, whichever was asked first.
 
-The harness's questions MUST NOT be used in training: they are the measurement training cannot fit.
+The harness's questions MUST NOT be used in training: they are the measurement training cannot fit. Nor may an answer to one
+be, or which of them the module got wrong. A trainer MAY read a proof's verdicts (which capabilities are `short`, with the gap
+and the count of questions each rests on) to decide how many of its own questions it asks of each kind; a verdict MUST NOT
+decide whether a change to the arrangement is kept. A proof that has steered training is not blind to it: a SwOA whose training
+read one SHOULD say so, with what was read and which passes it weighted (`trainedAgainst.emphasis`), and its card SHOULD say so
+under the proof.
 
 A SwOA SHOULD NOT be published without at least one result that is proof. Parity is not required: a SwOA that loses on a task is
 published with the loss in its proof. A SwOA claims parity only capability by capability, and only where the verdict is `parity`.
@@ -196,8 +201,9 @@ published with the loss in its proof. A SwOA claims parity only capability by ca
 A writer MAY add members for people and for model catalogs, for example `card` (one entry for a model chooser), `requirements`
 (memory, disk, platforms, licences), `interface` (the endpoints it answers; and `interface.webSearch`: what T.10 says of a search
 tool, for this module, with what its proof measured of it), `equivalence` and `trainedAgainst` (where training's
-own held questions stand, and `trainedOn`: the bodies of work its training asked, as the questions of its passes say and
-not as a setting does), `learned` (what training kept, with its evidence), and the recipe laid out to read (`members`,
+own held questions stand; `trainedOn`: the bodies of work its training asked, as the questions of its passes say and
+not as a setting does; and `emphasis`: what a pass asked more of, and whether a proof's verdicts weighted it, 4.7),
+`learned` (what training kept, with its evidence), and the recipe laid out to read (`members`,
 `decider`, `engine`, `serving`, `arrangement`). They MUST NOT contradict the normative members, and like them MUST NOT refer to an
 implementation (section 3).
 
@@ -254,7 +260,8 @@ model-index:
 ```
 
 Then, in prose: what the module is (its members, decision model and target), the proof as a table (task, metric, questions,
-SwOA, target, gap, proof or check), and the three hashes. The card names the runtime only as `library_name`.
+SwOA, target, gap, proof or check), and the three hashes. Where training read a proof's verdicts (4.7), the card says so under
+the proof. The card names the runtime only as `library_name`.
 
 ### 8. Earlier documents
 
