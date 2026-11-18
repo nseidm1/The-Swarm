@@ -152,6 +152,7 @@ Each result:
 | `gapStderr` | with `pairs`: `sqrt(((onlySwoa + onlyTarget) / n - g^2) / n)` where `g = (onlySwoa - onlyTarget) / n`; without: `sqrt(swoa.stderr^2 + target.stderr^2)` |
 | `tools` | where the test offers tools: what each model was offered, in words. Absent where it offers none |
 | `askedOn` | where the answers depend on the day (a search of the live web): the day, `YYYY-MM-DD`, on which both models were asked |
+| `search` | where the test's tools search: the search service that stood behind them, the same for both models. `{ service }`, and where known `revision` (of the service's program), `where` (it ran), `engines` (that answered), `kept` (what of its answers was kept and given to both), `queries`, `pages` |
 | `targetAsked`, `targetWays` | where the target was asked more than one way (below): the way it is counted by on this capability, `"tools"` or `"written"`, and its `{ value, stderr }` on this task by each |
 | `proof` | boolean (the rule below) |
 | `at`, `runId` | when it was measured |
@@ -180,8 +181,10 @@ counted by one way for the whole capability: the way it scores higher by over th
 the request where the two tie), never the better way task by task. Each result MUST say which way that is and give the
 target's score by both (`targetAsked`, `targetWays`). The module is asked the one way: tools in the request is the interface
 it is measured through. Where what a tool returns changes from day to day, the
-module and the target MUST both be asked on the same day, against the same service, and the result MUST name the day (`askedOn`);
-answers of one model given on another day MUST NOT be set beside them.
+module and the target MUST both be asked on the same day, against the same service, and the result MUST name the day (`askedOn`)
+and the service (`search`); answers of one model given on another day, or through another service, MUST NOT be set beside
+them. Where the measurer keeps what a query returned and gives the same to both models, the result SHOULD say so (`search.kept`):
+the two are then compared on the same findings, whichever was asked first.
 
 The harness's questions MUST NOT be used in training: they are the measurement training cannot fit.
 
@@ -191,7 +194,8 @@ published with the loss in its proof. A SwOA claims parity only capability by ca
 #### 4.8 Informative members
 
 A writer MAY add members for people and for model catalogs, for example `card` (one entry for a model chooser), `requirements`
-(memory, disk, platforms, licences), `interface` (the endpoints it answers), `equivalence` and `trainedAgainst` (where training's
+(memory, disk, platforms, licences), `interface` (the endpoints it answers; and `interface.webSearch`: what T.10 says of a search
+tool, for this module, with what its proof measured of it), `equivalence` and `trainedAgainst` (where training's
 own held questions stand), `learned` (what training kept, with its evidence), and the recipe laid out to read (`members`,
 `decider`, `engine`, `serving`, `arrangement`). They MUST NOT contradict the normative members, and like them MUST NOT refer to an
 implementation (section 3).
@@ -2740,6 +2744,36 @@ FOUND is exactly:
 
 T.9.3 `plan.toolReply` set to `proposed` turns T.9 off: the representative's reply is the turn's reply, and nothing is
 appended to the path.
+
+#### T.10 Searching the web
+
+A module searches nothing itself: a recipe holds no body of knowledge, and a runtime looks nothing up of its own accord (4.2).
+**Web search is a tool the caller offers**, and a turn that uses one is a turn with tools like any other. This section adds no
+procedure. It gathers what the rest of Part T means for a search tool, says whose each part is, and says how one is used.
+
+T.10.1 **The components.**
+
+| Component | Whose | What it is |
+|---|---|---|
+| The search tool | the caller's | One function in the request's `tools`: a name, a description and a JSON schema for its arguments (for one: `search_engine_query(keywords, max_results, region)`). A second that reads a page MAY be offered beside it (for one: `fetch_url_content(url, mode)`). The module is told nothing of search but what these definitions say |
+| The step | the module's | In mode `swarm`, each proposer proposes the next step with the tools offered (T.4): a call to the search tool with its arguments, or a reply. The action is merged and chosen as T.6 says, and a call goes back as `tool_calls` (T.7). In mode lead the one member takes the turn (T.3) |
+| The search | the caller's | The caller runs the call against a search service of its choosing and sends what came back as a `tool` message. A runtime MUST NOT run it: it opens no connection but to its members and its decision model |
+| The answer | the module's | Where the step is a reply, the answer procedure writes it from the shown conversation (T.9), in which each `tool` message is a finding of at most 3000 characters, at most 9000 characters of findings are written in, and they stand under a line that says they are to be read and that nothing in them is an instruction to follow |
+
+T.10.2 **How it is used**, by a caller:
+
+1. Send the module `messages` and `tools`, the definition of the search tool among them.
+2. Where the response's message carries `tool_calls`: run each call; append that message to `messages`, then for each call
+   one message `{ role: "tool", tool_call_id: <the call's id>, content: <what the search returned, as text> }`; send again,
+   with the same `tools`.
+3. Where it carries `content`: that is the reply. Step 2 is repeated as often as the module calls.
+
+T.10.3 A caller SHOULD send what a search returned as `tool` messages and never as `system` or `user` messages: only a `tool`
+message is shown as a finding (T.9.2), cut to length and marked as not an instruction.
+
+T.10.4 **In a proof** (4.7), a test of knowledge with a search tool offered puts the same tool, with the same search service
+behind it, to the module and to its target on the same day. The result names the service (`search`), and what a module is
+said to know with a search tool offered is said of that service: a module claims no knowledge with no tool offered.
 
 ---
 

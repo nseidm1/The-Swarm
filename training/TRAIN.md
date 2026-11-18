@@ -195,9 +195,10 @@ it was never trained on is measured apart ([`evaluate.mjs`](evaluate.mjs), the p
 lm-evaluation-harness for each body of work chosen, asked of the larger model and of the swarm, every question's two answers
 compared. Calling a function and searching have no task there, so Tools and Search are measured by a second harness, the
 Berkeley Function-Calling Leaderboard's own package ([`support/bfcl.mjs`](support/bfcl.mjs)): the larger model and the swarm
-are offered the same functions in the same request, and paired on the package's verdict. Its web search test searches the
-live web through a service that needs a key (`SERPAPI_API_KEY`); without one it is not asked, and both models are always asked
-on the same day. `bash training/evaluate.sh --proof` asks each task at the size a verdict needs.
+are offered the same functions in the same request, and paired on the package's verdict. Its web search test runs the
+searches a model asks for, through a SearXNG the evaluation serves on this machine for the run ([`search.json`](search.json),
+[`support/search.mjs`](support/search.mjs); no key; installed into `.work/searxng` the first time). What each query returned is
+kept for the day, both models are always asked on the same day, and the result names the search. `bash training/evaluate.sh --proof` asks each task at the size a verdict needs.
 
 **How the larger model is served can hide what it can do.** On the function-calling test it is asked two ways, the tools in
 the request and the tools written into the conversation, and counted by the way it scores higher by over the capability

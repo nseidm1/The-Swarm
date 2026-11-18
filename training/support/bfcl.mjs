@@ -33,11 +33,13 @@ export const BFCL_ID = { name: 'bfcl-eval', version: '2026.3.23' };
 export const BFCL = BFCL_ID.name + ' ' + BFCL_ID.version;
 // (the registered model that speaks plain chat completions with tools to OPENAI_BASE_URL: see above)
 export const BFCL_MODEL = 'openbmb/MiniCPM-SALA-FC';
-// (what the search questions need behind them: the package searches through SerpAPI, with a key a person supplies)
-export const SEARCH_KEY = 'SERPAPI_API_KEY';
 const python = () => path.join(BFCL_DIR, 'venv', 'bin', 'python');
 const program = () => path.join(BFCL_DIR, 'venv', 'bin', 'bfcl');
 export const bfclInstalled = () => fs.existsSync(program());
+// THE PACKAGE IS STARTED THROUGH A PROGRAM OF OURS (bfcl_search.py), with the package's own Python: where a search of this
+// machine's own is named (env SWARM_SEARCH_URL), it stands behind the web search test's search function; where none is, the
+// package runs exactly as it is. Either way it is the package's own command line that runs
+const WRAPPER = path.join(HERE, 'bfcl_search.py');
 
 // every question's id of a category, in the package's own order (it knows how each category's ids are made)
 export function idsOf(category) {
@@ -372,7 +374,8 @@ export function toolRelay(ask, on = {}) {
 }
 
 // ONE CATEGORY THROUGH THE PACKAGE, for the model behind `base`: its answers (generate), then its score (evaluate), both under
-// `root`, the folder the package is told is its own. ids: the questions to ask (none: every one). onChild(child) hands over the
+// `root`, the folder the package is told is its own. ids: the questions to ask (none: every one). env: more of its environment
+// (the search behind the web search test: support/search.mjs searchEnv). onChild(child) hands over the
 // process running, so that it can be stopped; onSaid(text, step) what it has printed in this step ('generate', 'evaluate')
 export function bfclRun({ root, category, ids = null, base, env = {}, onChild = () => {}, onSaid = () => {} }) {
   fs.mkdirSync(root, { recursive: true });
@@ -381,7 +384,7 @@ export function bfclRun({ root, category, ids = null, base, env = {}, onChild = 
   const step = (args) =>
     new Promise((ok) => {
       const name = args[0];
-      const child = spawn(program(), args, {
+      const child = spawn(python(), [WRAPPER, ...args], {
         env: {
           ...process.env,
           ...env,

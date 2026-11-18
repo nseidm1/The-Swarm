@@ -202,7 +202,9 @@ export function reap({ dry = false, keepDecider = false } = {}) {
         (!keepDecider &&
           (/kev[.]serve/.test(r.cmd) || /startlux-decide serve/.test(r.cmd)) &&
           r.cmd.includes(path.join(ROOT, '.work'))) ||
-        /tensorfold serve .*--name target\b/.test(r.cmd)),
+        /tensorfold serve .*--name target\b/.test(r.cmd) ||
+        // the search an evaluation serves behind the web search test (training/support/search.mjs)
+        (/searx[.]webapp/.test(r.cmd) && r.cmd.includes(path.join(ROOT, '.work')))),
   );
   for (const r of left) {
     if (dry) continue;

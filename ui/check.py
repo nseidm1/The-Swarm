@@ -467,18 +467,39 @@ with tempfile.TemporaryDirectory() as tmp:
     a_dir = (origs.get(a_file) or {}).get("dir") or "LFM2.5-1.2B-Instruct"
     for pth in (root / ".work" / "lmeval" / "venv", root / ".work" / "mlx" / "venv", root / ".work" / "mlx" / "python", root / ".work" / "mlx" / "hf" / a_dir, root / ".work" / "mlx" / "hf" / "Old-Model",
                 root / ".work" / "library" / "adapters" / d["target"]["id"] / a_dir, root / ".work" / "eval" / "target", root / ".work" / "eval" / "swarm",
-                root / ".work" / "bfcl" / "venv", root / ".work" / "bfcl" / "python", root / ".work" / "bfcl" / "uv-cache"):
+                root / ".work" / "bfcl" / "venv", root / ".work" / "bfcl" / "python", root / ".work" / "bfcl" / "uv-cache",
+                root / ".work" / "searxng" / "venv", root / ".work" / "searxng" / "src", root / ".work" / "eval" / "search" / "2026-11-18" / "queries",
+                root / ".work" / "archive" / "clear-20261116-200115", root / ".work" / "added-later" / "venv"):
         pth.mkdir(parents=True, exist_ok=True)
         (pth / "x.bin").write_bytes(b"x" * 2048)
+    (root / ".work" / "train").mkdir(parents=True, exist_ok=True)
+    (root / ".work" / "train" / "judge.log").write_text("x" * 4096)
     inv = {x["id"]: x for x in cleanup.inventory(root, data.load(root))}
+    # EVERYTHING INSTALLED IS LISTED, AND CAN BE TAKEN OUT: the search behind the web search test; a program this list does not
+    # know by name (a folder of .work with a Python of its own); what Clear training state set aside; the logs
+    listed_paths = {os.path.realpath(q) for x in inv.values() for q in x["paths"]}
+    unlisted = [d.name for d in (root / ".work").iterdir() if d.is_dir() and any((d / v).is_dir() for v in ("venv", "uvenv", ".venv"))
+                and not any(k == os.path.realpath(d) or k.startswith(os.path.realpath(d) + os.sep) for k in listed_paths)]
+    check("everything installed here is listed by the Uninstall Helper and can be taken out: the search behind the web search test, with what each search returned among the evaluations' answers; a program it does not know by name, since any folder of .work with a Python of its own is listed; what Clear training state set aside; and the logs",
+          "searxng:program" in inv and inv["searxng:program"]["removable"] and inv["searxng:program"]["paths"] == [str(root / ".work" / "searxng")] and "web search test" in inv["searxng:program"]["what"]
+          and str(root / ".work" / "eval" / "search") in inv["eval:answers"]["paths"]
+          and "other:added-later" in inv and inv["other:added-later"]["removable"] and inv["other:added-later"]["group"] == "Programs"
+          and "old:cleared" in inv and inv["old:cleared"]["paths"] == [str(root / ".work" / "archive")]
+          and "logs" in inv and str(root / ".work" / "train" / "judge.log") in inv["logs"]["paths"]
+          and unlisted == [] and not [k for k in inv if k.startswith("other:") and k != "other:added-later"], [sorted(inv), unlisted])
     (root / ".work" / "eval" / "ui-run.json").write_text(json.dumps({"pid": os.getpid(), "at": "now"}))
     held_rm = send("/uninstall", {"id": "lmeval:program"})
     (root / ".work" / "eval" / "ui-run.json").unlink()
     rm_ok = send("/uninstall", {"id": "mlx:weights:" + a_dir})[0]
     rm_bfcl = send("/uninstall", {"id": "bfcl:program"})
+    rm_searx = send("/uninstall", {"id": "searxng:program"})
+    rm_other = send("/uninstall", {"id": "other:added-later"})
+    rm_cleared = send("/uninstall", {"id": "old:cleared"})
     check("the Uninstall Helper lists what evaluating and pretraining fetch, each to be taken out on its own: lm-evaluation-harness, the tool tests with the Python fetched for them (taken out whole, the folder gone), MLX and its Python, each small model's original weights (the ones the swarm is made of marked in use, and any no longer listed), the adapters, and the answers evaluations kept, the swarm's among them; and while an evaluation runs it removes nothing, and says why",
           "bfcl:program" in inv and inv["bfcl:program"]["group"] == "Programs" and inv["bfcl:program"]["paths"] == [str(root / ".work" / "bfcl")] and inv["bfcl:program"]["bytes"] >= 3 * 2048
           and rm_bfcl[0] == 200 and not (root / ".work" / "bfcl").exists() and "bfcl:program" not in {x["id"] for x in cleanup.inventory(root, data.load(root))}
+          and rm_searx[0] == 200 and not (root / ".work" / "searxng").exists() and rm_other[0] == 200 and not (root / ".work" / "added-later").exists()
+          and rm_cleared[0] == 200 and not (root / ".work" / "archive").exists()
           and str(root / ".work" / "mlx" / "python") in inv["mlx:program"]["paths"] and str(root / ".work" / "eval" / "swarm") in inv["eval:answers"]["paths"]
           and "lmeval:program" in inv and "mlx:program" in inv and ("mlx:weights:" + a_dir) in inv and inv["mlx:weights:" + a_dir]["used"] == (a_file in origs) and "mlx:weights:other" in inv
           and ("adapters:" + d["target"]["id"]) in inv and "eval:answers" in inv and inv["mlx:weights:" + a_dir]["group"] == "Pretrain"
@@ -1339,6 +1360,75 @@ check("while a change is scored on its class the page says so, and says which qu
       and "a change is kept when the questions of its class got better with it" in data.learned_rule({"loop": {"classKeep": True}}) and "classGain" in data.learned_rule({"loop": {"classKeep": True}})
       and "Before this rule, a change was kept only if it brought a train question to parity" in data.learned_rule({"loop": {"classKeep": True, "classMinGain": 0.02}})
       and data.learned_rule({"loop": {}}).startswith("training goes question by question: a change is kept only if it brings a train question to parity"), data.learned_rule({"loop": {"classKeep": True}}))
+
+# THE SEARCH BEHIND THE WEB SEARCH TEST, the part of it that runs with the tool tests' own Python (training/support/bfcl_search.py):
+# what a model is given back is the shape the test's own search gives; a query's results are kept and given again; one that
+# returns nothing is asked again a few times, and then that is its answer
+import importlib.util as _ilu
+_sp = _ilu.spec_from_file_location("bfcl_search", Path(__file__).resolve().parent.parent / "training" / "support" / "bfcl_search.py")
+_bs = _ilu.module_from_spec(_sp)
+_sp.loader.exec_module(_bs)
+_found = [{"title": "A", "url": "https://a.example/x", "content": "about a", "engines": ["brave"]}, {"title": "", "url": "https://b.example/"},
+          {"title": "Redirect", "url": "http:///go/v1/abc"}, {"title": "C", "url": "http://c.example/", "content": None}]
+with _tf.TemporaryDirectory() as _t3:
+    _asked = []
+
+    def _ask(base, keywords, language):
+        _asked.append((base, keywords, language))
+        return {"results": [] if keywords == "nothing" or (keywords == "late" and len([a for a in _asked if a[1] == "late"]) < 2) else _found, "unresponsive_engines": [["duckduckgo", "CAPTCHA"]]}
+
+    _waits = []
+    _r1 = _bs.search("http://s", _t3, "tea", 10, "us-en", True, ask=_ask, tries=3, wait=_waits.append)
+    _r2 = _bs.search("http://s", _t3, "tea", 1, "us-en", False, ask=_ask, tries=3, wait=_waits.append)
+    _r3 = _bs.search("http://s", _t3, "late", 10, "wt-wt", True, ask=_ask, tries=3, wait=_waits.append)
+    _r4 = _bs.search("http://s", _t3, "nothing", 10, "wt-wt", True, ask=_ask, tries=3, wait=_waits.append)
+    _r5 = _bs.search("http://s", _t3, "nothing", 10, "wt-wt", True, ask=_ask, tries=3, wait=_waits.append)
+    _kept_files = sorted(os.listdir(os.path.join(_t3, "queries")))
+    _made = []
+    _k1 = _bs.kept(os.path.join(_t3, "pages"), "u", lambda: _made.append(1) or {"content": "page"})
+    _k2 = _bs.kept(os.path.join(_t3, "pages"), "u", lambda: _made.append(1) or {"content": "another"})
+check("the search behind the web search test gives a model what the test's own search gives (title, href and, where snippets are shown, body; cut at the number asked for; an error where nothing was found), leaves out what is no page, keeps what a query returned and gives it again without asking, asks again a few times where nothing came back, and reads the test's region as a language",
+      _r1 == [{"title": "A", "href": "https://a.example/x", "body": "about a"}, {"title": "C", "href": "http://c.example/", "body": ""}]
+      and _r2 == [{"title": "A", "href": "https://a.example/x"}] and len([a for a in _asked if a[1] == "tea"]) == 1 and _asked[0] == ("http://s", "tea", "en-US")
+      and _r3 == _r1 and len([a for a in _asked if a[1] == "late"]) == 2
+      and _r4 == {"error": _bs.NOTHING} and _r5 == _r4 and len([a for a in _asked if a[1] == "nothing"]) == 3 and len(_kept_files) == 3
+      and _bs.language_of("wt-wt") == "all" and _bs.language_of("uk-en") == "en-GB" and _bs.language_of("tw-tzh") == "zh-TW" and _bs.language_of("ue-es") == "es-US" and _bs.language_of("") == "all"
+      and _bs.is_page("https://a.example/") and not _bs.is_page("http:///go/v1/abc") and not _bs.is_page("ftp://a.example/") and not _bs.is_page(None)
+      and _k1 == {"content": "page"} and _k2 == _k1 and len(_made) == 1 and _waits[:1] == [2],
+      [_r1, _r2, _r4, _asked, _kept_files])
+
+# WEB SEARCH IN THE SwOA SPEC (interface.webSearch; docs/swoa.md T.10): what it is to the module, whose each part is, how a caller
+# uses it, the limits the module keeps to (read from the runtime), and what the proof measured of it, with the search behind the test
+_tm = (Path(__file__).resolve().parent.parent / "src" / "tools.mjs").read_text()
+_each, _all = int(re.search(r"^export const RESULT_MOST = (\d+);", _tm, re.M).group(1)), int(re.search(r"^export const FOUND_MOST = (\d+);", _tm, re.M).group(1))
+_ws = data.web_search_of({"root": str(Path(__file__).resolve().parent.parent)}, "swarm", {"name": "Small A"}, {})
+_ws_lead = data.web_search_of({"root": str(Path(__file__).resolve().parent.parent)}, "a", {"name": "Small A"}, {})
+_srch = {"service": "SearXNG", "revision": "b867c56a5668966ef4be8097f1b559bdc2841743", "where": "served on the machine that measured, for the length of the run", "engines": ["brave", "duckduckgo"],
+         "kept": "what each query returned and each page fetched, for the day: both models are given the same", "queries": 212, "pages": 40}
+_pr3 = {"rule": "r", "margin": 0.05, "claims": {"notClaimed": []},
+        "capabilities": [{"id": "search", "name": "Search", "tasks": ["bfcl_web_search_base"], "n": 100, "gap": -0.21, "gapStderr": 0.05, "verdict": "short", "proof": True, "margin": 0.05}],
+        "results": [{"task": "bfcl_web_search_base", "name": "BFCL web search", "item": "search", "itemName": "Search", "metric": "accuracy", "harness": {"name": "bfcl-eval", "version": "2026.3.23"},
+                     "n": 100, "of": 100, "swoa": {"value": 0.2, "stderr": 0.04}, "target": {"value": 0.41, "stderr": 0.05}, "gap": -0.21, "gapStderr": 0.05, "proof": True,
+                     "tools": "search_engine_query and fetch_url_content, the search behind them a SearXNG served for the run (no key), each query and page kept for the day", "askedOn": "2026-11-19", "search": _srch}]}
+_ws_m = data.web_search_of({"root": str(Path(__file__).resolve().parent.parent)}, "swarm", {"name": "Small A"}, _pr3)
+_row = lambda k, v: "<tr><th>%s</th><td>%s</td></tr>" % (k, v)  # noqa: E731
+_wsb = swarm_ui.web_search_block({"interface": {"webSearch": _ws_m}}, _row)
+_pb3 = swarm_ui.proof_block({"target": {"name": "T"}, "proof": _pr3})
+_card3 = data.swoa_card({"swoa": {}, "target": {"name": "T"}, "proof": _pr3, "baseModule": {"members": {}, "decider": {}}, "runtime": {}})
+_real = data.spec(_d)
+check("the SwOA spec says what web search is to the module and how it is used: a tool the caller offers and runs, never something the module does; whose each of its four parts is; the three steps of using it; the limits the module keeps to, read from the runtime; and what the proof measured of it with the search behind the test. The dialog shows it, and a result of a test that searches names the search service on the page and on the card",
+      "never something the module does" in _ws["is"] and set(_ws["components"]) == {"searchTool", "step", "search", "answer"}
+      and [_ws["components"][k]["whose"] for k in ("searchTool", "step", "search", "answer")] == ["the caller's", "the module's", "the caller's", "the module's"]
+      and len(_ws["howToUse"]) == 3 and "tool_call_id" in _ws["howToUse"][1] and "tools" in _ws["howToUse"][0]
+      and _ws["limits"] == {"charactersOfOneResult": _each, "charactersOfAllResults": _all, "followsWhatAResultSays": False, "searchesByItself": False}
+      and ("each result cut at %d characters, at most %d in all" % (_each, _all)) in _ws["components"]["answer"]["what"] and "opens no connection but to its own models" in _ws["components"]["search"]["what"]
+      and str(_ws["measured"]).startswith("not measured on this SwOA yet") and "Small A alone" in _ws_lead["components"]["step"]["what"] and _ws_lead["limits"]["charactersOfOneResult"] is None
+      and _ws_m["measured"] == {"capability": "search", "verdict": "short", "questions": 100, "gap": -0.21, "proof": True, "searchBehindTheTest": _srch}
+      and "<h4>Web search</h4>" in _wsb and "How to use it" in _wsb and _wsb.count("<li>") == 3 and "the module never searches by itself" in _wsb and "searched through: SearXNG · revision b867c56a5668" in _wsb
+      and "searched through: SearXNG · revision b867c56a5668 · served on the machine that measured, for the length of the run · engines that answered: brave, duckduckgo" in _pb3 and "asked 2026-11-19" in _pb3
+      and 'search: "SearXNG b867c56a5668"' in _card3
+      and "webSearch" in _real["interface"] and _real["interface"]["webSearch"]["limits"]["charactersOfOneResult"] == _each and "<h4>Web search</h4>" in swarm_ui.spec_panel(_d),
+      [_ws["limits"], _ws_m["measured"], _wsb[:200]])
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

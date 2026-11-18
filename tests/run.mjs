@@ -7727,10 +7727,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const ifeval = plan.find((b) => b.task === 'ifeval');
   const toolsN = plan.filter((b) => b.item === 'tools').reduce((n, b) => n + E.sizeOf(b, { proof: true }), 0);
   check(
-    'a body of work may be measured by the tool tests: its tasks say so, name the package category and what each model is offered; a plan says which harnesses it needs; calling functions is asked about five hundred questions for a proof; and a search test with no key to the search service is not asked, and says why',
-    JSON.stringify(E.needsOf(plan)) === JSON.stringify(['lmeval', 'bfcl']) &&
-      JSON.stringify(E.needsOf(E.planOf(EQ.targets, ['crew']))) === JSON.stringify(['lmeval']) &&
-      JSON.stringify(E.needsOf(E.planOf(EQ.targets, ['tools']))) === JSON.stringify(['bfcl']) &&
+    'a body of work may be measured by the tool tests: its tasks say so, name the package category and what each model is offered; a plan says what it needs installed, the search behind a web search test among it; calling functions is asked about five hundred questions for a proof; and a search test with no search behind it is not asked, and says why',
+    JSON.stringify(E.needsOf(plan, {})) === JSON.stringify(['lmeval', 'bfcl', 'searxng']) &&
+      JSON.stringify(E.needsOf(plan, { SWARM_SEARCH: 'serpapi' })) === JSON.stringify(['lmeval', 'bfcl']) &&
+      JSON.stringify(E.needsOf(E.planOf(EQ.targets, ['crew']), {})) === JSON.stringify(['lmeval']) &&
+      JSON.stringify(E.needsOf(E.planOf(EQ.targets, ['tools']), {})) === JSON.stringify(['bfcl']) &&
       E.isToolTest(tool) &&
       !E.isToolTest(ifeval) &&
       E.harnessOf(tool).name === 'bfcl-eval' &&
@@ -7738,9 +7739,18 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       tool.category === 'simple_python' &&
       toolsN === 500 &&
       plan.filter(E.isToolTest).every((b) => b.tools && b.category && b.compare === 'verdict') &&
-      /SERPAPI_API_KEY/.test(E.blockedOf(web, {})) &&
-      E.blockedOf(web, { SERPAPI_API_KEY: 'k' }) === '' &&
-      E.blockedOf(tool, {}) === '' &&
+      // (a search test is asked through the search this machine serves, with no key; it is not asked where that is not
+      // installed, nor, where the other service is named, without that service's key)
+      E.blockedOf(web, {}, { installed: true }) === '' &&
+      /SearXNG.*is not installed here/.test(E.blockedOf(web, {}, { installed: false })) &&
+      /SERPAPI_API_KEY/.test(E.blockedOf(web, { SWARM_SEARCH: 'serpapi' }, { installed: true })) &&
+      E.blockedOf(web, { SWARM_SEARCH: 'serpapi', SERPAPI_API_KEY: 'k' }, { installed: false }) === '' &&
+      E.blockedOf(tool, {}, { installed: false }) === '' &&
+      web.search === true &&
+      !('needsKey' in web) &&
+      E.searchPart(web, {}) === '-searxng' &&
+      E.searchPart(web, { SWARM_SEARCH: 'serpapi' }) === '-serpapi' &&
+      E.searchPart(tool, {}) === '' &&
       web.daily === true &&
       !tool.daily &&
       E.dayOf(new Date('2026-11-18T23:59:00Z')) === '2026-11-18',
@@ -8012,6 +8022,73 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       !a2.message.tool_calls,
     { wm, a1, a2, ways: E.waysOf(fn) },
   );
+}
+
+// ---- 10d: THE SEARCH BEHIND THE WEB SEARCH TEST (training/support/search.mjs; training/search.json): which service, pinned; when
+// it counts as installed; what the tool tests are started with; and what a result says of it, read from what the day kept
+{
+  const S = await import('../training/support/search.mjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-search-'));
+  const half = S.searxInstalled(dir);
+  fs.mkdirSync(path.join(dir, 'src', 'searx'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'venv', 'bin'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'src', 'searx', 'webapp.py'), '');
+  fs.writeFileSync(path.join(dir, 'venv', 'bin', 'python'), '');
+  fs.writeFileSync(path.join(dir, '.rev'), 'an-older-revision\n');
+  const old = S.searxInstalled(dir);
+  fs.writeFileSync(path.join(dir, '.rev'), S.SEARCH.searxng.rev + '\n');
+  const here = S.searxInstalled(dir);
+  const day = S.searchFolder(dir, '2026-11-18');
+  fs.mkdirSync(path.join(day, 'queries'), { recursive: true });
+  fs.mkdirSync(path.join(day, 'pages'), { recursive: true });
+  const q = (name, engines) =>
+    fs.writeFileSync(
+      path.join(day, 'queries', name + '.json'),
+      JSON.stringify({
+        key: name,
+        value: { results: [{ title: 't', url: 'https://a.example/', content: 'c', engines }] },
+      }),
+    );
+  q('one', ['brave', 'duckduckgo']);
+  q('two', ['brave']);
+  fs.writeFileSync(path.join(day, 'queries', 'being-written.json'), '{');
+  fs.writeFileSync(path.join(day, 'pages', 'p.json'), JSON.stringify({ value: { content: 'x' } }));
+  const rec = S.searchRecord({}, day);
+  const env = S.searchEnv('http://127.0.0.1:9', day);
+  let refused = '';
+  try {
+    await S.openSearch({ dir: path.join(dir, 'nowhere') });
+  } catch (e) {
+    refused = String(e.message);
+  }
+  check(
+    'the search behind the web search test is a SearXNG pinned by revision and served with its JSON output on, unless another service is named; it counts as installed only at the pinned revision with its program and its Python; the tool tests are told where it is and where the day keeps what it returned; a result says the service, its revision, the engines that answered and what was kept; and where it is not installed it is not started',
+    S.searchOf({}) === 'searxng' &&
+      S.searchOf({ SWARM_SEARCH: 'SerpAPI' }) === 'serpapi' &&
+      S.searchOf({ SWARM_SEARCH: 'something-else' }) === 'searxng' &&
+      /^[0-9a-f]{40}$/.test(S.SEARCH.searxng.rev) &&
+      /^https:\/\/github\.com\/searxng\/searxng/.test(S.SEARCH.searxng.repo) &&
+      S.SEARCH.searxng.settings.search.formats.includes('json') &&
+      S.SEARCH.searxng.settings.server.limiter === false &&
+      half === false &&
+      old === false &&
+      here === true &&
+      day === path.join(dir, 'search', '2026-11-18') &&
+      env.SWARM_SEARCH_URL === 'http://127.0.0.1:9' &&
+      env.SWARM_SEARCH_CACHE === day &&
+      env.SWARM_SEARCH_TRIES === '3' &&
+      rec.service === 'SearXNG' &&
+      rec.revision === S.SEARCH.searxng.rev &&
+      JSON.stringify(rec.engines) === JSON.stringify(['brave', 'duckduckgo']) &&
+      rec.queries === 2 &&
+      rec.pages === 1 &&
+      /both models are given the same/.test(rec.kept) &&
+      S.searchRecord({ SWARM_SEARCH: 'serpapi' }, day).service === 'SerpAPI (DuckDuckGo)' &&
+      /no key/.test(S.searchWords({})) &&
+      /is not installed here/.test(refused),
+    { half, old, here, rec, env, refused },
+  );
+  fs.rmSync(dir, { recursive: true, force: true });
 }
 
 await swarm.stop();

@@ -3041,13 +3041,14 @@ def spec_panel(d):
     c, rq, cap, st_ = sp["card"], sp["requirements"], sp["interface"]["capabilities"], sp["interface"]["start"]
     host = ('<h4>As a model chooser lists it</h4><div class="hostcard"><div><b>%s</b><span class="muted small"> · %s · about %s GB · %s</span></div><div class="hcbadge">%s</div><p>%s</p>%s</div>'
             '<p class="muted small" style="margin:6px 0 0">The entry a model chooser takes, with <code>engine: swarm</code>; it is started with <code>%s</code>.</p>'
-            "<h4>What it needs</h4><table class='spec'>%s</table><h4>What it can do as a model</h4><table class='spec'>%s</table><h4>To make it</h4><table class='spec'>%s</table>"
+            "<h4>What it needs</h4><table class='spec'>%s</table><h4>What it can do as a model</h4><table class='spec'>%s</table>%s<h4>To make it</h4><table class='spec'>%s</table>"
             % (e(c["name"]), e(c["size"]), e(str(c["memGb"])), e(c["pace"] if c.get("secondsPerReply") is None else "%s s a reply" % c["secondsPerReply"]), e(c["badge"]), e(c["plain"]),
                ('<div class="hcon">%s</div>' % "".join("<span>%s</span>" % e(x) for x in c["equivalentOn"])) if c["equivalentOn"] else "", e(st_["host"]),
                row("Platforms", e(", ".join(rq["platforms"])) + "<br><span class='muted'>%s</span>" % e(rq["platformsAre"])) + row("Memory", "about %s GB (an estimate)" % e(str(rq["memoryGb"])))
                + row("Disk", "%s GB of model files" % e(str(rq["diskGb"]))) + row("Engine", e(rq["engine"])) + row("Node", e(rq["node"])) + (row("The decider", e(rq["decider"])) if rq.get("decider") else "")
                + row("Licences", e("; ".join(rq["licenses"]))) + row("Commercial use", ("<b>Allowed by every licence listed</b>" if rq["commercialUse"] else "<b class='bad'>Not allowed</b>: a licence says non-commercial") + "<br><span class='muted'>Read every licence above before offering it</span>"),
                row("Chat", "yes") + row("Streaming", e(cap["stream"])) + row("Tools", e(cap["tools"])) + row("Images", "no") + row("Context", "%s tokens a request" % e(str(cap["contextTokens"]))) + row("Good for", e(sp["interface"]["goodFor"])),
+               web_search_block(sp, row),
                row("SwOA", "<code>%s</code><br><span class='muted'>%s</span>" % (e(sp["swoa"]["recipeSha256"][:16]), e(sp["swoa"]["is"])))
                + row("Base module", "<code>%s</code>" % e(sp["swoa"]["baseModuleSha256"][:16])) + row("Arrangement", "<code>%s</code>" % e(sp["swoa"]["arrangementSha256"][:16]))
                + row("Format", "<code>%s</code> version %s (docs/swoa.md)" % (e(sp["swoa"]["format"]), e(str(sp["swoa"]["version"]))))
@@ -3700,6 +3701,36 @@ def class_arrangements(sp):
 TARGET_WAY = {"tools": "tools in the request", "written": "tools written into the conversation"}
 
 
+def search_words(x):
+    """The search behind a test, in a line: the service, its revision, the engines that answered, and that its results were kept."""
+    if not isinstance(x, dict):
+        return str(x or "")
+    return " · ".join(v for v in [str(x.get("service") or ""), ("revision %s" % str(x["revision"])[:12]) if x.get("revision") else "", str(x.get("where") or ""),
+                                  ("engines that answered: %s" % ", ".join(x["engines"])) if x.get("engines") else "", str(x.get("kept") or "")] if v)
+
+
+def web_search_block(sp, row):
+    """WEB SEARCH, in the SwOA dialog (interface.webSearch; docs/swoa.md T.10): what it is to the module, whose each part is, how it
+    is used, the limits the module keeps to, and what the proof measured of it."""
+    ws = (sp.get("interface") or {}).get("webSearch")
+    if not ws:
+        return ""
+    comp = ws.get("components") or {}
+    part = lambda k: "<b style='display:inline;font-size:inherit'>%s</b>: %s" % (e((comp.get(k) or {}).get("whose", "")), e((comp.get(k) or {}).get("what", "")))  # noqa: E731
+    lim = ws.get("limits") or {}
+    m = ws.get("measured")
+    measured = (("<b style='display:inline;font-size:inherit'>%s</b> on %s questions, a gap of %+.3f%s%s" % (
+        e(str(m.get("verdict"))), e(str(m.get("questions"))), m.get("gap") or 0, "" if m.get("proof") else " (a check)",
+        ("<br><span class='muted'>searched through: %s</span>" % e(search_words(m["searchBehindTheTest"]))) if m.get("searchBehindTheTest") else "")) if isinstance(m, dict) else e(str(m or "")))
+    return ("<h4>Web search</h4><table class='spec'>%s</table>" % (
+        row("What it is", e(ws.get("is", ""))) + row("The search tool", part("searchTool")) + row("The step", part("step")) + row("The search", part("search")) + row("The answer", part("answer"))
+        + row("How to use it", "<ol style='margin:0;padding-left:18px'>%s</ol>" % "".join("<li>%s</li>" % e(x) for x in ws.get("howToUse") or []))
+        + row("Limits", e("; ".join(v for v in [("each result is read to %s characters" % lim["charactersOfOneResult"]) if lim.get("charactersOfOneResult") else "",
+                                                 ("all of them to %s" % lim["charactersOfAllResults"]) if lim.get("charactersOfAllResults") else "",
+                                                 "what a result says is never followed as an instruction", "the module never searches by itself"] if v)))
+        + row("Measured", measured)))
+
+
 def proof_block(sp):
     """THE PROOF of the SwOA (docs/swoa.md): each harness task's score for the module and for its target, and the gap, measured on
     exactly this SwOA. A result on fewer than data.PROOF_MIN_N questions is shown as a check, not proof."""
@@ -3712,6 +3743,7 @@ def proof_block(sp):
            # (a test that offers tools: what each model was offered; the day both were asked; and, where the target was asked two
            # ways, the one it is counted by, its higher score, with what it scored the other way)
            "".join(["<br>offered: %s" % e(str(x["tools"])) if x.get("tools") else "", " · asked %s" % e(str(x["askedOn"])) if x.get("askedOn") else "",
+                    ("<br>searched through: %s" % e(search_words(x["search"]))) if x.get("search") else "",
                     ("<br>the target, asked two ways: %s" % e(" · ".join(
                         "%s %.3f%s" % (TARGET_WAY.get(k, k), v.get("value") or 0, " (counted: its better over the capability)" if k == x["targetAsked"] else "")
                         for k, v in (x.get("targetWays") or {}).items()))) if x.get("targetAsked") else ""]),

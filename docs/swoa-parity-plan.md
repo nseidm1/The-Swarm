@@ -17,9 +17,9 @@ how it is checked.
 | 4 | The standard among the target's answers (`training/support/standard.mjs`), a third answer (`baseline.mjs --third`, in `session.sh`), "no standard" as a state | The third answers asked, and the standards from all three (below) | Nothing. Three answers or five is decided on what is below |
 | 5 | A change is kept by its class: raced on 8 questions, then the class, then the held questions; changes proposed for the class at the end of a pass; the gain and its error in the ledger, on the page and in the SwOA's learned record, which states the rule. The page says "good" of a question, not "parity": good as it stood, made good by a change, not good yet; its head is the share of answers good, with the module beside the target; and it says how a change is kept as the policy has it | Nothing yet: no pass has run under it, so no change has been kept by it | A pass |
 | 6 | Three families of question (rules a program checks, calling functions, search with facts made up from the seed), an agent's step graded against the step its scenario needs, three bodies of work to choose | A probe of 10 questions a family on the module (below) | The families asked in a pass, and the target scored on them beside the module |
-| 7 | In a turn with tools a reply is written by the answer procedure, shown what the tools returned (`plan.toolReply: "proposed"` keeps a proposed reply). [swoa.md](swoa.md) Part T.9, and 4.2: a recipe holds no body of knowledge. The tool tests as proof: a second harness (`training/support/bfcl.mjs`, `bfcl-eval` 2026.3.23 in `.work/bfcl`), five function-calling categories under Tools and two web search categories under Search, each result naming its harness and the tools offered; the target asked two ways and counted by the better over the capability | The trial (below), and a reply answered against a reply proposed (below) | The web search test asked: it needs a key to SerpAPI (`SERPAPI_API_KEY`), which a person supplies. Without one it is not asked, and says so |
+| 7 | In a turn with tools a reply is written by the answer procedure, shown what the tools returned (`plan.toolReply: "proposed"` keeps a proposed reply). [swoa.md](swoa.md) Part T.9, and 4.2: a recipe holds no body of knowledge. The tool tests as proof: a second harness (`training/support/bfcl.mjs`, `bfcl-eval` 2026.3.23 in `.work/bfcl`), five function-calling categories under Tools and two web search categories under Search, each result naming its harness and the tools offered; the target asked two ways and counted by the better over the capability | The trial (below), and a reply answered against a reply proposed (below) | The web search test asked of the two models: its search is wired (a SearXNG served for the run, no key) and tried with a stand-in model; the proof run under way began before that, so a proof run after it asks only this |
 
-Tests when this was written: 192 in `tests/run.mjs` and 120 in `ui/check.py`, all passing.
+Tests when this was written: 193 in `tests/run.mjs` and 123 in `ui/check.py`, all passing.
 
 **Step 1 and 7, the trial of the tool tests.** `bfcl-eval` installs with `uv` and a Python 3.12 (it pins a numpy with no
 build for a newer one), about 2 GB, and needs `soundfile`, which it does not name. It is pointed at a model through the one
@@ -47,8 +47,18 @@ in words, working the sum out itself, where the question needed a call. That is 
 step 6 train.
 
 The module took about 5 seconds a question where one call was needed, 10 where several were, and 13 where none was (a reply
-is answered, step 7); the target 2 to 3. The web search test was not tried: the package searches through SerpAPI, and there
-is no key here.
+is answered, step 7); the target 2 to 3. The web search test was not tried that day: the package searches through SerpAPI,
+and there is no key here.
+
+**Step 7, the search behind the web search test.** The package's README says its search may be changed by changing its
+`search_engine_query`. It is, without touching the package: the tool tests are started through
+`training/support/bfcl_search.py`, which puts a search of this machine's own behind that function, a SearXNG (free software,
+pinned in `training/search.json`, installed into `.work/searxng`) that the evaluation serves on `127.0.0.1` for the length of
+the run. Tried end to end with a stand-in model: the test's search reached it, results came back in the test's own shape
+(Brave, DuckDuckGo and Google's custom search answering), and the same query asked again was given from the day's folder.
+What each query returned and each page fetched is kept for the day, so the target and the module are given the same; the
+result names the search ([swoa.md](swoa.md) 4.7 `search`). The public engines throttle (one CAPTCHA in three queries, the
+others answering), and a score through this search is not one to set beside the published leaderboard's.
 
 **What the trial found in the module, and what was done.** Of the module's 39 replies in words, 7 ended with a paragraph
 about how the reply was made ("This answer was settled based on the provided draft which correctly calculated the area").
@@ -97,7 +107,7 @@ say what happens on a long result. Training can weigh the two (`plan.toolReply`)
 - **The battery is being measured at proof size**, started from the page on 2026-11-18 at 15:25: crew, code, math, logic,
   reasoning and tools, 21 tasks and about 3,140 questions for each of the two models, the target's tool questions twice.
   It is the first proof, on the arrangement as it stands (version 17) and before any pass under the new rules. Most of a
-  day; stopped, it carries on from the task it stopped in. Search is in it and not asked: there is no key.
+  day; stopped, it carries on from the task it stopped in. Search is in it and not asked: its search was wired after the run began. A proof run after it asks only that.
 - Training is stopped, and waits for the battery: each needs the models to itself. Started again, it asks the pass's
   questions from the first: the grading changed, and nothing graded the old way is carried on (`SCORING` in
   `training/loop.mjs`); the page says so. The changes kept so far stay, on the arrangement at version 17.
@@ -322,7 +332,7 @@ family is a question a change must never lose, whatever its class gained.
 |---|---|---|
 | The margin (0.05 proposed) | after step 1 | how often the two differ on each capability, and so what a proof of this size can show |
 | BFCL, or another tool test | settled, 2026-11-18: BFCL for calling functions | the trial |
-| The search service behind the test, and its key | before step 7 | what the test needs; a person supplies the key |
+| The search service behind the test | settled, 2026-11-18: SearXNG, served for the run, no key | free software; the package's own search needs a paid key |
 | Whether a change is judged on its whole class or on the kinds it touches | during step 5 | the first record of gains |
 | Three answers or five | after step 4 | how many questions are left with no standard |
 

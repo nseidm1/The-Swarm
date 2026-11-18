@@ -5,8 +5,8 @@ harness measures it. This says what that parity is, how a SwOA proves it, and ho
 [swoa-classes.md](swoa-classes.md) is the design before this one: what is learned, kept with the class it was learned on.
 
 Status: design, 2026-11-18. Built the same day, by the steps of [swoa-parity-plan.md](swoa-parity-plan.md), the tool tests
-among them. What it waits on: the battery run at proof size (hours of the machine), and for the web search test a key to a
-search service, which a person supplies. The plan says, step by step, what is built and what it measured.
+among them. What it waits on: the battery run at proof size (hours of the machine), the web search test among it. The plan
+says, step by step, what is built and what it measured.
 
 ## The question
 
@@ -100,7 +100,7 @@ together, and lists each task's own gap beneath. There is no single yes or no un
 | Reasoning: arithmetic, logic, procedures | GSM8K; the BBH tasks named in `equivalence.json` | lm-evaluation-harness | defined (`math`, `logic`, `reasoning`), not chosen |
 | Code | HumanEval, MBPP | lm-evaluation-harness | defined (`code`), not chosen |
 | Tool use: calling functions | five function-calling categories of BFCL: one function, one of several, several calls at once, several calls of several functions, no function fits | Berkeley Function-Calling Leaderboard (`bfcl-eval` 2026.3.23) | wired (`tools`), tried on 20 questions a category |
-| Knowledge, with a search tool offered | BFCL's two web search categories (100 multi-hop questions each) | the same | wired (`search`); not asked yet: it searches the live web through SerpAPI, which needs a key |
+| Knowledge, with a search tool offered | BFCL's two web search categories (100 multi-hop questions each) | the same | wired (`search`), its searches through a SearXNG served on the measuring machine for the run (no key); tried with a stand-in model, not asked of the two yet |
 | Conversation, advice, writing | none is standard | | a training measure only: reported beside the proof, never as proof |
 
 The module answers as a chat model and gives no token probabilities, so only tasks that grade what is generated can be used.
@@ -259,7 +259,8 @@ The page follows: "training complete" becomes, for each family, the module's sco
 - **It does not make small models know more.** Without a tool, a knowledge test is an expected loss, published.
 - **It does not make proof cheap.** Whole tasks for two models take hours each, and a test with tools longer.
 - **Live web search does not repeat.** Two runs a day apart read different pages. A test whose search runs over a corpus
-  the test provides is to be preferred; failing that, the module and its target are run on the same search, the same day.
+  the test provides is to be preferred; failing that, the module and its target are run on the same search, the same day,
+  and what each query returned is kept and given to both (built: `training/support/search.mjs`).
 - **The reader is a small model.** It tells apart answers that differ from answers that agree (below 0.1, above 0.9); it is
   not asked which of two good answers is better, and this design does not need it to.
 
@@ -267,9 +268,9 @@ The page follows: "training complete" becomes, for each family, the module's sco
 
 1. **The margin.** 0.05 is proposed: the loss a SwOA may show and still say parity. It is best chosen after the battery
    has been measured once: how often the two differ sets what a proof of a given size can show.
-2. **The tool tests.** Settled for calling functions: BFCL, wired and tried. For search, BFCL's web search test is wired and
-   not yet asked (it needs a key to a search service); a fixed-corpus browsing test if its live search proves too unsteady
-   to be proof.
+2. **The tool tests.** Settled for calling functions: BFCL, wired and tried. For search, BFCL's web search test is wired with
+   a search of the measuring machine's own behind it (SearXNG, no key), each query's results kept for the day and given to
+   both models; a fixed-corpus browsing test if its live search proves too unsteady to be proof.
 3. **Three answers.** Enough to tell a standard from a draw on most questions; five would say more and cost two more passes
    of the larger model over the train questions.
 

@@ -1,0 +1,21 @@
+{
+  "about": "THE SEARCH BEHIND THE WEB SEARCH TEST (training/evaluate.mjs; training/support/search.mjs). The test offers each model a search tool and runs the searches itself, so it needs a search service behind it. Two are known. searxng, the one used where nothing else is said: SearXNG, a free metasearch engine, served on this machine for the length of the run from the revision pinned here (training/evaluate.sh installs it into .work/searxng the first time; nothing of it is in the swarm). It needs no key. serpapi: the service the test's own package was written for, which needs a key a person holds (SERPAPI_API_KEY). SWARM_SEARCH names the one to use. Either way the larger model and the swarm are asked through the same one on the same day; with searxng, what each query returned and each page fetched is kept for the day (.work/eval/search/<day>), so the two are given the same results for the same query. A score measured through one service is not to be set beside a score measured through the other.",
+  "default": "searxng",
+  "searxng": {
+    "name": "SearXNG",
+    "repo": "https://github.com/searxng/searxng.git",
+    "rev": "b867c56a5668966ef4be8097f1b559bdc2841743",
+    "license": "AGPL-3.0-or-later",
+    "python": "3.12",
+    "settings": {
+      "use_default_settings": true,
+      "server": { "limiter": false, "public_instance": false, "image_proxy": false },
+      "search": { "safe_search": 0, "formats": ["html", "json"] }
+    },
+    "tries": 3
+  },
+  "serpapi": {
+    "name": "SerpAPI (DuckDuckGo)",
+    "needsKey": "SERPAPI_API_KEY"
+  }
+}

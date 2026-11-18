@@ -61,8 +61,14 @@ The first version.
   2026.3.23, installed into `.work/bfcl` the first time one of them is evaluated: about 2 GB), beside
   lm-evaluation-harness: the larger model and the swarm are offered the same functions in the same request, and paired
   question by question on the package's verdict. A SwOA's proof may now hold results of more than one harness; a result of a
-  test with tools says what each model was offered. The web search test searches the live web through a service that needs
-  a key (`SERPAPI_API_KEY`): without one it is not asked, and says so.
+  test with tools says what each model was offered.
+- **The web search test needs no key.** Its searches go to a [SearXNG](https://github.com/searxng/searxng) (free software,
+  pinned by revision, installed into `.work/searxng` the first time) that the evaluation serves on the machine for the length
+  of the run. What each query returned and each page fetched is kept for the day and given to both models, and the result
+  names the search (SwOA specification 4.7 `search`). `SWARM_SEARCH=serpapi` uses the paid service the test was written for.
+- **The SwOA spec says what web search is to the module and how to use it** (`interface.webSearch`; SwOA specification T.10):
+  a tool the caller offers and runs, never something the module does; whose each part is; the three steps of using it; the
+  limits the module keeps to; and what its proof measured of it.
 - **The larger model is not counted by how it happens to be served.** On a tool test it is asked two ways, the tools in the
   request and the tools written into the conversation, and counted by the way it scores higher by over the capability.
   Measured on the first target: its server returns only the first of the calls the model writes, and read the first way
@@ -78,7 +84,8 @@ The first version.
   program's own folder in `.work`, never the machine's `~/.local/share/uv`, so the Uninstall Helper takes it out with the
   rest; and a venv that is there but does not work (an install that was interrupted, a Python since removed) is made again
   from nothing, where before the install stopped on "a virtual environment already exists". The Uninstall Helper lists the
-  tool tests, and the swarm's kept answers with the larger model's.
+  tool tests, the search behind the web search test, the swarm's kept answers with the larger model's, what Clear training
+  state set aside, the logs, and any folder of `.work` with a Python of its own that it does not know by name.
 - **The Evaluate card folds.** Its breakdown is one section, folded to begin with, that says in a line where the run is or
   what the last evaluation came to; inside it each body of work folds under its heading with a line of its own, the one
   being asked open. A proof run of 23 tasks is a card a screen tall, not three. A task that cannot be asked says so once.

@@ -1,5 +1,5 @@
 {
-  "about": "WHAT THE SWARM IS TO BE EQUIVALENT ON. Parity is equivalence with the larger model on a body of work, and which work is chosen (the page, under the models; or \"equivalence\" in src/config.json). Each entry names the kinds of question (training/tasks.mjs) that make it up. More than one can be chosen: a pass then asks all of their kinds. A choice takes effect when the next pass begins. benchmarks: how the swarm is EVALUATED on it, apart from training (training/evaluate.mjs, the page's Evaluate the swarm): standard tasks of EleutherAI's lm-evaluation-harness, each asked of the larger model and of the swarm, and compared answer by answer. task: the harness's name for it; metric and filter: the score the harness reports for it, and the answers that score is taken from; compare: what makes two answers equivalent (answer: the same answer, as the harness extracts it; verdict: the same pass or fail on the task's own tests; instructions: the same instructions followed and broken). Training never asks a benchmark's question. harness: where it says \"bfcl\", the task is a category of the Berkeley Function-Calling Leaderboard (training/support/bfcl.mjs), not of lm-evaluation-harness: category is the package's name for it, tools says what each model is offered, targetAlsoWritten has the larger model asked a second way as well, the functions written into the conversation and its calls read from its reply, and counted, over the whole body of work, by the way it scores higher by (a server may return only the first of the calls its model wrote), needsKey names a key the test cannot be asked without, and daily says its answers are only set beside each other where both were given on the same day. proofN: how many of the task's questions a proof run asks (evaluate.sh --proof; 0: every one), sized so that a body of work's tasks together come to five hundred questions or more, which is what a verdict on it needs, and never fewer than a hundred of one task, which is what a result needs to count as proof (docs/swoa-parity.md).",
+  "about": "WHAT THE SWARM IS TO BE EQUIVALENT ON. Parity is equivalence with the larger model on a body of work, and which work is chosen (the page, under the models; or \"equivalence\" in src/config.json). Each entry names the kinds of question (training/tasks.mjs) that make it up. More than one can be chosen: a pass then asks all of their kinds. A choice takes effect when the next pass begins. benchmarks: how the swarm is EVALUATED on it, apart from training (training/evaluate.mjs, the page's Evaluate the swarm): standard tasks of EleutherAI's lm-evaluation-harness, each asked of the larger model and of the swarm, and compared answer by answer. task: the harness's name for it; metric and filter: the score the harness reports for it, and the answers that score is taken from; compare: what makes two answers equivalent (answer: the same answer, as the harness extracts it; verdict: the same pass or fail on the task's own tests; instructions: the same instructions followed and broken). Training never asks a benchmark's question. harness: where it says \"bfcl\", the task is a category of the Berkeley Function-Calling Leaderboard (training/support/bfcl.mjs), not of lm-evaluation-harness: category is the package's name for it, tools says what each model is offered, targetAlsoWritten has the larger model asked a second way as well, the functions written into the conversation and its calls read from its reply, and counted, over the whole body of work, by the way it scores higher by (a server may return only the first of the calls its model wrote), search says the test runs searches of the web, through the search service training/search.json names (a SearXNG served here, unless another is named), and daily says its answers are only set beside each other where both were given on the same day. proofN: how many of the task's questions a proof run asks (evaluate.sh --proof; 0: every one), sized so that a body of work's tasks together come to five hundred questions or more, which is what a verdict on it needs, and never fewer than a hundred of one task, which is what a result needs to count as proof (docs/swoa-parity.md).",
   "default": ["crew"],
   "targets": [
     {
@@ -280,8 +280,8 @@
           "metric": "accuracy",
           "filter": "none",
           "compare": "verdict",
-          "tools": "search_engine_query and fetch_url_content, the search behind them SerpAPI (DuckDuckGo)",
-          "needsKey": "SERPAPI_API_KEY",
+          "tools": "search_engine_query and fetch_url_content",
+          "search": true,
           "daily": true
         },
         {
@@ -293,12 +293,12 @@
           "metric": "accuracy",
           "filter": "none",
           "compare": "verdict",
-          "tools": "search_engine_query and fetch_url_content, the search behind them SerpAPI (DuckDuckGo)",
-          "needsKey": "SERPAPI_API_KEY",
+          "tools": "search_engine_query and fetch_url_content",
+          "search": true,
           "daily": true
         }
       ],
-      "benchmarksNote": "the web search part of the Berkeley Function-Calling Leaderboard, the same search tool given to the larger model and to the swarm. It searches the live web through a service that needs a key (SERPAPI_API_KEY), which a person supplies; without one it is not asked. Both are asked on the same day"
+      "benchmarksNote": "the web search part of the Berkeley Function-Calling Leaderboard, the same search tool given to the larger model and to the swarm. Its searches go to a SearXNG served on this machine for the run (no key; installed the first time), each query's results kept for the day so that both are given the same. Both are asked on the same day"
     }
   ]
 }

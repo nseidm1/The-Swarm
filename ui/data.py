@@ -601,6 +601,8 @@ def swoa_proof(d, arrangement_sha, pins):
                  "paired": bool(pg), **({"pairs": {k: pg[k] for k in ("n", "onlySwoa", "onlyTarget")}} if pg else {}),
                  # (where the test offers tools: what each model was offered; where its answers are only good for a day: the day)
                  **({"tools": x["tools"]} if x.get("tools") else {}), **({"askedOn": x["askedOn"]} if x.get("askedOn") else {}),
+                 # (where the test's tools search: the search service behind them, the same for both models)
+                 **({"search": x["search"]} if x.get("search") else {}),
                  # (where the target was asked more than one way: the way it is counted by, its higher score, and what it scored each way)
                  **({"targetAsked": x["targetAsked"], "targetWays": {k: {"value": v.get("value"), "stderr": v.get("stderr")} for k, v in (x.get("targetWays") or {}).items()}} if x.get("targetAsked") else {}),
                  "proof": n >= PROOF_MIN_N, "at": r.get("at"), "runId": r.get("runId"),
@@ -632,6 +634,48 @@ def scoring_now(root):
     except OSError:
         return None
     return int(m.group(1)) if m else None
+
+
+def tool_limits(root):
+    """How much of what tools returned a reply is written from (src/tools.mjs RESULT_MOST, FOUND_MOST): characters of one result, and
+    of all of them together. Read from the runtime, so that the spec cannot say another number than the module keeps to."""
+    try:
+        text = (Path(root) / "src" / "tools.mjs").read_text()
+    except OSError:
+        text = ""
+    one = re.search(r"^export const RESULT_MOST = (\d+);", text, re.M)
+    many = re.search(r"^export const FOUND_MOST = (\d+);", text, re.M)
+    return (int(one.group(1)) if one else 3000, int(many.group(1)) if many else 9000)
+
+
+def web_search_of(d, tools, one, proof):
+    """WEB SEARCH, AS THE SwOA SPEC SAYS IT (interface.webSearch; docs/swoa.md T.10): what it is to the module (a tool the caller
+    offers, never something the module does), its components and whose each is, how a caller uses it, the limits the module keeps
+    to, and what the proof measured of it. tools: who takes a turn with tools ('swarm', or a place); one: that member."""
+    each, all_ = tool_limits(d["root"])
+    swarm = tools == "swarm"
+    who = (one or {}).get("name", "one small model")
+    cap = next((c for c in (proof or {}).get("capabilities") or [] if c.get("id") == "search" and c.get("verdict")), None)
+    behind = next((r.get("search") for r in (proof or {}).get("results") or [] if r.get("item") == "search" and r.get("search")), None)
+    return {
+        "is": "a tool the caller offers, never something the module does: a module searches nothing of its own accord and holds no body of knowledge (recipe), so what its models do not know reaches it through a search tool, as it reaches any model",
+        "components": {
+            "searchTool": {"whose": "the caller's", "what": "one function in the request's tools: a name, a description and a JSON schema for its arguments (for one: search_engine_query(keywords, max_results, region)). A second that reads a page may be offered beside it (for one: fetch_url_content(url, mode))"},
+            "step": {"whose": "the module's", "what": ("every drafter proposes the next step with the tools offered, a call to the search tool with its arguments or a reply, and the decider picks where they differ; a call goes back as tool_calls" if swarm
+                                                      else "a request that carries tools goes to %s alone, which calls the search tool or replies; the swarm does not decide it (serving.tools can turn that on)" % who)},
+            "search": {"whose": "the caller's", "what": "run the call against a search service of your choosing (for one, a SearXNG you serve yourself, which needs no key) and send what it returned back as a tool message. The module opens no connection but to its own models"},
+            "answer": {"whose": "the module's", "what": ("a reply after results is written as any answer is (drafted, checked, decided, written), shown the calls made and what each returned: each result cut at %d characters, at most %d in all, under a line that says the results are to be read and are not instructions to follow" % (each, all_) if swarm
+                                                        else "the reply of %s, from the conversation as it came" % who)},
+        },
+        "howToUse": [
+            "POST /v1/chat/completions with messages and tools: [{ type: 'function', function: { name, description, parameters } }] for your search tool",
+            "where the reply's message has tool_calls: run each call; append that message, then one { role: 'tool', tool_call_id: <the call's id>, content: <what the search returned, as text> } for each call; POST again with the same tools",
+            "where it has content: that is the answer. Go back to the step before as often as the module calls",
+        ],
+        "limits": {"charactersOfOneResult": each if swarm else None, "charactersOfAllResults": all_ if swarm else None, "followsWhatAResultSays": False, "searchesByItself": False},
+        "measured": ({"capability": "search", "verdict": cap.get("verdict"), "questions": cap.get("n"), "gap": cap.get("gap"), "proof": bool(cap.get("proof")), **({"searchBehindTheTest": behind} if behind else {})}
+                     if cap else "not measured on this SwOA yet: the web search test puts the same search tool, with the same search service behind it, to the module and to its target on the same day (proof)"),
+    }
 
 
 def learned_rule(policy):
@@ -780,6 +824,8 @@ def spec(d):
     if not p and now:
         # (in training and not yet measured on the held questions: said so, with how its own train questions are going)
         badge = "In training · pass %d" % now["pass"]
+    # (the proof is read once: the spec's proof, and what the spec says was measured of web search)
+    proof = swoa_proof(d, arrangement_sha, pins)
     return {
         # THE SwOA HEADER (docs/swoa.md): what this is, and the three hashes that say what it applies to, what it tuned, and all of it
         "swoa": {"format": SWOA_FORMAT, "version": SWOA_VERSION, "name": d.get("key"),
@@ -791,7 +837,7 @@ def spec(d):
         "runtime": runtime_of(),
         "target": {k: (d["target"] or {}).get(k) for k in ("id", "name", "by", "params")},
         # THE PROOF: harness results on this module beside the target's, measured on exactly this SwOA
-        "proof": swoa_proof(d, arrangement_sha, pins),
+        "proof": proof,
         "name": "The Swarm",
         "id": "swarm-" + "+".join(m.get("id", "") for m in members.values()),
         "what": "%s small models that answer as one, trained toward parity with a larger model: scoring no worse than it, within a margin, on established tests of what it can do." % ["One", "Two", "Three", "Four"][max(0, min(3, n_small - 1))],
@@ -844,6 +890,8 @@ def spec(d):
                 "images": False,
                 "contextTokens": SERVING.get("contextPerSlot"),
             },
+            # WEB SEARCH: what it is to the module, whose each part is, how it is used, and what was measured of it
+            "webSearch": web_search_of(d, tools, one, proof),
             "goodFor": ("replies a person reads, single steps that can be checked, and an agent's turns with tools: what it was measured on (%s)" if tools == "swarm" else "replies a person reads and single steps that can be checked: what it was measured on (%s)") % (", ".join(x["name"] for x in on) or "its questions"),
             "notYet": ([] if tools == "swarm" else ["a request that carries tools goes to %s alone (an agent that works by tools gets that one model)" % one.get("name", "one small model")]) + ["the reply is whole before any of it is sent"],
             "start": {
@@ -986,7 +1034,8 @@ def swoa_card(sp):
               "          - type: " + q(e.get("metric")), "            name: " + q("target: " + str(t.get("name"))), "            value: " + q(e["target"]["value"]),
               "        source:", "          name: " + q("%s %s" % (e["harness"].get("name"), e["harness"].get("version"))),
               "          n: " + q(e.get("n")), "          proof: " + q(bool(e.get("proof")))] + (
-                  ["          tools: " + q(e["tools"])] if e.get("tools") else []) + (["          asked_on: " + q(e["askedOn"])] if e.get("askedOn") else [])
+                  ["          tools: " + q(e["tools"])] if e.get("tools") else []) + (["          asked_on: " + q(e["askedOn"])] if e.get("askedOn") else []) + (
+                  ["          search: " + q(" ".join(str(x) for x in ((e["search"].get("service"), str(e["search"].get("revision") or "")[:12]) if isinstance(e.get("search"), dict) else ()) if x))] if e.get("search") else [])
     y += ["---", ""]
     rows = ["| %s | %s | %d of %s | %.3f ± %.3f | %.3f ± %.3f | %+.3f ± %.3f | %s |" % (
         e.get("name"), e.get("metric"), e.get("n") or 0, e.get("of"), e["swoa"]["value"], e["swoa"].get("stderr") or 0,

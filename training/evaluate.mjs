@@ -22,9 +22,12 @@
 // says harness "bfcl" is a category of the Berkeley Function-Calling Leaderboard (support/bfcl.mjs: the package pinned, how it is
 // pointed at a model here, its relay). It is asked the same way: the larger model first and kept, then the swarm, each offered the
 // same functions in the same request, and the two paired by question on the package's own verdict. A result of it names the
-// harness it came from and the tools offered. A category that searches the web needs a key to a search service, which a person
-// supplies (SERPAPI_API_KEY); without it that task is not asked, and says so. Its answers are kept by day: what a search returns
-// changes from one day to the next, so the two models are only set beside each other where they were asked on the same day.
+// harness it came from and the tools offered. A category that searches the web needs a search service behind its search tool
+// (support/search.mjs; training/search.json): a SearXNG served on this machine for the length of the run, which needs no key, or
+// the service the package was written for, which needs one. Where neither can be had that task is not asked, and says so. Its
+// answers are kept by day and by service: what a search returns changes from one day to the next, so the two models are only set
+// beside each other where they were asked on the same day through the same service; and with SearXNG what each query returned and
+// each page fetched is kept for the day, so that the same query gives both models the same results.
 import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
@@ -34,7 +37,6 @@ import { fileURLToPath } from 'node:url';
 import {
   BFCL,
   BFCL_ID,
-  SEARCH_KEY,
   bfclInstalled,
   idsOf,
   bfclRun,
@@ -46,6 +48,15 @@ import {
   askToolsAt,
   askWrittenAt,
 } from './support/bfcl.mjs';
+import {
+  searchOf,
+  searchBlocked,
+  openSearch,
+  searchEnv,
+  searchFolder,
+  searchRecord,
+  searchWords,
+} from './support/search.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(HERE, '..');
@@ -72,16 +83,18 @@ export const sizeOf = (b, { proof = false, limit = 0 } = {}) => (proof ? Number(
 // which harness a benchmark is a task of, as a SwOA's proof names one, and whether it is the tool tests
 export const isToolTest = (b) => b.harness === 'bfcl';
 export const harnessOf = (b) => (isToolTest(b) ? BFCL_ID : HARNESS_ID);
-// the harnesses a plan needs installed: ['lmeval', 'bfcl'] (training/evaluate.sh installs each the first time)
-export const needsOf = (plan) => [
+// what a plan needs installed: ['lmeval', 'bfcl', 'searxng'] (training/evaluate.sh installs each the first time). The search is
+// needed where a task searches the web and no other search service is named (SWARM_SEARCH)
+export const needsOf = (plan, env = process.env) => [
   ...(plan.some((b) => !isToolTest(b)) ? ['lmeval'] : []),
   ...(plan.some(isToolTest) ? ['bfcl'] : []),
+  ...(plan.some((b) => b.search) && searchOf(env) === 'searxng' ? ['searxng'] : []),
 ];
-// a task that cannot be asked as things are, and why ('' where it can): a search test with no key to the search service
-export const blockedOf = (b, env = process.env) =>
-  b.needsKey && !env[b.needsKey]
-    ? 'not asked: it searches the web through a service that needs a key (' + b.needsKey + '), which a person supplies'
-    : '';
+// a task that cannot be asked as things are, and why ('' where it can): a search test with no search behind it (the one this
+// machine serves is not installed; or the service named needs a key that is not here)
+export const blockedOf = (b, env = process.env, has = undefined) => (b.search ? searchBlocked(env, has) : '');
+// (answers given through one search service are not kept with those given through another)
+export const searchPart = (b, env = process.env) => (b.search ? '-' + searchOf(env) : '');
 // THE WAYS THE LARGER MODEL IS ASKED A TOOL TEST: with the tools in the request, as the swarm is; and, where the benchmark says so
 // (targetAlsoWritten), with the functions written into the conversation and its calls read from its reply (support/bfcl.mjs says
 // why: a server may return only the first of the calls its model wrote). It is counted by the way it scores higher by, so that a
@@ -394,6 +407,19 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     process.exit(143);
   });
 
+  // THE SEARCH BEHIND THE WEB SEARCH TEST (support/search.mjs): served here from the first task that needs it to the end of the
+  // run, and what it returned kept for the day, so that the larger model and the swarm are given the same results
+  const SEARCH_KEPT = searchFolder(EVAL_DIR, TODAY);
+  let search = null;
+  const searchUp = async () => {
+    if (!search) {
+      say('Starting the search behind the web search test');
+      search = await openSearch({ log: path.join(EVAL_DIR, 'search.log') });
+      stopping.push(search.stop);
+    }
+    return search;
+  };
+
   // one category of the tool tests, for one model behind a tool relay at `base`; the package's folder for it is `out`
   const toolTest = async (b, who, base, out) => {
     const row = live.tasks.find((t) => t.task === b.task)[who];
@@ -403,11 +429,23 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     const n = limitOf(b) && limitOf(b) < all.length ? limitOf(b) : 0;
     row.of = n || all.length;
     write(true);
+    // (a task that searches the web: the search this machine serves is started for it, once a run, and its searches go there)
+    let env = {};
+    if (b.search && searchOf() === 'searxng') {
+      try {
+        env = searchEnv((await searchUp()).base, SEARCH_KEPT);
+      } catch (e) {
+        Object.assign(row, { state: 'failed', why: String((e && e.message) || e).slice(0, 240), seconds: 0 });
+        write(true);
+        return false;
+      }
+    }
     const got = await bfclRun({
       root: out,
       category: b.category,
       ids: n ? all.slice(0, n) : null,
       base,
+      env,
       onChild: (c) => (child = c),
       onSaid: (said, step) => {
         const p = step === 'generate' ? bfclProgress(said) : null;
@@ -585,6 +623,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         '-r' +
         RELAY_VERSION +
         dayPart(b) +
+        searchPart(b) +
         (b.way === 'written' ? '-written' : ''),
     );
   const targetAsks = askable.flatMap((b) => waysOf(b).map((way) => (way === 'tools' ? b : { ...b, way })));
@@ -640,7 +679,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
           'swarm',
           CONFIG_KEY,
           arrangementSha256.slice(0, 16) + '-' + runtimeSha + (adapters.length ? '-adapters' : ''),
-          b.task + '-' + (limitOf(b) || 'all') + '-r' + RELAY_VERSION + dayPart(b),
+          b.task + '-' + (limitOf(b) || 'all') + '-r' + RELAY_VERSION + dayPart(b) + searchPart(b),
         );
   const needSwarm = askable.filter((b) => servedAt || B.has('fresh') || !keptIn(swarmKeep(b), b));
   for (const b of askable.filter((x) => !needSwarm.includes(x))) {
@@ -667,6 +706,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   } else if (askable.length)
     say('The swarm has answered every one of these tasks as it is now: nothing is asked again');
 
+  if (search) await search.stop();
   if (halted) await never();
   // AND EACH QUESTION'S TWO ANSWERS COMPARED
   live.phase = 'comparing';
@@ -685,8 +725,19 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   );
   for (const b of plan) {
     const row = live.tasks.find((t) => t.task === b.task);
-    // (a result of the second harness names it, and the tools each model was offered)
-    const from = isToolTest(b) ? { harnessId: BFCL_ID, ...(b.daily ? { askedOn: TODAY } : {}) } : {};
+    // (a result of the second harness names it, and the tools each model was offered; one that searches, the search behind them)
+    const from = isToolTest(b)
+      ? {
+          harnessId: BFCL_ID,
+          ...(b.daily ? { askedOn: TODAY } : {}),
+          ...(b.search
+            ? {
+                tools: b.tools + ', the search behind them ' + searchWords(),
+                search: searchRecord(process.env, SEARCH_KEPT),
+              }
+            : {}),
+        }
+      : {};
     if (blocked.has(b.task)) {
       results.push({ ...b, ...from, failed: blocked.get(b.task) });
       continue;

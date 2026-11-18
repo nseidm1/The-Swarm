@@ -122,8 +122,10 @@ def inventory(root, d):
         note="Only Evaluate the swarm uses it; it is installed again, and the benchmarks fetched again, the next time.")
     add("bfcl:program", "Programs", "The tool tests (bfcl-eval): the evaluator of calling functions and searching, and its Python", [work / "bfcl"],
         note="Only Evaluate the swarm uses it, and only where a body of work measured by it is asked (Tools, Search; a proof run asks both); it is installed again the next time.")
-    add("eval:answers", "Training", "Evaluations: every answer each model gave", [work / "eval" / p for p in ("runs", "target", "swarm")],
-        note="The larger model's are kept so an evaluation asks only the swarm again, and the swarm's so that a long one that was stopped carries on: removed, the next one asks both. The last result is kept.")
+    add("searxng:program", "Programs", "SearXNG: the search behind the web search test, and its Python", [work / "searxng"],
+        note="Only Evaluate the swarm uses it, and only for the web search test (Search; a proof run asks it): served on this machine while that runs, with no key. It is installed again the next time. Nothing of it is in the swarm.")
+    add("eval:answers", "Training", "Evaluations: every answer each model gave", [work / "eval" / p for p in ("runs", "target", "swarm", "search")],
+        note="The larger model's are kept so an evaluation asks only the swarm again, and the swarm's so that a long one that was stopped carries on: removed, the next one asks both. With them, what each web search returned on its day. The last result is kept.")
     # the deciders
     add("kev:program", "Deciders", "Kev: its program and Python", [work / "kev" / p for p in ("src", "uvenv", "python", "uv-cache")], used=dkind == "kev",
         note="Shared by every Kev size.")
@@ -145,11 +147,36 @@ def inventory(root, d):
         note="The full record behind the page's measurements. The results in training/results are kept.")
     old = sorted(p for p in work.iterdir() if p.is_dir() and (p.name.startswith("stopped-pass-") or p.name.startswith("invalid-run-"))) if work.is_dir() else []
     add("old:passes", "Training", "Copies of stopped and invalid passes", old, note="Set aside by hand when a pass was stopped or found void.")
+    add("old:cleared", "Training", "What Clear training state set aside", [work / "archive"],
+        note="Each run's records as they were when training was begun again. Nothing reads them: they are kept so that a person can put one back by hand, and removed they cannot be.")
+    logs = sorted(p for d in (work, work / "train", work / "eval", work / "mlx", work / "kev") if d.is_dir() for p in d.iterdir() if p.is_file() and p.suffix == ".log")
+    add("logs", "Training", "Logs of sessions, evaluations and installs", logs, note="What each wrote as it ran. The next one writes its own.")
+    # ANYTHING ELSE INSTALLED HERE: a folder of .work that holds a Python of its own (a venv) and is none of the pieces above. A
+    # program added to the Swarm later is listed, and can be taken out, before this list is taught its name
+    known = {os.path.realpath(q) for x in out for q in x["paths"]}
+    inside = lambda q: any(os.path.realpath(q) == k or os.path.realpath(q).startswith(k + os.sep) or k.startswith(os.path.realpath(q) + os.sep) for k in known)  # noqa: E731
+    for d in sorted(work.iterdir()) if work.is_dir() else []:
+        if d.is_dir() and not os.path.islink(d) and not inside(d) and any((d / v).is_dir() for v in ("venv", "uvenv", ".venv")):
+            add("other:" + d.name, "Programs", "A program installed here: %s" % d.name, [d], note="A folder of .work with a Python of its own, which this list does not know by name. Whatever uses it installs it again.")
     # kept by other programs, outside this folder: listed, not removed from here
     tf = Path.home() / ".tensorfold"
     if (target.get("serve") or {}).get("program") == "tensorfold" and tf.is_dir():
         out.append({"id": "tensorfold", "group": "Outside this folder", "what": "TensorFold and the larger models it serves", "paths": [str(tf)], "bytes": None,
                     "used": True, "note": "Kept by TensorFold in %s. Remove it with TensorFold's own commands." % tf, "removable": False})
+    # (a Python uv fetched into its own folder, outside this one: the Swarm fetches its own into .work, and an install made before
+    # that did not. Other programs may use the same folder, so it is listed and not removed from here)
+    uvpy = Path.home() / ".local" / "share" / "uv" / "python"
+    if uvpy.is_dir() and any(uvpy.iterdir()):
+        mine = False
+        for cfg in work.glob("*/venv/pyvenv.cfg") if work.is_dir() else []:
+            try:
+                mine = mine or str(uvpy) in cfg.read_text()
+            except OSError:
+                pass
+        out.append({"id": "uv-python", "group": "Outside this folder", "what": "Pythons uv fetched into its own folder", "paths": [str(uvpy)], "bytes": _size(uvpy), "used": mine,
+                    "note": ("uv keeps what it fetches in %s, for every program that uses uv. The Swarm fetches its own Pythons into .work; an install made before it did may have left one here. "
+                             "%s" % (uvpy.parent, "One of the programs above still runs on it." if mine else "Nothing of the Swarm uses it now: if nothing else of yours uses uv, remove %s by hand." % uvpy.parent)),
+                    "removable": False})
     llama = shutil.which("llama-server")
     if llama:
         out.append({"id": "llama-path", "group": "Outside this folder", "what": "The llama-server on the PATH", "paths": [llama], "bytes": None, "used": True,
