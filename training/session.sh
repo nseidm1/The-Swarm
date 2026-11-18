@@ -142,6 +142,10 @@ while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
   # and this pass's train questions again: where it does not give its own answer again, the mark is partly a draw, and the loop
   # marks that question (it is searched until parity all the same: training/loop.mjs never moves on before)
   run 02-target-self-train training/baseline.mjs --who target --self --split train --each "$EACH"
+  # AND A THIRD TIME, the questions that carry no standard of their own (a reply in a conversation, an agent's step): the standard
+  # for such a question is the answers the larger model agrees with itself on, of its three (training/support/standard.mjs)
+  run 02-target-third training/baseline.mjs --who target --third --split held --each "$EACH"
+  run 02-target-third-train training/baseline.mjs --who target --third --split train --each "$EACH"
   for K in $("$NODE" -e "import('./src/catalog.mjs').then(c=>console.log(Object.keys(c.MEMBERS).join(' ')))"); do
     run "03-$K-alone" training/baseline.mjs --who "$K" --split held --each "$EACH"
   done

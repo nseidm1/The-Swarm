@@ -28,22 +28,25 @@ import {
   RESULTS,
 } from './support/bench.mjs';
 import { targetOf } from './state.mjs';
-import { messagesOf } from './tasks.mjs';
+import { messagesOf, ownStandard } from './tasks.mjs';
 
 const who = arg('who', 'a');
-const againstItself = who === 'target' && has('self');
+// (--third: asked a third time, another draw again, and only the questions graded against its answers: support/standard.mjs
+// finds the standard among the three)
+const third = who === 'target' && has('third');
+const againstItself = who === 'target' && (has('self') || third);
 const label = String(
   arg(
     'label',
     who === 'target'
-      ? targetOf().id + (againstItself ? '-self' : '')
+      ? targetOf().id + (third ? '-third' : againstItself ? '-self' : '')
       : /^https?:/.test(who)
         ? 'reference'
         : aloneLabel(who),
   ),
 ).replace(/[^\w.-]+/g, '-');
 const split = arg('split', 'train');
-const list = chosen();
+const list = third ? chosen().filter((t) => !ownStandard(t)) : chosen();
 // a model does not change between passes: measured once on these questions, it is not measured on them again (--again does)
 try {
   const was = JSON.parse(fs.readFileSync(path.join(RESULTS, label + '-' + split + '.json'), 'utf8'));
@@ -78,7 +81,7 @@ try {
         await model.ask(messagesOf(t), {
           ...(self ? { usable: (text) => (t.usable ? t.usable(text) : !!t.show(text)) } : {}),
           ...(t.tools ? { tools: t.tools } : {}),
-          ...(againstItself ? { firstDraw: 3 } : {}),
+          ...(againstItself ? { firstDraw: third ? 6 : 3 } : {}),
         })
       ).text,
     }),

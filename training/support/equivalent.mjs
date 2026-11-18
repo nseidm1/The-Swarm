@@ -88,7 +88,7 @@ export async function openEquivalent(
   question,
   refReply,
   reply,
-  { reader = '', timeoutMs = 20000, fetchImpl = fetch, mark = 0.5 } = {},
+  { reader = '', timeoutMs = 20000, fetchImpl = fetch, mark = 0.5, atLine = false } = {},
 ) {
   if (!String(refReply || '').trim()) return { grade: 'noref' };
   if (!String(reply || '').trim()) return { grade: 'unsure' };
@@ -122,7 +122,10 @@ export async function openEquivalent(
     if (!Number.isFinite(p)) return { grade: 'noref', why: 'The reader gave no probability' };
     // the mark above which it is taken to say yes: one half, unless the check of the reader found a better one (readers.mjs)
     const line = Number.isFinite(mark) ? mark : 0.5;
-    if (Math.abs(p - line) < UNDECIDED) return { grade: 'wrong', undecided: true, p, why: 'the reader was undecided' };
+    // (atLine: at the line or above it is a yes, with nothing read as undecided above it; below it, as always. Used where an
+    // answer is read against the answers the larger model agrees with itself on: training/support/standard.mjs)
+    if (Math.abs(p - line) < UNDECIDED && !(atLine && p >= line))
+      return { grade: 'wrong', undecided: true, p, why: 'the reader was undecided' };
     return { grade: p >= line ? 'right' : 'wrong', p };
   } catch (e) {
     return { grade: 'noref', why: 'The reader did not answer: ' + String((e && e.message) || e).slice(0, 80) };
@@ -174,7 +177,7 @@ export async function talkEquivalent(
   task,
   refReply,
   reply,
-  { reader = '', timeoutMs = 20000, fetchImpl = fetch, mark = 0.5 } = {},
+  { reader = '', timeoutMs = 20000, fetchImpl = fetch, mark = 0.5, atLine = false } = {},
 ) {
   if (!String(refReply || '').trim()) return { grade: 'noref' };
   if (!String(reply || '').trim()) return { grade: 'unsure' };
@@ -233,7 +236,7 @@ export async function talkEquivalent(
       p: 0,
       why: a2 >= 0.5 ? 'it asked where the larger model answered' : 'it answered where the larger model asked',
     };
-  if (Math.abs(same - line) < UNDECIDED)
+  if (Math.abs(same - line) < UNDECIDED && !(atLine && same >= line))
     return { grade: 'wrong', part: 'substance', undecided: true, p: same, why: 'the reader was undecided' };
   if (same < line) return { grade: 'wrong', part: 'substance', p: same };
   const about = { limit: task.limit, claims: task.claims, simple: task.mode === 'simple' };

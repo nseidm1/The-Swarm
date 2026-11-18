@@ -16,6 +16,7 @@ import { note, checkpoint, briefKey } from './recover.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { attachMember, startMember } from '../../src/members.mjs';
 import { tasks, kindsFor, readOwn, CODE_KIND_NAMES, reworded } from '../tasks.mjs';
+import { againstStandard } from './standard.mjs';
 import { readerOk, readerMark, READER_FILE } from './reader-file.mjs';
 import { readState, targetOf } from '../state.mjs';
 import { openTarget } from '../target.mjs';
@@ -442,6 +443,7 @@ export async function run(
     // GRADED BY THE QUESTION'S OWN STANDARD WHERE IT HAS ONE (tasks.mjs good; docs/swoa-parity.md, 4): the larger model's answer is
     // then not needed to grade the swarm's, and is itself one more answer graded the same way (toSpec, below)
     let own = false;
+    const std = !self && ref && ref.standard ? ref.standard.get(t.id) : null;
     if (self) mark = { grade: holds(got.reply) ? 'right' : 'unsure' };
     else if (t.good && process.env.SWARM_GRADE !== 'target') {
       own = true;
@@ -466,9 +468,18 @@ export async function run(
                 (t.type === 'talk' ? 'replies in a conversation' : 'answers in words') +
                 ' failed its own check this pass (training/readers.mjs)',
             }
-          : got.why
-            ? { grade: 'unsure' }
-            : await t.equivalent(theirs, got.reply, ctx);
+          : std && std.none
+            ? {
+                grade: 'noref',
+                noStandard: true,
+                why: "the larger model's own answers to it do not agree with each other: it has no standard",
+              }
+            : got.why
+              ? { grade: 'unsure' }
+              : // (against the answers the larger model agrees with itself on, where they were worked out: support/standard.mjs)
+                std
+                ? await againstStandard(t, std, got.reply, ctx)
+                : await t.equivalent(theirs, got.reply, ctx);
     const row = {
       cfg: who === 'swarm' ? CONFIG_ID : undefined,
       target: targetOf().id,
@@ -487,6 +498,7 @@ export async function run(
     if (mark.grade === 'wrong' && mark.input !== undefined)
       row.partsOn = { input: mark.input, theirs: mark.theirs, ours: mark.ours };
     if (mark.why) row.markWhy = mark.why;
+    if (mark.noStandard) row.noStandard = true;
     if (mark.undecided) row.undecided = true; // (support/equivalent.mjs UNDECIDED: graded different, counted apart)
     // (and how the reader read the reply itself: the probability that it says what the larger model's says. The loop climbs by it.
     // Graded by the question's own standard: how far it met it, the share of the question's inputs it gets right for code)
