@@ -53,6 +53,10 @@ export function readConfig() {
   // adapters switch reached nothing)
   if (typeof c.tools === 'string' && c.tools) out.tools = c.tools;
   if (c.adapters === true) out.adapters = true;
+  // the judge of equivalence apart from the decider, where one is chosen: kept as it is (it was left out here too, so the page said
+  // a judge was chosen while every session went on reading answers in words with the decider: found 2026-11-18, Kev 0.8B reading
+  // and failing its check, 42 questions not compared, with Jeffan 4B chosen as the judge)
+  if (typeof c.judge === 'string' && REGISTRY.deciders.find((m) => m.id === c.judge)) out.judge = c.judge;
   return out;
 }
 // the places of a configuration that hold a small model, in order
@@ -84,6 +88,11 @@ export function writeConfig(patch) {
     next[k] = patch[k];
   }
   if (Array.isArray(patch.equivalence) && patch.equivalence.length) next.equivalence = patch.equivalence.map(String);
+  if (patch.judge !== undefined) {
+    if (patch.judge === null || patch.judge === '') delete next.judge;
+    else if (!REGISTRY.deciders.find((m) => m.id === patch.judge)) throw new Error('no judge called ' + patch.judge);
+    else next.judge = patch.judge;
+  }
   // no place is left empty between two that are filled: the ones after it move up
   const small = PLACES.map((p) => next[p]).filter(Boolean);
   for (const [i, p] of PLACES.entries()) {

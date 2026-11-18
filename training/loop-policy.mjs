@@ -147,7 +147,7 @@ export const KNOBS = {
   },
   setAsideAfter: {
     about:
-      'After this many tries in a row that bring the question in hand neither closer nor to parity, it is set aside while another question waits, and comes back after them on the arrangement they leave; where nothing has changed by then it is searched until parity (0: never set aside).',
+      'After this many tries in a row that bring the question in hand neither closer nor to parity, it is set aside while another question waits, and comes back after them on the arrangement they leave; where nothing has changed by then it gets as many tries again, and is written down as not reached if they bring it nothing closer (0: never set aside).',
     kind: 'int',
     min: 0,
     max: 500,

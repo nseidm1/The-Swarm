@@ -39,7 +39,8 @@ stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mj
    2026-11-17: Nemotron 3.5 Lightning 30B wrong on 7 of a pass's 30 code questions, and 3 of one run's 5 kept changes won on them). It may be
    **set aside** first: after `setAsideAfter` tries in a row (30) that brought it neither closer nor to parity, while another
    question waits, it comes back after the others, on the arrangement they leave. Where the arrangement has not changed by then,
-   it is searched until parity as before.
+   it gets as many tries again, and where they bring it nothing closer it is written down as not reached (measured 2026-11-18:
+   an agent's step came back last, nothing measured it closer, and 1,255 tries went to it).
 6. **The found arrangements are tried first.** Every arrangement kept (an arrangement that brought a question to parity and lost
    none already there) goes into a library, `.work/library/<configuration>.json`, kept across passes and Clear training state.
    A question short of parity tries them first, on top of the swarm as it stands, the ones that have brought the most questions

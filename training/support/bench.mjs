@@ -11,12 +11,12 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { createSwarm, MEMBERS, readBriefs } from '../../src/index.mjs';
-import { CONFIG_ID, CONFIG_KEY, readConfig, REGISTRY } from '../../src/catalog.mjs';
+import { CONFIG_ID, CONFIG_KEY, readConfig, REGISTRY, JUDGE, DECIDER } from '../../src/catalog.mjs';
 import { note, checkpoint, briefKey } from './recover.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { attachMember, startMember } from '../../src/members.mjs';
 import { tasks, kindsFor, readOwn, CODE_KIND_NAMES, reworded } from '../tasks.mjs';
-import { readerOk, readerMark } from './reader-file.mjs';
+import { readerOk, readerMark, READER_FILE } from './reader-file.mjs';
 import { readState, targetOf } from '../state.mjs';
 import { openTarget } from '../target.mjs';
 
@@ -357,6 +357,35 @@ export function needReference(list, split) {
 let deciderOnce = null;
 // name: what these answers are answers to. With one, every answer is written down as it comes (a checkpoint), and a run under
 // the same name starts with the answers it has and asks only what is left: a trainer that stopped midway carries on.
+// THE READER CHECKED IS THE ONE THAT READS. The check of the reader (training/readers.mjs) runs before a pass, and says whose it is;
+// where the reader has changed since (a judge chosen partway through a pass), the old reader's verdict is not this one's: it is
+// checked again here, once, before any answer in words is graded. Found 2026-11-18: Kev 0.8B failed its check, so 42 questions
+// answered in words were not compared, and choosing Jeffan 4B as the judge would not have counted until the next pass
+let readerChecked = false;
+export function readerNow() {
+  return process.env.SWARM_JUDGE && JUDGE ? JUDGE.id : (DECIDER || {}).id;
+}
+export function readerStale(work = WORKC, now = readerNow()) {
+  try {
+    const by = JSON.parse(fs.readFileSync(READER_FILE(work), 'utf8')).by;
+    return !!by && !!now && by !== now ? by : '';
+  } catch {
+    return ''; // (not checked at all: a pass run by hand without the check, as before)
+  }
+}
+function readerCurrent(list) {
+  if (readerChecked || !list.some((t) => t.type === 'open' || t.type === 'talk')) return;
+  readerChecked = true;
+  const was = readerStale();
+  if (!was) return;
+  console.log(
+    'The reader is now ' + readerNow() + ', not ' + was + ', whose check is on record: checking it before it reads.',
+  );
+  spawnSync(process.execPath, [path.join(REPO_ROOT, 'training', 'readers.mjs')], {
+    env: process.env,
+    stdio: 'inherit',
+  });
+}
 export async function run(
   list,
   answerOf,
@@ -368,6 +397,7 @@ export async function run(
     before.forEach(onRow);
     return before;
   }
+  readerCurrent(list);
   deciderOnce = deciderOnce || deciderAddress();
   const decider = await deciderOnce;
   const ck = name ? checkpoint(name) : null;

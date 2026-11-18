@@ -561,7 +561,7 @@ export async function runLoop({
   // whether a change to the arrangement of kind k can change how a question of kind k2 is answered: both on the same arrangement
   const shares = (b, k, k2) => k === k2 || (!(b.kinds && b.kinds[k]) && !(b.kinds && b.kinds[k2]));
   // THE NEXT QUESTION: one sent back in hand; else the next not yet finished; else one SET ASIDE (it stopped coming closer while others
-  // waited), first one the arrangement has changed since, and last one it has not, which is then searched until parity as before
+  // waited), first one the arrangement has changed since, and last one it has not, which gets as many tries again (givenUp)
   const asideOf = () => st.questions.filter((x) => x.state === 'set aside');
   for (;;) {
     const done = doneIds();
@@ -600,8 +600,11 @@ export async function runLoop({
     if (wrongMarks.has(t.id)) {
       q.state = 'mark wrong';
       q.markWrong = wrongMarks.get(t.id);
-    } else if (row.grade === 'noref') q.state = 'not compared';
-    else if (row.grade === 'right') q.state = 'at parity';
+    } else if (row.grade === 'noref') {
+      q.state = 'not compared';
+      // (and why: the larger model gave nothing to compare with, or the reader of its kind failed its own check this pass)
+      if (row.why) q.why = row.why;
+    } else if (row.grade === 'right') q.state = 'at parity';
     else {
       const ev0 = tuned(await lostOf(row, eb), eb, pol);
       const lost = ev0.lost;
@@ -1013,7 +1016,7 @@ export async function runLoop({
       };
       // SET ASIDE: `setAsideAfter` tries in a row with nothing closer and no parity, while another question waits (one not yet
       // finished, one sent back, or one set aside that the arrangement has changed since). It comes back after them, on the
-      // arrangement they leave; where nothing has changed by then, it is searched until parity as before (measured 2026-11-17: 44
+      // arrangement they leave; where nothing has changed by then, it gets as many tries again (givenUp) (measured 2026-11-17: 44
       // tries in a row on one question, none closer, while 78 questions waited)
       const others = () =>
         st.reopen.length > 0 ||
@@ -1021,6 +1024,11 @@ export async function runLoop({
         asideOf().some((a) => a.id !== t.id && (a.asideAt || 0) < (briefs.version || 1));
       const stalled = () =>
         !won && !lastChance && pol.setAsideAfter > 0 && (q.sinceGain || 0) >= pol.setAsideAfter && others();
+      // ITS LAST CHANCE IS BOUNDED TOO: a question set aside that comes back with nothing changed since gets as many tries again, and
+      // where they bring it nothing closer it is written down as not reached and the pass goes on (measured 2026-11-18: an agent's
+      // step came back last, nothing could measure it closer, and 1,255 tries went to it)
+      const givenUp = () => !won && lastChance && pol.setAsideAfter > 0 && (q.sinceGain || 0) >= pol.setAsideAfter;
+      const stop = () => stalled() || givenUp();
       const tick = async () => {
         await policyTick(st, { review, onPolicy, current: q });
         pol = st.policy;
@@ -1261,9 +1269,11 @@ export async function runLoop({
         triedArr.push(...held.wide.map(back).filter(Boolean));
         q.carried = (q.carried || 0) + 1;
       }
+      // (on its last chance it starts its count again: as many tries as set it aside, not none)
+      if (lastChance) q.sinceGain = 0;
       // FIRST, THE LIBRARY: every arrangement found so far, on top of the swarm as it stands, the most successful first
       for (const [k, e] of rankLibrary(st.library).entries()) {
-        if (won || i >= cap || stalled()) break;
+        if (won || i >= cap || stop()) break;
         const ap = applyNames(poolOf, eb, e.names);
         if (!ap || seen.has([...ap.names].sort().join(' + '))) continue;
         e.tried = (e.tried || 0) + 1;
@@ -1295,7 +1305,7 @@ export async function runLoop({
         await tick();
       }
       // THEN THE SEARCH, best first, until parity
-      while (!won && i < cap && !stalled()) {
+      while (!won && i < cap && !stop()) {
         let node = open.filter((x) => !x.spent).sort((x, y) => y.score - x.score || x.depth - y.depth)[0];
         if (node && node.broken && (q.brokeTries || 0) >= pol.brokeBudget) {
           node.spent = true;
@@ -1331,7 +1341,7 @@ export async function runLoop({
         q.rounds = Math.max(q.rounds || 1, node.depth);
         let taken = 0;
         for (const m of opts) {
-          if (won || i >= cap || stalled() || (pol.batch && taken >= pol.batch)) break;
+          if (won || i >= cap || stop() || (pol.batch && taken >= pol.batch)) break;
           if (node.broken && (q.brokeTries || 0) >= pol.brokeBudget) break;
           if (node.broken) q.brokeTries = (q.brokeTries || 0) + 1;
           taken++;
@@ -1363,6 +1373,11 @@ export async function runLoop({
       }
       q.state = row.grade === 'right' ? 'reached' : 'not reached';
       if (!won) q.exhausted = i < cap;
+      if (givenUp()) {
+        q.state = 'not reached';
+        q.exhausted = false;
+        q.gaveUp = { after: q.sinceGain, at: i };
+      }
       if (stalled()) {
         q.state = 'set aside';
         q.asideAt = briefs.version || 1;

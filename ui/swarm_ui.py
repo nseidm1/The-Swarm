@@ -989,7 +989,7 @@ def tries_list(lp):
                 + method_line(a))
             for a in q["attempts"][1:])
         rounds = (" in %d rounds" % q["rounds"]) if (q.get("rounds") or 1) > 1 else ""
-        why = (" · beyond rearranging after %s tries" % q["beyond"].get("at") if q.get("beyond") else "") + (" · broke " + ", ".join("%s %d×" % (k, v) for k, v in sorted(q["broke"].items(), key=lambda kv: -kv[1])) if q.get("broke") else "") + (" · every combination within reach tried" if q.get("exhausted") else "") + ((" · widened %d×" % q["widened"]) if q.get("widened") else "") + ((" · lost to %s, back in hand" % q["lostTo"]) if q.get("lostTo") else "") + ((" · set aside %d× (it stopped coming closer while other questions waited)" % q["setAside"]) if q.get("setAside") else (" · set aside: it stopped coming closer, and comes back after the others" if q.get("state") == "set aside" else "")) + ((" · carried on from its last try after a stop") if q.get("carried") else "") + (" · unstable mark: the larger model did not give its own answer again (searched until parity all the same)" if q.get("unstable") else "") + ((" · the larger model's answer does not do what the question asks%s: set aside, not searched, and not a question a change must not lose" % ((" (on %s it gives %s, the question wants %s)" % (json.dumps((q["markWrong"].get("input") or [""])[0]), q["markWrong"].get("theirs"), q["markWrong"].get("wanted"))) if (q.get("markWrong") or {}).get("input") is not None else "")) if q.get("markWrong") else "")
+        why = (" · beyond rearranging after %s tries" % q["beyond"].get("at") if q.get("beyond") else "") + (" · broke " + ", ".join("%s %d×" % (k, v) for k, v in sorted(q["broke"].items(), key=lambda kv: -kv[1])) if q.get("broke") else "") + (" · every combination within reach tried" if q.get("exhausted") else "") + ((" · widened %d×" % q["widened"]) if q.get("widened") else "") + ((" · lost to %s, back in hand" % q["lostTo"]) if q.get("lostTo") else "") + ((" · set aside %d× (it stopped coming closer while other questions waited)" % q["setAside"]) if q.get("setAside") else (" · set aside: it stopped coming closer, and comes back after the others" if q.get("state") == "set aside" else "")) + ((" · carried on from its last try after a stop") if q.get("carried") else "") + ((" · given up on its last chance: %s more tries brought it nothing closer" % q["gaveUp"].get("after")) if q.get("gaveUp") else "") + (" · unstable mark: the larger model did not give its own answer again (searched until parity all the same)" if q.get("unstable") else "") + ((" · the larger model's answer does not do what the question asks%s: set aside, not searched, and not a question a change must not lose" % ((" (on %s it gives %s, the question wants %s)" % (json.dumps((q["markWrong"].get("input") or [""])[0]), q["markWrong"].get("theirs"), q["markWrong"].get("wanted"))) if (q.get("markWrong") or {}).get("input") is not None else "")) if q.get("markWrong") else "")
         rows.append('<li class="lq"><details><summary><code>%s</code> <span class="muted small">%s · lost in %s · %d tried%s%s</span> <span class="pill %s">%s</span></summary><ol class="tries">%s</ol></details></li>'
                     % (e(q["id"]), e(q.get("kind", "")), e(q.get("lostAt", "")), len(q["attempts"]) - 1, rounds, why, cls, e(word), tries))
     # WHAT HAS WORKED, BY KIND OF CHANGE: learned question after question, and what orders the changes tried on the next
@@ -1839,7 +1839,7 @@ def at_parity(d, t):
 PIP = {"at parity": "at", "reached": "re", "not reached": "nr", "not compared": "nc", "reopened": "ro", "set aside": "sa", "mark wrong": "mw"}
 # what each state is called on a pip's tooltip and in the key, one look for each
 PIP_WORDS = {"at": "at parity as it stood", "re": "brought to parity by a change", "nr": "not reached", "ro": "back in hand after a swap",
-             "sa": "set aside until the others are done", "mw": "set aside: the larger model's answer is wrong", "nc": "not compared: no answer from the larger model",
+             "sa": "set aside until the others are done", "mw": "set aside: the larger model's answer is wrong", "nc": "not compared: nothing usable from the larger model, or no reader believed for its kind",
              "cur": "in hand"}
 
 
@@ -1848,7 +1848,8 @@ def track_of(lp):
     # (a question brought to parity before its mark was found wrong: the wrong mark's look, and its tooltip says it reached parity first)
     late = lambda q: bool(q.get("markWrong")) and q.get("state") in ("at parity", "reached")  # noqa: E731
     return [{"id": q.get("id", ""), "kind": q.get("kind", "") + (" · unstable mark" if q.get("unstable") else ""), "s": "mw" if late(q) else PIP.get(q.get("state"), "nc"),
-             "w": (PIP_WORDS["mw"] + " (it was %s before that was found)" % PIP_WORDS[PIP[q["state"]]]) if late(q) else PIP_WORDS.get(PIP.get(q.get("state"), "nc"), ""),
+             "w": (PIP_WORDS["mw"] + " (it was %s before that was found)" % PIP_WORDS[PIP[q["state"]]]) if late(q)
+             else ("not compared: " + q["why"]) if q.get("state") == "not compared" and q.get("why") else PIP_WORDS.get(PIP.get(q.get("state"), "nc"), ""),
              "tried": max(0, len(q.get("attempts") or []) - 1)}
             for q in (lp or {}).get("list") or []]
 

@@ -1440,16 +1440,23 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
 {
   const { readConfig, writeConfig, CONFIG_FILE } = await import('../src/catalog.mjs');
   const was = fs.readFileSync(CONFIG_FILE, 'utf8');
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify({ ...JSON.parse(was), tools: 'swarm', adapters: true }));
+  fs.writeFileSync(
+    CONFIG_FILE,
+    JSON.stringify({ ...JSON.parse(was), tools: 'swarm', adapters: true, judge: 'jeffan-4b' }),
+  );
   const read = readConfig();
   const kept = writeConfig({ equivalence: ['crew'] });
   const onDisk = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+  const judgeOff = writeConfig({ judge: '' }).judge;
   fs.writeFileSync(CONFIG_FILE, JSON.stringify({ ...JSON.parse(was), adapters: 'yes' }));
   const notTrue = readConfig();
   fs.writeFileSync(CONFIG_FILE, was);
   check(
-    'who takes turns with tools and whether the small models are served with their adapters are read from the configuration as the page writes them, and survive another choice being written; anything but true leaves the adapters off',
+    'who takes turns with tools, whether the small models are served with their adapters, and the judge of equivalence are read from the configuration as the page writes them, and survive another choice being written; anything but true leaves the adapters off, and the judge can be cleared',
     read.tools === 'swarm' &&
+      read.judge === 'jeffan-4b' &&
+      onDisk.judge === 'jeffan-4b' &&
+      judgeOff === undefined &&
       read.adapters === true &&
       kept.tools === 'swarm' &&
       onDisk.adapters === true &&
@@ -3134,6 +3141,62 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       st.questions.find((q) => q.id === 'B').state === 'reached' &&
       !asked.includes('W:guard'),
     { found: [...found.keys()], W: W && W.state, asked },
+  );
+}
+// ---- 6ab: THE READER CHECKED IS THE ONE THAT READS: a check on record by another reader than the one reading now is stale (and
+// is run again before answers in words are graded); one by the same reader, or none at all, is not
+{
+  const { readerStale } = await import('../training/support/bench.mjs');
+  const fs2 = await import('node:fs');
+  const os = await import('node:os');
+  const path2 = await import('node:path');
+  const dir = fs2.mkdtempSync(path2.join(os.tmpdir(), 'reader-'));
+  const none = readerStale(dir, 'jeffan-4b');
+  fs2.writeFileSync(path2.join(dir, 'reader.json'), JSON.stringify({ by: 'kev-0.8b', ok: false }));
+  const other = readerStale(dir, 'jeffan-4b');
+  const same = readerStale(dir, 'kev-0.8b');
+  fs2.rmSync(dir, { recursive: true, force: true });
+  check(
+    "a reader's check on record by another reader than the one reading now is stale and names whose it was; one by the same reader, or none at all, is not",
+    none === '' && other === 'kev-0.8b' && same === '',
+    { none, other, same },
+  );
+}
+// ---- 6ac: A LAST CHANCE IS BOUNDED: a question set aside that comes back with nothing changed gets as many tries again, and where
+// they bring it nothing closer it is written down as not reached and the pass ends, instead of being searched without end
+{
+  const { runLoop } = await import('../training/loop.mjs');
+  const mk = (bb, k) => ({
+    key: k,
+    id: k,
+    name: k,
+    kind: 'arrangement',
+    area: 'slots',
+    briefs: { ...bb, has: [...bb.has, k] },
+  });
+  const wrong = { grade: 'wrong', path: 'decided', trace: [{ stage: 'draft', slot: 'a1', same: false }] };
+  let triesA = 0;
+  const st = await runLoop({
+    list: [
+      { id: 'A', kind: 'k' },
+      { id: 'B', kind: 'k' },
+    ],
+    briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+    poolOf: (bb) =>
+      Array.from({ length: 60 }, (_, k) => 'm' + k)
+        .filter((k) => !bb.has.includes(k))
+        .map((k) => mk(bb, k)),
+    policy: { setAsideAfter: 3, batch: 0, suggestEvery: 0, teachEvery: 0, reviewTries: 1000 },
+    attempt: async (bb, t, at) => (
+      t.id === 'A' && at.attempt && triesA++,
+      t.id === 'A' ? wrong : { grade: 'right', trace: [] }
+    ),
+  });
+  const A = st.questions.find((q) => q.id === 'A');
+  check(
+    'a question set aside that comes back with nothing changed gets as many tries again (3), and is then written down as not reached, saying it gave up, and the pass ends',
+    A.state === 'not reached' && A.gaveUp && A.gaveUp.after === 3 && triesA === 6,
+    { state: A.state, gaveUp: A.gaveUp, triesA },
   );
 }
 // ---- 6v: what the measurement held and no finding read: answers cut off at the token limit, a drafter that echoes another on its

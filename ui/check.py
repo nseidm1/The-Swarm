@@ -1092,5 +1092,9 @@ check("an open page carries the build of the code it was drawn with, the server 
       and "async function buildTick()" in swarm_ui.JS and "n.hidden=!b||b===BUILD_ME" in swarm_ui.JS and swarm_ui.JS.count("location.reload()") == 1 and "if(ev.target.closest('#upd-go'))location.reload()" in swarm_ui.JS,
       bj)
 
+_ncw = swarm_ui.track_of({"list": [{"id": "q", "kind": "k", "state": "not compared", "why": "the reader of answers in words failed its own check this pass (training/readers.mjs)", "attempts": [{}]}]})[0]
+check("a question not compared says why on its pip: the reader of its kind not believed this pass is not reported as no answer from the larger model",
+      _ncw["s"] == "nc" and "the reader of answers in words failed its own check" in _ncw["w"] and "no answer from the larger model" not in _ncw["w"] and "no answer from the larger model" not in swarm_ui.PIP_WORDS["nc"], _ncw)
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)
