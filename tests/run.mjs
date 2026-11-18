@@ -4372,6 +4372,140 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { withoutRest, withAll },
   );
 }
+// ---- 9z: WHAT THIS TURN FILLED, AS THE SwOA SPECIFICATION SAYS IT (S3.8.5, O.8.3/O.8.4, R.4): thinking removed from a member's
+// reply; the writer told to write the reply in full; a program the question asks the output of run and settling the matter
+{
+  const { answer: orchestrate, FULL_REPLY } = await import('../src/orchestrate.mjs');
+  const { withoutThinking } = await import('../src/read.mjs');
+  const { programOf } = await import('../src/behave.mjs');
+  const { printedBy } = await import('../src/sandbox.mjs');
+  const { steps } = await import('../training/arrange.mjs');
+  const thinking =
+    withoutThinking('No problem.</think>No problem. If you like') === 'No problem. If you like' &&
+    withoutThinking('<think>so</think>Yes') === 'Yes' &&
+    withoutThinking('Yes<think>so') === 'Yes' &&
+    withoutThinking('plain  ') === 'plain  ';
+  const PROG =
+    'What does this print?\n\nlet x = 5;\nfor (let i = 1; i <= 4; i++) {\n  if (i % 2 === 0) x = x - i;\n  else x = x + i * 2;\n}\nconsole.log(x);';
+  const found =
+    programOf(PROG).startsWith('let x = 5;') &&
+    programOf('What does this function do?\n\nconsole.log(1)') === '' &&
+    programOf('What is 2 + 2?') === '' &&
+    programOf('What does this log?\n\n```js\nconsole.log("a", 1)\n```') === 'console.log("a", 1)';
+  const ran = await printedBy(programOf(PROG));
+  const notPlain = await printedBy('console.log([1, 2])');
+  const base = {
+    marker: 'ANSWER:',
+    flow: [{ do: 'draft' }, { do: 'check' }, { do: 'decide' }, { do: 'write' }],
+    plan: {},
+    slots: [
+      { id: 'a1', member: 'a', stage: 'draft', brief: 'Answer.' },
+      { id: 'b1', member: 'b', stage: 'draft', brief: 'Answer.' },
+      { id: 'b-check', member: 'b', stage: 'check', brief: 'Check.' },
+      { id: 'w', member: 'a', stage: 'write', brief: 'Write.' },
+    ],
+  };
+  const asked = [];
+  const ask = async (slot, msgs) => {
+    asked.push({ slot: slot.id, last: msgs[msgs.length - 1].content });
+    if (slot.stage === 'write') return { text: 'It prints the number.' };
+    return { text: 'working\nANSWER: ' + (slot.member === 'a' ? '13' : '5') };
+  };
+  const prog = await orchestrate([{ role: 'user', content: PROG }], {
+    briefs: base,
+    ask,
+    print: async () => ({ text: '7' }),
+  });
+  const progAsked = asked.splice(0);
+  const unrun = await orchestrate([{ role: 'user', content: PROG }], { briefs: base, ask, print: async () => null });
+  asked.splice(0);
+  const off = await orchestrate([{ role: 'user', content: PROG }], {
+    briefs: { ...base, plan: { runPrograms: false } },
+    ask,
+    print: async () => ({ text: '7' }),
+  });
+  asked.splice(0);
+  const full = await orchestrate([{ role: 'user', content: 'Can a rabbit eat celery?' }], {
+    briefs: { ...base, plan: { writeAs: 'full' } },
+    ask: async (slot, msgs) => {
+      asked.push({ slot: slot.id, last: msgs[msgs.length - 1].content });
+      return slot.stage === 'write' ? { text: 'Yes, in small pieces.' } : { text: 'ANSWER: yes' };
+    },
+  });
+  const wrote = asked.find((x) => x.slot === 'w');
+  const moves = steps({ ...base, plan: {} }).map((m) => m.name);
+  const movesFull = steps({ ...base, plan: { writeAs: 'full' } }).map((m) => m.name);
+  check(
+    "thinking is removed from a member's reply; a program the question asks the output of is run, and what it printed settles the matter (the checks passed over, the work only a draft that came to it), unless it could not be run or the plan turns it off; with plan.writeAs 'full' the writer is told to write the reply in full, and training can try it and take it back",
+    thinking &&
+      found &&
+      ran &&
+      ran.text === '7' &&
+      notPlain === null &&
+      prog.decided === '7' &&
+      prog.path === 'ran' &&
+      prog.trace.some((r) => r.printed && r.out === 'Ran the program: it printed 7') &&
+      !progAsked.some((x) => x.slot === 'b-check') &&
+      !/ANSWER: 13|ANSWER: 5/.test((progAsked.find((x) => x.slot === 'w') || {}).last || '') &&
+      unrun.path !== 'ran' &&
+      unrun.trace.some((r) => r.printed && !r.ok) &&
+      off.path !== 'ran' &&
+      !off.trace.some((r) => r.printed) &&
+      /\+full/.test(full.path) &&
+      wrote &&
+      wrote.last.includes(FULL_REPLY.trim()) &&
+      moves.includes('plan: the writer writes the reply in full') &&
+      movesFull.includes('plan: the writer writes the reply as drafted'),
+    {
+      thinking,
+      found,
+      ran,
+      notPlain,
+      prog: [prog.decided, prog.path],
+      unrun: unrun.path,
+      off: off.path,
+      full: full.path,
+      moves: moves.filter((m) => /writer/.test(m)),
+    },
+  );
+}
+// ---- 9y: TRAINING READS THE SAME GAPS: a thin reply makes writing in full the first change tried; a degenerate mark, and one a
+// question made with its answer proves wrong, are set aside
+{
+  const { evidenceOf, wrongMarksOf, degenerate } = await import('../training/loop.mjs');
+  const row = {
+    grade: 'wrong',
+    reply: 'Yes, rabbits can eat celery.',
+    refReply:
+      'Yes, a rabbit can eat celery. It is safe and many rabbits enjoy the crunch. Wash it well, cut it into small pieces to prevent choking, and offer it as a treat a few times a week.',
+    trace: [{ stage: 'draft', slot: 'a1', same: false, final: 'yes' }],
+  };
+  const ev = evidenceOf(row, { slots: [{ id: 'a1', stage: 'draft', member: 'a' }] });
+  const m = { name: 'plan: the writer writes the reply in full' };
+  const fat = evidenceOf({ ...row, reply: row.refReply }, { slots: [{ id: 'a1', stage: 'draft', member: 'a' }] });
+  const grade = (reply) => (/\b7\s*$/.test(reply) ? 'right' : 'wrong');
+  const marks = await wrongMarksOf(
+    [{ id: 'deg' }, { id: 'tr', want: 7, grade }, { id: 'ok', want: 7, grade }],
+    new Map([
+      ['deg', '后汉书'.repeat(40)],
+      ['tr', 'The output is 13.\n\nIt would be 5'],
+      ['ok', 'It prints 7'],
+    ]),
+  );
+  check(
+    "a reply under half as long as the larger model's makes writing it in full the first change tried, and says why; a degenerate mark and a mark its own question's answer proves wrong are set aside, a right one is not",
+    ev.prio(m) === 0 &&
+      /less than half as long/.test(ev.because(m)) &&
+      fat.prio(m) !== 0 &&
+      degenerate('后汉书'.repeat(40)) &&
+      !degenerate(row.refReply) &&
+      marks.has('deg') &&
+      marks.get('deg').degenerate &&
+      marks.has('tr') &&
+      !marks.has('ok'),
+    { prio: ev.prio(m), because: ev.because(m), fat: fat.prio(m), marks: [...marks.keys()] },
+  );
+}
 // ---- 9a: a small model beside the decider in the decide step (plan.decideWith)
 {
   const { answer: orchestrate } = await import('../src/orchestrate.mjs');

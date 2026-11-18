@@ -34,7 +34,7 @@ import {
   letterOf,
   describedNotGiven,
 } from './read.mjs';
-import { PROBE_BRIEF, EXPECT_BRIEF, expectedIn } from './behave.mjs';
+import { PROBE_BRIEF, EXPECT_BRIEF, expectedIn, programOf } from './behave.mjs';
 
 // an answer as it is shown to another slot or to the person: code in a block of its own, anything else as it is
 const fenced = (final) => (isCode(final) ? '\n```\n' + final + '\n```' : ' ' + final);
@@ -49,6 +49,13 @@ export const JUDGE_BRIEF =
 export const decideByOf = (v) => String(v || 'decider');
 const LETTERS = 'ABCDEFGHIJKLMNOP'; // an answer for each slot that drafts: four models' worth, and room over
 // the flow of an arrangement: the one it names, or the plain one
+// what the writer is told with plan.writeAs 'full' (SwOA specification O.8.4)
+export const FULL_REPLY =
+  '\n\nWrite it in full, as a careful expert would answer this person: the answer first; then why, in a sentence or two; then, ' +
+  'where they will act on it, what to do or what to watch for. Where what they asked cannot be done for them (booking, buying, ' +
+  'sending, finding), say so in a sentence, then how they can do it themselves, in a few short steps. Where they asked for a ' +
+  'piece of writing, the reply is the piece itself, written out in full and ready to send. You may add the reason and the ' +
+  'practical steps the answer needs; never change the answer.';
 export const DEFAULT_FLOW = [{ do: 'draft' }, { do: 'try' }, { do: 'check' }, { do: 'decide' }, { do: 'write' }];
 export const flowOf = (briefs) => (Array.isArray(briefs.flow) && briefs.flow.length ? briefs.flow : DEFAULT_FLOW);
 // WORKED EXAMPLES: the k nearest the question (by the words they share, code with code), shown as what a good answer looks like.
@@ -129,7 +136,16 @@ export function briefsFor(briefs, question, kind = kindOf(question)) {
 
 export async function answer(
   messages,
-  { briefs: given, ask, decide = null, behave = null, onStep = () => {}, onStart = () => {}, others = [] },
+  {
+    briefs: given,
+    ask,
+    decide = null,
+    behave = null,
+    print = null,
+    onStep = () => {},
+    onStart = () => {},
+    others = [],
+  },
 ) {
   const t0 = Date.now();
   const marker = given.marker || MARKER;
@@ -742,10 +758,41 @@ export async function answer(
   };
   // a step that works on a dispute is passed over when there is none
   const ONLY_IF_DISPUTED = new Set(['check', 'revise', 'decide', 'repeat']);
+  // A PROGRAM THE QUESTION ASKS THE OUTPUT OF IS RUN, not worked out (SwOA specification R.4): started with the drafts, and once
+  // the drafting is over what it printed settles the matter, whatever the drafts said (measured 2026-11-18: on six questions of
+  // what a short program prints the 30B's own reply was wrong once; running it is never wrong). Where it cannot be run, nothing
+  // changes
+  const program = plan.runPrograms !== false && print ? programOf(question) : '';
+  const printing = program ? Promise.resolve(print(program)).catch(() => null) : null;
+  let printSeen = false;
+  const settlePrinted = async () => {
+    if (!printing || printSeen) return;
+    printSeen = true;
+    const at = Date.now();
+    onStart({ slot: 'run', member: 'sandbox', stage: 'run' });
+    const p = await printing;
+    const row = {
+      slot: 'run',
+      member: 'sandbox',
+      stage: 'run',
+      ms: Date.now() - at,
+      out: p ? 'Ran the program: it printed ' + p.text : 'The program could not be run: the drafts settle it.',
+      final: p ? p.text : '',
+      ok: !!p,
+      printed: true,
+    };
+    trace.push(row);
+    onStep(row);
+    if (p && !S.decided) {
+      S.decided = p.text;
+      S.path = 'ran';
+    }
+  };
   async function runSteps(steps) {
     for (const step of steps) {
       const fn = STEPS[step.do];
       if (!fn || step.do === 'write') continue;
+      if (step.do !== 'draft') await settlePrinted();
       if (S.decided || !S.pool.length) {
         if (step.do !== 'draft') continue;
       }
@@ -762,6 +809,7 @@ export async function answer(
   }
   const flow = flowOf(briefs);
   await runSteps(flow);
+  await settlePrinted();
   // what stands, if no step settled it: the one answer where there is one; else the answer most slots hold
   if (!S.decided && S.pool.length) {
     const tally = votes();
@@ -776,7 +824,9 @@ export async function answer(
   if (S.narrowed && S.path) S.path += '+narrowed';
   let decided = S.decided;
   let path = S.path;
-  const best = S.pool.find((d) => plain(d.final) === plain(decided)) || S.pool[0];
+  // (where the program's run settled it, the work is a draft's that came to the same, or none: a draft that came to something
+  // else would tell the writer otherwise)
+  const best = S.pool.find((d) => plain(d.final) === plain(decided)) || (path === 'ran' ? null : S.pool[0]);
   const work = best ? workOf(best.out, marker) : '';
 
   // ---- write
@@ -796,6 +846,12 @@ export async function answer(
   // model's). Whether this is better is the trainer's to find, like any other setting.
   const passOver = decided && !asIs && plan.writeAs === 'settled';
   if (passOver) path += '+as-settled';
+  // AND WITH plan.writeAs 'full' THE WRITER WRITES THE REPLY IN FULL: the answer, why, and what to do, where every draft is told to
+  // be brief and the writer to add nothing (measured 2026-11-18: of 36 questions short of parity, about 19 had the larger model's
+  // answer and lost it by being thin: "Yes, rabbits can eat celery." against the answer, how to give it and how much). Whether it
+  // is better is the trainer's to find, class by class
+  const full = !asIs && !passOver && plan.writeAs === 'full';
+  if (decided && full && writers.length) path += '+full';
   if (asIs) reply = '```' + (/\bfunction\b|=>|\b(?:const|let)\s/.test(decided) ? 'js' : '') + '\n' + decided + '\n```';
   else if (decided && writers.length && !passOver) {
     const writeMsgs = (s) => [
@@ -813,6 +869,7 @@ export async function answer(
           '\n\nWhat was settled, in short (a statement of the answer, not the reply itself):' +
           fenced(decided) +
           (work ? '\n\nThe draft it came from:\n' + work : '') +
+          (full ? FULL_REPLY : '') +
           '\n\nNow write the reply itself, exactly as the person will read it, and nothing else.',
       },
     ];

@@ -24,7 +24,7 @@ import { serve as serveHttp } from './server.mjs';
 import { deciderAt } from './decider.mjs';
 import { fromSpec, readSpec, recipeSha256 } from './spec.mjs';
 import { answerTools } from './tools.mjs';
-import { behaviours } from './behave.mjs';
+import { behaviours, printed } from './behave.mjs';
 import { readLearned, saveLearned, notePass, learnedFile, LEARNED_DIR } from './learned.mjs';
 
 export { MEMBERS, SERVING, ENTRY, SERVED_NAME, TOOLS, toolsOf, modelFile };
@@ -235,6 +235,8 @@ export async function createSwarm(opts = {}) {
         others: Object.keys(members).sort((x, y) => (Number(MEM[y]?.params) || 0) - (Number(MEM[x]?.params) || 0)),
         decide,
         behave,
+        // (a program the question asks the output of is run where drafts may be run at all: SwOA specification R.4)
+        print: behave ? printed : null,
         onStep: o.onStep,
         onStart: o.onStart,
       });

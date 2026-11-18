@@ -5,6 +5,7 @@
 // (sandbox-runner.mjs). What comes back is text.
 //   outputsOf(code, name, inputs)  -> [{ v } | { e }] for each list of arguments, or null when it cannot be run at all
 //   callsOf(code, name, calls)     -> the same, for calls written out as text ("rotate([1, 2])"), which are read inside the sandbox
+//   printedBy(code)                -> { text } the lines a whole program printed, or null (behave.mjs programOf)
 //   sandboxReady()                 -> can a function be run here at all? (Node 20 or later)
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -41,7 +42,7 @@ function runIn(job, count, timeoutMs) {
       clearTimeout(timer);
       try {
         const r = JSON.parse(out);
-        done(r.ok && r.out.length === count ? r.out : null);
+        done(job.print ? (r.ok ? r : null) : r.ok && r.out.length === count ? r.out : null);
       } catch {
         done(null);
       }
@@ -56,6 +57,21 @@ export function outputsOf(code, name, inputs, { timeoutMs = 8000 } = {}) {
 export function callsOf(code, name, calls, { timeoutMs = 8000 } = {}) {
   const key = name + '\n' + code + '\ncalls\n' + calls.join('\n');
   return seen.get(key) || remember(key, runIn({ code: bare(code), name, calls }, calls.length, timeoutMs));
+}
+
+// WHAT A PROGRAM PRINTS: run once as it stands (sandbox-runner.mjs print), -> the lines it printed, or null where it could not be
+// run, threw, printed nothing, or printed something other than strings, numbers, booleans, null, undefined and bigints
+export function printedBy(code, { timeoutMs = 8000 } = {}) {
+  const key = 'print\n' + code;
+  return (
+    seen.get(key) ||
+    remember(
+      key,
+      runIn({ code: bare(code), print: true }, 0, timeoutMs).then((r) =>
+        r && r.plain && String(r.printed).trim() ? { text: String(r.printed).trim() } : null,
+      ),
+    )
+  );
 }
 
 // CAN A FUNCTION BE RUN HERE AT ALL? Asked once, with a function that returns 1.

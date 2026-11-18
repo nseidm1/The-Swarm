@@ -105,9 +105,27 @@ export function evidenceOf(row, briefs = {}, { replay = null } = {}) {
   // the slot a change is to: named on a brief, or the first word of an arrangement's name ("c-direct with a token limit of 1100")
   const slotOf = (m) => m.slot || ((m.name || '').split(' ')[0] in slots ? (m.name || '').split(' ')[0] : '');
   // -> [priority, the reason in words]: what the record says about this change, said where it is shown being tried
+  // A THIN REPLY: not code, and less than half as long as the larger model's (the answer there, the reason and what to do gone)
+  const wordsIn = (x) =>
+    String(x || '')
+      .split(/\s+/)
+      .filter(Boolean).length;
+  const thin =
+    !!row.refReply &&
+    !/```/.test(String(row.refReply)) &&
+    wordsIn(row.reply || row.decided) * 2 < wordsIn(row.refReply);
   const judged = (m) => {
     const n = m.name || '';
     const sl = slotOf(m);
+    if (thin && /writes the reply in full/.test(n))
+      return [
+        0,
+        "the reply is less than half as long as the larger model's (" +
+          wordsIn(row.reply || row.decided) +
+          ' words against ' +
+          wordsIn(row.refReply) +
+          '): this writes it in full',
+      ];
     if (lost === 'writing') {
       // (what went wrong at the writer: it changed the settled answer, or it described the answer instead of giving it)
       const what = described
@@ -564,11 +582,40 @@ export function addToLibrary(lib, names, from) {
 // is wrong. Measured 2026-11-17: Nemotron 3.5 Lightning 30B wrong on 7 of a pass's 30 code questions (toSeconds("5m") 0, wanted
 // 300), and 3 of the 5 changes one run kept were won on them, the swarm taught the larger model's mistakes.
 // -> Map(id -> { share, input, theirs, wanted }) for those questions
+// A DEGENERATE REPLY: one that is mostly the same few characters over and over (measured 2026-11-18: the 30B answered "What is in
+// the docs folder?" with one three-character phrase repeated to its token limit). Of a reply's four-character pieces, fewer than one
+// in ten different, over at least sixty characters
+export function degenerate(text) {
+  const s = String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (s.length < 60) return false;
+  const seen = new Set();
+  for (let i = 0; i + 4 <= s.length; i++) seen.add(s.slice(i, i + 4));
+  return seen.size < 0.1 * (s.length - 3);
+}
 export async function wrongMarksOf(list, ref, equivalent = null) {
   const eq = equivalent || (await import('./support/equivalent.mjs')).codeEquivalent;
   const out = new Map();
   for (const t of list) {
     const reply = ref && (ref.get ? ref.get(t.id) : ref[t.id]);
+    // (a degenerate mark is no answer to be equivalent to, whatever the question)
+    if (reply && degenerate(reply)) {
+      out.set(t.id, { share: 0, degenerate: true });
+      continue;
+    }
+    // A QUESTION MADE WITH ITS ANSWER (training/tasks.mjs: what a short program prints, a count, a figure read out of a passage)
+    // grades the mark with its own grader: where the larger model's reply is not that answer, the mark is wrong (measured
+    // 2026-11-18: trace-5 prints 7, the swarm said 7, and the larger model's reply opened with 13 and ended on 5; it was searched
+    // 61 times for a parity that meant copying the mistake)
+    if (reply && t.want !== undefined && typeof t.grade === 'function') {
+      try {
+        if ((await t.grade(reply)) === 'wrong') out.set(t.id, { share: 0, wanted: String(t.want) });
+      } catch {
+        /* its grader could not read it: the mark stands */
+      }
+      continue;
+    }
     if (!t.ok || !t.name || !Array.isArray(t.inputs) || !reply) continue;
     try {
       const g = await eq('```js\n' + t.ok + '\n```', reply, { name: t.name, inputs: t.inputs });
@@ -1909,7 +1956,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       wrongMarks.size +
         ' of ' +
         list.length +
-        ' train questions have a mark that does not do what the question asks (its own correct solution says so): they are answered once and set aside, never searched.',
+        ' train questions have a mark that does not do what the question asks (its own correct solution, or its own answer, says so): they are answered once and set aside, never searched.',
     );
   // WHAT THE OLD RULE DROPPED IS NOT DROPPED BY THIS ONE. Before training went question by question, a change was tried on the
   // whole train set and written down as not kept if it did not win there by a margin. Such a change can still bring one question
@@ -2179,6 +2226,9 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         live({
           loop: {
             ...at,
+            // the class of the question asked (orchestrate.mjs classOf): the page draws that class's arrangement, and compares a try
+            // against it rather than against the shared one
+            class: inputClassOf(t.turns || [{ role: 'user', content: t.ask }], { tools: t.tools }),
             reused: r0,
             ...(at.attempt
               ? { briefs: { version: b.version, slots: b.slots, plan: b.plan || {}, flow: b.flow || null } }

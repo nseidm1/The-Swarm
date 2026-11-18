@@ -202,6 +202,22 @@ export function steps(b, { cap = SERVING.slots, members = [...new Set(b.slots.ma
       ),
     },
   });
+  // THE REPLY IN FULL, OR AS DRAFTED: the writer told to give the answer, why, and what to do (src/orchestrate.mjs: writeAs 'full')
+  if ((b.plan || {}).writeAs !== 'settled')
+    out.push({
+      name:
+        (b.plan || {}).writeAs === 'full'
+          ? 'plan: the writer writes the reply as drafted'
+          : 'plan: the writer writes the reply in full',
+      briefs: {
+        ...b,
+        plan: Object.fromEntries(
+          Object.entries({ ...b.plan, writeAs: (b.plan || {}).writeAs === 'full' ? undefined : 'full' }).filter(
+            ([, v]) => v !== undefined,
+          ),
+        ),
+      },
+    });
   for (const [key, dflt] of [
     ['onePerAnswer', false],
     ['agreeSkipsChecks', true],

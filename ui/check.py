@@ -1109,9 +1109,33 @@ swarm_ui.loop_live, swarm_ui.session_live = _ll, _sl
 check("while a try runs the faces draw the arrangement it asks, marked as being tried and not kept, with the slot its change touches ringed and what else differs said; with none running, the kept one; and the key the page polls changes with the try",
       "Being tried, not kept:" in _fb and "change 7 on question 25" in _fb and "1 slot changed or added" in _fb and "the plan differs: decideBy" in _fb
       and ('class="av %s trying' % _kb["slots"][0]["member"]) in _fb.replace(" norec", "") and ">not asked<" in _fb
-      and _fk.startswith("try-25-7-") and _fk0 == "kept-%s" % _kb.get("version") and "Being tried, not kept" not in _fb0 and 'id="faces"' in _fb0
+      and _fk.startswith("try-25-7-") and _fk0 == "kept-%s-" % _kb.get("version") and "Being tried, not kept" not in _fb0 and 'id="faces"' in _fb0
       and "async function facesTick()" in swarm_ui.JS,
       ["Being tried, not kept:" in _fb, "1 slot changed or added" in _fb, ('class="av %s trying' % _kb["slots"][0]["member"]) in _fb.replace(" norec", ""), ">not asked<" in _fb, _fk, _fk0, "Being tried, not kept" not in _fb0])
+
+# THE FACES DRAW THE CLASS'S OWN ARRANGEMENT: a question in words is asked with the words arrangement, so that is drawn, and a try
+# is compared with it (against the shared one, a try dropping one slot read as leaving out every slot words had already dropped);
+# the steps its turn cannot take (the sandbox, off code) are drawn off, and a turn with tools is drafts and the decider only
+_ll, _sl = swarm_ui.loop_live, swarm_ui.session_live
+_ds = [x for x in _kb["slots"] if x["stage"] == "draft"]
+_wd = {"slots": [x for x in _kb["slots"] if x["id"] != _ds[-1]["id"]], "plan": dict(_kb.get("plan") or {}, decideBy="most"), "flow": None}
+_dw = dict(_d, briefs=dict(_kb, kinds={"words": _wd}))
+_wt = {"version": _kb.get("version"), "slots": [x for x in _wd["slots"] if x["id"] != _ds[0]["id"]], "plan": _wd["plan"], "flow": None}
+swarm_ui.session_live = lambda: True
+swarm_ui.loop_live = lambda: {"n": 49, "attempt": 3, "move": "drop %s" % _ds[0]["id"], "class": "words", "briefs": _wt}
+_fw = swarm_ui.faces_block(_dw)
+swarm_ui.loop_live = lambda: {"n": 49, "attempt": 0, "class": "words"}
+_fw0 = swarm_ui.faces_block(_dw)
+swarm_ui.loop_live = lambda: {"n": 3, "attempt": 0, "class": "tools"}
+_ft = swarm_ui.faces_block(_dw)
+swarm_ui.loop_live, swarm_ui.session_live = _ll, _sl
+check("the faces draw the class's own arrangement: a try on a words question is compared with the words arrangement (only the slot it drops is left out), named with its class; the sandbox is drawn off off code; a turn with tools takes drafts and the decider only, and its decider is asked",
+      "question 49, in words" in _fw and "the words arrangement (its own)" in _fw and ("%s left out." % _ds[0]["id"]) in _fw and _ds[-1]["id"] + " left out" not in _fw
+      and ("(its own) (briefs v%s): %s left out." % (_kb.get("version"), _ds[0]["id"])) in _fw
+      and 'class="via off"' in _fw and "code only" in _fw and "<b>Asked now:</b> question 49, in words, with the words arrangement (its own)" in _fw0
+      and ('data-av="%s"' % _ds[-1]["id"]) not in _fw0 and "the tools arrangement (the shared one" in _ft and _ft.count('class="st off"') >= 2 and ">not asked<" not in _ft
+      and swarm_ui.faces_key(_dw) != "" ,
+      [("question 49, in words" in _fw), ("the words arrangement (its own)" in _fw), ("%s left out." % _ds[0]["id"]) in _fw, 'class="via off"' in _fw, "<b>Asked now:</b>" in _fw0, _ft.count('class="st off"'), ">not asked<" in _ft])
 
 # THE QUESTIONS' KEY IS EXHAUSTIVE: every look a pip can have (each state's, and the one in hand) has its line in the key
 _qt = swarm_ui.question_track(_d)

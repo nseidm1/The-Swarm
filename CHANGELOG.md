@@ -26,6 +26,19 @@ The first version.
 - **No question is searched without end.** A question that came back on a changed arrangement while nothing else waited could
   not be set aside and had no last chance: 2,281 tries went to one. Nothing waiting is now its last chance. And a common word
   in quotes ('all', "are"), or the text between two apostrophes, no longer counts as quoting the question.
+- **A program the question asks the output of is run, not worked out.** Where a question asks what a program prints and the
+  program calls `console.log`, it is run once in the sandbox, and what it printed settles the answer (SwOA specification R.4;
+  `plan.runPrograms: false` turns it off). Where it cannot be run, the drafts settle it as before.
+- **A member's thinking never reaches an answer.** A stray `</think>` and the reasoning before it are removed from every member's
+  reply (S3.8.5).
+- **The writer can write the reply in full** (`plan.writeAs: "full"`, O.8.3): the answer, why, and what to do, where every draft is
+  told to be brief. Training tries it first on a question whose reply is under half the larger model's length, and keeps it only
+  where it wins.
+- **Marks that are no answer are set aside in training.** A degenerate mark (the same few characters repeated) and one that a
+  question made with its answer proves wrong are answered once and never searched.
+- **The dashboard draws the class's own arrangement.** While a question is asked, the faces show the arrangement of its class
+  (tools, talk, code, words), a change being tried is compared with that one, and steps the class's turn cannot take (the
+  sandbox off code; all but drafting and deciding for a turn with tools) are drawn off.
 - **No kind trained on nothing.** A pass stops before training when a kind of question has nothing to compare (a reader that
   failed its check), and says which and why; `SKIP_KINDS` leaves kinds out on purpose.
 - **The module.** Two small models served by llama.cpp, four slots each, answer as one model: messages in, one reply out, at an

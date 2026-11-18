@@ -3,6 +3,22 @@
 // spacing; two answers are the same when, made plain, they read the same (4,200.0 and 4200; "Tuesday." and "tuesday").
 export const MARKER = 'ANSWER:';
 
+// WHAT A MODEL SAID, WITHOUT ITS THINKING. Every small model is served with its thinking off (catalog.mjs), yet one will still write
+// its reasoning and then a stray </think> before its reply (measured 2026-11-18: a talk answer went out as "No problem. Let me know
+// ...</think>No problem. If you'd like ..."). A closed <think>...</think> is dropped; where a </think> stands alone, what follows it
+// is the reply; a <think> never closed is cut off where it opens. Text with no thinking tags is returned as it is.
+export function withoutThinking(text) {
+  let s = String(text == null ? '' : text);
+  if (!/<\/?think>/i.test(s)) return s;
+  s = s.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  const close = s.search(/<\/think>/i);
+  if (close >= 0) s = s.slice(close + s.slice(close).match(/<\/think>/i)[0].length);
+  const open = s.search(/<think>/i);
+  if (open >= 0) s = s.slice(0, open);
+  // (a closing tag appearing again after the reply is dropped with what it closed)
+  return s.replace(/<\/think>/gi, '').trim();
+}
+
 // an answer may be CODE: then it is the last fenced block in what the slot wrote, unless a marker line comes after it (a slot
 // that quotes the code it was asked about, and then answers in a line, has answered in the line)
 // (2) a model trained to call tools may hand its code over as a tool call, though it was given no tools: <|tool_call_start|>

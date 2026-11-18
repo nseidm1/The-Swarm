@@ -10,6 +10,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { SERVING } from './catalog.mjs';
+import { withoutThinking } from './read.mjs';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const freePort = () =>
@@ -137,8 +138,9 @@ function member(m, base, slots, stop = () => {}, { revive = null, onRecover = ()
               ? calls
                   .map((c) => 'CALL ' + ((c.function || {}).name || '') + ' ' + ((c.function || {}).arguments || '{}'))
                   .join('\n')
-              : String(msg.content || msg.reasoning_content || ''),
-            content: String(msg.content || ''),
+              : withoutThinking(msg.content || msg.reasoning_content || ''),
+            // (what it said, its thinking left out: read.mjs withoutThinking)
+            content: withoutThinking(msg.content || ''),
             ...(calls ? { calls } : {}),
             tokens: (j.usage && j.usage.completion_tokens) || 0,
             ms: Date.now() - t0,

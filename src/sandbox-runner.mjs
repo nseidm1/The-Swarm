@@ -9,7 +9,7 @@ import vm from 'node:vm';
 let raw = '';
 process.stdin.setEncoding('utf8');
 for await (const chunk of process.stdin) raw += chunk;
-const { code, name, inputs = [], calls = null, callMs = 400 } = JSON.parse(raw);
+const { code, name, inputs = [], calls = null, callMs = 400, print = false } = JSON.parse(raw);
 const say = (o) => process.stdout.write(JSON.stringify(o));
 // NOTHING OF THIS PROCESS IS HANDED TO THE CODE. The place it runs in is made from an object with no prototype, so there is no
 // chain to climb out by; its console, the reading of its arguments and the writing-down of what it returned are all made INSIDE
@@ -26,6 +26,35 @@ globalThis.__text = (v) =>
     : typeof x === 'function' ? '__function__'
     : x);
 `;
+// A WHOLE PROGRAM, AND WHAT IT PRINTED (print: true): the code is run once, as it stands, and every console.log is written down
+// inside the box, one line each, its values joined by a space. A string is printed as it is; a number, a boolean, null, undefined
+// or a bigint as JavaScript writes it; anything else (an array, an object, a function) makes the printing "not plain", because
+// Node would print it in a form of its own. What comes back: { ok: true, printed, plain } or { ok: false, why }.
+const PRINTING = `
+globalThis.__lines = [];
+globalThis.__plain = true;
+globalThis.console = { log(...a) {
+  globalThis.__lines.push(a.map((v) => {
+    if (typeof v === 'string') return v;
+    if (v === null || ['number', 'boolean', 'undefined', 'bigint'].includes(typeof v)) return String(v);
+    globalThis.__plain = false;
+    return '';
+  }).join(' '));
+}, error() {}, warn() {}, info() {} };
+`;
+if (print) {
+  try {
+    const box = vm.createContext(Object.create(null), { codeGeneration: { strings: false, wasm: false } });
+    vm.runInContext(PRINTING, box, { timeout: 500 });
+    vm.runInContext(String(code), box, { timeout: 1000 });
+    const printed = vm.runInContext('__lines.join("\\n")', box, { timeout: 200 });
+    const plain = vm.runInContext('__plain', box, { timeout: 200 });
+    say({ ok: true, printed: typeof printed === 'string' ? printed : '', plain: plain === true });
+  } catch (e) {
+    say({ ok: false, why: String((e && e.message) || e).slice(0, 160) });
+  }
+  process.exit(0);
+}
 try {
   const box = vm.createContext(Object.create(null), { codeGeneration: { strings: false, wasm: false } });
   vm.runInContext(INSIDE, box, { timeout: 500 });

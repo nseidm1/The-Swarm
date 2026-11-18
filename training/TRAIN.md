@@ -17,6 +17,8 @@ stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mj
      sampled otherwise, one more drafter, the answers sent back). A change to how the matter is decided cannot help here and
      is never tried.
    - **Lost in writing:** the settled answer handed over as it is comes first.
+   - **A thin reply** (not code, under half as long as the larger model's, wherever it was lost): the writer told to write
+     the reply in full (`plan.writeAs: "full"`) comes first.
 
    After that: one of each idea before a second (the same flow change at six places counts once), and the kinds of change
    that have reached parity most often come sooner, learned question after question and pass after pass (shown on the
@@ -35,7 +37,9 @@ stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mj
    the same way (measured on the held questions it agreed with itself on 56 of 84, on conversation as few as 1 in 6). A question
    whose mark its own correct solution proves wrong (a question of code is made with that solution and the inputs it is tried
    on; the larger model's answer gives something else on one of them) is answered once and **set aside**: never searched, and
-   never one a change must not lose (`wrongMarksOf`). Parity there would teach the swarm the larger model's mistake (measured
+   never one a change must not lose (`wrongMarksOf`). So is a degenerate mark (the same few characters over and over, as
+   the 30B once answered a question about a folder), and one that a question made with its answer (what a program prints)
+   proves wrong by that question's own grader. Parity there would teach the swarm the larger model's mistake (measured
    2026-11-17: Nemotron 3.5 Lightning 30B wrong on 7 of a pass's 30 code questions, and 3 of one run's 5 kept changes won on them). It may be
    **set aside** first: after `setAsideAfter` tries in a row (30) that brought it neither closer nor to parity, while another
    question waits, it comes back after the others, on the arrangement they leave. Where the arrangement has not changed by then,

@@ -10,7 +10,26 @@
 // others is. A draft that does not run at all is no answer.
 // Only JavaScript is run. Anything else, a machine that cannot run it safely (Node older than 20), or calls that could not be
 // read, and the drafts are compared as text, as before.
-import { callsOf, sandboxReady } from './sandbox.mjs';
+import { callsOf, sandboxReady, printedBy } from './sandbox.mjs';
+
+// A QUESTION THAT ASKS WHAT A PROGRAM PRINTS: its first line asks what it prints, outputs or logs, and the program calls
+// console.log. The program is the last fenced block of the question where it has one, else everything after its first blank line.
+// -> the program, or '' (SwOA specification R.4.1)
+export function programOf(question) {
+  const q = String(question || '');
+  const first = q.split(/\r?\n/)[0] || '';
+  if (!/\b(print|prints|printed|output|outputs|log|logs)\b/i.test(first) || !/\bconsole\.log\s*\(/.test(q)) return '';
+  const blocks = [...q.matchAll(/```[a-zA-Z]*\n([\s\S]*?)```/g)].map((m) => m[1]).filter((b) => b.trim());
+  const code = blocks.length
+    ? blocks[blocks.length - 1]
+    : q
+        .split(/\r?\n\s*\r?\n/)
+        .slice(1)
+        .join('\n\n');
+  return /\bconsole\.log\s*\(/.test(code) && code.length <= 4000 ? code.trim() : '';
+}
+// what it prints, where the sandbox can run at all (sandbox.mjs printedBy; SwOA specification R.4.2): { text } or null
+export const printed = async (code) => ((await sandboxReady()) ? printedBy(code) : null);
 
 export const PROBE_BRIEF =
   'You are given a request for a function. Do not write the function. Write ten calls to it that would show whether a version ' +

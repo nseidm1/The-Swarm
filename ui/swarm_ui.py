@@ -346,6 +346,7 @@ button.mav{position:relative;border:0;font:inherit;color:inherit;text-align:left
 .via:hover,.via.sel{background:rgba(63,79,134,.08)}.via .vf{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#6b78a8}.via .vf svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .via .vn{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--mist)}.via:not(:last-child)::after{content:"";position:absolute;right:-15px;top:14px;width:8px;height:8px;border-top:2.5px solid var(--unsure);border-right:2.5px solid var(--unsure);transform:rotate(45deg)}
 .via .live{position:absolute;top:2px;right:0;margin:0;padding:0;border:0;width:10px;height:10px}.via .live span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.via .live i{width:8px;height:8px;margin:0;border:2px solid #fff;box-sizing:content-box;background:#c9d4d1}
+.via.off .vf,.via.off .vn,.st.off .avs{opacity:.4}.via.off .vf{background:#9aa6a3}.via .vo{font-size:9.5px;font-weight:700;color:var(--mist);white-space:nowrap}.st.off{border-style:dashed}
 .via:has(.live.on) .vf{animation:halo 1.4s ease-out infinite;--fc:#6b78a8}.via:has(.live.on) .live i{background:var(--teal2)}.via:has(.live.done) .live i{background:var(--right)}
 .mav b{display:block;font-size:13px;line-height:1.2}.mav small{display:block;font-size:11.5px;color:var(--mist);font-weight:600}.mav.tgt{margin-left:auto}
 .face{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;color:#fff;font:800 12px/1 inherit;letter-spacing:-.02em;flex:none;background:var(--fc,var(--unsure))}
@@ -1730,8 +1731,13 @@ def avatars(d, changed=None):
     def of(step, dflt):
         return [by_id[i] for i in step.get("slots", []) if i in by_id] if step.get("slots") else [x for x in slots if x["stage"] == dflt]
 
+    cls = d.get("cls")
+    off_set = CLASS_OFF.get(cls, set())
+    off_tip = lambda do: "%s: not taken on this question (%s)%s" % (STEP_TITLE.get(do, do), CLASS_WORDS.get(cls, cls), ": a turn with tools is drafted and decided, nothing else" if cls == "tools" else ": drafts are run on calls only where a function is asked for (a program the question asks the output of is still run, whatever the class)")  # noqa: E731
+
     def station(step):
         do = step.get("do")
+        off = do in off_set
         faces = []
         if do in ("draft", "revise"):
             faces = [face_of(x) for x in of(step, "draft")]
@@ -1745,14 +1751,17 @@ def avatars(d, changed=None):
             tip = "Try: the sandbox runs every answer on the same calls" if do == "try" else "Expect: one slot, asked apart, says what each call should give"
             tpl.setdefault(key, run_card(d) if do == "try" else card("run", "One slot, asked apart", "Says what each call should give, from the question alone", "expect", ["<span>expect</span>"], "",
                                                                      '<div class="body">It does not write the function. The answer that gives what it expects on the most calls is backed, and the count is put before the decider.</div>'))
-            return ('<button type="button" class="via" data-av="%s" title="%s" aria-label="%s"><span class="vf">%s</span><span class="vn">%s</span>'
-                    '<span class="live" data-live="%s"><i></i><span>Idle</span></span></button>' % (key, e(tip), e(tip), SANDBOX_FACE, "try" if do == "try" else "expect", key))
+            if off:
+                tip = off_tip(do)
+            return ('<button type="button" class="via%s" data-av="%s" title="%s" aria-label="%s"><span class="vf">%s</span><span class="vn">%s</span>%s'
+                    '<span class="live" data-live="%s"><i></i><span>Idle</span></span></button>' % (" off" if off else "", key, e(tip), e(tip), SANDBOX_FACE, "try" if do == "try" else "expect",
+                                                                                                 '<span class="vo">code only</span>' if off else "", key))
         elif do == "decide":
             keep = step.get("keep")
             what = "keeps %d" % keep if keep else "if sure" if step.get("sure") else "decides"
             plan_ = d["briefs"].get("plan") or {}
             # (settled by the answer most slots hold: the decider is not asked, and its face says so)
-            most = not keep and not step.get("sure") and str(plan_.get("decideBy") or "") == "most"
+            most = not keep and not step.get("sure") and str(plan_.get("decideBy") or "") == "most" and cls != "tools"
             if most:
                 what = "not asked"
             faces = [special("decide", "decider", e(initials(dec)), what, "%s: %s" % (dec, "keeps the likeliest %d answers" % keep if keep else "settles it here only if it is sure" if step.get("sure")
@@ -1778,7 +1787,10 @@ def avatars(d, changed=None):
         # (--cols: on a phone, the faces in rows of as even a length as fits, at most five to a row: six are three and three, not five and one)
         nf = max(1, len(faces))
         cols = -(-nf // -(-nf // 5))
-        return '<div class="st" style="--n:%d;--cols:%d"><div class="stt">%s%s</div><div class="avs">%s</div></div>' % (nf, cols, e(STEP_TITLE.get(do, do)), extra, "".join(faces))
+        if off:
+            extra += '<span>not taken here</span>'
+        return '<div class="st%s" style="--n:%d;--cols:%d"%s><div class="stt">%s%s</div><div class="avs">%s</div></div>' % (
+            " off" if off else "", nf, cols, (' title="%s"' % e(off_tip(do))) if off else "", e(STEP_TITLE.get(do, do)), extra, "".join(faces))
 
     parts = []
     # (the order of stations and the markers between them; an arrow is drawn wherever two stations meet with nothing between)
@@ -1894,13 +1906,33 @@ def question_track(d):
             % (head, now, pips, "".join('<span><i class="pk %s"></i>%s</span>' % (k, e(w)) for k, w in PIP_WORDS.items()), tries_list(lp)))
 
 
+# THE CLASS OF A QUESTION (src/orchestrate.mjs classOf), in the page's words, and the steps each class's turn can take: a turn with
+# tools is drafters proposing the next step and the decider choosing (src/tools.mjs), nothing else; the sandbox and the expected
+# results run only where a function is asked for
+CLASS_WORDS = {"tools": "with tools", "talk": "in conversation", "code": "asking for code", "words": "in words"}
+CLASS_OFF = {"tools": {"try", "expect", "check", "revise", "write"}, "talk": {"try", "expect"}, "words": {"try", "expect"}, "code": set()}
+
+
+def class_briefs(b, cls):
+    """The arrangement a question of class cls is asked with: the shared one, with the class's own slots, plan and flow where it has
+    them (src/orchestrate.mjs briefsFor). Returns it and whether the class has its own."""
+    k = (b.get("kinds") or {}).get(cls) if cls else None
+    if not isinstance(k, dict):
+        return b, False
+    out = dict(b)
+    for p in ("slots", "plan", "flow"):
+        if p in k and not (p == "slots" and not k[p]):
+            out[p] = k[p]
+    return out, True
+
+
 def faces_key(d):
     """What the faces are drawn from, as a key the page compares: the try being asked (its question, number and change), or the kept
     arrangement's version where no try runs."""
     lv = loop_live() or {}
     if lv.get("attempt") and lv.get("briefs"):
-        return "try-%s-%s-%s" % (lv.get("n"), lv.get("attempt"), hashlib.sha1(str(lv.get("move", "")).encode()).hexdigest()[:8])
-    return "kept-%s" % (d["briefs"].get("version"),)
+        return "try-%s-%s-%s-%s" % (lv.get("n"), lv.get("attempt"), lv.get("class") or "", hashlib.sha1(str(lv.get("move", "")).encode()).hexdigest()[:8])
+    return "kept-%s-%s" % (d["briefs"].get("version"), lv.get("class") or "" if session_live() else "")
 
 
 def faces_block(d):
@@ -1910,9 +1942,14 @@ def faces_block(d):
     (/fragment/faces)."""
     lv = loop_live() or {}
     cb = lv.get("briefs") if lv.get("attempt") else None
+    # THE CLASS'S OWN ARRANGEMENT: a question is asked with its class's arrangement, so that is what is drawn, and what a try is
+    # compared with (against the shared one, a words try read as leaving out the slots words had already dropped)
+    cls = lv.get("class") if session_live() else None
+    kept, own = class_briefs(d["briefs"], cls)
+    which = ("the %s arrangement (%s)" % (cls, "its own" if own else "the shared one, as it has none of its own")) if cls else ""
     if not cb:
-        return '<div id="faces" data-k="%s">%s</div>' % (e(faces_key(d)), avatars(d))
-    kept = d["briefs"]
+        line = ('<p class="tryline facesnow"><b>Asked now:</b> question %s, %s, with %s.</p>' % (e(str(lv.get("n", ""))), e(CLASS_WORDS.get(cls, cls)), e(which))) if cls else ""
+        return '<div id="faces" data-k="%s">%s%s</div>' % (e(faces_key(d)), line, avatars(dict(d, briefs=kept, cls=cls)))
     by = {x["id"]: x for x in kept.get("slots", [])}
     look = lambda x: {k: v for k, v in x.items() if k not in ("purpose",)}  # noqa: E731
     changed = {x["id"] for x in cb.get("slots", []) if x["id"] not in by or look(x) != look(by[x["id"]])}
@@ -1922,10 +1959,12 @@ def faces_block(d):
     diff = [x for x in [("%d slot%s changed or added" % (len(changed), "" if len(changed) == 1 else "s")) if changed else "",
                         ("%s left out" % ", ".join(gone)) if gone else "", "the flow differs" if flow_d else "",
                         ("the plan differs: %s" % ", ".join(plan_k)) if plan_k else ""] if x]
-    tried = dict(d, briefs=dict(kept, slots=cb.get("slots") or kept.get("slots"), plan=cb.get("plan") or {}, flow=cb.get("flow")))
-    banner = ('<p class="tryline facesnow"><b>Being tried, not kept:</b> change %s on question %s, %s.%s</p>'
-              % (e(str(lv.get("attempt"))), e(str(lv.get("n"))), e(str(lv.get("move", ""))[:240]),
-                 (" Against the kept arrangement (briefs v%s): %s." % (e(str(kept.get("version"))), e("; ".join(diff)))) if diff else " The same as the kept arrangement."))
+    tried = dict(d, cls=cls, briefs=dict(kept, slots=cb.get("slots") or kept.get("slots"), plan=cb.get("plan") or {}, flow=cb.get("flow")))
+    # (a change to what a slot is told shows in no face's place: said here, with the slots it touches ringed)
+    against = ("%s (briefs v%s)" % (which, kept.get("version"))) if cls else "the kept arrangement (briefs v%s)" % kept.get("version")
+    banner = ('<p class="tryline facesnow"><b>Being tried, not kept:</b> change %s on question %s%s, %s.%s</p>'
+              % (e(str(lv.get("attempt"))), e(str(lv.get("n"))), (", " + e(CLASS_WORDS.get(cls, cls))) if cls else "", e(str(lv.get("move", ""))[:240]),
+                 (" Against %s: %s." % (e(against), e("; ".join(diff)))) if diff else " The same as %s." % e(against)))
     return '<div id="faces" data-k="%s">%s%s</div>' % (e(faces_key(d)), banner, avatars(tried, changed=changed))
 
 
@@ -1940,7 +1979,7 @@ def arrangement(d):
                # a kind with its own arrangement (a change kept for questions asking for code, or in words, only): the chips above are
                # the shared one
                "".join('<span title="A change that lost only questions of the other kind was kept for these alone">questions %s: <b>their own</b> arrangement, %d slots</span>'
-                       % ("asking for code" if k == "code" else "in words", len((v or {}).get("slots") or b["slots"])) for k, v in sorted((b.get("kinds") or {}).items()))))
+                       % (CLASS_WORDS.get(k, k), len((v or {}).get("slots") or b["slots"])) for k, v in sorted((b.get("kinds") or {}).items()))))
     # what is being tried, on which question, and where training stopped: the question track says it (a line here about moves
     # marked running repeated it, from marks a stopped session leaves behind)
     plan_line = ""

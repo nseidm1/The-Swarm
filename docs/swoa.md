@@ -527,10 +527,23 @@ S3.8.2 On 2xx, let `msg` = `choices[0].message` (an empty object if absent). The
   empty string.
 
 S3.8.3 The reply also carries `content` (`msg.content` or empty), and `tokens` = `usage.completion_tokens` (0 if absent).
+When the reply is not tool calls, both the reply text and `content` MUST have the model's thinking removed (S3.8.5) before
+anything else reads them.
 
 S3.8.4 An empty reply text is NOT a transport failure; whether it counts as a usable answer is decided by the arrangement
 (Part III). Transport failures (S3.8.1, network errors, timeouts) are reported to the arrangement as a failed
 slot, never as an answer.
+
+S3.8.5 **Removing thinking.** Every member is served with its thinking off (S2.4), yet a model may still write its reasoning
+and a stray closing tag before its reply. Given a text T, the text with thinking removed is:
+
+1. If T contains neither `<think>` nor `</think>` (matched case-insensitively), it is T unchanged.
+2. Otherwise remove every shortest span from `<think>` to the next `</think>`, both included (case-insensitive).
+3. If a `</think>` remains, keep only what follows its first occurrence.
+4. If a `<think>` remains, keep only what precedes its first occurrence.
+5. Remove every remaining `</think>`, then trim leading and trailing whitespace.
+
+For example `No problem.</think>No problem. If you like` becomes `No problem. If you like`, and `Yes<think>so` becomes `Yes`.
 
 ---
 
@@ -838,7 +851,9 @@ slot; otherwise all slots whose `stage` is X, in arrangement order.
 
 #### O.5.2 Running a list of steps
 
-Steps run strictly one after another, in order. For each step:
+Steps run strictly one after another, in order. Where a program run was started (R.4.2), its result
+MUST be taken (R.4.3) before the first step whose `do` is not `draft`, and, if no such step came, once
+after the last step; it is taken once. For each step:
 
 1. A step whose `do` is not one of `draft`, `try`, `expect`, `check`, `revise`, `decide`, `repeat`
    MUST be ignored. A `write` step is NOT run here (O.8 handles it after the flow).
@@ -1216,8 +1231,8 @@ top-level arrangement's `examples`: a list of `{ "ask": text, "answer": text }`.
    row's final and path is `converged` if disputed is true, else `agreed`. Otherwise, if votes is
    non-empty, decided becomes votes' first group's final and path `most`.
 2. If narrowed is set and path is non-empty, append `+narrowed`.
-3. **BEST** is the pool row whose final is textually equal to decided, else the first pool row,
-   else none. **WORK** is "read working" of BEST's `out`, or empty.
+3. **BEST** is the pool row whose final is textually equal to decided (equal in plain form, R.1.11); else, if
+   path is `ran`, none; else the first pool row; else none. **WORK** is "read working" of BEST's `out`, or empty.
 4. The **write step** is the last `write` step in the flow, searching steps in order and descending
    into every `repeat`'s `steps` in place. The **writers** are its slots, default stage `write`.
    With no write step, there are no writers.
@@ -1239,6 +1254,10 @@ or `let` followed by a whitespace character; otherwise empty. No writer is calle
 PASS-OVER holds when decided is non-empty, AS-IS does not hold, and `plan.writeAs` is `settled`.
 Then `+as-settled` is appended to path and no writer is called (the reply comes from O.8.6).
 
+FULL holds when neither AS-IS nor PASS-OVER holds and `plan.writeAs` is `full`. When FULL holds, decided is
+non-empty and there are writers, `+full` is appended to path, and the writers are told to write the reply in
+full (O.8.4).
+
 #### O.8.4 The writers
 
 If decided is non-empty, there are writers, and neither AS-IS nor PASS-OVER holds:
@@ -1246,9 +1265,13 @@ If decided is non-empty, there are writers, and neither AS-IS nor PASS-OVER hold
 1. At once, call each writer W with `[system message of W, ...earlier turns, {role: user, content:
    C}]` where C is:
    ~~~~text
-   "The person's message:\n" + QUESTION + "\n\nWhat was settled, in short (a statement of the answer, not the reply itself):" + FENCED(DECIDED) + (WORK ? "\n\nThe draft it came from:\n" + WORK : "") + "\n\nNow write the reply itself, exactly as the person will read it, and nothing else."
+   "The person's message:\n" + QUESTION + "\n\nWhat was settled, in short (a statement of the answer, not the reply itself):" + FENCED(DECIDED) + (WORK ? "\n\nThe draft it came from:\n" + WORK : "") + (FULL ? FULL_REPLY : "") + "\n\nNow write the reply itself, exactly as the person will read it, and nothing else."
    ~~~~
-   Rendered for a non-code answer with work:
+   where FULL_REPLY is exactly:
+   ~~~~text
+   "\n\nWrite it in full, as a careful expert would answer this person: the answer first; then why, in a sentence or two; then, where they will act on it, what to do or what to watch for. Where what they asked cannot be done for them (booking, buying, sending, finding), say so in a sentence, then how they can do it themselves, in a few short steps. Where they asked for a piece of writing, the reply is the piece itself, written out in full and ready to send. You may add the reason and the practical steps the answer needs; never change the answer."
+   ~~~~
+   Rendered for a non-code answer with work (without FULL):
    ~~~~text
    The person's message:
    <question>
@@ -1285,7 +1308,7 @@ If decided is non-empty, there are writers, and neither AS-IS nor PASS-OVER hold
 
 #### O.8.5 Path suffix order
 
-Suffixes are appended in this order when they apply: `+narrowed`, `+as-settled`, `+rewritten`,
+Suffixes are appended in this order when they apply: `+narrowed`, `+as-settled`, `+full`, `+rewritten`,
 `+described`, `+tool-call`, `+code-restored`, `+picked`, `+unwritten`.
 
 #### O.8.6 Nothing written
@@ -1333,6 +1356,8 @@ These are specified in R.2, and run code in the sandbox of R.3:
   `summary` text, and three operations: signature of another final on the same calls (may fail);
   "where they differ"(signatures, letters) → text; "matches"(signature, expectation) → count.
 - **read expectations**(text, calls) → map from call to expected result.
+- **program of**(question) → the program a question asks the output of, or empty (R.4.1); and **printed**(program)
+  → the text it printed, or nothing (R.4.2).
 
 ### O.10 Result
 
@@ -1344,8 +1369,8 @@ result's calls and groups if tried is present, else null.
 
 #### O.10.2 Path values
 
-Base: `decided`, `decided-against-most`, `decided-early`, `most`, `agreed`, `converged`,
-`fallback`; plus suffixes from O.8.5.
+Base: `decided`, `decided-against-most`, `decided-early`, `most`, `agreed`, `converged`, `ran`
+(R.4.3), `fallback`; plus suffixes from O.8.5.
 
 #### O.10.3 Rows and the trace
 
@@ -1406,7 +1431,8 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `probe` | object | none | `{member, brief, maxTokens}` for the probe slot |
 | `expect` | object | none | `{member, brief, maxTokens}` for the expectation slot |
 | `writeCode` | boolean | false | `true` sends code answers through the writers |
-| `writeAs` | text | none | `settled`: no writer for non-code answers |
+| `writeAs` | text | none | `settled`: no writer for non-code answers; `full`: the writers are told to write the reply in full (O.8.3, O.8.4) |
+| `runPrograms` | boolean | true | `false`: a program the question asks the output of is not run (R.4) |
 
 ### O.12 Notes on behaviour that is easy to get wrong
 
@@ -1896,7 +1922,7 @@ module-style `export` / `export default` prefixes are removed and the code is ru
 An anonymous `export default function () {}` thereby becomes a syntax error and the whole run is
 unrunnable; a conforming implementation MUST NOT repair this.
 
-#### R.3.2 Two calling modes
+#### R.3.2 Three calling modes
 
 * **Argument lists**: a list of argument arrays, each a JSON-serializable array of literal values.
   Each call invokes the function with that array's elements as positional arguments. The arguments
@@ -1906,7 +1932,10 @@ unrunnable; a conforming implementation MUST NOT repair this.
   produced in R.2.4/R.2.5. Each MUST be parsed and evaluated, as one parenthesised expression, ONLY
   inside the isolated environment — never in the runtime.
 
-Behaviour grouping (R.2) uses calls as text; the readiness check (R.3.7) uses argument lists.
+* **A whole program**: a program text, run once as it stands, with no function located or called (R.4.2).
+
+Behaviour grouping (R.2) uses calls as text; the readiness check (R.3.7) uses argument lists; a program the
+question asks the output of (R.4) is run whole.
 
 #### R.3.3 Isolation requirements (security)
 
@@ -2011,6 +2040,46 @@ A runtime MAY cache run outcomes keyed by (function name, the ORIGINAL code befo
 mode, and the exact argument lists or call texts), since the same function on the same inputs gives
 the same results. A cache MUST be bounded (for example at most 400
 entries, cleared entirely when full); it MAY hold failed (unrunnable) outcomes too.
+
+### R.4 A program the question asks the output of
+
+#### R.4.1 Which questions
+
+**Program of**(QUESTION) is the program, or empty. It is non-empty exactly when all of these hold:
+
+1. The question's first line (up to the first line break) contains, as a whole word and in any case, one of
+   `print`, `prints`, `printed`, `output`, `outputs`, `log`, `logs`.
+2. The question contains `console.log` followed by optional whitespace and `(`.
+3. The candidate program contains `console.log` followed by optional whitespace and `(`, and is at most 4000
+   characters long. The candidate is the content of the question's last non-blank fenced code block (R.1.2)
+   where it has one; otherwise everything after the question's first blank line (a line holding only
+   whitespace), the parts after it joined by `\n\n`. The program is the candidate, trimmed.
+
+#### R.4.2 Running it
+
+1. A program is run only when the sandbox is available (R.3.7), only in the sandbox (R.3.3, R.3.4), and only
+   when `plan.runPrograms` is not the boolean `false`. The program comes from the person, not from a model,
+   and is isolated all the same.
+2. The run starts when the procedure starts, before or together with the first `draft` step; no slot sees it.
+3. Inside the isolated environment, `console` is replaced by one whose `log(...values)` appends one line: each
+   value written as follows, joined by a single space. A string is written as it is; a number, a boolean,
+   `null`, `undefined` or a bigint as JavaScript's `String()` writes it; any other value makes the printing
+   **not plain**. `error`, `warn` and `info` do nothing. The `export` stripping of R.3.1 applies.
+4. The program is run once, under the per-run limit of R.3.4 (1000 ms). **Printed**(program) is the lines
+   joined with `\n`, trimmed, and is nothing when the program could not be run, threw, timed out, printed
+   nothing but whitespace, or printed something not plain.
+5. A cache (R.3.8) MAY hold printed results keyed by the original program text.
+
+#### R.4.3 Taking the result
+
+When the result is taken (O.5.2):
+
+1. Record a row: `slot` `run`, `member` `sandbox`, `stage` `run`, `out` `"Ran the program: it printed " + PRINTED`
+   or, with nothing printed, `The program could not be run: the drafts settle it.`; `final` PRINTED or empty;
+   `ok` whether something was printed; and the mark `printed` true.
+2. If something was printed and decided is empty, decided becomes PRINTED and path becomes `ran`. Every later
+   step except `draft` is then passed over (O.5.2 rule 2), and the reply is written from it (O.8).
+3. With nothing printed, nothing else changes: the drafts settle the matter as they would have.
 
 ---
 
