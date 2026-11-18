@@ -40,7 +40,10 @@ stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mj
    **set aside** first: after `setAsideAfter` tries in a row (30) that brought it neither closer nor to parity, while another
    question waits, it comes back after the others, on the arrangement they leave. Where the arrangement has not changed by then,
    it gets as many tries again, and where they bring it nothing closer it is written down as not reached (measured 2026-11-18:
-   an agent's step came back last, nothing measured it closer, and 1,255 tries went to it).
+   an agent's step came back last, nothing measured it closer, and 1,255 tries went to it). The same holds where nothing else
+   waits: back on a changed arrangement it gets as many tries, and on its first visit twice as many, then is written down as
+   not reached (measured 2026-11-18: a question back on a changed arrangement, the 35 others set aside on the arrangement as it
+   stood, and 2,281 tries went to it).
 6. **The found arrangements are tried first.** Every arrangement kept (an arrangement that brought a question to parity and lost
    none already there) goes into a library, `.work/library/<configuration>.json`, kept across passes and Clear training state.
    A question short of parity tries them first, on top of the swarm as it stands, the ones that have brought the most questions

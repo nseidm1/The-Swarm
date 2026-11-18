@@ -3198,6 +3198,49 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     A.state === 'not reached' && A.gaveUp && A.gaveUp.after === 3 && triesA === 6,
     { state: A.state, gaveUp: A.gaveUp, triesA },
   );
+  // NOTHING WAITING IS A LAST CHANCE TOO (measured 2026-11-18: a question back on a changed arrangement, every other one set aside on
+  // the arrangement as it stands, 2,281 tries): alone on its first visit, twice the tries; back on a changed arrangement, as many
+  let triesL = 0;
+  const lone = await runLoop({
+    list: [{ id: 'L', kind: 'k' }],
+    briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+    poolOf: (bb) =>
+      Array.from({ length: 60 }, (_, k) => 'm' + k)
+        .filter((k) => !bb.has.includes(k))
+        .map((k) => mk(bb, k)),
+    policy: { setAsideAfter: 3, batch: 0, suggestEvery: 0, teachEvery: 0, reviewTries: 1000 },
+    attempt: async (bb, t, at) => (at.attempt && triesL++, wrong),
+  });
+  const L = lone.questions.find((q) => q.id === 'L');
+  let triesC = 0;
+  const back = await runLoop({
+    list: [
+      { id: 'C', kind: 'k' },
+      { id: 'D', kind: 'k' },
+    ],
+    briefs: { version: 2, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+    poolOf: (bb) =>
+      Array.from({ length: 60 }, (_, k) => 'm' + k)
+        .filter((k) => !bb.has.includes(k))
+        .map((k) => mk(bb, k)),
+    policy: { setAsideAfter: 3, batch: 0, suggestEvery: 0, teachEvery: 0, reviewTries: 1000 },
+    resume: {
+      ...lone,
+      inHand: null,
+      rows: [],
+      questions: [
+        { id: 'C', kind: 'k', state: 'set aside', asideAt: 1, sinceGain: 3, attempts: [] },
+        { id: 'D', kind: 'k', state: 'set aside', asideAt: 2, sinceGain: 3, attempts: [] },
+      ],
+    },
+    attempt: async (bb, t, at) => (t.id === 'C' && at.attempt && triesC++, wrong),
+  });
+  const C = back.questions.find((q) => q.id === 'C');
+  check(
+    'with nothing else waiting a question is still bounded: alone on its first visit it gets twice the tries (6), back on a changed arrangement as many (3), and each is written down as not reached',
+    L.state === 'not reached' && L.gaveUp && triesL === 6 && C.state === 'not reached' && C.gaveUp && triesC === 3,
+    { L: [L.state, L.gaveUp, triesL], C: [C.state, C.gaveUp, triesC] },
+  );
 }
 // ---- 6v: what the measurement held and no finding read: answers cut off at the token limit, a drafter that echoes another on its
 // own model, the decider not answering in time; each found, and each answered by a move that speaks to it
@@ -6324,6 +6367,12 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     toks.includes('-25') &&
     toks.includes('half up') &&
     !toks.includes('list') &&
+    // a common word in quotes, and the stretch between two apostrophes, are not particular to the question
+    JSON.stringify(
+      specificTokens({ ask: "Don't keep 'all' of them; it's \"are\" that matters, they're 'counted'." }, [
+        { ask: OTHER },
+      ]),
+    ) === '["counted"]' &&
     quotesQuestion({ slots: [{ id: 'a1', stage: 'draft', brief: 'For negatives, -25 rounds to -20.' }] }, old, toks) ===
       '-25' &&
     quotesQuestion(

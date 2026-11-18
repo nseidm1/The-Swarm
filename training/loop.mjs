@@ -462,7 +462,13 @@ export function specificTokens(t, others = []) {
     for (const m of text.matchAll(/\b([A-Za-z_][A-Za-z0-9_]{2,})\s*\(/g)) out.add(m[1]);
     for (const m of text.matchAll(/(?:^|[^\w.])(-?\d+(?:\.\d+)?)(?![\w.])/g))
       if (Math.abs(Number(m[1])) > 10 || /[.-]/.test(m[1])) out.add(m[1]);
-    for (const m of text.matchAll(/["“']([^"”'\n]{3,40})["”']/g)) out.add(m[1].trim());
+    // a quoted phrase, but not a common word in quotes ('all', "are": refused the larger model's briefs that used the word in its
+    // plain sense, measured 2026-11-18) and not the stretch between two apostrophes ("doesn't ... they're"): it counts when it is
+    // more than one word, or carries a digit or a sign, or is a single word of 6 letters or more
+    for (const m of text.matchAll(/(?:["“]([^"”\n]{3,40})["”]|(?<![A-Za-z])'([^'\n]{3,40})'(?![A-Za-z]))/g)) {
+      const p = (m[1] || m[2]).trim();
+      if (/\s/.test(p) || /[^A-Za-z]/.test(p) || p.length >= 6) out.add(p);
+    }
     return out;
   };
   const mine = grab(textOfQ(t));
@@ -1182,7 +1188,16 @@ export async function runLoop({
       // ITS LAST CHANCE IS BOUNDED TOO: a question set aside that comes back with nothing changed since gets as many tries again, and
       // where they bring it nothing closer it is written down as not reached and the pass goes on (measured 2026-11-18: an agent's
       // step came back last, nothing could measure it closer, and 1,255 tries went to it)
-      const givenUp = () => !won && lastChance && pol.setAsideAfter > 0 && (q.sinceGain || 0) >= pol.setAsideAfter;
+      // AND SO IS ONE NOTHING ELSE WAITS ON: a question that came back because the arrangement changed, with every other question
+      // set aside on the arrangement as it stands, cannot be set aside (there is nowhere to go), so it was searched without end
+      // (measured 2026-11-18: train-1009-answer-5 came back on version 17, the other 35 set aside were all set aside on 17, and 2,281
+      // tries went to it). Nothing waiting is its last chance: as many tries, then not reached; a question on its first visit with
+      // nothing waiting gets twice as many, the tries it would have had before being set aside and the ones after
+      const givenUp = () =>
+        !won &&
+        pol.setAsideAfter > 0 &&
+        (lastChance || (!others() && (q.sinceGain || 0) >= pol.setAsideAfter * ((q.setAside || 0) > 0 ? 1 : 2))) &&
+        (q.sinceGain || 0) >= pol.setAsideAfter;
       const stop = () => stalled() || givenUp();
       const tick = async () => {
         await policyTick(st, { review, onPolicy, current: q });
@@ -1424,8 +1439,9 @@ export async function runLoop({
         triedArr.push(...held.wide.map(back).filter(Boolean));
         q.carried = (q.carried || 0) + 1;
       }
-      // (on its last chance it starts its count again: as many tries as set it aside, not none)
-      if (lastChance) q.sinceGain = 0;
+      // (back from being set aside, it starts its count again: as many tries as set it aside, not none; on a changed arrangement too,
+      // or the count it left with set it aside again, or gave it up, after its first try)
+      if (lastChance || (q.setAside || 0) > 0) q.sinceGain = 0;
       // FIRST, THE LIBRARY: every arrangement found so far, on top of the swarm as it stands, the most successful first
       for (const [k, e] of rankLibrary(st.library).entries()) {
         if (won || i >= cap || stop()) break;
