@@ -561,6 +561,59 @@ export async function answer(
         row.picked = letter;
         return meant;
       };
+      // A TIE AT THE TOP IS NOT SETTLED BY ORDER (SwOA specification O.6.6, TIE): settling by the answer most slots hold ('most'),
+      // where two or more answers have the most slots behind them alike, the decider chooses among those answers only (measured
+      // 2026-11-18: on "is it all right to put a cast iron pan in the dishwasher" two drafts said "hand wash and dry it" and two
+      // "it can warp or crack", and the second went out because its draft came first; the larger model's reason was neither
+      // warping nor cracking). Where it decides nothing, the first of them stands, as before
+      if (
+        by === 'most' &&
+        !step.keep &&
+        !step.sure &&
+        decide &&
+        tally.length > 1 &&
+        tally[0].by.length === tally[1].by.length
+      ) {
+        const n = tally[0].by.length;
+        const tied = new Set(tally.filter((v) => v.by.length === n).map((v) => v.key));
+        const cands = table.filter((d) => tied.has(keyOf(d)));
+        if (cands.length > 1) {
+          onStart({ slot: 'decide', member: 'decider', stage: 'decide' });
+          const k = await decide({
+            question,
+            answers: cands.map((d, i) => ({ letter: LETTERS[i], final: d.final, work: workOf(d.out, marker) })),
+            checks: [...S.remarks, ...(S.parted ? [S.parted] : [])],
+          });
+          const at = k.ok ? LETTERS.indexOf(k.letter) : -1;
+          const meant = at >= 0 ? cands[at] : null;
+          const row = {
+            slot: 'decide',
+            member: 'decider',
+            stage: 'decide',
+            ms: k.ms || 0,
+            out:
+              'Most slots were split ' +
+              cands.length +
+              ' ways, ' +
+              n +
+              ' each: ' +
+              (meant
+                ? 'picked ' + k.letter + '.'
+                : 'decided nothing (' + (k.why || 'no reason given') + '). The first of them stands.'),
+            final: meant ? meant.final : '',
+            ok: !!meant,
+            probs: k.probs,
+            tie: true,
+          };
+          trace.push(row);
+          onStep(row);
+          if (meant) {
+            S.decided = meant.final;
+            S.path = 'most-tie-decided';
+            return;
+          }
+        }
+      }
       const together = withModel && plan.decideWith.how === 'together' && decide && table.length > 1;
       const judged = together ? judgeAmong(table) : null;
       if (decide && table.length > 1 && by !== 'most') {

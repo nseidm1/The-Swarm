@@ -66,15 +66,33 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         console.log(id + ": no misses of its on this pass's train questions to show.");
         continue;
       }
-      let text = '';
-      try {
-        text = String(
-          (await teacher.ask([{ role: 'user', content: briefAsk(slot, missed) }], { maxTokens: 1600 })).text || '',
-        );
-      } catch (e) {
-        console.log(id + ': the larger model did not answer (' + String(e.message || e).slice(0, 100) + ')');
+      // ONE ASK FOR EACH CLASS OF QUESTION, and each brief says the class it was written for: the loop offers it on that class only
+      // (training/loop.mjs fileCands)
+      const byClass = new Map();
+      // (a row written before rows said their class is passed over: which class it was asked as is not known, and a brief written
+      // from it would be offered nowhere)
+      for (const { class: c, ...m } of missed) {
+        if (!c) continue;
+        byClass.set(c, [...(byClass.get(c) || []), m]);
+      }
+      if (!byClass.size) {
+        console.log(id + ': its misses come from rows that do not say their class: no briefs written.');
         continue;
       }
+      const asked = [];
+      for (const [cls, some] of byClass) {
+        try {
+          const text = String(
+            (await teacher.ask([{ role: 'user', content: briefAsk(slot, some) }], { maxTokens: 1600 })).text || '',
+          );
+          asked.push({ cls, some, text });
+        } catch (e) {
+          console.log(
+            id + ' (' + cls + '): the larger model did not answer (' + String(e.message || e).slice(0, 100) + ')',
+          );
+        }
+      }
+      if (!asked.length) continue;
       const file = path.join(CANDIDATES, id + '.json');
       let have = [];
       try {
@@ -84,10 +102,16 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       }
       const tried = state.tried[id] || [];
       // (a brief that gives one of these questions away is refused and said: support/teach.mjs givesAway)
-      const { kept, refused } = refuseGiveaways(
-        candidatesIn(text, 'the larger model'),
-        missed.map((x) => x.question),
-      );
+      const kept = [];
+      const refused = [];
+      for (const a of asked) {
+        const r = refuseGiveaways(
+          candidatesIn(a.text, 'the larger model'),
+          a.some.map((x) => x.question),
+        );
+        kept.push(...r.kept.map((c) => ({ ...c, class: a.cls })));
+        refused.push(...r.refused);
+      }
       for (const c of refused) console.log(id + ': refused "' + c.name + '": ' + c.refused);
       const fresh = kept.filter(
         (c) => c.brief !== slot.brief && !tried.includes(candHash(c)) && !have.some((x) => x.brief === c.brief),

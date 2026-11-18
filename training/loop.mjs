@@ -582,6 +582,10 @@ export function addToLibrary(lib, names, from) {
 // is wrong. Measured 2026-11-17: Nemotron 3.5 Lightning 30B wrong on 7 of a pass's 30 code questions (toSeconds("5m") 0, wanted
 // 300), and 3 of the 5 changes one run kept were won on them, the swarm taught the larger model's mistakes.
 // -> Map(id -> { share, input, theirs, wanted }) for those questions
+// THE SAVED BRIEFS OFFERED ON A QUESTION OF CLASS cls: one the larger model wrote (written) only where it says that class; one a
+// person wrote, for any class; with no class asked for, all of them (training/loop.mjs fileCands)
+export const offeredOn = (cands, cls = null) =>
+  (cands || []).filter((c) => c && (!cls || !c.written || c.class === cls));
 // A DEGENERATE REPLY: one that is mostly the same few characters over and over (measured 2026-11-18: the 30B answered "What is in
 // the docs folder?" with one three-character phrase repeated to its token limit). Of a reply's four-character pieces, fewer than one
 // in ten different, over at least sixty characters
@@ -1316,6 +1320,7 @@ export async function runLoop({
           const tr = (lastRow.trace || []).find((x) => x.slot === sid && (x.stage === 'draft' || x.stage === 'check'));
           const missed = [
             {
+              id: t.id,
               question: String(t.ask || '').slice(0, 600),
               slotWrote: String((tr && (tr.out || tr.final)) || '(nothing)').slice(-500),
               wanted: String(lastRow.refReply || lastRow.ref || '').slice(0, 600),
@@ -1324,7 +1329,7 @@ export async function runLoop({
           const t0 = Date.now();
           let cands = [];
           try {
-            cands = (await teach(slotsById[sid], missed, lostNow)) || [];
+            cands = (await teach(slotsById[sid], missed, lostNow, K)) || [];
             tc.asked++;
             if (cands.refused) tc.refused = (tc.refused || 0) + cands.refused;
             q.taught = (q.taught || 0) + 1;
@@ -1334,7 +1339,7 @@ export async function runLoop({
           tc.seconds = Math.round((tc.seconds + (Date.now() - t0) / 1000) * 10) / 10;
           tc.briefs += cands.length;
           const names = new Set(cands.map((c) => c.name));
-          for (const m of poolOf(node.base).filter((x) => x.slot === sid && names.has(x.name))) {
+          for (const m of poolOf(node.base, { cls: K }).filter((x) => x.slot === sid && names.has(x.name))) {
             if (won || i >= cap) break;
             const combo = [...node.chain, m.name];
             if (seen.has([...combo].sort().join(' + '))) continue;
@@ -1376,7 +1381,7 @@ export async function runLoop({
       const suggest = async () => {
         q.sinceSuggest = 0;
         const node = open.filter((x) => !x.spent).sort((x, y) => y.score - x.score || x.depth - y.depth)[0] || root;
-        const opts = orderFor(poolOf(node.base), {
+        const opts = orderFor(poolOf(node.base, { cls: K }), {
           ...(node.rank || node.ev),
           moves: st.moves,
           classes: st.classes,
@@ -1550,7 +1555,7 @@ export async function runLoop({
           continue;
         }
         const aim = node.rank || node.ev;
-        const opts = orderFor(poolOf(node.base), {
+        const opts = orderFor(poolOf(node.base, { cls: K }), {
           ...aim,
           moves: st.moves,
           classes: st.classes,
@@ -1805,27 +1810,32 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   // EVERY CHANGE OPEN FROM AN ARRANGEMENT: another brief for a slot (written by a person, by the larger model, or kept by another
   // configuration), and every arrangement one change away (training/arrange.mjs: slots, the check and decide steps, the flow)
   const tried = state.tried || {};
-  const fileCands = (slot) => {
+  // A BRIEF THE LARGER MODEL WROTE FOR ONE QUESTION IS OFFERED ON QUESTIONS OF ITS CLASS ONLY (measured 2026-11-18: of 30 tries on
+  // "is it all right to put a cast iron pan in the dishwasher", about 20 were briefs written for code questions, "Check the rounding
+  // direction" and "the model ignored the idempotency check" among them). Written for a question, it records that question's
+  // class; one written before briefs recorded a class is not offered where a class is asked for, since which question it was written
+  // for is not known. Briefs a person wrote (training/candidates) are for any class.
+  const fileCands = (slot, cls = null) => {
     const out = [];
-    for (const f of [
-      path.join(REPO_ROOT, 'training', 'candidates', slot + '.json'),
-      path.join(WORKC, 'candidates', slot + '.json'),
+    for (const [f, mine] of [
+      [path.join(REPO_ROOT, 'training', 'candidates', slot + '.json'), false],
+      [path.join(WORKC, 'candidates', slot + '.json'), true],
     ])
       try {
-        out.push(...JSON.parse(fs.readFileSync(f, 'utf8')));
+        out.push(...JSON.parse(fs.readFileSync(f, 'utf8')).map((c) => (c && mine ? { ...c, written: true } : c)));
       } catch {
         /* none there, or half written */
       }
     // (one written before briefs that give a question away were refused is passed over the same way)
-    return out.filter((c) => c && !givesAway(c.brief, asks));
+    return offeredOn(out, cls).filter((c) => !givesAway(c.brief, asks));
   };
-  const poolOf = (b0) => {
+  const poolOf = (b0, { cls = null } = {}) => {
     const b = withExamples(b0, { each });
     const out = [];
     const moved = transferred(CONFIG_KEY, b).briefs;
     for (const s of b.slots) {
       const cands = [
-        ...fileCands(s.id),
+        ...fileCands(s.id, cls),
         ...moved.filter((x) => x.slot === s.id).map((x) => ({ name: x.name, brief: x.brief })),
       ];
       for (const c of cands) {
@@ -2109,7 +2119,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const teach =
     process.env.SWARM_LOOP_REVIEW === '0'
       ? null
-      : async (slot, missed, lost = 'drafting') => {
+      : async (slot, missed, lost = 'drafting', cls = null) => {
           console.log(
             '  TEACH the larger model says what went wrong for ' + slot.id + ' on this question, and writes new briefs',
           );
@@ -2131,7 +2141,14 @@ if (import.meta.url === 'file://' + process.argv[1]) {
           } catch {
             /* none yet */
           }
-          const add = fresh.filter((c) => !have.some((h) => h.brief === c.brief));
+          // (each says the class of the question it was written for, and which question: it is offered on that class only)
+          const add = fresh
+            .filter((c) => !have.some((h) => h.brief === c.brief))
+            .map((c) => ({
+              ...c,
+              ...(cls ? { class: cls } : {}),
+              ...(missed[0] && missed[0].id ? { for: missed[0].id } : {}),
+            }));
           fs.mkdirSync(path.dirname(file), { recursive: true });
           writeSafe(file, JSON.stringify([...have, ...add], null, 2));
           add.refused = refused.length;
@@ -2221,6 +2238,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       classes: state.loopClasses || {},
       attempt: async (b, t, at) => {
         swarm.setBriefs(b);
+        const cls = inputClassOf(t.turns || [{ role: 'user', content: t.ask }], { tools: t.tools });
         const r0 = swarm.reused || { hits: 0, savedMs: 0 };
         // (and, on a try, the arrangement being asked: the page draws it while the try runs, marked as not kept)
         live({
@@ -2228,7 +2246,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
             ...at,
             // the class of the question asked (orchestrate.mjs classOf): the page draws that class's arrangement, and compares a try
             // against it rather than against the shared one
-            class: inputClassOf(t.turns || [{ role: 'user', content: t.ask }], { tools: t.tools }),
+            class: cls,
             reused: r0,
             ...(at.attempt
               ? { briefs: { version: b.version, slots: b.slots, plan: b.plan || {}, flow: b.flow || null } }
@@ -2243,6 +2261,8 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         // what the run costs in full: the time it took, and what the answers it reused first took
         const r1 = swarm.reused || r0;
         row.seconds = Math.round((Date.now() - t0 + (r1.savedMs - r0.savedMs)) / 100) / 10;
+        // (and the class it was asked as: write-briefs.mjs teaches each class apart, from rows that say it)
+        row.class = cls;
         row.reusedSeconds = Math.round((r1.savedMs - r0.savedMs) / 100) / 10;
         // and what it took on the clock: what the pace is told in (counted at full cost it read 140 s a try against a real 10 s)
         row.wallSeconds = Math.round((Date.now() - t0) / 100) / 10;

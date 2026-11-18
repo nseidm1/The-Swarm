@@ -1067,7 +1067,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and "grid-template-columns:330px minmax(0,1fr) 300px" in page and ".memcard>.proghead,.evalp>.proghead,.prep>.proghead,.trainhead>.proghead{display:grid" in page, shape)
 
 # THE DECIDE STEP SHOWS WHO DECIDES: a small model beside the decider has its face there too, in its model's colour, labelled with
-# how it is asked and with its own live line; and where the answer most slots hold settles it, the decider's face says it is not asked
+# how it is asked and with its own live line; and where the answer most slots hold settles it, the decider's face says it decides ties only
 import types as _types
 swarm_ui.ARGS = _types.SimpleNamespace(root=str(Path(__file__).resolve().parent.parent))
 _d = data.load(Path(__file__).resolve().parent.parent)
@@ -1076,9 +1076,9 @@ _slot = next(x for x in _b["slots"] if x["member"] == "b")
 _with = swarm_ui.avatars(dict(_d, briefs=dict(_b, plan=dict(_b.get("plan") or {}, decideWith={"how": "if-close", "slot": _slot["id"]}))))
 _judge = re.search(r'<button[^>]*data-av="decide-judge".*?</button>', _with, re.S)
 _most = swarm_ui.avatars(dict(_d, briefs=dict(_b, plan=dict(_b.get("plan") or {}, decideBy="most", decideWith={"how": "together"}))))
-check("the decide step shows who decides: a small model beside the decider has its face there, in its model's colour, labelled with how it is asked and with its own live line; where most slots settle it, the decider's face says it is not asked, and no model beside it is shown",
+check("the decide step shows who decides: a small model beside the decider has its face there, in its model's colour, labelled with how it is asked and with its own live line; where most slots settle it, the decider's face says it decides ties only, and no model beside it is shown",
       bool(_judge) and 'class="av b judge' in _judge.group(0) and ">if close<" in _judge.group(0) and 'data-live="decide-judge"' in _judge.group(0) and ("asked as %s" % _slot["id"]) in _judge.group(0)
-      and "decide-judge" not in swarm_ui.avatars(dict(_d, briefs=dict(_b, plan={k: v for k, v in (_b.get("plan") or {}).items() if k not in ("decideWith", "decideBy")}))) and ">not asked<" in _most and 'data-av="decide-judge"' not in _most,
+      and "decide-judge" not in swarm_ui.avatars(dict(_d, briefs=dict(_b, plan={k: v for k, v in (_b.get("plan") or {}).items() if k not in ("decideWith", "decideBy")}))) and ">ties only<" in _most and 'data-av="decide-judge"' not in _most,
       _judge.group(0)[:200] if _judge else "no judge face")
 
 # A FLOW TOO LONG FOR ITS CARD WRAPS, AT ANY WIDTH: measured on the page (fitPipes, on load, on a resize or fold, and on every redraw),
@@ -1108,10 +1108,10 @@ _fk0, _fb0 = swarm_ui.faces_key(_d), swarm_ui.faces_block(_d)
 swarm_ui.loop_live, swarm_ui.session_live = _ll, _sl
 check("while a try runs the faces draw the arrangement it asks, marked as being tried and not kept, with the slot its change touches ringed and what else differs said; with none running, the kept one; and the key the page polls changes with the try",
       "Being tried, not kept:" in _fb and "change 7 on question 25" in _fb and "1 slot changed or added" in _fb and "the plan differs: decideBy" in _fb
-      and ('class="av %s trying' % _kb["slots"][0]["member"]) in _fb.replace(" norec", "") and ">not asked<" in _fb
+      and ('class="av %s trying' % _kb["slots"][0]["member"]) in _fb.replace(" norec", "") and ">ties only<" in _fb
       and _fk.startswith("try-25-7-") and _fk0 == "kept-%s-" % _kb.get("version") and "Being tried, not kept" not in _fb0 and 'id="faces"' in _fb0
       and "async function facesTick()" in swarm_ui.JS,
-      ["Being tried, not kept:" in _fb, "1 slot changed or added" in _fb, ('class="av %s trying' % _kb["slots"][0]["member"]) in _fb.replace(" norec", ""), ">not asked<" in _fb, _fk, _fk0, "Being tried, not kept" not in _fb0])
+      ["Being tried, not kept:" in _fb, "1 slot changed or added" in _fb, ('class="av %s trying' % _kb["slots"][0]["member"]) in _fb.replace(" norec", ""), ">ties only<" in _fb, _fk, _fk0, "Being tried, not kept" not in _fb0])
 
 # THE FACES DRAW THE CLASS'S OWN ARRANGEMENT: a question in words is asked with the words arrangement, so that is drawn, and a try
 # is compared with it (against the shared one, a try dropping one slot read as leaving out every slot words had already dropped);
@@ -1133,9 +1133,9 @@ check("the faces draw the class's own arrangement: a try on a words question is 
       "question 49, in words" in _fw and "the words arrangement (its own)" in _fw and ("%s left out." % _ds[0]["id"]) in _fw and _ds[-1]["id"] + " left out" not in _fw
       and ("(its own) (briefs v%s): %s left out." % (_kb.get("version"), _ds[0]["id"])) in _fw
       and 'class="via off"' in _fw and "code only" in _fw and "<b>Asked now:</b> question 49, in words, with the words arrangement (its own)" in _fw0
-      and ('data-av="%s"' % _ds[-1]["id"]) not in _fw0 and "the tools arrangement (the shared one" in _ft and _ft.count('class="st off"') >= 2 and ">not asked<" not in _ft
+      and ('data-av="%s"' % _ds[-1]["id"]) not in _fw0 and "the tools arrangement (the shared one" in _ft and _ft.count('class="st off"') >= 2 and ">ties only<" not in _ft
       and swarm_ui.faces_key(_dw) != "" ,
-      [("question 49, in words" in _fw), ("the words arrangement (its own)" in _fw), ("%s left out." % _ds[0]["id"]) in _fw, 'class="via off"' in _fw, "<b>Asked now:</b>" in _fw0, _ft.count('class="st off"'), ">not asked<" in _ft])
+      [("question 49, in words" in _fw), ("the words arrangement (its own)" in _fw), ("%s left out." % _ds[0]["id"]) in _fw, 'class="via off"' in _fw, "<b>Asked now:</b>" in _fw0, _ft.count('class="st off"'), ">ties only<" in _ft])
 
 # THE QUESTIONS' KEY IS EXHAUSTIVE: every look a pip can have (each state's, and the one in hand) has its line in the key
 _qt = swarm_ui.question_track(_d)

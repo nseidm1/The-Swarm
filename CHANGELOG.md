@@ -36,6 +36,12 @@ The first version.
   where it wins.
 - **Marks that are no answer are set aside in training.** A degenerate mark (the same few characters repeated) and one that a
   question made with its answer proves wrong are answered once and never searched.
+- **A tie under "most" goes to the decider, not to order.** Settling by the answer most slots hold, where two or more answers
+  have the most slots behind them alike, the decider chooses among those answers only (SwOA O.6.6 step 0; path
+  `most-tie-decided`). Before, the draft that came first won.
+- **Training's briefs stay with their class, and aim at the larger model's answer.** A brief the larger model writes records the
+  class of the question it was written for and is offered on that class only (the 91 written before, with no class, are no
+  longer offered); the teacher is told the wanted answer is the standard and never to teach a role to be shorter than it.
 - **The dashboard draws the class's own arrangement.** While a question is asked, the faces show the arrangement of its class
   (tools, talk, code, words), a change being tried is compared with that one, and steps the class's turn cannot take (the
   sandbox off code; all but drafting and deciding for a turn with tools) are drawn off.

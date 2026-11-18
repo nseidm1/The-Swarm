@@ -16,6 +16,9 @@ stays in hand until the Swarm's reply is at parity with it ([`loop.mjs`](loop.mj
    - **Lost in drafting:** more room for a slot cut off at its token limit comes first, then what makes other drafts (a drafter
      sampled otherwise, one more drafter, the answers sent back). A change to how the matter is decided cannot help here and
      is never tried.
+   - **Briefs by the larger model** say the class of the question they were written for, and are offered on that class
+     only; one written before briefs said a class is not offered. The larger model is told its own answer is the standard,
+     and never to teach a role to be shorter or plainer than it.
    - **Lost in writing:** the settled answer handed over as it is comes first.
    - **A thin reply** (not code, under half as long as the larger model's, wherever it was lost): the writer told to write
      the reply in full (`plan.writeAs: "full"`) comes first.

@@ -35,7 +35,7 @@ function standing(row) {
 // THE WAYS OF CHOOSING that can be replayed, each a setting of the plan (src/orchestrate.mjs: plan.decideBy)
 export const WAYS = {
   decider: 'the decider always',
-  most: 'the answer most slots hold',
+  most: 'the answer most slots hold (the decider among them where the most are tied)',
   'decider-if-confident': 'the decider where it gives its choice 0.6 or more, else the answer most slots hold',
   'decider-unless-majority': 'the answer most slots hold where more than half hold it, else the decider',
 };
@@ -64,9 +64,13 @@ export function replay(rows) {
     // what the decider chose, where it was asked; where it was not (the answers agreed) there was one answer
     const byDecider = decide ? decide.same === true : most.same;
     const top = decide && decide.probs ? Math.max(...Object.values(decide.probs)) : 1;
+    // (a tie at the top under 'most' goes to the decider among the tied answers (src/orchestrate.mjs, SwOA O.6.6 step 0): replayed
+    // with the decider's recorded pick where it was asked, which chose among all the answers and so may differ on a tie)
+    const votesOf = (g) => (g ? g.drafts + g.checks : -1);
+    const tiedTop = votesOf(byVotes[1]) === votesOf(most);
     const won = {
       decider: byDecider,
-      most: most.same,
+      most: tiedTop && decide ? byDecider : most.same,
       'decider-if-confident': decide && top < 0.6 ? most.same : byDecider,
       'decider-unless-majority': (most.drafts + most.checks) * 2 > voters ? most.same : byDecider,
     };

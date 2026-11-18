@@ -1760,12 +1760,12 @@ def avatars(d, changed=None):
             keep = step.get("keep")
             what = "keeps %d" % keep if keep else "if sure" if step.get("sure") else "decides"
             plan_ = d["briefs"].get("plan") or {}
-            # (settled by the answer most slots hold: the decider is not asked, and its face says so)
+            # (settled by the answer most slots hold: the decider is asked only where the most are tied, and its face says so)
             most = not keep and not step.get("sure") and str(plan_.get("decideBy") or "") == "most" and cls != "tools"
             if most:
-                what = "not asked"
+                what = "ties only"
             faces = [special("decide", "decider", e(initials(dec)), what, "%s: %s" % (dec, "keeps the likeliest %d answers" % keep if keep else "settles it here only if it is sure" if step.get("sure")
-                                                                                      else "not asked: the answer most slots hold stands" if most else "decides which answer stands"), decider_card(d))]
+                                                                                      else "asked only on a tie: the answer most slots hold stands, and where two or more are held by as many, it chooses among those" if most else "decides which answer stands"), decider_card(d))]
             # A SMALL MODEL BESIDE THE DECIDER (plan.decideWith), where the plan has one: its face in the same step, in its model's colour,
             # labelled with how it is asked, with its own live line while it works (the slot it answers as is decide-judge)
             dw = plan_.get("decideWith") or {}

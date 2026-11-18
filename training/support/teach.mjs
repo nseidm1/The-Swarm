@@ -25,6 +25,8 @@ export function missesOf(work, slotId, { seed = null, most = 8 } = {}) {
       question: String(r.ask || '').slice(0, 600),
       slotWrote: String(s.out || s.why || '(nothing)').slice(-500),
       wanted: String(r.refReply || r.ref).slice(0, 600),
+      // (the class it was asked as, where the row says it: write-briefs.mjs asks once for each class)
+      ...(r.class ? { class: r.class } : {}),
     });
     if (out.length >= most) break;
   }
@@ -38,6 +40,10 @@ export const briefAsk = (slot, missed) =>
   slot.brief +
   '\n\nHere is what it wrote on questions the group then got wrong, with the answer that was wanted:\n' +
   JSON.stringify(missed, null, 1) +
+  // (the wanted answer is the standard, not the role's brief: as in teachAsk below)
+  '\n\nThe wanted answer is the standard. Where it says more than what the role is told allows (it is longer, or gives reasons ' +
+  'or steps), the replacements may change any rule of what it is told, length included. Never teach the role to be shorter or ' +
+  'plainer than the wanted answer.' +
   '\n\nWrite three different replacements for what it is told. Each must be plain instructions a small model can follow, under 110 words, ' +
   'general (never mention these questions or their answers), and must keep the rule that the last line starts with ANSWER: and holds only the answer' +
   (slot.stage === 'write'
@@ -58,7 +64,17 @@ export const teachAsk = (slot, missed, lost = 'drafting') =>
   (lost === 'choosing'
     ? 'On the question below one of the group had the wanted answer, and the group still settled on another. Here is what this role wrote, with the answer that was wanted:\n'
     : 'On the question below no one in the group wrote the wanted answer. Here is what this role wrote, with the answer that was wanted:\n') +
-  JSON.stringify(missed, null, 1) +
+  JSON.stringify(
+    missed.map(({ id: _id, ...x }) => x),
+    null,
+    1,
+  ) +
+  // THE WANTED ANSWER IS THE STANDARD, NOT THE ROLE'S BRIEF (measured 2026-11-18: a teacher shown "answer briefly" and a fuller
+  // wanted answer named the mistake "the model added extra context and how-to steps, violating the rule to answer briefly", and
+  // wrote briefs that made the swarm shorter, away from the answer it is measured against)
+  '\n\nThe wanted answer is the standard. Where it says more than what the role is told allows (it is longer, or gives reasons ' +
+  'or steps), the mistake is in what the role is told, not in the role, and the replacements may change any rule of it, length ' +
+  'included. Never teach the role to be shorter or plainer than the wanted answer.' +
   '\n\nFirst work out what went wrong, as a general mistake (a misread rule, a missed edge case, a wrong method), not as this ' +
   'question. Then write three different replacements for what it is told that would teach a small model to avoid that kind of ' +
   'mistake: plain instructions, under 110 words each, about method and checking, general (never mention this question, its ' +

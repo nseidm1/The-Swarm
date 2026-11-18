@@ -1131,6 +1131,19 @@ the candidate is the result; otherwise the row is marked not ok and there is no 
 
 Procedure:
 
+0. **TIE.** If BY is `most`, the step has neither `keep` nor `sure`, a decider is supplied, TALLY has
+   more than one group, and its first two groups hold the same number of slot ids N: the **tied**
+   answers are the TABLE rows (in TABLE order) whose key is the key of a TALLY group holding N slot
+   ids. If there are at least two, call the decider with the question, the answers `{letter:
+   Letters[i], final, work}` for the i-th tied row (letters given afresh from `A`; work = read working
+   of its out), and the checks = remarks followed by parted if parted is non-empty. Record a row:
+   `slot` `decide`, `member` `decider`, `stage` `decide`, its `ms`, `out`
+   `"Most slots were split " + T + " ways, " + N + " each: picked " + LETTER + "."` where the decider
+   decided and its letter names a tied row, else `"Most slots were split " + T + " ways, " + N + "
+   each: decided nothing (" + WHY + "). The first of them stands."` (T the number of tied rows, WHY
+   the decider's reason or `no reason given`); `final` the picked row's final or empty; `ok` whether
+   a tied row was picked; its probabilities; and the mark `tie` true. If a tied row was picked,
+   decided becomes its final, path becomes `most-tie-decided`, and the step ends. Otherwise go on.
 1. If WITH, HOW is `together`, a decider is supplied, and TABLE has more than one row: start
    judging among TABLE now, concurrently with step 2.
 2. If a decider is supplied, TABLE has more than one row and BY is not `most`: call the decider
@@ -1179,7 +1192,8 @@ Procedure:
    decided) equals TALLY's first key; otherwise `decided-against-most`. Otherwise, if TALLY is
    non-empty, decided becomes TALLY's first group's final and path `most`. Otherwise nothing.
 
-Consequences a conforming runtime MUST reproduce: with BY `most` the decider is never called; with
+Consequences a conforming runtime MUST reproduce: with BY `most` the decider is called only to break a
+tie at the top (step 0), and then only among the tied answers; with
 TABLE of one row the decider is not called and the outcome is `most`; a decide step that runs on a
 settled pool (only possible with `agreeSkipsChecks: false`) yields path `most`.
 
@@ -1369,7 +1383,8 @@ result's calls and groups if tried is present, else null.
 
 #### O.10.2 Path values
 
-Base: `decided`, `decided-against-most`, `decided-early`, `most`, `agreed`, `converged`, `ran`
+Base: `decided`, `decided-against-most`, `decided-early`, `most`, `most-tie-decided` (O.6.6 step 0),
+`agreed`, `converged`, `ran`
 (R.4.3), `fallback`; plus suffixes from O.8.5.
 
 #### O.10.3 Rows and the trace

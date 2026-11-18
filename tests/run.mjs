@@ -4506,6 +4506,75 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { prio: ev.prio(m), because: ev.because(m), fat: fat.prio(m), marks: [...marks.keys()] },
   );
 }
+// ---- 9x: THE CHURN'S GAPS (2026-11-18): a brief the larger model wrote is offered on its class only; the teacher holds the wanted
+// answer as the standard; and with decideBy 'most' a tie at the top goes to the decider among the tied answers, not to order
+{
+  const { offeredOn } = await import('../training/loop.mjs');
+  const { teachAsk, briefAsk } = await import('../training/support/teach.mjs');
+  const { answer: orchestrate } = await import('../src/orchestrate.mjs');
+  const cands = [
+    { name: 'person', brief: 'p' },
+    { name: 'the larger model: words one', brief: 'w', written: true, class: 'words' },
+    { name: 'the larger model: code one', brief: 'c', written: true, class: 'code' },
+    { name: 'the larger model: from before', brief: 'o', written: true },
+  ];
+  const onWords = offeredOn(cands, 'words').map((c) => c.name);
+  const scoped =
+    JSON.stringify(onWords) === JSON.stringify(['person', 'the larger model: words one']) &&
+    offeredOn(cands).length === 4;
+  const slot = { id: 'a1', stage: 'draft', brief: 'Answer it briefly and plainly.' };
+  const ta = teachAsk(slot, [{ id: 'train-1-answer-3', question: 'q', slotWrote: 'w', wanted: 'x' }]);
+  const ba = briefAsk(slot, [{ question: 'q', slotWrote: 'w', wanted: 'x' }]);
+  const standard =
+    /The wanted answer is the standard/.test(ta) &&
+    /Never teach the role to be shorter or plainer than the wanted answer/.test(ta) &&
+    !/train-1-answer-3/.test(ta) &&
+    /The wanted answer is the standard/.test(ba);
+  const base = {
+    marker: 'ANSWER:',
+    flow: [{ do: 'draft' }, { do: 'decide' }],
+    plan: { decideBy: 'most', writeAs: 'settled' },
+    slots: [
+      { id: 'a1', member: 'a', stage: 'draft', brief: 'A.' },
+      { id: 'a2', member: 'a', stage: 'draft', brief: 'A.' },
+      { id: 'b1', member: 'b', stage: 'draft', brief: 'A.' },
+      { id: 'b2', member: 'b', stage: 'draft', brief: 'A.' },
+    ],
+  };
+  const said = { a1: 'it can warp', a2: 'it can warp', b1: 'hand wash it', b2: 'hand wash it' };
+  const asked = [];
+  const run = (texts, pick = 'B') =>
+    orchestrate(Q, {
+      briefs: base,
+      ask: async (s) => ({ text: 'ANSWER: ' + texts[s.id] }),
+      decide: async ({ answers }) => {
+        asked.push(answers.map((x) => x.letter + '=' + x.final).join(','));
+        const a = answers.find((x) => x.letter === pick);
+        return a ? { ok: true, letter: pick, final: a.final, probs: {} } : { ok: false, why: 'none' };
+      },
+    });
+  const tie = await run(said);
+  const tieAsked = asked.splice(0);
+  const clear = await run({ ...said, b2: 'it can warp' });
+  const clearAsked = asked.splice(0);
+  const none = await run(said, 'Z');
+  check(
+    "a brief the larger model wrote is offered only on questions of the class it was written for (one from before briefs said a class, nowhere a class is asked for; a person's, everywhere); the teacher is told the wanted answer is the standard, and never to teach a role to be shorter, and is not shown the question's id; with decideBy 'most' a tie at the top is put to the decider among the tied answers only, a clear most is not, and where it decides nothing the first stands",
+    scoped &&
+      standard &&
+      tie.decided === 'hand wash it' &&
+      tie.path.split('+')[0] === 'most-tie-decided' &&
+      tieAsked.length === 1 &&
+      tieAsked[0] === 'A=it can warp,B=hand wash it' &&
+      tie.trace.some((r) => r.tie && /split 2 ways, 2 each: picked B/.test(r.out)) &&
+      clear.path.split('+')[0] === 'most' &&
+      clear.decided === 'it can warp' &&
+      clearAsked.length === 0 &&
+      none.path.split('+')[0] === 'most' &&
+      none.decided === 'it can warp',
+    { onWords, standard, tie: [tie.decided, tie.path, tieAsked], clear: [clear.path, clearAsked], none: none.path },
+  );
+}
 // ---- 9a: a small model beside the decider in the decide step (plan.decideWith)
 {
   const { answer: orchestrate } = await import('../src/orchestrate.mjs');
