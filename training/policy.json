@@ -9,6 +9,11 @@
     "guard": 6,
     "drop": null,
     "beam": 3,
+    "classKeep": true,
+    "classRace": 8,
+    "classMinGain": 0.02,
+    "classMargin": 0.05,
+    "classTries": 6,
     "about": "Training goes question by question (training/loop.mjs), and a question stays in hand until it is at parity: changes are tried best first, from the closest arrangement open, and one that comes closer is built on at once. It never moves on before parity; where every arrangement open has been tried the search widens, and the arrangements found so far are tried first. cap: a bound on the changes tried on one question (none). guard: how many questions already at parity are asked again before a change is kept (it is kept only if none is lost). drop: a change tried on this many questions that brought none to parity is no longer tried (none). beam: where the loop's own policy starts (training/loop-policy.mjs), which the larger model then tunes as training runs: how many closer arrangements are kept open."
   },
   "plan": {

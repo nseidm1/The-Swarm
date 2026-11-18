@@ -737,6 +737,15 @@ export async function runLoop({
   // is kept: up to heldGuard of its own class, in their order. Used only to accept a change, never to find one
   heldQs = [],
   heldGuard = 4,
+  // KEEPING A CHANGE BY ITS CLASS (docs/swoa-parity.md, 5; below, classCheck). classKeep: a change is kept because its class of
+  // questions got better, not because one question came to parity. classRace: how many questions it is asked on first.
+  // classMinGain: the least gain in the mean score it must show. classMargin: how far no kind of question may fall.
+  // classTries: how many changes a pass proposes for each class outright, from what most often came closer
+  classKeep = false,
+  classRace = 8,
+  classMinGain = 0.02,
+  classMargin = 0.05,
+  classTries = 0,
   // the larger model writing new briefs for a slot that failed on this question: teach(slot, missed) -> [{ name, brief }], written
   // where the pool reads candidates (null: never)
   teach = null,
@@ -794,6 +803,151 @@ export async function runLoop({
   };
   // whether a change to the arrangement of kind k can change how a question of kind k2 is answered: both on the same arrangement
   const shares = (b, k, k2) => k === k2 || (!(b.kinds && b.kinds[k]) && !(b.kinds && b.kinds[k2]));
+  // ---- KEEPING A CHANGE BY ITS CLASS (docs/swoa-parity.md, 5). A change that brings one question to parity is a guess that it
+  // helps. Whether it does is asked of the class: every train question of the class is scored with the change and as the swarm
+  // stands (0 to 1: right is 1; else how the reply read, or the share of the question's own inputs it gets right), the same
+  // questions both times, and the change is kept when
+  //   the mean gain is more than twice its own error, and at least classMinGain;
+  //   no kind of question in the class falls by more than classMargin;
+  //   and on the held questions of the class the gain is not below minus its error.
+  // It is raced first: asked on classRace questions drawn evenly from the class's kinds, and on the rest only where those did
+  // not fall. (Measured 2026-11-18: of 17,765 changes tried one question at a time, 17 brought a question to parity, each kept on
+  // that one question and a handful of others not being lost.)
+  const scoreOf = (r) =>
+    r.grade === 'right' ? 1 : typeof r.reading === 'number' ? Math.max(0, Math.min(0.99, r.reading)) : 0;
+  // where the class stands: each question's score on the arrangement as it stands, kept for this version of it
+  const standingOf = async (K, which, qs, note) => {
+    st.standing = st.standing || {};
+    const ver = briefs.version || 1;
+    for (const k of Object.keys(st.standing)) if (!k.startsWith(ver + '|')) delete st.standing[k];
+    const key = ver + '|' + K + '|' + which;
+    const have = (st.standing[key] = st.standing[key] || {});
+    for (const x of qs) {
+      if (have[x.id] !== undefined) continue;
+      // (a train question finished on this version of the arrangement stands as it was graded then)
+      const was = which === 'train' ? st.questions.find((y) => y.id === x.id && y.briefs === ver) : null;
+      const row =
+        (was && st.rows.find((y) => y.id === x.id)) ||
+        (await attempt(flat(briefs, K), x, {
+          ...note,
+          move: 'as it stands',
+          guard: x.id,
+          standing: true,
+          ...(which === 'held' ? { held: true } : {}),
+        }));
+      have[x.id] = row.grade === 'noref' ? null : scoreOf(row);
+    }
+    return have;
+  };
+  const pairedOf = (ds) => {
+    const n = ds.length;
+    if (!n) return { n: 0, gain: 0, stderr: 0 };
+    const mean = ds.reduce((a, b) => a + b, 0) / n;
+    const sd = n > 1 ? Math.sqrt(ds.reduce((a, b) => a + (b - mean) ** 2, 0) / (n - 1)) : 0;
+    const r3 = (x) => Math.round(x * 1000) / 1000;
+    return { n, gain: r3(mean), stderr: r3(n > 1 ? sd / Math.sqrt(n) : 0) };
+  };
+  // -> { keep, why, record, scores: { train: { id: score }, held: { id: score } } }. known: scores already measured with the change
+  const classCheck = async (newBriefs, K, { what, note, known = {} }) => {
+    const mine = list.filter((x) => kindOfT(x) === K && !wrongMarks.has(x.id));
+    const base = await standingOf(K, 'train', mine, note);
+    const usable = mine.filter((x) => base[x.id] !== null && base[x.id] !== undefined);
+    // drawn evenly from the class's kinds, the questions already measured with the change first
+    const byKind = new Map();
+    for (const x of usable) byKind.set(x.kind, [...(byKind.get(x.kind) || []), x]);
+    const order = [];
+    for (let k = 0; order.length < usable.length; k++) for (const qs of byKind.values()) if (qs[k]) order.push(qs[k]);
+    order.sort((x, y) => (known[y.id] !== undefined) - (known[x.id] !== undefined));
+    const withIt = {};
+    const ask = async (x, k, of, held) => {
+      if (known[x.id] !== undefined && !held) return known[x.id];
+      const r = await attempt(newBriefs, x, {
+        ...note,
+        move: what,
+        guard: x.id,
+        guarded: { n: k + 1, of },
+        ...(held ? { held: true } : {}),
+        classCheck: true,
+      });
+      return r.grade === 'noref' ? null : scoreOf(r);
+    };
+    const diffs = [];
+    const record = { class: K };
+    const fail = (why) => ({
+      keep: false,
+      why,
+      record: { ...record, keep: false, why },
+      scores: { train: withIt, held: {} },
+    });
+    for (const [k, x] of order.entries()) {
+      const s = await ask(x, k, order.length, false);
+      if (s !== null) {
+        withIt[x.id] = s;
+        diffs.push({ kind: x.kind, d: s - base[x.id] });
+      }
+      // THE RACE: where the first classRace questions fell, the rest are not asked
+      if (k + 1 === Math.min(classRace, order.length) && order.length > classRace) {
+        record.race = pairedOf(diffs.map((y) => y.d));
+        if (record.race.gain < 0)
+          return fail('on the first ' + record.race.n + ' questions of its class it fell by ' + -record.race.gain);
+      }
+    }
+    Object.assign(record, pairedOf(diffs.map((y) => y.d)));
+    const fell = [...new Set(diffs.map((y) => y.kind))]
+      .map((kind) => ({ kind, ...pairedOf(diffs.filter((y) => y.kind === kind).map((y) => y.d)) }))
+      .filter((y) => y.gain < -classMargin);
+    if (fell.length) {
+      record.fell = fell.map((y) => y.kind);
+      return fail('its questions of the kind ' + fell[0].kind + ' fell by ' + -fell[0].gain);
+    }
+    if (!(record.gain > 2 * record.stderr && record.gain >= classMinGain))
+      return fail(
+        'over the ' +
+          record.n +
+          ' questions of its class it gained ' +
+          record.gain +
+          ' (± ' +
+          record.stderr +
+          '): not more than twice its error and at least ' +
+          classMinGain,
+      );
+    // THE HELD QUESTIONS OF THE CLASS: not worse there, by more than their own error
+    const hq = heldQs.filter((h) => kindOfT(h) === K);
+    const heldWith = {};
+    if (hq.length) {
+      const hbase = await standingOf(K, 'held', hq, note);
+      const hd = [];
+      for (const [k, h] of hq.entries()) {
+        if (hbase[h.id] === null || hbase[h.id] === undefined) continue;
+        const s = await ask(h, k, hq.length, true);
+        if (s === null) continue;
+        heldWith[h.id] = s;
+        hd.push(s - hbase[h.id]);
+      }
+      record.held = pairedOf(hd);
+      if (record.held.n && record.held.gain < -record.held.stderr)
+        return fail('on the ' + record.held.n + ' held questions of its class it fell by ' + -record.held.gain);
+    }
+    return { keep: true, why: '', record: { ...record, keep: true }, scores: { train: withIt, held: heldWith } };
+  };
+  // (what the class scored with a change just kept is where it stands on the arrangement that change made)
+  const standNow = (K, scores) => {
+    st.standing = {};
+    const ver = briefs.version || 1;
+    st.standing[ver + '|' + K + '|train'] = { ...scores.train };
+    if (Object.keys(scores.held).length) st.standing[ver + '|' + K + '|held'] = { ...scores.held };
+  };
+  const gainWords = (c) =>
+    'its class of ' +
+    c.n +
+    ' train questions gained ' +
+    c.gain +
+    ' (± ' +
+    c.stderr +
+    ') in mean score' +
+    (c.held && c.held.n
+      ? ', and the ' + c.held.n + ' held ones ' + (c.held.gain >= 0 ? 'gained ' + c.held.gain : 'fell ' + -c.held.gain)
+      : '');
   // THE NEXT QUESTION: one sent back in hand; else the next not yet finished; else one SET ASIDE (it stopped coming closer while others
   // waited), first one the arrangement has changed since, and last one it has not, which gets as many tries again (givenUp)
   const asideOf = () => st.questions.filter((x) => x.state === 'set aside');
@@ -840,7 +994,9 @@ export async function runLoop({
       q.state = 'mark wrong';
       q.markWrong = wrongMarks.get(t.id);
     } else if (row.grade === 'noref') {
-      q.state = 'not compared';
+      // (no standard: the larger model's own answers to it do not agree, so there is nothing to be equivalent to. Left out of
+      // training and counted apart: support/standard.mjs)
+      q.state = row.noStandard ? 'no standard' : 'not compared';
       // (and why: the larger model gave nothing to compare with, or the reader of its kind failed its own check this pass)
       if (row.why) q.why = row.why;
     } else if (row.grade === 'right') q.state = 'at parity';
@@ -1009,6 +1165,10 @@ export async function runLoop({
           lostElsewhere: 0,
         });
         mv.tried++;
+        // (and by the class of the question: what most often comes closer on a class is proposed for that class)
+        mv.byClass = mv.byClass || {};
+        const mvc = (mv.byClass[K] = mv.byClass[K] || { tried: 0, closer: 0, reached: 0 });
+        mvc.tried++;
         const cls = (st.classes[classOf(m)] = st.classes[classOf(m)] || { tried: 0, reached: 0 });
         cls.tried++;
         if (r.seconds && node.seconds) {
@@ -1052,6 +1212,7 @@ export async function runLoop({
             if (s2 > node.score) {
               a.closer = true;
               outcome = 'closer';
+              mvc.closer++;
               open.push(nd);
               trim();
             } else triedArr.push(nd);
@@ -1063,17 +1224,21 @@ export async function runLoop({
           return { closer: outcome === 'closer' };
         }
         mv.reached++;
+        mvc.reached++;
         cls.reached++;
         let what = combo.join(' + ');
         // at parity here: does it hold on the questions that were already there? (the one changes lose most, first)
         // (the change goes into this class's own arrangement only, so only this class's questions can lose by it)
-        const again = guardOf(
-          reached.filter((x) => kindOfT(x.t) === K),
-          t,
-          guard,
-          st.lostOn || {},
-          st.pairs || {},
-        );
+        // (keeping by the class: the class check below asks every question of the class, these among them)
+        const again = classKeep
+          ? []
+          : guardOf(
+              reached.filter((x) => kindOfT(x.t) === K),
+              t,
+              guard,
+              st.lostOn || {},
+              st.pairs || {},
+            );
         let rows = [];
         const lostIds = [];
         for (const [gk, g] of again.entries()) {
@@ -1149,7 +1314,7 @@ export async function runLoop({
         }
         // THE HELD GUARD (docs/swoa-classes.md, step 4): on up to heldGuard held questions of this class, it must lose none that the
         // arrangement as it stands answers at parity. Held answers decide only whether a change is kept, never which one is found
-        const hq = heldGuard > 0 ? heldQs.filter((h) => kindOfT(h) === K).slice(0, heldGuard) : [];
+        const hq = !classKeep && heldGuard > 0 ? heldQs.filter((h) => kindOfT(h) === K).slice(0, heldGuard) : [];
         if (hq.length) {
           st.heldBase = st.heldBase || {};
           const hk = (briefs.version || 1) + '|' + K;
@@ -1181,6 +1346,23 @@ export async function runLoop({
             return { closer: false };
           }
         }
+        // KEPT BY ITS CLASS, OR NOT KEPT (classCheck above): the question it brought to parity is one question of the class
+        let byClass = null;
+        if (classKeep) {
+          byClass = await classCheck(newBriefs, K, {
+            what,
+            note: { n, of: list.length, attempt: i, round: node.depth, cap, method },
+            known: { [t.id]: 1 },
+          });
+          a.classCheck = byClass.record;
+          if (!byClass.keep) {
+            a.nearParity = true;
+            mv.lostElsewhere++;
+            counted('parity');
+            console.log('  not kept: ' + byClass.why);
+            return { closer: false };
+          }
+        }
         // KEPT: the arrangement is now this one, for this question and every one after
         briefs = branch
           ? {
@@ -1207,6 +1389,7 @@ export async function runLoop({
           ...(branch ? { kindOnly: K, wouldLose: lostIds.join(', ') } : {}),
           class: K,
           ...(a.heldGuard ? { heldGuard: a.heldGuard } : {}),
+          ...(byClass ? { classGain: byClass.record } : {}),
           why:
             'it brought ' +
             t.id +
@@ -1247,10 +1430,13 @@ export async function runLoop({
                     ' question' +
                     (rows.length === 1 ? '' : 's') +
                     ' already at parity asked again with it stayed there'
-                  : 'no question was at parity before it to lose'),
+                  : byClass
+                    ? gainWords(byClass.record)
+                    : 'no question was at parity before it to lose'),
         };
         st.kept.push({ ...entry, briefs: briefs.version });
         await keep(briefs, entry);
+        if (byClass) standNow(K, byClass.scores);
         // the library grows (or the entry it repeats is credited with one more question)
         addToLibrary(st.library, combo, { question: t.id, pass: undefined, lostAt: lost, class: K });
         await onLibrary(st.library);
@@ -1723,6 +1909,55 @@ export async function runLoop({
     else st.rows.push(row);
     await onQuestion(q, row, st, briefs);
   }
+  // PROPOSED FOR THE CLASS (docs/swoa-parity.md, 5): besides the changes that brought a question to parity, the changes that most
+  // often brought questions of a class closer in this pass are put to the class outright, classTries of them for each class, once
+  if (classKeep && classTries > 0) {
+    st.proposed = st.proposed || {};
+    for (const K of [...new Set(list.map(kindOfT))]) {
+      const cands = Object.entries(st.moves)
+        .map(([key, mv]) => ({ key, mv, c: (mv.byClass || {})[K] }))
+        .filter((x) => x.c && x.c.closer + x.c.reached >= 2 && !st.proposed[K + '|' + x.key])
+        .sort((x, y) => (y.c.closer + 2 * y.c.reached) / y.c.tried - (x.c.closer + 2 * x.c.reached) / x.c.tried)
+        .slice(0, classTries);
+      for (const { key, c: seen } of cands) {
+        st.proposed[K + '|' + key] = true;
+        const base = flat(briefs, K);
+        const m = poolOf(base, { cls: K }).find((x) => x.key === key);
+        if (!m || sameEffect(m.briefs, base, K)) continue;
+        const came = 'it came closer or to parity on ' + (seen.closer + seen.reached) + ' of ' + seen.tried + ' tries';
+        console.log('  PROPOSED for the questions ' + K + ': ' + m.name + ' (' + came + ')');
+        const c = await classCheck(m.briefs, K, {
+          what: m.name,
+          note: {
+            n: list.length,
+            of: list.length,
+            attempt: 0,
+            cap,
+            method: { area: m.area, kind: classOf(m), reasons: ['proposed for its class: ' + came] },
+          },
+        });
+        if (!c.keep) {
+          console.log('  not kept: ' + c.why);
+          continue;
+        }
+        briefs = { ...fold(m.briefs, K, briefs), version: (briefs.version || 1) + 1 };
+        const entry = {
+          kind: m.kind,
+          slot: m.slot || undefined,
+          what: m.name,
+          class: K,
+          proposed: true,
+          classGain: c.record,
+          why: 'proposed for its class (' + came + '), and ' + gainWords(c.record),
+        };
+        st.kept.push({ ...entry, briefs: briefs.version });
+        await keep(briefs, entry);
+        standNow(K, c.scores);
+        console.log('  KEPT "' + m.name + '": ' + gainWords(c.record));
+        await onTry(st);
+      }
+    }
+  }
   return { ...st, briefs };
 }
 // THE POLICY, AFTER EVERY TRY: a trial running for `trialTries` tries is judged (the mean of what its tries came to against as many
@@ -1819,6 +2054,7 @@ export function tallyOf(st) {
     notReached: by('not reached'),
     markWrong: by('mark wrong'),
     markUnstable: by('mark unstable'),
+    noStandard: by('no standard'),
     setAside: by('set aside'),
     notCompared: by('not compared'),
     kept: st.kept.length,
@@ -2033,12 +2269,18 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   for (const [k, v] of heldRef) ref.set(k, v);
   const heldQs = heldAll.filter((t) => heldRef.get(t.id) !== undefined);
   const heldGuard = Number(arg('held-guard', lp.heldGuard ?? 4));
+  // (keeping a change by its class: training/policy.json loop.classKeep; --no-class-keep keeps by the guard, as before)
+  const classKeep = lp.classKeep === true && !B.has('no-class-keep');
   console.log(
-    heldQs.length
-      ? 'Held guard: a change is kept only if it loses none of up to ' +
+    classKeep
+      ? 'Kept by the class: a change is kept only where its class of train questions gains more than twice its error (and ' +
+          (lp.classMinGain === undefined ? 0.02 : lp.classMinGain) +
+          ' at least), no kind of them falls, and the held questions of the class do not fall.'
+      : heldQs.length
+        ? 'Held guard: a change is kept only if it loses none of up to ' +
           heldGuard +
           ' held questions of its class at parity.'
-      : 'Held guard: the larger model has not answered the held questions, so changes are kept on the train questions alone.',
+        : 'Held guard: the larger model has not answered the held questions, so changes are kept on the train questions alone.',
   );
   // THE COVERAGE GATE (coverageOf): the reader's verdict made current first (a judge chosen since its check is checked now), then
   // every kind counted. A kind with nothing to compare stops the pass before anything is trained: exit 3, which session.sh stops on
@@ -2304,6 +2546,57 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   }
   // (a question graded against a standard of its own has no mark to be unsteady)
   for (const t of list) if (!byMark.includes(t)) unstable.delete(t.id);
+  // THE STANDARD FOR THE REST (support/standard.mjs): the answers the larger model agrees with itself on, of the up to three it has
+  // given each question. A reply is good against one of them; a question none of whose answers agree has no standard and is left
+  // out. Worked out once for these answers and this reader, for the train questions and the held ones
+  try {
+    const { answersOf, standardsFor } = await import('./support/standard.mjs');
+    const graded = [...list, ...heldQs].filter(
+      (t) =>
+        !(ownGrade && typeof t.good === 'function') &&
+        (!(t.type === 'open' || t.type === 'talk') || readerOk(WORKC, t.type)),
+    );
+    const answers = answersOf(path.join(B.WORK, 'baseline-runs.jsonl'), {
+      target: TARGET.id,
+      ids: new Set(graded.map((t) => t.id)),
+    });
+    let by = '';
+    try {
+      by = String(JSON.parse(fs.readFileSync(path.join(WORKC, 'reader.json'), 'utf8')).by || '');
+    } catch {
+      /* no reader on record */
+    }
+    ref.standard = await standardsFor({
+      list: graded,
+      answers,
+      file: path.join(B.RESULTS, TARGET.id + '-standards.json'),
+      by,
+      same: async (t, a, b) => {
+        const g = await t.equivalent(a, b, { reader, mark: markOf(t), atLine: true });
+        return g.grade === 'noref' ? null : g.grade === 'right';
+      },
+    });
+    const mine = list.filter((t) => ref.standard.has(t.id));
+    const none = mine.filter((t) => ref.standard.get(t.id).none);
+    // (the standard says what an unsteady mark said, and more: where its answers agree the question is searched like any other)
+    for (const t of mine) if ((answers.get(t.id) || []).length > 1) unstable.delete(t.id);
+    if (mine.length)
+      console.log(
+        mine.length +
+          " train questions are graded against the larger model's answers (" +
+          Math.max(0, ...mine.map((t) => (answers.get(t.id) || []).length)) +
+          ' of them at most): ' +
+          (mine.length - none.length) +
+          ' have a standard among them' +
+          (none.length ? ', ' + none.length + ' have none (its answers do not agree) and are left out' : '') +
+          '.',
+      );
+  } catch (e) {
+    console.log(
+      "The standards could not be worked out: each is graded against the larger model's first answer. " +
+        String((e && e.message) || e).slice(0, 120),
+    );
+  }
   if (unstable.size)
     console.log(
       unstable.size +
@@ -2324,6 +2617,11 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       list,
       heldQs,
       heldGuard,
+      classKeep,
+      classRace: Number(lp.classRace) || 8,
+      classMinGain: lp.classMinGain === undefined ? 0.02 : Number(lp.classMinGain),
+      classMargin: lp.classMargin === undefined ? 0.05 : Number(lp.classMargin),
+      classTries: lp.classTries === undefined ? 6 : Number(lp.classTries),
       briefs: readBriefs(),
       poolOf,
       cap,
@@ -2470,6 +2768,9 @@ if (import.meta.url === 'file://' + process.argv[1]) {
           ...tallyOf(cur),
           list: cur.questions,
           changes: cur.kept,
+          // the module beside the larger model, family by family, as far as the pass has got (familiesOf), and how a change is kept
+          families: familiesOf(list, cur.rows, (id) => (ref.toSpec ? ref.toSpec.get(id) : null)),
+          keptBy: classKeep ? 'class' : 'guard',
           // the loop's policy as it stands, what is on trial, and what became of each proposal
           loopPolicy: cur.policy,
           trial: cur.trial

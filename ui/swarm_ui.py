@@ -84,6 +84,7 @@ dialog#recd{border:0;border-radius:var(--r);padding:26px;max-width:min(760px,94v
 .rstr{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:2px 8px;border-radius:var(--r);background:#d7f3e9;color:var(--right)}.rec.untested .rstr{background:var(--soft);color:var(--mist)}.rec.early .rstr{background:#fdf0cf;color:#8a5a00}.rec.info .rstr{background:#e6e9f6;color:var(--tgt)}.rec.info{grid-template-columns:minmax(0,1fr)}
 .hostcard{padding:14px 16px;border-radius:var(--r);border:1px solid var(--line2);background:#fafdfc}.hostcard p{margin:6px 0 0;font-size:13.5px;line-height:1.5}.hcbadge{display:inline-block;margin-top:6px;padding:2px 10px;border-radius:var(--r);background:#fdf0cf;color:#8a5a00;font-size:12px;font-weight:700}
 .hcon{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.hcon span{padding:2px 10px;border-radius:var(--r);background:var(--soft);font-size:12px;font-weight:700;color:var(--teal)}
+details.fams{margin-top:10px}details.fams summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--teal)}details.fams table{margin-top:6px}
 details.told{margin-top:4px}details.told summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--teal)}details.told div{margin-top:4px;white-space:pre-wrap;font-size:12.5px;color:var(--fog)}.spec .bad{color:var(--wrong)}
 .equiv .tools{margin-top:12px}
 .tgl{display:inline-flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:var(--r);background:var(--soft)}.tgl .seg{border:0;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--mist);padding:7px 14px;border-radius:var(--r);cursor:pointer}
@@ -408,7 +409,7 @@ button.mav{position:relative;border:0;font:inherit;color:inherit;text-align:left
 .pips{display:flex;flex-wrap:wrap;gap:3px;margin-top:10px}.pips i{width:10px;height:10px;border-radius:3px;background:#dfe8e5;display:block}
 .pips i.at,.qkey i.at{background:var(--right)}.pips i.re,.qkey i.re{background:var(--teal2);box-shadow:inset 0 0 0 2px #fff}.pips i.nr,.qkey i.nr{background:var(--wrong)}.pips i.nc,.qkey i.nc{background:#c9d3d0}.pips i.ro,.qkey i.ro{background:#fff;box-shadow:inset 0 0 0 2px var(--sun)}
 .pips i.cur,.qkey i.cur{background:var(--sun);animation:p 1.2s infinite}
-.pips i.sa,.qkey i.sa{background:#fdf0cf;box-shadow:inset 0 0 0 2px #e3c46a}.pips i.mw,.qkey i.mw{background:repeating-linear-gradient(135deg,#c9d3d0 0 2px,#fff 2px 4px);box-shadow:inset 0 0 0 1px #b3c0bc}.pips i.mu,.qkey i.mu{background:repeating-linear-gradient(45deg,#ecd29a 0 2px,#fff 2px 4px);box-shadow:inset 0 0 0 1px #d9b96a}.qkey{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:11.5px;color:var(--mist);font-weight:600}.qkey span{display:inline-flex;align-items:center;gap:5px}.qkey i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.pips i.sa,.qkey i.sa{background:#fdf0cf;box-shadow:inset 0 0 0 2px #e3c46a}.pips i.mw,.qkey i.mw{background:repeating-linear-gradient(135deg,#c9d3d0 0 2px,#fff 2px 4px);box-shadow:inset 0 0 0 1px #b3c0bc}.pips i.ns,.qkey i.ns{background:#fff;box-shadow:inset 0 0 0 1px #b3c0bc}.pips i.mu,.qkey i.mu{background:repeating-linear-gradient(45deg,#ecd29a 0 2px,#fff 2px 4px);box-shadow:inset 0 0 0 1px #d9b96a}.qkey{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:11.5px;color:var(--mist);font-weight:600}.qkey span{display:inline-flex;align-items:center;gap:5px}.qkey i{width:10px;height:10px;border-radius:3px;display:inline-block}
 .tryline{margin:8px 0 12px;padding:9px 12px;border-radius:var(--r);background:#fdf0cf;color:#6b4a00;font-size:13px;overflow-wrap:anywhere}.tryline b{color:#8a5a00}.tryline a{color:#8a5a00;font-weight:800;margin-left:6px}
 .slot.tgt{background:#e6e9f6;border-left-color:var(--tgt)}.stage.mark{margin-top:14px;padding-top:14px;border-top:1px solid var(--line2)}.stage.mark .t{color:var(--tgt)}.slot.tgt .body{padding-top:8px}
 .stage.mark .slot.tgt>summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr) auto auto;gap:4px 16px;align-items:center}.stage.mark .slot.tgt .purpose{margin:0}
@@ -943,7 +944,8 @@ def steer_dialog(d):
 LOOP_STATE = {"at parity": ("At parity as it stood", "up"), "reached": ("Brought to parity", "up"), "not reached": ("Not reached", "down"), "not compared": ("Not compared", "planned"),
               "reopened": ("Back in hand", "planned"), "set aside": ("Set aside", "planned"),
               "mark wrong": ("Set aside: the larger model's answer is wrong", "planned"),
-              "mark unstable": ("Set aside: the larger model did not give this answer again", "planned")}
+              "mark unstable": ("Set aside: the larger model did not give this answer again", "planned"),
+              "no standard": ("Left out: the larger model's own answers do not agree", "planned")}
 
 
 def near_words(n):
@@ -1849,11 +1851,11 @@ def at_parity(d, t):
 
 
 # A QUESTION'S STATE IN THE LOOP, as a pip: at parity as the swarm stood, brought to parity by a change, not reached, not compared
-PIP = {"at parity": "at", "reached": "re", "not reached": "nr", "not compared": "nc", "reopened": "ro", "set aside": "sa", "mark wrong": "mw", "mark unstable": "mu"}
+PIP = {"at parity": "at", "reached": "re", "not reached": "nr", "not compared": "nc", "reopened": "ro", "set aside": "sa", "mark wrong": "mw", "mark unstable": "mu", "no standard": "ns"}
 # what each state is called on a pip's tooltip and in the key, one look for each
 PIP_WORDS = {"at": "at parity as it stood", "re": "brought to parity by a change", "nr": "not reached", "ro": "back in hand after a swap",
              "sa": "set aside until the others are done", "mw": "set aside: the larger model's answer is wrong",
-             "mu": "set aside: the larger model did not give this answer again", "nc": "not compared: nothing usable from the larger model, or no reader believed for its kind",
+             "mu": "set aside: the larger model did not give this answer again", "ns": "left out: the larger model's own answers do not agree", "nc": "not compared: nothing usable from the larger model, or no reader believed for its kind",
              "cur": "in hand"}
 
 
@@ -1889,6 +1891,25 @@ def trying_moves(moves):
     return running
 
 
+def families_block(lp):
+    """THE MODULE BESIDE ITS TARGET, FAMILY BY FAMILY (training/loop.mjs familiesOf; docs/swoa-parity.md): for each kind of question, how
+    many the module has right of those asked so far, and, where the questions carry a standard of their own, how many the larger
+    model's own answers have right by that same standard. Where they do not, the larger model's answers are the standard."""
+    fams = [f for f in (lp or {}).get("families") or [] if f.get("asked")]
+    if not fams:
+        return ""
+    row = lambda f: "<tr><td>%s</td><td>%d of %d</td><td>%s</td><td class='muted'>%s</td></tr>" % (  # noqa: E731
+        e(KIND_WORDS.get(f.get("kind"), f.get("kind"))), f.get("module") or 0, f.get("asked") or 0,
+        ("%d of %d" % (f.get("target") or 0, f.get("targetKnown") or 0)) if f.get("own") else "its answers are the standard",
+        "the question's own" if f.get("own") else "the larger model's answers")
+    own = [f for f in fams if f.get("own")]
+    total = ("<p class='muted small' style='margin:6px 0 0'>Where the question carries its own standard: the module <b>%d</b> of %d, the larger model <b>%d</b> of %d.</p>"
+             % (sum(f.get("module") or 0 for f in own), sum(f.get("asked") or 0 for f in own), sum(f.get("target") or 0 for f in own), sum(f.get("targetKnown") or 0 for f in own))) if own else ""
+    return ("<details class='fams' id='fams'><summary>The module beside the larger model, by family (%d)</summary>"
+            "<table class='spec'><tr><th>Family</th><th>The module</th><th>The larger model</th><th>Graded against</th></tr>%s</table>%s</details>"
+            % (len(fams), "".join(row(f) for f in fams), total))
+
+
 def question_track(d):
     """THE SWARM AGAINST EACH QUESTION (training/loop.mjs): the question in hand and which iteration of it, and a pip for every
     question of the pass so far. Painted again from /api/live while a session runs."""
@@ -1904,8 +1925,8 @@ def question_track(d):
     return ('<div class="qtrack" id="qtrack"><div class="qhead" id="qhead"><b>Question by question</b>%s</div>'
             '<p class="qnow" id="qnow">%s</p><div class="pips" id="pips">%s</div>'
             # (one line for every look a pip can have, each look drawn by the pip's own class: the key cannot drift from the pips)
-            '<div class="qkey">%s</div>%s</div>'
-            % (head, now, pips, "".join('<span><i class="pk %s"></i>%s</span>' % (k, e(w)) for k, w in PIP_WORDS.items()), tries_list(lp)))
+            '<div class="qkey">%s</div>%s%s</div>'
+            % (head, now, pips, "".join('<span><i class="pk %s"></i>%s</span>' % (k, e(w)) for k, w in PIP_WORDS.items()), families_block(lp), tries_list(lp)))
 
 
 # THE CLASS OF A QUESTION (src/orchestrate.mjs classOf), in the page's words, and the steps each class's turn can take: a turn with
@@ -2367,7 +2388,8 @@ def run_lines(cleared=""):
     return "".join(out)
 
 
-STEP_WORDS = [("target-self-train", "Larger model against itself: the train questions"), ("reader", "Check the reader of answers in words"), ("swarm-reworded", "The swarm: the held questions, a second way"), ("begin", "Begin the pass"), ("research", "Read what is new on arXiv"), ("target-train", "Larger model: the train questions"), ("target-self", "Larger model against itself"), ("target", "Larger model: the held questions"),
+STEP_WORDS = [("target-third-train", "Larger model, a third answer: the train questions"), ("target-third", "Larger model, a third answer: the held questions"),
+              ("target-self-train", "Larger model against itself: the train questions"), ("reader", "Check the reader of answers in words"), ("swarm-reworded", "The swarm: the held questions, a second way"), ("begin", "Begin the pass"), ("research", "Read what is new on arXiv"), ("target-train", "Larger model: the train questions"), ("target-self", "Larger model against itself"), ("target", "Larger model: the held questions"),
               ("swarm-held", "The swarm: the held questions"), ("plan", "Plan what to try"), ("write-briefs", "New briefs from the larger model"),
               ("members", "Could another small model draft it?"), ("deciders", "Would another decider choose better?"),
               ("questions", "Train, question by question"), ("end", "Verdict"), ("publish", "Write it up")]
@@ -3060,13 +3082,15 @@ def progress_strip(d, cleared=""):
     # (a question that cannot be brought to parity is not counted against the share: no answer from the larger model, or a mark the
     # question's own correct solution proves wrong)
     wrong_m = n("mark wrong")
-    can = max(0, of - n("not compared") - wrong_m)
+    # (and one with no standard: the larger model's own answers to it do not agree, so there is nothing to be at parity with)
+    can = max(0, of - n("not compared") - wrong_m - n("no standard"))
     pct = data.percent(done, can) if can else 0
     if qs:
         line = ("<b>%d</b> of %d train questions at parity with %s: <b>%d</b> as the swarm stood, <b>%d</b> brought there by a change it kept%s%s."
                 % (done, of, e(tname), at, re_, ((", %d back in hand after a swap" % n("reopened")) if n("reopened") else "") + ((", %d set aside until the others are done" % n("set aside")) if n("set aside") else ""), ((", %d left short of parity by an earlier version of the loop" % nr) if nr else "") + ((", %d set aside because the larger model's answer is wrong" % wrong_m) if wrong_m else "")
                    # (a mark the larger model did not give again, where the swarm is not at parity with it: not searched, and still counted in the share)
-                   + ((", %d set aside because the larger model did not give its answer again" % n("mark unstable")) if n("mark unstable") else "")))
+                   + ((", %d set aside because the larger model did not give its answer again" % n("mark unstable")) if n("mark unstable") else "")
+                   + ((", %d left out because the larger model's own answers do not agree" % n("no standard")) if n("no standard") else "")))
         now = ("Question %s is in hand." % e(str(lv.get("n")))) if lv else ("Stopped; it carries on from question %d." % (len(qs) - back + 1)) if len(qs) - back < of else "Every question of this pass is at parity."
     else:
         line = "Training starts at question 1 of the pass: each question stays in hand until the swarm is at parity with %s on it." % e(tname)

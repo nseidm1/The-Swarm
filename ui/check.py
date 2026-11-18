@@ -1153,12 +1153,14 @@ check("a question brought to parity before its mark was found wrong shows the wr
 # A MARK THE LARGER MODEL DID NOT GIVE AGAIN, where the swarm is not at parity with it: a pip of its own, said in the training line,
 # and still counted in the share (nothing is taken out of what the share is of)
 _rs2, swarm_ui.run_state = swarm_ui.run_state, (lambda: {})
-_pu = swarm_ui.progress_strip(dict(_d, loop={"of": 4, "changes": [], "list": [{"id": "a", "state": "at parity"}, {"id": "b", "state": "mark unstable", "unstable": True}, {"id": "c", "state": "not reached"}, {"id": "d", "state": "reached"}]}))
+_pu = swarm_ui.progress_strip(dict(_d, loop={"of": 5, "changes": [], "list": [{"id": "a", "state": "at parity"}, {"id": "b", "state": "mark unstable", "unstable": True}, {"id": "c", "state": "not reached"}, {"id": "d", "state": "reached"},
+                                                                         {"id": "e", "state": "no standard"}]}))
 swarm_ui.run_state = _rs2
 _tu = swarm_ui.track_of({"list": [{"id": "b", "kind": "answer", "state": "mark unstable", "unstable": True, "attempts": [{}]}]})[0]
-check("a question set aside because the larger model did not give its answer again has a pip of its own, is said in the training line, and stays in the share (2 of 4 is 50%); and how close a try came says first how the reply itself read, where the reader read one",
+check("a question set aside because the larger model did not give its answer again has a pip of its own, is said in the training line, and stays in the share; one the larger model's own answers do not agree on is left out of the share and said (2 of the 4 left is 50%); and how close a try came says first how the reply itself read, where the reader read one",
       _tu["s"] == "mu" and "did not give this answer again" in _tu["w"] and _tu["tried"] == 0
       and "1 set aside because the larger model did not give its answer again" in _pu and "50%" in _pu
+      and "1 left out because the larger model&#39;s own answers do not agree" in _pu.replace("'", "&#39;") and swarm_ui.PIP["no standard"] == "ns"
       and swarm_ui.near_words({"lost": "drafting", "had": 0, "reply": 0.84}).startswith("the reply read 0.84, lost in drafting")
       and swarm_ui.near_words({"lost": "drafting", "had": 0}).startswith("lost in drafting"), [_tu, _pu[:400]])
 
@@ -1180,6 +1182,15 @@ check("a capability's verdict is read from the paired gap over its tasks togethe
       and _cv["math"]["verdict"] == "open" and _cv["math"]["proof"] is False and data.paired_gap({"of": 0}) is None
       and ">Parity<" in _pb and "Verdict (margin 0.05)" in _pb and "knowledge with no tool offered" in _pb,
       [_pg, {k: (v.get("verdict"), v.get("n"), v.get("gap")) for k, v in _cv.items()}])
+
+# THE MODULE BESIDE ITS TARGET, FAMILY BY FAMILY: where the questions carry a standard of their own the larger model is counted by the
+# same standard; where they do not, its answers are the standard and it has no count
+_fb2 = swarm_ui.families_block({"families": [{"kind": "write-arrays", "n": 6, "own": True, "asked": 6, "module": 5, "target": 4, "targetKnown": 6},
+                                             {"kind": "answer", "n": 6, "own": False, "asked": 4, "module": 1, "target": None, "targetKnown": 0},
+                                             {"kind": "trace", "n": 6, "own": True, "asked": 0, "module": 0, "target": 0, "targetKnown": 0}]})
+check("the questions' card sets the module beside the larger model family by family: both counted by the question's own standard where it has one, the larger model's answers named as the standard where it has none, a family not yet asked left out, and the totals for the families with a standard of their own",
+      "by family (2)" in _fb2 and "<td>5 of 6</td><td>4 of 6</td>" in _fb2 and "its answers are the standard" in _fb2 and "the module <b>5</b> of 6, the larger model <b>4</b> of 6" in _fb2
+      and swarm_ui.families_block({}) == "" and "id='fams'" in _fb2, _fb2[:400])
 
 # AN OPEN PAGE SAYS WHEN THE DASHBOARD'S CODE HAS CHANGED: it carries the build it was drawn with, asks the server's, and where they
 # differ shows a note with a Refresh button (hidden otherwise); it never reloads on its own

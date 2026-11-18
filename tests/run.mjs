@@ -4974,6 +4974,265 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { vr, vw, og, fams, cov },
   );
 }
+// ---- 9t: GOOD, IN CONVERSATION (docs/swoa-parity-plan.md, step 4): the standard is the answers the larger model agrees with itself
+// on; a reply is good against one of them, read at the line; a question none of whose answers agree has no standard
+{
+  const { standardOf, standardsFor, againstStandard, answersOf } = await import('../training/support/standard.mjs');
+  const { talkEquivalent } = await import('../training/support/equivalent.mjs');
+  const { run: runRows } = await import('../training/support/bench.mjs');
+  const { runLoop } = await import('../training/loop.mjs');
+  const eq = (a, b) => a[0] === b[0]; // (two answers agree when they begin alike)
+  const two = await standardOf(['yes: wash it', 'yes: rinse it'], eq);
+  const split = await standardOf(['yes', 'no'], eq);
+  const three = await standardOf(['no: a', 'yes: b', 'yes: c'], eq);
+  const one = await standardOf(['only'], eq);
+  // kept, and worked out again only where a question has more answers than it had
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-std-'));
+  const file = path.join(dir, 'standards.json');
+  let asked = 0;
+  const same = async (t, a, b) => (asked++, eq(a, b));
+  const list = [{ id: 'q1' }, { id: 'q2' }];
+  const answers = new Map([
+    ['q1', ['yes', 'yup... no: it starts with y']],
+    ['q2', ['yes', 'no']],
+  ]);
+  const s1 = await standardsFor({ list, answers, same, file, by: 'r' });
+  const askedOnce = asked;
+  const s2 = await standardsFor({ list, answers, same, file, by: 'r' });
+  answers.set('q2', ['yes', 'no', 'nope']);
+  const s3 = await standardsFor({ list, answers, same, file, by: 'r' });
+  // the answers on record, by label
+  const runs = path.join(dir, 'runs.jsonl');
+  fs.writeFileSync(
+    runs,
+    [
+      { label: 'big', id: 'q1', reply: 'first' },
+      { label: 'big-self', id: 'q1', reply: 'second' },
+      { label: 'big-third', id: 'q1', reply: 'third' },
+      { label: 'big', id: 'q2', reply: 'only' },
+      { label: 'small', id: 'q1', reply: 'not its' },
+    ]
+      .map((r) => JSON.stringify(r))
+      .join('\n'),
+  );
+  const got = answersOf(runs, { target: 'big', ids: new Set(['q1', 'q2']) });
+  fs.rmSync(dir, { recursive: true, force: true });
+  // a reply against a standard: good against any of its answers; else the nearest says how it fell short
+  const t = {
+    equivalent: async (a, reply, ctx) =>
+      a === reply
+        ? { grade: 'right', p: 0.95 }
+        : { grade: 'wrong', p: a.length / 100, part: 'substance', atLine: ctx.atLine },
+  };
+  const hit = await againstStandard(t, { answers: ['alpha', 'beta'] }, 'beta', {});
+  const miss = await againstStandard(t, { answers: ['a', 'longer one'] }, 'x', {});
+  // at the line: 0.84 against a line of 0.8 is a yes there, and undecided where the band stands
+  const reads = (p) => async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ answers: { same: { noul: p }, firstAsks: { noul: 0 }, secondAsks: { noul: 0 } } }),
+  });
+  const task = { system: 's', turns: [{ role: 'user', content: 'q' }], ask: 'q' };
+  const banded = await talkEquivalent(task, 'a', 'b', { reader: 'http://r', mark: 0.8, fetchImpl: reads(0.84) });
+  const atLine = await talkEquivalent(task, 'a', 'b', {
+    reader: 'http://r',
+    mark: 0.8,
+    fetchImpl: reads(0.84),
+    atLine: true,
+  });
+  const below = await talkEquivalent(task, 'a', 'b', {
+    reader: 'http://r',
+    mark: 0.8,
+    fetchImpl: reads(0.74),
+    atLine: true,
+  });
+  // graded in a run: against the standard where one was worked out, left out where there is none
+  const tk = (id) => ({
+    id,
+    kind: 'talk',
+    split: 'train',
+    seed: 1,
+    ask: 'q',
+    type: 'tool',
+    equivalent: async (a, reply) => ({ grade: a === reply ? 'right' : 'wrong' }),
+    usable: (x) => !!x,
+    show: (x) => String(x),
+    wrap: (x) => x,
+  });
+  const ref = new Map([
+    ['s1', 'first'],
+    ['s2', 'first'],
+  ]);
+  ref.standard = new Map([
+    ['s1', { answers: ['first', 'second'], none: false }],
+    ['s2', { answers: [], none: true }],
+  ]);
+  const rows = await runRows([tk('s1'), tk('s2')], async () => ({ reply: 'second' }), { ref });
+  const st = await runLoop({
+    list: [{ id: 'N', kind: 'talk', ask: 'q' }],
+    briefs: { version: 1, slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+    poolOf: () => [],
+    policy: { setAsideAfter: 0, suggestEvery: 0, teachEvery: 0 },
+    attempt: async () => ({ grade: 'noref', noStandard: true, trace: [] }),
+  });
+  check(
+    "the standard for a question with none of its own is the answers of the larger model that agree with each other (both of two; the two of three that agree; none where none do; the one where there is one), worked out once and again only when a question has more answers; its answers are read from the record by label; a reply is good against any answer of the standard, at the reader's line with nothing undecided above it; a question with no standard is not compared in a run, and is left out of the loop as its own state",
+    JSON.stringify(two) === '{"idx":[0,1],"none":false}' &&
+      split.none &&
+      JSON.stringify(three.idx) === '[1,2]' &&
+      JSON.stringify(one) === '{"idx":[0],"none":false}' &&
+      s1.get('q1').answers.length === 2 &&
+      s1.get('q2').none &&
+      askedOnce === 2 &&
+      asked === 5 &&
+      s2.worked === 0 &&
+      s3.worked === 1 &&
+      JSON.stringify(s3.get('q2').answers) === '["no","nope"]' &&
+      JSON.stringify(got.get('q1')) === '["first","second","third"]' &&
+      JSON.stringify(got.get('q2')) === '["only"]' &&
+      hit.grade === 'right' &&
+      hit.of === 2 &&
+      miss.grade === 'wrong' &&
+      miss.p === 0.1 &&
+      miss.atLine === true &&
+      banded.grade === 'wrong' &&
+      banded.undecided === true &&
+      atLine.grade === 'right' &&
+      below.grade === 'wrong' &&
+      below.undecided === true &&
+      rows[0].grade === 'right' &&
+      rows[1].grade === 'noref' &&
+      rows[1].noStandard === true &&
+      st.questions[0].state === 'no standard',
+    {
+      two,
+      split,
+      three,
+      one,
+      asked,
+      askedOnce,
+      hit,
+      miss,
+      banded,
+      atLine,
+      below,
+      rows: rows.map((r) => [r.grade, r.noStandard]),
+      state: st.questions[0].state,
+    },
+  );
+}
+// ---- 9s: KEEPING A CHANGE BY ITS CLASS (docs/swoa-parity-plan.md, step 5): one question brought to parity is a guess; the class
+// decides. Kept where the class gains more than twice its error; not where only the one question moved, where a kind falls, where
+// the held questions fall; raced on a few first; and what most often came closer is proposed for the class outright
+{
+  const { runLoop } = await import('../training/loop.mjs');
+  const kinds = ['answer', 'request', 'piece'];
+  const list = [];
+  for (const k of kinds)
+    for (let n = 1; n <= 4; n++) list.push({ id: k + '-' + n, kind: k, ask: 'About ' + k + ' ' + n + '?' });
+  const held = kinds.map((k) => ({ id: 'held-' + k, kind: k, ask: 'Held, about ' + k + '?' }));
+  const base = { version: 1, slots: [{ id: 'a1', stage: 'draft', brief: 'Draft it.' }], plan: {} };
+  const row = (score) => ({
+    grade: score >= 1 ? 'right' : 'wrong',
+    reading: score,
+    path: 'most',
+    trace: [{ stage: 'draft', slot: 'a1', same: false }],
+  });
+  // each change is a field of the plan; how a question scores under it is what `scores` says
+  const mk = (bb, name) => ({
+    id: name,
+    key: name,
+    name,
+    kind: 'arrangement',
+    area: 'slots',
+    briefs: { ...bb, plan: { ...bb.plan, [name]: true } },
+  });
+  const run = async (scores, { classTries = 0, names = Object.keys(scores).filter((k) => k !== 'base') } = {}) => {
+    const asked = [];
+    const kept = [];
+    const st = await runLoop({
+      list,
+      heldQs: held,
+      briefs: base,
+      classKeep: true,
+      classRace: 3,
+      classTries,
+      poolOf: (bb) => names.filter((n) => !(bb.plan || {})[n]).map((n) => mk(bb, n)),
+      policy: { setAsideAfter: 2, suggestEvery: 0, teachEvery: 0, batch: 0, prune: false },
+      keep: async (b, entry) => kept.push(entry),
+      attempt: async (bb, t, note) => {
+        const on = names.filter((n) => (bb.plan || {})[n]);
+        asked.push(t.id + ':' + on.join('+'));
+        let s = scores.base(t);
+        for (const n of on) s = scores[n](t, s);
+        return row(Math.max(0, Math.min(1, s)));
+      },
+    });
+    return { st, asked, kept };
+  };
+  // every question stands at 0.5. "lift" takes the whole class to 0.8 and the question in hand to parity: kept
+  const lift = await run({ base: () => 0.5, lift: (t) => (t.id === 'answer-1' ? 1 : 0.8) });
+  // "one" brings one question to parity and moves nothing else: not kept (a gain of one question in twelve is within its error)
+  const one = await run({ base: () => 0.5, one: (t, s) => (t.id === 'answer-1' ? 1 : s) });
+  // "skew" lifts the answers and drops the pieces by more than the margin: not kept, whatever the mean
+  const skew = await run({ base: () => 0.5, skew: (t) => (t.kind === 'piece' ? 0.2 : 1) });
+  // "overfit" lifts every train question and drops the held ones: not kept
+  const overfit = await run({
+    base: () => 0.5,
+    overfit: (t) => (t.id.startsWith('held-') ? 0.1 : t.id === 'answer-1' ? 1 : 0.8),
+  });
+  // "race" brings the question in hand to parity and drops the rest: stopped after the first three, the others never asked with it
+  const race = await run({ base: () => 0.5, race: (t) => (t.id === 'answer-1' ? 1 : 0.1) });
+  const raceCheck = race.st.questions
+    .flatMap((q) => q.attempts || [])
+    .map((a) => a.classCheck)
+    .find(Boolean);
+  // "near" brings every question a little closer and none to parity: nothing is kept question by question, and at the end of the
+  // pass it is proposed for the class outright, and kept there
+  const near = await run({ base: () => 0.5, near: () => 0.62 }, { classTries: 2 });
+  const kn = near.kept[0] || {};
+  const k0 = lift.kept[0] || {};
+  check(
+    'keeping by the class: a change that lifts its whole class is kept, with its gain, its error and over how many questions on the ledger; one that brings a single question to parity and moves no other is not; one that lifts most kinds and drops one by more than the margin is not; one that lifts the train questions and drops the held ones is not; a change that falls on the first few questions it is raced on is not asked on the rest; and a change that brought questions closer and none to parity is proposed for the class at the end of the pass, and kept where the class gained',
+    lift.kept.length >= 1 &&
+      k0.classGain &&
+      k0.classGain.keep === true &&
+      k0.classGain.n === 12 &&
+      k0.classGain.gain > 0.25 &&
+      k0.classGain.held.n === 3 &&
+      /its class of 12 train questions gained/.test(k0.why) &&
+      (lift.st.briefs.kinds || {}).words &&
+      one.kept.length === 0 &&
+      one.st.questions
+        .find((q) => q.id === 'answer-1')
+        .attempts.some((a) => a.classCheck && a.classCheck.keep === false) &&
+      skew.kept.length === 0 &&
+      skew.st.questions.some((q) =>
+        (q.attempts || []).some((a) => a.classCheck && (a.classCheck.fell || []).includes('piece')),
+      ) &&
+      overfit.kept.length === 0 &&
+      overfit.st.questions.some((q) =>
+        (q.attempts || []).some((a) => a.classCheck && /held questions/.test(a.classCheck.why || '')),
+      ) &&
+      race.kept.length === 0 &&
+      raceCheck &&
+      raceCheck.race.n === 3 &&
+      raceCheck.n === undefined &&
+      near.kept.length === 1 &&
+      kn.proposed === true &&
+      kn.classGain.n === 12 &&
+      Math.abs(kn.classGain.gain - 0.12) < 0.001 &&
+      /proposed for its class/.test(kn.why),
+    {
+      lift: [lift.kept.length, k0.classGain],
+      one: one.kept.length,
+      skew: skew.kept.length,
+      overfit: overfit.kept.length,
+      race: [race.kept.length, raceCheck],
+      near: [near.kept.length, kn.proposed, kn.classGain],
+    },
+  );
+}
 // ---- 9a: a small model beside the decider in the decide step (plan.decideWith)
 {
   const { answer: orchestrate } = await import('../src/orchestrate.mjs');
