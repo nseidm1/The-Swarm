@@ -13,7 +13,8 @@
       "search": { "safe_search": 0, "formats": ["html", "json"] }
     },
     "tries": 3,
-    "pageChars": 6000
+    "pageChars": 2000,
+    "resultsMost": 5
   },
   "serpapi": {
     "name": "SerpAPI (DuckDuckGo)",

@@ -8520,7 +8520,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       E.blockedOf(tool, {}, { installed: false }) === '' &&
       web.search === true &&
       !('needsKey' in web) &&
-      E.searchPart(web, {}) === '-searxng-p6000' &&
+      E.searchPart(web, {}) === '-searxng-p2000-n5' &&
       E.searchPart(web, { SWARM_SEARCH: 'serpapi' }) === '-serpapi' &&
       E.searchPart(tool, {}) === '' &&
       web.daily === true &&

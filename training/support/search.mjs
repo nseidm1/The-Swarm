@@ -57,6 +57,12 @@ export const searchBlocked = (env = process.env, { installed = searxInstalled() 
 // its 40 questions ended in that error. The larger model and the swarm are given the same page cut at the same place, so the
 // test is of what each does with the same material, not of whose context is wider. The result says where pages were cut.
 export const PAGE_CHARS = Math.max(0, Number(SEARCH.searxng.pageChars) || 0);
+// THE MOST RESULTS A SEARCH GIVES (training/search.json resultsMost; 0: as many as the model asks for). Cutting pages alone was
+// not enough: measured 2026-11-19 with pages cut at 6000 characters, 21 of the larger model's 40 questions still ended over its
+// context. A question took up to 19 steps and most of them were searches (222 searches against 60 pages in the 14 questions of
+// one task that ran to the end); ten results are about 3400 characters, some 900 tokens, each time. So both limits are lower:
+// a page at 2000 characters and a search at five results, the same for the larger model and the swarm.
+export const RESULTS_MOST = Math.max(0, Number(SEARCH.searxng.resultsMost) || 0);
 // where the day's searches are kept: each query's results, each page fetched
 export const searchFolder = (evalDir, day) => path.join(evalDir, 'search', day);
 // what the tool tests are started with (training/support/bfcl_search.py reads these)
@@ -65,6 +71,7 @@ export const searchEnv = (base, folder) => ({
   SWARM_SEARCH_CACHE: folder,
   SWARM_SEARCH_TRIES: String(SEARCH.searxng.tries || 3),
   SWARM_SEARCH_PAGE_CHARS: String(PAGE_CHARS),
+  SWARM_SEARCH_RESULTS_MOST: String(RESULTS_MOST),
 });
 
 const freePort = () =>
@@ -155,6 +162,7 @@ export function searchRecord(env = process.env, folder = '') {
     engines: [...engines].sort(),
     kept: 'what each query returned and each page fetched, for the day: both models are given the same',
     ...(PAGE_CHARS ? { pageChars: PAGE_CHARS } : {}),
+    ...(RESULTS_MOST ? { resultsMost: RESULTS_MOST } : {}),
     queries,
     pages,
   };

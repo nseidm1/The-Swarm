@@ -490,7 +490,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and 'class="pct busy"' in pre_run and "of %d adapted" % pre0.count('class="prerow"') in pre_run and "pct busy" not in pre_stop and '<b class="pct">1</b>' in pre_stop
           and "Adapted</b> 2026-11-17" in pre_stop and "a later attempt was not kept: llama.cpp did not load it" in pre_stop and "of 300 questions" in held_ev and 'class="evask"' not in held_ev and 'id="ev-open"' not in held_ev and "&#39;s score<small><i class=\"busyn\"" in held_ev
           and '<button type="button" class="evopen" id="ev-open"' in ev_after and '<b class="pct">75%</b><span>of the larger model&#39;s score<small>45% against 60% · 20 questions' in ev_after and "equivalent<" not in ev_after
-          and '<tr class="evt-item"><th scope="row">' in ev_table and '<td class="num">45%</td><td class="num">60%</td><td class="num"><b class="down">75%</b></td><td class="num">20</td>' in ev_table
+          and '<tr class="evt-item"><th scope="row">' in ev_table and '<td class="num">45%</td><td class="num">60%</td><td class="num"><b class="down">75%</b></td><td class="num evn">20</td>' in ev_table
           and ev_table.count('<tr class="evt-task">') == 23 and "not evaluated" in ev_table and '<tr class="evt-all"><th scope="row">Every question</th><td class="num">45%</td>' in ev_table
           and swarm_ui._ev_share(5, 0) == "–" and "$('#evd').showModal()" in swarm_ui.JS and '<dialog id="evd">' in html and "pct busy" not in ev_after,
           {"order": html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2>Pretrain</h2>') < html.index('<h2 id="arrangement">Train</h2>'),
@@ -1449,6 +1449,7 @@ check("the search behind the web search test gives a model what the test's own s
       and _r2 == [{"title": "A", "href": "https://a.example/x"}] and len([a for a in _asked if a[1] == "tea"]) == 1 and _asked[0] == ("http://s", "tea", "en-US")
       and _r3 == _r1 and len([a for a in _asked if a[1] == "late"]) == 2
       and _r4 == {"error": _bs.NOTHING} and _r5 == _r4 and len([a for a in _asked if a[1] == "nothing"]) == 3 and len(_kept_files) == 3
+      and _bs.fewest(10, "5") == 5 and _bs.fewest(3, 5) == 3 and _bs.fewest(10, None) == 10 and _bs.fewest(None, 0) == 10
       and _bs.cut_page({"content": "x" * 50}, 10)["content"].startswith("x" * 10 + "\n[The page goes on: only its first 10 characters are given, of 50.]") and _bs.cut_page({"content": "short"}, 10) == {"content": "short"}
       and _bs.cut_page({"error": "no"}, 10) == {"error": "no"} and _bs.cut_page({"content": "x" * 50}, 0)["content"] == "x" * 50 and _bs.cut_page({"content": "x" * 50}, None)["content"] == "x" * 50
       and _bs.language_of("wt-wt") == "all" and _bs.language_of("uk-en") == "en-GB" and _bs.language_of("tw-tzh") == "zh-TW" and _bs.language_of("ue-es") == "es-US" and _bs.language_of("") == "all"
@@ -1674,7 +1675,7 @@ _prog10_wait = swarm_ui.ev_progress({"tasks": [{"target": {"state": "kept", "don
 _prog10_open = swarm_ui.ev_progress({"tasks": [{"target": {"done": 7, "of": None}, "swarm": {"done": 0, "of": None}}]})
 check("a run this page started is running only while its own process is: a process is the run's where its command line still names what was started, so an id that has since gone to another program is not a run (an evaluation that ended the night before had read as running, with a Stop button that would have signalled that program), and neither is a training session's; and a running evaluation says how far it is in all in the headline's own unit, the questions both models have answered of all it will ask (691 answers beside a headline of 460 questions did not add up), with the share where the whole is known",
       _mine10 is True and _other10 is False and _self10 is False and _stale10["running"] is False and _stale10["phase"] == "done" and _live10["running"] is True and _run10["running"] is False
-      and _prog10 == "5 of 40 questions finished · 13%" and _prog10_open == "0 questions finished so far" and _prog10_wait == "26 of 60 questions finished · 43%" and swarm_ui.ev_progress({}) == ""
+      and _prog10 == "5 of 40 questions finished · 13%" and _prog10_open == "" and _prog10_wait == "26 of 60 questions finished · 43%" and swarm_ui.ev_progress({}) == ""
       and 'data-ev="prog"' in swarm_ui.JS + open(swarm_ui.__file__).read() and "set('prog'," in swarm_ui.JS,
       [_mine10, _other10, _self10, _stale10.get("running"), _live10.get("running"), _run10.get("running"), _prog10, _prog10_open, _prog10_wait])
 
@@ -1713,7 +1714,7 @@ check("a second look asks only the bodies of work where the swarm scored under t
       and _v11["by_task"]["he"]["carried"]["at"] == _full11["at"] and _v11["by_task"]["he"]["swarm"]["value"] == 0.75 and _v11["carried"] == 20
       and _v11["by_task"]["gsm"]["before"]["swarm"]["value"] == 0.4 and "carried" not in _v11["by_task"]["gsm"] and _v11["short"] == ["math"]
       and "· 20 from before ·" in _blk11 and "Not asked again: from the evaluation of 2026-11-19 10:00" in _blk11 and "Before (2026-11-19 10:00): the swarm 40%" in _blk11
-      and '<th class="num">Share before</th>' in _tab11 and '<td class="num">50% <i class="up">up</i></td>' in _tab11 and 'class="evt-task evt-old"' in _tab11 and "not asked again" in _tab11
+      and '<th class="num">Share before</th>' in _tab11 and '<td class="num">50% <i class="up">up</i></td>' in _tab11 and 'class="evt-task evt-old"' in _tab11 and 'title="Not asked again">–</td>' in _tab11
       and '<tr class="evt-all"><th scope="row">Every question</th><td class="num">67.5%</td><td class="num">65%</td><td class="num"><b class="up">103.8%</b></td><td class="num">88.4% <i class="up">up</i></td>' in _tab11
       and _v_level["short"] == [] and 'id="ev-narrow"' not in _blk_level and swarm_ui._and(["a", "b", "c"]) == "a, b and c"
       and "b.id==='ev-narrow'" in swarm_ui.JS and "a&&a.checked?{items:a.dataset.items.split(',')}:{}" in swarm_ui.JS,

@@ -336,7 +336,12 @@ dialog#evd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,94vw
 /* THE EVALUATE CARD'S HEADLINE IS A BUTTON (it opens the table, score beside score): it keeps the look of a headline, and says it can be pressed */
 .evopen{appearance:none;border:0;background:none;padding:6px 10px;margin:-6px -10px;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:12px;max-width:100%}
 .evopen:hover{background:rgba(11,93,87,.07)}.evopen:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
-.evt-wrap{overflow-x:auto;margin-top:12px}table.spec.evt th,table.spec.evt td{padding:7px 8px;overflow-wrap:normal}table.evt td.num,table.evt th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* THE TABLE FITS ITS DIALOG, at any width, with no sideways scroll: a column's heading may wrap (the larger model's name is long), a figure never does; on a phone the cells are tighter and the count of questions, the one column that is not a score, is left out */
+.evt-wrap{margin-top:12px;max-width:100%}table.spec.evt{table-layout:auto}table.spec.evt th,table.spec.evt td{padding:7px 8px;overflow-wrap:normal}table.evt td.num,table.evt th.num{text-align:right;font-variant-numeric:tabular-nums}table.evt td.num{white-space:nowrap}dialog#evd table.spec.evt thead th{white-space:normal}
+table.evt th:first-child,table.evt td:first-child{overflow-wrap:anywhere}
+@media (max-width:760px){dialog#evd{padding:18px 12px}table.spec.evt{font-size:12px;table-layout:fixed}table.evt th:first-child{width:30%}table.spec.evt th,table.spec.evt td{padding:6px 4px}table.spec.evt thead th{font-size:9.5px;letter-spacing:.04em}table.evt .evn{display:none}
+  table.evt tr.evt-task td:first-child{padding-left:12px}table.evt i.up,table.evt i.down{display:block;margin-left:0}}
+@media (max-width:360px){dialog#evd{padding:16px 8px}table.spec.evt{font-size:11px}table.spec.evt th,table.spec.evt td{padding:5px 3px}table.spec.evt thead th{font-size:8.5px;letter-spacing:0}table.evt tr.evt-task td:first-child{padding-left:8px}}
 table.evt tr.evt-item th{font-weight:800;text-align:left}table.evt tr.evt-item td{font-weight:700}table.evt tr.evt-task td:first-child{padding-left:26px;color:var(--mist)}
 table.evt tr.evt-all th,table.evt tr.evt-all td{border-top:2px solid var(--teal);font-weight:800;text-align:left}table.evt tr.evt-all td.num{text-align:right}
 table.evt b.up{color:var(--right)}table.evt b.down{color:#9a5b00}table.evt i.up,table.evt i.down{font-style:normal;font-size:11px;font-weight:800;margin-left:4px}table.evt i.up{color:var(--right)}table.evt i.down{color:var(--wrong)}
@@ -779,7 +784,7 @@ async function evTick(){const box=$('#evalbox');if(!box||!box.dataset.running)re
   // HOW FAR IT IS IN ALL, in questions as the headline counts them: one is finished once both models answered it (ev_progress, the same count)
   {let dn=0,tot=0,known=true;for(const t of s.tasks||[]){const a=t.target||{},b=t.swarm||{};dn+=Math.min(Number(a.done)||0,Number(b.done)||0);
      const n=Number(a.of||b.of)||0;if(n)tot+=n;else known=false;}
-   set('prog',(s.tasks||[]).length?(known&&tot?dn+' of '+tot+' questions finished · '+Math.round(100*dn/tot)+'%':dn+' questions finished so far'):'');}
+   set('prog',(s.tasks||[]).length?(known&&tot?dn+' of '+tot+' questions finished · '+Math.round(100*dn/tot)+'%':''):'');}
   const q=box.querySelector('.evq'),n=s.now;
   if(q){q.hidden=!n;if(n){const tn=box.dataset.tname||'';
     set('q',(n.who==='swarm'?'the swarm':(s.target||'the larger model'))+' · '+n.name+' · question '+n.i+(n.of?' of '+n.of:''));
@@ -3473,7 +3478,7 @@ def ev_progress(live):
     """HOW FAR A RUNNING EVALUATION IS, in a line, IN THE HEADLINE'S OWN UNIT: questions. A question is finished once both the
     larger model and the swarm have answered it (answers kept from before count), so the count is the lesser of the two in each
     task; a task is as long as either side says it is (the swarm asks the same questions the larger model was asked, and says so
-    only when its turn comes). The share where the whole is known, a half rounded up as the page's own script rounds it. '' before it has listed its tasks. Counting ANSWERS here read
+    only when its turn comes). Said with its share, and only where the whole is known: '' otherwise, a half rounded up as the page's own script rounds it. '' before it has listed its tasks. Counting ANSWERS here read
     691 beside a headline of 460 questions."""
     done = of = 0
     known = True
@@ -3487,7 +3492,8 @@ def ev_progress(live):
             known = False
     if not (live.get("tasks") or []):
         return ""
-    return ("%d of %d questions finished · %d%%" % (done, of, int(100.0 * done / of + 0.5))) if known and of else "%d questions finished so far" % done
+    # (said only where the whole is known: a bare count with no total repeats what each task's own line on the card says)
+    return ("%d of %d questions finished · %d%%" % (done, of, int(100.0 * done / of + 0.5))) if known and of else ""
 
 
 def _ev_bar(row, who, label):
@@ -3577,8 +3583,9 @@ def eval_table(d):
                 moved = "" if now_s is None or was_s is None or now_s == was_s else ' <i class="%s">%s</i>' % ("up" if now_s > was_s else "down", "up" if now_s > was_s else "down")
                 b = '<td class="num">%s%s</td>' % (_ev_share(bs, bt), moved)
             else:
-                b = '<td class="num muted">%s</td>' % ("not asked again" if all(r.get("carried") for r in rs) else "")
-        return ('<td class="num">%s%%</td><td class="num">%s%%</td><td class="num"><b class="%s">%s</b></td>%s<td class="num">%d</td>'
+                # (a line not asked again has no before: a dash, its title saying so; the line is grey and the note above the table says why)
+                b = '<td class="num muted"%s</td>' % (' title="Not asked again">–' if all(r.get("carried") for r in rs) else ">")
+        return ('<td class="num">%s%%</td><td class="num">%s%%</td><td class="num"><b class="%s">%s</b></td>%s<td class="num evn">%d</td>'
                 % (fmt_pct(data.percent(sw, of)), fmt_pct(data.percent(tg, of)), "up" if sw >= tg else "down", _ev_share(sw, tg), b, of))
 
     rows = []
@@ -3597,7 +3604,7 @@ def eval_table(d):
         notes += " A line in grey was not asked again this time: its figures are the earlier evaluation&#39;s."
     return (head + '<p class="small muted" style="margin:10px 0 0">Each was put the same questions and marked by the benchmark&#39;s own checker. Share is the swarm&#39;s score as a share of %s&#39;s: '
             '100%% or more is where the swarm is level or ahead.%s%s</p>' % (e(tname), when, notes)
-            + '<div class="evt-wrap"><table class="spec evt"><thead><tr><th>Body of work</th><th class="num">The swarm</th><th class="num">%s</th><th class="num">Share</th>%s<th class="num">Questions</th></tr></thead>'
+            + '<div class="evt-wrap"><table class="spec evt"><thead><tr><th>Body of work</th><th class="num">The swarm</th><th class="num">%s</th><th class="num">Share</th>%s<th class="num evn">Questions</th></tr></thead>'
             '<tbody>%s</tbody></table></div>' % (e(tname), '<th class="num">Share before</th>' if was else "", "".join(rows)))
 
 

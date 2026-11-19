@@ -15,6 +15,7 @@ functions a model is offered, their descriptions and arguments, the questions, t
   SWARM_SEARCH_TRIES   how often a search that returned nothing is asked again before that is the answer (3)
   SWARM_SEARCH_PAGE_CHARS  the most of a fetched page a model is given, in characters (none or 0: all of it). A page is kept
                        whole and cut as it is given, the same for the larger model and the swarm, and says where it was cut
+  SWARM_SEARCH_RESULTS_MOST  the most results a search gives, however many were asked for (none or 0: as many as asked)
 
 What goes back to the model is the shape the package's own function gives: a list of { title, href, body } (no body where the
 test says snippets are not shown), cut at max_results; or { error } where nothing could be found.
@@ -61,6 +62,13 @@ def to_results(found, max_results=10, show_snippet=True):
         if len(out) >= int(max_results or 10):
             break
     return out
+
+
+def fewest(asked, most):
+    """How many results a search gives: as many as were asked for, and never more than `most` (none or 0: no limit)."""
+    asked = int(asked or 10)
+    most = int(most or 0)
+    return min(asked, most) if most > 0 else asked
 
 
 def is_page(url):
@@ -123,7 +131,7 @@ def search(base, folder, keywords, max_results=10, region="wt-wt", show_snippet=
         return {"results": [], "why": last}
 
     found = kept(os.path.join(folder, "queries") if folder else "", json.dumps({"q": keywords, "language": language}, sort_keys=True), make)
-    rows = to_results(found.get("results"), max_results, show_snippet)
+    rows = to_results(found.get("results"), fewest(max_results, os.environ.get("SWARM_SEARCH_RESULTS_MOST")), show_snippet)
     return rows if rows else {"error": NOTHING}
 
 

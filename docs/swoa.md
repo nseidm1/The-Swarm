@@ -152,7 +152,7 @@ Each result:
 | `gapStderr` | with `pairs`: `sqrt(((onlySwoa + onlyTarget) / n - g^2) / n)` where `g = (onlySwoa - onlyTarget) / n`; without: `sqrt(swoa.stderr^2 + target.stderr^2)` |
 | `tools` | where the test offers tools: what each model was offered, in words. Absent where it offers none |
 | `askedOn` | where the answers depend on the day (a search of the live web): the day, `YYYY-MM-DD`, on which both models were asked |
-| `search` | where the test's tools search: the search service that stood behind them, the same for both models. `{ service }`, and where known `revision` (of the service's program), `where` (it ran), `engines` (that answered), `kept` (what of its answers was kept and given to both), `queries`, `pages`, `pageChars` (where a fetched page was cut before it was given: at how many characters, the same for both) |
+| `search` | where the test's tools search: the search service that stood behind them, the same for both models. `{ service }`, and where known `revision` (of the service's program), `where` (it ran), `engines` (that answered), `kept` (what of its answers was kept and given to both), `queries`, `pages`, `pageChars` (where a fetched page was cut before it was given: at how many characters, the same for both), `resultsMost` (where a search gave at most so many results, the same for both) |
 | `targetAsked`, `targetWays` | where the target was asked more than one way (below): the way it is counted by on this capability, `"tools"`, `"written"` or `"after"`, and its `{ value, stderr }` on this task by each |
 | `proof` | boolean (the rule below) |
 | `at`, `runId` | when it was measured |
