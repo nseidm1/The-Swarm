@@ -8759,6 +8759,26 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const web = plan.find((b) => b.task === 'bfcl_web_search_base');
   // (what the larger model first measured scored, 20 questions a task: written is the better over the four tasks that need a
   // call and the worse on the one that needs none; it is counted by one way for the whole body of work)
+  // THE FORM OF THE ANSWER SAID AFTER THE QUESTION (the web search test): the system message's words, unchanged, at the end of the
+  // first thing the user said; every later step as it was; nothing to move, nothing changed
+  const steps = [
+    { role: 'system', content: 'Answer in this form.\n' },
+    { role: 'user', content: 'Who?' },
+    { role: 'assistant', content: null, tool_calls: [{ function: { name: 'f', arguments: '{}' } }] },
+    { role: 'tool', content: 'found' },
+    { role: 'user', content: 'And then?' },
+  ];
+  const moved = T.formAfter(steps);
+  const plain = [{ role: 'user', content: 'Who?' }];
+  const afterOk =
+    moved.length === 4 &&
+    moved[0].role === 'user' &&
+    moved[0].content === 'Who?\n\nAnswer in this form.' &&
+    JSON.stringify(moved.slice(1)) === JSON.stringify(steps.slice(2)) &&
+    steps[1].content === 'Who?' &&
+    T.formAfter(plain) === plain &&
+    typeof T.askAfterAt === 'function' &&
+    E.WAY_SAID.after.includes('after the question');
   const by = E.wayByItem([
     ...[14, 15, 2, 8, 20].map((right) => ({ item: 'tools', way: 'tools', right, n: 20 })),
     ...[19, 18, 16, 18, 10].map((right) => ({ item: 'tools', way: 'written', right, n: 20 })),
@@ -8769,7 +8789,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   check(
     'the larger model is asked a function-calling test two ways and counted by one of them for the whole body of work, the one it scores higher by over its tasks together (the tools in the request where they tie): written into the conversation, its functions go into the system message after its own, every earlier call and result is written out as text, no tools are in the request, and every call it writes is read from its reply; a reply that writes none is a reply',
     JSON.stringify(E.waysOf(fn)) === JSON.stringify(['tools', 'written']) &&
-      JSON.stringify(E.waysOf(web)) === JSON.stringify(['tools']) &&
+      JSON.stringify(E.waysOf(web)) === JSON.stringify(['tools', 'after']) &&
+      afterOk &&
       JSON.stringify(E.waysOf(plan.find((b) => b.task === 'ifeval'))) === JSON.stringify(['tools']) &&
       by.tools === 'written' &&
       by.search === 'tools' &&

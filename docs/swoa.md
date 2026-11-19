@@ -153,7 +153,7 @@ Each result:
 | `tools` | where the test offers tools: what each model was offered, in words. Absent where it offers none |
 | `askedOn` | where the answers depend on the day (a search of the live web): the day, `YYYY-MM-DD`, on which both models were asked |
 | `search` | where the test's tools search: the search service that stood behind them, the same for both models. `{ service }`, and where known `revision` (of the service's program), `where` (it ran), `engines` (that answered), `kept` (what of its answers was kept and given to both), `queries`, `pages` |
-| `targetAsked`, `targetWays` | where the target was asked more than one way (below): the way it is counted by on this capability, `"tools"` or `"written"`, and its `{ value, stderr }` on this task by each |
+| `targetAsked`, `targetWays` | where the target was asked more than one way (below): the way it is counted by on this capability, `"tools"`, `"written"` or `"after"`, and its `{ value, stderr }` on this task by each |
 | `proof` | boolean (the rule below) |
 | `at`, `runId` | when it was measured |
 | `configuration`, `arrangementSha256` | what it was measured on |
@@ -179,7 +179,11 @@ model wrote (only the first of several calls, for one). So the target MAY be ask
 into the conversation, each call a JSON object between `<tool_call>` tags, and its calls read from its reply. It is then
 counted by one way for the whole capability: the way it scores higher by over the capability's tasks together (the tools in
 the request where the two tie), never the better way task by task. Each result MUST say which way that is and give the
-target's score by both (`targetAsked`, `targetWays`). The module is asked the one way: tools in the request is the interface
+target's score by each (`targetAsked`, `targetWays`). A test may also tell a model, in a system message, the form its final
+answer must take, and a target may read that as its whole instruction and answer at once without using the tools it was
+offered. So, on a test whose tools search, the target MAY be asked another way as well (`"after"`): the tools in the request,
+and that system message's words, unchanged, moved to the end of the first thing the user said, with nothing added. It is
+counted by the same rule. The module is asked the one way: tools in the request is the interface
 it is measured through. Where what a tool returns changes from day to day, the
 module and the target MUST both be asked on the same day, against the same service, and the result MUST name the day (`askedOn`)
 and the service (`search`); answers of one model given on another day, or through another service, MUST NOT be set beside

@@ -19,6 +19,7 @@
 //   bfclScore(root, category)              -> { value, stderr, n, of, asked: [ids], right: [ids], wrong: [ids], why: { id: words } }
 //   askToolsAt(base), askWrittenAt(base)   -> a model asked a step with tools: the tools in the request, or written into the
 //                                             conversation and its calls read from its reply (below: why the second)
+//   askAfterAt(base), formAfter(messages)  -> the same, the test's words on the form of the answer moved after the question
 //   pairOf(target, swarm)                  -> { of, same, bothRight, bothWrong, differ, onlyTarget, onlySwarm, examples }, the shape
 //                                             support/harness_agree.py prints for the other harness
 import fs from 'node:fs';
@@ -316,6 +317,32 @@ export const askWrittenAt =
     const calls = [...(Array.isArray(got.message.tool_calls) ? got.message.tool_calls : []), ...callsWritten(text)];
     return { message: calls.length ? { content: null, tool_calls: calls } : { content: text }, usage: got.usage };
   };
+
+// ---- THE FORM OF THE ANSWER SAID AFTER THE QUESTION. The web search test tells a model, in a system message, the form its final
+// answer must take ("... If you do not know the answer, respond with ..."). A model may read that as its whole instruction and
+// answer at once, never searching: the larger model first measured here did (measured 2026-11-19, the test's first four questions,
+// the search functions offered: it searched on none with those words in a system message, on three with the question alone, and
+// on all four with the same words, unchanged, after the question). A test that then counted it wrong would measure how it reads
+// one message, not whether it can search. So the larger model is ALSO asked this way: nothing added and nothing reworded, the
+// system message's words moved to the end of the first thing the user said. Counted, as with the functions written in, by the way
+// it scores higher by over the body of work (training/evaluate.mjs).
+export function formAfter(messages) {
+  const all = messages || [];
+  const sys = all
+    .filter((m) => m.role === 'system')
+    .map((m) => String(m.content || '').trim())
+    .filter(Boolean)
+    .join('\n\n');
+  const rest = all.filter((m) => m.role !== 'system');
+  const first = rest.findIndex((m) => m.role === 'user');
+  if (!sys || first < 0) return all;
+  return rest.map((m, i) => (i === first ? { ...m, content: String(m.content ?? '') + '\n\n' + sys } : m));
+}
+// a model asked a step with tools in the request, the test's words on the form of its answer after the question
+export const askAfterAt =
+  (base, { model = 'model', stop = null } = {}) =>
+  ({ messages, tools }) =>
+    sendTo(base, { model, messages: formAfter(messages), tools, stop });
 
 // THE RELAY, for a step with tools: the package's client talks to this, and this to the model (ask({ messages, tools }) ->
 // { message, usage }). on.ask({ excerpt }) and on.answer({ excerpt, seconds }) say what it is doing, for the page

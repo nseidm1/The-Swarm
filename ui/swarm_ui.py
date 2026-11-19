@@ -4095,7 +4095,7 @@ def class_arrangements(sp):
     return lead + "".join(out)
 
 
-TARGET_WAY = {"tools": "tools in the request", "written": "tools written into the conversation"}
+TARGET_WAY = {"tools": "tools in the request", "written": "tools written into the conversation", "after": "the form of its answer said after the question"}
 
 
 def search_words(x):

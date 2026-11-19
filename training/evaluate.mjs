@@ -47,6 +47,7 @@ import {
   toolRelay,
   askToolsAt,
   askWrittenAt,
+  askAfterAt,
 } from './support/bfcl.mjs';
 import {
   searchOf,
@@ -99,8 +100,17 @@ export const searchPart = (b, env = process.env) => (b.search ? '-' + searchOf(e
 // THE WAYS THE LARGER MODEL IS ASKED A TOOL TEST: with the tools in the request, as the swarm is; and, where the benchmark says so
 // (targetAlsoWritten), with the functions written into the conversation and its calls read from its reply (support/bfcl.mjs says
 // why: a server may return only the first of the calls its model wrote). It is counted by the way it scores higher by, so that a
-// result never rests on how the larger model happens to be served
-export const waysOf = (b) => (isToolTest(b) && b.targetAlsoWritten ? ['tools', 'written'] : ['tools']);
+// result never rests on how the larger model happens to be served. And, where the benchmark says so (targetAlsoAfter: the web
+// search test), with the test's words on the form of the final answer said after the question and not in a system message
+// (support/bfcl.mjs formAfter says why: the larger model answered at once on every question and never searched)
+export const WAY_SAID = {
+  written: ', its functions written into the conversation',
+  after: ', the form of its answer said after the question',
+};
+export const waysOf = (b) =>
+  isToolTest(b)
+    ? ['tools', ...(b.targetAlsoWritten ? ['written'] : []), ...(b.targetAlsoAfter ? ['after'] : [])]
+    : ['tools'];
 // THE WAY IT IS COUNTED BY IS ONE FOR A WHOLE BODY OF WORK: the way it scores higher by over that body's tasks together, the tools
 // in the request where the two tie. Not the better way task by task: neither is the better on every task (measured 2026-11-18,
 // 20 questions a task: written, 19, 18, 16 and 18 right where a call was needed against 14, 15, 2 and 8; and 10 against 20 where
@@ -530,9 +540,10 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     });
 
   // one model through every task that needs it: askModel(messages, body) is the model, behind a relay that says what it does;
-  // askTools({ messages, tools }) the same model asked a step with tools, behind the tool tests' relay; askWritten the same, for a
+  // askTools({ messages, tools }) the same model asked a step with tools, behind the tool tests' relay; other[way] the same, for a
   // task to be asked with its functions written into the conversation (b.way 'written')
-  const askAll = async (who, askModel, askTools, tasks, outOf, askWritten = null) => {
+  // other: { written, after }, the same model asked a step each other way a task may name (b.way)
+  const askAll = async (who, askModel, askTools, tasks, outOf, other = {}) => {
     const durations = [];
     const stopped = () => Promise.reject(new Error('the evaluation was stopped'));
     const on = (counts) => ({
@@ -568,25 +579,23 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     const r = tasks.some((b) => !isToolTest(b))
       ? await relay((m, b) => (halted ? stopped() : askModel(m, b)), on(true))
       : null;
-    const written = (b) => isToolTest(b) && b.way === 'written';
-    const rt = tasks.some((b) => isToolTest(b) && !written(b))
+    const wayIs = (b) => (isToolTest(b) && other[b.way] ? b.way : '');
+    const rt = tasks.some((b) => isToolTest(b) && !wayIs(b))
       ? await toolRelay((q) => (halted ? stopped() : askTools(q)), on(false))
       : null;
-    const rw = tasks.some(written) ? await toolRelay((q) => (halted ? stopped() : askWritten(q)), on(false)) : null;
-    for (const x of [r, rt, rw]) if (x) stopping.push(x.close);
+    // (a relay for each other way some task here is asked by)
+    const ro = {};
+    for (const way of [...new Set(tasks.map(wayIs).filter(Boolean))])
+      ro[way] = await toolRelay((q) => (halted ? stopped() : other[way](q)), on(false));
+    const relays = [r, rt, ...Object.values(ro)];
+    for (const x of relays) if (x) stopping.push(x.close);
     for (const b of tasks) {
-      say(
-        'Asking ' +
-          (who === 'target' ? TARGET.name : 'the swarm') +
-          ': ' +
-          b.name +
-          (written(b) ? ', its functions written into the conversation' : ''),
-      );
-      if (isToolTest(b)) await toolTest(b, who, (written(b) ? rw : rt).base, outOf(b));
+      say('Asking ' + (who === 'target' ? TARGET.name : 'the swarm') + ': ' + b.name + (WAY_SAID[wayIs(b)] || ''));
+      if (isToolTest(b)) await toolTest(b, who, (ro[wayIs(b)] || rt).base, outOf(b));
       else await harness(b, who, r.base, outOf(b));
       if (halted) await never();
     }
-    for (const x of [r, rt, rw]) if (x) await x.close();
+    for (const x of relays) if (x) await x.close();
   };
 
   // what is kept of a task in a folder (its files, or null where it was not asked to the end), and its score from them
@@ -625,7 +634,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         RELAY_VERSION +
         dayPart(b) +
         searchPart(b) +
-        (b.way === 'written' ? '-written' : ''),
+        (b.way && b.way !== 'tools' ? '-' + b.way : ''),
     );
   const targetAsks = askable.flatMap((b) => waysOf(b).map((way) => (way === 'tools' ? b : { ...b, way })));
   const needTarget = targetAsks.filter((b) => !keptIn(keep(b), b));
@@ -648,7 +657,10 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       askToolsAt(t.base, { model: TARGET.model || 'target', stop: ['<unk>'] }),
       needTarget,
       keep,
-      askWrittenAt(t.base, { model: TARGET.model || 'target', stop: ['<unk>'] }),
+      {
+        written: askWrittenAt(t.base, { model: TARGET.model || 'target', stop: ['<unk>'] }),
+        after: askAfterAt(t.base, { model: TARGET.model || 'target', stop: ['<unk>'] }),
+      },
     );
     await t.stop();
   }
