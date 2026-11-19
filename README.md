@@ -695,6 +695,13 @@ npm test
 python3 ui/check.py
 ```
 
+`npm test` runs the module's checks side by side on every core: `tests/run.mjs` is one opening and 87 blocks of checks, and
+[`tests/shard.mjs`](tests/shard.mjs) deals the blocks out to as many processes as the machine has cores, each with folders and
+ports of its own, and counts what they print as one run (17 seconds on a 24-core Mac, where one process takes about 52; the
+longest block alone is 17). `npm run test:serial` is the same checks in one process, `npm run test:all` runs the dashboard's
+checks beside them, and `node tests/shard.mjs --jobs 4` sets how many at once. The dashboard's checks are one script that
+drives one page from top to bottom, and are not split.
+
 One hundred and ninety-five checks of the module and the trainers, and one hundred and twenty-four of the dashboard. Stand-in servers take the place of the
 models, the decider and Hugging Face, so nothing is fetched, started or installed, and both finish in well under a minute. Evaluate the
 swarm's relays (the tool tests' among them), its comparison of answers, the adapters the swarm is served with, and the Evaluate, Pretrain and Uninstall Helper

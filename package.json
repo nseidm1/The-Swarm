@@ -43,7 +43,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node tests/run.mjs",
+    "test": "node tests/shard.mjs",
+    "test:serial": "node tests/run.mjs",
+    "test:all": "node tests/shard.mjs --dashboard",
     "serve": "node bin/swarm.mjs serve",
     "train": "bash training/session.sh",
     "ui": "python3 ui/swarm_ui.py",

@@ -35,3 +35,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# the shards tests/shard.mjs writes for the length of a run
+tests/.shard-*.mjs

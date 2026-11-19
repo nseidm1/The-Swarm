@@ -11,3 +11,4 @@ src/learned/
 # Not source: pictures
 assets/
 docs/images/
+tests/.shard-*.mjs

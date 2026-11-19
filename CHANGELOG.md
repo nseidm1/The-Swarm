@@ -76,6 +76,10 @@ The first version.
 - **A reply no longer ends by saying where it came from.** A small writer gave the answer and then, in a paragraph of its
   own, said it was "settled based on the provided draft": 7 of the swarm's 39 replies in words on the function-calling
   test. Such closing paragraphs are cut, and the answer before them goes out as it was written (SwOA specification R.1.14).
+- **The checks run on every core.** `npm test` deals the 87 blocks of `tests/run.mjs` out to as many processes as the machine
+  has cores (`tests/shard.mjs`): 17 seconds on a 24-core Mac, where one process takes about 52. `npm run test:serial` is the
+  one-process run. And two of the dashboard's checks no longer depend on how the machine that runs them is configured: they
+  failed on a fresh clone, and so in CI.
 - **Training asks every body of work; nothing is chosen.** The boxes to tick under the models ("Equivalent on") are gone,
   and `equivalence` from `src/config.json`: one left in a configuration file is not read, and the dashboard takes it out the
   next time it writes the file. A pass asks the kinds of all eight bodies of work (28 kinds; 168 train questions and 168

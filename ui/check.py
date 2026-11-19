@@ -1453,7 +1453,8 @@ check("the SwOA spec says what web search is to the module and how it is used: a
       and "<h4>Web search</h4>" in _wsb and "How to use it" in _wsb and _wsb.count("<li>") == 3 and "the module never searches by itself" in _wsb and "searched through: SearXNG · revision b867c56a5668" in _wsb
       and "searched through: SearXNG · revision b867c56a5668 · served on the machine that measured, for the length of the run · engines that answered: brave, duckduckgo" in _pb3 and "asked 2026-11-19" in _pb3
       and 'search: "SearXNG b867c56a5668"' in _card3
-      and "webSearch" in _real["interface"] and _real["interface"]["webSearch"]["limits"]["charactersOfOneResult"] == _each and "<h4>Web search</h4>" in swarm_ui.spec_panel(_d),
+      # (the swarm as this machine has it configured: the limits are the swarm's where it takes turns with tools, and none where one model does)
+      and "webSearch" in _real["interface"] and _real["interface"]["webSearch"]["limits"]["charactersOfOneResult"] == (_each if _real["interface"]["capabilities"].get("toolsMode") == "swarm" else None) and "<h4>Web search</h4>" in swarm_ui.spec_panel(_d),
       [_ws["limits"], _ws_m["measured"], _wsb[:200]])
 
 # WHAT A PASS ASKS MORE OF BECAUSE A PROOF FOUND THE MODULE SHORT (training/support/emphasis.mjs), as the page and the SwOA say it:
@@ -1486,6 +1487,14 @@ with _tf.TemporaryDirectory() as _t5:
     (_r5 / ".work" / "eval" / "history.jsonl").write_text(json.dumps(_row5) + "\n")
     _p5 = data.swoa_proof({"root": str(_r5), "key": "c--t", "members": {}, "equivalence": {"targets": _tg5}}, "A", {})
 _real5 = data.spec(_d)
+# (the page of the made-up data, which has a plan in hand: a fresh clone has none, and what a pass asks is said with the plan)
+_s5 = Path(tempfile.mkdtemp(prefix="swarm-check-emphasis-"))
+sample.main(_s5, {"a": "lfm25-2.6b", "b": "bonsai2-2b", "decider": "kev-4b", "target": "nemotron35-30b"})
+_args5 = swarm_ui.ARGS
+swarm_ui.ARGS = _types.SimpleNamespace(root=str(_s5))
+_plan5 = swarm_ui.plan_panel(data.load(_s5))
+swarm_ui.ARGS = _args5
+shutil.rmtree(_s5, ignore_errors=True)
 parts5 = {
     "the rule": _g5["gap"] == -0.1 and _g5["gapStderr"] == 0.0205 and data.verdict_of(_g5["gap"], _g5["gapStderr"]) == "short" and data.verdict_of(-0.06, 0.0676) == "open" and data.verdict_of(-0.004, 0.0221) == "parity",
     "capability": data.capability_of(_tg5, "ifeval", "crew", "The Crew") == ("instructions", "Instructions") and data.capability_of(_tg5, "gsm8k", "math", "Math") == ("math", "Math")
@@ -1504,7 +1513,7 @@ parts5 = {
                    and "Only the verdict is read from a proof, never one of its questions." in _mw5 and swarm_ui.more_words({"emphasis": _em5_old}).startswith("This pass asks more of:")
                    and "proof" not in swarm_ui.more_words({"emphasis": _em5_old}) and swarm_ui.more_words({}) == ""
                    and "The proof of 2026-11-20 was read: no capability is short in it." in swarm_ui.more_words({"emphasis": _em5_none})
-                   and "by the proof, where an evaluation has found a capability short" in swarm_ui.main_body(_d),
+                   and "by the proof, where an evaluation has found a capability short" in _plan5,
     "in the SwOA": isinstance(_real5["trainedAgainst"]["emphasis"], dict) and set(_real5["trainedAgainst"]["emphasis"]) == {"is", "kinds", "fromHeld", "fromProof", "passesWeightedByAProof"},
 }
 check("what a pass asks more of is said with where it came from: the kinds its own held questions found the swarm short on, and the kinds of a capability a proof found it short on, with the proof's date, the gap and the questions it rests on; a verdict is read by the same rule and the same numbers as the proof on the page; a capability is the body of work that trains what a task measures (IFEval's is Instructions, though it is listed under The Crew), named by the work and never by a product, in the proof too; a record from before a proof was read is all from its held questions; and a proof that has weighted a pass is said to have, under the proof in the SwOA dialog, on the SwOA card and in the SwOA itself (trainedAgainst.emphasis), with what was read of it and what never is",
