@@ -1645,12 +1645,15 @@ swarm_ui.ARGS = _args10
 _p10.kill()
 shutil.rmtree(_r10, ignore_errors=True)
 _prog10 = swarm_ui.ev_progress({"tasks": [{"target": {"done": 20, "of": 20}, "swarm": {"done": 5, "of": 20}}, {"target": {"done": 0, "of": 20}, "swarm": {"done": 0, "of": 20}}]})
+# the swarm says how long a task is only when its turn comes: the larger model's count stands for it, so the whole is known
+_prog10_wait = swarm_ui.ev_progress({"tasks": [{"target": {"state": "kept", "done": 20, "of": 20}, "swarm": {"done": 20, "of": 20}}, {"target": {"done": 20, "of": 20}, "swarm": {"done": 6, "of": 20}},
+                                               {"target": {"done": 20, "of": 20}, "swarm": {"state": "waiting", "done": 0, "of": None}}]})
 _prog10_open = swarm_ui.ev_progress({"tasks": [{"target": {"done": 7, "of": None}, "swarm": {"done": 0, "of": None}}]})
-check("a run this page started is running only while its own process is: a process is the run's where its command line still names what was started, so an id that has since gone to another program is not a run (an evaluation that ended the night before had read as running, with a Stop button that would have signalled that program), and neither is a training session's; and a running evaluation says how far it is in all, the answers asked of both models of all it will ask, with the share where the whole is known",
+check("a run this page started is running only while its own process is: a process is the run's where its command line still names what was started, so an id that has since gone to another program is not a run (an evaluation that ended the night before had read as running, with a Stop button that would have signalled that program), and neither is a training session's; and a running evaluation says how far it is in all in the headline's own unit, the questions both models have answered of all it will ask (691 answers beside a headline of 460 questions did not add up), with the share where the whole is known",
       _mine10 is True and _other10 is False and _self10 is False and _stale10["running"] is False and _stale10["phase"] == "done" and _live10["running"] is True and _run10["running"] is False
-      and _prog10 == "25 of 80 answers asked · 31%" and _prog10_open == "7 answers asked so far" and swarm_ui.ev_progress({}) == ""
+      and _prog10 == "5 of 40 questions finished · 13%" and _prog10_open == "0 questions finished so far" and _prog10_wait == "26 of 60 questions finished · 43%" and swarm_ui.ev_progress({}) == ""
       and 'data-ev="prog"' in swarm_ui.JS + open(swarm_ui.__file__).read() and "set('prog'," in swarm_ui.JS,
-      [_mine10, _other10, _self10, _stale10.get("running"), _live10.get("running"), _run10.get("running"), _prog10, _prog10_open])
+      [_mine10, _other10, _self10, _stale10.get("running"), _live10.get("running"), _run10.get("running"), _prog10, _prog10_open, _prog10_wait])
 
 # ---- A CARD'S CONTROLS STAY IN THEIR COLUMN: a chooser is no wider than the column, whatever its longest choice
 check("the controls of a card's head stay inside the third column (a chooser as wide as its longest choice lay over the description beside it): they take the column's width and no more, a choice that does not fit cut short with an ellipsis; and the four cards keep the same three columns",

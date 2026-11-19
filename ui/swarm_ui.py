@@ -757,9 +757,10 @@ async function evTick(){const box=$('#evalbox');if(!box||!box.dataset.running)re
   if(!s.running||(s.runId&&box.dataset.run&&s.runId!==box.dataset.run)){await swap('/fragment/eval','#evalwrap');await swap('/fragment/score','#score');return;}
   const set=(k,t)=>{const el=box.querySelector('[data-ev="'+k+'"]');if(el&&el.textContent!==t)el.textContent=t;};
   set('step',s.step||'');
-  // HOW FAR IT IS IN ALL: the answers asked so far of all it will ask, both models together (ev_progress, the same count)
-  {let dn=0,tot=0,known=true;for(const t of s.tasks||[])for(const w of ['target','swarm']){const x=t[w]||{};dn+=Number(x.done)||0;if(x.of)tot+=Number(x.of);else known=false;}
-   set('prog',(s.tasks||[]).length?(known&&tot?dn+' of '+tot+' answers asked · '+Math.round(100*dn/tot)+'%':dn+' answers asked so far'):'');}
+  // HOW FAR IT IS IN ALL, in questions as the headline counts them: one is finished once both models answered it (ev_progress, the same count)
+  {let dn=0,tot=0,known=true;for(const t of s.tasks||[]){const a=t.target||{},b=t.swarm||{};dn+=Math.min(Number(a.done)||0,Number(b.done)||0);
+     const n=Number(a.of||b.of)||0;if(n)tot+=n;else known=false;}
+   set('prog',(s.tasks||[]).length?(known&&tot?dn+' of '+tot+' questions finished · '+Math.round(100*dn/tot)+'%':dn+' questions finished so far'):'');}
   const q=box.querySelector('.evq'),n=s.now;
   if(q){q.hidden=!n;if(n){const tn=box.dataset.tname||'';
     set('q',(n.who==='swarm'?'the swarm':(s.target||'the larger model'))+' · '+n.name+' · question '+n.i+(n.of?' of '+n.of:''));
@@ -3449,22 +3450,24 @@ METRIC_WORDS = {"exact_match": "exact match", "pass@1": "pass@1", "pass_at_1": "
 
 
 def ev_progress(live):
-    """HOW FAR A RUNNING EVALUATION IS, in a line: the answers asked so far of all it will ask, of the larger model and of the
-    swarm together (a task whose answers were kept from before counts as asked), with the share where the whole is known. ''
-    before it has listed its tasks."""
+    """HOW FAR A RUNNING EVALUATION IS, in a line, IN THE HEADLINE'S OWN UNIT: questions. A question is finished once both the
+    larger model and the swarm have answered it (answers kept from before count), so the count is the lesser of the two in each
+    task; a task is as long as either side says it is (the swarm asks the same questions the larger model was asked, and says so
+    only when its turn comes). The share where the whole is known, a half rounded up as the page's own script rounds it. '' before it has listed its tasks. Counting ANSWERS here read
+    691 beside a headline of 460 questions."""
     done = of = 0
     known = True
     for t in live.get("tasks") or []:
-        for who in ("target", "swarm"):
-            x = t.get(who) or {}
-            done += int(x.get("done") or 0)
-            if x.get("of"):
-                of += int(x["of"])
-            else:
-                known = False
+        a, b = t.get("target") or {}, t.get("swarm") or {}
+        done += min(int(a.get("done") or 0), int(b.get("done") or 0))
+        n = int(a.get("of") or b.get("of") or 0)
+        if n:
+            of += n
+        else:
+            known = False
     if not (live.get("tasks") or []):
         return ""
-    return ("%d of %d answers asked · %d%%" % (done, of, round(100.0 * done / of))) if known and of else "%d answers asked so far" % done
+    return ("%d of %d questions finished · %d%%" % (done, of, int(100.0 * done / of + 0.5))) if known and of else "%d questions finished so far" % done
 
 
 def _ev_bar(row, who, label):
