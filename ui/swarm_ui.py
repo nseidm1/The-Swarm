@@ -2470,9 +2470,46 @@ def run_lines(cleared=""):
         out.append(note("", "Train fetches what the configured swarm is missing first"))
     elif decider_base() and not named_decider():
         out.append(note("warn", "A decider is loaded outside a session: <code>bash training/decider.sh stop</code>"))
+    gate = gate_stopped()
+    if gate:
+        out.append(note("warn", gate))
     if st and st.get("stopped"):
         out.append(note("", "Stopped at %s" % e(st["stopped"][:5])))
     return "".join(out)
+
+
+def gate_stopped(d=None):
+    """WHY THE LAST PASS ENDED BEFORE IT TRAINED ANYTHING, where it did (training/loop.mjs, the coverage gate: a kind of question
+    with nothing to grade its answers by stops the pass), in words, with what to change: the session wrote this to its log, and the
+    page showed only that the run had ended (2026-11-19: a decider chosen that fails the reader's check, and Train pressed twice).
+    '' where the last pass did not stop there, or where the judge has been changed since (the reader on record is another's)."""
+    try:
+        d = d or data.load(ARGS.root)
+        work = Path(ARGS.root) / ".work" / "train" / d["key"]
+        passes = sorted((p for p in work.glob("pass-*") if (p / "status.txt").exists()), key=lambda p: int(p.name.split("-")[1]))
+        if not passes:
+            return ""
+        last = [x for x in (passes[-1] / "status.txt").read_text().splitlines() if x.strip()]
+        if not last or "STOPPED: a kind of question has nothing to compare" not in last[-1]:
+            return ""
+        said = [x for x in (passes[-1] / "10-questions.out").read_text().splitlines() if x.startswith("NOT TRAINED: ")]
+        kinds = re.findall(r"([\w-]+) \((\d+) questions: ([^)]*)\)", said[-1]) if said else []
+    except (OSError, ValueError, KeyError, IndexError):
+        return ""
+    if not kinds:
+        return ""
+    reader = data._json(work / "reader.json", {})
+    now_id = ((d.get("judge") or d.get("decider") or {}).get("id")) or ""
+    if reader.get("by") and now_id and reader["by"] != now_id:
+        return ""
+    who = next((m.get("name") for m in (d.get("registry") or {}).get("deciders", []) if m.get("id") == reader.get("by")), "") or reader.get("by") or (d.get("judge") or d.get("decider") or {}).get("name") or "The reader"
+    score = ""
+    if reader.get("asked") and reader.get("ok") is False:
+        need = -(-int(reader["asked"]) * float(reader.get("need") or 0.8) // 1)
+        score = " <b>%s</b> judges whether two answers say the same, and read %d of the %d test pairs correctly where %d are needed." % (e(who), reader.get("right") or 0, reader["asked"], need)
+    return ("The last pass stopped before it trained anything: <b>%d</b> kind%s of question (%s) had nothing to grade the answers by.%s "
+            "Choose a judge that passes its check under <b>Judges equivalence</b>, in the configuration, then press Train."
+            % (len(kinds), "" if len(kinds) == 1 else "s", e(", ".join(k[0] for k in kinds)), score))
 
 
 STEP_WORDS = [("target-third-train", "Larger model, a third answer: the train questions"), ("target-third", "Larger model, a third answer: the held questions"),

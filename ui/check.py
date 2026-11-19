@@ -1519,5 +1519,27 @@ parts5 = {
 check("what a pass asks more of is said with where it came from: the kinds its own held questions found the swarm short on, and the kinds of a capability a proof found it short on, with the proof's date, the gap and the questions it rests on; a verdict is read by the same rule and the same numbers as the proof on the page; a capability is the body of work that trains what a task measures (IFEval's is Instructions, though it is listed under The Crew), named by the work and never by a product, in the proof too; a record from before a proof was read is all from its held questions; and a proof that has weighted a pass is said to have, under the proof in the SwOA dialog, on the SwOA card and in the SwOA itself (trainedAgainst.emphasis), with what was read of it and what never is",
       all(parts5.values()), {k: v for k, v in parts5.items() if not v} or _words5)
 
+# ---- WHY A PASS ENDED BEFORE IT TRAINED: the gate's refusal is said on the Train card, with what to change, and not after the judge
+# has been changed
+import tempfile as _tf6
+_r6 = Path(_tf6.mkdtemp(prefix="gate-"))
+_p6 = _r6 / ".work" / "train" / "cfg--tgt" / "pass-1"
+_p6.mkdir(parents=True)
+(_p6 / "status.txt").write_text("10:00:00 START 10-questions\n10:00:09 END   10-questions exit 3 0 min\n10:00:09 STOPPED: a kind of question has nothing to compare (see x)\n")
+(_p6 / "10-questions.out").write_text("Comparable, by kind: fix 6/6, bug 0/6\nNOT TRAINED: bug (6 questions: the reader of answers in words is not believed); talk (6 questions: the reader of replies in a conversation is not believed).\nA pass would train nothing on them.\n")
+(_p6.parent / "reader.json").write_text(json.dumps({"by": "kev-0.8b", "asked": 20, "right": 15, "need": 0.8, "ok": False}))
+_d6 = {"key": "cfg--tgt", "decider": {"id": "kev-0.8b", "name": "Kev 0.8B"}, "judge": None, "registry": {"deciders": [{"id": "kev-0.8b", "name": "Kev 0.8B"}]}}
+_args6 = swarm_ui.ARGS
+swarm_ui.ARGS = _types.SimpleNamespace(root=str(_r6))
+_g6 = swarm_ui.gate_stopped(_d6)
+_g6_judge = swarm_ui.gate_stopped(dict(_d6, judge={"id": "jeffan-4b", "name": "Jeffan 4B"}))
+(_p6 / "status.txt").write_text("10:00:00 START 10-questions\n")
+_g6_running = swarm_ui.gate_stopped(_d6)
+swarm_ui.ARGS = _args6
+shutil.rmtree(_r6, ignore_errors=True)
+check("a pass that ended before it trained anything says why on the Train card: how many kinds of question had nothing to grade them by and which, who judges whether two answers say the same and how it did on its check against what is needed, and where to choose another; nothing is said once the judge has been changed, or where the pass did not stop there",
+      "<b>2</b> kinds of question (bug, talk)" in _g6 and "<b>Kev 0.8B</b> judges whether two answers say the same, and read 15 of the 20 test pairs correctly where 16 are needed." in _g6
+      and "<b>Judges equivalence</b>" in _g6 and _g6_judge == "" and _g6_running == "", [_g6, _g6_judge, _g6_running])
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

@@ -63,6 +63,8 @@ The first version.
     O.6.1a). For counting, strings, totals and rates, where small models go wrong working it out in words.
   - *Memory.* Every pass writes down what its configuration takes in memory against the larger model, and the training
     line says it.
+  - *A pass that stops before training says why.* Where a kind of question has nothing to grade its answers by, the Train
+    card names the kinds, how the judge did on its check, and where to choose another.
   - *Bounds.* A question's first visit is bounded in all (`firstVisitTries`, 40), whether or not its tries came closer, and
     its return at twice that. A class of change that has brought one question nothing in 8 tries is tried last there
     (`dryClassAfter`).
