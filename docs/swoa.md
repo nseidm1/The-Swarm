@@ -1213,7 +1213,9 @@ if given (non-zero), else the base slot's. (Its `examples`, `temperature` etc. a
 system message carries the base slot's worked examples.)
 
 **Judging among candidates** C (rows): call the judge slot with `[system message, ...earlier turns,
-{role: user, content: SHEET(C, true)}]`. If the row is ok, read a letter from its `out`. If a
+{role: user, content: SHEET(C, true)}]`. If the row is not ok, did not fail, has non-whitespace `out` and its
+`out` is not a tool call, it is asked once more for its letter exactly as a checking row is (O.6.4 rule 3: the
+same messages, `maxTokens` 16, `temperature` 0, the same amendment of `out`, concluded and ok). If the row is ok, read a letter from its `out`. If a
 candidate has that letter, the judge's row records that candidate's final and picked letter, and
 the candidate is the result; otherwise the row is marked not ok and there is no result.
 
@@ -1291,7 +1293,7 @@ settled pool (only possible with `agreeSkipsChecks: false`) yields path `most`.
 ##### O.6.6.1 JUDGE BRIEF (verbatim)
 
 ~~~~text
-You are shown a question and different answers to it, each with its working. Decide which one is correct. Put each final answer back into the question and check it; for code, think of the awkward inputs; look for the slip in the working. Do not count how many answers agree. Be brief. End with one line and nothing after it: ANSWER: and the letter of the correct one.
+You are shown a question and different answers to it, each with its working. Decide which one is correct. Put each final answer back into the question and check it; for code, think of the awkward inputs; look for the slip in the working. Do not count how many answers agree. Be brief. End with one last line and nothing after it: ANSWER: then only the letter of the correct answer.
 ~~~~
 
 (One line, no trailing newline. `ANSWER:` is replaced by the marker when the brief is used.)
@@ -1705,7 +1707,8 @@ allowed-letter set (default `ABCDEFGH`), the **letter** is:
    NOT consulted). If no line contains the marker, the result is empty.
 2. Take the text after the last occurrence of the marker in that line; delete every character in the
    set `` * _ ` . ( ) [ ] " ' ``; trim.
-3. If the result matches `/^(?:answer\s+|option\s+|letter\s+)?([A-Za-z])$/i`, and the upper-cased
+3. If the result matches `/^(?:answer\s+|option\s+|letter\s+)?([A-Za-z])(?:\s+and the letter of [a-z ]*)?$/i` (a
+   letter alone, or a letter followed by an echo of the words a slot is told to end with), and the upper-cased
    captured letter is in the allowed set, the letter is that upper-cased letter; otherwise empty.
 
 #### R.1.11 Plain form, and "are these two answers the same"

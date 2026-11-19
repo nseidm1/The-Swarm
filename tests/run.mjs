@@ -3673,6 +3673,25 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const aloneRulings = rulings - before;
   const judgeRow = alone.trace.find((t) => t.stage === 'judge');
   const silent = await go({ decideWith: { how: 'alone', slot: 'b-check' } }, 'I cannot tell.');
+  // one that names its answer with the words it was told to end with is read; and one cut off before it named any is asked once
+  // more for its letter, in one line
+  const echoed = await go(
+    { decideWith: { how: 'alone', slot: 'b-check' } },
+    'B holds.\nANSWER: B and the letter of the correct one.',
+  );
+  let askedAgain = 0;
+  const cutOff = await answer([{ role: 'user', content: 'What is 6 times 7?' }], {
+    briefs: { version: 1, plan: { decideWith: { how: 'alone', slot: 'b-check' } }, slots, flow },
+    ask: async (slot, msgs) =>
+      slot.stage === 'judge'
+        ? /You ran out of room/.test(msgs[msgs.length - 1].content)
+          ? (askedAgain++, { text: 'B' })
+          : { text: 'Answer A multiplies wrongly. Answer B puts 42 back and it holds. So the correct choic' }
+        : slot.stage === 'write'
+          ? { text: 'It is.' }
+          : { text: slot.member === 'a' ? 'ANSWER: 41' : 'ANSWER: 42' },
+  });
+  const cutRow = cutOff.trace.find((t) => t.stage === 'judge');
   // A MODULE WITH NO DECISION MODEL (modelDecides; the decider `none`): a slot decides whatever the plan says of deciding, even a
   // way that needs a decider's ruling, and with nothing named the first checker is asked
   const noneAsk = async (slot) =>
@@ -3692,6 +3711,17 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     ask: noneAsk,
   });
   const noneRow = noneBare.trace.find((t) => t.stage === 'judge');
+  const { modelDecidesOf } = await import('../src/index.mjs');
+  const mdo = [
+    modelDecidesOf({}, null, true),
+    modelDecidesOf({ decider: '' }, null, true), // (what the trainers pass where no decider runs)
+    modelDecidesOf({ decider: 'http://127.0.0.1:8009' }, null, true),
+    modelDecidesOf({ decide: async () => ({}) }, null, true),
+    modelDecidesOf({}, null, false),
+    modelDecidesOf({}, { decider: { id: 'none' } }, false),
+    modelDecidesOf({}, { decider: { id: 'kev-4b' } }, true),
+    modelDecidesOf({ modelDecides: false }, { decider: { id: 'none' } }, true),
+  ];
   const { REGISTRY: REG2 } = await import('../src/catalog.mjs');
   const noneEntry = REG2.deciders.find((x) => x.id === 'none');
   const { spawnSync: sp2 } = await import('node:child_process');
@@ -3728,18 +3758,24 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     rows,
   );
   check(
-    "a small model can decide in place of the decider: it is shown every different answer, told what a model that decides is told, and its word settles it, with the decider not asked at all and its row marked so; where it names nothing the answer most slots hold stands; a module with no decision model (the decider `none`, which takes no memory, is never the default, and is always ready) decides so whatever its plan names, by the first checker where it names no slot; the trainer offers it as its own kind of change, only where an answer was lost in choosing; and each small model can be put a pass's recorded choices as the decider, counted as another decider is (chose the larger model's answer, recovered, lost), one that names no answer counted as failed",
+    "a small model can decide in place of the decider: it is shown every different answer, told what a model that decides is told, and its word settles it, with the decider not asked at all and its row marked so; where it names nothing the answer most slots hold stands; a letter followed by the words it was told to end with is read as that letter, and one cut off before it named any is asked once more for its letter, in one line; a module with no decision model (the decider `none`, which takes no memory, is never the default, and is always ready) decides so whatever its plan names, by the first checker where it names no slot; a swarm is one with no decision model as its caller says, else as its spec says, else as the configuration says unless a decider is given or named (an empty address names none); the trainer offers it as its own kind of change, only where an answer was lost in choosing; and each small model can be put a pass's recorded choices as the decider, counted as another decider is (chose the larger model's answer, recovered, lost), one that names no answer counted as failed",
     byDecider.decided === '41' &&
       alone.decided === '42' &&
       aloneRulings === 0 &&
       judgeRow.alone === true &&
       judgeRow.picked === 'B' &&
       judgeTold.startsWith(JUDGE_BRIEF.slice(0, 60)) &&
+      echoed.decided === '42' &&
+      cutOff.decided === '42' &&
+      askedAgain === 1 &&
+      cutRow.concluded === true &&
+      /\(Asked for its answer in one line\.\)\nANSWER: B$/.test(cutRow.out) &&
       !silent.trace.some((t) => t.stage === 'decide') &&
       ['41', '42'].includes(silent.decided) &&
       silent.path === 'most' &&
       none.decided === '42' &&
       noneBare.decided === '42' &&
+      mdo.join() === 'true,true,false,false,false,true,false,false' &&
       noneRow.member === 'b' &&
       noneRow.alone === true &&
       noneEntry &&
@@ -6255,7 +6291,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       sureCall.decided === '41' &&
       !sureCall.judged.length &&
       silent.decided === '41' &&
-      silent.judged.length === 1 &&
+      // (asked, and asked once more for its letter in one line, since what it wrote named none: SwOA specification O.6.6)
+      silent.judged.length === 2 &&
       withIt.decided === '42' &&
       withIt.judged.length === 1 &&
       light.decided === '41' &&

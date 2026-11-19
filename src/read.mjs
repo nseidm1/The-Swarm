@@ -66,7 +66,9 @@ export const isToolCall = (text) =>
 
 // A CHECKER MAY ANSWER WITH A LETTER: where it finds one of the lettered answers correct, its last line is ANSWER: and that
 // letter, and it need not write the answer out again (for a function, that is most of what it can say in one turn). Read from
-// the last line that carries the marker: '' when that line is not a letter alone.
+// the last line that carries the marker: '' when that line is not a letter alone. (A letter followed by the words it was told
+// to end with, "B and the letter of the correct one", is that letter: measured 2026-11-19 with real models, a slot asked to
+// decide chose in its text and named nothing on 5 of 10 disputes, its last line an echo of the instruction.)
 export function letterOf(text, marker = MARKER, letters = 'ABCDEFGH') {
   const lines = String(text || '').split(/\r?\n/);
   for (let i = lines.length - 1; i >= 0; i--) {
@@ -76,7 +78,7 @@ export function letterOf(text, marker = MARKER, letters = 'ABCDEFGH') {
       .slice(at + marker.length)
       .replace(/[*_`.()\[\]"']/g, '')
       .trim();
-    const m = /^(?:answer\s+|option\s+|letter\s+)?([A-Za-z])$/i.exec(said);
+    const m = /^(?:answer\s+|option\s+|letter\s+)?([A-Za-z])(?:\s+and the letter of [a-z ]*)?$/i.exec(said);
     return m && letters.includes(m[1].toUpperCase()) ? m[1].toUpperCase() : '';
   }
   return '';

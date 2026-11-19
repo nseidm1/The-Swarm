@@ -77,6 +77,11 @@ The first version.
     `none`): nothing is loaded to decide, and where the drafts differ a slot of the swarm settles it. It takes the decision
     model's memory out of the swarm, about a third of it. Choosing it keeps the decider it had as the judge of equivalence
     for training, where no judge is named. The recommendation above has a button that makes this change.
+  - *A slot that decides is heard.* Asked with real models, a slot deciding between answers chose in its text and named
+    nothing on half the disputes: its last line echoed the instruction it was given ("ANSWER: B and the letter of the
+    correct one"), which was not read as a letter, or it was cut off at its token limit before its last line. The
+    instruction is reworded, a letter followed by those words is read as that letter, and a slot cut off is asked once more
+    for its letter, as a checker is. This is the same slot that decides beside the decider.
   - *A model alone is not asked again for another swarm.* The larger model's answers, the larger model against itself and
     each small model alone depend on the model, the questions and who read the answers, not on which small models are in
     the swarm. A configuration now takes what another against the same larger model measured, on exactly the same

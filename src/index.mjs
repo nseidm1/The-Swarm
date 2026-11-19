@@ -54,6 +54,16 @@ export function kindsAsSpecified(briefs) {
 // two more DRAFTERS (told what the first model's plain drafter and the second's other-way drafter are told): drafting is where
 // another model's different mistakes count, and what else it should do is for training to find. Slots on a place that is not
 // filled are left out.
+// DOES THIS SWARM HAVE NO DECISION MODEL? As the caller says (opts.modelDecides); else as its spec says (a decider `none`); else
+// as the configuration says, unless the caller gives a decider or names where one runs: an address that is empty names none
+// (the trainers pass the address they found, and with no decision model that is '': read as "one was named", a swarm
+// configured with none decided nothing and let the answer most slots held stand, found 2026-11-19 on its first real question)
+export function modelDecidesOf(opts = {}, spec = null, noDecider = false) {
+  if (opts.modelDecides !== undefined) return !!opts.modelDecides;
+  if (spec) return ((spec.decider || {}).id || spec.decider) === 'none';
+  const named = opts.decider !== undefined ? opts.decider : opts.kev;
+  return !!noDecider && !opts.decide && !named;
+}
 export function withPlaces(briefs, places) {
   const slots = briefs.slots.filter((s) => places.includes(s.member));
   const drafters = briefs.slots.filter((s) => s.stage === 'draft');
@@ -133,13 +143,7 @@ export async function createSwarm(opts = {}) {
   const named = opts.decider !== undefined ? opts.decider : opts.kev;
   // A SWARM WITH NO DECISION MODEL (opts.modelDecides; a spec whose decider is `none`; else the configuration's): nothing is
   // asked to decide, wherever one may be running, and a slot of the swarm settles what the drafts differ on
-  const modelDecides =
-    opts.modelDecides !== undefined
-      ? !!opts.modelDecides
-      : S
-        ? ((S.decider || {}).id || S.decider) === 'none'
-        : // (a caller that names a decider, or gives one, has one: the configuration's choice is for a swarm opened as configured)
-          NO_DECIDER && !opts.decide && named === undefined;
+  const modelDecides = modelDecidesOf(opts, S, NO_DECIDER);
   const deciderBase = modelDecides
     ? ''
     : named !== undefined

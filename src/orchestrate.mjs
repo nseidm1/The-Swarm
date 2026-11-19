@@ -45,7 +45,8 @@ const fenced = (final) => (isCode(final) ? '\n```\n' + final + '\n```' : ' ' + f
 export const JUDGE_BRIEF =
   'You are shown a question and different answers to it, each with its working. Decide which one is correct. Put each final ' +
   'answer back into the question and check it; for code, think of the awkward inputs; look for the slip in the working. Do ' +
-  'not count how many answers agree. Be brief. End with one line and nothing after it: ANSWER: and the letter of the correct one.';
+  'not count how many answers agree. Be brief. End with one last line and nothing after it: ANSWER: then only the letter of ' +
+  'the correct answer.';
 // how the matter is settled (plan.decideBy): 'decider' where nothing is said; the names from when Kev was the only decider are
 // read as the same
 export const decideByOf = (v) => String(v || 'decider');
@@ -600,7 +601,38 @@ export async function answer(
       };
       const judgeAmong = async (cands) => {
         const j = judgeSlot();
-        const row = await run(j, [sys(j), ...kept.slice(0, -1), { role: 'user', content: shownTo(cands, true) }]);
+        const asked = [sys(j), ...kept.slice(0, -1), { role: 'user', content: shownTo(cands, true) }];
+        const row = await run(j, asked);
+        // ONE THAT RAN OUT OF ROOM BEFORE IT NAMED AN ANSWER IS ASKED FOR ITS LETTER, in one line, as a checker is (O.6.4): it has
+        // done the work, and what is missing is the last line (measured 2026-11-19 with real models: of 10 disputes a slot
+        // deciding alone named nothing on 3, each cut off at its token limit in the middle of weighing the answers)
+        if (!row.ok && !row.why && row.out.trim() && !isToolCall(row.out)) {
+          const at = Date.now();
+          try {
+            const r = await ask({ ...j, maxTokens: 16, temperature: 0 }, [
+              ...asked,
+              { role: 'assistant', content: row.out.slice(-1500) },
+              {
+                role: 'user',
+                content:
+                  'You ran out of room. Do not explain any more. Write one line and nothing else: ' +
+                  marker +
+                  ' and the letter of the answer that is correct.',
+              },
+            ]);
+            const line = String((r && r.text) || '').trim();
+            const named = letterOf(/ANSWER/i.test(line) ? line : marker + ' ' + line, marker, LETTERS);
+            if (named) {
+              row.out += '\n\n(Asked for its answer in one line.)\n' + marker + ' ' + named;
+              row.ok = true;
+              row.concluded = true;
+              row.ms += Date.now() - at;
+              onStep(row);
+            }
+          } catch {
+            /* it stays without an answer */
+          }
+        }
         const letter = row.ok ? letterOf(row.out, marker, LETTERS) : '';
         const meant = letter && cands.find((d) => d.letter === letter);
         if (!meant) return ((row.ok = false), null);
