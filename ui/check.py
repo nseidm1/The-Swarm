@@ -1581,5 +1581,9 @@ check("the count of recommendations beside Configuration is asked for again when
       "$('#recd').showModal();" in swarm_ui.JS and swarm_ui.JS.count("swap('/fragment/recslot','#rec-slot')") >= 3
       and "setInterval(()=>{if(!$('#recd')||!$('#recd').open)swap('/fragment/recslot','#rec-slot');},30000);" in swarm_ui.JS, "")
 
+# ---- STOP UNLOCKS THE PILLS: the page redraws them itself when Train or Stop training is pressed
+check("pressing Train or Stop training redraws the model pills at once (locked while a session runs, open again when it is stopped), and the rest of the page when it has stopped: it is not left to the watch loop, which had already been shown the stopped card",
+      "await swap('/fragment/picks','#picks');if(b.id==='run-stop'&&!$('#score [data-running]'))await swap('/fragment/body','#body');" in swarm_ui.JS, "")
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

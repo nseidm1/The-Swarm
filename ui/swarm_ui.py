@@ -540,7 +540,12 @@ document.addEventListener('click',async(ev)=>{
   if(ev.target.id==='run-go'||ev.target.id==='run-stop'){const b=ev.target;b.disabled=true;
     if(b.id==='run-go')document.querySelectorAll('[data-pick]').forEach(x=>x.disabled=true);
     const body='{}';
-    await swap(b.id==='run-go'?'/run/start':'/run/stop','#score',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body});watch();return;}
+    await swap(b.id==='run-go'?'/run/start':'/run/stop','#score',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body});
+    // THE PILLS FOLLOW AT ONCE: they are locked while a session runs. The watch loop redrew them only where it had itself seen
+    // the session running and then not, and after Stop this line has already redrawn the card as stopped: so the loop saw nothing
+    // end, and the pills stayed locked until the page was loaded again
+    await swap('/fragment/picks','#picks');if(b.id==='run-stop'&&!$('#score [data-running]'))await swap('/fragment/body','#body');
+    watch();return;}
 });
 // A MODEL CHOSEN: written down, and everything that depends on it drawn again in place
 document.addEventListener('change',async(ev)=>{const s=ev.target.closest('[data-pick]');if(!s)return;
