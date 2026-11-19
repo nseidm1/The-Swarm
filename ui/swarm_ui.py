@@ -3499,6 +3499,24 @@ def _ev_meta_live(rows, tname):
     return "%s: %s · the swarm: %s%s" % (tname, who("target"), who("swarm"), (" · %d not asked" % left_out) if left_out else "")
 
 
+def _ev_right(rs):
+    """THE TWO SCORES ON THE SAME QUESTIONS: how many the swarm had right, how many the larger model had right, of how many. Like
+    against like: each was put the same benchmark's questions and marked by the benchmark's own checker, and the figure is the
+    benchmark's own score for each (its share right times the questions it marked); where a result carries no score, what the
+    comparison counted. Only tasks both answered count. -> (the swarm's, the larger model's, of)"""
+    sw = tg = of = 0.0
+    for r in rs:
+        a = r.get("agree")
+        if not a:
+            continue
+        n = a["of"]
+        val = lambda x, counted: (float(x["value"]) * n) if x and x.get("value") is not None else counted  # noqa: E731
+        sw += val(r.get("swarm"), a["bothRight"] + a["onlySwarm"])
+        tg += val(r.get("target"), a["bothRight"] + a["onlyTarget"])
+        of += n
+    return sw, tg, int(of)
+
+
 def _ev_meta_done(bms, by_task):
     """One body of work as the last evaluation left it, in a line: its tasks, and on how many questions the two gave the same."""
     rs = [by_task[b["task"]] for b in bms if b["task"] in by_task]
@@ -3519,10 +3537,12 @@ def _ev_agree(r):
         return '<small>%s</small>' % e((r or {}).get("failed") or "compared when both have answered")
     pct = data.percent(a["same"], a["of"]) if a["of"] else 0
     sc = lambda x: ("%s%%" % fmt_pct(round(100.0 * x["value"], 1))) if x and x.get("value") is not None else "?"  # noqa: E731
-    return ('<b class="evpct">%s%%</b> <span>%d of %d the same</span><small>%d both right · %d both wrong · %d differ%s</small><small>scores: %s %s · the swarm %s</small>'
-            % (fmt_pct(pct), a["same"], a["of"], a["bothRight"], a["bothWrong"], a["differ"],
-               (" (%d only %s right, %d only the swarm)" % (a["onlyTarget"], "the larger model", a["onlySwarm"])) if a["differ"] else "",
-               e(r.get("targetName") or "the larger model"), sc(r.get("target")), sc(r.get("swarm"))))
+    # THE SCORES LEAD, the benchmark's own for each: the same questions, the same checker. How often the two gave the same answer
+    # is said under them, as what it is: on one task the swarm had 16 right where the larger model had none, and "4 of 20 the
+    # same" read as a failure; on another both had every one wrong and it read as 100%
+    return ('<b class="evpct">%s</b> <span>the swarm · %s %s</span><small>%d of %d the same (%s%%): %d both right · %d both wrong · %d differ%s</small>'
+            % (sc(r.get("swarm")), e(r.get("targetName") or "the larger model"), sc(r.get("target")), a["same"], a["of"], fmt_pct(pct), a["bothRight"], a["bothWrong"], a["differ"],
+               (" (%d only %s right, %d only the swarm)" % (a["onlyTarget"], "the larger model", a["onlySwarm"])) if a["differ"] else ""))
 
 
 def busy(ghost="00%"):
@@ -3575,13 +3595,16 @@ def eval_block(d):
     # body of work whatever is ticked here
     listed = [t for t in eq.get("targets", []) if t.get("benchmarks")]
     held = busy_with()
-    # the headline: of every question compared in the last evaluation, how many had the same answer
+    # THE HEADLINE IS SCORE AGAINST SCORE: of every question both were put in the last evaluation, the share the swarm had right,
+    # with the larger model's share of the same questions beside it. (It was the share of questions where the two gave the SAME
+    # answer, called "equivalent": that marks the swarm down for being right where the larger model is wrong, and up for being
+    # wrong together. A standard benchmark against the same standard benchmark is the like-for-like figure.)
     comp = [by_task[b["task"]] for t in listed for b in t.get("benchmarks", []) if b["task"] in by_task and by_task[b["task"]].get("agree")]
-    same = sum(r["agree"]["same"] for r in comp)
-    of = sum(r["agree"]["of"] for r in comp)
-    head = (('<span class="memnum"><b class="pct">%s%%</b><span>equivalent<small>%d of %d questions</small></span></span>' % (fmt_pct(data.percent(same, of)), same, of))
-            if of else '<span class="memnum"><b class="pct none">–</b><span>equivalent<small>not evaluated yet</small></span></span>')
-    # WHILE AN EVALUATION RUNS the headline is not the last one's: where the share and the count of the same answers will be, a
+    sw_right, tg_right, of = _ev_right(comp)
+    head = (('<span class="memnum"><b class="pct">%s%%</b><span>the swarm&#39;s score<small>%s %s%% · %d questions</small></span></span>'
+             % (fmt_pct(data.percent(sw_right, of)), e(res.get("target") or tname), fmt_pct(data.percent(tg_right, of)), of))
+            if of else '<span class="memnum"><b class="pct none">–</b><span>the swarm&#39;s score<small>not evaluated yet</small></span></span>')
+    # WHILE AN EVALUATION RUNS the headline is not the last one's: where the swarm's score and the larger model's will be, a
     # bar that moves (nothing is known until the answers are compared), and the questions it was asked to put, as chosen. Stopped
     # or failed, a run writes no result, and the last one that finished is shown again as it was
     if running:
@@ -3592,7 +3615,7 @@ def eval_block(d):
         # (a proof run asks each task its own size; where one of them is every question the sum is not known before it runs)
         asked_n = ((sum(int(b.get("proofN") or 0) for b in every) if all(b.get("proofN") for b in every) else 0) if size_run == PROOF_SIZE
                    else int(size_run) * len(every)) if size_run else 0
-        head = ('<span class="memnum" aria-busy="true">' + busy() + '<span>equivalent'
+        head = ('<span class="memnum" aria-busy="true">' + busy() + '<span>the swarm&#39;s score'
                 '<small><i class="busyn" aria-hidden="true"></i> of %s</small></span></span>' % (("%d questions" % asked_n) if asked_n else "every question"))
     size = PROOF_SIZE if (live if running else res or {}).get("proof") else int((live.get("limit") if running else (res.get("limit") if res else 20)) or 0)
     opts = "".join('<option value="%d"%s>%s</option>' % (n, " selected" if n == size else "", e(w)) for n, w in EVAL_SIZES)
@@ -3603,7 +3626,7 @@ def eval_block(d):
                % (" disabled" if held else "", opts, ' data-held="1"' if held else "", " disabled" if held or not listed else ""))
     out = ['<div class="panel evalp" id="evalbox" data-phase="%s" data-run="%s"%s>' % (e(live.get("phase") or ""), e(live.get("runId") or ""), ' data-running="1"' if running else ""),
            '<div class="proghead">%s<span class="progline">Standard benchmarks (%s), asked of %s and of the swarm, '
-           'and every question&#39;s two answers compared. Kept apart from training: training never asks a benchmark&#39;s question.</span>'
+           'and the two scores set side by side: the same questions, marked by the same checker. Kept apart from training: training never asks a benchmark&#39;s question.</span>'
            '<span class="evctl">%s</span></div>'
            # (the harnesses of what is listed: the tool tests are named only where a body of work is measured by them)
            % (head, "; ".join(HARNESS_WORDS[k] for k in ("lm", "bfcl") if any((b.get("harness") or "lm") == k for t in listed for b in t.get("benchmarks") or [])) or HARNESS_WORDS["lm"], e(tname), ctl)]
@@ -3642,14 +3665,14 @@ def eval_block(d):
     for t in listed:
         bms = t.get("benchmarks") or []
         tc = [by_task[b["task"]] for b in bms if b["task"] in by_task and by_task[b["task"]].get("agree") and not shown]
-        isame, iof = sum(r["agree"]["same"] for r in tc), sum(r["agree"]["of"] for r in tc)
+        isw, itg, iof = _ev_right(tc)
         # A BODY OF WORK FOLDS UNDER ITS HEADING (as the plan's sections do: details.psec, kept on the device), and says in a line what
         # it holds while folded. Folded to begin with, but for the one being asked while a run is shown
         live_rows = [lrows[b["task"]] for b in bms if b["task"] in lrows]
         asking = any((r.get(w) or {}).get("state") == "asking" for r in live_rows for w in ("target", "swarm"))
         out.append('<details class="psec evitem" data-keep="eval-%s"%s><summary><h4>%s%s</h4><span class="pmeta" data-evm="%s">%s</span></summary><div class="psecb">'
                    % (e(t["id"]), " open" if shown and asking else "", e(t["name"]),
-                      (' <span class="pill">%s%% equivalent</span>' % fmt_pct(data.percent(isame, iof))) if iof else "",
+                      (' <span class="pill">the swarm %s%% · %s %s%%</span>' % (fmt_pct(data.percent(isw, iof)), e(res.get("target") or tname), fmt_pct(data.percent(itg, iof)))) if iof else "",
                       e(t["id"]), e(_ev_meta_live(live_rows, tname) if live_rows else _ev_meta_done(bms, by_task))))
         if t.get("benchmarksNote"):
             out.append('<p class="muted small">%s.</p>' % e(t["benchmarksNote"]))
