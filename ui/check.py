@@ -24,6 +24,11 @@ import data  # noqa: E402
 import sample  # noqa: E402
 import swarm_ui  # noqa: E402
 
+# (the checks below stand in for a run this page started by writing down the id of THIS process: it is alive, and for them it is
+# the run. The page's own test of whose process an id is, _ours, is checked by itself at the end, with the real one)
+_ours_real = swarm_ui._ours
+swarm_ui._ours = lambda pid, marker: True if pid == os.getpid() else _ours_real(pid, marker)
+
 passed, failed = 0, []
 
 
@@ -1612,6 +1617,40 @@ check("where one of the swarm's own small models, put a pass's recorded choices 
       and len([r for r in _rs9 if str(r["id"]).startswith("model-decides:")]) == 1 and "Weak" not in _panel9
       and "Make this change" in _panel9 and 'id="rec-open"' in _cfg9 and _few9 == [],
       [_r9, _cfg9[:200]])
+
+# ---- A RUN IS RUNNING ONLY WHILE ITS OWN PROCESS IS: an id is given again when its process has ended
+import subprocess as _sp10
+_p10 = _sp10.Popen([sys.executable, "-c", "import time; time.sleep(8)", "training/evaluate.sh"])
+time.sleep(0.3)
+_mine10 = _ours_real(_p10.pid, swarm_ui.RUN_MARKS["eval"])
+_other10 = _ours_real(_p10.pid, swarm_ui.RUN_MARKS["train"])
+_self10 = _ours_real(os.getpid(), swarm_ui.RUN_MARKS["eval"])
+_r10 = Path(tempfile.mkdtemp(prefix="alive-"))
+(_r10 / ".work" / "eval").mkdir(parents=True)
+(_r10 / ".work" / "train").mkdir(parents=True)
+_args10 = swarm_ui.ARGS
+swarm_ui.ARGS = _types.SimpleNamespace(root=str(_r10))
+_keep10 = swarm_ui._ours
+swarm_ui._ours = _ours_real
+# (the id of a live process that is NOT an evaluation: this one. Before, that alone read as an evaluation running)
+(_r10 / ".work" / "eval" / "ui-run.json").write_text(json.dumps({"pid": os.getpid(), "at": "then"}))
+(_r10 / ".work" / "eval" / "live.json").write_text(json.dumps({"phase": "done", "step": "Done: the same answer on 280 of 460 questions", "tasks": []}))
+_stale10 = swarm_ui.job_live("eval")
+(_r10 / ".work" / "eval" / "ui-run.json").write_text(json.dumps({"pid": _p10.pid, "at": "now"}))
+_live10 = swarm_ui.job_state("eval")
+(_r10 / ".work" / "train" / "ui-run.json").write_text(json.dumps({"pid": os.getpid(), "at": "then"}))
+_run10 = swarm_ui.run_state()
+swarm_ui._ours = _keep10
+swarm_ui.ARGS = _args10
+_p10.kill()
+shutil.rmtree(_r10, ignore_errors=True)
+_prog10 = swarm_ui.ev_progress({"tasks": [{"target": {"done": 20, "of": 20}, "swarm": {"done": 5, "of": 20}}, {"target": {"done": 0, "of": 20}, "swarm": {"done": 0, "of": 20}}]})
+_prog10_open = swarm_ui.ev_progress({"tasks": [{"target": {"done": 7, "of": None}, "swarm": {"done": 0, "of": None}}]})
+check("a run this page started is running only while its own process is: a process is the run's where its command line still names what was started, so an id that has since gone to another program is not a run (an evaluation that ended the night before had read as running, with a Stop button that would have signalled that program), and neither is a training session's; and a running evaluation says how far it is in all, the answers asked of both models of all it will ask, with the share where the whole is known",
+      _mine10 is True and _other10 is False and _self10 is False and _stale10["running"] is False and _stale10["phase"] == "done" and _live10["running"] is True and _run10["running"] is False
+      and _prog10 == "25 of 80 answers asked · 31%" and _prog10_open == "7 answers asked so far" and swarm_ui.ev_progress({}) == ""
+      and 'data-ev="prog"' in swarm_ui.JS + open(swarm_ui.__file__).read() and "set('prog'," in swarm_ui.JS,
+      [_mine10, _other10, _self10, _stale10.get("running"), _live10.get("running"), _run10.get("running"), _prog10, _prog10_open])
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

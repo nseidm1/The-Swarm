@@ -752,6 +752,9 @@ async function evTick(){const box=$('#evalbox');if(!box||!box.dataset.running)re
   if(!s.running||(s.runId&&box.dataset.run&&s.runId!==box.dataset.run)){await swap('/fragment/eval','#evalwrap');await swap('/fragment/score','#score');return;}
   const set=(k,t)=>{const el=box.querySelector('[data-ev="'+k+'"]');if(el&&el.textContent!==t)el.textContent=t;};
   set('step',s.step||'');
+  // HOW FAR IT IS IN ALL: the answers asked so far of all it will ask, both models together (ev_progress, the same count)
+  {let dn=0,tot=0,known=true;for(const t of s.tasks||[])for(const w of ['target','swarm']){const x=t[w]||{};dn+=Number(x.done)||0;if(x.of)tot+=Number(x.of);else known=false;}
+   set('prog',(s.tasks||[]).length?(known&&tot?dn+' of '+tot+' answers asked · '+Math.round(100*dn/tot)+'%':dn+' answers asked so far'):'');}
   const q=box.querySelector('.evq'),n=s.now;
   if(q){q.hidden=!n;if(n){const tn=box.dataset.tname||'';
     set('q',(n.who==='swarm'?'the swarm':(s.target||'the larger model'))+' · '+n.name+' · question '+n.i+(n.of?' of '+n.of:''));
@@ -2226,6 +2229,23 @@ def session_live():
     return bool(st and st.get("running"))
 
 
+def _ours(pid, marker):
+    """IS THE PROCESS WITH THIS ID STILL THE ONE THIS PAGE STARTED? An id is given again once its process has ended, so "something
+    with that id is alive" is not "our run is alive": on 2026-11-19 an evaluation that had ended the night before read as
+    running, its card drawn as in progress over the finished results with a Stop button, because its id had gone to a
+    program of the system's (and Stop would have signalled that program). The process is ours where its command line still
+    names what was started (marker: the script). Where the command line cannot be read, it is not taken as ours."""
+    try:
+        cmd = subprocess.run(["ps", "-o", "command=", "-p", str(int(pid))], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return False
+    return marker in cmd
+
+
+# what each kind of run this page starts is started as (start_run, start_job): looked for in the command line of its process
+RUN_MARKS = {"train": "training/session.sh", "eval": "training/evaluate.sh", "pretrain": "training/adapters.mjs"}
+
+
 def run_state():
     """{pid, at, passes, each, first} of the pass this page started, and whether that process is still alive."""
     try:
@@ -2240,7 +2260,7 @@ def run_state():
         except ChildProcessError:
             pass  # started by an earlier run of this page: not ours to collect
         os.kill(st["pid"], 0)
-        st["running"] = True
+        st["running"] = _ours(st["pid"], RUN_MARKS["train"])
     except (OSError, KeyError):
         st["running"] = False
     return st
@@ -3337,7 +3357,7 @@ def job_state(name):
         except ChildProcessError:
             pass
         os.kill(st["pid"], 0)
-        st["running"] = True
+        st["running"] = _ours(st["pid"], RUN_MARKS.get(name, name))
     except (OSError, KeyError):
         st["running"] = False
     return st
@@ -3421,6 +3441,25 @@ PROOF_SIZE = -1
 HARNESS_WORDS = {"lm": "EleutherAI&#39;s lm-evaluation-harness 0.4.13", "bfcl": "for the use of tools, the Berkeley Function-Calling Leaderboard (bfcl-eval 2026.3.23)"}
 COMPARE_WORDS = {"answer": "the same answer", "verdict": "the same verdict on the task's tests", "instructions": "the same instructions kept and broken"}
 METRIC_WORDS = {"exact_match": "exact match", "pass@1": "pass@1", "pass_at_1": "pass@1", "prompt_level_strict_acc": "strict prompt accuracy", "accuracy": "the test's own checker"}
+
+
+def ev_progress(live):
+    """HOW FAR A RUNNING EVALUATION IS, in a line: the answers asked so far of all it will ask, of the larger model and of the
+    swarm together (a task whose answers were kept from before counts as asked), with the share where the whole is known. ''
+    before it has listed its tasks."""
+    done = of = 0
+    known = True
+    for t in live.get("tasks") or []:
+        for who in ("target", "swarm"):
+            x = t.get(who) or {}
+            done += int(x.get("done") or 0)
+            if x.get("of"):
+                of += int(x["of"])
+            else:
+                known = False
+    if not (live.get("tasks") or []):
+        return ""
+    return ("%d of %d answers asked · %d%%" % (done, of, round(100.0 * done / of))) if known and of else "%d answers asked so far" % done
 
 
 def _ev_bar(row, who, label):
@@ -3575,10 +3614,10 @@ def eval_block(d):
         cls = "on" if running else ("warn" if live.get("phase") == "failed" else "")
         now = live.get("now") or {}
         last = live.get("last") or {}
-        out.append('<div class="evnow"><div class="state %s"><i></i><span data-ev="step">%s</span></div>'
+        out.append('<div class="evnow"><div class="state %s"><i></i><span data-ev="step">%s</span><span class="runx" data-ev="prog">%s</span></div>'
                    '<div class="evq"%s><div class="evql"><b data-ev="q">%s</b><span data-ev="eta"></span></div><p data-ev="ask">%s</p>'
                    '<p class="muted" data-ev="reply">%s</p></div></div>'
-                   % (cls, e(live.get("step") or ""), "" if now else ' hidden',
+                   % (cls, e(live.get("step") or ""), e(ev_progress(live)) if running else "", "" if now else ' hidden',
                       e(("%s · %s · question %s%s" % ("the swarm" if now.get("who") == "swarm" else tname, now.get("name", ""), now.get("i", ""), (" of %s" % now["of"]) if now.get("of") else "")) if now else ""),
                       e(" ".join(str(now.get("ask", "")).split())[-300:]), e(("Last answer (%.0f s): " % last["seconds"] + " ".join(str(last.get("reply", "")).split())[:240]) if last.get("seconds") is not None else "")))
     if not listed:
