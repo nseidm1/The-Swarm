@@ -551,7 +551,10 @@ named.
   Whether it does is asked of its class (tools, talk, code, words): every train question of the class is scored with the
   change and as the Swarm stood, the first 8 drawn evenly from the class's kinds and the rest only where those did not
   fall. It is kept when the mean gain is more than twice its paired error and at least 0.02, no kind of question falls by
-  more than 0.05, and the held questions of the class do not fall by more than their error. At the end of a pass the changes
+  more than 0.05, and the held questions of the class do not fall by more than their error. A question the change scores
+  otherwise on is asked again, both ways, on another draw: a change that made a question good on both draws, lost none on
+  both, and left the class's mean higher is kept too; one that lost a question is not kept; and a kind has fallen only
+  where it fell by more than its own error as well. At the end of a pass the changes
   that most often brought a class's questions closer are proposed for the class outright, up to 6 a class, and scored the
   same way. A kept change is the class's arrangement for every question after, and an entry on the ledger the spec is made
   from, with its gain, its error and over how many questions. (Until 2026-11-18 a change was kept when it brought one

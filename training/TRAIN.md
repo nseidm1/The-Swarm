@@ -55,7 +55,12 @@ Swarm's reply is good ("at parity", in the loop's record) ([`loop.mjs`](loop.mjs
    [`policy.json`](policy.json), on). Every train question of the class is scored with the change and as the swarm stands
    (right is 1; else how the reply read, or the share of the question's inputs it gets right), the same questions both
    times. It is **kept** when the mean gain is more than twice its error and at least 0.02, no kind of question falls by
-   more than 0.05, and the held questions of the class do not fall by more than their error. It is raced on 8 questions
+   more than 0.05, and the held questions of the class do not fall by more than their error. A question the change scores
+   otherwise on is **asked again on another draw** (`classConfirm`, on), as the swarm stands and with the change, and scored
+   by the mean of the two: a change that made a question good on both draws, lost none on both, and left the mean higher is
+   kept too (one question made good in a class of thirty is within its own error, and could never be kept before); a change
+   that lost a question is not kept; and a kind has fallen only where it fell by more than its own error as well, so one
+   answer of six that came out otherwise once is no fall. It is raced on 8 questions
    first, and asked on the rest only where those did not fall. Kept, it is the arrangement for every question of the class
    after, and an entry on the ledger the spec is made from, with its gain. At the end of a pass the changes that most
    often brought questions of a class closer are proposed for the class outright (6 a class). With `--no-class-keep` a change
@@ -147,6 +152,8 @@ How the search ranks and bounds what it tries is a policy ([`loop-policy.mjs`](l
 | `stableAfter` | The same, sooner, where every question the question in hand's changes have lost is among the same few: their losses together (6; 0: wait for `swapAfter`) |
 | `stableMax` | How many different questions such a conflict may span and still be swapped after `stableAfter` (2; 1: one question only) |
 | `setAsideAfter` | Tries in a row with nothing closer and no parity before a question is set aside while another waits (30; 0 never) |
+| `firstVisitTries` | Tries in all on a question's first visit before it is set aside while another waits, whatever came closer; its return is bounded at twice that (40; 0 no bound) |
+| `dryClassAfter` | Tries of one class of change on one question, none closer, before that class is tried last there (8; 0 never) |
 | `helpBackoff` | The larger model's suggestions and briefs half as often on a question each time they bring it nothing (on) |
 | `kindBranch` | A change that loses only questions of the other kind (code, or words) is kept for its own kind (on) |
 

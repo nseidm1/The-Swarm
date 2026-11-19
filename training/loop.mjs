@@ -373,6 +373,8 @@ export function orderFor(
     drop = 6,
     policy = normalPolicy({}),
     recent = [],
+    // the classes of change that have brought THIS question nothing in policy.dryClassAfter tries (dryClassesOf): tried last
+    dry = new Set(),
   } = {},
 ) {
   const areas = policy.areas[lost] || policy.areas.drafting;
@@ -421,7 +423,27 @@ export function orderFor(
       first.push(m);
     } else later.push(m);
   }
-  return [...first, ...later];
+  // A CLASS OF CHANGE THAT HAS BROUGHT THIS QUESTION NOTHING goes after every other (measured 2026-11-19: on three questions, 138
+  // tries went to other ways of deciding, 43 to 57 on each, and none came to parity; what the record of the question says will
+  // help outranked what the tries on it had shown). It is not left out: where nothing else is open it is tried again
+  const all = [...first, ...later];
+  if (!dry.size) return all;
+  const held = (m) => dry.has(classOf(m)) && !pin.includes(m.id);
+  return [...all.filter((m) => !held(m)), ...all.filter(held)];
+}
+// the classes of change dry on one question: tried `after` times there or more, none of them closer or at parity
+export function dryClassesOf(attempts = [], after = 0) {
+  const out = new Set();
+  if (!(after > 0)) return out;
+  const by = {};
+  for (const x of attempts) {
+    if (!x || !x.kind || x.prune) continue;
+    const c = (by[x.kind] = by[x.kind] || { n: 0, good: 0 });
+    c.n++;
+    if (x.closer || x.kept || x.grade === 'right') c.good++;
+  }
+  for (const [k, c] of Object.entries(by)) if (c.n >= after && !c.good) out.add(k);
+  return out;
 }
 // the questions already at parity that a change is asked again on before it is kept: the same kind first, then the latest
 // and of those, first the questions changes have lost most often: a change that is going to lose one loses it on its first check,
@@ -749,6 +771,9 @@ export async function runLoop({
   classMinGain = 0.02,
   classMargin = 0.05,
   classTries = 0,
+  // classConfirm: a question a change scores otherwise on is asked again, as it stands and with the change, on another draw, and
+  // a change that makes a question good on both draws and loses none on both is kept (classCheck)
+  classConfirm = true,
   // the larger model writing new briefs for a slot that failed on this question: teach(slot, missed) -> [{ name, brief }], written
   // where the pool reads candidates (null: never)
   teach = null,
@@ -850,7 +875,20 @@ export async function runLoop({
     const r3 = (x) => Math.round(x * 1000) / 1000;
     return { n, gain: r3(mean), stderr: r3(n > 1 ? sd / Math.sqrt(n) : 0) };
   };
+  // ASKED AGAIN ON ANOTHER DRAW (classConfirm). One asking is one draw, and a change to anything moves every draw: so a question
+  // that scores otherwise with a change is asked again, as the swarm stands and with the change, with another seed, and its
+  // score each way is the mean of the two. A question right both times with the change and neither time without is MADE GOOD;
+  // one right both times without and neither time with it is LOST. Then
+  //   a change that loses a question is not kept;
+  //   a kind has fallen only where its mean falls by more than classMargin AND by more than its own error (one answer of six
+  //   that came out otherwise once is exactly its error, and is not a fall);
+  //   and a change is kept on the gain rule above, or where it made a question good, lost none, and the class's mean is up.
+  // (Measured 2026-11-19, 31 code questions, 27 already good: changes brought a question to parity 25 times and none was kept.
+  // One question made good in a class of 30 gains 1/30 with an error of 1/30, never twice its error; 13 were refused for a kind
+  // "falling" by one answer of six, and 7 on the first 8 questions by one answer of eight.)
   // -> { keep, why, record, scores: { train: { id: score }, held: { id: score } } }. known: scores already measured with the change
+  const NEAR = 0.0015; // (the gains are kept to three places: a fall of exactly its own error is not beyond it)
+  const meanOf = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
   const classCheck = async (newBriefs, K, { what, note, known = {} }) => {
     const mine = list.filter((x) => kindOfT(x) === K && !wrongMarks.has(x.id));
     const base = await standingOf(K, 'train', mine, note);
@@ -862,14 +900,15 @@ export async function runLoop({
     for (let k = 0; order.length < usable.length; k++) for (const qs of byKind.values()) if (qs[k]) order.push(qs[k]);
     order.sort((x, y) => (known[y.id] !== undefined) - (known[x.id] !== undefined));
     const withIt = {};
-    const ask = async (x, k, of, held) => {
-      if (known[x.id] !== undefined && !held) return known[x.id];
+    const ask = async (x, k, of, held, draw) => {
+      if (known[x.id] !== undefined && !held && !draw) return known[x.id];
       const r = await attempt(newBriefs, x, {
         ...note,
         move: what,
         guard: x.id,
         guarded: { n: k + 1, of },
         ...(held ? { held: true } : {}),
+        ...(draw ? { draw } : {}),
         classCheck: true,
       });
       return r.grade === 'noref' ? null : scoreOf(r);
@@ -882,30 +921,68 @@ export async function runLoop({
       record: { ...record, keep: false, why },
       scores: { train: withIt, held: {} },
     });
+    const ds = () => diffs.map((y) => y.d);
+    const confirm = async () => {
+      if (!classConfirm) return;
+      for (const [k, y] of diffs.entries()) {
+        if (y.again || Math.abs(y.d) < 0.05) continue;
+        y.again = true;
+        const r = await attempt(flat(briefs, K), y.x, {
+          ...note,
+          move: 'as it stands, another draw',
+          guard: y.x.id,
+          standing: true,
+          draw: 2,
+        });
+        const b2 = r.grade === 'noref' ? null : scoreOf(r);
+        const w2 = b2 === null ? null : await ask(y.x, k, diffs.length, false, 2);
+        if (b2 === null || w2 === null) continue;
+        y.b.push(b2);
+        y.w.push(w2);
+        y.d = meanOf(y.w) - meanOf(y.b);
+        withIt[y.x.id] = meanOf(y.w);
+      }
+    };
+    const madeGood = () => diffs.filter((y) => y.w.length > 1 && y.w.every((v) => v === 1) && y.b.every((v) => v < 1));
+    const lostNow = () => diffs.filter((y) => y.b.length > 1 && y.b.every((v) => v === 1) && y.w.every((v) => v < 1));
+    const lostWhy = (y) => 'it lost ' + y.x.id + ', right as the swarm stands and not with it, on both draws';
     for (const [k, x] of order.entries()) {
       const s = await ask(x, k, order.length, false);
       if (s !== null) {
         withIt[x.id] = s;
-        diffs.push({ kind: x.kind, d: s - base[x.id] });
+        diffs.push({ x, kind: x.kind, d: s - base[x.id], b: [base[x.id]], w: [s] });
       }
-      // THE RACE: where the first classRace questions fell, the rest are not asked
+      // THE RACE: where the first classRace questions fell, the rest are not asked (with classConfirm: fell on another draw too,
+      // on more than one question, or lost a question)
       if (k + 1 === Math.min(classRace, order.length) && order.length > classRace) {
-        record.race = pairedOf(diffs.map((y) => y.d));
-        if (record.race.gain < 0)
-          return fail('on the first ' + record.race.n + ' questions of its class it fell by ' + -record.race.gain);
+        record.race = pairedOf(ds());
+        if (record.race.gain < 0) {
+          await confirm();
+          record.race = pairedOf(ds());
+          if (lostNow().length) return fail(lostWhy(lostNow()[0]));
+          if (record.race.gain < 0 && (!classConfirm || diffs.filter((y) => y.d < -0.05).length > 1))
+            return fail('on the first ' + record.race.n + ' questions of its class it fell by ' + -record.race.gain);
+        }
       }
     }
-    Object.assign(record, pairedOf(diffs.map((y) => y.d)));
+    await confirm();
+    Object.assign(record, pairedOf(ds()));
+    const good = madeGood();
+    const lostQs = lostNow();
+    if (classConfirm) Object.assign(record, { madeGood: good.map((y) => y.x.id), lost: lostQs.map((y) => y.x.id) });
     // (one question is no class: there is no error to set its gain beside)
     if (record.n < 2) return fail('its class has fewer than two questions to score it on');
+    if (lostQs.length) return fail(lostWhy(lostQs[0]));
     const fell = [...new Set(diffs.map((y) => y.kind))]
       .map((kind) => ({ kind, ...pairedOf(diffs.filter((y) => y.kind === kind).map((y) => y.d)) }))
-      .filter((y) => y.gain < -classMargin);
+      .filter((y) => y.gain < -classMargin && (!classConfirm || y.gain < -y.stderr - NEAR));
     if (fell.length) {
       record.fell = fell.map((y) => y.kind);
       return fail('its questions of the kind ' + fell[0].kind + ' fell by ' + -fell[0].gain);
     }
-    if (!(record.gain > 2 * record.stderr && record.gain >= classMinGain))
+    const byGain = record.gain > 2 * record.stderr && record.gain >= classMinGain;
+    const byGood = classConfirm && good.length > 0 && record.gain > 0;
+    if (!(byGain || byGood))
       return fail(
         'over the ' +
           record.n +
@@ -914,8 +991,10 @@ export async function runLoop({
           ' (± ' +
           record.stderr +
           '): not more than twice its error and at least ' +
-          classMinGain,
+          classMinGain +
+          (classConfirm ? ', and it made no question good on both draws' : ''),
       );
+    record.by = byGain ? 'gain' : 'made good';
     // THE HELD QUESTIONS OF THE CLASS: not worse there, by more than their own error
     const hq = heldQs.filter((h) => kindOfT(h) === K);
     const heldWith = {};
@@ -950,6 +1029,9 @@ export async function runLoop({
     ' (± ' +
     c.stderr +
     ') in mean score' +
+    (c.by === 'made good'
+      ? ' (kept because it made ' + c.madeGood.join(' and ') + ' good on both draws and lost no question)'
+      : '') +
     (c.held && c.held.n
       ? ', and the ' + c.held.n + ' held ones ' + (c.held.gain >= 0 ? 'gained ' + c.held.gain : 'fell ' + -c.held.gain)
       : '');
@@ -1507,6 +1589,8 @@ export async function runLoop({
         const out = await tryOne(...args);
         // (a change refused or passed over before it was asked measured nothing: it is no try, and does not count toward the bound)
         if (out.skipped) return out;
+        // (and written on the try itself: what a class of change has brought this question is read from its tries, dryClassesOf)
+        if (out.closer && q.attempts.length > 1) q.attempts[q.attempts.length - 1].closer = true;
         q.sinceGain = out.closer || won ? 0 : (q.sinceGain || 0) + 1;
         await checkpoint();
         return out;
@@ -1519,8 +1603,16 @@ export async function runLoop({
         st.reopen.length > 0 ||
         list.some((x) => x.id !== t.id && !doneIds().has(x.id) && !asideOf().some((a) => a.id === x.id)) ||
         asideOf().some((a) => a.id !== t.id && (a.asideAt || 0) < (briefs.version || 1));
+      // AND ITS FIRST VISIT IS BOUNDED IN ALL (firstVisitTries): coming closer starts setAsideAfter again, so a question that kept
+      // coming a little closer was never set aside (measured 2026-11-19: 72, 98, 105 and 164 tries on four questions' first visits,
+      // nine tenths of a pass's search, while 137 questions of 23 kinds waited unasked)
+      const firstVisitOver = () =>
+        pol.firstVisitTries > 0 && !(q.setAside > 0) && q.attempts.length - 1 >= pol.firstVisitTries;
       const stalled = () =>
-        !won && !lastChance && pol.setAsideAfter > 0 && (q.sinceGain || 0) >= pol.setAsideAfter && others();
+        !won &&
+        !lastChance &&
+        others() &&
+        ((pol.setAsideAfter > 0 && (q.sinceGain || 0) >= pol.setAsideAfter) || firstVisitOver());
       // ITS LAST CHANCE IS BOUNDED TOO: a question set aside that comes back with nothing changed since gets as many tries again, and
       // where they bring it nothing closer it is written down as not reached and the pass goes on (measured 2026-11-18: an agent's
       // step came back last, nothing could measure it closer, and 1,255 tries went to it)
@@ -1529,11 +1621,15 @@ export async function runLoop({
       // (measured 2026-11-18: train-1009-answer-5 came back on version 17, the other 35 set aside were all set aside on 17, and 2,281
       // tries went to it). Nothing waiting is its last chance: as many tries, then not reached; a question on its first visit with
       // nothing waiting gets twice as many, the tries it would have had before being set aside and the ones after
+      // AND A VISIT AFTER THE FIRST IS BOUNDED IN ALL, at twice firstVisitTries: then it is written down as not reached
+      const returnOver = () =>
+        pol.firstVisitTries > 0 && q.setAside > 0 && q.attempts.length - 1 >= 2 * pol.firstVisitTries;
       const givenUp = () =>
         !won &&
-        pol.setAsideAfter > 0 &&
-        (lastChance || (!others() && (q.sinceGain || 0) >= pol.setAsideAfter * ((q.setAside || 0) > 0 ? 1 : 2))) &&
-        (q.sinceGain || 0) >= pol.setAsideAfter;
+        (returnOver() ||
+          (pol.setAsideAfter > 0 &&
+            (lastChance || (!others() && (q.sinceGain || 0) >= pol.setAsideAfter * ((q.setAside || 0) > 0 ? 1 : 2))) &&
+            (q.sinceGain || 0) >= pol.setAsideAfter));
       const stop = () => stalled() || givenUp();
       const tick = async () => {
         await policyTick(st, { review, onPolicy, current: q });
@@ -1675,6 +1771,7 @@ export async function runLoop({
           drop,
           policy: pol,
           recent,
+          dry: dryClassesOf(q.attempts, pol.dryClassAfter),
         })
           .filter((m) => !seen.has([...node.chain, m.name].sort().join(' + ')))
           .slice(0, 80)
@@ -1850,6 +1947,7 @@ export async function runLoop({
           drop,
           policy: pol,
           recent,
+          dry: dryClassesOf(q.attempts, pol.dryClassAfter),
         }).filter((m) => !node.tried.has(m.name) && !seen.has([...node.chain, m.name].sort().join(' + ')));
         if (!opts.length) {
           node.spent = true;
@@ -2280,7 +2378,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     classKeep
       ? 'Kept by the class: a change is kept only where its class of train questions gains more than twice its error (and ' +
           (lp.classMinGain === undefined ? 0.02 : lp.classMinGain) +
-          ' at least), no kind of them falls, and the held questions of the class do not fall.'
+          ' at least), or makes a question good on two draws and loses none; no kind of them falls, and the held questions of the class do not fall.'
       : heldQs.length
         ? 'Held guard: a change is kept only if it loses none of up to ' +
           heldGuard +
@@ -2631,6 +2729,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       classRace: Number(lp.classRace) || 8,
       classMinGain: lp.classMinGain === undefined ? 0.02 : Number(lp.classMinGain),
       classMargin: lp.classMargin === undefined ? 0.05 : Number(lp.classMargin),
+      classConfirm: lp.classConfirm !== false,
       classTries: lp.classTries === undefined ? 6 : Number(lp.classTries),
       briefs: readBriefs(),
       poolOf,
@@ -2717,10 +2816,20 @@ if (import.meta.url === 'file://' + process.argv[1]) {
           },
         });
         const t0 = Date.now();
-        const [row] = await run([t], async (x) => pick(await askSwarm(swarm, x, messagesOf(x))), {
-          ref,
-          at: { n: at.n, of: at.of },
-        });
+        // ANOTHER DRAW (at.draw, classCheck's second asking): the same question with another seed, then the seed put back. A swarm
+        // asked without a seed draws anew every time as it is
+        const seed0 = swarm.seed;
+        const again = at.draw && seed0 !== undefined;
+        if (again) swarm.setSeed(seed0 + '|draw' + at.draw);
+        let row;
+        try {
+          [row] = await run([t], async (x) => pick(await askSwarm(swarm, x, messagesOf(x))), {
+            ref,
+            at: { n: at.n, of: at.of },
+          });
+        } finally {
+          if (again) swarm.setSeed(seed0);
+        }
         // what the run costs in full: the time it took, and what the answers it reused first took
         const r1 = swarm.reused || r0;
         row.seconds = Math.round((Date.now() - t0 + (r1.savedMs - r0.savedMs)) / 100) / 10;

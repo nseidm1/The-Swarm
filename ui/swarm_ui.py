@@ -1265,7 +1265,7 @@ def policy_block(lp):
     pol = lp.get("loopPolicy")
     # (a policy written before a setting existed takes that setting's default, as the loop does: training/loop-policy.mjs normal)
     if pol:
-        pol = {"reviewTries": 40, "trialTries": 40, "swapAfter": 25, "stableAfter": 6, "stableMax": 2, "brokeBudget": 12, "suggestEvery": 20, "teachEvery": 60, "prune": True, "setAsideAfter": 30, "helpBackoff": True, "kindBranch": True, **pol}
+        pol = {"reviewTries": 40, "trialTries": 40, "swapAfter": 25, "stableAfter": 6, "stableMax": 2, "brokeBudget": 12, "suggestEvery": 20, "teachEvery": 60, "prune": True, "setAsideAfter": 30, "firstVisitTries": 40, "dryClassAfter": 8, "helpBackoff": True, "kindBranch": True, **pol}
     if not pol:
         return ('<h4>The loop&#39;s policy</h4><p class="small muted" style="margin:0">How the search ranks and bounds what it tries is data that '
                 "changes as it runs. A pass that runs this version writes it here: the larger model reviews the record every few questions "
@@ -1283,6 +1283,8 @@ def policy_block(lp):
         "writes briefs for a drafting loss after %d" % pol.get("teachEvery", 60) if pol.get("teachEvery") else "no briefs written",
         "each half as often where it brought a question nothing" if pol.get("helpBackoff") and (pol.get("suggestEvery") or pol.get("teachEvery")) else "",
         ("a question set aside after %d tries in a row with nothing closer, while others wait" % pol["setAsideAfter"]) if pol.get("setAsideAfter") else "no question set aside",
+        ("and after %d tries in all on its first visit" % pol["firstVisitTries"]) if pol.get("firstVisitTries") else "",
+        ("a class of change that brought a question nothing in %d tries tried last there" % pol["dryClassAfter"]) if pol.get("dryClassAfter") else "",
         "a change that loses only the other kind (code, or words) kept for its own kind" if pol.get("kindBranch") else "one arrangement for every kind",
         "a win pruned to its smallest form" if pol.get("prune", True) else "wins kept whole",
     ] if x)
@@ -1399,6 +1401,7 @@ def plan_panel(d):
                   # (how a change is kept, as the policy has it: by its class, or question by question as before)
                   ("A change that makes it good is scored on the questions of its class, with the change and as the swarm stood: the first <b>%s</b>, and the rest where those did not fall. "
                    "It is kept when the class gained more than twice its error and at least <b>%s</b>, no kind of question fell by more than <b>%s</b>, and the held questions of the class did not fall by more than their error. "
+                   "A question it scores otherwise on is asked a second time, on another draw: a change that made a question good on both draws and lost none is kept too, and one answer that came out otherwise once is no fall. "
                    "At the end of a pass up to <b>%s</b> changes a class, those that most often brought its questions closer, are proposed for the class outright and scored the same way."
                    % (e(str(lpol.get("classRace", 8))), e(str(lpol.get("classMinGain", 0.02))), e(str(lpol.get("classMargin", 0.05))), e(str(lpol.get("classTries", 0)))))
                   if lpol.get("classKeep") is True else

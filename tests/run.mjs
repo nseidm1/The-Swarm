@@ -3357,6 +3357,81 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { L: [L.state, L.gaveUp, triesL], C: [C.state, C.gaveUp, triesC] },
   );
 }
+// ---- 6ad: A QUESTION THAT KEEPS COMING A LITTLE CLOSER IS BOUNDED TOO (measured 2026-11-19: 72 to 164 tries on four questions'
+// first visits while 137 waited): firstVisitTries sets it aside whatever came closer, and its return is bounded at twice that. And a
+// class of change that has brought one question nothing is tried last there (dryClassAfter)
+{
+  const { runLoop, orderFor, dryClassesOf } = await import('../training/loop.mjs');
+  const mk = (bb, k) => ({
+    key: k,
+    id: k,
+    name: k,
+    kind: 'arrangement',
+    area: 'slots',
+    briefs: { ...bb, has: [...bb.has, k] },
+  });
+  const go = async (firstVisitTries) => {
+    let n = 0;
+    const log = [];
+    const st = await runLoop({
+      list: [
+        { id: 'A', kind: 'k' },
+        { id: 'B', kind: 'k' },
+      ],
+      briefs: { version: 1, has: [], slots: [{ id: 'a1', stage: 'draft' }], plan: {} },
+      poolOf: (bb) =>
+        Array.from({ length: 60 }, (_, k) => 'm' + k)
+          .filter((k) => !bb.has.includes(k))
+          .map((k) => mk(bb, k)),
+      policy: { setAsideAfter: 3, firstVisitTries, batch: 0, suggestEvery: 0, teachEvery: 0, reviewTries: 1000 },
+      attempt: async (bb, t, at) => {
+        if (t.id === 'B') return (log.push('B'), { grade: 'right', trace: [] });
+        if (at.attempt) log.push('A' + ++n);
+        // every try reads a little closer than the one before, and none is right
+        return {
+          grade: 'wrong',
+          reading: Math.min(0.9, 0.1 + bb.has.length * 0.1 + n * 0.001),
+          path: 'decided',
+          trace: [{ stage: 'draft', slot: 'a1', same: false }],
+        };
+      },
+    });
+    return { before: log.indexOf('B'), n, state: st.questions.find((q) => q.id === 'A').state };
+  };
+  const unbounded = await go(0);
+  const bounded = await go(5);
+  const pool = [
+    { id: 'd1', key: 'd1', name: 'plan: decide by most', area: 'decider' },
+    { id: 's1', key: 's1', name: 'add a second a-direct on b', area: 'slots' },
+    { id: 'd2', key: 'd2', name: 'plan: decide by decider-if-confident', area: 'decider' },
+  ];
+  const { classOf } = await import('../training/loop.mjs');
+  const dryClass = classOf(pool[0]);
+  const plain = orderFor(pool, { lost: 'choosing' }).map((m) => m.id);
+  const held = orderFor(pool, { lost: 'choosing', dry: new Set([dryClass]) }).map((m) => m.id);
+  const pinned = orderFor(pool, { lost: 'choosing', dry: new Set([dryClass]), pin: ['d2'] }).map((m) => m.id);
+  const tries = (k, n, more = {}) => Array.from({ length: n }, () => ({ kind: k, grade: 'wrong', ...more }));
+  const dry = dryClassesOf(
+    [{ move: '' }, ...tries('x', 3), ...tries('y', 3), { kind: 'y', grade: 'wrong', closer: true }, ...tries('z', 2)],
+    3,
+  );
+  check(
+    'a question whose every try comes a little closer is set aside on its first visit after firstVisitTries tries in all (without it, it held the pass for hundreds), comes back bounded at twice that and is written down as not reached; a class of change tried dryClassAfter times on one question with none closer is tried last there, after every other change open, though not left out, and what a person pinned is not held back',
+    unbounded.before > 100 &&
+      bounded.before === 5 &&
+      bounded.n <= 15 &&
+      bounded.state === 'not reached' &&
+      plain[0] !== 's1' &&
+      held[0] === 's1' &&
+      held.length === 3 &&
+      pinned[0] === 'd2' &&
+      dry.has('x') &&
+      !dry.has('y') &&
+      !dry.has('z') &&
+      dryClassesOf(tries('x', 9), 0).size === 0,
+    { unbounded, bounded, plain, held, pinned, dry: [...dry] },
+  );
+}
 // ---- 6v: what the measurement held and no finding read: answers cut off at the token limit, a drafter that echoes another on its
 // own model, the decider not answering in time; each found, and each answered by a move that speaks to it
 {
@@ -5348,8 +5423,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 // ---- 9s: KEEPING A CHANGE BY ITS CLASS (docs/swoa-parity-plan.md, step 5): one question brought to parity is a guess; the class
-// decides. Kept where the class gains more than twice its error; not where only the one question moved, where a kind falls, where
-// the held questions fall; raced on a few first; and what most often came closer is proposed for the class outright
+// decides. Kept where the class gains more than twice its error, or where a question is made good on two draws and none is lost;
+// not where the question was good on one draw only, where a question is lost, where a kind falls, where the held questions fall;
+// raced on a few first; and what most often came closer is proposed for the class outright
 {
   const { runLoop } = await import('../training/loop.mjs');
   const kinds = ['answer', 'request', 'piece'];
@@ -5390,7 +5466,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
         const on = names.filter((n) => (bb.plan || {})[n]);
         asked.push(t.id + ':' + on.join('+'));
         let s = scores.base(t);
-        for (const n of on) s = scores[n](t, s);
+        for (const n of on) s = scores[n](t, s, note);
         return row(Math.max(0, Math.min(1, s)));
       },
     });
@@ -5398,8 +5474,27 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   };
   // every question stands at 0.5. "lift" takes the whole class to 0.8 and the question in hand to parity: kept
   const lift = await run({ base: () => 0.5, lift: (t) => (t.id === 'answer-1' ? 1 : 0.8) });
-  // "one" brings one question to parity and moves nothing else: not kept (a gain of one question in twelve is within its error)
+  // "one" brings one question to parity and moves nothing else: its gain of one question in twelve is within its error, and it
+  // is kept because the question is good on another draw too, and none is lost
   const one = await run({ base: () => 0.5, one: (t, s) => (t.id === 'answer-1' ? 1 : s) });
+  const k1 = one.kept[0] || {};
+  // "luck" brings it to parity on the first draw only: asked again it is as it was, and it is not kept
+  const luck = await run({ base: () => 0.5, luck: (t, s, note) => (t.id === 'answer-1' && !note.draw ? 1 : s) });
+  // "wobble" makes it good on both draws, and one answer of another kind comes out lower on the first draw only: kept (one
+  // answer of four that came out otherwise once is no fall of its kind)
+  const wobble = await run({
+    base: () => 0.5,
+    wobble: (t, s, note) => (t.id === 'answer-1' ? 1 : t.id === 'piece-2' && !note.draw ? 0.1 : s),
+  });
+  // "trade" makes it good and loses a question that was right, on both draws: not kept, and the question is named
+  const trade = await run({
+    base: (t) => (t.id === 'piece-2' ? 1 : 0.5),
+    trade: (t, s) => (t.id === 'answer-1' ? 1 : t.id === 'piece-2' ? 0.2 : s),
+  });
+  const tradeWhy = trade.st.questions
+    .flatMap((q) => q.attempts || [])
+    .map((a) => (a.classCheck || {}).why)
+    .find(Boolean);
   // "skew" lifts the answers and drops the pieces by more than the margin: not kept, whatever the mean
   const skew = await run({ base: () => 0.5, skew: (t) => (t.kind === 'piece' ? 0.2 : 1) });
   // "overfit" lifts every train question and drops the held ones: not kept
@@ -5419,7 +5514,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const kn = near.kept[0] || {};
   const k0 = lift.kept[0] || {};
   check(
-    'keeping by the class: a change that lifts its whole class is kept, with its gain, its error and over how many questions on the ledger; one that brings a single question to parity and moves no other is not; one that lifts most kinds and drops one by more than the margin is not; one that lifts the train questions and drops the held ones is not; a change that falls on the first few questions it is raced on is not asked on the rest; and a change that brought questions closer and none to parity is proposed for the class at the end of the pass, and kept where the class gained',
+    'keeping by the class: a change that lifts its whole class is kept, with its gain, its error and over how many questions on the ledger; one that brings a single question to parity and moves no other is kept where the question is good on another draw too (and the ledger says that is why), and not where it was good on one draw only; one answer that came out otherwise once does not refuse it; one that loses a question right on both draws is refused, with the question named; one that lifts most kinds and drops one by more than the margin is not; one that lifts the train questions and drops the held ones is not; a change that falls on the first few questions it is raced on is not asked on the rest; and a change that brought questions closer and none to parity is proposed for the class at the end of the pass, and kept where the class gained',
     lift.kept.length >= 1 &&
       k0.classGain &&
       k0.classGain.keep === true &&
@@ -5428,10 +5523,20 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       k0.classGain.held.n === 3 &&
       /its class of 12 train questions gained/.test(k0.why) &&
       (lift.st.briefs.kinds || {}).words &&
-      one.kept.length === 0 &&
-      one.st.questions
+      one.kept.length === 1 &&
+      k1.classGain.by === 'made good' &&
+      k1.classGain.madeGood.join() === 'answer-1' &&
+      /made answer-1 good on both draws and lost no question/.test(k1.why) &&
+      one.asked.includes('answer-1:') &&
+      luck.kept.length === 0 &&
+      luck.st.questions
         .find((q) => q.id === 'answer-1')
-        .attempts.some((a) => a.classCheck && a.classCheck.keep === false) &&
+        .attempts.some(
+          (a) => a.classCheck && a.classCheck.keep === false && /no question good on both draws/.test(a.classCheck.why),
+        ) &&
+      wobble.kept.length === 1 &&
+      trade.kept.length === 0 &&
+      /it lost piece-2/.test(tradeWhy || '') &&
       skew.kept.length === 0 &&
       skew.st.questions.some((q) =>
         (q.attempts || []).some((a) => a.classCheck && (a.classCheck.fell || []).includes('piece')),
@@ -5451,7 +5556,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       /proposed for its class/.test(kn.why),
     {
       lift: [lift.kept.length, k0.classGain],
-      one: one.kept.length,
+      one: [one.kept.length, k1.classGain, k1.why],
+      luck: luck.kept.length,
+      wobble: wobble.kept.length,
+      trade: [trade.kept.length, tradeWhy],
       skew: skew.kept.length,
       overfit: overfit.kept.length,
       race: [race.kept.length, raceCheck],

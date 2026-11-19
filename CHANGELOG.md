@@ -51,7 +51,13 @@ The first version.
     flaw, rules a program checks, the step a scenario needs); the larger model is counted by the same standard. Where a
     question has none, the standard is the answers the larger model agrees with itself on, of up to three.
   - *Keeping.* A change is kept when its class of questions got better (more than twice its error, no kind falling, the held
-    questions not falling), not when one question came to parity.
+    questions not falling), not when one question came to parity. A question the change scores otherwise on is asked again,
+    both ways, on another draw: a change that makes a question good on both draws and loses none is kept too, and one answer
+    that came out otherwise once is no longer a fall. (Before, a change that fixed one question could never be kept: one
+    question in thirty is within its own error.)
+  - *Bounds.* A question's first visit is bounded in all (`firstVisitTries`, 40), whether or not its tries came closer, and
+    its return at twice that. A class of change that has brought one question nothing in 8 tries is tried last there
+    (`dryClassAfter`).
   - *Questions.* Three new bodies of work: **instructions** (rules a program checks), **tools** (calling a function, or
     not), **search** (a search tool and facts made up from the seed, so no model can know them).
   - *Tools.* In a turn with tools a reply is now written by the answer procedure, shown what the tools returned (SwOA T.9);

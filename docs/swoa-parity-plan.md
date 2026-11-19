@@ -266,7 +266,10 @@ are expected at least: both questions that ask about something never shown).
 2. *The race, then the class.* A change that brought a question to parity, or one proposed for the class, is asked on eight
    questions drawn evenly from the class's kinds; where their mean did not fall, on the rest. Then the rule of the design:
    kept when the gain is more than twice its paired error and at least 0.02, no kind falls by more than the margin, and the
-   held questions of the class do not fall by more than their error.
+   held questions of the class do not fall by more than their error. One asking is one draw, so a question the change
+   scores otherwise on is asked again, both ways, on another draw: a change is also kept where it made a question good on
+   both draws, lost none on both, and the mean is up; a change that lost a question is not kept; and a kind has fallen only
+   where it fell by more than its own error as well.
 3. *Proposed for the class.* Besides changes that won a question: the kinds of change that most often brought questions
    closer in this pass, a fixed number of them a pass, raced the same way.
 4. *What it replaces.* The guard of up to six questions and the held guard of up to four become the race and the held check.

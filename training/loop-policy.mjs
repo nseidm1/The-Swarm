@@ -153,6 +153,22 @@ export const KNOBS = {
     max: 500,
     default: 30,
   },
+  firstVisitTries: {
+    about:
+      "On a question's first visit, after this many tries in all without parity it is set aside while another question waits, whether or not some of them came closer; when it comes back it is bounded at twice as many, and is then written down as not reached (0: only setAsideAfter bounds it). Coming closer starts setAsideAfter again, so a question that kept coming a little closer held a pass for a hundred tries and more.",
+    kind: 'int',
+    min: 0,
+    max: 500,
+    default: 40,
+  },
+  dryClassAfter: {
+    about:
+      'On one question, a class of change tried this many times with none of them closer or at parity is tried last there, after every other change open (0: never). What a person pinned is not held back.',
+    kind: 'int',
+    min: 0,
+    max: 200,
+    default: 8,
+  },
   helpBackoff: {
     about:
       "The larger model's suggestions and new briefs come half as often on a question each time they bring it nothing (no parity, nothing closer), and back to every suggestEvery / teachEvery tries when they do.",

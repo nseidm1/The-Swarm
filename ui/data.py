@@ -748,7 +748,8 @@ def learned_rule(policy):
         return ("a change is kept when the questions of its class got better with it: each train question of the class is scored with the change and as the module stood "
                 "(by the question's own standard where it carries one, else against the answers the target agrees with itself on), and the change is kept when the mean gain "
                 "is more than twice its paired error and at least %s, no kind of question falls by more than %s, and the held questions of the class do not fall by more than "
-                "their error; an entry so kept says its gain, its error and over how many questions (classGain). Before this rule, %s"
+                "their error; a question the change scores otherwise on is asked again, both ways, on another draw, and a change that made a question good on both draws and lost none "
+                "is kept too, while one answer that came out otherwise once is no fall; an entry so kept says its gain, its error and over how many questions (classGain). Before this rule, %s"
                 % (lp.get("classMinGain", 0.02), lp.get("classMargin", 0.05), before))
     return "training goes question by question: " + before.replace("was kept", "is kept").replace("it brought", "it brings").replace("that were asked", "that are asked").replace("was lost", "is lost")
 
