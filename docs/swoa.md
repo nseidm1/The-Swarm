@@ -73,7 +73,7 @@ ignore members it does not know.
 | Member | |
 |---|---|
 | `members` | object, keyed by place (`a`, `b`, `c`, `d`); at least two. Each member MUST have `file` and `sha256` (the model file and its SHA-256), and SHOULD have `id`, `name`, `repo`, `rev`, `bytes`, `license` and `serve` (how the engine serves it) |
-| `decider` | object: the decision model, with `id` and `name`, and how it is served |
+| `decider` | object: the decision model, with `id` and `name`, and how it is served. A module with NO decision model has `id` `none`: nothing is served to decide, no decider is supplied to the answer procedure, and a slot of the module decides (O.6.6, WITH) |
 | `engine` | object: the inference engine, with `name` and the build it was measured on |
 | `serving` | object: `slots` (concurrent requests each member serves), `contextPerSlot` (tokens), and `tools` (`"swarm"`: a request with tools is decided by the module; otherwise the place or id of the one member that takes it alone) |
 | `briefs` | object: the arrangement (section 4.3) |
@@ -1199,6 +1199,11 @@ Let TABLE be distinct and TALLY be votes, both fixed at the start of the step.
 `most`, and `plan.decideWith.how` is set. HOW is that value: `together`, `if-close`, `if-at-odds` or
 `alone` (any other value has no effect). With `alone` the judge slot decides IN PLACE of the decider: the
 decider is not called for this decision (step 2), whether or not one is supplied.
+
+**A module with no decision model** (its recipe's decider has `id` `none`): no decider is supplied, and for every
+decide step that has neither `keep` nor `sure` and whose BY is not `most`, WITH holds and HOW is `alone`, whatever
+`plan.decideWith.how` says or whether `plan.decideWith` is there at all. The judge slot is built as below from
+`plan.decideWith` where it is given (its `slot`, `brief`, `maxTokens`), and from nothing where it is not.
 
 **The judge slot** is synthetic: start from the slot whose id is `plan.decideWith.slot`; if there is
 none, the first slot of stage `check`; if none, the first slot. Copy all its fields, then set `id`

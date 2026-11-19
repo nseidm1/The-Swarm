@@ -2358,7 +2358,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
 {
   const { REGISTRY } = await import('../src/catalog.mjs');
   const { spawnSync } = await import('node:child_process');
-  const ds = REGISTRY.deciders;
+  // (the decision models: the entry `none`, a swarm with no decision model, is not one of them and is checked with it, 6ah)
+  const ds = REGISTRY.deciders.filter((x) => (x.serve || {}).kind !== 'none');
   const envOf = (id) =>
     spawnSync(process.execPath, ['training/support/decider-env.mjs'], {
       encoding: 'utf8',
@@ -3672,6 +3673,32 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const aloneRulings = rulings - before;
   const judgeRow = alone.trace.find((t) => t.stage === 'judge');
   const silent = await go({ decideWith: { how: 'alone', slot: 'b-check' } }, 'I cannot tell.');
+  // A MODULE WITH NO DECISION MODEL (modelDecides; the decider `none`): a slot decides whatever the plan says of deciding, even a
+  // way that needs a decider's ruling, and with nothing named the first checker is asked
+  const noneAsk = async (slot) =>
+    slot.stage === 'judge'
+      ? { text: 'ANSWER: B' }
+      : slot.stage === 'write'
+        ? { text: 'It is.' }
+        : { text: slot.member === 'a' ? 'ANSWER: 41' : 'ANSWER: 42' };
+  const none = await answer([{ role: 'user', content: 'What is 6 times 7?' }], {
+    briefs: { version: 1, plan: { decideWith: { how: 'if-at-odds' } }, slots, flow },
+    modelDecides: true,
+    ask: noneAsk,
+  });
+  const noneBare = await answer([{ role: 'user', content: 'What is 6 times 7?' }], {
+    briefs: { version: 1, plan: {}, slots, flow },
+    modelDecides: true,
+    ask: noneAsk,
+  });
+  const noneRow = noneBare.trace.find((t) => t.stage === 'judge');
+  const { REGISTRY: REG2 } = await import('../src/catalog.mjs');
+  const noneEntry = REG2.deciders.find((x) => x.id === 'none');
+  const { spawnSync: sp2 } = await import('node:child_process');
+  const noneReady = sp2('bash', ['training/decider.sh', 'ready'], {
+    encoding: 'utf8',
+    env: { ...process.env, DECIDER_ID: 'none', NODE: process.execPath },
+  }).status;
   const moves = steps({ version: 1, plan: {}, slots, flow }).filter((m) => /in place of the decider/.test(m.name));
   const drafting = tuned({ lost: 'drafting' }, { slots }).skip(moves[0]);
   const choosing = tuned({ lost: 'choosing' }, { slots }).skip(moves[0]);
@@ -3701,7 +3728,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     rows,
   );
   check(
-    "a small model can decide in place of the decider: it is shown every different answer, told what a model that decides is told, and its word settles it, with the decider not asked at all and its row marked so; where it names nothing the answer most slots hold stands; the trainer offers it as its own kind of change, only where an answer was lost in choosing; and each small model can be put a pass's recorded choices as the decider, counted as another decider is (chose the larger model's answer, recovered, lost), one that names no answer counted as failed",
+    "a small model can decide in place of the decider: it is shown every different answer, told what a model that decides is told, and its word settles it, with the decider not asked at all and its row marked so; where it names nothing the answer most slots hold stands; a module with no decision model (the decider `none`, which takes no memory, is never the default, and is always ready) decides so whatever its plan names, by the first checker where it names no slot; the trainer offers it as its own kind of change, only where an answer was lost in choosing; and each small model can be put a pass's recorded choices as the decider, counted as another decider is (chose the larger model's answer, recovered, lost), one that names no answer counted as failed",
     byDecider.decided === '41' &&
       alone.decided === '42' &&
       aloneRulings === 0 &&
@@ -3711,6 +3738,15 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       !silent.trace.some((t) => t.stage === 'decide') &&
       ['41', '42'].includes(silent.decided) &&
       silent.path === 'most' &&
+      none.decided === '42' &&
+      noneBare.decided === '42' &&
+      noneRow.member === 'b' &&
+      noneRow.alone === true &&
+      noneEntry &&
+      noneEntry.memGb === 0 &&
+      noneEntry.serve.kind === 'none' &&
+      REG2.deciders[0].id !== 'none' &&
+      noneReady === 0 &&
       moves.length >= 2 &&
       classOf(moves[0]) === 'a model in place of the decider' &&
       drafting === true &&

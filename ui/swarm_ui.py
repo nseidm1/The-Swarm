@@ -2469,9 +2469,15 @@ def run_lines(cleared=""):
             dname = (data.load(ARGS.root).get("decider") or {}).get("name") or "The decider"
         except Exception:  # noqa: BLE001
             dname = "The decider"
+        # (a swarm with no decision model, the decider `none`: there is nothing whose state to say)
+        try:
+            no_dec = ((data.load(ARGS.root).get("decider") or {}).get("serve") or {}).get("kind") == "none"
+        except Exception:  # noqa: BLE001
+            no_dec = False
         out.append('<div class="state on running" data-running="1"><i></i><span data-since="%d"><b>Running %s</b><small>since %s</small></span>'
                    '<span class="runx">question by question, until stopped · %s <b>%s</b></span></div>'
-                   % (int(began * 1000), e(_span(time.time() - began)), e(time.strftime("%H:%M %Z", time.localtime(began))), e(dname), e(decider_state(True))))
+                   % (int(began * 1000), e(_span(time.time() - began)), e(time.strftime("%H:%M %Z", time.localtime(began))),
+                      "no decision model:" if no_dec else e(dname), "a small model decides" if no_dec else e(decider_state(True))))
         out.append(_making_ready(st))
         return "".join(out)
     if cleared:
@@ -2619,7 +2625,7 @@ def pills(d):
         # (each group asks for the room its pills need, so the two share a row exactly when both fit)
         % (n_small, 195 * n_small - 10, pill("a", "Small model 1", reg["small"], d["members"]["a"]), pill("b", "Small model 2", reg["small"], d["members"]["b"]), more,
            pill("decider", "Decides", sorted(reg["deciders"], key=lambda m: -(m.get("index") or {}).get("score", 0)), d["decider"]),
-           pill("judge", "Judges equivalence", sorted([m for m in reg["deciders"] if m["id"] != (d.get("decider") or {}).get("id")], key=lambda m: -(m.get("index") or {}).get("score", 0)), d.get("judge"), "judge"),
+           pill("judge", "Judges equivalence", sorted([m for m in reg["deciders"] if m["id"] != (d.get("decider") or {}).get("id") and (m.get("serve") or {}).get("kind") != "none"], key=lambda m: -(m.get("index") or {}).get("score", 0)), d.get("judge"), "judge"),
            pill("target", "Larger model", sorted(reg["targets"], key=lambda t: -t.get("params", 0)), d["target"]))
     )
 
@@ -2726,14 +2732,15 @@ def recommendations(d):
         edge = r.get("theirsRight", 0) - r.get("nowRight", 0)
         fp_ = d.get("footprint") or {}
         dec_gb = next((x["gb"] for x in fp_.get("parts", []) if x.get("kind") == "decider"), None)
-        out.append({"id": "model-decides:" + str(r.get("decider")), "strength": "measured", "apply": None, "n": r.get("asked", 0),
+        out.append({"id": "model-decides:" + str(r.get("decider")), "strength": "measured", "apply": {"decider": "none"} if cur_dec != "none" else None, "n": r.get("asked", 0),
                     "title": ("%s chooses better than %s" if edge > 0 else "%s chooses as well as %s") % (r.get("name") or r.get("decider"), rec_dec),
                     "why": "Put the %d choices recorded in pass %s as the one that decides, it chose the larger model&#39;s answer %d times against %s&#39;s %d (it recovered %d and lost %d). %s%s"
                            % (r.get("asked", 0), e(str(rep.get("pass", "?"))), r.get("theirsRight", 0), e(rec_dec), r.get("nowRight", 0), r.get("recovered", 0), r.get("lost", 0),
                               "The choices are rebuilt from the record, close to what the decider was asked and not the same: a pass is what would tell. "
-                              "Training tries it as a change (a model decides in place of the decider) and keeps it only where its class of questions gains." , elsewhere(rep_from)),
-                    "cost": ("a swarm that decides so throughout would not need the decision model: %s%s GB of %s GB" % ("" if fp_.get("measured") else "about ", ("%.1f" % dec_gb).rstrip("0").rstrip("."), ("%.1f" % fp_["swarm"]).rstrip("0").rstrip("."))) if dec_gb and fp_.get("swarm") else "",
-                    "note": "training does this itself"})
+                              "This change makes a swarm with no decision model: where its drafts differ, a slot of the swarm decides, and training finds which. "
+                              "%s goes on judging equivalence for training, apart from the swarm. " % e(rec_dec), elsewhere(rep_from)),
+                    "cost": ("saves the decision model: %s%s GB of %s GB" % ("" if fp_.get("measured") else "about ", ("%.1f" % dec_gb).rstrip("0").rstrip("."), ("%.1f" % fp_["swarm"]).rstrip("0").rstrip("."))) if dec_gb and fp_.get("swarm") else "",
+                    "note": "a new configuration: its training starts its own record"})
     # EACH SMALL MODEL ALONE against this larger model: one that answers as the larger model more often than the weakest member of
     # this swarm, by more than the measurements themselves wander, is evidence for a swap (alone_scores)
     tid = (d.get("target") or {}).get("id", "")
@@ -4215,6 +4222,7 @@ class Handler(BaseHTTPRequestHandler):
             root = Path(ARGS.root)
             reg = data._json(root / "src" / "models.json", {})
             now = data._json(root / "src" / "config.json", {})
+            was_decider = now.get("decider")
             # WHAT THE SWARM IS TRAINED ON IS NOT A SETTING (console ruling 2026-11-18): a pass asks every body of work. A choice
             # asked for is refused, and one left in the file from when there was one is taken out the next time it is written
             if "equivalence" in asked:
@@ -4245,6 +4253,10 @@ class Handler(BaseHTTPRequestHandler):
                     if not any(m.get("id") == asked[key] for m in reg.get(lst, [])):
                         return self._send("There is no %s called that." % key, 400, "text/plain; charset=utf-8")
                     now[key] = asked[key]
+            # A SWARM WITH NO DECISION MODEL STILL NEEDS A READER FOR TRAINING: where `none` is chosen and no judge is named, the decider
+            # it had judges equivalence from here on (it was reading it until now); without one the next pass would stop at its gate
+            if asked.get("decider") == "none" and was_decider and was_decider != "none" and not now.get("judge"):
+                now["judge"] = was_decider
             if now.get("judge") and now.get("judge") == now.get("decider"):
                 now.pop("judge", None)  # (a judge that is the decider is the decider itself)
             # no place is left empty between two that are filled: the ones after it move up

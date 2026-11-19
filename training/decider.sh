@@ -36,6 +36,13 @@ uv_in() { # uv_in <folder>: a uv of that folder's own, made the first time
 }
 cmd=$1; shift
 case "$D_KIND" in
+  none)
+    # a swarm with no decision model (the decider `none`): nothing to install, serve or stop, and it is always ready
+    case "$cmd" in
+      ready | install | stop) exit 0 ;;
+      *) echo "This swarm has no decision model: a small model of it decides. Nothing to $cmd." >&2; exit 0 ;;
+    esac
+    ;;
   kev)
     RUN=${KEV_RUN:-${D_RUN:-jaredpalmer/kev-4b@v1.0}}
     export UV_CACHE_DIR=$K/uv-cache UV_PYTHON_INSTALL_DIR=$K/python HF_HOME=$K/hf

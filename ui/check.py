@@ -534,9 +534,10 @@ with tempfile.TemporaryDirectory() as tmp:
     dm = dict(d, machine=["mac"])
     sel = re.search(r'<select data-pick="decider".*?</select>', swarm_ui.pills(dm), re.S).group(0)
     names = re.findall(r'<option value="([^"]+)"', sel)
-    check("the Decides pill lists every decider best first by its Decision Index score, says the score beside each, and on a machine that cannot run one lists it greyed out with what it needs; the one chosen is shown by its name alone",
+    check("the Decides pill lists every decider best first by its Decision Index score, says the score beside each, and on a machine that cannot run one lists it greyed out with what it needs; the one chosen is shown by its name alone; last in the list is a swarm with no decision model, which is never offered as the judge",
           names[0] == "karpo-31b" and 'value="karpo-31b" disabled' in sel and "needs an NVIDIA GPU with 80 GB" in sel and "StartLux Decision 4B · index 54.8 · about 5.5 GB<" in sel
-          and 'value="startlux-4b" disabled' not in sel and "(an older checkpoint)" in sel and ('value="%s" selected>%s<' % (d["decider"]["id"], d["decider"]["name"])) in sel and len(names) == len(d["registry"]["deciders"]) == 23
+          and 'value="startlux-4b" disabled' not in sel and "(an older checkpoint)" in sel and ('value="%s" selected>%s<' % (d["decider"]["id"], d["decider"]["name"])) in sel and len(names) == len(d["registry"]["deciders"]) == 24 and names[-1] == "none" and "A small model of the swarm" in sel
+          and 'value="none"' not in re.search(r'<select data-pick="judge".*?</select>', swarm_ui.pills(dm), re.S).group(0)
           and 'value="karpo-31b" disabled' not in re.search(r'<select data-pick="decider".*?</select>', swarm_ui.pills(dict(d, machine=["cuda"])), re.S).group(0), names[:3])
     # the Uninstall Helper, on a made-up .work: a model file, a model that is a link to a file kept elsewhere, a decider's weights
     w = root / ".work"
@@ -1605,11 +1606,11 @@ _cfg9 = swarm_ui.config_section(_d9)
 _few9 = [r for r in swarm_ui.recommendations(_d9) if str(r["id"]).startswith("model-decides:")]
 swarm_ui.ARGS = _args9
 shutil.rmtree(_root9, ignore_errors=True)
-check("where one of the swarm's own small models, put a pass's recorded choices as the decider, chose at least as well as the decision model on ten choices or more, the recommendations say so: which model, the counts, that the choices are rebuilt and a pass would tell, that training tries it itself, and what the swarm would not need; the best such model only, never one that chose worse or one put fewer than ten choices; it has no button, and the count beside Configuration includes it, so it can be opened",
-      _r9 is not None and _r9["apply"] is None and _r9["n"] == 24 and "chooses better than" in _r9["title"] and (_ma9.get("name") or "") in _r9["title"]
-      and "17 times against" in _r9["why"] and "recovered 5 and lost 3" in _r9["why"] and "a model decides in place of the decider" in _r9["why"] and "would not need the decision model" in _r9["cost"]
+check("where one of the swarm's own small models, put a pass's recorded choices as the decider, chose at least as well as the decision model on ten choices or more, the recommendations say so: which model, the counts, that the choices are rebuilt and a pass would tell, and what the swarm would save; the best such model only, never one that chose worse or one put fewer than ten choices; its button makes a swarm with no decision model",
+      _r9 is not None and _r9["apply"] == {"decider": "none"} and _r9["n"] == 24 and "chooses better than" in _r9["title"] and (_ma9.get("name") or "") in _r9["title"]
+      and "17 times against" in _r9["why"] and "recovered 5 and lost 3" in _r9["why"] and "a swarm with no decision model" in _r9["why"] and "saves the decision model" in _r9["cost"]
       and len([r for r in _rs9 if str(r["id"]).startswith("model-decides:")]) == 1 and "Weak" not in _panel9
-      and "What training does about it itself" in _panel9 and 'id="rec-open"' in _cfg9 and _few9 == [],
+      and "Make this change" in _panel9 and 'id="rec-open"' in _cfg9 and _few9 == [],
       [_r9, _cfg9[:200]])
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)

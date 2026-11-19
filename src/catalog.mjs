@@ -123,6 +123,9 @@ export const DECIDER = REGISTRY.deciders.find((m) => m.id === CONFIG.decider);
 // THE JUDGE OF EQUIVALENCE ("judge" in src/config.json): a decision model apart from the decider, which reads whether the swarm's
 // answers in words say what the larger model's say. Where none is named (or it is the decider), the decider reads them, and the
 // swarm's own decider grades the answers it chose. null then.
+// A SWARM WITH NO DECISION MODEL (the decider `none`, src/models.json): one of its own small models decides, and nothing is loaded
+// to decide. A third of a swarm's memory was its decider (measured 2026-11-19)
+export const NO_DECIDER = !!DECIDER && (DECIDER.serve || {}).kind === 'none';
 export const JUDGE =
   (CONFIG.judge && CONFIG.judge !== CONFIG.decider && REGISTRY.deciders.find((m) => m.id === CONFIG.judge)) || null;
 export const TARGET = REGISTRY.targets.find((m) => m.id === CONFIG.target);

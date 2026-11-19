@@ -16,7 +16,7 @@
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { MEMBERS, SERVING, ENTRY, SERVED_NAME, TOOLS, toolsOf } from './catalog.mjs';
+import { MEMBERS, SERVING, ENTRY, SERVED_NAME, TOOLS, toolsOf, NO_DECIDER } from './catalog.mjs';
 import { attachMember, startMember, modelFile } from './members.mjs';
 import { answer as orchestrate } from './orchestrate.mjs';
 import { textOf } from './read.mjs';
@@ -131,7 +131,20 @@ export async function createSwarm(opts = {}) {
   // the decision model for the decide step, where one is named (opts.decider, or SWARM_DECIDER): an address that answers
   // /v1/systemone, whichever decision model it is. (opts.kev and SWARM_KEV, the names from when Kev was the only one, still work)
   const named = opts.decider !== undefined ? opts.decider : opts.kev;
-  const deciderBase = named !== undefined ? named : process.env.SWARM_DECIDER || process.env.SWARM_KEV || '';
+  // A SWARM WITH NO DECISION MODEL (opts.modelDecides; a spec whose decider is `none`; else the configuration's): nothing is
+  // asked to decide, wherever one may be running, and a slot of the swarm settles what the drafts differ on
+  const modelDecides =
+    opts.modelDecides !== undefined
+      ? !!opts.modelDecides
+      : S
+        ? ((S.decider || {}).id || S.decider) === 'none'
+        : // (a caller that names a decider, or gives one, has one: the configuration's choice is for a swarm opened as configured)
+          NO_DECIDER && !opts.decide && named === undefined;
+  const deciderBase = modelDecides
+    ? ''
+    : named !== undefined
+      ? named
+      : process.env.SWARM_DECIDER || process.env.SWARM_KEV || '';
   const decideRaw =
     opts.decide ||
     (deciderBase ? deciderAt({ base: deciderBase, timeoutMs: opts.deciderTimeoutMs ?? opts.kevTimeoutMs }) : null);
@@ -234,6 +247,7 @@ export async function createSwarm(opts = {}) {
         // (the swarm's small models, largest first: who rewrites a reply that described the answer instead of giving it)
         others: Object.keys(members).sort((x, y) => (Number(MEM[y]?.params) || 0) - (Number(MEM[x]?.params) || 0)),
         decide,
+        modelDecides,
         behave,
         // (a program the question asks the output of is run where drafts may be run at all: SwOA specification R.4)
         print: behave ? printed : null,
@@ -293,6 +307,7 @@ export async function createSwarm(opts = {}) {
             ask,
             others: Object.keys(members).sort((x, y) => (Number(MEM[y]?.params) || 0) - (Number(MEM[x]?.params) || 0)),
             decide,
+            modelDecides,
             behave,
             print: behave ? printed : null,
           }),

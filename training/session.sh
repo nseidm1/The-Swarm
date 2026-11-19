@@ -56,7 +56,12 @@ JUDGE_PORT=
 judge_down() { [ -n "$JUDGE_PORT" ] && pkill -f -- "--port $JUDGE_PORT( |$)" > /dev/null 2>&1; JUDGE_PORT=; }
 trap decider_down EXIT
 trap 'exit 143' TERM INT
-if [ -z "$SWARM_DECIDER" ]; then
+# (a swarm configured with no decision model, the decider `none`, starts none: a small model of the swarm decides)
+NO_DECIDER=$("$NODE" -e "import('./src/catalog.mjs').then(c=>console.log(c.NO_DECIDER?1:''))")
+if [ -n "$NO_DECIDER" ]; then
+  unset SWARM_DECIDER SWARM_KEV
+  echo "$(date +%H:%M:%S) No decision model in this swarm: where the drafts differ, a small model of it decides."
+elif [ -z "$SWARM_DECIDER" ]; then
   if bash training/decider.sh ready; then
     mkdir -p .work/train
     # its usual port, or the next one free if something else has that

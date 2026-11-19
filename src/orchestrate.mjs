@@ -156,6 +156,9 @@ export async function answer(
     decide = null,
     behave = null,
     print = null,
+    // the module has no decision model (its decider is `none`): where the drafts differ a slot decides, whatever the plan names
+    // beside the decider (SwOA specification O.6.6, WITH)
+    modelDecides = false,
     onStep = () => {},
     onStart = () => {},
     others = [],
@@ -582,15 +585,17 @@ export async function answer(
       //                is a third of its memory (measured 2026-11-19: Kev 0.8B held 3.1 GB of a swarm of 7)
       // Not for a decision that narrows ({ keep }) or settles early ({ sure }). Where the slot names nothing, the decider's word
       // stands as it would have.
-      const withModel = !step.keep && !step.sure && by !== 'most' && plan.decideWith && plan.decideWith.how;
+      // (with no decision model, the slot decides alone, as whichever slot the plan names beside the decider, or the first checker)
+      const dw = modelDecides ? { ...(plan.decideWith || {}), how: 'alone' } : plan.decideWith;
+      const withModel = !step.keep && !step.sure && by !== 'most' && dw && dw.how;
       const judgeSlot = () => {
-        const base = byId[plan.decideWith.slot] || stage('check')[0] || briefs.slots[0];
+        const base = byId[dw.slot] || stage('check')[0] || briefs.slots[0];
         return {
           ...base,
           id: 'decide-judge',
           stage: 'judge',
-          brief: plan.decideWith.brief || JUDGE_BRIEF.replace('ANSWER:', marker),
-          maxTokens: plan.decideWith.maxTokens || base.maxTokens,
+          brief: dw.brief || JUDGE_BRIEF.replace('ANSWER:', marker),
+          maxTokens: dw.maxTokens || base.maxTokens,
         };
       };
       const judgeAmong = async (cands) => {
@@ -656,9 +661,9 @@ export async function answer(
           }
         }
       }
-      const together = withModel && plan.decideWith.how === 'together' && decide && table.length > 1;
+      const together = withModel && dw.how === 'together' && decide && table.length > 1;
       const judged = together ? judgeAmong(table) : null;
-      const alone = withModel && plan.decideWith.how === 'alone';
+      const alone = withModel && dw.how === 'alone';
       if (decide && table.length > 1 && by !== 'most' && !alone) {
         onStart({ slot: 'decide', member: 'decider', stage: 'decide' });
         const k = await decide({
@@ -722,7 +727,7 @@ export async function answer(
       }
       if (step.keep) return;
       if (withModel && table.length > 1) {
-        const how = plan.decideWith.how;
+        const how = dw.how;
         const probs = (ruled && ruled.ok && ruled.probs) || {};
         const top = Object.keys(probs).length ? Math.max(...Object.values(probs)) : ruled && ruled.ok ? 1 : 0;
         const pickOf = (final) => table.find((d) => plain(d.final) === plain(final));
@@ -732,7 +737,7 @@ export async function answer(
           word = await judged;
           if (word) {
             // its pick adds a weight to the decider's probability for that answer; the highest stands
-            const w = plan.decideWith.weight ?? 0.35;
+            const w = dw.weight ?? 0.35;
             const score = (d) => (probs[d.letter] || 0) + (d.letter === word.letter ? w : 0);
             const best = [...table].sort((x, y) => score(y) - score(x))[0];
             said = 'With the model beside it (' + word.letter + ', +' + w + '): ' + best.letter + '.';

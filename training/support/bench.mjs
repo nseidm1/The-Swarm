@@ -11,7 +11,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { createSwarm, MEMBERS, readBriefs } from '../../src/index.mjs';
-import { CONFIG_ID, CONFIG_KEY, readConfig, REGISTRY, JUDGE, DECIDER } from '../../src/catalog.mjs';
+import { CONFIG_ID, CONFIG_KEY, readConfig, REGISTRY, JUDGE, DECIDER, NO_DECIDER } from '../../src/catalog.mjs';
 import { note, checkpoint, briefKey } from './recover.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { attachMember, startMember } from '../../src/members.mjs';
@@ -119,6 +119,8 @@ export const judgeAddress = (decider) => process.env.SWARM_JUDGE || decider;
 // where training/decider.sh writes the port of the decider it started (and where it wrote it when it was training/kev.sh)
 const PORT_FILES = [path.join(REPO_ROOT, '.work', 'decider', 'port'), path.join(REPO_ROOT, '.work', 'kev', 'port')];
 export async function deciderAddress() {
+  // (a swarm configured with no decision model has none, whatever is running here or named)
+  if (NO_DECIDER) return '';
   const named = arg('decider', arg('kev', process.env.SWARM_DECIDER || process.env.SWARM_KEV || ''));
   if (named) return named;
   for (const f of PORT_FILES)
@@ -229,7 +231,9 @@ export async function openSwarm(briefs = readBriefs(), { seed = Number(arg('seed
   console.log(
     decider
       ? 'The decider decides, at ' + decider + '.'
-      : 'NO DECIDER: nothing is running to decide (bash training/decider.sh serve). The answer most slots gave will stand.',
+      : NO_DECIDER
+        ? 'No decision model: where the drafts differ, a small model of the swarm decides.'
+        : 'NO DECIDER: nothing is running to decide (bash training/decider.sh serve). The answer most slots gave will stand.',
   );
   const swarm = await createSwarm({
     briefs,

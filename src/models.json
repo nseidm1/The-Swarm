@@ -773,6 +773,18 @@
         "weightsRev": "b3f8a93462fb1051a9de031e94a7ff380e254072",
         "how": "setup.sh in the model repository installs its pinned serving runtime (OneJev + serve.patch); then qev's DecisionEngine, as its model card describes"
       }
+    },
+    {
+      "id": "none",
+      "name": "A small model of the swarm",
+      "by": "The Swarm",
+      "params": 0,
+      "memGb": 0,
+      "license": "",
+      "needs": "nothing more: one of the swarm's own small models decides",
+      "serve": { "kind": "none" },
+      "runsOn": ["mac", "cuda"],
+      "about": "No decision model is loaded. Where the drafts differ, one slot of the swarm is shown every different answer and its word settles it (SwOA specification O.6.6, HOW alone). A judge must be named for training, since no decider is there to read whether two answers say the same."
     }
   ],
   "targets": [

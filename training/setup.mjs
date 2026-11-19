@@ -200,6 +200,9 @@ async function model(m, what, check) {
   return (say(what, got.ok ? 'ready' : 'failed', got.ok ? {} : { why: got.why }), got.ok);
 }
 function decider(check) {
+  // (a swarm with no decision model needs nothing fetched or started to decide)
+  if ((DECIDER.serve || {}).kind === 'none')
+    return (say('The decider', 'ready', { note: 'none: a small model of the swarm decides' }), true);
   const what = 'The decider (' + DECIDER.name + ')';
   const named = process.env.SWARM_DECIDER || process.env.SWARM_KEV;
   if (named) return (say(what, 'ready', { note: 'running at ' + named }), true);
