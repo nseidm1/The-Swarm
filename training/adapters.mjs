@@ -12,7 +12,7 @@
 //   probe           llama.cpp's own trainer (llama-finetune), a tiny run: measured 2026-11-17 with build 12110, it cannot train any
 //                   of the three (SSM_CONV, SIGMOID have no backward pass), so MLX is the trainer
 //   trying an adapter as a change (served with --lora, kept only if it brings a question to parity and loses none): not built
-//   node training/adapters.mjs ready | train [<model file>] [--iters N]
+//   node training/adapters.mjs ready | train [<model file>] [--iters N] [--items math,logic]
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -315,6 +315,23 @@ export function lorasFor(config, members, work, targetId, modelsDir) {
   return out;
 }
 
+// THE TRAIN QUESTIONS AN ADAPTER LEARNS FROM, where some bodies of work are named (--items): those whose kind is one of theirs.
+// None named: every one. -> { list } or { why } where a name is no body of work or the named ones have no train question
+export function aimedAt(list, items, targets) {
+  const ids = String(items || '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean);
+  if (!ids.length) return { list };
+  const unknown = ids.filter((i) => !targets.some((t) => t.id === i));
+  if (unknown.length) return { why: 'not a body of work: ' + unknown.join(', ') };
+  const kinds = new Set(targets.filter((t) => ids.includes(t.id)).flatMap((t) => t.kinds));
+  const kept = list.filter((t) => kinds.has(t.kind));
+  return kept.length
+    ? { list: kept }
+    : { why: 'no train question of ' + ids.join(', ') + ': Train once first, whose first step asks them' };
+}
+
 // ready: whether each small model can be trained here. train [<model file>] [--iters N]: the larger model's answers to this
 // pass's train questions (of every body of work the pass asks; never a benchmark's, never a held one) exported, and an adapter
 // trained, converted and checked for each model that can be (or the one named). While it runs it writes .work/pretrain/live.json
@@ -330,15 +347,22 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     process.exit(0);
   }
   if (cmd !== 'train') {
-    console.log('node training/adapters.mjs ready | train [<model file>] [--iters N]');
+    console.log('node training/adapters.mjs ready | train [<model file>] [--iters N] [--items math,logic]');
     process.exit(2);
   }
   const named = process.argv[3] && !process.argv[3].startsWith('--') ? process.argv[3] : '';
   const iters = Number(B.arg('iters', 100));
   // THE ANSWERS IT LEARNS FROM: the larger model's, to this pass's train questions. items: the bodies of work those questions
   // cover, read from the questions themselves (tasks.mjs bodiesOf), so an adapter's record says what it learned and not a setting
-  const { messagesOf, bodiesOf } = await import('./tasks.mjs');
-  const list = B.questions('train');
+  // --items math,logic: ONLY THE TRAIN QUESTIONS OF THOSE BODIES OF WORK (aimedAt), for an adapter aimed at where an evaluation
+  // found the swarm short of the larger model. A name that is no body of work, or bodies with no train question, stops it here
+  const { messagesOf, bodiesOf, EQUIVALENCE } = await import('./tasks.mjs');
+  const aim = aimedAt(B.questions('train'), B.arg('items'), EQUIVALENCE.targets);
+  if (aim.why) {
+    console.log(aim.why);
+    process.exit(2);
+  }
+  const list = aim.list;
   const items = bodiesOf([...new Set(list.map((t) => t.kind))]);
   const pick = models.filter((x) => !named || path.basename(x.file) === named || x.name === named);
   const liveFile = path.join(work, 'pretrain', 'live.json');

@@ -1659,6 +1659,47 @@ check("a run this page started is running only while its own process is: a proce
       and 'data-ev="prog"' in swarm_ui.JS + open(swarm_ui.__file__).read() and "set('prog'," in swarm_ui.JS,
       [_mine10, _other10, _self10, _stale10.get("running"), _live10.get("running"), _run10.get("running"), _prog10, _prog10_open, _prog10_wait])
 
+# ---- A SECOND LOOK AT WHAT FELL SHORT: what was not asked again is carried and marked, what was has its figure from before
+def _row11(task, item, sw, tg, n=20):
+    both = min(sw, tg)
+    return {"item": item, "task": task, "name": task, "target": {"value": tg / n, "n": n}, "swarm": {"value": sw / n, "n": n},
+            "agree": {"of": n, "same": n - (sw - both) - (tg - both), "bothRight": both, "bothWrong": n - sw - tg + both, "differ": (sw - both) + (tg - both), "onlyTarget": tg - both, "onlySwarm": sw - both, "examples": []}}
+
+
+_d11 = {"key": "k", "target": {"name": "Big"}, "members": {}, "equivalence": {"asked": ["math", "code"], "targets": [
+    {"id": "math", "name": "Math", "kinds": ["chain"], "benchmarks": [{"task": "gsm", "name": "GSM", "metric": "exact_match", "compare": "answer"}]}, {"id": "code", "name": "Code", "kinds": ["fix"], "benchmarks": [{"task": "he", "name": "HE", "metric": "pass@1", "compare": "verdict"}]}]}}
+_full11 = {"at": "2026-11-19T10:00:00Z", "configuration": "k", "adapters": [], "limit": 20, "target": "Big", "results": [_row11("gsm", "math", 8, 16), _row11("he", "code", 15, 10)]}
+_narrow11 = {"at": "2026-11-19T12:00:00Z", "configuration": "k", "adapters": [], "limit": 20, "target": "Big", "results": [_row11("gsm", "math", 12, 16)]}
+_other11 = {"at": "2026-11-19T11:00:00Z", "configuration": "other", "adapters": [], "limit": 20, "target": "Big", "results": [_row11("he", "code", 1, 10)]}
+_keep11, _args11 = swarm_ui._eval_rows, swarm_ui.ARGS
+swarm_ui.ARGS = type("A", (), {"root": tempfile.mkdtemp()})()
+_d11["root"] = swarm_ui.ARGS.root
+swarm_ui._eval_rows = lambda root: [_full11]
+_v_full = swarm_ui.eval_view(swarm_ui.ARGS.root, _d11)
+_blk_full = swarm_ui.eval_block(_d11)
+_pre_full = swarm_ui.pretrain_block(_d11)
+swarm_ui._eval_rows = lambda root: [_full11, _other11, _narrow11]
+_v11 = swarm_ui.eval_view(swarm_ui.ARGS.root, _d11)
+_tab11 = swarm_ui.eval_table(_d11)
+_blk11 = swarm_ui.eval_block(_d11)
+swarm_ui._eval_rows = lambda root: [_full11, dict(_narrow11, results=[_row11("gsm", "math", 16, 16)])]
+_v_level = swarm_ui.eval_view(swarm_ui.ARGS.root, _d11)
+_blk_level = swarm_ui.eval_block(_d11)
+swarm_ui._eval_rows, swarm_ui.ARGS = _keep11, _args11
+check("a second look asks only the bodies of work where the swarm scored under the larger model, from its own button that says which and why; what it did not ask again keeps the earlier evaluation's figures of "
+      "this configuration (never another's), marked and counted in the headline as from before; what it asked has its share before beside it in the table; with nothing short there is no button; and Pretrain "
+      "is aimed at the same bodies of work unless its box is unticked",
+      _v_full["short"] == ["math"] and _v_full["carried"] == 0 and 'id="ev-narrow" type="button" data-items="math"' in _blk_full and "Asks only Math again" in _blk_full
+      and 'id="pre-aim" data-items="math" checked' in _pre_full and "Aim it at Math" in _pre_full
+      and _v11["by_task"]["he"]["carried"]["at"] == _full11["at"] and _v11["by_task"]["he"]["swarm"]["value"] == 0.75 and _v11["carried"] == 20
+      and _v11["by_task"]["gsm"]["before"]["swarm"]["value"] == 0.4 and "carried" not in _v11["by_task"]["gsm"] and _v11["short"] == ["math"]
+      and "· 20 from before ·" in _blk11 and "Not asked again: from the evaluation of 2026-11-19 10:00" in _blk11 and "Before (2026-11-19 10:00): the swarm 40%" in _blk11
+      and '<th class="num">Share before</th>' in _tab11 and '<td class="num">50% <i class="up">up</i></td>' in _tab11 and 'class="evt-task evt-old"' in _tab11 and "not asked again" in _tab11
+      and '<tr class="evt-all"><th scope="row">Every question</th><td class="num">67.5%</td><td class="num">65%</td><td class="num"><b class="up">103.8%</b></td><td class="num">88.4% <i class="up">up</i></td>' in _tab11
+      and _v_level["short"] == [] and 'id="ev-narrow"' not in _blk_level and swarm_ui._and(["a", "b", "c"]) == "a, b and c"
+      and "b.id==='ev-narrow'" in swarm_ui.JS and "a&&a.checked?{items:a.dataset.items.split(',')}:{}" in swarm_ui.JS,
+      [_v_full["short"], _v11["carried"], _v11["short"], _v_level["short"], [x for x in _tab11.split("<tr") if "evt-all" in x]])
+
 # ---- A CARD'S CONTROLS STAY IN THEIR COLUMN: a chooser is no wider than the column, whatever its longest choice
 check("the controls of a card's head stay inside the third column (a chooser as wide as its longest choice lay over the description beside it): they take the column's width and no more, a choice that does not fit cut short with an ellipsis; and the four cards keep the same three columns",
       ".proghead>.evctl select{min-width:0;max-width:100%;text-overflow:ellipsis}" in swarm_ui.CSS

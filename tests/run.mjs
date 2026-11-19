@@ -7813,6 +7813,34 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+// ---- 9m2: PRETRAIN AIMED: where bodies of work are named, an adapter learns from their train questions alone
+{
+  const A = await import('../training/adapters.mjs');
+  const targets = [
+    { id: 'math', kinds: ['chain', 'shop'] },
+    { id: 'code', kinds: ['fix'] },
+    { id: 'search', kinds: ['search'] },
+  ];
+  const list = [{ kind: 'chain' }, { kind: 'fix' }, { kind: 'shop' }, { kind: 'fix' }];
+  const all = A.aimedAt(list, undefined, targets);
+  const math = A.aimedAt(list, 'math', targets);
+  const two = A.aimedAt(list, ' math , code ', targets);
+  const none = A.aimedAt(list, 'search', targets);
+  const bad = A.aimedAt(list, 'math,poetry', targets);
+  check(
+    'pretrain aimed at named bodies of work learns from the train questions of their kinds alone; none named, every one; a name that is no body of work, or bodies with no train question, stop it with the reason',
+    all.list.length === 4 &&
+      math.list.length === 2 &&
+      math.list.every((t) => ['chain', 'shop'].includes(t.kind)) &&
+      two.list.length === 4 &&
+      !none.list &&
+      /no train question of search/.test(none.why) &&
+      !bad.list &&
+      /not a body of work: poetry/.test(bad.why),
+    [all, math, two, none, bad],
+  );
+}
+
 // ---- 9n: MLX as the trainer: tool-call arguments parsed for a chat template, why a model can or cannot be trained, and an adapter
 // kept only where llama.cpp finds the trained answers likelier with it
 {

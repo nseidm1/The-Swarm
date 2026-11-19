@@ -339,7 +339,12 @@ dialog#evd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,94vw
 .evt-wrap{overflow-x:auto;margin-top:12px}table.spec.evt th,table.spec.evt td{padding:7px 8px;overflow-wrap:normal}table.evt td.num,table.evt th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 table.evt tr.evt-item th{font-weight:800;text-align:left}table.evt tr.evt-item td{font-weight:700}table.evt tr.evt-task td:first-child{padding-left:26px;color:var(--mist)}
 table.evt tr.evt-all th,table.evt tr.evt-all td{border-top:2px solid var(--teal);font-weight:800;text-align:left}table.evt tr.evt-all td.num{text-align:right}
-table.evt b.up{color:var(--right)}table.evt b.down{color:#9a5b00}
+table.evt b.up{color:var(--right)}table.evt b.down{color:#9a5b00}table.evt i.up,table.evt i.down{font-style:normal;font-size:11px;font-weight:800;margin-left:4px}table.evt i.up{color:var(--right)}table.evt i.down{color:var(--wrong)}
+table.evt tr.evt-old td,table.evt tr.evt-old th,table.evt tr.evt-old b{color:var(--mist);font-weight:500}.evold{color:#9a5b00}
+/* A SECOND LOOK AT WHAT FELL SHORT (Evaluate) and WHAT PRETRAIN IS AIMED AT: a quieter button under the main one, and what it does in a line */
+.btn.ghost{background:var(--panel);color:var(--teal);box-shadow:inset 0 0 0 1.5px var(--teal);margin-top:0}.btn.ghost:disabled{opacity:.5;cursor:default}
+.evctl .evwhy{flex:1 1 100%;font-size:11.5px;line-height:1.4;color:var(--mist);font-weight:600}.evctl #ev-narrow{flex:1 1 100%}
+.preaim{display:flex;gap:8px;align-items:flex-start;margin:12px 0 0;font-size:13px;font-weight:700;color:var(--fog)}.preaim small{display:block;font-weight:600;color:var(--mist);margin-top:2px}
 dialog#steerd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#steerd::backdrop{background:rgba(11,40,38,.45)}
 #steer-find{width:100%;font:inherit;font-size:14px;padding:9px 12px;border:1px solid var(--line);border-radius:var(--r);margin:4px 0 6px}.movepick{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .movepick li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line2);border-radius:var(--r)}.movepick b{font-size:13.5px;overflow-wrap:anywhere}.movepick small{display:block;color:var(--mist);font-size:12px}.qadd{padding:6px 14px}
@@ -750,11 +755,14 @@ document.addEventListener('change',(ev)=>{const b=ev.target.closest('[data-ev-it
   const go=$('#ev-go');if(go&&!go.dataset.held)go.disabled=!bs.some(x=>x.checked);});
 document.addEventListener('DOMContentLoaded',evAsk);
 document.addEventListener('click',async(ev)=>{
-  const b=ev.target.closest('#ev-go,#ev-stop,#pre-go,#pre-stop');if(!b)return;b.disabled=true;
+  const b=ev.target.closest('#ev-go,#ev-narrow,#ev-stop,#pre-go,#pre-stop');if(!b)return;b.disabled=true;
   if(b.id==='ev-go'){const its=[...document.querySelectorAll('[data-ev-item]')];
     await evPost('/eval/start','#evalwrap',{limit:Number(($('#ev-size')||{}).value||0),...(its.length?{items:its.filter(x=>x.checked).map(x=>x.dataset.evItem)}:{})});}
   else if(b.id==='ev-stop')await evPost('/eval/stop','#evalwrap');
-  else if(b.id==='pre-go')await evPost('/pretrain/start','#prewrap');
+  // A SECOND LOOK: only the bodies of work that fell short (the button carries them), at the size chosen
+  else if(b.id==='ev-narrow')await evPost('/eval/start','#evalwrap',{limit:Number(($('#ev-size')||{}).value||0),items:b.dataset.items.split(',')});
+  // PRETRAIN, aimed where the box is ticked: the bodies of work that fell short in the last evaluation (the box carries them)
+  else if(b.id==='pre-go'){const a=$('#pre-aim');await evPost('/pretrain/start','#prewrap',a&&a.checked?{items:a.dataset.items.split(',')}:{});}
   else await evPost('/pretrain/stop','#prewrap');
   await swap('/fragment/score','#score');});
 document.addEventListener('change',async(ev)=>{const c=ev.target.closest('#pre-use');if(!c)return;
@@ -3535,40 +3543,61 @@ def _ev_share(sw, tg):
 
 
 def eval_table(d):
-    """EVERY BODY OF WORK AND TASK OF THE LAST EVALUATION, SCORE BESIDE SCORE (opened from the Evaluate card's headline): the
-    swarm's score, the larger model's on the same questions, the swarm's as a share of it, and how many questions. A body of
-    work's line sums its tasks; the last line is the headline's own figures."""
-    res, _ = eval_of_config(Path(ARGS.root), d)
+    """EVERY BODY OF WORK AND TASK, SCORE BESIDE SCORE (opened from the Evaluate card's headline): the swarm's score, the larger
+    model's on the same questions, the swarm's as a share of it, and how many questions. A body of work's line sums its tasks;
+    the last line is the headline's own figures. Where there is an evaluation before this one (eval_view), SHARE BEFORE: what
+    Pretrain or training bought, line by line. A task this evaluation did not ask again shows the earlier figures, marked."""
+    view = eval_view(Path(ARGS.root), d)
+    res = view["res"]
     tname = res.get("target") or (d.get("target") or {}).get("name", "the larger model")
-    by_task = {r["task"]: r for r in res.get("results", [])}
+    by_task = view["by_task"]
     listed = [t for t in (d.get("equivalence") or {}).get("targets", []) if t.get("benchmarks")]
     close = '<button class="btn stop top" id="evd-close" type="button">Close</button>'
     head = '<div class="spec-head"><div><div class="kicker">Evaluate the swarm</div><h3 style="font-size:22px;margin-top:4px">The swarm against %s</h3></div>%s</div>' % (e(tname), close)
-    done = [by_task[b["task"]] for t in listed for b in t["benchmarks"] if b["task"] in by_task and by_task[b["task"]].get("agree")]
+    have = lambda task: by_task[task] if (by_task.get(task) or {}).get("agree") else None  # noqa: E731
+    done = [have(b["task"]) for t in listed for b in t["benchmarks"] if have(b["task"])]
     if not done:
         return head + '<p class="muted">The swarm as it is now has not been evaluated yet.</p>'
+    was = any(r.get("before") for r in done)
+    old = any(r.get("carried") for r in done)
 
     def cells(rs):
         sw, tg, of = _ev_right(rs)
         if not of:
-            return '<td class="num muted" colspan="4">not evaluated</td>'
-        up = sw >= tg
-        return ('<td class="num">%s%%</td><td class="num">%s%%</td><td class="num"><b class="%s">%s</b></td><td class="num">%d</td>'
-                % (fmt_pct(data.percent(sw, of)), fmt_pct(data.percent(tg, of)), "up" if up else "down", _ev_share(sw, tg), of))
+            return '<td class="num muted" colspan="%d">not evaluated</td>' % (5 if was else 4)
+        # BEFORE: where every task of the line was asked again and has a figure from before; the last line, every task, with a
+        # task not asked again counted as it stands (it has not moved)
+        befs = [r.get("before") or (r if r.get("carried") else None) for r in rs]
+        b = ""
+        if was:
+            if all(befs) and any(r.get("before") for r in rs):
+                bs, bt, _ = _ev_right(befs)
+                now_s, was_s = data.percent(sw, tg) if tg else None, data.percent(bs, bt) if bt else None
+                moved = "" if now_s is None or was_s is None or now_s == was_s else ' <i class="%s">%s</i>' % ("up" if now_s > was_s else "down", "up" if now_s > was_s else "down")
+                b = '<td class="num">%s%s</td>' % (_ev_share(bs, bt), moved)
+            else:
+                b = '<td class="num muted">%s</td>' % ("not asked again" if all(r.get("carried") for r in rs) else "")
+        return ('<td class="num">%s%%</td><td class="num">%s%%</td><td class="num"><b class="%s">%s</b></td>%s<td class="num">%d</td>'
+                % (fmt_pct(data.percent(sw, of)), fmt_pct(data.percent(tg, of)), "up" if sw >= tg else "down", _ev_share(sw, tg), b, of))
 
     rows = []
     for t in listed:
-        rs = [by_task[b["task"]] for b in t["benchmarks"] if b["task"] in by_task and by_task[b["task"]].get("agree")]
-        rows.append('<tr class="evt-item"><th scope="row">%s</th>%s</tr>' % (e(t["name"]), cells(rs)))
+        rs = [have(b["task"]) for b in t["benchmarks"] if have(b["task"])]
+        rows.append('<tr class="evt-item%s"><th scope="row">%s</th>%s</tr>' % (" evt-old" if rs and all(r.get("carried") for r in rs) else "", e(t["name"]), cells(rs)))
         for b in t["benchmarks"]:
-            r = by_task.get(b["task"])
-            rows.append('<tr class="evt-task"><td>%s</td>%s</tr>' % (e(b.get("name") or b["task"]), cells([r] if r and r.get("agree") else [])))
+            r = have(b["task"])
+            rows.append('<tr class="evt-task%s"><td>%s</td>%s</tr>' % (" evt-old" if r and r.get("carried") else "", e(b.get("name") or b["task"]), cells([r] if r else [])))
     rows.append('<tr class="evt-all"><th scope="row">Every question</th>%s</tr>' % cells(done))
-    when = (" Evaluated %s UTC." % e(str(res.get("at", ""))[:16].replace("T", " "))) if res.get("at") else ""
+    when = (" Evaluated %s UTC." % e(_day(res.get("at")))) if res.get("at") else ""
+    notes = ""
+    if was:
+        notes += " Share before is the same line in the evaluation of this configuration before it."
+    if old:
+        notes += " A line in grey was not asked again this time: its figures are the earlier evaluation&#39;s."
     return (head + '<p class="small muted" style="margin:10px 0 0">Each was put the same questions and marked by the benchmark&#39;s own checker. Share is the swarm&#39;s score as a share of %s&#39;s: '
-            '100%% or more is where the swarm is level or ahead.%s</p>' % (e(tname), when)
-            + '<div class="evt-wrap"><table class="spec evt"><thead><tr><th>Body of work</th><th class="num">The swarm</th><th class="num">%s</th><th class="num">Share</th><th class="num">Questions</th></tr></thead>'
-            '<tbody>%s</tbody></table></div>' % (e(tname), "".join(rows)))
+            '100%% or more is where the swarm is level or ahead.%s%s</p>' % (e(tname), when, notes)
+            + '<div class="evt-wrap"><table class="spec evt"><thead><tr><th>Body of work</th><th class="num">The swarm</th><th class="num">%s</th><th class="num">Share</th>%s<th class="num">Questions</th></tr></thead>'
+            '<tbody>%s</tbody></table></div>' % (e(tname), '<th class="num">Share before</th>' if was else "", "".join(rows)))
 
 
 def _ev_meta_done(bms, by_task):
@@ -3594,9 +3623,14 @@ def _ev_agree(r):
     # THE SCORES LEAD, the benchmark's own for each: the same questions, the same checker. How often the two gave the same answer
     # is said under them, as what it is: on one task the swarm had 16 right where the larger model had none, and "4 of 20 the
     # same" read as a failure; on another both had every one wrong and it read as 100%
-    return ('<b class="evpct">%s</b> <span>the swarm · %s %s</span><small>%d of %d the same (%s%%): %d both right · %d both wrong · %d differ%s</small>'
+    # (a task the newest evaluation did not ask again: an earlier evaluation's figures, said to be; one it did ask, with what
+    # the swarm scored on it before)
+    c, b = r.get("carried"), r.get("before")
+    note = ('<small class="evold">Not asked again: from the evaluation of %s%s</small>' % (e(_day(c.get("at"))), ", the swarm served differently then" if c.get("other") else "")) if c else \
+           ('<small>Before (%s): the swarm %s</small>' % (e(_day(b.get("at"))), sc(b.get("swarm")))) if b else ""
+    return ('<b class="evpct">%s</b> <span>the swarm · %s %s</span><small>%d of %d the same (%s%%): %d both right · %d both wrong · %d differ%s</small>%s'
             % (sc(r.get("swarm")), e(r.get("targetName") or "the larger model"), sc(r.get("target")), a["same"], a["of"], fmt_pct(pct), a["bothRight"], a["bothWrong"], a["differ"],
-               (" (%d only %s right, %d only the swarm)" % (a["onlyTarget"], "the larger model", a["onlySwarm"])) if a["differ"] else ""))
+               (" (%d only %s right, %d only the swarm)" % (a["onlyTarget"], "the larger model", a["onlySwarm"])) if a["differ"] else "", note))
 
 
 def busy(ghost="00%"):
@@ -3605,11 +3639,11 @@ def busy(ghost="00%"):
     return '<b class="pct busy" role="progressbar" aria-label="Being measured"><span aria-hidden="true">%s</span><i></i></b>' % ghost
 
 
-def eval_of_config(root, d):
+def _eval_rows(root):
     """THE EVALUATION OF THE SWARM AS IT IS APPLIED: the newest that finished (.work/eval/history.jsonl, then results.json) of this
     configuration (the same small models, decider and larger model: its key) served as it is now (with the same adapters, or with
     none). One of another configuration is never shown as this one's: the card showed LFM2.5 1.2B, Qwen3.5 2B and Ministral 3 3B
-    with adapters while the swarm was Bonsai 2 9B and LFM3 1.7B. -> (that result or {}, the newest of any configuration or {})"""
+    with adapters while the swarm was Bonsai 2 9B and LFM3 1.7B. (eval_of_config). This: every evaluation that finished, as a list"""
     rows = []
     hist = Path(root) / ".work" / "eval" / "history.jsonl"
     try:
@@ -3624,11 +3658,73 @@ def eval_of_config(root, d):
     if last:
         rows.append(last)
     rows = [r for r in rows if isinstance(r, dict) and r.get("results")]
+    return rows
+
+
+def eval_of_config(root, d):
+    """-> (the newest finished evaluation of this configuration served as it is now, or {}; the newest of any, or {})"""
+    rows = _eval_rows(root)
     pins, _ = data.spec_adapters(d)
     served = sorted((d.get("members", {}).get(k) or {}).get("name", k) for k in pins)
     mine = [r for r in rows if r.get("configuration") == d.get("key") and sorted(r.get("adapters") or []) == served]
     newest = lambda xs: max(xs, key=lambda r: str(r.get("at", ""))) if xs else {}  # noqa: E731
     return newest(mine), newest(rows)
+
+
+def _and(names):
+    """A list in words: 'Math', 'Math and Logic', 'Math, Logic and Reasoning'."""
+    names = list(names)
+    return names[0] if len(names) == 1 else (", ".join(names[:-1]) + " and " + names[-1]) if names else ""
+
+
+def _day(at):
+    """A result's time as the page says it: 2026-11-19 04:20."""
+    return str(at or "")[:16].replace("T", " ")
+
+
+def eval_view(root, d):
+    """WHAT THE EVALUATE CARD AND ITS TABLE SHOW, task by task, where the newest evaluation of the swarm as it is now did not ask
+    everything (a second look at the bodies of work that fell short, or boxes unticked):
+      a task it asked        its own figures, and BEFORE: the same task, at the same size, in the evaluation of this configuration
+                             before it (with or without adapters: what Pretrain is judged by)
+      a task it did not ask  CARRIED from the newest earlier evaluation of this configuration that asked it, and marked: when,
+                             and whether the swarm was served differently then (before its adapters). Never shown as measured now
+    short: the bodies of work where the swarm's score is under the larger model's (its share under 100%), from this view, or,
+    where the swarm as it is now has no evaluation yet, from the newest of this configuration: what a second look asks, and what
+    Pretrain is aimed at. -> {res, any, by_task, short, base (the result short was read from), carried (how many questions)}"""
+    res, any_res = eval_of_config(root, d)
+    pins, _ = data.spec_adapters(d)
+    served = sorted((d.get("members", {}).get(k) or {}).get("name", k) for k in pins)
+    conf = sorted((r for r in _eval_rows(root) if r.get("configuration") == d.get("key")), key=lambda r: str(r.get("at", "")))
+    listed = [t for t in (d.get("equivalence") or {}).get("targets", []) if t.get("benchmarks")]
+    row_of = lambda r, task: next((x for x in r.get("results", []) if x.get("task") == task and x.get("agree")), None)  # noqa: E731
+    by, carried = {}, 0
+    if res:
+        by = {r["task"]: dict(r) for r in res.get("results", [])}
+        for task in [b["task"] for t in listed for b in t["benchmarks"]]:
+            mine = by.get(task) if (by.get(task) or {}).get("agree") else None
+            src_at = str(res.get("at", ""))
+            if not mine:
+                for old in reversed(conf):
+                    got = row_of(old, task) if str(old.get("at", "")) < src_at else None
+                    if got:
+                        by[task] = dict(got, carried={"at": old.get("at"), "other": sorted(old.get("adapters") or []) != served})
+                        carried += got["agree"]["of"]
+                        break
+                continue
+            for old in reversed(conf):
+                got = row_of(old, task) if str(old.get("at", "")) < src_at else None
+                if got and got["agree"]["of"] == mine["agree"]["of"]:
+                    mine["before"] = dict(got, at=old.get("at"))
+                    break
+    base = res or (conf[-1] if conf else {})
+    rows = by if res else {r["task"]: r for r in base.get("results", [])}
+    short = []
+    for t in listed:
+        sw, tg, of = _ev_right([rows[b["task"]] for b in t["benchmarks"] if b["task"] in rows])
+        if of and sw < tg:
+            short.append(t["id"])
+    return {"res": res, "any": any_res, "by_task": by, "short": short, "base": base, "carried": carried}
 
 
 def eval_block(d):
@@ -3637,12 +3733,13 @@ def eval_block(d):
     runs (/api/eval), what is being asked and how far each task is; when it ends, what the two came to, task by task."""
     root = Path(ARGS.root)
     live = job_live("eval")
-    res, any_res = eval_of_config(root, d)
+    view = eval_view(root, d)
+    res, any_res = view["res"], view["any"]
     tname = (d.get("target") or {}).get("name", "the larger model")
     eq = d.get("equivalence") or {}
     running = live.get("running")
     shown = live if (running or live.get("phase") in ("stopped", "failed")) and live.get("tasks") else None
-    by_task = {r["task"]: dict(r, targetName=res.get("target") or tname) for r in res.get("results", [])}
+    by_task = {k: dict(r, targetName=res.get("target") or tname) for k, r in view["by_task"].items()}
     lrows = {t["task"]: t for t in (shown or {}).get("tasks", [])}
     # WHAT IS SHOWN: every body of work that has a standard task. Which of them a run asks is ticked here, beside the button, for
     # that run alone (every one to begin with, kept on the device): it is not a setting of the swarm, and training asks every
@@ -3660,8 +3757,10 @@ def eval_block(d):
     # (eval_table), where each one's two scores sit side by side
     tn_res = res.get("target") or tname
     head = (('<button type="button" class="evopen" id="ev-open" title="Every body of work and task: the swarm&#39;s score beside %s&#39;s">'
-             '<span class="memnum"><b class="pct">%s</b><span>of the larger model&#39;s score<small>%s%% against %s%% · %d questions · see each</small></span></span></button>'
-             % (e(tn_res), _ev_share(sw_right, tg_right), fmt_pct(data.percent(sw_right, of)), fmt_pct(data.percent(tg_right, of)), of))
+             '<span class="memnum"><b class="pct">%s</b><span>of the larger model&#39;s score<small>%s%% against %s%% · %d questions%s · see each</small></span></span></button>'
+             % (e(tn_res), _ev_share(sw_right, tg_right), fmt_pct(data.percent(sw_right, of)), fmt_pct(data.percent(tg_right, of)), of,
+                # (questions this evaluation did not ask again: their figures are an earlier evaluation's, and the headline says so)
+                (" · %d from before" % view["carried"]) if view["carried"] else ""))
             if of else '<span class="memnum"><b class="pct none">–</b><span>of the larger model&#39;s score<small>not evaluated yet</small></span></span>')
     # WHILE AN EVALUATION RUNS the headline is not the last one's: where the swarm's score and the larger model's will be, a
     # bar that moves (nothing is known until the answers are compared), and the questions it was asked to put, as chosen. Stopped
@@ -3683,6 +3782,16 @@ def eval_block(d):
     else:
         ctl = ('<select id="ev-size" aria-label="How many questions of each task"%s>%s</select><button class="btn top" id="ev-go" type="button"%s%s>Evaluate</button>'
                % (" disabled" if held else "", opts, ' data-held="1"' if held else "", " disabled" if held or not listed else ""))
+        # A SECOND LOOK AT WHAT FELL SHORT, its own button: only the bodies of work where the swarm's score was under the larger
+        # model's, asked again (after Pretrain, after training). It is not Evaluate with boxes unticked: it says which it asks and
+        # why, and what it leaves alone keeps its last figures, marked as from before. Shown where an evaluation found any short
+        short = [t for t in listed if t["id"] in view["short"]]
+        if short:
+            names = _and([t["name"] for t in short])
+            ctl += ('<button class="btn top ghost" id="ev-narrow" type="button" data-items="%s"%s>Check again what fell short</button>'
+                    '<small class="evwhy">Asks only %s again: where the swarm scored under %s in the evaluation of %s. The rest keep their last figures, marked as from before. '
+                    'Evaluate asks everything.</small>'
+                    % (e(",".join(t["id"] for t in short)), " disabled" if held else "", e(names), e(tname), e(_day(view["base"].get("at")))))
     out = ['<div class="panel evalp" id="evalbox" data-phase="%s" data-run="%s"%s>' % (e(live.get("phase") or ""), e(live.get("runId") or ""), ' data-running="1"' if running else ""),
            '<div class="proghead">%s<span class="progline">Standard benchmarks (%s), asked of %s and of the swarm, '
            'and the two scores set side by side: the same questions, marked by the same checker. Kept apart from training: training never asks a benchmark&#39;s question.</span>'
@@ -3893,6 +4002,19 @@ def pretrain_block(d):
         out.append('<div class="state"><i></i><span>MLX, the trainer, is not installed yet: Pretrain installs it (once, into <code>.work/mlx</code>) and fetches what each model needs. The Uninstall Helper takes it out again.</span></div>')
     if running or live.get("phase") in ("stopped", "failed"):
         out.append('<div class="state %s"><i></i><span data-pre-step>%s</span></div>' % ("on" if running else "warn" if live.get("phase") == "failed" else "", e(live.get("step") or "")))
+    # WHAT IT IS AIMED AT: where the last evaluation of this configuration found the swarm under the larger model, Pretrain
+    # learns from those bodies of work's train questions alone, unless the box is unticked. (Never a benchmark's question: the
+    # evaluation says WHERE the swarm is short; what an adapter learns is still the larger model's answers to train questions)
+    view = eval_view(root, d)
+    short = [t for t in eqv.get("targets", []) if t["id"] in view["short"] and t["id"] in (eqv.get("asked") or [t["id"]]) and t.get("kinds")]
+    if short and not running:
+        nq = len(short_kinds := {k for t in short for k in t["kinds"]})
+        out.append('<label class="preaim"><input type="checkbox" id="pre-aim" data-items="%s" checked%s><span>Aim it at %s'
+                   '<small>Where the swarm scored under %s in the evaluation of %s. Each model learns from the train questions of these alone (%d kinds of question), not of every body of work. '
+                   'Untick to learn from every one.</small></span></label>'
+                   % (e(",".join(t["id"] for t in short)), " disabled" if held else "", e(_and([t["name"] for t in short])), e(tgt.get("name", "the larger model")), e(_day(view["base"].get("at"))), nq))
+    elif running and live.get("items") and len(live["items"]) < len(eqv.get("targets", [])):
+        out.append('<p class="small muted" style="margin:12px 0 0">Aimed at %s.</p>' % e(_and([names.get(i, i) for i in live["items"]])))
     out.append('<div class="prerows">%s</div>' % "".join(rows))
     out.append('<label class="preuse"><input type="checkbox" id="pre-use"%s%s> Serve the swarm with its adapters <small>from the next time it is loaded: training, an evaluation</small></label>'
                % (" checked" if on else "", " disabled" if not good else ""))
@@ -4240,7 +4362,18 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/pretrain/stop":
                 stop_job("pretrain")
             else:
-                why = start_job("pretrain", [node_for_training() or "node", "training/adapters.mjs", "train"])
+                # AIMED: the bodies of work the press names (the ones that fell short in the last evaluation, where the box
+                # on the card is ticked). Only ones this pass's train questions cover; none named, every one
+                try:
+                    asked = json.loads(self.rfile.read(min(int(self.headers.get("content-length", 0)), 2000)) or b"{}")
+                except ValueError:
+                    asked = {}
+                eqv = data.load(ARGS.root).get("equivalence") or {}
+                aim = asked.get("items") if isinstance(asked, dict) else None
+                if aim is not None and (not isinstance(aim, list) or not aim or any(i not in [t["id"] for t in eqv.get("targets", [])] for i in aim)):
+                    return self._send("Not a body of work.", 400, "text/plain; charset=utf-8")
+                why = start_job("pretrain", [node_for_training() or "node", "training/adapters.mjs", "train"] + (["--items", ",".join(aim)] if aim else []),
+                                keep={"items": aim} if aim else None)
                 if why:
                     return self._send(why, 409, "text/plain; charset=utf-8")
                 time.sleep(0.3)
