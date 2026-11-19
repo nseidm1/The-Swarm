@@ -51,6 +51,12 @@ export const searchBlocked = (env = process.env, { installed = searxInstalled() 
         SEARCH.searxng.name +
         ') is not installed here: training/evaluate.sh installs it the first time';
 };
+// THE MOST OF A FETCHED PAGE A MODEL IS GIVEN, in characters (training/search.json pageChars; 0: all of it). The test's page
+// function returns a page whole, its HTML as it came, and one page can be longer than a model's whole context: measured
+// 2026-11-19, the larger model, served with 16384 tokens of context, was sent a prompt of 44890 tokens after a page and 37 of
+// its 40 questions ended in that error. The larger model and the swarm are given the same page cut at the same place, so the
+// test is of what each does with the same material, not of whose context is wider. The result says where pages were cut.
+export const PAGE_CHARS = Math.max(0, Number(SEARCH.searxng.pageChars) || 0);
 // where the day's searches are kept: each query's results, each page fetched
 export const searchFolder = (evalDir, day) => path.join(evalDir, 'search', day);
 // what the tool tests are started with (training/support/bfcl_search.py reads these)
@@ -58,6 +64,7 @@ export const searchEnv = (base, folder) => ({
   SWARM_SEARCH_URL: base,
   SWARM_SEARCH_CACHE: folder,
   SWARM_SEARCH_TRIES: String(SEARCH.searxng.tries || 3),
+  SWARM_SEARCH_PAGE_CHARS: String(PAGE_CHARS),
 });
 
 const freePort = () =>
@@ -147,6 +154,7 @@ export function searchRecord(env = process.env, folder = '') {
     where: 'served on the machine that measured, for the length of the run',
     engines: [...engines].sort(),
     kept: 'what each query returned and each page fetched, for the day: both models are given the same',
+    ...(PAGE_CHARS ? { pageChars: PAGE_CHARS } : {}),
     queries,
     pages,
   };

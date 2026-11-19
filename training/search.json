@@ -12,7 +12,8 @@
       "server": { "limiter": false, "public_instance": false, "image_proxy": false },
       "search": { "safe_search": 0, "formats": ["html", "json"] }
     },
-    "tries": 3
+    "tries": 3,
+    "pageChars": 6000
   },
   "serpapi": {
     "name": "SerpAPI (DuckDuckGo)",

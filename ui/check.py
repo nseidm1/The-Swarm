@@ -369,6 +369,9 @@ with tempfile.TemporaryDirectory() as tmp:
     # (which bodies of work a run asks: none, one that is not listed, one with no standard test, or not a list, is refused)
     bad_items = [send("/eval/start", {"limit": 20, "items": x})[0] for x in ([], ["poetry"], ["instructions"], "crew")]
     foreign = send("/eval/start", {"limit": 20}, {"x-swarm": "0"})[0]
+    # (this block is about Pretrain and Evaluate themselves: the configuration counts as evaluated here; the rule has its own check)
+    _ne = swarm_ui.needs_eval
+    swarm_ui.needs_eval = lambda d=None: ""
     pre0 = get(base + "/fragment/pretrain")[1]
     pre_btn = pre0.split('id="pre-go"')[1][:30] if 'id="pre-go"' in pre0 else ""
     pre_ok = (("MLX, the trainer, is not installed yet: Pretrain installs it" in pre0 and "disabled" not in pre_btn) if apple
@@ -495,6 +498,7 @@ with tempfile.TemporaryDirectory() as tmp:
            "codes": [bad_size, foreign, a_on, a_bad, a_off, held_pre[0]], "pre": ['id="pre-go"' in pre0, apple, pre_ok, pre0.count('class="prerow"')],
            "ev1": ["15 of 20 the same (75%)" in ev1 and '<b class="evpct">45%</b> <span>the swarm · ' in ev1, "9 both right · 6 both wrong · 5 differ" in ev1, "Last evaluated 2026-11-17 12:00 UTC" in ev1, "without adapters" in ev1],
            "cfg": [a_cfg.get("adapters"), "adapters" in a_cfg2], "held": [held_pre[1][:60], held_by, 'id="ev-stop"' in held_ev]})
+    swarm_ui.needs_eval = _ne
     # THE UNINSTALL HELPER LISTS WHAT EVALUATING AND PRETRAINING FETCH: the harness, MLX, each model's original weights (the ones the
     # swarm is made of marked in use), the adapters, and every answer an evaluation kept; and removes nothing while either runs
     a_file = d["members"]["a"]["file"]
@@ -1003,6 +1007,19 @@ with tempfile.TemporaryDirectory() as tmp:
         except urllib.error.HTTPError as x:
             return x.code, ""
 
+    # (a configuration is evaluated before it is trained: this one has been, on every body of work that has a standard task)
+    _fd = data.load(str(fake))
+    first_said = swarm_ui.needs_eval(_fd)
+    blocked_page = get(base + "/")[1]
+    post("/run/start")
+    blocked_ran = (fake / ".work" / "train" / "ui-run.json").exists()
+    (fake / ".work" / "eval").mkdir(parents=True, exist_ok=True)
+    (fake / ".work" / "eval" / "history.jsonl").write_text(json.dumps({"at": "2026-11-18T00:00:00Z", "configuration": _fd["key"], "adapters": [], "results": [
+        {"task": b["task"], "item": t["id"], "target": {"value": 1, "n": 1}, "swarm": {"value": 1, "n": 1}, "agree": {"of": 1, "same": 1, "bothRight": 1, "bothWrong": 0, "differ": 0, "onlyTarget": 0, "onlySwarm": 0, "examples": []}}
+        for t in _fd["equivalence"]["targets"] for b in t.get("benchmarks") or []]}) + "\n")
+    check("a configuration is evaluated before it is trained or pretrained: with no evaluation of it, Train is there but cannot be pressed and says why, a press sent all the same starts nothing, and it is free once every body of work that has a standard task has been evaluated",
+          "Evaluate the swarm first: this configuration has not been evaluated." in first_said and 'id="run-go" type="button" disabled' in blocked_page and 'id="run-first"' in blocked_page
+          and blocked_ran is False and swarm_ui.needs_eval(_fd) == "" and "needs_eval()" in open(swarm_ui.__file__).read().split("def start_run")[1].split("def ")[0], [first_said, blocked_ran])
     page0 = get(base + "/")[1]
     check("where training can be started the Train card has a Train button that can be pressed, no count of passes to choose, and says it goes on until it is stopped",
           'id="run-go" type="button" title="Train question by question, pass after pass, until Stop training is pressed">Train</button>' in page0 and 'id="run-stop"' not in page0 and 'id="run-passes"' not in page0 and 'class="facts"' not in page0
@@ -1432,6 +1449,8 @@ check("the search behind the web search test gives a model what the test's own s
       and _r2 == [{"title": "A", "href": "https://a.example/x"}] and len([a for a in _asked if a[1] == "tea"]) == 1 and _asked[0] == ("http://s", "tea", "en-US")
       and _r3 == _r1 and len([a for a in _asked if a[1] == "late"]) == 2
       and _r4 == {"error": _bs.NOTHING} and _r5 == _r4 and len([a for a in _asked if a[1] == "nothing"]) == 3 and len(_kept_files) == 3
+      and _bs.cut_page({"content": "x" * 50}, 10)["content"].startswith("x" * 10 + "\n[The page goes on: only its first 10 characters are given, of 50.]") and _bs.cut_page({"content": "short"}, 10) == {"content": "short"}
+      and _bs.cut_page({"error": "no"}, 10) == {"error": "no"} and _bs.cut_page({"content": "x" * 50}, 0)["content"] == "x" * 50 and _bs.cut_page({"content": "x" * 50}, None)["content"] == "x" * 50
       and _bs.language_of("wt-wt") == "all" and _bs.language_of("uk-en") == "en-GB" and _bs.language_of("tw-tzh") == "zh-TW" and _bs.language_of("ue-es") == "es-US" and _bs.language_of("") == "all"
       and _bs.is_page("https://a.example/") and not _bs.is_page("http:///go/v1/abc") and not _bs.is_page("ftp://a.example/") and not _bs.is_page(None)
       and _k1 == {"content": "page"} and _k2 == _k1 and len(_made) == 1 and _waits[:1] == [2],

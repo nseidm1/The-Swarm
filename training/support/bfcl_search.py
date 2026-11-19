@@ -13,6 +13,8 @@ functions a model is offered, their descriptions and arguments, the questions, t
                        model and the swarm are asked on the same day with the same folder, so the same query gives both the
                        same results, and the same address the same page, whichever asked first
   SWARM_SEARCH_TRIES   how often a search that returned nothing is asked again before that is the answer (3)
+  SWARM_SEARCH_PAGE_CHARS  the most of a fetched page a model is given, in characters (none or 0: all of it). A page is kept
+                       whole and cut as it is given, the same for the larger model and the swarm, and says where it was cut
 
 What goes back to the model is the shape the package's own function gives: a list of { title, href, body } (no body where the
 test says snippets are not shown), cut at max_results; or { error } where nothing could be found.
@@ -125,6 +127,15 @@ def search(base, folder, keywords, max_results=10, region="wt-wt", show_snippet=
     return rows if rows else {"error": NOTHING}
 
 
+def cut_page(got, most):
+    """What the test's page function returned, with its content cut at `most` characters and a line saying so: the same cut for
+    whoever asked. A page that fits, an error, or no limit: as it came."""
+    most = int(most or 0)
+    if most <= 0 or not isinstance(got, dict) or not isinstance(got.get("content"), str) or len(got["content"]) <= most:
+        return got
+    return dict(got, content=got["content"][:most] + "\n[The page goes on: only its first %d characters are given, of %d.]" % (most, len(got["content"])))
+
+
 def install(base, folder):
     """Put this search in the place of the package's own, and keep what each page fetch returned."""
     from bfcl_eval.eval_checker.multi_turn_eval.func_source_code import web_search as ws
@@ -135,7 +146,8 @@ def install(base, folder):
         return search(base, folder, keywords, max_results, region, getattr(self, "show_snippet", True))
 
     def fetch_url_content(self, url, mode="raw"):
-        return kept(os.path.join(folder, "pages") if folder else "", json.dumps({"url": url, "mode": mode}, sort_keys=True), lambda: own_fetch(self, url, mode))
+        page = kept(os.path.join(folder, "pages") if folder else "", json.dumps({"url": url, "mode": mode}, sort_keys=True), lambda: own_fetch(self, url, mode))
+        return cut_page(page, os.environ.get("SWARM_SEARCH_PAGE_CHARS"))
 
     search_engine_query.__doc__ = ws.WebSearchAPI.search_engine_query.__doc__
     fetch_url_content.__doc__ = own_fetch.__doc__

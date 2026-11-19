@@ -51,6 +51,7 @@ import {
 } from './support/bfcl.mjs';
 import {
   searchOf,
+  PAGE_CHARS,
   searchBlocked,
   openSearch,
   searchEnv,
@@ -96,7 +97,9 @@ export const needsOf = (plan, env = process.env) => [
 // machine serves is not installed; or the service named needs a key that is not here)
 export const blockedOf = (b, env = process.env, has = undefined) => (b.search ? searchBlocked(env, has) : '');
 // (answers given through one search service are not kept with those given through another)
-export const searchPart = (b, env = process.env) => (b.search ? '-' + searchOf(env) : '');
+// (nor those given a page cut at one length with those given it whole, or cut at another)
+export const searchPart = (b, env = process.env) =>
+  b.search ? '-' + searchOf(env) + (searchOf(env) === 'searxng' && PAGE_CHARS ? '-p' + PAGE_CHARS : '') : '';
 // THE WAYS THE LARGER MODEL IS ASKED A TOOL TEST: with the tools in the request, as the swarm is; and, where the benchmark says so
 // (targetAlsoWritten), with the functions written into the conversation and its calls read from its reply (support/bfcl.mjs says
 // why: a server may return only the first of the calls its model wrote). It is counted by the way it scores higher by, so that a

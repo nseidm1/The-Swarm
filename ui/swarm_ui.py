@@ -2325,7 +2325,7 @@ def start_run(passes=0):
     st = run_state()
     if st and st["running"]:
         return
-    why = cannot_run() or busy_with()
+    why = cannot_run() or busy_with() or needs_eval()
     if why:
         return
     root = Path(ARGS.root)
@@ -2475,10 +2475,11 @@ def run_controls():
     if st and st["running"]:
         return '<button class="btn stop top" id="run-stop" type="button">Stop training</button>'
     held = busy_with()
-    why = cannot_run() or held
+    first = needs_eval()
+    why = cannot_run() or held or first
     return ('<button class="btn top" id="run-go" type="button"%s title="Train question by question, pass after pass, until Stop training is pressed">Train</button>'
-            '<button class="btn top quiet" id="run-clear" type="button"%s title="Start training again from pass 1: what it has tried, measured and kept is moved aside (to .work/archive), and each model&#39;s own answers are kept">Clear training state</button>'
-            % (" disabled" if why else "", " disabled" if held else ""))
+            '<button class="btn top quiet" id="run-clear" type="button"%s title="Start training again from pass 1: what it has tried, measured and kept is moved aside (to .work/archive), and each model&#39;s own answers are kept">Clear training state</button>%s'
+            % (" disabled" if why else "", " disabled" if held else "", ('<small class="evwhy" id="run-first">%s</small>' % e(first)) if first else ""))
 
 
 def _making_ready(st):
@@ -3727,6 +3728,24 @@ def eval_view(root, d):
     return {"res": res, "any": any_res, "by_task": by, "short": short, "base": base, "carried": carried}
 
 
+def needs_eval(d=None):
+    """EVALUATE FIRST: why Pretrain and Train wait, in words, or '' when they need not. A configuration is evaluated before it is
+    pretrained or trained, so that there is a figure from before to judge either by, and so that Pretrain knows where the swarm
+    is short. It has been once an evaluation of this configuration (these small models, this decider, this larger model; with or
+    without adapters) has compared at least one task of every body of work that has a standard task. Nothing waits where no
+    body of work has one."""
+    d = d or data.load(ARGS.root)
+    listed = [t for t in (d.get("equivalence") or {}).get("targets", []) if t.get("benchmarks")]
+    if not listed:
+        return ""
+    done = {x.get("task") for r in _eval_rows(Path(ARGS.root)) if r.get("configuration") == d.get("key") for x in r.get("results", []) if x.get("agree")}
+    missing = [t["name"] for t in listed if not any(b["task"] in done for b in t["benchmarks"])]
+    if not missing:
+        return ""
+    return ("Evaluate the swarm first: this configuration has not been evaluated%s. The evaluation is what Pretrain is aimed by and what either is judged against."
+            % ("" if len(missing) == len(listed) else " on " + _and(missing)))
+
+
 def eval_block(d):
     """EVALUATE THE SWARM: standard benchmarks (lm-evaluation-harness), each asked of the larger model and of the swarm, and every
     question's two answers compared. Apart from training: training never asks a benchmark's question. Followed in place while it
@@ -3981,7 +4000,9 @@ def pretrain_block(d):
         # (none of the swarm's small models can be adapted here: nothing to press for, and the button says why)
         none_can = not any((orig.get((m or {}).get("file")) or {}) and not (orig.get((m or {}).get("file")) or {}).get("cannot") for m in (d.get("members") or {}).values() if m)
         ctl = ('<button class="btn top" id="pre-go" type="button"%s>Pretrain</button>'
-               % ((' disabled title="None of the swarm\'s small models can be adapted here: each says why"' if none_can and apple else "") or (" disabled" if held or not apple else "")))
+               % ((' disabled title="None of the swarm\'s small models can be adapted here: each says why"' if none_can and apple else "") or (" disabled" if held or not apple or needs_eval(d) else "")))
+        if needs_eval(d):
+            ctl += '<small class="evwhy" id="pre-first">%s</small>' % e(needs_eval(d))
     # (the bodies of work this pass's train questions cover: every one, unless its record is of a pass that asked fewer)
     eqv = d.get("equivalence") or {}
     asked = [t["name"] for t in eqv.get("targets", []) if t["id"] in (eqv.get("asked") or [])]
@@ -4368,6 +4389,10 @@ class Handler(BaseHTTPRequestHandler):
                     asked = json.loads(self.rfile.read(min(int(self.headers.get("content-length", 0)), 2000)) or b"{}")
                 except ValueError:
                     asked = {}
+                # (what is running is said first: an evaluation in hand is the one this may be waiting for)
+                first = "" if busy_with() else needs_eval()
+                if first:
+                    return self._send(first, 409, "text/plain; charset=utf-8")
                 eqv = data.load(ARGS.root).get("equivalence") or {}
                 aim = asked.get("items") if isinstance(asked, dict) else None
                 if aim is not None and (not isinstance(aim, list) or not aim or any(i not in [t["id"] for t in eqv.get("targets", [])] for i in aim)):
