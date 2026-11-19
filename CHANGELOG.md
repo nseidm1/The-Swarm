@@ -55,6 +55,14 @@ The first version.
     both ways, on another draw: a change that makes a question good on both draws and loses none is kept too, and one answer
     that came out otherwise once is no longer a fall. (Before, a change that fixed one question could never be kept: one
     question in thirty is within its own error.)
+  - *Order.* What a kind of change has yielded now ranks it before the record of the question, once it has been tried 12
+    times (the `yield` key of the loop's order). Two thirds of a pass's tries had gone to kinds that reached parity 4 times
+    in 198.
+  - *A drafter that answers by a program.* A new change the trainer can try: a drafting slot that writes a short program
+    instead of an answer; the sandbox runs it and what it prints is the slot's answer (`compute` on a slot, SwOA spec
+    O.6.1a). For counting, strings, totals and rates, where small models go wrong working it out in words.
+  - *Memory.* Every pass writes down what its configuration takes in memory against the larger model, and the training
+    line says it.
   - *Bounds.* A question's first visit is bounded in all (`firstVisitTries`, 40), whether or not its tries came closer, and
     its return at twice that. A class of change that has brought one question nothing in 8 tries is tried last there
     (`dryClassAfter`).

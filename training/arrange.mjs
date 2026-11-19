@@ -15,7 +15,7 @@
 //             compared by what they do, or as text
 import { briefHash } from './state.mjs';
 import { SERVING } from '../src/index.mjs';
-import { flowOf, decideByOf } from '../src/orchestrate.mjs';
+import { flowOf, decideByOf, COMPUTE_BRIEF } from '../src/orchestrate.mjs';
 
 // an arrangement is known by its shape, not its words: who is where, at what stage, seeing what, how hot; and the plan
 export const shapeOf = (b) =>
@@ -73,6 +73,27 @@ export function steps(b, { cap = SERVING.slots, members = [...new Set(b.slots.ma
       });
     }
   }
+  // A DRAFTER THAT ANSWERS BY A PROGRAM (orchestrate.mjs COMPUTE_BRIEF): one, on any model with a slot to spare. It writes the
+  // program that works the answer out and the sandbox runs it, so its answer is made another way than every other draft's
+  if (!b.slots.some((s) => s.compute))
+    for (const m of members) {
+      if (used(m) >= cap) continue;
+      const at = b.slots.reduce((k, x, i) => (x.stage === 'draft' ? i + 1 : k), 0);
+      const slot = {
+        id: m + '-program',
+        member: m,
+        stage: 'draft',
+        compute: true,
+        brief: COMPUTE_BRIEF,
+        purpose: 'Writes a program that works the answer out; what it prints is its answer',
+        maxTokens: 500,
+        temperature: 0.2,
+      };
+      out.push({
+        name: 'add a drafter on ' + m + ' that answers by a program',
+        briefs: withSlots([...b.slots.slice(0, at), slot, ...b.slots.slice(at)]),
+      });
+    }
   if (drafts.length > 2)
     for (const s of drafts) out.push({ name: 'drop ' + s.id, briefs: withSlots(b.slots.filter((x) => x.id !== s.id)) });
   // A SLOT CAN CHANGE ITS PART: a drafter becomes a checker, a checker a drafter (told what a slot of that part on its own model,

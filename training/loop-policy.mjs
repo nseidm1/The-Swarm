@@ -7,17 +7,17 @@
 // stays, on disk (.work/library/<configuration>-policy.json, which Clear training state keeps), so the policy goes on improving.
 // What it cannot do: change code. An idea the larger model has that no knob can carry is written down as an idea, for a person.
 export const AREAS = ['slots', 'briefs', 'flow', 'loops', 'decider', 'several'];
-export const RANKS = ['pin', 'evidence', 'momentum', 'learned', 'area', 'cost', 'fresh', 'plan'];
+export const RANKS = ['pin', 'yield', 'evidence', 'momentum', 'learned', 'area', 'cost', 'fresh', 'plan'];
 const LOSSES = ['drafting', 'choosing', 'writing'];
 
 // THE KNOBS: what each is, its bounds, its default. The larger model is shown exactly this
 export const KNOBS = {
   order: {
     about:
-      "The order of the keys changes are ranked by, first decides most. pin: a person pinned it. evidence: what the question's own record says will help. momentum: like a change kept recently. learned: how often its kind has reached parity. area: the area of change for where the answer was lost. cost: how much slower its kind makes a run. fresh: tried least. plan: the plan's own order.",
+      "The order of the keys changes are ranked by, first decides most. pin: a person pinned it. yield: how often its kind has reached parity, in tenths, once it has been tried 12 times; before that it counts as two in ten (so a kind that reaches parity three times in ten is tried before one that has not in a hundred, whatever the record of the question says). evidence: what the question's own record says will help. momentum: like a change kept recently. learned: how often its kind has reached parity. area: the area of change for where the answer was lost. cost: how much slower its kind makes a run. fresh: tried least. plan: the plan's own order.",
     kind: 'permutation',
     of: RANKS,
-    default: ['pin', 'evidence', 'momentum', 'learned', 'area', 'cost', 'fresh', 'plan'],
+    default: ['pin', 'yield', 'evidence', 'momentum', 'learned', 'area', 'cost', 'fresh', 'plan'],
   },
   learnedMinTried: {
     about:
@@ -208,6 +208,11 @@ export function checkValue(knob, v) {
       : { ok: false, why: knob + ' takes a whole number from ' + K.min + ' to ' + K.max };
   }
   if (K.kind === 'permutation') {
+    // (an order written before `yield` was a key, whole but for it, keeps its order with yield put where the default has it)
+    if (Array.isArray(v) && v.length === K.of.length - 1 && !v.includes('yield') && v.every((x) => K.of.includes(x))) {
+      v = [...v];
+      v.splice(K.default.indexOf('yield'), 0, 'yield');
+    }
     const ok = Array.isArray(v) && v.length === K.of.length && K.of.every((x) => v.includes(x));
     return ok
       ? { ok: true, value: [...v] }

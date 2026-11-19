@@ -33,7 +33,8 @@ Swarm's reply is good ("at parity", in the loop's record) ([`loop.mjs`](loop.mjs
      comes next where the decider was close or overruled the majority. A brief for a slot that already had the answer is
      never tried.
    - **Lost in drafting:** more room for a slot cut off at its token limit comes first, then what makes other drafts (a drafter
-     sampled otherwise, one more drafter, the answers sent back). A change to how the matter is decided cannot help here and
+     sampled otherwise, one more drafter, a drafter that answers by a program it writes and the sandbox runs, the answers
+     sent back). A change to how the matter is decided cannot help here and
      is never tried.
    - **What the larger model writes for a slot is an addition** to what the slot is told, a sentence or two put after it
      (three at most on one brief), never a new brief: asked for replacements it wrote one-sentence briefs that dropped the
@@ -152,6 +153,7 @@ How the search ranks and bounds what it tries is a policy ([`loop-policy.mjs`](l
 | `stableAfter` | The same, sooner, where every question the question in hand's changes have lost is among the same few: their losses together (6; 0: wait for `swapAfter`) |
 | `stableMax` | How many different questions such a conflict may span and still be swapped after `stableAfter` (2; 1: one question only) |
 | `setAsideAfter` | Tries in a row with nothing closer and no parity before a question is set aside while another waits (30; 0 never) |
+| `order` (the `yield` key) | What a kind of change has yielded, in tenths, once tried 12 times: first after a pin, before the record of the question |
 | `firstVisitTries` | Tries in all on a question's first visit before it is set aside while another waits, whatever came closer; its return is bounded at twice that (40; 0 no bound) |
 | `dryClassAfter` | Tries of one class of change on one question, none closer, before that class is tried last there (8; 0 never) |
 | `helpBackoff` | The larger model's suggestions and briefs half as often on a question each time they bring it nothing (on) |
@@ -373,7 +375,7 @@ question's answer was lost.
 
 | It finds | From | Moves that speak to it |
 |---|---|---|
-| No slot had the larger model's answer | answers that differed, less those a slot did have | Another brief for a drafter; one more drafter; a drafter sampled more or less freely; a drafter moved to the other model |
+| No slot had the larger model's answer | answers that differed, less those a slot did have | Another brief for a drafter; one more drafter; a drafter that answers by a program; a drafter sampled more or less freely; a drafter moved to the other model |
 | A drafter well under the best | each drafter's own record | Its brief; moving or dropping it; its temperature |
 | A checker less often equivalent than the best draft | each checker's own record | Its brief; what it is shown; moving or dropping it |
 | The decider had the answer and chose another | the decider's record | One worked answer for each different answer; what the checkers are shown; one more checker |

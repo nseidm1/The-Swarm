@@ -1199,7 +1199,7 @@ def plan_block(d):
     return plan_panel(d)
 
 
-RANK_WORDS = {"pin": "pinned", "evidence": "the question's record", "momentum": "like a kept change", "learned": "what has worked",
+RANK_WORDS = {"pin": "pinned", "yield": "what its kind has yielded", "evidence": "the question's record", "momentum": "like a kept change", "learned": "what has worked",
               "area": "area for the loss", "cost": "cheaper", "fresh": "tried least", "plan": "the plan's order"}
 POLICY_EVENT = {"on trial": ("on trial", "planned"), "kept": ("kept", "up"), "put back": ("put back", "down"), "nothing proposed": ("no proposal", "planned"),
                 "no review": ("no review", "planned")}
@@ -3189,6 +3189,10 @@ def progress_strip(d, cleared=""):
         fams = [f for f in lp.get("families") or [] if f.get("asked") and f.get("own")]
         beside = (" By the questions&#39; own standards the module is right on <b>%d</b> of %d and %s on <b>%d</b> of %d."
                   % (sum(f.get("module") or 0 for f in fams), sum(f.get("asked") or 0 for f in fams), e(tname), sum(f.get("target") or 0 for f in fams), sum(f.get("targetKnown") or 0 for f in fams))) if fams else ""
+        # (and what it takes to do so: the memory this configuration needs against the larger model's, as the pass wrote it down)
+        mem = lp.get("memory") or {}
+        if mem.get("swarm") and mem.get("target"):
+            beside += " It takes <b>%s GB</b> of memory against %s GB: <b>%s%%</b> saved." % (e(str(mem["swarm"])), e(str(mem["target"])), e(str(mem.get("saved"))))
         line = ("<b>%d</b> of %d train answers good: <b>%d</b> as the swarm stood, <b>%d</b> made good by a change it kept%s%s.%s"
                 % (done, of, at, re_, ((", %d back in hand after a swap" % n("reopened")) if n("reopened") else "") + ((", %d set aside until the others are done" % n("set aside")) if n("set aside") else ""), ((", %d not good yet" % nr) if nr else "") + ((", %d set aside because the larger model's answer is wrong" % wrong_m) if wrong_m else "")
                    # (a mark the larger model did not give again, where the swarm's answer is not equivalent to it: not searched, and still counted in the share)

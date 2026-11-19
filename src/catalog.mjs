@@ -127,6 +127,19 @@ export const JUDGE =
   (CONFIG.judge && CONFIG.judge !== CONFIG.decider && REGISTRY.deciders.find((m) => m.id === CONFIG.judge)) || null;
 export const TARGET = REGISTRY.targets.find((m) => m.id === CONFIG.target);
 // the swarm as it is configured, in a word: results are kept apart by this, so that one arrangement's are never read as another's
+// THE POINT OF THE SWARM, IN ONE NUMBER: the memory it takes against the memory the larger model takes, in GB. An estimate from
+// what is on record, the same one the page draws (ui/data.py footprint): the small models' files, a quarter more, and a
+// gigabyte of context; the decider's listed size; the larger model's listed size. -> { swarm, target, saved, savedGb }, or null
+export function footprintOf(members = MEMBERS, decider = DECIDER, target = TARGET) {
+  const r1 = (x) => Math.round(x * 10) / 10;
+  const files = Object.values(members || {}).reduce((n, m) => n + ((m && m.bytes) || 0), 0) / 2 ** 30;
+  const tbytes =
+    ((target && target.bytes) || 0) + ((target && target.parts) || []).reduce((n, p) => n + ((p && p.bytes) || 0), 0);
+  const tgt = (target && target.memGb) || (tbytes ? r1((tbytes / 2 ** 30) * 1.1) : 0);
+  if (!files || !tgt) return null;
+  const swarm = r1(r1(files * 1.25 + 1) + ((decider && decider.memGb) || 0));
+  return { swarm, target: tgt, saved: r1(100 - (100 * swarm) / tgt), savedGb: r1(tgt - swarm) };
+}
 export const configId = (config) => [...placesOf(config).map((k) => config[k]), config.decider].join('+');
 export const CONFIG_ID = configId(CONFIG);
 // one swarm against one larger model, as the name of a folder or a file: everything that is kept of its training is kept under

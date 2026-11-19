@@ -3410,13 +3410,27 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const plain = orderFor(pool, { lost: 'choosing' }).map((m) => m.id);
   const held = orderFor(pool, { lost: 'choosing', dry: new Set([dryClass]) }).map((m) => m.id);
   const pinned = orderFor(pool, { lost: 'choosing', dry: new Set([dryClass]), pin: ['d2'] }).map((m) => m.id);
+  // WHAT A KIND HAS YIELDED COMES FIRST: with a record of 12 tries or more, the kind that reached parity 3 times in 10 is tried
+  // before the one the question's record points at that reached none in 100; with little record the question's record decides
+  const ySlots = classOf(pool[1]);
+  const byYield = orderFor(pool, {
+    lost: 'choosing',
+    classes: { [dryClass]: { tried: 100, reached: 0 }, [ySlots]: { tried: 40, reached: 12 } },
+  }).map((m) => m.id);
+  const thin = orderFor(pool, {
+    lost: 'choosing',
+    classes: { [dryClass]: { tried: 2, reached: 0 }, [ySlots]: { tried: 2, reached: 1 } },
+  }).map((m) => m.id);
+  const P2 = await import('../training/loop-policy.mjs');
+  const oldOrder = ['pin', 'evidence', 'momentum', 'learned', 'area', 'cost', 'fresh', 'plan'];
+  const padded = P2.checkValue('order', oldOrder);
   const tries = (k, n, more = {}) => Array.from({ length: n }, () => ({ kind: k, grade: 'wrong', ...more }));
   const dry = dryClassesOf(
     [{ move: '' }, ...tries('x', 3), ...tries('y', 3), { kind: 'y', grade: 'wrong', closer: true }, ...tries('z', 2)],
     3,
   );
   check(
-    'a question whose every try comes a little closer is set aside on its first visit after firstVisitTries tries in all (without it, it held the pass for hundreds), comes back bounded at twice that and is written down as not reached; a class of change tried dryClassAfter times on one question with none closer is tried last there, after every other change open, though not left out, and what a person pinned is not held back',
+    'a question whose every try comes a little closer is set aside on its first visit after firstVisitTries tries in all (without it, it held the pass for hundreds), comes back bounded at twice that and is written down as not reached; a class of change tried dryClassAfter times on one question with none closer is tried last there, after every other change open, though not left out, and what a person pinned is not held back; and what a kind of change has yielded ranks it before the record of the question once it has been tried 12 times (3 in 10 before none in 100), not before, and an order saved before that key existed is kept with the key put in',
     unbounded.before > 100 &&
       bounded.before === 5 &&
       bounded.n <= 15 &&
@@ -3428,8 +3442,82 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       dry.has('x') &&
       !dry.has('y') &&
       !dry.has('z') &&
-      dryClassesOf(tries('x', 9), 0).size === 0,
-    { unbounded, bounded, plain, held, pinned, dry: [...dry] },
+      dryClassesOf(tries('x', 9), 0).size === 0 &&
+      byYield[0] === 's1' &&
+      thin[0] === plain[0] &&
+      padded.ok &&
+      padded.value.join() === P2.RANKS.join() &&
+      !P2.checkValue('order', ['pin']).ok,
+    { unbounded, bounded, plain, held, pinned, dry: [...dry], byYield, thin, padded },
+  );
+}
+// ---- 6ae: A DRAFTER THAT ANSWERS BY A PROGRAM (SwOA specification O.6.1a): it writes the program, the sandbox runs it, and what
+// it printed is its answer, in the pool like any other; it is left out where code is asked for, and where its program does not
+// run it has no answer and is not asked again. The trainer can add one, on any model with a slot to spare, and only one. And
+// what a configuration takes in memory against the larger model is worked out as the page works it out
+{
+  const { answer, COMPUTE_BRIEF } = await import('../src/orchestrate.mjs');
+  const { printed } = await import('../src/behave.mjs');
+  const { steps } = await import('../training/arrange.mjs');
+  const { classOf } = await import('../training/loop.mjs');
+  const { footprintOf } = await import('../src/catalog.mjs');
+  const plainSlots = [
+    { id: 'a-direct', member: 'a', stage: 'draft', brief: 'Answer.' },
+    { id: 'b-direct', member: 'b', stage: 'draft', brief: 'Answer.' },
+    { id: 'w', member: 'a', stage: 'write', brief: 'Write.' },
+  ];
+  const prog = { id: 'a-program', member: 'a', stage: 'draft', compute: true, brief: 'Its own brief.' };
+  const briefs = { version: 1, plan: {}, slots: [plainSlots[0], plainSlots[1], prog, plainSlots[2]] };
+  const run = async (question, program) => {
+    const told = {};
+    const calls = [];
+    const got = await answer([{ role: 'user', content: question }], {
+      briefs,
+      print: printed,
+      ask: async (slot, msgs) => {
+        calls.push(slot.id);
+        told[slot.id] = msgs[0].content;
+        if (slot.id === 'a-program') return { text: program };
+        if (slot.stage === 'write') return { text: 'Written.' };
+        return {
+          text: /function/.test(question) ? '```js\nfunction add(a, b) { return a + b; }\n```' : 'Two.\nANSWER: 2',
+        };
+      },
+    });
+    return { got, told, calls, row: got.trace.find((t) => t.slot === 'a-program') };
+  };
+  const Q = 'How many times does the letter r appear in strawberry?';
+  const ran = await run(Q, 'Here it is.\n```js\nconsole.log("strawberry".split("r").length - 1);\n```');
+  const broken = await run(Q, '```js\nconsole.log(notThere.length);\n```');
+  const code = await run('Write a JavaScript function add(a, b) that returns the sum.', '```js\nconsole.log(1);\n```');
+  const added = steps({ ...briefs, slots: plainSlots }).filter((m) => / that answers by a program$/.test(m.name));
+  const slotAdded = added.length ? added[0].briefs.slots.find((s) => s.compute) : null;
+  const fp = footprintOf({ a: { bytes: 2 ** 30 }, b: { bytes: 2 ** 30 } }, { memGb: 5 }, { memGb: 18 });
+  check(
+    'a drafter that answers by a program is told to write the program and not its own brief; the program is run where it can reach nothing and what it printed is its answer, in the pool beside the other drafts; a program that does not run leaves it with no answer, and it is not asked again; where code is asked for it is not called at all; the trainer can add one on each model with a slot to spare, after the drafters, as its own kind of change, and not a second; and the memory a configuration takes is worked out as the page works it out',
+    ran.told['a-program'].startsWith(COMPUTE_BRIEF) &&
+      !ran.told['a-program'].includes('Its own brief.') &&
+      ran.row.final === '3' &&
+      ran.row.ok === true &&
+      ran.row.computed === true &&
+      /Ran its program: it printed 3/.test(ran.row.out) &&
+      ran.got.trace.filter((t) => t.stage === 'draft' && t.ok).length === 3 &&
+      broken.row.ok === false &&
+      broken.row.computed === false &&
+      broken.calls.filter((c) => c === 'a-program').length === 1 &&
+      broken.got.decided === '2' &&
+      !code.calls.includes('a-program') &&
+      added.length === 2 &&
+      slotAdded.stage === 'draft' &&
+      slotAdded.brief === COMPUTE_BRIEF &&
+      added[0].briefs.slots.findIndex((s) => s.compute) === 2 &&
+      classOf(added[0]) === 'an answer worked out by a program' &&
+      steps(briefs).filter((m) => / that answers by a program$/.test(m.name)).length === 0 &&
+      fp.swarm === 8.5 &&
+      fp.target === 18 &&
+      fp.saved === 52.8 &&
+      footprintOf({}, { memGb: 5 }, { memGb: 18 }) === null,
+    { ran: ran.row, broken: broken.row, code: code.calls, added: added.map((m) => m.name), fp },
   );
 }
 // ---- 6v: what the measurement held and no finding read: answers cut off at the token limit, a drafter that echoes another on its

@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { REPO_ROOT, RESULTS, WORK, aloneLabel, modelsDir } from './support/bench.mjs';
-import { MEMBERS, DECIDER, CONFIG_ID, CONFIG_KEY, readConfig, writeConfig } from '../src/catalog.mjs';
+import { MEMBERS, DECIDER, CONFIG_ID, CONFIG_KEY, readConfig, writeConfig, footprintOf } from '../src/catalog.mjs';
 import { readState, writeState, seedState, readTargets, targetOf, parity, STANDING } from './state.mjs';
 import { readBriefs, notePass, readLearned } from '../src/index.mjs';
 import { readPolicy } from './policy.mjs';
@@ -86,6 +86,9 @@ export function endPass(state, { swarmRows, train, briefs, targets, now = new Da
     members: Object.values(MEMBERS).map((m) => m.name),
     decider: DECIDER.name,
     level: !!(p && p.level),
+    // what this configuration takes in memory against the larger model: a pass's parity is worth what it saves, and passes of
+    // different models are set beside each other by both
+    ...(footprintOf() ? { memory: footprintOf() } : {}),
   };
   // (a pass whose questions were weighted by a proof says so in its own line of the record: which proof, and what it found short)
   if (state.focusFrom && state.focusFrom.proof)

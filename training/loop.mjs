@@ -64,6 +64,7 @@ export function classOf(m) {
   if (/token limit/.test(n)) return 'more room to answer';
   if (/temperature/.test(n)) return 'a drafter sampled otherwise';
   if (/ drafts as .* does$/.test(n)) return 'a drafter told what another is told';
+  if (/ that answers by a program$/.test(n)) return 'an answer worked out by a program';
   if (/^add /.test(n)) return 'one more slot';
   if (/^move /.test(n)) return 'a slot on another model';
   if (/^drop /.test(n)) return 'one slot fewer';
@@ -353,6 +354,8 @@ export function reasonsOf(
 // how well a kind of change has done: the mean of a Beta(1, 1) on what it reached against what it was tried on
 const rate = (c) => ((c ? c.reached : 0) + 1) / ((c ? c.tried : 0) + 2);
 // what a kind of change adds to a run, in steps of 5 seconds (finer is noise): an untimed kind counts as adding nothing
+// how many tries a kind of change must have had before what it yielded ranks it (orderFor, the `yield` key)
+export const YIELD_MIN = 12;
 export const costOf = (c) => (c && c.timed ? Math.round(c.secs / c.timed / 5) : 0);
 // seconds a try takes: the median of the last few
 const paceOf = (xs = []) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] : null);
@@ -381,6 +384,14 @@ export function orderFor(
   const near = (m) => (policy.momentumRecent ? likeKept(m, recent.slice(-policy.momentumRecent)) : null);
   const KEY = {
     pin: (m) => (pin.includes(m.id) ? pin.indexOf(m.id) : 1e6),
+    // WHAT ITS KIND HAS YIELDED, in tenths, once it has been tried YIELD_MIN times; before that two in ten, so a kind with little
+    // record is neither ahead of one that has earned its place nor behind one that has earned none. First after a pin (measured 2026-11-19: what the question's record said would
+    // help outranked what the tries had shown, and 198 of 332 tries went to three kinds that reached parity 4 times, while the
+    // kind that reached it 11 times in 41 got 41)
+    yield: (m) => {
+      const c = classes[classOf(m)];
+      return c && c.tried >= YIELD_MIN ? -Math.round((10 * (c.reached || 0)) / c.tried) : -2;
+    },
     evidence: (m) => prio(m),
     momentum: (m) => (near(m) ? 0 : 1),
     learned: (m) => {
@@ -2187,7 +2198,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     REPO_ROOT,
   } = B;
   const { readBriefs, saveLearned } = await import('../src/index.mjs');
-  const { CONFIG_ID, CONFIG_KEY, TARGET } = await import('../src/catalog.mjs');
+  const { CONFIG_ID, CONFIG_KEY, TARGET, footprintOf } = await import('../src/catalog.mjs');
   const { readState, writeState, candHash } = await import('./state.mjs');
   const { steps } = await import('./arrange.mjs');
   const { withExamples } = await import('./support/examples.mjs');
@@ -2877,6 +2888,8 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         await releaseTeacher();
         writeSafe(FILE, JSON.stringify({ pass, seed: (list[0] || {}).seed, each, scoring: SCORING, st: cur }));
         save('questions', {
+          // (and what the configuration takes in memory against the larger model, beside how far it has come)
+          ...(footprintOf() ? { memory: footprintOf() } : {}),
           pass,
           cfg: CONFIG_ID,
           target: TARGET.id,

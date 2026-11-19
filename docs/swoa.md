@@ -999,7 +999,8 @@ def f(x): ...
 Given: the kept turns. Produces: answers into the pool; on the first draft of a code question, the
 probe.
 
-1. The drafting slots are the step's slots, default stage `draft`.
+1. The drafting slots are the step's slots, default stage `draft`, less every slot whose `compute` is true
+   where it does not compute (O.6.1a): such a slot is not called and records no row.
 2. At once, the runtime MUST call every drafting slot with `[system message of the slot, ...kept
    turns]`, and — only if BY-BEHAVIOUR holds and there is no probe yet — the **probe slot** with
    `[system message of the probe slot, ...kept turns]`. The probe slot is synthetic:
@@ -1032,6 +1033,29 @@ probe.
 4. Every ok drafting row then replaces the pool row of the same slot id (in place), or is appended
    if that slot has none. Rows that are not ok do not enter the pool and do not remove anything.
 5. Relabel.
+
+#### O.6.1a A drafting slot that answers by a program
+
+A slot **computes** exactly when its `compute` is true, its `stage` is `draft`, CODE-WANTED does not hold, and the
+sandbox is available (R.3.7). A computing slot does not answer the question: it writes a program, the program is run,
+and what the program printed is the slot's answer.
+
+1. **Its system message** is built as O.5.4 says with the slot's `brief` replaced by exactly:
+   ~~~~text
+   Do not answer the question yourself. Write a short JavaScript program that works the answer out and prints it. Put everything the program needs inside it, copied exactly from the question: it has no input, no files and no network. It must print exactly one line with console.log: the answer alone, in the form the question asks for, with no label and no explanation. Reply with the program in one fenced code block and nothing else.
+   ~~~~
+2. **Running it.** When the call returns, the program is the read final of its `out` read as code (R.1), or nothing
+   where `out` is a tool call. The program is run once as a whole program (R.4.2 rules 3 and 4), only in the sandbox.
+   PRINTED is what it printed, or nothing where there was no program, it printed nothing (R.4.2 rule 4), or it
+   printed more than 400 characters.
+3. **Its row.** `final` is PRINTED or empty; `ok` is whether PRINTED is non-empty; the row is marked `computed`
+   with that same boolean. `out` becomes `out + "\n\n(Ran its program: it printed " + PRINTED + ")\n" + MARKER +
+   " " + PRINTED` where something was printed, else `out + "\n\n(Its program could not be run, or printed
+   nothing.)"`.
+4. A row marked `computed`, true or false, is never asked again (O.6.1 rule 3).
+5. An ok row enters the pool as any drafting row does (O.6.1 rule 4), and is from then on an answer like any other:
+   tallied, shown, checked and decided between by the same rules.
+6. A slot whose `compute` is true never takes part in a `revise` step (O.6.5).
 
 #### O.6.2 try
 
@@ -1131,7 +1155,8 @@ Given: the table, the remarks, each slot's own answer. Produces: new answers tha
 
 1. Fix the table at the start. Each remark longer than 700 characters is cut to its last 700
    characters.
-2. The revising slots are the step's slots, default stage `draft`; each is used with its `stage`
+2. The revising slots are the step's slots, default stage `draft`, less every slot whose `compute` is true
+   (O.6.1a); each is used with its `stage`
    set to `revise` (so it is ok when it gives a final).
 3. At once, call each revising slot S with `[system message of S, ...earlier turns, {role: user,
    content: C}]`, where C is:
@@ -1449,7 +1474,7 @@ Base: `decided`, `decided-against-most`, `decided-early`, `most`, `most-tie-deci
 
 A row is recorded into the trace when its call completes, so concurrent calls are recorded in
 completion order. Rows record at least `slot`, `member`, `stage`, `ms`, `out`, `final`, `ok`, and
-where relevant `why`, `tokens`, `concluded`, `picked`, `round`, `describes`, `rewrite`, `trimmed`. The
+where relevant `why`, `tokens`, `concluded`, `computed`, `picked`, `round`, `describes`, `rewrite`, `trimmed`. The
 decider's ruling row has `slot` `decide`, `member` `decider`, `stage` `decide`, its `probs`, `yes`,
 `close` (when ok and close), `retried` (when the decider says so), and, when not ok and its reason
 contains `did not answer`, `timedOut` = whether the reason contains `abort` or `timeout` (any
@@ -1484,6 +1509,7 @@ or amended. Notifications MUST NOT affect the procedure.
 | `brief` | first part of the slot's system message (O.5.4) |
 | `examples` | number of worked examples, 0–4 (O.7) |
 | `sees` | `finals`: a checker is shown answers without their working; anything else: with |
+| `compute` | `true` on a `draft` slot: it answers by a program it writes, which is run (O.6.1a); it is left out of a draft step where it does not compute, and out of every revise step |
 | `maxTokens` | passed to the member call; the judge slot inherits it unless `plan.decideWith.maxTokens`; the ask-again calls override it (420/40 for drafts, 16 for checks) |
 | `temperature` and other sampling fields | passed to the member call; ask-again calls force `temperature` 0 |
 | `purpose` | not read by orchestration (descriptive only) |

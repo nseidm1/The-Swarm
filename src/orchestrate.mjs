@@ -55,6 +55,15 @@ const LETTERS = 'ABCDEFGHIJKLMNOP'; // an answer for each slot that drafts: four
 // what the writer is told, and holds no case to tell apart: told "where what they asked cannot be done for them (booking, buying,
 // sending, finding), say so" after its own brief, a 2B writer wrote "You can't book or buy water for your plant" to a question
 // about watering one, and its own brief still said to add nothing that was not in the draft (measured 2026-11-18)
+// what a drafter that answers BY A PROGRAM is told, in place of its own brief (SwOA specification O.6.1a): it does not answer,
+// it writes the program that works the answer out, and the sandbox runs it. Counting letters, reversing a string, a total with
+// tax, a rate over a time: a small model gets these wrong by working them out in words, and a ten-line program does not
+// (measured 2026-11-19: of 13 questions neither of two small models answered alone, 8 were of these kinds)
+export const COMPUTE_BRIEF =
+  'Do not answer the question yourself. Write a short JavaScript program that works the answer out and prints it. Put ' +
+  'everything the program needs inside it, copied exactly from the question: it has no input, no files and no network. It ' +
+  'must print exactly one line with console.log: the answer alone, in the form the question asks for, with no label and no ' +
+  'explanation. Reply with the program in one fenced code block and nothing else.';
 export const FULL_BRIEF =
   'You write the reply a person reads. You are given their message, the answer that was settled on, and the draft it came ' +
   'from. Write the reply itself, exactly as they will read it, in full: first the answer; then the reason for it, in a ' +
@@ -173,11 +182,14 @@ export async function answer(
     .map(said)
     .join('\n')
     .trim();
+  // A DRAFTER THAT ANSWERS BY A PROGRAM (slot.compute, O.6.1a): only where no code is asked for and a program can be run here;
+  // anywhere else the slot is left out of the step
+  const computing = (slot) => !!slot.compute && slot.stage === 'draft' && !wantsCode && !!print;
   const NO_TOOLS = ' You have no tools: write your answer as plain text, and any code inside a fenced code block.';
   const sys = (slot) => ({
     role: 'system',
     content:
-      slot.brief +
+      (computing(slot) ? COMPUTE_BRIEF : slot.brief) +
       NO_TOOLS +
       examplesFor(slot, briefs.examples, question) +
       (house ? '\n\nThe person set this for the conversation:\n' + house : ''),
@@ -200,6 +212,24 @@ export async function answer(
             ? !!letterOf(row.out, marker, LETTERS)
             : !!row.final || (slot.stage === 'check' && !!letterOf(row.out, marker, LETTERS));
       if (r && r.tokens) row.tokens = r.tokens;
+      // ITS PROGRAM IS RUN, and what it printed is its answer (at most 400 characters); a program that does not run, or prints
+      // nothing, leaves the slot without an answer, and it is not asked again
+      if (computing(slot)) {
+        const code = isToolCall(row.out) ? '' : readFinal(row.out, marker, true);
+        let p = null;
+        try {
+          p = code ? await print(code) : null;
+        } catch {
+          p = null;
+        }
+        const text = p && p.text && p.text.length <= 400 ? p.text : '';
+        row.computed = !!text;
+        row.final = text;
+        row.ok = !!text;
+        row.out += text
+          ? '\n\n(Ran its program: it printed ' + text + ')\n' + marker + ' ' + text
+          : '\n\n(Its program could not be run, or printed nothing.)';
+      }
     } catch (e) {
       row.why = String((e && e.message) || e).slice(0, 200);
     }
@@ -212,7 +242,7 @@ export async function answer(
   // A SLOT THAT RAN OUT OF ROOM BEFORE IT ANSWERED IS ASKED FOR ITS ANSWER. It has done the work (it was cut off testing its own
   // answer, or going round again); what is missing is the last line. Asked once, on the same slot, with the end of what it wrote.
   const askAgain = async (row, slot, msgs) => {
-    if (row.ok || row.why || !row.out.trim() || isToolCall(row.out)) return;
+    if (row.ok || row.why || !row.out.trim() || isToolCall(row.out) || row.computed !== undefined) return;
     const at = Date.now();
     try {
       const r = await ask({ ...slot, maxTokens: wantsCode ? 420 : 40, temperature: 0 }, [
@@ -248,6 +278,8 @@ export async function answer(
   const byId = Object.fromEntries(briefs.slots.map((s) => [s.id, s]));
   const slotsOf = (step, dflt) =>
     step.slots ? step.slots.map((id) => byId[id]).filter(Boolean) : dflt ? stage(dflt) : [];
+  // (a drafter that answers by a program drafts only where it can: computing, above)
+  const drafting = (step) => slotsOf(step, 'draft').filter((s) => !s.compute || computing(s));
   const S = {
     pool: [],
     backers: [],
@@ -396,7 +428,7 @@ export async function answer(
         temperature: 0.2,
       };
       const [rows, probe] = await Promise.all([
-        all(slotsOf(step, 'draft'), (s) => [sys(s), ...kept]),
+        all(drafting(step), (s) => [sys(s), ...kept]),
         byBehaviour && !S.probe ? run(prober, [sys(prober), ...kept]) : null,
       ]);
       if (probe) S.probe = probe;
@@ -404,7 +436,7 @@ export async function answer(
         rows.map((r) =>
           askAgain(
             r,
-            slotsOf(step, 'draft').find((s) => s.id === r.slot),
+            drafting(step).find((s) => s.id === r.slot),
             [sys(byId[r.slot]), ...kept],
           ),
         ),
@@ -492,7 +524,9 @@ export async function answer(
       const table = tableOf();
       const remarks = S.remarks.map((r) => (r.length > 700 ? r.slice(-700) : r));
       const rows = await all(
-        slotsOf(step, 'draft').map((s) => ({ ...s, stage: 'revise' })),
+        slotsOf(step, 'draft')
+          .filter((s) => !s.compute)
+          .map((s) => ({ ...s, stage: 'revise' })),
         (s) => {
           const mine = S.pool.find((d) => d.slot === s.id);
           const same = mine && table.find((d) => keyOf(d) === keyOf(mine));
