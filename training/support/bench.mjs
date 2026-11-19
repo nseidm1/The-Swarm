@@ -328,6 +328,70 @@ export function reference(list) {
   ref.toSpec = toSpec; // whether its own answer does what the question says (tasks: toSpec)
   return ref;
 }
+// A MODEL ALONE ANSWERS THE SAME WHATEVER SWARM IS CONFIGURED: the larger model's answers, the larger model against itself, and
+// each small model alone depend on the model, the questions and who read the answers, and on nothing of the swarm's small
+// models. Their answers are kept in one file for every configuration (baseline-runs.jsonl), but whether a model "was measured"
+// was asked of the configuration's own results, so every new configuration asked the larger model everything again (measured
+// 2026-11-19: 35 minutes at the start of each of three configurations tried that morning, against one larger model).
+// -> the result another configuration against the same larger model wrote for this label and split, where it is of exactly
+// these questions (the same seed and count, and an answer on record under this label for every one), and, where the answers
+// were read by a reader (anything but the larger model's own first answers), read by the reader in use now; else null.
+export function carriedResult(
+  label,
+  split,
+  list,
+  { resultsRoot = path.dirname(RESULTS), work = WORK, mine = CONFIG_KEY, target = targetOf().id, read = true } = {},
+) {
+  if (!list.length) return null;
+  const reader = (JUDGE || DECIDER || {}).id || '';
+  let have = null;
+  const answered = () => {
+    if (have) return have;
+    have = new Set();
+    try {
+      for (const l of fs.readFileSync(path.join(work, 'baseline-runs.jsonl'), 'utf8').split('\n').filter(Boolean)) {
+        const r = JSON.parse(l);
+        if (r.label === label) have.add(r.id);
+      }
+    } catch {
+      /* nothing on record */
+    }
+    return have;
+  };
+  let best = null;
+  let dirs = [];
+  try {
+    dirs = fs.readdirSync(resultsRoot).filter((d) => d !== mine && d.endsWith('--' + target));
+  } catch {
+    return null;
+  }
+  for (const d of dirs) {
+    let was = null;
+    try {
+      was = JSON.parse(fs.readFileSync(path.join(resultsRoot, d, label + '-' + split + '.json'), 'utf8'));
+    } catch {
+      continue;
+    }
+    if (was.seed !== list[0].seed || was.asked !== list.length) continue;
+    if (read) {
+      // WHO READ IT: the result says (reader, written since 2026-11-19); one from before that is taken only where that
+      // configuration's reader on record is the one in use now AND was checked before the result was measured (a reader named
+      // after it did not read it: a result read by a decider that failed its check was nearly carried as the judge's)
+      let by = was.reader || '';
+      if (!by)
+        try {
+          const rec = JSON.parse(fs.readFileSync(path.join(work, d, 'reader.json'), 'utf8'));
+          if (rec.by && rec.at && String(rec.at) <= String(was.at)) by = rec.by;
+        } catch {
+          /* no reader on record there */
+        }
+      if (!reader || by !== reader) continue;
+    }
+    if (!best || String(was.at) > String(best.was.at)) best = { was, from: d };
+  }
+  if (!best || !list.every((t) => answered().has(t.id))) return null;
+  return best;
+}
 export function needReference(list, split) {
   const ref = reference(list);
   if (ref.size < list.length) {

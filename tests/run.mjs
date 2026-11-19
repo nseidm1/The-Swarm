@@ -3562,6 +3562,80 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { whole, far, gone },
   );
 }
+// ---- 6ag: A MODEL ALONE IS NOT ASKED AGAIN FOR ANOTHER SWARM (training/support/bench.mjs carriedResult): what another
+// configuration against the same larger model measured, on exactly these questions and read by the same reader, is this one's too
+{
+  const { carriedResult } = await import('../training/support/bench.mjs');
+  const { JUDGE, DECIDER } = await import('../src/catalog.mjs');
+  const fs2 = await import('node:fs');
+  const os = await import('node:os');
+  const path2 = await import('node:path');
+  const dir = fs2.mkdtempSync(path2.join(os.tmpdir(), 'carried-'));
+  const results = path2.join(dir, 'results');
+  const work = path2.join(dir, 'work');
+  const reader = (JUDGE || DECIDER).id;
+  const put = (cfg, name, body) => {
+    fs2.mkdirSync(path2.join(results, cfg), { recursive: true });
+    fs2.writeFileSync(path2.join(results, cfg, name + '.json'), JSON.stringify(body));
+  };
+  const readBy = (cfg, by, at = '2026-11-18T09:00:00Z') => {
+    fs2.mkdirSync(path2.join(work, cfg), { recursive: true });
+    fs2.writeFileSync(path2.join(work, cfg, 'reader.json'), JSON.stringify({ by, at }));
+  };
+  const list = ['q1', 'q2', 'q3'].map((id) => ({ id, seed: 9 }));
+  const rows = (label, ids) => ids.map((id) => JSON.stringify({ label, id, reply: 'x' })).join('\n') + '\n';
+  fs2.mkdirSync(work, { recursive: true });
+  fs2.writeFileSync(
+    path2.join(work, 'baseline-runs.jsonl'),
+    rows('big', ['q1', 'q2', 'q3']) + rows('big-self', ['q1', 'q2', 'q3']) + rows('small-alone-vs-big', ['q1', 'q2']),
+  );
+  const sum = (at, more = {}) => ({ at, seed: 9, asked: 3, right: 2, wrong: 1, ...more });
+  put('x+y+d--big', 'big-held', sum('2026-11-18T10:00:00Z'));
+  put('p+q+d--big', 'big-held', sum('2026-11-19T10:00:00Z'));
+  put('x+y+d--big', 'big-self-held', sum('2026-11-18T10:00:00Z'));
+  put('p+q+d--big', 'big-self-held', sum('2026-11-19T10:00:00Z'));
+  put('x+y+d--big', 'small-alone-vs-big-held', sum('2026-11-18T10:00:00Z'));
+  put('x+y+d--other', 'big-held', sum('2026-11-19T12:00:00Z'));
+  put('me+d--big', 'big-held', sum('2026-11-19T13:00:00Z'));
+  readBy('x+y+d--big', reader);
+  readBy('p+q+d--big', 'another-reader');
+  // (a third configuration: its reader on record is the one in use now, but named AFTER its result was measured; and a fourth,
+  // whose result says itself who read it)
+  put('late+d--big', 'big-third-held', sum('2026-11-19T10:00:00Z'));
+  readBy('late+d--big', reader, '2026-11-19T11:00:00Z');
+  put('said+d--big', 'big-said-held', sum('2026-11-19T10:00:00Z', { reader }));
+  put('said2+d--big', 'big-said-held', sum('2026-11-19T11:00:00Z', { reader: 'another-reader' }));
+  fs2.appendFileSync(
+    path2.join(work, 'baseline-runs.jsonl'),
+    rows('big-third', ['q1', 'q2', 'q3']) + rows('big-said', ['q1', 'q2', 'q3']),
+  );
+  const o = { resultsRoot: results, work, mine: 'me+d--big', target: 'big' };
+  const namedAfter = carriedResult('big-third', 'held', list, o);
+  const said = carriedResult('big-said', 'held', list, o);
+  const plainRef = carriedResult('big', 'held', list, { ...o, read: false });
+  const selfRead = carriedResult('big-self', 'held', list, o);
+  const otherSeed = carriedResult('big', 'held', [{ id: 'q1', seed: 8 }, list[1], list[2]], { ...o, read: false });
+  const fewer = carriedResult('big', 'held', list.slice(0, 2), { ...o, read: false });
+  const unanswered = carriedResult('small-alone-vs-big', 'held', list, o);
+  const none = carriedResult('big', 'train', list, { ...o, read: false });
+  fs2.rmSync(dir, { recursive: true, force: true });
+  check(
+    "a model alone is not asked again for another swarm: what another configuration against the same larger model measured on exactly these questions is taken, the newest of them, and never this configuration's own or one against another larger model; answers a reader read are taken only where the reader in use now read them (as the result says, or, for one from before results said, as that configuration's reader on record says where it was checked before the result was measured, not after); and nothing is taken for other questions (another seed, another count), for a split not measured, or where an answer is not on record for every question",
+    plainRef &&
+      plainRef.from === 'p+q+d--big' &&
+      plainRef.was.right === 2 &&
+      selfRead &&
+      selfRead.from === 'x+y+d--big' &&
+      namedAfter === null &&
+      said &&
+      said.from === 'said+d--big' &&
+      otherSeed === null &&
+      fewer === null &&
+      unanswered === null &&
+      none === null,
+    { plainRef, selfRead, namedAfter, said, otherSeed, fewer, unanswered, none },
+  );
+}
 // ---- 6v: what the measurement held and no finding read: answers cut off at the token limit, a drafter that echoes another on its
 // own model, the decider not answering in time; each found, and each answered by a move that speaks to it
 {

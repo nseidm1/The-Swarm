@@ -65,6 +65,10 @@ The first version.
     the estimate from the files; the Memory saved card shows the measured figure where there is one, and says so. The
     estimate can be far off: a model whose file is packed tighter than the engine holds it took 10.3 GB for a 1.2 GB file
     (Bonsai 2 4B), and a swarm estimated to save 73% saved 27%.
+  - *A model alone is not asked again for another swarm.* The larger model's answers, the larger model against itself and
+    each small model alone depend on the model, the questions and who read the answers, not on which small models are in
+    the swarm. A configuration now takes what another against the same larger model measured, on exactly the same
+    questions and read by the same reader, and asks nothing: about half an hour at the start of every new configuration.
   - *A check stopped in the middle carries on.* What a change has scored on its class is written down as the check goes,
     so a pass stopped during one does not ask those questions again.
   - *A pass that stops before training says why.* Where a kind of question has nothing to grade its answers by, the Train

@@ -23,11 +23,13 @@ import {
   save,
   rowsTo,
   needReference,
+  carriedResult,
   finished,
   aloneLabel,
   RESULTS,
 } from './support/bench.mjs';
 import { targetOf } from './state.mjs';
+import { JUDGE, DECIDER } from '../src/catalog.mjs';
 import { messagesOf, ownStandard } from './tasks.mjs';
 
 const who = arg('who', 'a');
@@ -67,6 +69,30 @@ try {
   }
 } catch {
   /* not measured yet */
+}
+// AND NOT AGAIN FOR ANOTHER SWARM: measured on these questions under another configuration against the same larger model, read
+// by the same reader, its result is this configuration's too (bench.mjs carriedResult), and nothing is asked
+if (!has('again')) {
+  const got = carriedResult(label, split, list, { read: !(who === 'target' && !againstItself) });
+  if (got) {
+    const { at, ...body } = got.was;
+    save(label + '-' + split, { ...body, measuredAt: at, carriedFrom: got.from });
+    console.log(
+      label +
+        ' was measured on these questions on ' +
+        String(at).slice(0, 10) +
+        ', with another swarm configured (' +
+        got.from +
+        '): ' +
+        got.was.right +
+        ' right, ' +
+        got.was.wrong +
+        ' wrong of ' +
+        got.was.asked +
+        '. A model alone answers the same whatever the swarm is, so it is not asked again.',
+    );
+    process.exit(0);
+  }
 }
 // the larger model's own answers are the reference; anything else is graded against them
 const self = who === 'target' && !againstItself;
@@ -150,6 +176,9 @@ try {
     split,
     seed: list.length ? list[0].seed : null,
     ...c,
+    // (who read the answers, where a reader did: another configuration takes this result only from the same reader, bench.mjs
+    // carriedResult)
+    ...(self ? {} : { reader: (JUDGE || DECIDER || {}).id || '' }),
     // against itself: the questions on which its second answer was not equivalent to its first (training/loop.mjs gives them a
     // bounded number of changes: their mark is partly a draw)
     ...(againstItself
