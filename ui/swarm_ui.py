@@ -273,7 +273,7 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .evask label{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);font-size:13px;font-weight:700;color:var(--fog);padding:6px 10px;cursor:pointer}
 .evask input{width:15px;height:15px;margin:0;accent-color:var(--teal)}.evask label:has(input:checked){border-color:var(--teal2);background:#eefaf6}.evask label:has(input:disabled){cursor:default;opacity:.6}
 .evalp>.state,.prep>.state,.evnow{margin-top:12px}.evq{margin-top:8px;padding:10px 12px;border-radius:var(--r);background:var(--soft);font-size:13px}
-.evq .evql{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}.evq .evql span{color:var(--mist);font-size:12px}.evq p{margin:6px 0 0;overflow-wrap:anywhere;line-height:1.45}
+.evq .evql{display:flex;flex-direction:column;gap:2px}.evq .evql b{font-size:17px;line-height:1.3}.evq .evql span{color:var(--mist);font-size:15px;font-variant-numeric:tabular-nums}.evq p{margin:6px 0 0;overflow-wrap:anywhere;line-height:1.45}
 .evitem{margin-top:18px}.evitem h4{margin:0 0 6px;font-size:15px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.evitem .psecb>p{margin:0 0 10px;line-height:1.45}
 .evalp details.psec>summary{list-style:none;cursor:pointer;border-radius:var(--r)}.evalp details.psec>summary::-webkit-details-marker{display:none}
 .evalp details.psec>summary:focus-visible{outline:2px solid var(--teal2);outline-offset:3px}
