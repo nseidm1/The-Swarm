@@ -562,7 +562,10 @@ document.addEventListener('click',(ev)=>{
 });
 // RECOMMENDED CONFIGURATION CHANGES: the note beside Configuration opens them; a change is made as a pill makes one
 document.addEventListener('click',async(ev)=>{
-  if(ev.target.closest('#rec-open')){ev.preventDefault();ev.stopPropagation();await swap('/fragment/recs','#recd-body');$('#recd').showModal();}
+  if(ev.target.closest('#rec-open')){ev.preventDefault();ev.stopPropagation();await swap('/fragment/recs','#recd-body');$('#recd').showModal();
+    // (and the count beside the heading, from the same evidence at the same moment: it had been drawn when the page was, and
+    // said "1 recommendation" over a dialog that had none)
+    swap('/fragment/recslot','#rec-slot');}
 },true);
 document.addEventListener('click',async(ev)=>{
   if(ev.target.id==='rec-close'||ev.target.id==='recd'){$('#recd').close();return;}
@@ -796,6 +799,9 @@ async function buildTick(){const n=$('#updnote');if(!n||!BUILD_ME)return;let b;t
   n.hidden=!b||b===BUILD_ME;}
 document.addEventListener('click',(ev)=>{if(ev.target.closest('#upd-go'))location.reload();});
 setInterval(buildTick,15000);
+// THE RECOMMENDATION COUNT IS KEPT CURRENT: what is recommended rests on evidence a running pass adds to, and on the configuration,
+// which can be changed from elsewhere; drawn once with the page, the count went on saying what was true then
+setInterval(()=>{if(!$('#recd')||!$('#recd').open)swap('/fragment/recslot','#rec-slot');},30000);
 // A FLOW TOO LONG FOR ITS CARD WRAPS: the steps sit in one row where they fit, and where they do not (a flow training has grown, a
 // narrow window, the inner screen of a folding phone) they wrap as tiles, as on a phone, instead of running past the card's edge.
 // Measured, not guessed by width: on load, on a resize or a fold, and whenever part of the page is drawn again

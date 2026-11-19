@@ -1560,5 +1560,10 @@ check("where the pass in hand measured what the swarm takes in memory, the card 
       and "measured while it trained" in _card7 and "the estimate from the model files was 8.5 GB" in _card7 and "<b class=\"pct\">26.7%</b>" in _card7
       and "estimated from the model files and the listed sizes, not measured" in _card7e, [_m7, _card7[:300]])
 
+# ---- THE RECOMMENDATION COUNT IS NOT LEFT STALE: asked again when the dialog opens, and every half minute
+check("the count of recommendations beside Configuration is asked for again when the dialog is opened and every half minute while it is closed, so it cannot say one over a dialog that has none",
+      "$('#recd').showModal();" in swarm_ui.JS and swarm_ui.JS.count("swap('/fragment/recslot','#rec-slot')") >= 3
+      and "setInterval(()=>{if(!$('#recd')||!$('#recd').open)swap('/fragment/recslot','#rec-slot');},30000);" in swarm_ui.JS, "")
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)
