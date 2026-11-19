@@ -802,6 +802,9 @@ setInterval(buildTick,15000);
 // THE RECOMMENDATION COUNT IS KEPT CURRENT: what is recommended rests on evidence a running pass adds to, and on the configuration,
 // which can be changed from elsewhere; drawn once with the page, the count went on saying what was true then
 setInterval(()=>{if(!$('#recd')||!$('#recd').open)swap('/fragment/recslot','#rec-slot');},30000);
+// AND SO IS THE MEMORY CARD: what the swarm takes is measured while it trains, every two minutes, and the line under Train is
+// redrawn as it goes; the card was drawn once, and went on saying the estimate beside a line that said the measurement
+setInterval(()=>{if($('#memwrap'))swap('/fragment/memory','#memwrap');},30000);
 // A FLOW TOO LONG FOR ITS CARD WRAPS: the steps sit in one row where they fit, and where they do not (a flow training has grown, a
 // narrow window, the inner screen of a folding phone) they wrap as tiles, as on a phone, instead of running past the card's edge.
 // Measured, not guessed by width: on load, on a resize or a fold, and whenever part of the page is drawn again
@@ -3238,12 +3241,13 @@ def progress_strip(d, cleared=""):
         beside = (" By the questions&#39; own standards the module is right on <b>%d</b> of %d and %s on <b>%d</b> of %d."
                   % (sum(f.get("module") or 0 for f in fams), sum(f.get("asked") or 0 for f in fams), e(tname), sum(f.get("target") or 0 for f in fams), sum(f.get("targetKnown") or 0 for f in fams))) if fams else ""
         # (and what it takes to do so: the memory this configuration needs against the larger model's, as the pass wrote it down)
-        mem = lp.get("memory") or {}
-        got = mem.get("measured") or {}
-        if got.get("swarm") and got.get("target"):
-            beside += " Measured while it trained, it takes <b>%s GB</b> of memory against %s GB: <b>%s%%</b> saved." % (e(str(got["swarm"])), e(str(got["target"])), e(str(got.get("saved"))))
-        elif mem.get("swarm") and mem.get("target"):
-            beside += " By its files it takes about <b>%s GB</b> of memory against %s GB: <b>%s%%</b> saved (not measured yet)." % (e(str(mem["swarm"])), e(str(mem["target"])), e(str(mem.get("saved"))))
+        # ONE SOURCE for every memory figure on the page (data.measured_footprint, d["footprint"]): the card above reads it too,
+        # so the two cannot say different things (they did: this line read the pass's row and the card the page as it was drawn)
+        fp = d.get("footprint") or {}
+        if fp.get("measured"):
+            beside += " Measured while it trained, it takes <b>%s GB</b> of memory against %s GB: <b>%s%%</b> saved." % (e(str(fp["swarm"])), e(str(fp["target"])), fmt_pct(fp["saved"]) if fp["saved"] > 0 else "0")
+        elif fp.get("swarm") and fp.get("target"):
+            beside += " By its files it takes about <b>%s GB</b> of memory against %s GB: <b>%s%%</b> saved (not measured yet)." % (e(str(fp["swarm"])), e(str(fp["target"])), fmt_pct(fp["saved"]) if fp["saved"] > 0 else "0")
         line = ("<b>%d</b> of %d train answers good: <b>%d</b> as the swarm stood, <b>%d</b> made good by a change it kept%s%s.%s"
                 % (done, of, at, re_, ((", %d back in hand after a swap" % n("reopened")) if n("reopened") else "") + ((", %d set aside until the others are done" % n("set aside")) if n("set aside") else ""), ((", %d not good yet" % nr) if nr else "") + ((", %d set aside because the larger model's answer is wrong" % wrong_m) if wrong_m else "")
                    # (a mark the larger model did not give again, where the swarm's answer is not equivalent to it: not searched, and still counted in the share)
@@ -3274,7 +3278,7 @@ def memory_card(d):
     if not fp:
         return ""
     ab = lambda n: ("%.1f" % n).rstrip("0").rstrip(".")  # noqa: E731
-    return ('<h2>Memory saved</h2><div class="panel memcard"><div class="proghead"><span class="memnum"><b class="pct">%s%%</b><span>memory saved<small>%s GB less</small></span></span>'
+    return ('<h2>Memory saved</h2><div class="panel memcard" id="memcard"><div class="proghead"><span class="memnum"><b class="pct">%s%%</b><span>memory saved<small>%s GB less</small></span></span>'
             '<span class="progline">The swarm is %s× smaller than %s: %s.</span><span class="evctl"></span></div>%s</div>'
             % (fmt_pct(fp["saved"]) if fp["saved"] > 0 else "0", ab(max(0.0, fp["savedGb"])), ab(fp["times"] or 0), e(fp.get("targetName") or "the larger model"),
                # (measured where the pass in hand measured it, and said so with the estimate it replaces: data.measured_footprint)
@@ -3764,7 +3768,7 @@ def main_body(d):
         '<h2>Evaluate the swarm</h2><div id="evalwrap">%s</div>'
         '<h2>Pretrain</h2><div id="prewrap">%s</div>'
         '<h2 id="arrangement">Train</h2>%s'
-        % (e(busy_with()), memory_card(d), eval_block(d), pretrain_block(d), arrangement(d))
+        % (e(busy_with()), '<div id="memwrap">%s</div>' % memory_card(d), eval_block(d), pretrain_block(d), arrangement(d))
     )
 
 
@@ -4023,6 +4027,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(questions_panel(d, parse_qs(u.query).get("id", [""])[0]))
         if u.path == "/fragment/run":
             return self._send(progress_strip(data.load(ARGS.root)))
+        if u.path == "/fragment/memory":
+            return self._send(memory_card(d))
         if u.path == "/fragment/score":
             return self._send(progress_strip(d))
         if u.path == "/fragment/steer":

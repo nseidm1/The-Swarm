@@ -1,7 +1,8 @@
 // measure-memory.mjs - WHAT THE SWARM TAKES IN MEMORY, MEASURED. The page's figure is an estimate from the model files (a quarter
-// more, a gigabyte of context, the decider's listed size), and for a model whose file is packed tighter than the engine holds it
-// in memory the estimate is far off (measured 2026-11-19: Bonsai 2 4B, a 1.2 GB file of two-bit weights, took 10.3 GB while it
-// ran, 8.9 GB of it weights unpacked, where LFM2.5 1.2B took 0.84 GB for a 0.73 GB file; a lineup said to save 73% saved 27%).
+// more, a gigabyte of context, the decider's listed size), and an estimate does not see what a server holds besides its model.
+// Measured 2026-11-19: with the engine's store of answered prompts left at its default, a 2.7 GB model's server held 13.5 GB
+// twenty minutes into training (8.5 GB of it that store), and a swarm estimated to take 6.5 GB took 17.4 GB against the larger
+// model's 18. (That store is now off, src/members.mjs --cache-ram 0; it was first misread as a two-bit model's weights unpacked.)
 // So a pass measures each model's own process while it serves, and writes that down beside the estimate.
 //   gbOfPid(pid)            -> GB that process holds, or null. On a Mac its physical footprint (vmmap; what Activity Monitor
 //                              calls Memory, which counts what a model holds on the GPU); elsewhere, or where vmmap says nothing,

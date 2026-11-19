@@ -142,16 +142,17 @@ def machine():
     return out
 
 
-def measured_footprint(fp, loop, cfg, members, decider):
+def measured_footprint(fp, loop, cfg, members, decider, kept=None):
     """THE SAME NUMBER, MEASURED, where the pass in hand wrote it down (training/support/measure-memory.mjs: each small model's own
     process and the decider's, while they served): the footprint with the swarm's size, its parts and the saving taken from the
     measurement, marked `measured`, and the estimate kept beside it (`estimate`). The larger model's size stays its listed one. The
-    estimate is returned as it is where nothing was measured, or where what was measured is another configuration's. (Measured
-    2026-11-19: a model whose file is packed tighter than the engine holds it took 10.3 GB for a 1.2 GB file, and a swarm
-    estimated to save 73% saved 27%.)"""
-    m = ((loop or {}).get("memory") or {}).get("measured") or {}
+    estimate is returned as it is where nothing was measured, or where what was measured is another configuration's. (Measured 2026-11-19: with the engine's store of past prompts left on, a 2.7 GB model's server held 13.5 GB, and a swarm estimated
+    to take 6.5 GB took 17.4 GB against the larger model's 18.)"""
+    # (the newest measurement: the file the trainer writes every two minutes while it runs, `kept` = {config, ...}; else what the
+    # pass's last finished question wrote into its row)
+    m = (kept if kept and kept.get("config") == cfg else None) or (((loop or {}).get("memory") or {}).get("measured") if (loop or {}).get("cfg") == cfg else None) or {}
     got = m.get("members") or {}
-    if not fp or not m.get("swarm") or (loop or {}).get("cfg") != cfg or set(got) != set(members or {}):
+    if not fp or not m.get("swarm") or set(got) != set(members or {}):
         return fp
     parts = [{"name": (mm or {}).get("name", k), "gb": round(float(got[k]), 2), "kind": "model", "place": k} for k, mm in (members or {}).items()]
     dec = m.get("decider")
@@ -160,7 +161,7 @@ def measured_footprint(fp, loop, cfg, members, decider):
         parts.append({"name": (decider or {}).get("name", "The decider"), "gb": dec or listed, "kind": "decider"})
     swarm = round(sum(x["gb"] for x in parts), 1)
     tgt = fp["target"]
-    return dict(fp, swarm=swarm, parts=parts, share=round(100.0 * swarm / tgt, 1), times=round(tgt / swarm, 1) if swarm else None,
+    return dict(fp, swarm=swarm, parts=parts, measuredAt=m.get("at"), share=round(100.0 * swarm / tgt, 1), times=round(tgt / swarm, 1) if swarm else None,
                 saved=round(100.0 - 100.0 * swarm / tgt, 1), savedGb=round(tgt - swarm, 1), measured=True, estimate=fp["swarm"],
                 deciderListed=not dec and bool(listed))
 
@@ -460,7 +461,8 @@ def load(root):
         "decider": decider,
         "judge": judge,
         "footprint": measured_footprint(footprint(members, decider, target),
-                                        (lambda q: q if q and q.get("target") == (target or {}).get("id") else None)(_json(results / "questions.json", None)), cfg, members, decider),
+                                        (lambda q: q if q and q.get("target") == (target or {}).get("id") else None)(_json(results / "questions.json", None)), cfg, members, decider,
+                                        kept=_json(root / ".work" / "train" / key / "memory.json", None)),
         "cfg": cfg,
         # turns with tools: decided by the swarm, or the place of the one small model that takes them alone (src/tools.mjs; "tools"
         # in src/config.json names it by its id: src/catalog.mjs toolsOf, the same rule)

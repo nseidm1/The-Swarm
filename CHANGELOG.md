@@ -61,10 +61,12 @@ The first version.
   - *A drafter that answers by a program.* A new change the trainer can try: a drafting slot that writes a short program
     instead of an answer; the sandbox runs it and what it prints is the slot's answer (`compute` on a slot, SwOA spec
     O.6.1a). For counting, strings, totals and rates, where small models go wrong working it out in words.
-  - *Memory, measured.* Every pass measures what each model's own process takes while it serves, and writes it down beside
-    the estimate from the files; the Memory saved card shows the measured figure where there is one, and says so. The
-    estimate can be far off: a model whose file is packed tighter than the engine holds it took 10.3 GB for a 1.2 GB file
-    (Bonsai 2 4B), and a swarm estimated to save 73% saved 27%.
+  - *Memory, measured, and bounded.* Every pass measures what each model's own process takes while it serves, every two
+    minutes, and writes it down beside the estimate from the files; the Memory saved card and the line under Train show
+    the measured figure, from one source, and say so. The measurement found the fault it was built for: llama.cpp's server
+    keeps a store of answered prompts in memory, 8 GB a server by default, and a swarm estimated to take 6.5 GB was taking
+    17.4 GB against the larger model's 18. Every member is now started with that store off (`--cache-ram 0`, SwOA spec
+    S2.4.5); each slot's own context still holds its brief between questions.
   - *A model alone is not asked again for another swarm.* The larger model's answers, the larger model against itself and
     each small model alone depend on the model, the questions and who read the answers, not on which small models are in
     the swarm. A configuration now takes what another against the same larger model measured, on exactly the same

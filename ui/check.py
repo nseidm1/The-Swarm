@@ -468,7 +468,7 @@ with tempfile.TemporaryDirectory() as tmp:
     (root / ".work" / "eval" / "results.json").unlink()
     check("Memory saved first, its share at the top left as the cards after it have theirs; then, above Train, Evaluate the swarm and Pretrain: Evaluate says what it does (standard benchmarks of lm-evaluation-harness, asked of the larger model and the swarm, kept apart from training), has a size to choose (a proof run among them) and a button, names each harness a body of work is measured by, has a row for every task of every body of work that has a standard test, and a box for each of those bodies, ticked to begin with, that says which of them this run asks (kept on the device and sent with the press: a choice for one run, never of what the swarm is trained on); an unknown size, no body of work, one that is not listed, or a request from elsewhere is refused; once evaluated it says how many questions had the same answer, split by whether both were right, with each model's score and when; Pretrain lists each small model and, where MLX is not installed, says Pretrain installs it and can be pressed on Apple silicon, or that it is not available on any other machine; the adapters switch is written beside the models and refuses anything but on or off; and while an evaluation runs, its headline shows moving bars where the share and the count will be and the questions chosen, the last result returning as it was when the run ends unfinished (Pretrain the same, the adapter that stood still standing beside an attempt that was not kept), it can be stopped from its section, and training and pretraining wait for it and say so",
           html.index('<h2>Memory saved</h2>') < html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2>Pretrain</h2>') < html.index('<h2 id="arrangement">Train</h2>')
-          and '<h2>Memory saved</h2><div class="panel memcard"><div class="proghead"><span class="memnum"><b class="pct">' in html and 'class="memh"' not in html.split('<h2>Memory saved</h2>')[1].split('<h2>')[0]
+          and '<div id="memwrap"><h2>Memory saved</h2><div class="panel memcard" id="memcard"><div class="proghead"><span class="memnum"><b class="pct">' in html and 'class="memh"' not in html.split('<h2>Memory saved</h2>')[1].split('<h2>')[0]
           and "lm-evaluation-harness 0.4.13" in ev0 and 'id="ev-go"' in ev0 and ev0.count("<option") == 4 and "a proof run" in ev0 and "Function-Calling" in ev0 and 'data-evt="ifeval"' in ev0 and 'data-evt="gsm8k"' in ev0 and ev0.count('data-evt="') == 23 and "not evaluated yet" in ev0 and api0.get("running") is False
           and 'class="evask"' in ev0 and ev0.count('data-ev-item="') == 7 and ev0.count('" checked>') == 7 and 'data-ev-item="instructions"' not in ev0 and '<span class="cfgl">Asks</span>' in ev0
           and "items:its.filter(x=>x.checked)" in swarm_ui.JS and "localStorage.setItem('swarm.eval.off'" in swarm_ui.JS and "function evAsk()" in swarm_ui.JS
@@ -1552,6 +1552,16 @@ _loop7 = {"cfg": "x+y+d", "memory": {"measured": {"members": {"a": 10.3, "b": 0.
 _m7 = data.measured_footprint(_fp7, _loop7, "x+y+d", _mem7, {"memGb": 5, "name": "Dec"})
 _m7_other = data.measured_footprint(_fp7, _loop7, "another", _mem7, {"memGb": 5, "name": "Dec"})
 _m7_nodec = data.measured_footprint(_fp7, {"cfg": "x+y+d", "memory": {"measured": {"members": {"a": 10.3, "b": 0.84}, "swarm": 11.1, "without": "the decider"}}}, "x+y+d", _mem7, {"memGb": 5, "name": "Dec"})
+_kept7 = {"config": "x+y+d", "members": {"a": 4.6, "b": 0.42}, "decider": 3.0, "swarm": 8.0, "at": "2026-11-19T17:11:00Z"}
+_m7_kept = data.measured_footprint(_fp7, _loop7, "x+y+d", _mem7, {"memGb": 5, "name": "Dec"}, kept=_kept7)
+_m7_kept_other = data.measured_footprint(_fp7, _loop7, "x+y+d", _mem7, {"memGb": 5, "name": "Dec"}, kept=dict(_kept7, config="another"))
+_ll8 = swarm_ui.loop_live
+swarm_ui.loop_live = lambda: None
+_line7 = swarm_ui.progress_strip(dict(_d, footprint=_m7_kept, loop={"of": 5, "changes": [], "memory": {"swarm": 99, "target": 18, "saved": 1, "measured": {"swarm": 77, "target": 18, "saved": 2}},
+                                                                   "families": [{"kind": "fix", "asked": 1, "own": True, "module": 1, "target": 1, "targetKnown": 1}], "list": [{"id": "a", "state": "at parity"}]}))
+_line7e = swarm_ui.progress_strip(dict(_d, footprint=_fp7, loop={"of": 5, "changes": [], "families": [{"kind": "fix", "asked": 1, "own": True, "module": 1, "target": 1, "targetKnown": 1}], "list": [{"id": "a", "state": "at parity"}]}))
+swarm_ui.loop_live = _ll8
+_card7k = swarm_ui.memory_card({"footprint": _m7_kept})
 _card7 = swarm_ui.memory_card({"footprint": _m7})
 _card7e = swarm_ui.memory_card({"footprint": _fp7})
 check("where the pass in hand measured what the swarm takes in memory, the card shows the measured size, its parts and the saving, says it was measured and what the estimate was; a measurement of another configuration is not used; a decider that could not be measured counts at its listed size and is said to; and with nothing measured the card says estimated, as before",
@@ -1559,6 +1569,12 @@ check("where the pass in hand measured what the swarm takes in memory, the card 
       and _m7_other is _fp7 and _m7_nodec["swarm"] == 16.1 and _m7_nodec["deciderListed"] is True
       and "measured while it trained" in _card7 and "the estimate from the model files was 8.5 GB" in _card7 and "<b class=\"pct\">26.7%</b>" in _card7
       and "estimated from the model files and the listed sizes, not measured" in _card7e, [_m7, _card7[:300]])
+check("every memory figure on the page has one source: the newest measurement the trainer wrote while it ran is taken before the one in the pass's row (and never another configuration's); the line under Train and the Memory saved card say the same size and the same saving, whatever the pass's row holds; and the card is redrawn every half minute, as the line is",
+      _m7_kept["swarm"] == 8.0 and _m7_kept["saved"] == 55.6 and _m7_kept["measuredAt"] == "2026-11-19T17:11:00Z" and _m7_kept_other["swarm"] == 13.2
+      and "it takes <b>8.0 GB</b> of memory against 18 GB: <b>55.6%</b> saved" in _line7 and "<b class=\"pct\">55.6%</b>" in _card7k and "77" not in _line7 and "99 GB" not in _line7
+      and "By its files it takes about <b>8.5 GB</b>" in _line7e and "(not measured yet)" in _line7e
+      and "setInterval(()=>{if($('#memwrap'))swap('/fragment/memory','#memwrap');},30000);" in swarm_ui.JS and 'id="memwrap"' in swarm_ui.main_body(_d),
+      [_m7_kept, _line7[-300:], _line7e[-200:]])
 
 # ---- THE RECOMMENDATION COUNT IS NOT LEFT STALE: asked again when the dialog opens, and every half minute
 check("the count of recommendations beside Configuration is asked for again when the dialog is opened and every half minute while it is closed, so it cannot say one over a dialog that has none",

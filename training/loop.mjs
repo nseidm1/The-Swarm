@@ -2646,10 +2646,10 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   // measured again at most every five minutes
   const { measureSwarm } = await import('./support/measure-memory.mjs');
   const seenMem = { at: 0, most: null };
-  const memoryNow = () => {
+  const memoryNow = (every = 300000) => {
     const est = footprintOf();
     if (!est) return null;
-    if (Date.now() - seenMem.at > 300000) {
+    if (Date.now() - seenMem.at > every) {
       seenMem.at = Date.now();
       const pids = Object.fromEntries(Object.entries(swarm.members || {}).map(([k, m]) => [k, m.pid]));
       const m = Object.values(pids).every((p) => p > 0)
@@ -2663,6 +2663,16 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     }
     return seenMem.most ? { ...est, measured: seenMem.most } : est;
   };
+  // (and every two minutes whether or not a question has ended: a question can stay in hand for half an hour, and the page reads
+  // what is written here)
+  const memTimer = setInterval(() => {
+    try {
+      memoryNow(110000);
+    } catch {
+      /* measured again next time */
+    }
+  }, 120000);
+  memTimer.unref();
   // (the line each slot's answer is read on: the reader's own for the question's type, as the reply is: measure.mjs slotReport)
   const { readerMark } = await import('./support/reader-file.mjs');
   const markOf = (t) => readerMark(WORKC, t.type);

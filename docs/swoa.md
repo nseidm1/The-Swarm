@@ -414,6 +414,7 @@ S2.4.1 Each started member MUST be launched as `llama-server` with exactly these
 -np <slots>
 [--jinja]                       (S2.4.2)
 <serve…>                        (the member record's `serve`, in order)
+--cache-ram 0                   (S2.4.5)
 [--lora <adapter path>]         (S2.1.7, only for a place with a pinned adapter)
 ```
 
@@ -432,6 +433,13 @@ member's `serve` flags and before `--lora`.
 S2.4.4 The engine's standard output and standard error SHOULD be captured; the last lines are used in failure messages
 (S2.6.3).
 
+S2.4.5 `--cache-ram 0` MUST be passed to every member: the engine keeps no store of answered prompts outside its slots'
+own contexts. Left at the engine's default that store grows to 8192 MiB a member, several times the member itself, and the
+memory a module takes is then not its members and their contexts. Each server slot's context still holds what it was last
+asked (S3.2.2), which is the reuse the module relies on. An operator MAY name another size in MiB for all members. For the
+relaunch rule of S2.6.1 item 1, `--cache-ram` and its value count as part of the extra flag list, after `serve`.
+
+
 #### S2.5 Readiness and health
 
 S2.5.1 A member is **healthy** when `GET <base>/health` returns any 2xx status within 4 seconds. Anything else (connection
@@ -446,9 +454,9 @@ ready. On exit or expiry the launch has failed; on expiry the runtime MUST termi
 S2.6.1 When a launch fails, the runtime MUST retry as follows, at most 3 further launches, evaluating the rules in order on
 the latest failure message:
 
-1. **Unknown flag.** If the current extra flag list (`--jinja` together with `serve`) is non-empty and the failure text
+1. **Unknown flag.** If the current extra flag list (`--jinja` together with `serve` and `--cache-ram`, S2.4.5) is non-empty and the failure text
    matches (case-insensitively) `invalid argument`, `unknown argument`, `unrecognized` or `error while handling argument`:
-   relaunch with BOTH `--jinja` and the member's `serve` removed (operator flags and `--lora` remain).
+   relaunch with `--jinja`, the member's `serve` and `--cache-ram` all removed (operator flags and `--lora` remain).
 2. **Out of memory.** Else, if the failure text matches (case-insensitively) `out of memory`, `failed to allocate`,
    `insufficient memory`, `cannot allocate`, `bad_alloc`, `exit 137`, or `exit 9`/`exit -9` as a whole word, AND the
    current per-slot context is greater than 1024: halve the per-slot context (floor) and relaunch. (So 4096 → 2048 → 1024,

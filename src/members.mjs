@@ -286,7 +286,14 @@ export async function startMember(m, opts = {}) {
   const NO_MEMORY =
     /out of memory|failed to allocate|insufficient memory|cannot allocate|bad_alloc|exit 137|exit -?9\b/i;
   // a swarm that decides turns with tools needs the server to read and write calls in the model's own template (--jinja)
-  let serve = [...(opts.jinja ? ['--jinja'] : []), ...(m.serve || [])];
+  // AND IT KEEPS NO STORE OF PAST PROMPTS (--cache-ram 0, SwOA specification S2.4.3): llama.cpp's server keeps prompts it has
+  // answered in the machine's memory, up to 8 GB a server by default, apart from each slot's own context. A module that exists
+  // to take a fraction of a larger model's memory cannot: measured 2026-11-19, a 2.7 GB model's server held 13.5 GB twenty
+  // minutes into training, 8.5 GB of it that store, and the swarm said to take 6.5 GB took 17.4 GB against the larger
+  // model's 18. Each slot's own context still holds its brief between questions (id_slot, cache_prompt), which is what the
+  // swarm reuses. SWARM_CACHE_RAM names another size in MiB
+  const cacheRam = String(process.env.SWARM_CACHE_RAM || '').trim() || '0';
+  let serve = [...(opts.jinja ? ['--jinja'] : []), ...(m.serve || []), '--cache-ram', cacheRam];
   const tryWith = async () => {
     const port = await freePort();
     const base = 'http://127.0.0.1:' + port;
