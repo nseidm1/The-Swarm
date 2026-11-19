@@ -905,6 +905,15 @@ export async function runLoop({
   const classCheck = async (newBriefs, K, { what, note, known = {} }) => {
     const mine = list.filter((x) => kindOfT(x) === K && !wrongMarks.has(x.id));
     const base = await standingOf(K, 'train', mine, note);
+    // WHAT A CHECK HAS ASKED IS WRITTEN DOWN AS IT GOES (onTry: st.standing, and st.checking, the scores with this change so far),
+    // so a pass stopped in the middle of one carries on from there: the same change comes up again, and what it scored is
+    // known (measured 2026-11-19: a check of thirty questions took twenty minutes and more, was stopped twice, and began again
+    // from its first question each time)
+    await onTry(st);
+    const ver = briefs.version || 1;
+    const was = st.checking && st.checking.what === what && st.checking.K === K && st.checking.ver === ver;
+    const first = was ? { ...st.checking.scores } : {};
+    known = { ...first, ...known };
     const usable = mine.filter((x) => base[x.id] !== null && base[x.id] !== undefined);
     // drawn evenly from the class's kinds, the questions already measured with the change first
     const byKind = new Map();
@@ -928,12 +937,10 @@ export async function runLoop({
     };
     const diffs = [];
     const record = { class: K };
-    const fail = (why) => ({
-      keep: false,
-      why,
-      record: { ...record, keep: false, why },
-      scores: { train: withIt, held: {} },
-    });
+    const fail = (why) => {
+      delete st.checking;
+      return { keep: false, why, record: { ...record, keep: false, why }, scores: { train: withIt, held: {} } };
+    };
     const ds = () => diffs.map((y) => y.d);
     const confirm = async () => {
       if (!classConfirm) return;
@@ -964,6 +971,9 @@ export async function runLoop({
       if (s !== null) {
         withIt[x.id] = s;
         diffs.push({ x, kind: x.kind, d: s - base[x.id], b: [base[x.id]], w: [s] });
+        first[x.id] = s;
+        st.checking = { what, K, ver, scores: { ...first } };
+        if ((k + 1) % 5 === 0) await onTry(st);
       }
       // THE RACE: where the first classRace questions fell, the rest are not asked (with classConfirm: fell on another draw too,
       // on more than one question, or lost a question)
@@ -1025,6 +1035,7 @@ export async function runLoop({
       if (record.held.n && record.held.gain < -record.held.stderr)
         return fail('on the ' + record.held.n + ' held questions of its class it fell by ' + -record.held.gain);
     }
+    delete st.checking;
     return { keep: true, why: '', record: { ...record, keep: true }, scores: { train: withIt, held: heldWith } };
   };
   // (what the class scored with a change just kept is where it stands on the arrangement that change made)
@@ -2630,6 +2641,28 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         };
   const swarm = await openSwarm(readBriefs(), { reuse: true });
   const reader = judgeAddress(swarm.decider);
+  // WHAT THE SWARM TAKES IN MEMORY, MEASURED while it serves (support/measure-memory.mjs), beside the estimate from its files:
+  // each small model's own process and the decider's, the most each was seen to hold (a server's contexts fill as it is asked),
+  // measured again at most every five minutes
+  const { measureSwarm } = await import('./support/measure-memory.mjs');
+  const seenMem = { at: 0, most: null };
+  const memoryNow = () => {
+    const est = footprintOf();
+    if (!est) return null;
+    if (Date.now() - seenMem.at > 300000) {
+      seenMem.at = Date.now();
+      const pids = Object.fromEntries(Object.entries(swarm.members || {}).map(([k, m]) => [k, m.pid]));
+      const m = Object.values(pids).every((p) => p > 0)
+        ? measureSwarm({ members: pids, decider: swarm.decider, target: est.target })
+        : null;
+      if (m && (!seenMem.most || m.swarm >= seenMem.most.swarm)) {
+        seenMem.most = m;
+        // (and kept beside the configuration's work, for the end of the pass to write into its record: pass.mjs)
+        writeSafe(path.join(WORKC, 'memory.json'), JSON.stringify({ config: CONFIG_ID, ...m }));
+      }
+    }
+    return seenMem.most ? { ...est, measured: seenMem.most } : est;
+  };
   // (the line each slot's answer is read on: the reader's own for the question's type, as the reply is: measure.mjs slotReport)
   const { readerMark } = await import('./support/reader-file.mjs');
   const markOf = (t) => readerMark(WORKC, t.type);
@@ -2891,7 +2924,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
         writeSafe(FILE, JSON.stringify({ pass, seed: (list[0] || {}).seed, each, scoring: SCORING, st: cur }));
         save('questions', {
           // (and what the configuration takes in memory against the larger model, beside how far it has come)
-          ...(footprintOf() ? { memory: footprintOf() } : {}),
+          ...(memoryNow() ? { memory: memoryNow() } : {}),
           pass,
           cfg: CONFIG_ID,
           target: TARGET.id,

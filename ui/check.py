@@ -1545,5 +1545,20 @@ check("a pass that ended before it trained anything says why on the Train card: 
       "<b>2</b> kinds of question (bug, talk)" in _g6 and "<b>Kev 0.8B</b> judges whether two answers say the same, and read 15 of the 20 test pairs correctly where 16 are needed." in _g6
       and "<b>Judges equivalence</b>" in _g6 and _g6_judge == "" and _g6_running == "", [_g6, _g6_judge, _g6_running])
 
+# ---- MEMORY, MEASURED: where the pass in hand measured what the swarm takes, the card shows that and says so, with the estimate
+_fp7 = data.footprint({"a": {"bytes": 2**30, "name": "Small A"}, "b": {"bytes": 2**30, "name": "Small B"}}, {"memGb": 5, "name": "Dec"}, {"memGb": 18, "name": "Big"})
+_mem7 = {"a": {"name": "Small A"}, "b": {"name": "Small B"}}
+_loop7 = {"cfg": "x+y+d", "memory": {"measured": {"members": {"a": 10.3, "b": 0.84}, "decider": 2.1, "swarm": 13.2}}}
+_m7 = data.measured_footprint(_fp7, _loop7, "x+y+d", _mem7, {"memGb": 5, "name": "Dec"})
+_m7_other = data.measured_footprint(_fp7, _loop7, "another", _mem7, {"memGb": 5, "name": "Dec"})
+_m7_nodec = data.measured_footprint(_fp7, {"cfg": "x+y+d", "memory": {"measured": {"members": {"a": 10.3, "b": 0.84}, "swarm": 11.1, "without": "the decider"}}}, "x+y+d", _mem7, {"memGb": 5, "name": "Dec"})
+_card7 = swarm_ui.memory_card({"footprint": _m7})
+_card7e = swarm_ui.memory_card({"footprint": _fp7})
+check("where the pass in hand measured what the swarm takes in memory, the card shows the measured size, its parts and the saving, says it was measured and what the estimate was; a measurement of another configuration is not used; a decider that could not be measured counts at its listed size and is said to; and with nothing measured the card says estimated, as before",
+      _m7["measured"] is True and _m7["swarm"] == 13.2 and _m7["saved"] == 26.7 and _m7["estimate"] == 8.5 and [x["gb"] for x in _m7["parts"]] == [10.3, 0.84, 2.1]
+      and _m7_other is _fp7 and _m7_nodec["swarm"] == 16.1 and _m7_nodec["deciderListed"] is True
+      and "measured while it trained" in _card7 and "the estimate from the model files was 8.5 GB" in _card7 and "<b class=\"pct\">26.7%</b>" in _card7
+      and "estimated from the model files and the listed sizes, not measured" in _card7e, [_m7, _card7[:300]])
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

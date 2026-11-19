@@ -61,7 +61,8 @@ Swarm's reply is good ("at parity", in the loop's record) ([`loop.mjs`](loop.mjs
    by the mean of the two: a change that made a question good on both draws, lost none on both, and left the mean higher is
    kept too (one question made good in a class of thirty is within its own error, and could never be kept before); a change
    that lost a question is not kept; and a kind has fallen only where it fell by more than its own error as well, so one
-   answer of six that came out otherwise once is no fall. It is raced on 8 questions
+   answer of six that came out otherwise once is no fall. What the check has asked is written down as it goes, so a pass stopped
+   in the middle of one carries on from there. It is raced on 8 questions
    first, and asked on the rest only where those did not fall. Kept, it is the arrangement for every question of the class
    after, and an entry on the ledger the spec is made from, with its gain. At the end of a pass the changes that most
    often brought questions of a class closer are proposed for the class outright (6 a class). With `--no-class-keep` a change

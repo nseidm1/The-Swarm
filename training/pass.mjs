@@ -7,7 +7,7 @@
 // What a pass leaves is in state.json (see state.mjs) and, for a person, a section in training/passes.md.
 import fs from 'node:fs';
 import path from 'node:path';
-import { REPO_ROOT, RESULTS, WORK, aloneLabel, modelsDir } from './support/bench.mjs';
+import { REPO_ROOT, RESULTS, WORK, WORKC, aloneLabel, modelsDir } from './support/bench.mjs';
 import { MEMBERS, DECIDER, CONFIG_ID, CONFIG_KEY, readConfig, writeConfig, footprintOf } from '../src/catalog.mjs';
 import { readState, writeState, seedState, readTargets, targetOf, parity, STANDING } from './state.mjs';
 import { readBriefs, notePass, readLearned } from '../src/index.mjs';
@@ -74,6 +74,15 @@ const rank = (id) => (/critic|recompute/.test(id) ? 0 : /writer/.test(id) ? 1 : 
 
 // swarmRows: the swarm's answers to the held questions, each graded against what the larger model answered (bench.mjs run)
 // emphasis: what the proof found short, for the next pass's questions (support/emphasis.mjs proofFocus), or nothing
+// what the trainer measured this configuration to take in memory while it served (loop.mjs memoryNow), or null
+function measuredHere() {
+  try {
+    const { config, ...m } = JSON.parse(fs.readFileSync(path.join(WORKC, 'memory.json'), 'utf8'));
+    return config === CONFIG_ID && m.swarm > 0 ? m : null;
+  } catch {
+    return null;
+  }
+}
 export function endPass(state, { swarmRows, train, briefs, targets, now = new Date(), emphasis = null }) {
   const rung = targets.find((t) => t.id === state.target) || targets[0];
   const p = parity(swarmRows);
@@ -88,7 +97,8 @@ export function endPass(state, { swarmRows, train, briefs, targets, now = new Da
     level: !!(p && p.level),
     // what this configuration takes in memory against the larger model: a pass's parity is worth what it saves, and passes of
     // different models are set beside each other by both
-    ...(footprintOf() ? { memory: footprintOf() } : {}),
+    // (the estimate from the files, and what the trainer measured while this configuration served: support/measure-memory.mjs)
+    ...(footprintOf() ? { memory: { ...footprintOf(), ...(measuredHere() ? { measured: measuredHere() } : {}) } } : {}),
   };
   // (a pass whose questions were weighted by a proof says so in its own line of the record: which proof, and what it found short)
   if (state.focusFrom && state.focusFrom.proof)

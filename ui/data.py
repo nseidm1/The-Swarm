@@ -142,6 +142,29 @@ def machine():
     return out
 
 
+def measured_footprint(fp, loop, cfg, members, decider):
+    """THE SAME NUMBER, MEASURED, where the pass in hand wrote it down (training/support/measure-memory.mjs: each small model's own
+    process and the decider's, while they served): the footprint with the swarm's size, its parts and the saving taken from the
+    measurement, marked `measured`, and the estimate kept beside it (`estimate`). The larger model's size stays its listed one. The
+    estimate is returned as it is where nothing was measured, or where what was measured is another configuration's. (Measured
+    2026-11-19: a model whose file is packed tighter than the engine holds it took 10.3 GB for a 1.2 GB file, and a swarm
+    estimated to save 73% saved 27%.)"""
+    m = ((loop or {}).get("memory") or {}).get("measured") or {}
+    got = m.get("members") or {}
+    if not fp or not m.get("swarm") or (loop or {}).get("cfg") != cfg or set(got) != set(members or {}):
+        return fp
+    parts = [{"name": (mm or {}).get("name", k), "gb": round(float(got[k]), 2), "kind": "model", "place": k} for k, mm in (members or {}).items()]
+    dec = m.get("decider")
+    listed = (decider or {}).get("memGb") or 0
+    if dec or listed:
+        parts.append({"name": (decider or {}).get("name", "The decider"), "gb": dec or listed, "kind": "decider"})
+    swarm = round(sum(x["gb"] for x in parts), 1)
+    tgt = fp["target"]
+    return dict(fp, swarm=swarm, parts=parts, share=round(100.0 * swarm / tgt, 1), times=round(tgt / swarm, 1) if swarm else None,
+                saved=round(100.0 - 100.0 * swarm / tgt, 1), savedGb=round(tgt - swarm, 1), measured=True, estimate=fp["swarm"],
+                deciderListed=not dec and bool(listed))
+
+
 def footprint(members, decider, target):
     """THE POINT OF THE SWARM, IN ONE NUMBER: the memory the swarm takes against the memory the larger model takes. Estimates, from
     what is on record: each small model's file with its contexts (the same estimate as src/catalog.mjs's entry: the files, a
@@ -436,7 +459,8 @@ def load(root):
         "members": members,
         "decider": decider,
         "judge": judge,
-        "footprint": footprint(members, decider, target),
+        "footprint": measured_footprint(footprint(members, decider, target),
+                                        (lambda q: q if q and q.get("target") == (target or {}).get("id") else None)(_json(results / "questions.json", None)), cfg, members, decider),
         "cfg": cfg,
         # turns with tools: decided by the swarm, or the place of the one small model that takes them alone (src/tools.mjs; "tools"
         # in src/config.json names it by its id: src/catalog.mjs toolsOf, the same rule)

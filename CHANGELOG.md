@@ -61,8 +61,12 @@ The first version.
   - *A drafter that answers by a program.* A new change the trainer can try: a drafting slot that writes a short program
     instead of an answer; the sandbox runs it and what it prints is the slot's answer (`compute` on a slot, SwOA spec
     O.6.1a). For counting, strings, totals and rates, where small models go wrong working it out in words.
-  - *Memory.* Every pass writes down what its configuration takes in memory against the larger model, and the training
-    line says it.
+  - *Memory, measured.* Every pass measures what each model's own process takes while it serves, and writes it down beside
+    the estimate from the files; the Memory saved card shows the measured figure where there is one, and says so. The
+    estimate can be far off: a model whose file is packed tighter than the engine holds it took 10.3 GB for a 1.2 GB file
+    (Bonsai 2 4B), and a swarm estimated to save 73% saved 27%.
+  - *A check stopped in the middle carries on.* What a change has scored on its class is written down as the check goes,
+    so a pass stopped during one does not ask those questions again.
   - *A pass that stops before training says why.* Where a kind of question has nothing to grade its answers by, the Train
     card names the kinds, how the judge did on its check, and where to choose another.
   - *Bounds.* A question's first visit is bounded in all (`firstVisitTries`, 40), whether or not its tries came closer, and

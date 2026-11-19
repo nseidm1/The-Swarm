@@ -3520,6 +3520,48 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { ran: ran.row, broken: broken.row, code: code.calls, added: added.map((m) => m.name), fp },
   );
 }
+// ---- 6af: WHAT THE SWARM TAKES IN MEMORY, MEASURED (training/support/measure-memory.mjs): each model's own process and the
+// decider's, by what the machine says they hold, not by the size of their files
+{
+  const { footprintIn, gbOfPid, pidOnPort, measureSwarm } = await import('../training/support/measure-memory.mjs');
+  const vm = 'Process: llama-server [8868]\nPhysical footprint:         10.3G\nPhysical footprint (peak):  10.4G\n';
+  const exec = (cmd, args) =>
+    cmd === 'vmmap'
+      ? { 11: vm, 12: 'Physical footprint:         838.0M\n', 13: '' }[args[1]] || ''
+      : cmd === 'ps'
+        ? { 13: ' 2202009\n', 14: '' }[args[3]] || ''
+        : cmd === 'lsof' && args[1] === '-iTCP:8009'
+          ? '13\n99\n'
+          : '';
+  const mac = { platform: 'darwin', exec };
+  const whole = measureSwarm({ members: { a: 11, b: 12 }, decider: 'http://127.0.0.1:8009', target: 18 }, mac);
+  const far = measureSwarm({ members: { a: 11, b: 12 }, decider: 'http://10.0.0.5:8009', target: 18 }, mac);
+  const gone = measureSwarm({ members: { a: 11, b: 14 }, decider: 'http://127.0.0.1:8009', target: 18 }, mac);
+  check(
+    "the memory a swarm takes is measured from its own processes: on a Mac a process's physical footprint, elsewhere (or where that says nothing) its resident size; the decider is found by the port it listens on, and one that is not on this machine is left out and said to be; the saving is worked out against the larger model's size; and where a small model cannot be measured nothing is written down",
+    footprintIn(vm) === 10.3 &&
+      footprintIn('nothing') === null &&
+      gbOfPid(11, mac) === 10.3 &&
+      gbOfPid(12, mac) === 0.82 &&
+      gbOfPid(13, mac) === 2.1 &&
+      gbOfPid(13, { platform: 'linux', exec }) === 2.1 &&
+      gbOfPid(14, mac) === null &&
+      gbOfPid(0, mac) === null &&
+      pidOnPort(8009, mac) === 13 &&
+      pidOnPort(1, mac) === null &&
+      whole.members.a === 10.3 &&
+      whole.decider === 2.1 &&
+      whole.swarm === 13.2 &&
+      whole.saved === 26.7 &&
+      whole.savedGb === 4.8 &&
+      !whole.without &&
+      far.decider === undefined &&
+      far.without === 'the decider' &&
+      far.swarm === 11.1 &&
+      gone === null,
+    { whole, far, gone },
+  );
+}
 // ---- 6v: what the measurement held and no finding read: answers cut off at the token limit, a drafter that echoes another on its
 // own model, the decider not answering in time; each found, and each answered by a move that speaks to it
 {
@@ -5537,10 +5579,20 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     area: 'slots',
     briefs: { ...bb, plan: { ...bb.plan, [name]: true } },
   });
-  const run = async (scores, { classTries = 0, names = Object.keys(scores).filter((k) => k !== 'base') } = {}) => {
+  const run = async (
+    scores,
+    {
+      classTries = 0,
+      names = Object.keys(scores).filter((k) => k !== 'base'),
+      resume = null,
+      onTry = async () => {},
+    } = {},
+  ) => {
     const asked = [];
     const kept = [];
     const st = await runLoop({
+      ...(resume ? { resume } : {}),
+      onTry,
       list,
       heldQs: held,
       briefs: base,
@@ -5566,6 +5618,28 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   // is kept because the question is good on another draw too, and none is lost
   const one = await run({ base: () => 0.5, one: (t, s) => (t.id === 'answer-1' ? 1 : s) });
   const k1 = one.kept[0] || {};
+  // A CHECK STOPPED IN THE MIDDLE CARRIES ON: what the change had scored is on the record (st.checking), and those questions
+  // are not asked with it again; the record is written as the check goes, and is gone once the check has ended
+  let wrote = 0;
+  let sawChecking = false;
+  const carried = await run(
+    { base: () => 0.5, one: (t, s) => (t.id === 'answer-1' ? 1 : s) },
+    {
+      resume: {
+        questions: [],
+        rows: [],
+        moves: {},
+        kept: [],
+        checking: { what: 'one', K: 'words', ver: 1, scores: { 'request-1': 0.5, 'piece-1': 0.5 } },
+      },
+      onTry: async (st) => (
+        wrote++,
+        (sawChecking = sawChecking || !!(st.checking && st.checking.scores['answer-2'] === 0.5))
+      ),
+    },
+  );
+  // (the check itself: what was asked with the change before the held questions were; after it the change is the arrangement)
+  const inCheck = carried.asked.slice(0, carried.asked.indexOf('held-answer:one'));
   // "luck" brings it to parity on the first draw only: asked again it is as it was, and it is not kept
   const luck = await run({ base: () => 0.5, luck: (t, s, note) => (t.id === 'answer-1' && !note.draw ? 1 : s) });
   // "wobble" makes it good on both draws, and one answer of another kind comes out lower on the first draw only: kept (one
@@ -5602,7 +5676,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const kn = near.kept[0] || {};
   const k0 = lift.kept[0] || {};
   check(
-    'keeping by the class: a change that lifts its whole class is kept, with its gain, its error and over how many questions on the ledger; one that brings a single question to parity and moves no other is kept where the question is good on another draw too (and the ledger says that is why), and not where it was good on one draw only; one answer that came out otherwise once does not refuse it; one that loses a question right on both draws is refused, with the question named; one that lifts most kinds and drops one by more than the margin is not; one that lifts the train questions and drops the held ones is not; a change that falls on the first few questions it is raced on is not asked on the rest; and a change that brought questions closer and none to parity is proposed for the class at the end of the pass, and kept where the class gained',
+    'keeping by the class: a change that lifts its whole class is kept, with its gain, its error and over how many questions on the ledger; one that brings a single question to parity and moves no other is kept where the question is good on another draw too (and the ledger says that is why), and not where it was good on one draw only; a check stopped in the middle carries on, the questions the change was already scored on not asked with it again, its scores written down as it goes and gone when it has ended; one answer that came out otherwise once does not refuse it; one that loses a question right on both draws is refused, with the question named; one that lifts most kinds and drops one by more than the margin is not; one that lifts the train questions and drops the held ones is not; a change that falls on the first few questions it is raced on is not asked on the rest; and a change that brought questions closer and none to parity is proposed for the class at the end of the pass, and kept where the class gained',
     lift.kept.length >= 1 &&
       k0.classGain &&
       k0.classGain.keep === true &&
@@ -5616,6 +5690,13 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       k1.classGain.madeGood.join() === 'answer-1' &&
       /made answer-1 good on both draws and lost no question/.test(k1.why) &&
       one.asked.includes('answer-1:') &&
+      carried.kept.length === 1 &&
+      !inCheck.includes('request-1:one') &&
+      !inCheck.includes('piece-1:one') &&
+      inCheck.includes('request-2:one') &&
+      sawChecking &&
+      carried.st.checking === undefined &&
+      one.asked.includes('request-1:one') &&
       luck.kept.length === 0 &&
       luck.st.questions
         .find((q) => q.id === 'answer-1')
@@ -5644,6 +5725,13 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       /proposed for its class/.test(kn.why),
     {
       lift: [lift.kept.length, k0.classGain],
+      carried: [
+        carried.kept.length,
+        carried.asked.filter((x) => /:one/.test(x)).join(' '),
+        sawChecking,
+        wrote,
+        carried.st.checking,
+      ],
       one: [one.kept.length, k1.classGain, k1.why],
       luck: luck.kept.length,
       wobble: wobble.kept.length,

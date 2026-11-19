@@ -3183,12 +3183,15 @@ def memory_chart(d, compact=False, headless=False):
     ab = lambda n: ("%.1f" % n).rstrip("0").rstrip(".")  # noqa: E731
     colour = {"a": "var(--lfm)", "b": "var(--bon)", "c": "#7a5cc4", "d": "#2f7fb8"}
     col = lambda x: colour.get(x.get("place"), "var(--dec)" if x["kind"] == "decider" else "#a9c9c1")  # noqa: E731
+    # (measured where the pass in hand measured it, data.measured_footprint: said so, with the estimate it replaces)
+    how = (("Measured while it trained: each model&#39;s own process%s. The estimate from the files was %s GB" % ("" if not fp.get("deciderListed") else ", the decider at its listed size", ab(fp.get("estimate") or 0)))
+           if fp.get("measured") else "")
     seg = "".join('<i style="width:%.2f%%;background:%s" title="%s: about %s GB"></i>' % (100.0 * x["gb"] / scale, col(x), e(x["name"]), ab(x["gb"])) for x in fp["parts"])
     legend = "".join('<span><i style="background:%s"></i>%s <b>%s GB</b></span>' % (col(x), e(x["name"]), ab(x["gb"])) for x in fp["parts"])
     ticks = "".join('<span style="left:%.2f%%">%s</span>' % (100.0 * t / scale, ab(t)) for t in range(0, int(scale) + 1, 5 if scale > 12 else 2))
     head = ('<span class="memh"><span><b>Memory saved: the swarm against the larger model</b><small>%s</small></span>'
             '<span class="memnum"><b>%s%%</b><span>memory saved · %s GB less · %s× smaller</span></span></span>'
-            % ("Estimated from the model files and the listed sizes, not measured" if compact else
+            % (how if how else "Estimated from the model files and the listed sizes, not measured" if compact else
                "What the Swarm is for: the larger model&#39;s answers in a fraction of its memory. Estimated from what is on record (the small models&#39; files with their contexts, the decider&#39;s and the larger model&#39;s listed sizes), not measured",
                fmt_pct(fp["saved"]) if fp["saved"] > 0 else "0", ab(max(0.0, fp["savedGb"])), ab(fp["times"] or 0)))
     return ('<span class="memc%s" title="Estimates from what is on record: the small models\' files with their contexts, the decider\'s listed size, and the larger model\'s listed size. Not measured.">%s'
@@ -3230,8 +3233,11 @@ def progress_strip(d, cleared=""):
                   % (sum(f.get("module") or 0 for f in fams), sum(f.get("asked") or 0 for f in fams), e(tname), sum(f.get("target") or 0 for f in fams), sum(f.get("targetKnown") or 0 for f in fams))) if fams else ""
         # (and what it takes to do so: the memory this configuration needs against the larger model's, as the pass wrote it down)
         mem = lp.get("memory") or {}
-        if mem.get("swarm") and mem.get("target"):
-            beside += " It takes <b>%s GB</b> of memory against %s GB: <b>%s%%</b> saved." % (e(str(mem["swarm"])), e(str(mem["target"])), e(str(mem.get("saved"))))
+        got = mem.get("measured") or {}
+        if got.get("swarm") and got.get("target"):
+            beside += " Measured while it trained, it takes <b>%s GB</b> of memory against %s GB: <b>%s%%</b> saved." % (e(str(got["swarm"])), e(str(got["target"])), e(str(got.get("saved"))))
+        elif mem.get("swarm") and mem.get("target"):
+            beside += " By its files it takes about <b>%s GB</b> of memory against %s GB: <b>%s%%</b> saved (not measured yet)." % (e(str(mem["swarm"])), e(str(mem["target"])), e(str(mem.get("saved"))))
         line = ("<b>%d</b> of %d train answers good: <b>%d</b> as the swarm stood, <b>%d</b> made good by a change it kept%s%s.%s"
                 % (done, of, at, re_, ((", %d back in hand after a swap" % n("reopened")) if n("reopened") else "") + ((", %d set aside until the others are done" % n("set aside")) if n("set aside") else ""), ((", %d not good yet" % nr) if nr else "") + ((", %d set aside because the larger model's answer is wrong" % wrong_m) if wrong_m else "")
                    # (a mark the larger model did not give again, where the swarm's answer is not equivalent to it: not searched, and still counted in the share)
@@ -3263,8 +3269,11 @@ def memory_card(d):
         return ""
     ab = lambda n: ("%.1f" % n).rstrip("0").rstrip(".")  # noqa: E731
     return ('<h2>Memory saved</h2><div class="panel memcard"><div class="proghead"><span class="memnum"><b class="pct">%s%%</b><span>memory saved<small>%s GB less</small></span></span>'
-            '<span class="progline">The swarm is %s× smaller than %s: estimated from the model files and the listed sizes, not measured.</span><span class="evctl"></span></div>%s</div>'
+            '<span class="progline">The swarm is %s× smaller than %s: %s.</span><span class="evctl"></span></div>%s</div>'
             % (fmt_pct(fp["saved"]) if fp["saved"] > 0 else "0", ab(max(0.0, fp["savedGb"])), ab(fp["times"] or 0), e(fp.get("targetName") or "the larger model"),
+               # (measured where the pass in hand measured it, and said so with the estimate it replaces: data.measured_footprint)
+               ("measured while it trained, from each model&#39;s own process%s (the estimate from the model files was %s GB)" % (", with the decider at its listed size" if fp.get("deciderListed") else "", ab(fp.get("estimate") or 0)))
+               if fp.get("measured") else "estimated from the model files and the listed sizes, not measured",
                memory_chart(d, compact=True, headless=True)))
 
 
