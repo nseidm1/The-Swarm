@@ -498,6 +498,11 @@ details.fold:not([open])>summary::after,details.fold.shutting>summary::after{tra
 .memcard>.proghead>.memnum,.evalp>.proghead>.memnum,.prep>.proghead>.memnum,.trainhead>.proghead>.memnum{min-width:0}
 .memcard>.proghead>.progline,.evalp>.proghead>.progline,.prep>.proghead>.progline,.trainhead>.proghead>.progline{min-width:0}
 .memcard>.proghead>.evctl,.evalp>.proghead>.evctl,.prep>.proghead>.evctl,.trainhead>.proghead>.evctl{justify-self:end;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+/* (and the controls stay inside their column: a chooser is as wide as its longest choice, "a proof run (about 500 a body of work)",
+   which is wider than the column, and lay over the description beside it. It takes the column's width and no more, its
+   choice cut short with an ellipsis where it does not fit; the list it opens shows every choice whole) */
+.memcard>.proghead>.evctl,.evalp>.proghead>.evctl,.prep>.proghead>.evctl,.trainhead>.proghead>.evctl{min-width:0;max-width:100%}
+.proghead>.evctl select{min-width:0;max-width:100%;text-overflow:ellipsis}
 @media (max-width:1100px){.memcard>.proghead,.evalp>.proghead,.prep>.proghead,.trainhead>.proghead{grid-template-columns:minmax(0,1fr) auto}
 .memcard>.proghead>.progline,.evalp>.proghead>.progline,.prep>.proghead>.progline,.trainhead>.proghead>.progline{grid-column:1/-1;grid-row:2}}
 @media (max-width:760px){.memcard>.proghead,.evalp>.proghead,.prep>.proghead,.trainhead>.proghead{grid-template-columns:minmax(0,1fr)}

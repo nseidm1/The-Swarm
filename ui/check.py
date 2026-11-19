@@ -1652,5 +1652,11 @@ check("a run this page started is running only while its own process is: a proce
       and 'data-ev="prog"' in swarm_ui.JS + open(swarm_ui.__file__).read() and "set('prog'," in swarm_ui.JS,
       [_mine10, _other10, _self10, _stale10.get("running"), _live10.get("running"), _run10.get("running"), _prog10, _prog10_open])
 
+# ---- A CARD'S CONTROLS STAY IN THEIR COLUMN: a chooser is no wider than the column, whatever its longest choice
+check("the controls of a card's head stay inside the third column (a chooser as wide as its longest choice lay over the description beside it): they take the column's width and no more, a choice that does not fit cut short with an ellipsis; and the four cards keep the same three columns",
+      ".proghead>.evctl select{min-width:0;max-width:100%;text-overflow:ellipsis}" in swarm_ui.CSS
+      and ".trainhead>.proghead>.evctl{min-width:0;max-width:100%}" in swarm_ui.CSS
+      and ".trainhead>.proghead{display:grid;grid-template-columns:330px minmax(0,1fr) 300px;" in swarm_ui.CSS, "")
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)
