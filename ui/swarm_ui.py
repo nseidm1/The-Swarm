@@ -332,6 +332,14 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .mine li>span:first-child{color:var(--teal);font-weight:800}.qx{width:26px;height:26px;border:0;border-radius:var(--r);background:var(--soft);color:var(--mist);cursor:pointer}
 .moves .mside{display:grid;gap:6px;justify-items:end}.moves .acts{display:inline-flex;gap:4px}.moves .acts button{border:1px solid var(--line);background:var(--panel);border-radius:var(--r);font:inherit;font-size:11.5px;font-weight:700;color:var(--teal);padding:3px 9px;cursor:pointer}
 .moves li.skipped{opacity:.55}.moves li.pinned{background:linear-gradient(90deg,#e8f6f1,transparent)}
+dialog#evd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#evd::backdrop{background:rgba(11,40,38,.45)}
+/* THE EVALUATE CARD'S HEADLINE IS A BUTTON (it opens the table, score beside score): it keeps the look of a headline, and says it can be pressed */
+.evopen{appearance:none;border:0;background:none;padding:6px 10px;margin:-6px -10px;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:12px;max-width:100%}
+.evopen:hover{background:rgba(11,93,87,.07)}.evopen:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.evt-wrap{overflow-x:auto;margin-top:12px}table.spec.evt th,table.spec.evt td{padding:7px 8px;overflow-wrap:normal}table.evt td.num,table.evt th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+table.evt tr.evt-item th{font-weight:800;text-align:left}table.evt tr.evt-item td{font-weight:700}table.evt tr.evt-task td:first-child{padding-left:26px;color:var(--mist)}
+table.evt tr.evt-all th,table.evt tr.evt-all td{border-top:2px solid var(--teal);font-weight:800;text-align:left}table.evt tr.evt-all td.num{text-align:right}
+table.evt b.up{color:var(--right)}table.evt b.down{color:#9a5b00}
 dialog#steerd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#steerd::backdrop{background:rgba(11,40,38,.45)}
 #steer-find{width:100%;font:inherit;font-size:14px;padding:9px 12px;border:1px solid var(--line);border-radius:var(--r);margin:4px 0 6px}.movepick{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .movepick li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line2);border-radius:var(--r)}.movepick b{font-size:13.5px;overflow-wrap:anywhere}.movepick small{display:block;color:var(--mist);font-size:12px}.qadd{padding:6px 14px}
@@ -591,6 +599,9 @@ document.addEventListener('click',async(ev)=>{
   const s=ev.target.closest('[data-steer]');if(s){s.disabled=true;const ok=await steerPost({op:s.dataset.steer,id:s.dataset.id});if(ok&&$('#steerd').open)await swap('/fragment/steer','#steerd-body');return;}
   if(ev.target.closest('#steer-open')){await swap('/fragment/steer','#steerd-body');$('#steerd').showModal();return;}
   if(ev.target.id==='steer-close'||ev.target.id==='steerd'){$('#steerd').close();return;}
+  // THE EVALUATION, BENCHMARK BY BENCHMARK: the Evaluate card's headline opens the table of every body of work and task
+  if(ev.target.closest('#ev-open')){await swap('/fragment/evtable','#evd-body');$('#evd').showModal();return;}
+  if(ev.target.id==='evd-close'||ev.target.id==='evd'){$('#evd').close();return;}
 });
 document.addEventListener('input',(ev)=>{if(ev.target.id!=='steer-find')return;const q=ev.target.value.toLowerCase().trim();document.querySelectorAll('#steerd .movepick li').forEach(li=>{li.style.display=!q||li.dataset.q.includes(q)?'':'none';});});
 // THE UNINSTALL HELPER: what is installed here, and a piece removed only once its removal has been confirmed
@@ -3517,6 +3528,49 @@ def _ev_right(rs):
     return sw, tg, int(of)
 
 
+def _ev_share(sw, tg):
+    """The swarm's score as a share of the larger model's, in words for a figure: '83%'. Where the larger model had none right
+    there is nothing to take a share of: a dash."""
+    return ("%s%%" % fmt_pct(data.percent(sw, tg))) if tg else "–"
+
+
+def eval_table(d):
+    """EVERY BODY OF WORK AND TASK OF THE LAST EVALUATION, SCORE BESIDE SCORE (opened from the Evaluate card's headline): the
+    swarm's score, the larger model's on the same questions, the swarm's as a share of it, and how many questions. A body of
+    work's line sums its tasks; the last line is the headline's own figures."""
+    res, _ = eval_of_config(Path(ARGS.root), d)
+    tname = res.get("target") or (d.get("target") or {}).get("name", "the larger model")
+    by_task = {r["task"]: r for r in res.get("results", [])}
+    listed = [t for t in (d.get("equivalence") or {}).get("targets", []) if t.get("benchmarks")]
+    close = '<button class="btn stop top" id="evd-close" type="button">Close</button>'
+    head = '<div class="spec-head"><div><div class="kicker">Evaluate the swarm</div><h3 style="font-size:22px;margin-top:4px">The swarm against %s</h3></div>%s</div>' % (e(tname), close)
+    done = [by_task[b["task"]] for t in listed for b in t["benchmarks"] if b["task"] in by_task and by_task[b["task"]].get("agree")]
+    if not done:
+        return head + '<p class="muted">The swarm as it is now has not been evaluated yet.</p>'
+
+    def cells(rs):
+        sw, tg, of = _ev_right(rs)
+        if not of:
+            return '<td class="num muted" colspan="4">not evaluated</td>'
+        up = sw >= tg
+        return ('<td class="num">%s%%</td><td class="num">%s%%</td><td class="num"><b class="%s">%s</b></td><td class="num">%d</td>'
+                % (fmt_pct(data.percent(sw, of)), fmt_pct(data.percent(tg, of)), "up" if up else "down", _ev_share(sw, tg), of))
+
+    rows = []
+    for t in listed:
+        rs = [by_task[b["task"]] for b in t["benchmarks"] if b["task"] in by_task and by_task[b["task"]].get("agree")]
+        rows.append('<tr class="evt-item"><th scope="row">%s</th>%s</tr>' % (e(t["name"]), cells(rs)))
+        for b in t["benchmarks"]:
+            r = by_task.get(b["task"])
+            rows.append('<tr class="evt-task"><td>%s</td>%s</tr>' % (e(b.get("name") or b["task"]), cells([r] if r and r.get("agree") else [])))
+    rows.append('<tr class="evt-all"><th scope="row">Every question</th>%s</tr>' % cells(done))
+    when = (" Evaluated %s UTC." % e(str(res.get("at", ""))[:16].replace("T", " "))) if res.get("at") else ""
+    return (head + '<p class="small muted" style="margin:10px 0 0">Each was put the same questions and marked by the benchmark&#39;s own checker. Share is the swarm&#39;s score as a share of %s&#39;s: '
+            '100%% or more is where the swarm is level or ahead.%s</p>' % (e(tname), when)
+            + '<div class="evt-wrap"><table class="spec evt"><thead><tr><th>Body of work</th><th class="num">The swarm</th><th class="num">%s</th><th class="num">Share</th><th class="num">Questions</th></tr></thead>'
+            '<tbody>%s</tbody></table></div>' % (e(tname), "".join(rows)))
+
+
 def _ev_meta_done(bms, by_task):
     """One body of work as the last evaluation left it, in a line: its tasks, and on how many questions the two gave the same."""
     rs = [by_task[b["task"]] for b in bms if b["task"] in by_task]
@@ -3601,9 +3655,14 @@ def eval_block(d):
     # wrong together. A standard benchmark against the same standard benchmark is the like-for-like figure.)
     comp = [by_task[b["task"]] for t in listed for b in t.get("benchmarks", []) if b["task"] in by_task and by_task[b["task"]].get("agree")]
     sw_right, tg_right, of = _ev_right(comp)
-    head = (('<span class="memnum"><b class="pct">%s%%</b><span>the swarm&#39;s score<small>%s %s%% · %d questions</small></span></span>'
-             % (fmt_pct(data.percent(sw_right, of)), e(res.get("target") or tname), fmt_pct(data.percent(tg_right, of)), of))
-            if of else '<span class="memnum"><b class="pct none">–</b><span>the swarm&#39;s score<small>not evaluated yet</small></span></span>')
+    # ONE FIGURE, BENCHMARK AGAINST BENCHMARK: the swarm's score as a share of the larger model's on the same questions (59%
+    # against 71% is 83%), with the two scores under it. It is a button: it opens the table of every body of work and task
+    # (eval_table), where each one's two scores sit side by side
+    tn_res = res.get("target") or tname
+    head = (('<button type="button" class="evopen" id="ev-open" title="Every body of work and task: the swarm&#39;s score beside %s&#39;s">'
+             '<span class="memnum"><b class="pct">%s</b><span>of the larger model&#39;s score<small>%s%% against %s%% · %d questions · see each</small></span></span></button>'
+             % (e(tn_res), _ev_share(sw_right, tg_right), fmt_pct(data.percent(sw_right, of)), fmt_pct(data.percent(tg_right, of)), of))
+            if of else '<span class="memnum"><b class="pct none">–</b><span>of the larger model&#39;s score<small>not evaluated yet</small></span></span>')
     # WHILE AN EVALUATION RUNS the headline is not the last one's: where the swarm's score and the larger model's will be, a
     # bar that moves (nothing is known until the answers are compared), and the questions it was asked to put, as chosen. Stopped
     # or failed, a run writes no result, and the last one that finished is shown again as it was
@@ -3615,7 +3674,7 @@ def eval_block(d):
         # (a proof run asks each task its own size; where one of them is every question the sum is not known before it runs)
         asked_n = ((sum(int(b.get("proofN") or 0) for b in every) if all(b.get("proofN") for b in every) else 0) if size_run == PROOF_SIZE
                    else int(size_run) * len(every)) if size_run else 0
-        head = ('<span class="memnum" aria-busy="true">' + busy() + '<span>the swarm&#39;s score'
+        head = ('<span class="memnum" aria-busy="true">' + busy() + '<span>of the larger model&#39;s score'
                 '<small><i class="busyn" aria-hidden="true"></i> of %s</small></span></span>' % (("%d questions" % asked_n) if asked_n else "every question"))
     size = PROOF_SIZE if (live if running else res or {}).get("proof") else int((live.get("limit") if running else (res.get("limit") if res else 20)) or 0)
     opts = "".join('<option value="%d"%s>%s</option>' % (n, " selected" if n == size else "", e(w)) for n, w in EVAL_SIZES)
@@ -4036,7 +4095,7 @@ def page(d):
         '<main id="top"><header><div><div class="kicker">The Swarm · training overview</div><h1>Training Dashboard</h1></div>'
         '<div class="chips" id="chips">%s</div></header>%s%s'
         '<div id="body">%s</div>'
-        '%s</main></div><dialog id="spec"><div id="spec-body"></div></dialog><dialog id="qedit"><div id="qedit-body"></div></dialog><dialog id="tidy"><div id="tidy-body"></div></dialog><dialog id="steerd"><div id="steerd-body"></div></dialog><dialog id="recd"><div id="recd-body"></div></dialog>'
+        '%s</main></div><dialog id="spec"><div id="spec-body"></div></dialog><dialog id="qedit"><div id="qedit-body"></div></dialog><dialog id="tidy"><div id="tidy-body"></div></dialog><dialog id="steerd"><div id="steerd-body"></div></dialog><dialog id="recd"><div id="recd-body"></div></dialog><dialog id="evd"><div id="evd-body"></div></dialog>'
         '<script>%s</script></body></html>'
         % (CSS, chips(d), config_section(d), banner, main_body(d), footer(), JS)
     )
@@ -4102,6 +4161,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(faces_block(d))
         if u.path == "/fragment/eval":
             return self._send(eval_block(d))
+        if u.path == "/fragment/evtable":
+            return self._send(eval_table(d))
         if u.path == "/fragment/pretrain":
             return self._send(pretrain_block(d))
         if u.path == "/fragment/spec":
