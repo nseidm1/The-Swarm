@@ -85,6 +85,9 @@ dialog#recd{border:0;border-radius:var(--r);padding:26px;max-width:min(760px,94v
 .hostcard{padding:14px 16px;border-radius:var(--r);border:1px solid var(--line2);background:#fafdfc}.hostcard p{margin:6px 0 0;font-size:13.5px;line-height:1.5}.hcbadge{display:inline-block;margin-top:6px;padding:2px 10px;border-radius:var(--r);background:#fdf0cf;color:#8a5a00;font-size:12px;font-weight:700}
 .hcon{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.hcon span{padding:2px 10px;border-radius:var(--r);background:var(--soft);font-size:12px;font-weight:700;color:var(--teal)}
 details.fams{margin-top:10px}details.fams summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--teal)}details.fams table{margin-top:6px}
+/* THE TABLE BY FAMILY FITS A PHONE: its headings may wrap (they held the table wider than the card, and the family's name was broken letter by letter to make room), a family's name breaks between words, and the columns share the width */
+.fams table.spec th{white-space:normal}.fams table.spec td:first-child{overflow-wrap:break-word;word-break:normal}
+@media (max-width:760px){.fams table.spec{table-layout:fixed;font-size:12.5px}.fams table.spec th{font-size:9.5px;letter-spacing:.04em}.fams table.spec th,.fams table.spec td{padding:7px 5px}.fams table.spec th:first-child{width:34%}}
 details.told{margin-top:4px}details.told summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--teal)}details.told div{margin-top:4px;white-space:pre-wrap;font-size:12.5px;color:var(--fog)}.spec .bad{color:var(--wrong)}
 .equiv .tools{margin-top:12px}
 .tgl{display:inline-flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:var(--r);background:var(--soft)}.tgl .seg{border:0;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--mist);padding:7px 14px;border-radius:var(--r);cursor:pointer}

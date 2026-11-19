@@ -1720,6 +1720,9 @@ check("a second look asks only the bodies of work where the swarm scored under t
       and "b.id==='ev-narrow'" in swarm_ui.JS and "a&&a.checked?{items:a.dataset.items.split(',')}:{}" in swarm_ui.JS,
       [_v_full["short"], _v11["carried"], _v11["short"], _v_level["short"], [x for x in _tab11.split("<tr") if "evt-all" in x]])
 
+check("the table of the module beside the larger model, by family, fits a phone: its headings may wrap, a family's name breaks between words and not letter by letter, and under 760 px the columns share the width",
+      ".fams table.spec th{white-space:normal}.fams table.spec td:first-child{overflow-wrap:break-word;word-break:normal}" in swarm_ui.CSS and ".fams table.spec{table-layout:fixed" in swarm_ui.CSS)
+
 # ---- A CARD'S CONTROLS STAY IN THEIR COLUMN: a chooser is no wider than the column, whatever its longest choice
 check("the controls of a card's head stay inside the third column (a chooser as wide as its longest choice lay over the description beside it): they take the column's width and no more, a choice that does not fit cut short with an ellipsis; and the four cards keep the same three columns",
       ".proghead>.evctl select{min-width:0;max-width:100%;text-overflow:ellipsis}" in swarm_ui.CSS
