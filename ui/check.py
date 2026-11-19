@@ -1364,8 +1364,12 @@ check("where an evaluation or pretraining is running the Train card says it has 
       and "n.busy?n.busy[0].toUpperCase()+n.busy.slice(1)+' is running: the models are loaded for it.'" in swarm_ui.JS, [_iw_eval, _iw_none])
 
 # A RECORD GRADED BY AN EARLIER RULE IS NOT CARRIED ON, and the page says so in place of where the pass would carry on from
+# (as the page says it with no session running: a pass training on this machine while the checks run is not this record's)
+_ll7 = swarm_ui.loop_live
+swarm_ui.loop_live = lambda: None
 _st_old = swarm_ui.progress_strip(dict(_d, scoring=3, loop={"of": 5, "changes": [], "scoring": 2, "list": [{"id": "a", "state": "at parity"}, {"id": "b", "state": "not reached"}]}))
 _st_new = swarm_ui.progress_strip(dict(_d, scoring=3, loop={"of": 5, "changes": [], "scoring": 3, "list": [{"id": "a", "state": "at parity"}, {"id": "b", "state": "not reached"}]}))
+swarm_ui.loop_live = _ll7
 check("a pass's record graded by an earlier rule says its questions will be asked again from the first when training starts, and not where it would carry on from; one graded by the rule in force says where it carries on; and the rule in force is read from the loop",
       "graded by an earlier rule: when training starts, its questions are asked again from the first" in _st_old and "it carries on from" not in _st_old
       and "Stopped; it carries on from question 3." in _st_new and "earlier rule" not in _st_new
@@ -1382,7 +1386,7 @@ check("a kept change says what it was kept on: its class's gain, the error of it
       and "Proposed for its class at the end of a pass · its class (in conversation) gained" in _lr and "over 36 questions" in _lr
       and "Brought <code>fix-1</code> to parity (lost in choosing; change 3 tried on it) · 4 already at parity asked again, none lost" in _lr, _lr)
 check("while a change is scored on its class the page says so, and says which question is asked as the swarm stands to set it beside; and the SwOA's learned record states the rule a change is kept by now, and the rule before it",
-      "lp.classCheck?'checking a change on its class'" in swarm_ui.JS and "lp.standing?'where its class stands'" in swarm_ui.JS and "of its class)" in swarm_ui.JS
+      "lp.classCheck?'checking a change on its class'" in swarm_ui.JS and "const far=lp.guarded&&lp.guarded.of?' · '+Math.round(100*Math.max(0,lp.guarded.n-1)/lp.guarded.of)+'%':''" in swarm_ui.JS and "lp.standing?'where its class stands'" in swarm_ui.JS and "of its class)" in swarm_ui.JS
       and "a change is kept when the questions of its class got better with it" in data.learned_rule({"loop": {"classKeep": True}}) and "classGain" in data.learned_rule({"loop": {"classKeep": True}})
       and "Before this rule, a change was kept only if it brought a train question to parity" in data.learned_rule({"loop": {"classKeep": True, "classMinGain": 0.02}})
       and data.learned_rule({"loop": {}}).startswith("training goes question by question: a change is kept only if it brings a train question to parity"), data.learned_rule({"loop": {"classKeep": True}}))

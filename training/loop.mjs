@@ -861,7 +861,7 @@ export async function runLoop({
     for (const k of Object.keys(st.standing)) if (!k.startsWith(ver + '|')) delete st.standing[k];
     const key = ver + '|' + K + '|' + which;
     const have = (st.standing[key] = st.standing[key] || {});
-    for (const x of qs) {
+    for (const [k, x] of qs.entries()) {
       if (have[x.id] !== undefined) continue;
       // (a train question finished on this version of the arrangement stands as it was graded then)
       const was = which === 'train' ? st.questions.find((y) => y.id === x.id && y.briefs === ver) : null;
@@ -871,6 +871,8 @@ export async function runLoop({
           ...note,
           move: 'as it stands',
           guard: x.id,
+          // (how far through the class it is, for the page: this one of them all)
+          guarded: { n: k + 1, of: qs.length },
           standing: true,
           ...(which === 'held' ? { held: true } : {}),
         }));

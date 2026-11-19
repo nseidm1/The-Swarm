@@ -648,8 +648,10 @@ async function liveTick(){
     const qkey=lp&&q&&n.trainer==='loop'?JSON.stringify([lp.n,lp.attempt,lp.guard||'',lp.guarded||'',lp.move,lp.round,lp.method||'',lp.tried||'',lp.pace||'',lp.trial||'',lp.unstable||'',q.ask]):'';
     if(qkey&&qn.dataset.k===qkey){}
     else if(lp&&q&&n.trainer==='loop'){qn.dataset.k=qkey;
-      const it=lp.standing?'where its class stands':lp.classCheck?'checking a change on its class':lp.guard?'checking a change':lp.attempt?'training change '+lp.attempt+(lp.cap?' of '+lp.cap:'')+(lp.round>1?' · round '+lp.round:''):'as it stands';
-      const what=lp.standing?'A change is kept when its class got better. To set it beside, '+lp.guard+(lp.held?', a held question,':'')+' is asked as the swarm stands.'
+      // (a step that asks many questions says how far through them it is: those already asked, of all it will ask)
+      const far=lp.guarded&&lp.guarded.of?' · '+Math.round(100*Math.max(0,lp.guarded.n-1)/lp.guarded.of)+'%':'';
+      const it=(lp.standing?'where its class stands':lp.classCheck?'checking a change on its class':lp.guard?'checking a change':lp.attempt?'training change '+lp.attempt+(lp.cap?' of '+lp.cap:'')+(lp.round>1?' · round '+lp.round:''):'as it stands')+far;
+      const what=lp.standing?'A change is kept when its class got better. To set it beside, '+lp.guard+(lp.held?', a held question,':'')+(lp.guarded?' ('+lp.guarded.n+' of '+lp.guarded.of+')':'')+' is asked as the swarm stands.'
         :lp.classCheck?'A change is kept when its class got better. With it, asked on '+lp.guard+(lp.held?', a held question':lp.guarded?' ('+lp.guarded.n+' of '+lp.guarded.of+' of its class)':'')+': '+lp.move
         :lp.guard?'It made this answer good; asked again on '+lp.guard+(lp.guarded?' ('+lp.guarded.n+' of '+lp.guarded.of+')':'')+', already good, it must lose nothing to be kept: '+lp.move
         :lp.attempt?'Not good as the swarm stood. Trying: '+lp.move:'Asked of the swarm as it stands.';
