@@ -3190,8 +3190,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const first = (b3.slots.find((x) => x.stage === 'check') || b3.slots[0]).member;
   const others = ['a', 'b', 'c'].filter((m) => m !== first);
   check(
-    "every model of the swarm is offered as the one beside the decider from the start: each of the three ways of asking, with each model other than the first checker's, by its checker or else its first slot; and the swap of the model beside it is still offered once a way is kept",
-    judges.length === 3 * others.length &&
+    "every model of the swarm is offered as the one beside the decider from the start: each of the four ways of asking (three beside the decider, and in its place), with each model other than the first checker's, by its checker or else its first slot; and the swap of the model beside it is still offered once a way is kept",
+    judges.length === 4 * others.length &&
       judges.every((m) => others.includes(b3.slots.find((x) => x.id === m.briefs.plan.decideWith.slot).member)) &&
       names.includes('plan: a model decides with the decider') &&
       steps({ ...b3, plan: { ...b3.plan, decideWith: { how: 'together' } } }).some((m) =>
@@ -3634,6 +3634,104 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       unanswered === null &&
       none === null,
     { plainRef, selfRead, namedAfter, said, otherSeed, fewer, unanswered, none },
+  );
+}
+// ---- 6ah: A SMALL MODEL DECIDES IN PLACE OF THE DECIDER (SwOA specification O.6.6, HOW `alone`), and each small model of the swarm
+// is put the recorded choices as the decider (training/decider-replay.mjs modelDecider)
+{
+  const { answer, JUDGE_BRIEF } = await import('../src/orchestrate.mjs');
+  const { steps } = await import('../training/arrange.mjs');
+  const { classOf, tuned } = await import('../training/loop.mjs');
+  const { modelDecider, replayWith } = await import('../training/decider-replay.mjs');
+  const slots = [
+    { id: 'a-direct', member: 'a', stage: 'draft', brief: 'Answer.' },
+    { id: 'b-direct', member: 'b', stage: 'draft', brief: 'Answer.' },
+    { id: 'b-check', member: 'b', stage: 'check', brief: 'Check.' },
+    { id: 'w', member: 'a', stage: 'write', brief: 'Write.' },
+  ];
+  const flow = [{ do: 'draft' }, { do: 'decide' }, { do: 'write' }];
+  let rulings = 0;
+  let judgeTold = '';
+  const go = (plan, judgeSays = 'B is right.\nANSWER: B') =>
+    answer([{ role: 'user', content: 'What is 6 times 7?' }], {
+      briefs: { version: 1, plan, slots, flow },
+      decide: async ({ answers }) => (
+        rulings++,
+        { ok: true, letter: 'A', final: answers[0].final, probs: { A: 0.9, B: 0.1 } }
+      ),
+      ask: async (slot, msgs) =>
+        slot.stage === 'judge'
+          ? ((judgeTold = msgs[0].content), { text: judgeSays })
+          : slot.stage === 'write'
+            ? { text: 'It is.' }
+            : { text: slot.member === 'a' ? 'ANSWER: 41' : 'ANSWER: 42' },
+    });
+  const byDecider = await go({});
+  const before = rulings;
+  const alone = await go({ decideWith: { how: 'alone', slot: 'b-check' } });
+  const aloneRulings = rulings - before;
+  const judgeRow = alone.trace.find((t) => t.stage === 'judge');
+  const silent = await go({ decideWith: { how: 'alone', slot: 'b-check' } }, 'I cannot tell.');
+  const moves = steps({ version: 1, plan: {}, slots, flow }).filter((m) => /in place of the decider/.test(m.name));
+  const drafting = tuned({ lost: 'drafting' }, { slots }).skip(moves[0]);
+  const choosing = tuned({ lost: 'choosing' }, { slots }).skip(moves[0]);
+  // the replay: three recorded choices, the decider right on the first only; a model that always names the answer marked `same`
+  const rec = (sameAt, decidedRight) => ({
+    ask: 'Q?',
+    trace: [
+      { stage: 'draft', slot: 'a1', final: 'x', out: 'x', same: sameAt === 0 },
+      { stage: 'draft', slot: 'b1', final: 'y', out: 'y', same: sameAt === 1 },
+      { stage: 'decide', final: decidedRight ? (sameAt ? 'y' : 'x') : sameAt ? 'x' : 'y', same: decidedRight },
+    ],
+  });
+  const rows = [rec(0, true), rec(1, false), rec(1, false)];
+  const told = [];
+  const knows = modelDecider(
+    async (msgs) => (
+      told.push(msgs),
+      { text: 'ANSWER: ' + (/Answer B:\n.*\nIts final answer: y/.test(msgs[1].content) ? 'B' : 'A') }
+    ),
+  );
+  const res = await replayWith(async (c) => {
+    const right = c.answers.find((a) => a.same);
+    return (await knows(c)) && { ok: true, letter: right.letter };
+  }, rows);
+  const mute = await replayWith(
+    modelDecider(async () => ({ text: 'no letter here' })),
+    rows,
+  );
+  check(
+    "a small model can decide in place of the decider: it is shown every different answer, told what a model that decides is told, and its word settles it, with the decider not asked at all and its row marked so; where it names nothing the answer most slots hold stands; the trainer offers it as its own kind of change, only where an answer was lost in choosing; and each small model can be put a pass's recorded choices as the decider, counted as another decider is (chose the larger model's answer, recovered, lost), one that names no answer counted as failed",
+    byDecider.decided === '41' &&
+      alone.decided === '42' &&
+      aloneRulings === 0 &&
+      judgeRow.alone === true &&
+      judgeRow.picked === 'B' &&
+      judgeTold.startsWith(JUDGE_BRIEF.slice(0, 60)) &&
+      !silent.trace.some((t) => t.stage === 'decide') &&
+      ['41', '42'].includes(silent.decided) &&
+      silent.path === 'most' &&
+      moves.length >= 2 &&
+      classOf(moves[0]) === 'a model in place of the decider' &&
+      drafting === true &&
+      choosing === false &&
+      told.length === 3 &&
+      told[0][0].content.startsWith(JUDGE_BRIEF.slice(0, 60)) &&
+      /^The question:\nQ\?\n\nAnswer A:/.test(told[0][1].content) &&
+      res.asked === 3 &&
+      res.theirsRight === 3 &&
+      res.nowRight === 1 &&
+      res.recovered === 2 &&
+      res.lost === 0 &&
+      mute.asked === 0 &&
+      mute.failed === 3,
+    {
+      alone: [alone.decided, alone.path, aloneRulings, judgeRow],
+      silent: [silent.decided, silent.path],
+      moves: moves.map((m) => m.name),
+      res,
+      mute,
+    },
   );
 }
 // ---- 6v: what the measurement held and no finding read: answers cut off at the token limit, a drafter that echoes another on its

@@ -60,6 +60,7 @@ export function classOf(m) {
   if (m.kind === 'brief')
     return /^the larger model: /.test(n) ? 'a brief by the larger model' : 'a brief from the reading';
   if (/^plan: decide by /.test(n)) return 'another way of deciding';
+  if (/^plan: a model decides in place of the decider/.test(n)) return 'a model in place of the decider';
   if (/^plan: a model (settles|decides)/.test(n)) return 'a model beside the decider';
   if (/token limit/.test(n)) return 'more room to answer';
   if (/temperature/.test(n)) return 'a drafter sampled otherwise';

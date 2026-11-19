@@ -1196,8 +1196,9 @@ Let TABLE be distinct and TALLY be votes, both fixed at the start of the step.
 `decider-unless-majority`. Any other value behaves as `decider`.
 
 **With a model beside it** (WITH): true when the step has neither `keep` nor `sure`, BY is not
-`most`, and `plan.decideWith.how` is set. HOW is that value: `together`, `if-close` or
-`if-at-odds` (any other value has no effect).
+`most`, and `plan.decideWith.how` is set. HOW is that value: `together`, `if-close`, `if-at-odds` or
+`alone` (any other value has no effect). With `alone` the judge slot decides IN PLACE of the decider: the
+decider is not called for this decision (step 2), whether or not one is supplied.
 
 **The judge slot** is synthetic: start from the slot whose id is `plan.decideWith.slot`; if there is
 none, the first slot of stage `check`; if none, the first slot. Copy all its fields, then set `id`
@@ -1228,7 +1229,8 @@ Procedure:
    decided becomes its final, path becomes `most-tie-decided`, and the step ends. Otherwise go on.
 1. If WITH, HOW is `together`, a decider is supplied, and TABLE has more than one row: start
    judging among TABLE now, concurrently with step 2.
-2. If a decider is supplied, TABLE has more than one row and BY is not `most`: call the decider
+2. If a decider is supplied, TABLE has more than one row, BY is not `most`, and it is not the case that WITH
+   holds with HOW `alone`: call the decider
    with the question, the answers `{letter, final, work}` for each TABLE row (work = read working
    of its out), and the checks = remarks followed by parted if parted is non-empty. Record its
    result as the **ruling** row (O.10.3). Otherwise there is no ruling.
@@ -1255,6 +1257,8 @@ Procedure:
      PROBS (ties keep TABLE order) if PROBS has any entry, else all of TABLE. Judge among them; the
      result is the winner. Note: `"Close (" + TOPW to 2 decimals + "): the model beside it chose "
      + WINNER + "."`. This branch runs even when no decider is supplied.
+   - `alone`: judge among TABLE; the result is the winner, and the judge's row is marked `alone` true. There is
+     no ruling and no note. With no result, nothing is decided here and step 6 goes on as with no ruling.
    - `if-at-odds`: only if the ruling is ok and TALLY is non-empty. MINE = the TABLE row whose
      final is textually equal to the ruling's final; MOST = the TABLE row whose key is TALLY's first
      key. If both exist and their keys differ, judge among the two, ordered by letter. Note: `"At
@@ -1482,7 +1486,7 @@ Base: `decided`, `decided-against-most`, `decided-early`, `most`, `most-tie-deci
 
 A row is recorded into the trace when its call completes, so concurrent calls are recorded in
 completion order. Rows record at least `slot`, `member`, `stage`, `ms`, `out`, `final`, `ok`, and
-where relevant `why`, `tokens`, `concluded`, `computed`, `picked`, `round`, `describes`, `rewrite`, `trimmed`. The
+where relevant `why`, `tokens`, `concluded`, `computed`, `picked`, `alone`, `round`, `describes`, `rewrite`, `trimmed`. The
 decider's ruling row has `slot` `decide`, `member` `decider`, `stage` `decide`, its `probs`, `yes`,
 `close` (when ok and close), `retried` (when the decider says so), and, when not ok and its reason
 contains `did not answer`, `timedOut` = whether the reason contains `abort` or `timeout` (any
@@ -1534,7 +1538,7 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `onePerAnswer` | boolean | false | sheet shows one row per distinct answer even when not tried |
 | `decideBy` | text | `decider` | O.6.6 BY |
 | `decideMin` | number | 0.6 | threshold for `if-close` and `decider-if-confident` (an explicit 0 is honoured) |
-| `decideWith` | object | none | `{how, slot, brief, maxTokens, weight}` — the model beside the decider (O.6.6); `weight` default 0.35 (an explicit 0 is honoured) |
+| `decideWith` | object | none | `{how, slot, brief, maxTokens, weight}` — the model beside the decider, or with `how` `alone` in place of it (O.6.6); `weight` default 0.35 (an explicit 0 is honoured) |
 | `probe` | object | none | `{member, brief, maxTokens}` for the probe slot |
 | `expect` | object | none | `{member, brief, maxTokens}` for the expectation slot |
 | `writeCode` | boolean | false | `true` sends code answers through the writers |

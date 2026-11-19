@@ -258,6 +258,8 @@ export function steps(b, { cap = SERVING.slots, members = [...new Set(b.slots.ma
     'if-close': 'a model settles it where the decider is close',
     together: 'a model decides with the decider',
     'if-at-odds': 'a model settles it where the decider parts from most',
+    // (in place of the decider: the decision model is not asked, orchestrate.mjs 'alone')
+    alone: 'a model decides in place of the decider',
   };
   const withPlan = (decideWith) => ({
     ...b,

@@ -167,9 +167,9 @@ while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
     break
   fi
   # what the swarm cannot try on its own, measured for a person to decide: whether another small model on this machine drafts what
-  # no slot drafts (members-probe.mjs), and whether another decider whose weights are here would have chosen better (decider-replay.mjs)
+  # no slot drafts (members-probe.mjs), and whether another decider whose weights are here, or one of the swarm's own small models, would have chosen better (decider-replay.mjs)
   run 12-members      training/members-probe.mjs --each "$EACH"
-  run 12-deciders     training/decider-replay.mjs --installed
+  run 12-deciders     training/decider-replay.mjs --installed --members
   # the swarm as the loop left it, on questions it was never trained on: this is what is reported
   run 21-swarm-held   training/measure.mjs --split held --each "$EACH"
   # and every held question put a second way: equivalence that holds for one wording only is not fundamental

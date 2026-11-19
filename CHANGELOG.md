@@ -67,6 +67,12 @@ The first version.
     keeps a store of answered prompts in memory, 8 GB a server by default, and a swarm estimated to take 6.5 GB was taking
     17.4 GB against the larger model's 18. Every member is now started with that store off (`--cache-ram 0`, SwOA spec
     S2.4.5); each slot's own context still holds its brief between questions.
+  - *A small model can decide in place of the decider.* A new way to settle a dispute (`plan.decideWith.how: "alone"`, SwOA
+    spec O.6.6): one slot is shown every different answer and its word settles it; the decision model is not asked. The
+    trainer tries it as its own kind of change. At the end of a pass each of the swarm's small models is put the pass's
+    recorded choices as the decider (`decider-replay.mjs --members`), and where one chose at least as well as the decision
+    model the recommendations say so, with what the swarm would not need. The count beside Configuration now includes
+    every recommendation the dialog lists.
   - *A model alone is not asked again for another swarm.* The larger model's answers, the larger model against itself and
     each small model alone depend on the model, the questions and who read the answers, not on which small models are in
     the swarm. A configuration now takes what another against the same larger model measured, on exactly the same

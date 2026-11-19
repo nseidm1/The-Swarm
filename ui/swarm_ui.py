@@ -2706,7 +2706,7 @@ def recommendations(d):
     rec_dec = dec_name(rep_from) if rep_from else (d.get("decider") or {}).get("name", "the decider")
     for r in (rep or {}).get("results") or []:
         dec = next((x for x in reg.get("deciders", []) if x["id"] == r.get("decider")), None)
-        if not dec or dec["id"] == cur_dec or r.get("recovered", 0) <= r.get("lost", 0):
+        if not dec or r.get("kind") == "model" or dec["id"] == cur_dec or r.get("recovered", 0) <= r.get("lost", 0):
             continue
         edge = r["recovered"] - r["lost"]
         out.append({"id": "decider:" + dec["id"], "strength": "measured", "apply": {"decider": dec["id"]}, "n": r.get("asked", 0),
@@ -2716,6 +2716,24 @@ def recommendations(d):
                               r["recovered"], e(rec_dec), r["lost"],
                               "A small edge: a real pass is what would tell." if edge < 3 else "A clear edge on the recorded choices.") + elsewhere(rep_from),
                     "note": " · ".join(x for x in [dec.get("license", ""), "its weights are here" if any((Path(d["root"]) / ".work" / "deciders" / dec["id"] / f).exists() for f in ("model/.complete", ".complete")) or (dec.get("serve") or {}).get("kind") == "kev" else "Train fetches it"] if x)})
+    # ONE OF THE SWARM'S OWN SMALL MODELS AS THE DECIDER (decider-replay.mjs --members): put the same recorded choices. One that
+    # chooses at least as well as the decision model, on ten choices or more, means the swarm may not need a decision model at
+    # all, which is a large part of its memory. It is training's to try (a model decides in place of the decider, kept by the
+    # same rule as any change), so this says what was measured and has no button; the best of them only
+    models_ = [r for r in (rep or {}).get("results") or [] if r.get("kind") == "model" and r.get("asked", 0) >= 10 and r.get("theirsRight", 0) >= r.get("nowRight", 0)]
+    if models_:
+        r = sorted(models_, key=lambda x: (-(x.get("theirsRight", 0) - x.get("nowRight", 0)), -x.get("theirsRight", 0)))[0]
+        edge = r.get("theirsRight", 0) - r.get("nowRight", 0)
+        fp_ = d.get("footprint") or {}
+        dec_gb = next((x["gb"] for x in fp_.get("parts", []) if x.get("kind") == "decider"), None)
+        out.append({"id": "model-decides:" + str(r.get("decider")), "strength": "measured", "apply": None, "n": r.get("asked", 0),
+                    "title": ("%s chooses better than %s" if edge > 0 else "%s chooses as well as %s") % (r.get("name") or r.get("decider"), rec_dec),
+                    "why": "Put the %d choices recorded in pass %s as the one that decides, it chose the larger model&#39;s answer %d times against %s&#39;s %d (it recovered %d and lost %d). %s%s"
+                           % (r.get("asked", 0), e(str(rep.get("pass", "?"))), r.get("theirsRight", 0), e(rec_dec), r.get("nowRight", 0), r.get("recovered", 0), r.get("lost", 0),
+                              "The choices are rebuilt from the record, close to what the decider was asked and not the same: a pass is what would tell. "
+                              "Training tries it as a change (a model decides in place of the decider) and keeps it only where its class of questions gains." , elsewhere(rep_from)),
+                    "cost": ("a swarm that decides so throughout would not need the decision model: %s%s GB of %s GB" % ("" if fp_.get("measured") else "about ", ("%.1f" % dec_gb).rstrip("0").rstrip("."), ("%.1f" % fp_["swarm"]).rstrip("0").rstrip("."))) if dec_gb and fp_.get("swarm") else "",
+                    "note": "training does this itself"})
     # EACH SMALL MODEL ALONE against this larger model: one that answers as the larger model more often than the weakest member of
     # this swarm, by more than the measurements themselves wander, is evidence for a swap (alone_scores)
     tid = (d.get("target") or {}).get("id", "")
@@ -2887,7 +2905,7 @@ def recs_panel(d):
         return '<li class="rec %s"><div><span class="rstr">%s</span><b>%s</b><p>%s</p><small>%s</small></div>%s</li>' % (r["strength"], e(label(r)), e(r["title"]), r["why"], meta, act)
     mine_ = [r for r in rs if r.get("apply")]
     theirs = [r for r in rs if not r.get("apply")]
-    items = "".join(item(r) for r in mine_) or '<li class="muted">No change to the configuration is recommended now.</li>'
+    items = "".join(item(r) for r in mine_) or '<li class="muted">No change to the configuration is recommended now%s.</li>' % (": what follows is for training" if theirs else "")
     if theirs:
         items += '<li class="rech">What training does about it itself</li>' + "".join(item(r) for r in theirs)
     return ('<div class="spec-head"><div><div class="kicker">What only you can change</div><h3 style="font-size:22px;margin-top:4px">Recommended configuration changes</h3></div>'
@@ -2901,7 +2919,7 @@ def config_section(d):
     begin with); folded, it says in a line what it is. Beside its heading, a note when the evidence recommends a change to it.
     NOTHING HERE CHOOSES WHAT THE SWARM IS TRAINED ON (console ruling 2026-11-18: the boxes to tick, "Equivalent on", are gone):
     a pass asks every body of work, and what it asks more of is what it measured the swarm short on."""
-    n = len([r for r in recommendations(d) if r.get("apply")])
+    n = len(recommendations(d))  # (every one the dialog lists: one with no button was out of reach where it was the only one)
     badge = ('<button type="button" class="recbadge" id="rec-open" title="Open the recommended configuration changes"><i></i>%d recommendation%s</button>' % (n, "" if n == 1 else "s")) if n else ""
     return ('<details class="cfg fold" data-keep="cfg" open><summary><span class="cfgh">Configuration</span><span id="rec-slot">%s</span><span class="fmeta" id="cfg-meta">%s</span></summary>'
             '<div class="foldb">%s<div class="cfgrows"><div class="cfgrow"><span class="cfgl">Turns with tools</span>%s</div>'
@@ -4018,7 +4036,7 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/fragment/recs":
             return self._send(recs_panel(d))
         if u.path == "/fragment/recslot":
-            n = len([r for r in recommendations(d) if r.get("apply")])
+            n = len(recommendations(d))
             return self._send(('<button type="button" class="recbadge" id="rec-open" title="Open the recommended configuration changes"><i></i>%d recommendation%s</button>' % (n, "" if n == 1 else "s")) if n else "")
         if u.path == "/fragment/cfgmeta":
             return self._send(e(cfg_meta(d)))

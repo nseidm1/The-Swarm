@@ -1585,5 +1585,32 @@ check("the count of recommendations beside Configuration is asked for again when
 check("pressing Train or Stop training redraws the model pills at once (locked while a session runs, open again when it is stopped), and the rest of the page when it has stopped: it is not left to the watch loop, which had already been shown the stopped card",
       "await swap('/fragment/picks','#picks');if(b.id==='run-stop'&&!$('#score [data-running]'))await swap('/fragment/body','#body');" in swarm_ui.JS, "")
 
+# ---- A SMALL MODEL OF THE SWARM THAT CHOOSES AS WELL AS THE DECIDER is said among the recommendations, and can be reached
+_root9 = Path(tempfile.mkdtemp(prefix="recs-"))
+shutil.copytree(Path(__file__).resolve().parent.parent / "src", _root9 / "src")
+_d9 = data.load(_root9)
+_wd9 = Path(_d9["root"]) / ".work" / "train" / _d9["key"]
+_wd9.mkdir(parents=True, exist_ok=True)
+_ma9 = (_d9["members"] or {}).get("a") or {}
+(_wd9 / "decider-replay.json").write_text(json.dumps({"pass": 1, "against": (_d9.get("decider") or {}).get("id"), "results": [
+    {"decider": _ma9.get("id"), "kind": "model", "place": "a", "name": _ma9.get("name"), "asked": 24, "theirsRight": 17, "nowRight": 15, "recovered": 5, "lost": 3, "failed": 0},
+    {"decider": "weak", "kind": "model", "place": "b", "name": "Weak", "asked": 24, "theirsRight": 9, "nowRight": 15, "recovered": 1, "lost": 7, "failed": 0}]}))
+_args9 = swarm_ui.ARGS
+swarm_ui.ARGS = _types.SimpleNamespace(root=str(_root9))
+_rs9 = swarm_ui.recommendations(_d9)
+_r9 = next((r for r in _rs9 if str(r["id"]).startswith("model-decides:")), None)
+_panel9 = swarm_ui.recs_panel(_d9)
+_cfg9 = swarm_ui.config_section(_d9)
+(_wd9 / "decider-replay.json").write_text(json.dumps({"pass": 1, "results": [{"decider": _ma9.get("id"), "kind": "model", "name": _ma9.get("name"), "asked": 6, "theirsRight": 6, "nowRight": 1, "recovered": 5, "lost": 0}]}))
+_few9 = [r for r in swarm_ui.recommendations(_d9) if str(r["id"]).startswith("model-decides:")]
+swarm_ui.ARGS = _args9
+shutil.rmtree(_root9, ignore_errors=True)
+check("where one of the swarm's own small models, put a pass's recorded choices as the decider, chose at least as well as the decision model on ten choices or more, the recommendations say so: which model, the counts, that the choices are rebuilt and a pass would tell, that training tries it itself, and what the swarm would not need; the best such model only, never one that chose worse or one put fewer than ten choices; it has no button, and the count beside Configuration includes it, so it can be opened",
+      _r9 is not None and _r9["apply"] is None and _r9["n"] == 24 and "chooses better than" in _r9["title"] and (_ma9.get("name") or "") in _r9["title"]
+      and "17 times against" in _r9["why"] and "recovered 5 and lost 3" in _r9["why"] and "a model decides in place of the decider" in _r9["why"] and "would not need the decision model" in _r9["cost"]
+      and len([r for r in _rs9 if str(r["id"]).startswith("model-decides:")]) == 1 and "Weak" not in _panel9
+      and "What training does about it itself" in _panel9 and 'id="rec-open"' in _cfg9 and _few9 == [],
+      [_r9, _cfg9[:200]])
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

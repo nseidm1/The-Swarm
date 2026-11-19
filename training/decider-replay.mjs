@@ -7,6 +7,10 @@
 // the decider in use was asked, not the same request word for word: this says which decider is worth a real pass, not that one is better.
 //   node training/decider-replay.mjs --at http://127.0.0.1:8012 [--name startlux-4b]
 //   node training/decider-replay.mjs --start startlux-4b          start it here (training/decider.sh), replay, stop it
+//   node training/decider-replay.mjs --members                    EACH SMALL MODEL OF THE SWARM AS THE DECIDER: put the same choices,
+//        told what a model that decides is told (orchestrate.mjs JUDGE_BRIEF). One that chooses as well as the decision model is
+//        a swarm that needs no decision model, a third of its memory; the trainer can then try it (a model decides in place
+//        of the decider). May be given with --installed
 //   node training/decider-replay.mjs --installed                  every other decider whose weights are already here
 // Written to .work/train/<configuration>/decider-replay.json, and shown on the page.
 import fs from 'node:fs';
@@ -18,6 +22,8 @@ import { deciderAt } from '../src/decider.mjs';
 import { lastTrainRows } from './replay.mjs';
 import { readState } from './state.mjs';
 import { freePort } from './support/recover.mjs';
+import { JUDGE_BRIEF } from '../src/orchestrate.mjs';
+import { letterOf, MARKER } from '../src/read.mjs';
 
 export const REPLAY_FILE = path.join(WORKC, 'decider-replay.json');
 const LETTERS = 'ABCDEFGH';
@@ -43,6 +49,30 @@ export function choicesOf(row) {
       .map((g, i) => ({ letter: LETTERS[i], final: g.final, work: g.work, same: g.same })),
     checks: (row.trace || []).filter((t) => t.stage === 'check' && t.out).map((t) => String(t.out).slice(0, 400)),
     nowRight: decide.same === true,
+  };
+}
+// A SMALL MODEL AS THE DECIDER: -> a decide function (what replayWith puts each choice to) that shows the model the question and
+// the answers as a model that decides is shown them, and reads the letter it names. ask(messages) -> { text }
+export function modelDecider(ask, { marker = MARKER } = {}) {
+  return async ({ question, answers, checks = [] }) => {
+    const sheet =
+      'The question:\n' +
+      question +
+      '\n\n' +
+      answers
+        .map((a) => 'Answer ' + a.letter + ':\n' + (a.work ? a.work + '\n' : '') + 'Its final answer: ' + a.final)
+        .join('\n\n') +
+      (checks.length ? '\n\nWhat those who checked them said:\n' + checks.join('\n') : '');
+    try {
+      const r = await ask([
+        { role: 'system', content: JUDGE_BRIEF.replace('ANSWER:', marker) },
+        { role: 'user', content: sheet },
+      ]);
+      const letter = letterOf(String((r && r.text) || ''), marker, LETTERS);
+      return letter && answers.some((a) => a.letter === letter) ? { ok: true, letter } : { ok: false };
+    } catch {
+      return { ok: false };
+    }
   };
 }
 export async function replayWith(decide, rows) {
@@ -125,7 +155,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     }
     runs.push({ name: id, base: s.base, stop: s.stop });
   }
-  if (!runs.length) {
+  if (!runs.length && !has('members')) {
     console.log(
       has('installed')
         ? 'No other decider has its weights on this machine: nothing to replay.'
@@ -158,6 +188,40 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       );
     } finally {
       if (r.stop) r.stop();
+    }
+  }
+  // EACH SMALL MODEL OF THE SWARM, AS THE DECIDER (--members): one at a time, on a server of its own
+  if (has('members')) {
+    const { MEMBERS } = await import('../src/catalog.mjs');
+    const { openAlone } = await import('./support/bench.mjs');
+    for (const [place, m] of Object.entries(MEMBERS)) {
+      let model = null;
+      try {
+        model = await openAlone(place);
+        const res = await replayWith(modelDecider(model.ask), rows);
+        out.results.push({ decider: m.id, kind: 'model', place, name: m.name, ...res });
+        console.log(
+          m.name +
+            ", a small model of the swarm, as the decider: chose the larger model's answer " +
+            res.theirsRight +
+            ' times of ' +
+            res.asked +
+            ' (' +
+            DECIDER.name +
+            ': ' +
+            res.nowRight +
+            '); recovered ' +
+            res.recovered +
+            ', lost ' +
+            res.lost +
+            (res.failed ? ', named no answer ' + res.failed + ' times' : '') +
+            '.',
+        );
+      } catch (e) {
+        console.log(m.name + ' could not be asked: ' + String((e && e.message) || e).slice(0, 120));
+      } finally {
+        if (model) await model.stop();
+      }
     }
   }
   fs.mkdirSync(WORKC, { recursive: true });

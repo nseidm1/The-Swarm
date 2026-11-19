@@ -577,6 +577,9 @@ export async function answer(
       //                probability for that answer, and the highest stands
       //   'if-at-odds' asked only where the decider's pick is not the answer most slots hold; it chooses between the two, and its
       //                word settles it
+      //   'alone'      IN PLACE OF THE DECIDER: the slot is shown every different answer and its word settles it; the decider is
+      //                not asked for this decision at all. A swarm whose every decision is made so needs no decision model, which
+      //                is a third of its memory (measured 2026-11-19: Kev 0.8B held 3.1 GB of a swarm of 7)
       // Not for a decision that narrows ({ keep }) or settles early ({ sure }). Where the slot names nothing, the decider's word
       // stands as it would have.
       const withModel = !step.keep && !step.sure && by !== 'most' && plan.decideWith && plan.decideWith.how;
@@ -655,7 +658,8 @@ export async function answer(
       }
       const together = withModel && plan.decideWith.how === 'together' && decide && table.length > 1;
       const judged = together ? judgeAmong(table) : null;
-      if (decide && table.length > 1 && by !== 'most') {
+      const alone = withModel && plan.decideWith.how === 'alone';
+      if (decide && table.length > 1 && by !== 'most' && !alone) {
         onStart({ slot: 'decide', member: 'decider', stage: 'decide' });
         const k = await decide({
           question,
@@ -734,6 +738,9 @@ export async function answer(
             said = 'With the model beside it (' + word.letter + ', +' + w + '): ' + best.letter + '.';
             word = best;
           }
+        } else if (how === 'alone') {
+          word = await judgeAmong(table);
+          if (word) trace[trace.length - 1].alone = true;
         } else if (how === 'if-close' && (!ruled || !ruled.ok || ruled.close || top < (plan.decideMin ?? 0.6))) {
           // between the decider's two likeliest (all of them where it gave no probabilities)
           const cands = Object.keys(probs).length
