@@ -8,7 +8,8 @@ The first version.
 
 - **The list of models says what serves each** (2026-11-20): llama.cpp for every small model, its own engine for a larger
   one, on the pill of the one chosen and beside each in the list. Where another engine's maker lists a model too, the list
-  says so (TensorFold lists Qwen3.5 2B): the swarm does not serve a small model through it. `src/models.json` `engine`,
+  says so (TensorFold lists Qwen3.5 2B, and served LFM3 1.7B when it was tried here; it refuses LFM2.5 1.2B and 2.6B): the
+  swarm does not serve a small model through it. `src/models.json` `engine`,
   `alsoOn`.
 - **IFEval is listed under Instructions, and "The Crew" is "Programming and its conversation"** (2026-11-20). The Evaluate
   card showed "The Crew" over one test of following instructions. That test now sits under Instructions, the body of work

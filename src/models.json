@@ -29,7 +29,7 @@
       }
     }
   },
-  "enginesAbout": "engine: what serves a model here. Every small model is a GGUF file served by llama.cpp (engine \"llama\"); a larger model names its own. alsoOn: another engine whose maker lists the model among those it serves, with the repository it names (read from TensorFold's README, 2026-11-20). The swarm does not serve a small model through it: it is said so that a person knows, not chosen.",
+  "enginesAbout": "engine: what serves a model here. Every small model is a GGUF file served by llama.cpp (engine \"llama\"); a larger model names its own. alsoOn: another engine whose maker lists the model among those it serves, with the repository it names (Qwen3.5 2B: read from TensorFold's README, 2026-11-20; LFM3 1.7B: served and asked here with TensorFold 1.3.1, 2026-11-20. LFM2.5 1.2B and 2.6B are refused by it: no backend for lfm2 checkpoints). The swarm does not serve a small model through it: it is said so that a person knows, not chosen.",
   "small": [
     {
       "id": "lfm25-2.6b",
@@ -305,6 +305,7 @@
       "name": "LFM3 1.7B",
       "by": "Liquid AI",
       "engine": "llama",
+      "alsoOn": { "tensorfold": "LiquidAI/LFM3-1.7B-MLX-4bit" },
       "params": 1.7,
       "repo": "LiquidAI/LFM3-1.7B-GGUF",
       "rev": "cd0c74c575b5c416f3011b5b4c298077f26ca8c2",

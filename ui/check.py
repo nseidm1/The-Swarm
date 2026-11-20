@@ -1735,7 +1735,7 @@ _p12 = swarm_ui.pills(_d12)
 _small12 = _d12["registry"]["small"]
 _a12 = _d12["members"]["a"]
 check("what serves a model is said beside it: every small model of the catalog names its engine, and in the list each one that is not the one chosen says it after its size, with any other engine whose maker lists it too; the pill of the one chosen says it beside its size and in its title; the larger model's says its own engine; a decision model's does not (it is served as its recipe says)",
-      all(m.get("engine") == "llama" for m in _small12) and [m["id"] for m in _small12 if m.get("alsoOn")] == ["qwen35-2b"]
+      all(m.get("engine") == "llama" for m in _small12) and sorted(m["id"] for m in _small12 if m.get("alsoOn")) == ["lfm3-1.7b", "qwen35-2b"]
       and re.search(r'<option value="qwen35-2b"[^>]*>Qwen3\.5 2B · [\d.]+ GB · llama\.cpp \(TensorFold lists it too\)</option>', _p12) is not None
       and re.search(r'<option value="jan-code-4b"[^>]*>Jan-Code 4B · [\d.]+ GB · llama\.cpp</option>', _p12) is not None
       and ('title="Small model 1: %s' % _a12["name"]) in _p12 and ", served by llama.cpp" in _p12 and re.search(r"<i>[\d.]+ GB · llama\.cpp</i>", _p12) is not None
