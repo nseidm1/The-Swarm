@@ -153,6 +153,7 @@ Each result:
 | `tools` | where the test offers tools: what each model was offered, in words. Absent where it offers none |
 | `askedOn` | where the answers depend on the day (a search of the live web): the day, `YYYY-MM-DD`, on which both models were asked |
 | `search` | where the test's tools search: the search service that stood behind them, the same for both models. `{ service }`, and where known `revision` (of the service's program), `where` (it ran), `engines` (that answered), `kept` (what of its answers was kept and given to both), `queries`, `pages`, `pageChars` (where a fetched page was cut before it was given: at how many characters, the same for both), `resultsMost` (where a search gave at most so many results, the same for both) |
+| `unread` | where the harness reads an answer out of a reply: `{ target, swarm }`, how many of each one's replies reached it empty or gave it no answer to read. A result with many unread on either side compares how replies were read, not the two models, and MUST be shown as such |
 | `targetAsked`, `targetWays` | where the target was asked more than one way (below): the way it is counted by on this capability, `"tools"`, `"written"` or `"after"`, and its `{ value, stderr }` on this task by each |
 | `proof` | boolean (the rule below) |
 | `at`, `runId` | when it was measured |
@@ -1426,7 +1427,36 @@ If decided is non-empty, there are writers, and neither AS-IS nor PASS-OVER hold
 #### O.8.5 Path suffix order
 
 Suffixes are appended in this order when they apply: `+narrowed`, `+as-settled`, `+full`, `+trimmed`,
-`+rewritten`, `+described`, `+tool-call`, `+code-restored`, `+picked`, `+unwritten`.
+`+rewritten`, `+described`, `+tool-call`, `+code-restored`, `+picked`, `+unwritten`, `+closed`.
+
+#### O.8.7 The reply closes as the earlier replies do
+
+After O.8.6, when `plan.closeAs` is `shown`, the reply is non-empty, decided is non-empty and "is code" does not hold:
+
+1. Take the last sentence of each earlier message of the conversation whose role is `assistant` and whose content is
+   non-empty text (a sentence ends at `.`, `!` or `?` followed by white space, or at a line break). With fewer than two
+   such messages there is no FORM and nothing is done.
+2. LEAD is the longest run of leading words that every one of those sentences begins with, leaving each at least one
+   word more. With fewer than two words in LEAD there is no FORM. TAIL is the last character of the sentences where
+   every one ends with the same one of `.`, `!`, `?`; otherwise empty. Each sentence's ANSWER is what lies between
+   LEAD and TAIL; where one is empty or longer than 200 characters there is no FORM. BRACKET holds when every ANSWER
+   is one letter in round brackets.
+3. A is decided, trimmed, without trailing full stops; where it holds a line break nothing is done. Where BRACKET
+   holds and A begins with a letter, bracketed or not, that stands alone, A becomes that letter, upper case, in round
+   brackets. Where BRACKET holds and A does not begin so, A becomes the bracketed letter of the one option of the
+   question whose words are A (an option is a line of the question that begins with one letter in round brackets;
+   words are compared in lower case with every run of characters other than letters and digits as one space); where
+   no option's words are A, or more than one's are, nothing more is done by this section. CLOSE is
+   `LEAD + " " + A + TAIL`.
+4. Lines at the head of the reply are removed while each is empty, or is a line of the question (both with every run
+   of white space as one space, trimmed), or is one of the question's LABELS and a colon and nothing more. A LABEL is
+   one to twelve letters with which a line of the question begins before a colon. Where the first line left begins
+   with a LABEL, a colon and white space, those are removed from it. Where no line would be left, nothing is removed.
+5. Where none of those earlier messages holds an empty line (a line break, then only spaces or tabs, then a line
+   break), the reply is trimmed and each run of empty lines in it becomes one line break.
+6. Where the reply already ends with CLOSE (ignoring case) it stands. Where its last sentence begins with LEAD
+   (ignoring case), that sentence is replaced by CLOSE. Otherwise CLOSE is added after the reply and one space.
+7. Where the reply changed, `+closed` is appended to path.
 
 #### O.8.6 Nothing written
 
@@ -1544,6 +1574,7 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | field | type | default | effect |
 |---|---|---|---|
 | `keepTurns` | integer | 6 | turns kept (top-level plan only; falsy means 6) |
+| `closeAs` | text | none | `shown`: the reply ends with the form the conversation's earlier replies close with, around what was settled (O.8.7) |
 | `byBehaviour` | boolean | true | `false` turns off probe, try and everything that depends on tried |
 | `agreeSkipsChecks` | boolean | true | `false` stops dispute steps being passed over when settled |
 | `onePerAnswer` | boolean | false | sheet shows one row per distinct answer even when not tried |

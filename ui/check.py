@@ -325,7 +325,7 @@ with tempfile.TemporaryDirectory() as tmp:
         "refused": e_no == 400 and "every body of work" in e_why and "equivalence" not in json.loads(cfg_was) and get(base + "/fragment/equiv")[0] == 404,
         "leftover": asked_old == eq_all["asked"] and t_ok == 200 and "equivalence" not in cfg_after and cfg_after["tools"] == "swarm",
         "asked": "chosen" not in eq_all and eq_all["asked"] == data.bodies_asked(tg, data.load(root)["state"]) == [t["id"] for t in tg] and len(tg) == 8
-                 and "A pass asks every body of work: <b>28</b> kinds of question" in swarm_ui.main_body(data.load(root)),
+                 and "A pass asks every body of work: <b>33</b> kinds of question" in swarm_ui.main_body(data.load(root)),
         "record": data.bodies_asked(tg, {"kinds": next(t["kinds"] for t in tg if t["id"] == "crew"), "history": [{"pass": 1}]}) == ["crew", "code"]
                   and data.bodies_asked(tg, {"history": [{"pass": 1}]}) == ["code"] and data.bodies_asked(tg, {"kinds": ["chain"]}) == [] and data.bodies_asked(tg, {}) == [t["id"] for t in tg],
         # (and a SwOA says what its training asked from the questions of the pass in hand, where it has asked any)
@@ -1272,7 +1272,7 @@ check("the faces draw the class's own arrangement: a try on a words question is 
 _qt = swarm_ui.question_track(_d)
 _css = swarm_ui.CSS
 check("every state a question can be in has a pip of its own (no two states share a look), its name on the pip's tooltip, and its line in the key drawn by the same class: at parity, brought to parity, not reached, in hand, back in hand after a swap, set aside, set aside because the larger model's answer is wrong, and not compared",
-      len(set(swarm_ui.PIP.values())) == len(swarm_ui.PIP) and set(swarm_ui.PIP.values()) | {"cur"} == set(swarm_ui.PIP_WORDS)
+      len(set(swarm_ui.PIP.values())) == len(swarm_ui.PIP) and set(swarm_ui.PIP.values()) | {"cur", "pe"} == set(swarm_ui.PIP_WORDS)
       and all(('<i class="pk %s"></i>' % k) in _qt and swarm_ui.e(w) in _qt for k, w in swarm_ui.PIP_WORDS.items())
       and all((".qkey i.%s" % k) in _css for k in swarm_ui.PIP_WORDS) and "x.w?x.w+' · ':''" in swarm_ui.JS,
       [k for k in swarm_ui.PIP_WORDS if ('<i class="pk %s"></i>' % k) not in _qt])
@@ -1689,6 +1689,7 @@ def _row11(task, item, sw, tg, n=20):
 _d11 = {"key": "k", "target": {"name": "Big"}, "members": {}, "equivalence": {"asked": ["math", "code"], "targets": [
     {"id": "math", "name": "Math", "kinds": ["chain"], "benchmarks": [{"task": "gsm", "name": "GSM", "metric": "exact_match", "compare": "answer"}]}, {"id": "code", "name": "Code", "kinds": ["fix"], "benchmarks": [{"task": "he", "name": "HE", "metric": "pass@1", "compare": "verdict"}]}]}}
 _full11 = {"at": "2026-11-19T10:00:00Z", "configuration": "k", "adapters": [], "limit": 20, "target": "Big", "results": [_row11("gsm", "math", 8, 16), _row11("he", "code", 15, 10)]}
+_full11["results"][0]["unread"] = {"target": 0, "swarm": 9}
 _narrow11 = {"at": "2026-11-19T12:00:00Z", "configuration": "k", "adapters": [], "limit": 20, "target": "Big", "results": [_row11("gsm", "math", 12, 16)]}
 _other11 = {"at": "2026-11-19T11:00:00Z", "configuration": "other", "adapters": [], "limit": 20, "target": "Big", "results": [_row11("he", "code", 1, 10)]}
 _keep11, _args11 = swarm_ui._eval_rows, swarm_ui.ARGS
@@ -1697,6 +1698,7 @@ _d11["root"] = swarm_ui.ARGS.root
 swarm_ui._eval_rows = lambda root: [_full11]
 _v_full = swarm_ui.eval_view(swarm_ui.ARGS.root, _d11)
 _blk_full = swarm_ui.eval_block(_d11)
+_tab_full = swarm_ui.eval_table(_d11)
 _pre_full = swarm_ui.pretrain_block(_d11)
 swarm_ui._eval_rows = lambda root: [_full11, _other11, _narrow11]
 _v11 = swarm_ui.eval_view(swarm_ui.ARGS.root, _d11)
@@ -1707,21 +1709,71 @@ _v_level = swarm_ui.eval_view(swarm_ui.ARGS.root, _d11)
 _blk_level = swarm_ui.eval_block(_d11)
 swarm_ui._eval_rows, swarm_ui.ARGS = _keep11, _args11
 check("a second look asks only the bodies of work where the swarm scored under the larger model, from its own button that says which and why; what it did not ask again keeps the earlier evaluation's figures of "
-      "this configuration (never another's), marked and counted in the headline as from before; what it asked has its share before beside it in the table; with nothing short there is no button; and Pretrain "
-      "is aimed at the same bodies of work unless its box is unticked",
-      _v_full["short"] == ["math"] and _v_full["carried"] == 0 and 'id="ev-narrow" type="button" data-items="math"' in _blk_full and "Asks only Math again" in _blk_full
-      and 'id="pre-aim" data-items="math" checked' in _pre_full and "Aim it at Math" in _pre_full
+      "this configuration (never another's), marked and counted in the headline as from before; what it asked has its share before beside it in the table; with nothing short there is no button; and Pretrain is no longer aimed by it",
+      _v_full["short"] == ["math"] and _v_full["carried"] == 0 and "Not read by the harness: 9 of the swarm&#39;s replies, 0 of Big&#39;s, of 20" in _blk_full and 'class="evt-unread"' in _tab_full
+      and "A task marked unread" in _tab_full and 'class="evt-unread"' not in _tab11 and 'id="ev-narrow" type="button" data-items="math"' in _blk_full and "Asks only Math again" in _blk_full
+      and 'id="pre-aim"' not in _pre_full
       and _v11["by_task"]["he"]["carried"]["at"] == _full11["at"] and _v11["by_task"]["he"]["swarm"]["value"] == 0.75 and _v11["carried"] == 20
       and _v11["by_task"]["gsm"]["before"]["swarm"]["value"] == 0.4 and "carried" not in _v11["by_task"]["gsm"] and _v11["short"] == ["math"]
       and "· 20 from before ·" in _blk11 and "Not asked again: from the evaluation of 2026-11-19 10:00" in _blk11 and "Before (2026-11-19 10:00): the swarm 40%" in _blk11
       and '<th class="num">Share before</th>' in _tab11 and '<td class="num">50% <i class="up">up</i></td>' in _tab11 and 'class="evt-task evt-old"' in _tab11 and 'title="Not asked again">–</td>' in _tab11
       and '<tr class="evt-all"><th scope="row">Every question</th><td class="num">67.5%</td><td class="num">65%</td><td class="num"><b class="up">103.8%</b></td><td class="num">88.4% <i class="up">up</i></td>' in _tab11
       and _v_level["short"] == [] and 'id="ev-narrow"' not in _blk_level and swarm_ui._and(["a", "b", "c"]) == "a, b and c"
-      and "b.id==='ev-narrow'" in swarm_ui.JS and "a&&a.checked?{items:a.dataset.items.split(',')}:{}" in swarm_ui.JS,
+      and "b.id==='ev-narrow'" in swarm_ui.JS and "a&&a.checked?{kinds:a.dataset.kinds.split(',')}:{}" in swarm_ui.JS,
       [_v_full["short"], _v11["carried"], _v11["short"], _v_level["short"], [x for x in _tab11.split("<tr") if "evt-all" in x]])
 
 check("the table of the module beside the larger model, by family, fits a phone: its headings may wrap, a family's name breaks between words and not letter by letter, and under 760 px the columns share the width",
       ".fams table.spec th{white-space:normal}.fams table.spec td:first-child{overflow-wrap:break-word;word-break:normal}" in swarm_ui.CSS and ".fams table.spec{table-layout:fixed" in swarm_ui.CSS)
+
+# ---- PRETRAIN IS AIMED BY THE CLASS STAGE, AND ITS ADAPTERS ARE JUDGED: the kinds no slot had the answer to; the verdict on the card
+_r14 = Path(tempfile.mkdtemp())
+(_r14 / "training" / "results" / "k14").mkdir(parents=True)
+_d14 = {"root": str(_r14), "key": "k14"}
+_aim_none = swarm_ui.pretrain_aim(_d14)
+(_r14 / "training" / "results" / "k14" / "classes.json").write_text(json.dumps({"classes": {
+    "talk": {"asItStands": {"kinds": {"lies": {"n": 4, "anySlot": 4}, "date": {"n": 4, "anySlot": 2}}}},
+    "words": {"asItStands": {"kinds": {"date": {"n": 4, "anySlot": 3}, "dyck": {"n": 4, "anySlot": 0}, "one": {"n": 1, "anySlot": 0}}}}}}))
+_aim14 = swarm_ui.pretrain_aim(_d14)
+(_r14 / "training" / "results" / "k14" / "classes.json").write_text(json.dumps({"classes": {"talk": {"asItStands": {"kinds": {"lies": {"n": 4, "anySlot": 4}}}}}}))
+_aim_full = swarm_ui.pretrain_aim(_d14)
+shutil.rmtree(_r14, ignore_errors=True)
+check("Pretrain is aimed by what the class stage measured and by nothing of a benchmark: the kinds of question on a quarter or more of which no slot had a good answer, the furthest short first; with every kind "
+      "covered there is nothing to aim at and the card says why; the press sends those kinds; and the card says how the adapters were judged on held questions and whether they are served",
+      _aim_none == ([], False) and _aim14 == (["dyck", "date"], True) and _aim_full == ([], True)
+      and "kinds:a.dataset.kinds.split(',')" in swarm_ui.JS and '"--kinds"' in open(swarm_ui.__file__).read() and "Nothing to aim at" in open(swarm_ui.__file__).read()
+      and "<b>Judged</b>" in open(swarm_ui.__file__).read() and "eval_view(root, d)" not in open(swarm_ui.__file__).read().split("def pretrain_block")[1].split("\ndef ")[0],
+      [_aim_none, _aim14, _aim_full])
+
+# ---- EVERY QUESTION OF THE PASS HAS A PIP: the ones not asked yet too, with their line in the key
+_qt13 = swarm_ui.question_track({"root": tempfile.gettempdir(), "key": "none13", "loop": {"pass": 1, "of": 6, "list": [{"id": "q1", "kind": "chain", "state": "at parity"}, {"id": "q2", "kind": "fix", "state": "not reached"}]}})
+check("every question of a pass has a pip, the ones not asked yet among them, and the key has a line for that look as for every other; the page's script paints the same and keeps the heading the card gave",
+      _qt13.count('<i class="pe" title="not asked yet"></i>') == 4 and '<i class="pk pe"></i>not asked yet' in _qt13 and _qt13.count('<i class="at"') == 1
+      and "i.className='pe'" in swarm_ui.JS and ".pips i.pe,.qkey i.pe{" in swarm_ui.CSS and "qh.querySelector('b')" in swarm_ui.JS
+      and all(".qkey i.%s{" % k in swarm_ui.CSS or ".qkey i.%s," % k in swarm_ui.CSS or ",.qkey i.%s{" % k in swarm_ui.CSS for k in swarm_ui.PIP_WORDS),
+      [_qt13.count('class="pe"'), [k for k in swarm_ui.PIP_WORDS if ".qkey i.%s" % k not in swarm_ui.CSS]])
+
+# ---- EACH CLASS OF INPUT, TRAINED AS A CLASS: the Train card says how each class stood, what was tried and what was kept
+_r12 = Path(tempfile.mkdtemp())
+(_r12 / "training" / "results" / "k12").mkdir(parents=True)
+_none12 = swarm_ui.classes_block({"root": str(_r12), "key": "k12"})
+(_r12 / "training" / "results" / "k12" / "classes.json").write_text(json.dumps({"at": "2026-11-20T03:00:00Z", "done": "2026-11-20T03:40:00Z", "classes": {
+    "talk": {"train": 24, "held": 24, "kinds": ["chain", "lies"], "asItStands": {"n": 24, "anySlot": 23, "settled": 20, "counted": 1, "unread": 19},
+             "rounds": [{"candidates": [{"name": "plan: the reply closes as the earlier replies do", "counted": 20, "n": 24, "gain": 0.79, "error": 0.08}, {"name": "plan: decide by most", "counted": 1, "n": 24, "gain": 0, "error": 0}],
+                         "best": "plan: the reply closes as the earlier replies do", "kept": True,
+                         "held": {"asItStood": {"n": 24, "counted": 0}, "with": {"n": 24, "counted": 19}, "gain": 0.792, "error": 0.085}}],
+             "kept": ["plan: the reply closes as the earlier replies do"], "after": {"n": 24, "counted": 20}},
+    "tools": {"skipped": "fewer than four questions of this class carry a standard of their own", "train": 2, "held": 2},
+    "code": {"train": 24, "held": 24, "kinds": ["fix"]}}}))
+_cls12 = swarm_ui.classes_block({"root": str(_r12), "key": "k12"})
+shutil.rmtree(_r12, ignore_errors=True)
+check("the Train card says, for each class of input a pass trained as a class, how it stood in three figures (some slot had it, settled on it, reply good as read, with the replies no answer was read in), "
+      "how many arrangements were tried and what was kept, and why by the held questions; a class with too few questions says so, one still being asked says so, and before the stage there is nothing",
+      _none12 == "" and "First, each class of input as a class (3) 2026-11-20 03:40 UTC" in _cls12 and "n.trainer==='classes'" in swarm_ui.JS and "swap('/fragment/classes','#classes-wrap')" in swarm_ui.JS
+      and "<td>23 of 24</td><td>20 of 24</td><td>1 of 24 <span class='muted'>(19 unread)</span></td><td>2</td><td><b>the reply closes as the earlier replies do</b>" in _cls12
+      and "now 20 of 24" in _cls12 and "was kept: better on the held questions (19 of 24, where it stood at 0; +79.2 points, paired error 8.5)" in _cls12
+      and "Not trained as a class: fewer than four questions" in _cls12 and "Being asked as it stands: 24 train questions" in _cls12
+      and swarm_ui.step_label("08-classes") == "Each class of input, trained as a class" and "Logic: who tells the truth" in swarm_ui.KIND_WORDS["lies"],
+      [_none12, _cls12[:400]])
 
 # ---- A CARD'S CONTROLS STAY IN THEIR COLUMN: a chooser is no wider than the column, whatever its longest choice
 check("the controls of a card's head stay inside the third column (a chooser as wide as its longest choice lay over the description beside it): they take the column's width and no more, a choice that does not fit cut short with an ellipsis; and the four cards keep the same three columns",

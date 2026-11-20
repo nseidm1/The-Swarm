@@ -69,7 +69,9 @@ export const HARNESS = 'lm-evaluation-harness 0.4.13';
 // (the same, as a SwOA spec's proof names a harness: docs/swoa.md)
 export const HARNESS_ID = { name: 'lm-evaluation-harness', version: '0.4.13' };
 // (bumped when what is done around the harness changes, so that kept answers of the larger model are not reused across it)
-const RELAY_VERSION = 1;
+// 2 (2026-11-20): a task's stop words are no longer sent to a model whose reply opening was taken off (relay, below). The larger
+// model's kept answers to HumanEval were its import line and nothing more.
+const RELAY_VERSION = 2;
 
 // the tasks to run, of the bodies of work named: [{ item, itemName, task, name, metric, filter, compare }]
 // (every body of work that has a standard task, unless a run names which: --items, or the page's Evaluate)
@@ -203,7 +205,12 @@ export function relay(ask, on = {}) {
         const user = [...messages].reverse().find((m) => m.role === 'user');
         const t0 = Date.now();
         (on.ask || (() => {}))({ excerpt: String((user && user.content) || '').slice(-600) });
-        const reply = await ask(messages, body);
+        // WHERE THE TASK'S OPENING OF THE REPLY WAS TAKEN OFF, ITS STOP WORDS ARE NOT SENT TO THE MODEL: they say where a reply
+        // that CONTINUES that opening ends (HumanEval: at the next "def", the function's header being already written). A model
+        // asked without the opening writes the header itself and would be stopped at it, before the function (measured
+        // 2026-11-20: the larger model's replies were "from typing import List" and nothing more, 0 of 20, twice). The reply
+        // is still cut where the task says, below, once what continues the opening has been taken from it.
+        const reply = await ask(messages, prefill ? { ...body, stop: undefined } : body);
         const text = cutAt(continuation(prefill, reply), body.stop);
         (on.answer || (() => {}))({ excerpt: String(reply).slice(0, 600), seconds: (Date.now() - t0) / 1000 });
         send(200, {
@@ -271,6 +278,29 @@ export function filesOf(dir, task) {
   const results = pick(/^results_.*\.json$/);
   const samples = pick(new RegExp('^samples_' + task.replace(/[^\w]/g, '\\$&') + '_.*\\.jsonl$'));
   return results && samples ? { results, samples } : null;
+}
+
+// HOW MANY REPLIES THE HARNESS COULD NOT READ, from its samples file: a reply that reached it empty, or from which its filter
+// took no answer ("[invalid]"). A score says how many were right; this says how many were never read as an answer at all, which
+// is a fault of form (or of how the model was asked), not of what it knew. Measured 2026-11-19: on a test of truth chains 17 of
+// the swarm's 20 replies reasoned to the right answer and were not read; and the larger model's 20 replies to HumanEval were
+// its import line, cut where the task stops a reply. Either way the comparison was of reading, not of the two models.
+//   unreadIn(samplesFile, filter) -> a count, or null where the file cannot be read
+export function unreadIn(samplesFile, filter) {
+  try {
+    const rows = fs
+      .readFileSync(samplesFile, 'utf8')
+      .split('\n')
+      .filter((l) => l.trim())
+      .map((l) => JSON.parse(l))
+      .filter((r) => !filter || r.filter === undefined || r.filter === filter);
+    return rows.filter((r) => {
+      const reply = (r.resps || []).flat().join('');
+      return !String(reply).trim() || JSON.stringify(r.filtered_resps ?? '').includes('[invalid]');
+    }).length;
+  } catch {
+    return null;
+  }
 }
 
 // the harness's score for one task, from its results file: { value, stderr, n, of }
@@ -811,6 +841,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       target: scoreOf(tf.results, b),
       swarm: scoreOf(sf.results, b),
       agree,
+      // (how many of each one's replies the harness could not read as an answer: unreadIn)
+      unread: { target: unreadIn(tf.samples, b.filter), swarm: unreadIn(sf.samples, b.filter) },
       ...(agree ? {} : { failed: 'the answers could not be compared: ' + String(a.stderr).trim().split('\n').pop() }),
     };
     row.agree = agree;

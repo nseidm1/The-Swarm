@@ -3,7 +3,22 @@
   "questions": {
     "each": 6,
     "shortMore": 2,
-    "about": "How many questions of each kind a pass asks: its train questions, taken one at a time, and its held questions, which measure it. EACH, or --each, names another number for one run. shortMore: how many more train questions of each kind the next pass asks where the proof found the swarm short on the capability that kind belongs to (training/support/emphasis.mjs; 0: the proof is not read). It is added to what the pass's own held questions ask more of (two for each one missed), to at most six more of a kind in all. Only a capability's verdict is read from the proof, never a question of the harness."
+    "shown": 2,
+    "about": "How many questions of each kind a pass asks: its train questions, taken one at a time, and its held questions, which measure it. EACH, or --each, names another number for one run. shortMore: how many more train questions of each kind the next pass asks where the proof found the swarm short on the capability that kind belongs to (training/support/emphasis.mjs; 0: the proof is not read). It is added to what the pass's own held questions ask more of (two for each one missed), to at most six more of a kind in all. Only a capability's verdict is read from the proof, never a question of the harness. shown: how many further questions of each kind that carries an answer of its own are also put as a standard test puts a question, with worked examples as earlier turns (training/tasks.mjs): they reach the module as a conversation, the class of input most standard tests arrive as."
+  },
+  "classes": {
+    "sample": 24,
+    "tries": 6,
+    "rounds": 2,
+    "moves": [
+      "the reply closes as the earlier replies do",
+      "^plan: decide by most$",
+      "^plan: decide by decider-unless-majority$",
+      "answers by a program",
+      "^plan: onePerAnswer true$",
+      "a model decides in place of the decider"
+    ],
+    "about": "The stage before training goes question by question (training/classes.mjs): each class of input trained as a class. sample: the most train questions, and held questions, of a class it asks, taken kind by kind in turn. tries: the most candidate arrangements a round scores on them. rounds: how often it goes again from what it kept. moves: which changes it tries, as patterns of the names training/arrange.mjs gives its moves, in the order they are tried. A candidate is kept where it is better on the held questions by more than twice its paired error and by at least loop.classMinGain."
   },
   "loop": {
     "cap": null,

@@ -57,6 +57,15 @@ export function llamaServer() {
 // what one model alone is written down as: the model, and the larger model its answers were marked against
 export const aloneLabel = (place) =>
   (String(place).startsWith('model:') ? String(place).slice(6) : MEMBERS[place].id) + '-alone-vs-' + targetOf().id;
+const shownByPolicy = () => {
+  try {
+    return (
+      Number(JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'training', 'policy.json'), 'utf8')).questions.shown) || 0
+    );
+  } catch {
+    return 0;
+  }
+};
 // the questions of this pass: made from the seeds the last pass left, with more of the kinds it found the swarm trailing on
 export const questions = (split, each = Number(arg('each', 6))) => {
   const kinds = String(arg('kinds', '')).split(',').filter(Boolean);
@@ -72,6 +81,12 @@ export const questions = (split, each = Number(arg('each', 6))) => {
       seed: state.seeds[s],
       focus: state.focus,
       tiers: state.tiers || {},
+      // how many of each kind are also put as a standard test puts a question (tasks.mjs shown): as the pass's record has it; a
+      // first pass, the trainer's policy; a pass begun before there were any, none
+      // (--shown N names another number for one run)
+      shown: has('shown')
+        ? Number(arg('shown', 0))
+        : (state.shown ?? ((state.history || []).length ? 0 : shownByPolicy())),
       // the questions a person wrote: as the pass's record has them (a pass ends on the questions it began with); a first pass
       // reads them as they are now; a pass begun before they could be written, and a run told which kinds to ask, has none
       own: kinds.length ? {} : state.own || ((state.history || []).length ? {} : readOwn()),
@@ -212,14 +227,26 @@ const checkpoints = [];
 // a trainer that has finished and written down what it found has no more use for its checkpoints
 export const finished = () => checkpoints.splice(0).forEach((c) => c.done());
 
-export async function openSwarm(briefs = readBriefs(), { seed = Number(arg('seed', 1)), reuse = false } = {}) {
+export async function openSwarm(
+  briefs = readBriefs(),
+  { seed = Number(arg('seed', 1)), reuse = false, adapters, lorasWith = null } = {},
+) {
   const attach = {};
   if (arg('attach-a')) attach.a = arg('attach-a');
   if (arg('attach-b')) attach.b = arg('attach-b');
   const decider = await deciderAddress();
   // the members' adapters, where the configuration serves them ("adapters": true; Pretrain on the page trains them)
-  const { lorasFor } = await import('../adapters.mjs');
-  const loras = lorasFor(readConfig(), MEMBERS, path.join(REPO_ROOT, '.work'), targetOf().id, modelsDir());
+  // (lorasWith: adapters.mjs's own lorasFor, handed over where adapters.mjs is the program running: a module that is still
+  // starting cannot be imported from inside itself, and the import would never return)
+  const { lorasFor } = lorasWith ? { lorasFor: lorasWith } : await import('../adapters.mjs');
+  // (adapters: true or false serves it with or without them whatever the configuration says: how the two are judged, adapters.mjs)
+  const loras = lorasFor(
+    adapters === undefined ? readConfig() : { ...readConfig(), adapters },
+    MEMBERS,
+    path.join(REPO_ROOT, '.work'),
+    targetOf().id,
+    modelsDir(),
+  );
   if (Object.keys(loras).length)
     console.log(
       'Served with adapters: ' +

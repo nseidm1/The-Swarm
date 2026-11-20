@@ -214,6 +214,116 @@ export function describedNotGiven(reply, { settled = '', draft = '' } = {}) {
 // reply may then mean theirs). A reply that is nothing but such talk is not helped by this: describedNotGiven reads it next.
 const REMARK =
   /\b(?:(?:provided|settled) (?:draft|answer)|(?:provided|given|stated|settled) in the (?:prompt|draft)|the draft (?:explicitly|correctly|provided|provides|explains|explained|states|stated|shows|showed|solved|gives|gave)|(?:this|the) (?:answer|reply|response|solution|result) (?:is|was) (?:settled|based on|derived from|a direct|formatted)|what was settled)\b/i;
+// THE FORM THE EARLIER REPLIES CLOSE WITH (plan.closeAs 'shown'; SwOA specification O.8.7). A conversation may show, in the
+// replies already given in it, how a reply is to end: each closes with the same words and then its answer ("So the answer is
+// (B)." three times over, where worked examples are given as earlier turns). A reply that works the matter out and stops short of
+// that line has the answer and is read as having none (measured 2026-11-19: on a standard test of truth chains 17 of 20 replies
+// reasoned to the end and never said "the answer is", and were counted as no answer; the larger model said it every time).
+//   closingForm(messages) -> { lead, tail, bracket } where at least two earlier replies end with a last sentence that begins with
+//                            the same two words or more and then differs; null otherwise
+//   withoutRestating(reply, question) -> the reply without the question's own lines and labels at its head
+//   laidOutAs(reply, messages)    -> the reply with no empty line in it, where the earlier replies have none
+//   closedAs(reply, decided, form) -> the reply, ending with that form around what was settled: its last sentence replaced where
+//                            it already begins as the form does, the form added where it does not
+const lastSentence = (text) => {
+  const parts = String(text || '')
+    .trim()
+    .split(/(?<=[.!?])\s+|\n+/)
+    .filter((x) => x.trim());
+  return parts.length ? parts[parts.length - 1].trim() : '';
+};
+export function closingForm(messages) {
+  const lasts = (messages || [])
+    .filter((m) => m && m.role === 'assistant' && typeof m.content === 'string' && m.content.trim())
+    .map((m) => lastSentence(m.content));
+  if (lasts.length < 2) return null;
+  const words = lasts.map((l) => l.split(/\s+/));
+  let n = 0;
+  // (the words every one begins with, leaving each at least one word of its own: its answer)
+  while (words.every((w) => w.length > n + 1 && w[n] === words[0][n])) n++;
+  if (n < 2) return null;
+  const lead = words[0].slice(0, n).join(' ');
+  const rests = lasts.map((l) => l.slice(lead.length).trim());
+  const tail = rests.every((r) => /[.!?]$/.test(r) && r.slice(-1) === rests[0].slice(-1)) ? rests[0].slice(-1) : '';
+  const answers = rests.map((r) => (tail ? r.slice(0, -1) : r).trim());
+  if (answers.some((a) => !a || a.length > 200)) return null;
+  return { lead, tail, bracket: answers.every((a) => /^\([A-Za-z]\)$/.test(a)) };
+}
+// AND IT DOES NOT OPEN BY SAYING THE QUESTION AGAIN: lines at the head of the reply that are lines of the person's message, word
+// for word, are taken off, and so is a label the message's lines begin with ("Q:", "A:") standing at the head of the reply, alone
+// on its line or before the reply's first words. The earlier replies do not open so; and a test that stops reading at such a label
+// reads nothing of a reply that begins with it (measured 2026-11-20: 8 of 20 replies to a test of arithmetic began "Q: ((-1 + 2
+// ..." and reached the harness empty; each had settled on the right number).
+export function withoutRestating(reply, question) {
+  const flat = (x) => String(x).replace(/\s+/g, ' ').trim();
+  const asked = String(question || '')
+    .split('\n')
+    .map(flat)
+    .filter(Boolean);
+  const labels = [...new Set(asked.map((l) => (l.match(/^([A-Za-z]{1,12}):/) || [])[1]).filter(Boolean))];
+  if (!asked.length) return reply;
+  const lines = String(reply || '').split('\n');
+  let i = 0;
+  while (i < lines.length) {
+    const l = flat(lines[i]);
+    if (!l || asked.includes(l) || labels.some((x) => l === x + ':')) i++;
+    else break;
+  }
+  if (i >= lines.length) return reply; // (nothing but the question: left as it is, for what follows to deal with)
+  const rest = lines.slice(i);
+  const head = labels.find((x) => new RegExp('^\\s*' + x + ':\\s+\\S').test(rest[0]));
+  if (head) rest[0] = rest[0].replace(new RegExp('^\\s*' + head + ':\\s+'), '');
+  const out = rest.join('\n');
+  return i || head ? out : reply;
+}
+// AND LAID OUT AS THEY ARE: where at least two earlier replies are shown and none of them has an empty line in it, the reply has
+// none either (each run of empty lines becomes one line break). A test that shows its examples as one block reads a reply to its
+// first empty line and no further (measured 2026-11-20: with the closing form alone, 53 of 100 replies were still read as no
+// answer; they were whole, and were cut at the first empty line between their paragraphs, before the answer).
+export function laidOutAs(reply, messages) {
+  const said = (messages || []).filter(
+    (m) => m && m.role === 'assistant' && typeof m.content === 'string' && m.content.trim(),
+  );
+  if (said.length < 2 || said.some((m) => /\n[ \t]*\n/.test(m.content.trim()))) return reply;
+  return String(reply || '')
+    .trim()
+    .replace(/[ \t]*\n(?:[ \t]*\n)+/g, '\n');
+}
+export function closedAs(reply, decided, form, question = '') {
+  let a = String(decided ?? '')
+    .trim()
+    .replace(/[.]+$/, '');
+  if (!form || !a || /\n/.test(a)) return reply;
+  if (form.bracket) {
+    // (the earlier replies answer "(B)": a settled "B", "b" or "(B) the blue book" is said that way)
+    const m = a.match(/^\(?([A-Za-z])\)?(?=[\s.:)]|$)/);
+    if (m) a = '(' + m[1].toUpperCase() + ')';
+    else {
+      // WHAT WAS SETTLED IS AN OPTION'S WORDS, NOT ITS LETTER ("Vincent" where the question lists "(C) Vincent"): it is said by
+      // the letter of the one option that reads so. Where no option does, or more than one, the reply is left as it was written:
+      // "So the answer is Vincent." is not the form the examples show (measured 2026-11-20: 14 of 20 replies on one test worked
+      // out the right option, said "The answer is (C)." and were then closed with its words and counted wrong)
+      const plain = (x) =>
+        String(x)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, ' ')
+          .trim();
+      const options = [...String(question || '').matchAll(/^\s*\(([A-Za-z])\)[ \t]*(.+?)\s*$/gm)].filter(
+        (o) => plain(o[2]) === plain(a),
+      );
+      if (options.length !== 1) return reply;
+      a = '(' + options[0][1].toUpperCase() + ')';
+    }
+  }
+  const close = form.lead + ' ' + a + form.tail;
+  const text = String(reply || '').trimEnd();
+  if (text.toLowerCase().endsWith(close.toLowerCase())) return text;
+  const last = lastSentence(text);
+  if (last && last.toLowerCase().startsWith(form.lead.toLowerCase()))
+    return text.slice(0, text.lastIndexOf(last)) + close;
+  return (text ? text + ' ' : '') + close;
+}
+
 export function withoutClosingRemark(reply, question = '') {
   const r = String(reply || '').trim();
   if (/\b(?:draft|settled)\b/i.test(String(question || ''))) return r;

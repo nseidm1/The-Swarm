@@ -117,6 +117,13 @@ export function endPass(state, { swarmRows, train, briefs, targets, now = new Da
   // the next pass asks the kinds of every body of work (equivalence.json): kept with the pass, so that it ends on the questions it
   // began with whatever is added to the list meanwhile
   next.kinds = kindsFor();
+  // (and how many of each kind it also puts as a standard test puts a question: the trainer's policy now, kept with the pass)
+  try {
+    next.shown =
+      Number(JSON.parse(fs.readFileSync(new URL('./policy.json', import.meta.url), 'utf8')).questions.shown) || 0;
+  } catch {
+    next.shown = 0;
+  }
   // and the questions a person wrote for them, as they are now: kept with the pass, so that a change made while it runs waits
   next.own = readOwn();
   // WHAT THE NEXT PASS ASKS MORE OF, from the two measurements there are, to at most six more of a kind in all:

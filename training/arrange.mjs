@@ -239,6 +239,21 @@ export function steps(b, { cap = SERVING.slots, members = [...new Set(b.slots.ma
         ),
       },
     });
+  // THE REPLY CLOSES AS THE EARLIER REPLIES DO, or as it was written (src/orchestrate.mjs: plan.closeAs)
+  out.push({
+    name:
+      (b.plan || {}).closeAs === 'shown'
+        ? 'plan: the reply closes as it was written'
+        : 'plan: the reply closes as the earlier replies do',
+    briefs: {
+      ...b,
+      plan: Object.fromEntries(
+        Object.entries({ ...b.plan, closeAs: (b.plan || {}).closeAs === 'shown' ? undefined : 'shown' }).filter(
+          ([, v]) => v !== undefined,
+        ),
+      ),
+    },
+  });
   for (const [key, dflt] of [
     ['onePerAnswer', false],
     ['agreeSkipsChecks', true],

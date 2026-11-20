@@ -1,5 +1,38 @@
 # Training the Swarm
 
+## First, each class of input as a class
+
+An arrangement belongs to a class of input: a turn with tools, a conversation, a request for code, a plain question
+(`src/orchestrate.mjs` `classOf`). So before a pass goes question by question, `training/classes.mjs` trains each class as a
+whole (step `08-classes` of a pass):
+
+1. **How it stands**, over the same questions, in three figures: on how many some slot's draft had a good answer, on how many
+   the swarm settled on one, and on how many the reply is good as it is read (with how many replies a reader finds no answer
+   in). Where answers are lost says what to change: drafting, choosing, or how the reply is written out.
+2. **Candidates**, each the class's arrangement with one thing changed: the moves `policy.json` names under `classes.moves`,
+   at most `classes.tries` a round, scored on the same train questions (at most `classes.sample`, taken kind by kind in turn).
+   Slot answers are reused between candidates, so a change to how the matter is settled or written costs no model's time.
+3. **The best**, where it beats the swarm as it stands on the train questions, is asked the held questions of the class, and so
+   is the swarm as it stands. It is kept, as any change is kept, where it is better there by more than twice its paired error
+   and by at least `loop.classMinGain`. Then again from what was kept, `classes.rounds` times.
+
+Only questions that carry a standard of their own are asked, so the larger model is not needed and the swarm can come out
+ahead of it. No benchmark's question is asked. `node training/classes.mjs --dry --out <file>` tries it and keeps nothing.
+
+**Questions in the shape a class arrives in.** Most standard tests put a question after worked examples given as earlier
+turns, which reaches the module as a conversation. `policy.json` `questions.shown` further questions of each kind that has an
+answer of its own are put that way (`training/tasks-logic.mjs` `asShown`), and are good only where the reply says the answer
+as the examples do, in its first block, as a harness reads it. A pass keeps the number it began with; a pass begun before
+there were any has none, so they come with the next pass (or with pass 1 after the training state is cleared).
+
+**When rearranging is not enough: Pretrain.** The three figures say when. Where some slot nearly always has a good answer,
+what is lost is lost in choosing or in writing out, and an adapter is the wrong tool. Where no slot has one, nothing the
+swarm drafts is right however it is settled: that is what an adapter (`training/adapters.mjs`, Pretrain on the page) may
+mend. So Pretrain is aimed at the kinds of question on a quarter or more of which no slot had a good answer (`aimOf`, read
+from `classes.json`), teaches only answers that are right by the question's own standard (`rightOnly`), and ends by judging
+what it made (`judge`): the held questions, the swarm served without its adapters and then with them, and they are served
+from then on only where the swarm is better by more than twice the paired error. Nothing of a benchmark is read.
+
 ## Training goes question by question
 
 What training aims at, and why, is in [docs/swoa-parity.md](../docs/swoa-parity.md): parity is the module scoring no worse than

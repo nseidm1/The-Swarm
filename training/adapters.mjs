@@ -12,7 +12,7 @@
 //   probe           llama.cpp's own trainer (llama-finetune), a tiny run: measured 2026-11-17 with build 12110, it cannot train any
 //                   of the three (SSM_CONV, SIGMOID have no backward pass), so MLX is the trainer
 //   trying an adapter as a change (served with --lora, kept only if it brings a question to parity and loses none): not built
-//   node training/adapters.mjs ready | train [<model file>] [--iters N] [--items math,logic]
+//   node training/adapters.mjs ready | train [<model file>] [--iters N] [--items math,logic] [--kinds lies,date] | judge
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -317,7 +317,16 @@ export function lorasFor(config, members, work, targetId, modelsDir) {
 
 // THE TRAIN QUESTIONS AN ADAPTER LEARNS FROM, where some bodies of work are named (--items): those whose kind is one of theirs.
 // None named: every one. -> { list } or { why } where a name is no body of work or the named ones have no train question
-export function aimedAt(list, items, targets) {
+export function aimedAt(list, items, targets, kinds = '') {
+  // (--kinds a,b: the questions of those kinds, named outright: what the class stage found no slot had the answer to)
+  const named = String(kinds || '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean);
+  if (named.length) {
+    const kept = list.filter((t) => named.includes(t.kind));
+    return kept.length ? { list: kept } : { why: 'no train question of the kinds ' + named.join(', ') };
+  }
   const ids = String(items || '')
     .split(',')
     .map((x) => x.trim())
@@ -325,11 +334,47 @@ export function aimedAt(list, items, targets) {
   if (!ids.length) return { list };
   const unknown = ids.filter((i) => !targets.some((t) => t.id === i));
   if (unknown.length) return { why: 'not a body of work: ' + unknown.join(', ') };
-  const kinds = new Set(targets.filter((t) => ids.includes(t.id)).flatMap((t) => t.kinds));
-  const kept = list.filter((t) => kinds.has(t.kind));
+  const theirs = new Set(targets.filter((t) => ids.includes(t.id)).flatMap((t) => t.kinds));
+  const kept = list.filter((t) => theirs.has(t.kind));
   return kept.length
     ? { list: kept }
     : { why: 'no train question of ' + ids.join(', ') + ': Train once first, whose first step asks them' };
+}
+
+// WHERE AN ADAPTER HAS SOMETHING TO TEACH, from what the class stage measured (training/classes.mjs, classes.json): the kinds of
+// question on a quarter or more of which NO slot's draft had a good answer. Rearranging cannot mend those: nothing the swarm
+// drafts is right, whichever way it is settled or written out. Where some slot nearly always has the answer the loss is in
+// choosing or in writing out, and an adapter is the wrong tool (measured 2026-11-19: on the conversations a standard test
+// arrives as, some slot had the answer on 24 of 24 and none was read; Pretrain had been aimed there by a benchmark's verdict).
+//   aimOf(record) -> [kinds], the furthest short first ([] where no class was measured, or none is short)
+export function aimOf(record) {
+  const by = {};
+  for (const c of Object.values((record || {}).classes || {}))
+    for (const [k, v] of Object.entries(((c || {}).asItStands || {}).kinds || {})) {
+      by[k] = by[k] || { n: 0, anySlot: 0 };
+      by[k].n += v.n;
+      by[k].anySlot += v.anySlot;
+    }
+  return Object.entries(by)
+    .filter(([, v]) => v.n >= 2 && (v.n - v.anySlot) * 4 >= v.n)
+    .sort((a, b) => a[1].anySlot / a[1].n - b[1].anySlot / b[1].n)
+    .map(([k]) => k);
+}
+// ONLY ANSWERS THAT ARE RIGHT ARE TAUGHT: of the questions that carry a standard of their own, those whose answer from the larger
+// model is good by it. An adapter trained on every answer learns the larger model's mistakes with the rest (measured 2026-11-19:
+// by the questions' own standard its answers were right on 82 of 114). A question with no standard of its own is taught as it was.
+//   rightOnly(list, ref) -> { list, dropped }
+export async function rightOnly(list, ref) {
+  const out = [];
+  let dropped = 0;
+  for (const t of list) {
+    const reply = ref.get ? ref.get(t.id) : ref[t.id];
+    // (a standard a program holds; one that needs a reader of answers in words is left as it is)
+    if (typeof t.good !== 'function' || ['open', 'talk'].includes(t.type) || !reply) out.push(t);
+    else if ((await t.good(String(reply))).grade === 'right') out.push(t);
+    else dropped++;
+  }
+  return { list: out, dropped };
 }
 
 // ready: whether each small model can be trained here. train [<model file>] [--iters N]: the larger model's answers to this
@@ -346,8 +391,122 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       console.log((r.ok ? 'yes  ' : 'no   ') + r.model + ': ' + r.why);
     process.exit(0);
   }
+  // JUDGED AS ANY CHANGE IS JUDGED: the held questions that carry a standard of their own (some of each kind, the same ones both
+  // times), asked of the swarm served without its adapters and then with them. The adapters are served from then on only where
+  // the swarm is better with them by more than twice the paired error and by at least the trainer's least gain; otherwise they
+  // stay on disk and are not served. Whether to serve them was a box a person ticked. Written to <adapters>/judged.json.
+  const judge = async () => {
+    const { readBriefs } = await import('../src/index.mjs');
+    const { messagesOf, ownStandard } = await import('./tasks.mjs');
+    const { sampleOf, pairedGain, worthKeeping } = await import('./classes.mjs');
+    const { CONFIG_FILE } = await import('../src/catalog.mjs');
+    const least = Number(
+      (JSON.parse(fs.readFileSync(path.join(HERE, 'policy.json'), 'utf8')).loop || {}).classMinGain || 0,
+    );
+    const dir = path.join(work, 'library', 'adapters', TARGET.id);
+    const have = models.map((m) => adapterOf(work, TARGET.id, m)).filter((r) => r && r.ok).length;
+    const say = (step) => {
+      try {
+        fs.mkdirSync(path.join(work, 'pretrain'), { recursive: true });
+        const f = path.join(work, 'pretrain', 'live.json');
+        const was = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : {};
+        fs.writeFileSync(f, JSON.stringify({ ...was, pid: process.pid, phase: 'judging', step, at: Date.now() }));
+      } catch {
+        /* the page goes without */
+      }
+    };
+    if (!have) {
+      console.log('no adapter to judge');
+      return null;
+    }
+    const held = sampleOf(
+      B.questions('held').filter((t) => ownStandard(t) && !['open', 'talk'].includes(t.type)),
+      Number(B.arg('sample', 48)),
+    );
+    const ask = async (adapters) => {
+      const swarm = await B.openSwarm(readBriefs(), { seed: 1, adapters, lorasWith: lorasFor });
+      const rows = [];
+      try {
+        for (const [i, t] of held.entries()) {
+          say(
+            'Judging the adapters on held questions: ' +
+              (adapters ? 'with them' : 'without them') +
+              ', question ' +
+              (i + 1) +
+              ' of ' +
+              held.length,
+          );
+          const got = await B.askSwarm(swarm, t, messagesOf(t));
+          rows.push({ id: t.id, kind: t.kind, counted: (await t.good(got.reply)).grade === 'right' });
+        }
+      } finally {
+        await swarm.stop();
+      }
+      return rows;
+    };
+    const without = await ask(false);
+    const withThem = await ask(true);
+    const g = pairedGain(withThem, without);
+    const served = worthKeeping(g, least);
+    const count = (rows) => rows.filter((x) => x.counted).length;
+    const kinds = {};
+    for (const [i, r] of without.entries()) {
+      const k = (kinds[r.kind] = kinds[r.kind] || { n: 0, without: 0, with: 0 });
+      k.n++;
+      k.without += r.counted ? 1 : 0;
+      k.with += withThem[i].counted ? 1 : 0;
+    }
+    const verdict = {
+      at: new Date().toISOString(),
+      questions: held.length,
+      adapters: have,
+      without: count(without),
+      with: count(withThem),
+      gain: g.gain,
+      error: g.error,
+      served,
+      kinds,
+      dry: B.has('dry'),
+    };
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'judged.json'), JSON.stringify(verdict, null, 2));
+    if (!B.has('dry')) {
+      // (the configuration says whether they are served: written here as the page writes it)
+      const c = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+      if (served) c.adapters = true;
+      else delete c.adapters;
+      fs.writeFileSync(CONFIG_FILE, JSON.stringify(c, null, 2) + '\n');
+    }
+    console.log(
+      'judged on ' +
+        held.length +
+        ' held questions: ' +
+        verdict.without +
+        ' right without the adapters, ' +
+        verdict.with +
+        ' with them (' +
+        (g.gain * 100).toFixed(1) +
+        ' points, paired error ' +
+        (g.error * 100).toFixed(1) +
+        '): ' +
+        (served ? 'served' : 'not served'),
+    );
+    say(
+      'Judged: ' +
+        (served
+          ? 'the swarm is served with its adapters'
+          : 'the adapters are not served: not better on the held questions'),
+    );
+    return verdict;
+  };
+  if (cmd === 'judge') {
+    await judge();
+    process.exit(0);
+  }
   if (cmd !== 'train') {
-    console.log('node training/adapters.mjs ready | train [<model file>] [--iters N] [--items math,logic]');
+    console.log(
+      'node training/adapters.mjs ready | train [<model file>] [--iters N] [--items math,logic] [--kinds lies,date] [--no-judge] | judge [--sample N] [--dry]',
+    );
     process.exit(2);
   }
   const named = process.argv[3] && !process.argv[3].startsWith('--') ? process.argv[3] : '';
@@ -357,7 +516,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   // --items math,logic: ONLY THE TRAIN QUESTIONS OF THOSE BODIES OF WORK (aimedAt), for an adapter aimed at where an evaluation
   // found the swarm short of the larger model. A name that is no body of work, or bodies with no train question, stops it here
   const { messagesOf, bodiesOf, EQUIVALENCE } = await import('./tasks.mjs');
-  const aim = aimedAt(B.questions('train'), B.arg('items'), EQUIVALENCE.targets);
+  const aim = aimedAt(B.questions('train'), B.arg('items'), EQUIVALENCE.targets, B.arg('kinds'));
   if (aim.why) {
     console.log(aim.why);
     process.exit(2);
@@ -454,7 +613,13 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   live.step = "Exporting the larger model's answers";
   write();
   const dsFile = path.join(work, 'library', 'adapters', TARGET.id, 'train.jsonl');
-  const ds = exportDataset(list, ref, dsFile, messagesOf);
+  // (only answers that are right by the question's own standard are taught: rightOnly)
+  const taught = await rightOnly(list, ref);
+  if (taught.dropped)
+    console.log(
+      'not taught: ' + taught.dropped + " answers of the larger model that are wrong by the question's own standard",
+    );
+  const ds = exportDataset(taught.list, ref, dsFile, messagesOf);
   live.examples = ds.examples;
   console.log(ds.examples + ' train answers in ' + path.relative(B.REPO_ROOT, ds.file));
   // (llama-perplexity sits beside the llama-server the swarm uses, where that is a path)
@@ -484,7 +649,15 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     write();
     console.log('  ' + m.name + ': training...');
     const r = trainAdapter(m, ds.file, next, { work, iters, perplexityBin });
-    const result = { model: m.name, at: new Date().toISOString(), target: TARGET.name, items, iters, ...r };
+    const result = {
+      model: m.name,
+      at: new Date().toISOString(),
+      target: TARGET.name,
+      items,
+      iters,
+      notTaught: taught.dropped,
+      ...r,
+    };
     if (r.ok) {
       const old = out + '.old';
       fs.rmSync(old, { recursive: true, force: true });
@@ -527,5 +700,14 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const good = live.models.filter((x) => x.state === 'done').length;
   live.step = 'Done: ' + good + ' of ' + live.models.length + ' models adapted';
   write();
+  // AND THEN THEY ARE JUDGED, where any was made: whether the swarm is served with them is decided by the held questions
+  if (good && !B.has('no-judge')) {
+    try {
+      await judge();
+    } catch (e) {
+      console.log('the adapters could not be judged: ' + String((e && e.message) || e).slice(0, 200));
+    }
+    live.phase = 'done';
+  }
   process.exit(failed ? 1 : 0);
 }

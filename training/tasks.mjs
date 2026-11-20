@@ -22,6 +22,7 @@ import { TOOL_KINDS, sameStep, stepGood } from './tasks-tools.mjs';
 import { RULE_KINDS, rulesHeld } from './tasks-rules.mjs';
 import { CALL_KINDS } from './tasks-calls.mjs';
 import { SEARCH_KINDS } from './tasks-search.mjs';
+import { LOGIC_KINDS, logicTask, asShown } from './tasks-logic.mjs';
 
 const rng = (seed) => () => {
   seed |= 0;
@@ -421,6 +422,8 @@ const ALL = {
   ...RULE_KINDS,
   ...CALL_KINDS,
   ...SEARCH_KINDS,
+  // (harder questions of logic, each with its own answer: tasks-logic.mjs. Last, so that no earlier kind's questions change)
+  ...LOGIC_KINDS,
 };
 // the programming kinds, and with them the conversation a seat on a team carries: what a pass asks, unless its record says otherwise
 export const CODE_KIND_NAMES = [...Object.keys(CODE_KINDS), 'trace'];
@@ -546,7 +549,16 @@ export const reworded = (list) =>
 
 // own: the questions a person wrote ({ id: [{ ask, mode }] }, readOwn), asked after the ones made: the first, third, fifth ... are
 // train questions and the second, fourth ... held ones, so that what the swarm is measured on is never what it was chosen on
-export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, focus = {}, tiers = {}, own = {} } = {}) {
+export function tasks({
+  split = 'train',
+  each = 6,
+  kinds = KIND_NAMES,
+  seed,
+  focus = {},
+  tiers = {},
+  own = {},
+  shown = 0,
+} = {}) {
   const from = seed !== undefined ? seed : SEEDS[split] !== undefined ? SEEDS[split] : Date.now() % 1e6;
   const out = [];
   kinds.forEach((kind) => {
@@ -665,6 +677,9 @@ export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, foc
               .slice(0, 160),
           wrap: (final) => final,
         });
+      else if (made.among)
+        // A QUESTION OF LOGIC WITH ITS OWN ANSWER (tasks-logic.mjs): one of a few options, or one of two words
+        out.push(logicTask(base, made));
       else if (made.type === 'open')
         out.push({
           ...base,
@@ -724,6 +739,19 @@ export function tasks({ split = 'train', each = 6, kinds = KIND_NAMES, seed, foc
           wrap: (final) => 'ANSWER: ' + final,
         });
       }
+    }
+    // AND SOME OF THE KIND PUT AS A STANDARD TEST PUTS A QUESTION (shown: how many; tasks-logic.mjs asShown says why): further
+    // questions of the kind, not the ones above again, each after three worked examples made from a seed of their own. Only a
+    // kind whose questions carry an answer of their own in a word, a number or an option.
+    if (shown > 0 && !/-shown$/.test(kind)) {
+      const more = tasks({ split, each: n + shown, kinds: [kind], seed: from }).slice(n);
+      const examples = tasks({ split, each: 3, kinds: [kind], seed: from + 7919 });
+      if (
+        more.length &&
+        more.every((x) => x.type === 'value' && x.want !== undefined) &&
+        examples.every((x) => x.want !== undefined)
+      )
+        for (const x of more) out.push(asShown(x, examples));
     }
   });
   // the questions a person wrote

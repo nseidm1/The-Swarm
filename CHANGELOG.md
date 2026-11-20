@@ -6,6 +6,30 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A class of input is trained as a class** (2026-11-20). Before a pass goes question by question it now trains each class of
+  input (with tools, a conversation, asking for code, a plain question) as a whole (`training/classes.mjs`): how the swarm stands
+  on the class in three figures (some slot had a good answer, the swarm settled on one, the reply is good as it is read), a few
+  candidate arrangements scored on the same questions, and the best kept only where it is better on held questions by more than
+  twice its paired error. The Train card shows it. Some of each kind of question with an answer of its own are now also put as
+  a standard test puts a question, with worked examples as earlier turns (`policy.json` `questions.shown`), so that the class
+  most standard tests arrive as is trained at all; and Logic has five harder kinds, each with its own right answer.
+- **Pretrain is aimed, taught and judged by training's own measurements** (2026-11-20). It learns from the kinds of question
+  on which the class stage found no slot of the swarm had a good answer (a quarter of the time or more), and says so where
+  there are none: what is lost in choosing or in writing out is not an adapter's to mend. It was aimed by a benchmark's
+  verdict; nothing of a benchmark is read now. Only answers that are right by the question's own standard are taught. And it
+  ends by judging its adapters: the held questions, the swarm without them and with them, served from then on only where it
+  is better by more than twice the paired error (`node training/adapters.mjs judge`). The box on the card still overrides.
+- **Every question of a pass has a pip**, the ones not asked yet among them, with their line in the key.
+- **A reply can close as the conversation's earlier replies do** (`plan.closeAs: "shown"`, SwOA spec O.8.7): it does not open by
+  saying the question again, has no empty line where the earlier replies have none, and ends with the form they end with around
+  what was settled, an option said by its letter where they answer so. Measured on standard tests in a trial that changed
+  nothing kept: Logic 32 to 86 of 100 (the larger model 88), Math 20 to 31 of 40, Reasoning 19 to 83 of 120. The swarm had been
+  reasoning to the right answer and not being read.
+- **An evaluation says how many replies its harness could not read**, for each model, on the card and in the table, and marks a
+  task where that is a quarter or more of either side's. A task's stop words are no longer sent to a model whose reply opening
+  the evaluation took off: the larger model had scored 0 of 20 on HumanEval, stopped at its own function header, and scores 19.
+  The larger model's kept answers are asked again once.
+
 - **SwOA (Swarm Orchestration Adaptation).** What a LoRA is to a model, a SwOA is to a swarm module: the spec applied to it to tune it. The output spec is now
   the **SwOA spec** (`<name>.swoa.json`, format `swoa` version 1, [docs/swoa.md](docs/swoa.md)): it names the base module it
   applies to and the target it was trained toward, with three hashes (base module, arrangement, recipe), and carries its

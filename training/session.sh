@@ -158,6 +158,11 @@ while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
   # spend): more for the loop to try. Then the plan, with them in it: the plan says WHAT can be tried and in what order
   run 07-write-briefs training/write-briefs.mjs
   run 07-plan         training/plan.mjs make ${TRIES:+--tries "$TRIES"}
+  # EACH CLASS OF INPUT, TRAINED AS A CLASS (training/classes.mjs), before training goes question by question: for each class the
+  # pass has questions of, how it stands (did some slot have the answer, did the swarm settle on it, is the reply good as it is
+  # read), then a few candidate arrangements scored on the same questions, the best confirmed on held questions and kept where
+  # it is better there. Only questions that carry a standard of their own are asked, and no benchmark's.
+  run 08-classes      training/classes.mjs
   # TRAINING, QUESTION BY QUESTION (training/loop.mjs). Each train question is put to the swarm and stays in hand until its reply
   # is at parity with the larger model's: where it is not, changes are tried one at a time on that question (another brief, the
   # check and decide steps configured another way, the writer), by where its answer was lost; a change that brings it to parity

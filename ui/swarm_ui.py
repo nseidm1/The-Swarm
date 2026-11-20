@@ -347,7 +347,7 @@ table.evt th:first-child,table.evt td:first-child{overflow-wrap:anywhere}
 @media (max-width:360px){dialog#evd{padding:16px 8px}table.spec.evt{font-size:11px}table.spec.evt th,table.spec.evt td{padding:5px 3px}table.spec.evt thead th{font-size:8.5px;letter-spacing:0}table.evt tr.evt-task td:first-child{padding-left:8px}}
 table.evt tr.evt-item th{font-weight:800;text-align:left}table.evt tr.evt-item td{font-weight:700}table.evt tr.evt-task td:first-child{padding-left:26px;color:var(--mist)}
 table.evt tr.evt-all th,table.evt tr.evt-all td{border-top:2px solid var(--teal);font-weight:800;text-align:left}table.evt tr.evt-all td.num{text-align:right}
-table.evt b.up{color:var(--right)}table.evt b.down{color:#9a5b00}table.evt i.up,table.evt i.down{font-style:normal;font-size:11px;font-weight:800;margin-left:4px}table.evt i.up{color:var(--right)}table.evt i.down{color:var(--wrong)}
+table.evt b.evt-unread{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--wrong);margin-left:6px;white-space:nowrap}table.evt b.up{color:var(--right)}table.evt b.down{color:#9a5b00}table.evt i.up,table.evt i.down{font-style:normal;font-size:11px;font-weight:800;margin-left:4px}table.evt i.up{color:var(--right)}table.evt i.down{color:var(--wrong)}
 table.evt tr.evt-old td,table.evt tr.evt-old th,table.evt tr.evt-old b{color:var(--mist);font-weight:500}.evold{color:#9a5b00}
 /* A SECOND LOOK AT WHAT FELL SHORT (Evaluate) and WHAT PRETRAIN IS AIMED AT: a quieter button under the main one, and what it does in a line */
 .btn.ghost{background:var(--panel);color:var(--teal);box-shadow:inset 0 0 0 1.5px var(--teal);margin-top:0}.btn.ghost:disabled{opacity:.5;cursor:default}
@@ -439,7 +439,7 @@ button.mav{position:relative;border:0;font:inherit;color:inherit;text-align:left
 .qtrack .qnow .ql{display:block}.qtrack .qnow .qtext{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;padding:0;line-height:1.45;max-height:2.9em;overflow:hidden}.qtrack .qnow .it{float:left;margin:0 8px 0 0;display:inline-block;line-height:1.45;padding:0 8px;white-space:nowrap;border-radius:var(--r);background:var(--panel);color:var(--teal);font-size:12px;margin-right:6px}
 .pips{display:flex;flex-wrap:wrap;gap:3px;margin-top:10px}.pips i{width:10px;height:10px;border-radius:3px;background:#dfe8e5;display:block}
 .pips i.at,.qkey i.at{background:var(--right)}.pips i.re,.qkey i.re{background:var(--teal2);box-shadow:inset 0 0 0 2px #fff}.pips i.nr,.qkey i.nr{background:var(--wrong)}.pips i.nc,.qkey i.nc{background:#c9d3d0}.pips i.ro,.qkey i.ro{background:#fff;box-shadow:inset 0 0 0 2px var(--sun)}
-.pips i.cur,.qkey i.cur{background:var(--sun);animation:p 1.2s infinite}
+.pips i.cur,.qkey i.cur{background:var(--sun);animation:p 1.2s infinite}.pips i.pe,.qkey i.pe{background:#f1f5f3;box-shadow:inset 0 0 0 1px #e3ebe8}
 .pips i.sa,.qkey i.sa{background:#fdf0cf;box-shadow:inset 0 0 0 2px #e3c46a}.pips i.mw,.qkey i.mw{background:repeating-linear-gradient(135deg,#c9d3d0 0 2px,#fff 2px 4px);box-shadow:inset 0 0 0 1px #b3c0bc}.pips i.ns,.qkey i.ns{background:#fff;box-shadow:inset 0 0 0 1px #b3c0bc}.pips i.mu,.qkey i.mu{background:repeating-linear-gradient(45deg,#ecd29a 0 2px,#fff 2px 4px);box-shadow:inset 0 0 0 1px #d9b96a}.qkey{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:11.5px;color:var(--mist);font-weight:600}.qkey span{display:inline-flex;align-items:center;gap:5px}.qkey i{width:10px;height:10px;border-radius:3px;display:inline-block}
 .tryline{margin:8px 0 12px;padding:9px 12px;border-radius:var(--r);background:#fdf0cf;color:#6b4a00;font-size:13px;overflow-wrap:anywhere}.tryline b{color:#8a5a00}.tryline a{color:#8a5a00;font-weight:800;margin-left:6px}
 .slot.tgt{background:#e6e9f6;border-left-color:var(--tgt)}.stage.mark{margin-top:14px;padding-top:14px;border-top:1px solid var(--line2)}.stage.mark .t{color:var(--tgt)}.slot.tgt .body{padding-top:8px}
@@ -661,7 +661,7 @@ function watch(){if(timer)return;timer=setInterval(async()=>{const was=!!$('#sco
     if($('#spec').open){const y=$('#spec').scrollTop;await swap('/fragment/spec','#spec-body');$('#spec').scrollTop=y;}}},4000);}
 if($('#score [data-running]'))watch();
 // WHAT EVERY SLOT IS DOING NOW: asked for every second and a half while a session runs, and written onto the cards in place
-const STEP={loop:'Training question by question',measure:'Measuring the swarm',improve:'Trying a brief',arrange:'Trying an arrangement',baseline:'One model alone'};
+const STEP={classes:'Training each class of input as a class',loop:'Training question by question',measure:'Measuring the swarm',improve:'Trying a brief',arrange:'Trying an arrangement',baseline:'One model alone'};
 function paint(el,cls,text){el.className='live '+cls;const sp=el.querySelector('span');if(sp.textContent!==text){sp.textContent=text;el.title=text;}}
 // WHEN THE SESSION BEGAN, in the time zone of the person looking, and how long it has run in all: written again every tick
 function sinceTick(){document.querySelectorAll('[data-since]').forEach(el=>{const t=Number(el.dataset.since),s=Math.max(0,Math.floor((Date.now()-t)/1000));
@@ -717,16 +717,22 @@ async function liveTick(){
             k.textContent=x.grade==='right'?(x.lostOn?'broke one':'good'):x.closer?'closer':x.grade==='noref'?'no grade':x.library?'found, no':x.suggested?'suggested, no':x.taught?'new brief, no':'no closer';li.append(k,(x.round>1?'round '+x.round+' · ':'')+x.move+(x.lostOn?' · at parity, broke '+x.lostOn:x.near?' · '+nw(x.near):''));ol.append(li);}
           box.append(ol);}
         qn.append(fold);}}
-    else if(n.running&&n.trainer!=='loop'){qn.dataset.k='';qn.textContent='Training question by question begins after the larger model has answered and the plan is written.';}
+    // THE FIRST STAGE OF TRAINING, a class at a time: what it is asking now is said where the question in hand is said, and its
+    // table (how each class stands, what was tried and kept) is drawn again in place every few ticks while it runs
+    else if(n.running&&n.trainer==='classes'){qn.dataset.k='';qn.textContent=(n.step||'Training each class of input as a class')+'. Question by question begins after it.';
+      window.__cl=(window.__cl||0)+1;if(window.__cl%6===1&&$('#classes-wrap'))swap('/fragment/classes','#classes-wrap');}
+    else if(n.running&&n.trainer!=='loop'){qn.dataset.k='';qn.textContent='Training begins after the larger model has answered and the plan is written: first each class of input as a class, then question by question.';}
     // THE BOX THE LOOP IS IN NOW, on the system's picture and in the plan's list of steps (the same reading of the live note as the server's loop_phase)
     {const ph=!(lp&&n.trainer==='loop')?'':lp.guard?'guard':!lp.attempt?'ask':(lp.method&&lp.method.area==='library')?'library':(lp.method&&lp.method.area==='suggested')?'suggest':'search';
       document.querySelectorAll('#viz [data-part]').forEach(b=>b.classList.toggle('on',b.dataset.part===ph));}
-    if(pp){const key=done.map(x=>x.s).join()+'|'+(lp&&n.trainer==='loop'?lp.n:'');
+    if(pp){const key=done.map(x=>x.s).join()+'|'+(lp&&n.trainer==='loop'?lp.n:'')+'|'+of;
       if(pp.dataset.k!==key){pp.dataset.k=key;pp.innerHTML='';
         for(const x of done){const i=document.createElement('i');i.className=x.s;i.title=x.id+' · '+(x.w?x.w+' · ':'')+x.kind+(x.tried?' · '+x.tried+' change'+(x.tried===1?'':'s')+' tried':'');pp.append(i);}
-        if(lp&&n.trainer==='loop'&&lp.n>done.length){const i=document.createElement('i');i.className='cur';i.title='in hand: question '+lp.n;pp.append(i);}}}
+        if(lp&&n.trainer==='loop'&&lp.n>done.length){const i=document.createElement('i');i.className='cur';i.title='in hand: question '+lp.n;pp.append(i);}
+        // (and one for each question not asked yet: the whole pass is on the row)
+        for(let k=pp.children.length;k<of;k++){const i=document.createElement('i');i.className='pe';i.title='not asked yet';pp.append(i);}}}
     if(qh&&(done.length||(lp&&n.trainer==='loop'))){const c=s=>done.filter(x=>x.s===s).length;const t=[done.filter(x=>x.s!=='ro'&&x.s!=='sa').length+' of '+of+' finished',c('at')+' good as it stood',c('re')+' made good by a change',c('nr')+' not good yet'];
-      const k=t.join('|');if(qh.dataset.k!==k){qh.dataset.k=k;qh.innerHTML='<b>Question by question</b>';for(const v of t){const sp=document.createElement('span');sp.textContent=v;qh.append(sp);}}}}
+      const k=t.join('|');if(qh.dataset.k!==k){qh.dataset.k=k;const hb=(qh.querySelector('b')||{}).textContent||'Question by question';qh.innerHTML='';{const b=document.createElement('b');b.textContent=hb;qh.append(b);}for(const v of t){const sp=document.createElement('span');sp.textContent=v;qh.append(sp);}}}}
   const slots=n.slots||{},totals=n.totals||{};
   // a slot's clock starts again with every question (a turn). Beside it: which turn this is, and how long this slot has been
   // engaged altogether in the step in hand.
@@ -769,8 +775,8 @@ document.addEventListener('click',async(ev)=>{
   else if(b.id==='ev-stop')await evPost('/eval/stop','#evalwrap');
   // A SECOND LOOK: only the bodies of work that fell short (the button carries them), at the size chosen
   else if(b.id==='ev-narrow')await evPost('/eval/start','#evalwrap',{limit:Number(($('#ev-size')||{}).value||0),items:b.dataset.items.split(',')});
-  // PRETRAIN, aimed where the box is ticked: the bodies of work that fell short in the last evaluation (the box carries them)
-  else if(b.id==='pre-go'){const a=$('#pre-aim');await evPost('/pretrain/start','#prewrap',a&&a.checked?{items:a.dataset.items.split(',')}:{});}
+  // PRETRAIN, aimed where the box is ticked: the kinds of question no slot had the answer to (the box carries them)
+  else if(b.id==='pre-go'){const a=$('#pre-aim');await evPost('/pretrain/start','#prewrap',a&&a.checked?{kinds:a.dataset.kinds.split(',')}:{});}
   else await evPost('/pretrain/stop','#prewrap');
   await swap('/fragment/score','#score');});
 document.addEventListener('change',async(ev)=>{const c=ev.target.closest('#pre-use');if(!c)return;
@@ -916,7 +922,8 @@ def donut(parts, total, label):
     return "".join(out)
 
 
-KIND_WORDS = {"rules": "Instructions: rules a program checks", "calls": "Calling a function, or not", "search": "Search: a tool for what is not known",
+KIND_WORDS = {"lies": "Logic: who tells the truth along a chain", "free": "Logic: when someone was free", "date": "Logic: a date some days away", "valid": "Logic: whether an argument is valid",
+              "deduce": "Logic: an order from clues", "rules": "Instructions: rules a program checks", "calls": "Calling a function, or not", "search": "Search: a tool for what is not known",
               "agent": "An agent's next step, with tools", "write-arrays": "Write a function: arrays", "write-strings": "Write a function: strings", "write-numbers": "Write a function: numbers",
               "write-parsing": "Write a function: parsing", "fix": "Correct a function", "bug": "Say what is wrong", "trace": "Say what a program prints",
               "answer": "Simple: an everyday question", "request": "Simple: something it cannot do, or needs to ask about", "piece": "Simple: a piece of writing", "talk": "Simple: conversation",
@@ -1993,7 +2000,7 @@ PIP = {"at parity": "at", "reached": "re", "not reached": "nr", "not compared": 
 PIP_WORDS = {"at": "good as it stood", "re": "made good by a change", "nr": "not good yet", "ro": "back in hand after a swap",
              "sa": "set aside until the others are done", "mw": "set aside: the larger model's answer is wrong",
              "mu": "set aside: the larger model did not give this answer again", "ns": "left out: the larger model's own answers do not agree", "nc": "not graded: nothing usable from the larger model, or no reader believed for its kind",
-             "cur": "in hand"}
+             "cur": "in hand", "pe": "not asked yet"}
 
 
 def track_of(lp):
@@ -2028,6 +2035,53 @@ def trying_moves(moves):
     return running
 
 
+CLASS_NAMES = {"tools": "With tools", "talk": "A conversation", "code": "Asking for code", "words": "A plain question"}
+
+
+def classes_block(d):
+    """EACH CLASS OF INPUT, TRAINED AS A CLASS (training/classes.mjs, the stage of a pass before it goes question by question):
+    for each class, how the swarm stood on its questions in three figures (some slot had a good answer; the swarm settled on
+    one; the reply is good as it is read, and how many replies a reader found no answer in), which arrangements were tried on
+    the same questions, and what was kept after the held questions. '' before a pass has reached the stage."""
+    rec = data._json(Path(d.get("root", ARGS.root)) / "training" / "results" / str(d.get("key", "")) / "classes.json", None)
+    if not rec or not rec.get("classes"):
+        return ""
+    rows, notes = [], []
+    for k, c in rec["classes"].items():
+        name = e(CLASS_NAMES.get(k, k))
+        if c.get("skipped"):
+            rows.append("<tr><td>%s</td><td class='muted' colspan='5'>Not trained as a class: %s (%d train, %d held)</td></tr>" % (name, e(c["skipped"]), c.get("train", 0), c.get("held", 0)))
+            continue
+        a, after = c.get("asItStands") or {}, c.get("after")
+        if not a:
+            rows.append("<tr><td>%s</td><td class='muted' colspan='5'>Being asked as it stands: %d train questions</td></tr>" % (name, c.get("train", 0)))
+            continue
+        of = a.get("n") or 0
+        read = (" <span class='muted'>(%d unread)</span>" % a["unread"]) if a.get("unread") else ""
+        tried = sum(len(r.get("candidates") or []) for r in c.get("rounds") or [])
+        kept = c.get("kept") or []
+        rows.append("<tr><td>%s<br><span class='muted small'>%d questions of %d kinds</span></td><td>%d of %d</td><td>%d of %d</td><td>%d of %d%s</td><td>%d</td><td>%s</td></tr>"
+                    % (name, of, len(c.get("kinds") or []), a.get("anySlot", 0), of, a.get("settled", 0), of, a.get("counted", 0), of, read, tried,
+                       ("<b>%s</b><br><span class='muted small'>now %d of %d</span>" % ("; ".join(e(x.replace("plan: ", "")) for x in kept), after["counted"], after["n"])) if kept and after
+                       # (a round still open: arrangements being scored, or the best of them being asked the held questions)
+                       else "<span class='muted'>being tried</span>" if not rec.get("done") and (not c.get("rounds") or "kept" not in c["rounds"][-1]) else "nothing"))
+        # (what a round found and why it was or was not kept: the held questions decide)
+        for r in c.get("rounds") or []:
+            h = r.get("held")
+            if h:
+                notes.append("%s: <b>%s</b> %s on the held questions (%d of %d, where it stood at %d; %+.1f points, paired error %.1f)."
+                             % (name, e(str(r.get("best", "")).replace("plan: ", "")), "was kept: better" if r.get("kept") else "was not kept: not better by enough",
+                                h["with"]["counted"], h["with"]["n"], h["asItStood"]["counted"], 100 * h["gain"], 100 * h["error"]))
+    when = (" %s UTC" % e(_day(rec.get("done") or rec.get("at")))) if rec.get("at") else ""
+    return ("<details class='fams' id='classes' open><summary>First, each class of input as a class (%d)%s</summary>"
+            "<p class='muted small' style='margin:6px 0 0'>Before going question by question, a pass scores a few arrangements on every question of a class at once, and keeps one only where it is better on held questions. "
+            "The three figures say where answers are lost: no slot has it (drafting), a slot has it and the swarm does not settle on it (choosing), or it is settled and the reply is not read as saying it (writing out). "
+            "Only questions with an answer of their own are asked, and no benchmark&#39;s.%s</p>"
+            "<table class='spec'><tr><th>Class</th><th>Some slot had it</th><th>Settled on it</th><th>Reply good as read</th><th>Tried</th><th>Kept</th></tr>%s</table>%s</details>"
+            % (len(rec["classes"]), when, " This was a trial that kept nothing." if rec.get("dry") else "", "".join(rows),
+               "".join("<p class='muted small' style='margin:6px 0 0'>%s</p>" % n for n in notes)))
+
+
 def families_block(lp):
     """THE MODULE BESIDE ITS TARGET, FAMILY BY FAMILY (training/loop.mjs familiesOf; docs/swoa-parity.md): for each kind of question, how
     many the module has right of those asked so far, and, where the questions carry a standard of their own, how many the larger
@@ -2060,12 +2114,20 @@ def question_track(d):
     now = ("Pass %s stopped with %d of %d questions finished%s." % (e(str(lp.get("pass", ""))), fin, of, (" and %d to come back to" % (len(tr) - fin)) if len(tr) > fin else "")) if tr and fin < of else ("Pass %s: every question finished." % e(str(lp.get("pass", ""))) if tr
            else "" if begun else "Each question stays in hand until the swarm&#39;s answer to it is good.")
     pips = "".join('<i class="%s" title="%s · %s · %s%s"></i>' % (x["s"], e(x["id"]), e(x["w"]), e(x["kind"]), (" · %d change%s tried" % (x["tried"], "" if x["tried"] == 1 else "s")) if x["tried"] else "") for x in tr)
+    # EVERY QUESTION OF THE PASS HAS A PIP, the ones not asked yet among them: a row that only grew as questions finished did
+    # not show how much of the pass was still to come (the script paints the same, with the one in hand)
+    pips += '<i class="pe" title="not asked yet"></i>' * max(0, of - len(tr))
     head = ("<span>%d of %d finished</span><span>%d good as it stood</span><span>%d made good by a change</span><span>%d not good yet</span>" % (fin if tr else 0, of, n("at"), n("re"), n("nr"))) if begun else "<span>not begun</span>"
-    return ('<div class="qtrack" id="qtrack"><div class="qhead" id="qhead"><b>Question by question</b>%s</div>'
+    # A PASS TRAINS IN TWO STAGES, and the card says them in that order: first each class of input as a class (classes_block, drawn
+    # again in place while that stage runs), then question by question
+    first = classes_block(d)
+    return ('<div id="classes-wrap">%s</div>'
+            '<div class="qtrack" id="qtrack"><div class="qhead" id="qhead"><b>%s</b>%s</div>'
             '<p class="qnow" id="qnow">%s</p><div class="pips" id="pips">%s</div>'
             # (one line for every look a pip can have, each look drawn by the pip's own class: the key cannot drift from the pips)
             '<div class="qkey">%s</div>%s%s</div>'
-            % (head, now, pips, "".join('<span><i class="pk %s"></i>%s</span>' % (k, e(w)) for k, w in PIP_WORDS.items()), families_block(lp), tries_list(lp)))
+            % (first, "Then, question by question" if first else "Question by question", head, now, pips,
+               "".join('<span><i class="pk %s"></i>%s</span>' % (k, e(w)) for k, w in PIP_WORDS.items()), families_block(lp), tries_list(lp)))
 
 
 # THE CLASS OF A QUESTION (src/orchestrate.mjs classOf), in the page's words, and the steps each class's turn can take: a turn with
@@ -2592,7 +2654,7 @@ STEP_WORDS = [("target-third-train", "Larger model, a third answer: the train qu
               ("target-self-train", "Larger model against itself: the train questions"), ("reader", "Check the reader of answers in words"), ("swarm-reworded", "The swarm: the held questions, a second way"), ("begin", "Begin the pass"), ("research", "Read what is new on arXiv"), ("target-train", "Larger model: the train questions"), ("target-self", "Larger model against itself"), ("target", "Larger model: the held questions"),
               ("swarm-held", "The swarm: the held questions"), ("plan", "Plan what to try"), ("write-briefs", "New briefs from the larger model"),
               ("members", "Could another small model draft it?"), ("deciders", "Would another decider choose better?"),
-              ("questions", "Train, question by question"), ("end", "Verdict"), ("publish", "Write it up")]
+              ("classes", "Each class of input, trained as a class"), ("questions", "Train, question by question"), ("end", "Verdict"), ("publish", "Write it up")]
 
 
 def step_label(name):
@@ -3592,12 +3654,19 @@ def eval_table(d):
                 % (fmt_pct(data.percent(sw, of)), fmt_pct(data.percent(tg, of)), "up" if sw >= tg else "down", _ev_share(sw, tg), b, of))
 
     rows = []
+    unread_any = False
     for t in listed:
         rs = [have(b["task"]) for b in t["benchmarks"] if have(b["task"])]
         rows.append('<tr class="evt-item%s"><th scope="row">%s</th>%s</tr>' % (" evt-old" if rs and all(r.get("carried") for r in rs) else "", e(t["name"]), cells(rs)))
         for b in t["benchmarks"]:
             r = have(b["task"])
-            rows.append('<tr class="evt-task%s"><td>%s</td>%s</tr>' % (" evt-old" if r and r.get("carried") else "", e(b.get("name") or b["task"]), cells([r] if r else [])))
+            u = (r or {}).get("unread") or {}
+            n = ((r or {}).get("agree") or {}).get("of") or 0
+            # (a task where a quarter or more of one model's replies were not read: marked, since its scores compare the reading)
+            mark = (' <b class="evt-unread" title="Not read by the harness: %s of the swarm&#39;s replies, %s of the larger model&#39;s, of %d">unread</b>'
+                    % (u.get("swarm") or 0, u.get("target") or 0, n)) if n and max(u.get("swarm") or 0, u.get("target") or 0) * 4 >= n else ""
+            unread_any = unread_any or bool(mark)
+            rows.append('<tr class="evt-task%s"><td>%s%s</td>%s</tr>' % (" evt-old" if r and r.get("carried") else "", e(b.get("name") or b["task"]), mark, cells([r] if r else [])))
     rows.append('<tr class="evt-all"><th scope="row">Every question</th>%s</tr>' % cells(done))
     when = (" Evaluated %s UTC." % e(_day(res.get("at")))) if res.get("at") else ""
     notes = ""
@@ -3605,6 +3674,8 @@ def eval_table(d):
         notes += " Share before is the same line in the evaluation of this configuration before it."
     if old:
         notes += " A line in grey was not asked again this time: its figures are the earlier evaluation&#39;s."
+    if unread_any:
+        notes += " A task marked unread is one where the harness could not read a quarter or more of one model&#39;s replies as answers: its scores say how replies were read more than what either model knew."
     return (head + '<p class="small muted" style="margin:10px 0 0">Each was put the same questions and marked by the benchmark&#39;s own checker. Share is the swarm&#39;s score as a share of %s&#39;s: '
             '100%% or more is where the swarm is level or ahead.%s%s</p>' % (e(tname), when, notes)
             + '<div class="evt-wrap"><table class="spec evt"><thead><tr><th>Body of work</th><th class="num">The swarm</th><th class="num">%s</th><th class="num">Share</th>%s<th class="num evn">Questions</th></tr></thead>'
@@ -3636,12 +3707,18 @@ def _ev_agree(r):
     # same" read as a failure; on another both had every one wrong and it read as 100%
     # (a task the newest evaluation did not ask again: an earlier evaluation's figures, said to be; one it did ask, with what
     # the swarm scored on it before)
+    # (replies the harness could not read as an answer, of either model: a fault of form or of how a model was asked, said beside
+    # the scores it makes unfair. A quarter or more of one side's replies unread is said as a warning)
+    u = r.get("unread") or {}
+    us, ut = u.get("swarm") or 0, u.get("target") or 0
+    unread = ('<small class="%s">Not read by the harness: %s of the swarm&#39;s replies, %s of %s&#39;s, of %d</small>'
+              % ("bad" if max(us, ut) * 4 >= a["of"] else "evold", us, ut, e(r.get("targetName") or "the larger model"), a["of"])) if us or ut else ""
     c, b = r.get("carried"), r.get("before")
     note = ('<small class="evold">Not asked again: from the evaluation of %s%s</small>' % (e(_day(c.get("at"))), ", the swarm served differently then" if c.get("other") else "")) if c else \
            ('<small>Before (%s): the swarm %s</small>' % (e(_day(b.get("at"))), sc(b.get("swarm")))) if b else ""
     return ('<b class="evpct">%s</b> <span>the swarm · %s %s</span><small>%d of %d the same (%s%%): %d both right · %d both wrong · %d differ%s</small>%s'
             % (sc(r.get("swarm")), e(r.get("targetName") or "the larger model"), sc(r.get("target")), a["same"], a["of"], fmt_pct(pct), a["bothRight"], a["bothWrong"], a["differ"],
-               (" (%d only %s right, %d only the swarm)" % (a["onlyTarget"], "the larger model", a["onlySwarm"])) if a["differ"] else "", note))
+               (" (%d only %s right, %d only the swarm)" % (a["onlyTarget"], "the larger model", a["onlySwarm"])) if a["differ"] else "", unread + note))
 
 
 def busy(ghost="00%"):
@@ -3941,6 +4018,21 @@ def _iter_of(log):
     return (int(hits[-1][0]), float(hits[-1][1])) if hits else None
 
 
+def pretrain_aim(d):
+    """THE KINDS OF QUESTION AN ADAPTER HAS SOMETHING TO TEACH (training/adapters.mjs aimOf): those on a quarter or more of which
+    no slot's draft had a good answer, by the class stage's record (classes.json), the furthest short first.
+    -> ([kinds], whether any class was measured)"""
+    rec = data._json(Path(d.get("root", ARGS.root)) / "training" / "results" / str(d.get("key", "")) / "classes.json", None) or {}
+    by = {}
+    for c in (rec.get("classes") or {}).values():
+        for k, v in (((c or {}).get("asItStands") or {}).get("kinds") or {}).items():
+            b = by.setdefault(k, [0, 0])
+            b[0] += v.get("n", 0)
+            b[1] += v.get("anySlot", 0)
+    short = sorted((k for k, (n, a) in by.items() if n >= 2 and (n - a) * 4 >= n), key=lambda k: by[k][1] / by[k][0])
+    return short, bool(by)
+
+
 def pretrain_block(d):
     """PRETRAIN: a LoRA adapter for each small model of the swarm, trained with MLX on the larger model's answers to the train
     questions of the pass (never a benchmark's, never a held one), and kept where llama.cpp finds those answers likelier with
@@ -4020,7 +4112,7 @@ def pretrain_block(d):
     out = ['<div class="panel prep" id="prebox"%s>' % (' data-running="1"' if running else ""),
            '<div class="proghead"><span class="memnum"%s>%s<span>of %d adapted<small>LoRA, with MLX</small></span></span>'
            '<span class="progline">Each small model learns %s&#39;s answers to the train questions of %s: never a benchmark&#39;s, never a held one. '
-           'An adapter is kept where llama.cpp, serving it beside the model, finds those answers likelier with it.</span><span class="evctl">%s</span></div>'
+           'Only answers that are right by the question&#39;s own standard are taught. An adapter is kept where llama.cpp finds those answers likelier with it, and served only where the swarm is then better on held questions.</span><span class="evctl">%s</span></div>'
            # (while it runs, how many are adapted is not known until each model's run is checked: a bar that moves in place of the
            # number; stopped or failed, the adapters that were there are there still, and the number comes back as it was)
            % (' aria-busy="true"' if running else "", busy("0") if running else '<b class="pct">%d</b>' % good, len(rows),
@@ -4033,19 +4125,29 @@ def pretrain_block(d):
         out.append('<div class="state"><i></i><span>MLX, the trainer, is not installed yet: Pretrain installs it (once, into <code>.work/mlx</code>) and fetches what each model needs. The Uninstall Helper takes it out again.</span></div>')
     if running or live.get("phase") in ("stopped", "failed"):
         out.append('<div class="state %s"><i></i><span data-pre-step>%s</span></div>' % ("on" if running else "warn" if live.get("phase") == "failed" else "", e(live.get("step") or "")))
-    # WHAT IT IS AIMED AT: where the last evaluation of this configuration found the swarm under the larger model, Pretrain
-    # learns from those bodies of work's train questions alone, unless the box is unticked. (Never a benchmark's question: the
-    # evaluation says WHERE the swarm is short; what an adapter learns is still the larger model's answers to train questions)
-    view = eval_view(root, d)
-    short = [t for t in eqv.get("targets", []) if t["id"] in view["short"] and t["id"] in (eqv.get("asked") or [t["id"]]) and t.get("kinds")]
-    if short and not running:
-        nq = len(short_kinds := {k for t in short for k in t["kinds"]})
-        out.append('<label class="preaim"><input type="checkbox" id="pre-aim" data-items="%s" checked%s><span>Aim it at %s'
-                   '<small>Where the swarm scored under %s in the evaluation of %s. Each model learns from the train questions of these alone (%d kinds of question), not of every body of work. '
-                   'Untick to learn from every one.</small></span></label>'
-                   % (e(",".join(t["id"] for t in short)), " disabled" if held else "", e(_and([t["name"] for t in short])), e(tgt.get("name", "the larger model")), e(_day(view["base"].get("at"))), nq))
+    # WHAT IT IS AIMED AT: the kinds of question on which the class stage of training (training/classes.mjs) found that NO slot's
+    # draft had a good answer, on a quarter or more of them. Those are what rearranging cannot mend and an adapter may. It was
+    # aimed by a benchmark's verdict, which pointed it at Logic, Math and Reasoning on the day their whole gap was replies not
+    # being read. Nothing of a benchmark is read here now. (training/adapters.mjs aimOf, the same rule)
+    aim, measured = pretrain_aim(d)
+    if aim and not running:
+        out.append('<label class="preaim"><input type="checkbox" id="pre-aim" data-kinds="%s" checked%s><span>Aim it at %s'
+                   '<small>The kinds of question on which no slot of the swarm had a good answer, a quarter of the time or more, when training last took each class as a class. '
+                   'Each model learns from the train questions of these alone. Untick to learn from every kind.</small></span></label>'
+                   % (e(",".join(aim)), " disabled" if held else "", e(_and([KIND_WORDS.get(k, k) for k in aim]))))
+    elif measured and not running:
+        out.append('<p class="small muted preaim" style="display:block">Nothing to aim at: when training last took each class as a class, some slot of the swarm had a good answer on nearly every question of every kind. '
+                   'What is lost there is lost in choosing or in writing the reply out, which an adapter does not mend.</p>')
     elif running and live.get("items") and len(live["items"]) < len(eqv.get("targets", [])):
         out.append('<p class="small muted" style="margin:12px 0 0">Aimed at %s.</p>' % e(_and([names.get(i, i) for i in live["items"]])))
+    # HOW THE ADAPTERS WERE JUDGED (adapters.mjs judge): the held questions, the swarm without them and with them, and whether
+    # they are served for it. Pretrain ends with it; the box below still lets a person say otherwise
+    jd = data._json(root / ".work" / "library" / "adapters" / str(tgt.get("id", "")) / "judged.json", None)
+    if jd and not running:
+        out.append('<p class="small %s" style="margin:12px 0 0"><b>Judged</b> %s UTC on %d held questions: %d right without the adapters, %d with them (%+.1f points, paired error %.1f). %s</p>'
+                   % ("" if jd.get("served") else "muted", e(_day(jd.get("at"))), jd.get("questions", 0), jd.get("without", 0), jd.get("with", 0), 100 * (jd.get("gain") or 0), 100 * (jd.get("error") or 0),
+                      ("The swarm would be served with them." if jd.get("served") else "They would not be served: not better by more than twice the error.") + " (A trial: the configuration was not changed.)" if jd.get("dry")
+                      else "The swarm is served with them." if jd.get("served") else "They are not served: not better by more than twice the error."))
     out.append('<div class="prerows">%s</div>' % "".join(rows))
     out.append('<label class="preuse"><input type="checkbox" id="pre-use"%s%s> Serve the swarm with its adapters <small>from the next time it is loaded: training, an evaluation</small></label>'
                % (" checked" if on else "", " disabled" if not good else ""))
@@ -4314,6 +4416,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(faces_block(d))
         if u.path == "/fragment/eval":
             return self._send(eval_block(d))
+        if u.path == "/fragment/classes":
+            return self._send(classes_block(d))
         if u.path == "/fragment/evtable":
             return self._send(eval_table(d))
         if u.path == "/fragment/pretrain":
@@ -4393,10 +4497,10 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/pretrain/stop":
                 stop_job("pretrain")
             else:
-                # AIMED: the bodies of work the press names (the ones that fell short in the last evaluation, where the box
-                # on the card is ticked). Only ones this pass's train questions cover; none named, every one
+                # AIMED: the kinds of question the press names (those the class stage found no slot had the answer to, where
+                # the box on the card is ticked). Only kinds a pass asks; none named, every one
                 try:
-                    asked = json.loads(self.rfile.read(min(int(self.headers.get("content-length", 0)), 2000)) or b"{}")
+                    asked = json.loads(self.rfile.read(min(int(self.headers.get("content-length", 0)), 4000)) or b"{}")
                 except ValueError:
                     asked = {}
                 # (what is running is said first: an evaluation in hand is the one this may be waiting for)
@@ -4404,11 +4508,12 @@ class Handler(BaseHTTPRequestHandler):
                 if first:
                     return self._send(first, 409, "text/plain; charset=utf-8")
                 eqv = data.load(ARGS.root).get("equivalence") or {}
-                aim = asked.get("items") if isinstance(asked, dict) else None
-                if aim is not None and (not isinstance(aim, list) or not aim or any(i not in [t["id"] for t in eqv.get("targets", [])] for i in aim)):
-                    return self._send("Not a body of work.", 400, "text/plain; charset=utf-8")
-                why = start_job("pretrain", [node_for_training() or "node", "training/adapters.mjs", "train"] + (["--items", ",".join(aim)] if aim else []),
-                                keep={"items": aim} if aim else None)
+                known = {k for t in eqv.get("targets", []) for k in t.get("kinds") or []}
+                aim = asked.get("kinds") if isinstance(asked, dict) else None
+                if aim is not None and (not isinstance(aim, list) or not aim or any(k not in known for k in aim)):
+                    return self._send("Not a kind of question.", 400, "text/plain; charset=utf-8")
+                why = start_job("pretrain", [node_for_training() or "node", "training/adapters.mjs", "train"] + (["--kinds", ",".join(aim)] if aim else []),
+                                keep={"kinds": aim} if aim else None)
                 if why:
                     return self._send(why, 409, "text/plain; charset=utf-8")
                 time.sleep(0.3)

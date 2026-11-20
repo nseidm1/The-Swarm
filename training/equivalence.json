@@ -87,8 +87,8 @@
     {
       "id": "logic",
       "name": "Logic",
-      "about": "What follows from what is given: an order, a day of the week, a question whose first answer is wrong",
-      "kinds": ["order", "day", "trap"],
+      "about": "What follows from what is given: an order, a day of the week, a question whose first answer is wrong; and, harder, who tells the truth along a chain, when someone was free, a date some days away, whether an argument is valid, an order from clues",
+      "kinds": ["order", "day", "trap", "lies", "free", "date", "valid", "deduce"],
       "benchmarks": [
         {
           "task": "bbh_cot_fewshot_logical_deduction_three_objects",

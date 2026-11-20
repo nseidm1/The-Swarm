@@ -35,6 +35,10 @@ import {
   letterOf,
   describedNotGiven,
   withoutClosingRemark,
+  closingForm,
+  closedAs,
+  laidOutAs,
+  withoutRestating,
 } from './read.mjs';
 import { PROBE_BRIEF, EXPECT_BRIEF, expectedIn, programOf } from './behave.mjs';
 
@@ -1101,6 +1105,18 @@ export async function answer(
     else if (trace.find((r) => r.out))
       reply = workOf(trace.find((r) => r.out).out, marker) || trace.find((r) => r.out).out;
     path = path ? (/code-restored/.test(path) ? path : path + '+unwritten') : 'fallback';
+  }
+  // THE REPLY CLOSES AS THE EARLIER REPLIES DO (plan.closeAs 'shown'; read.mjs closingForm says why): where the conversation's
+  // earlier replies all end with the same words and then their answer, this one ends that way around what was settled. Not code,
+  // and not where there is no such form to follow. Whether it is better is the trainer's to find, class by class
+  if (plan.closeAs === 'shown' && reply && decided && !isCode(decided)) {
+    const form = closingForm(talk);
+    // (it does not open by saying the question again, and it is laid out as they are: with no empty line where they have none)
+    const closed = form ? closedAs(laidOutAs(withoutRestating(reply, question), talk), decided, form, question) : reply;
+    if (closed !== reply) {
+      reply = closed;
+      path += '+closed';
+    }
   }
   return {
     reply,

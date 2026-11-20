@@ -1778,8 +1778,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   check(
     "every kind of held question has a second wording that changes how it is put and nothing of what it asks, and is compared with the larger model's answer to the first: a programming question by its form, every other kind from its own draw, with every number and quoted word of the first in the second, every rule word for word and in the same order, every argument a call needs said outright, and the same answer good for both; a step that is followed by a search and what it returned keeps them as they were and puts only the question another way; the only questions without one are a message there is no other way to put and an agent's steps that end on what a tool returned (4 of 168); and a kind that is asked more of keeps the questions it had and adds to them",
     second.length === held.length &&
-      others.length === 84 &&
-      others2.length === 84 &&
+      others.length === 114 &&
+      others2.length === 114 &&
       others2.every(
         (t) =>
           t.ask &&
@@ -1789,7 +1789,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           digits(t.ask) === digits(firstOf(t).ask) &&
           quoted(t.ask) === quoted(firstOf(t).ask),
       ) &&
-      rightBoth.length === 66 &&
+      rightBoth.length === 96 &&
       rightBoth.every(Boolean) &&
       // a request with rules: every rule word for word, in the same order, after the request
       others2
@@ -1821,8 +1821,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
             t.turns.slice(1).every((m, i) => m === firstOf(t).turns[i + 1]),
         ) &&
       others2.filter((t) => t.kind === 'search' && t.turns.length === 3).length >= 3 &&
-      everyKind.length === 168 &&
-      everyKind2.length === 164 &&
+      everyKind.length === 198 &&
+      everyKind2.length === 194 &&
       without.sort().join() === 'agent,agent,agent,answer' &&
       second.every(
         (t, i) =>
@@ -2103,8 +2103,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     "what the swarm is trained on is every body of work of a list kept as data (The Crew, Code, Math, Logic, Reasoning, Instructions, Tools, Search), and nothing is chosen: a pass asks the kinds of them all, each once (Code's are among The Crew's); the list has no default, since there is nothing to fall back to; the kinds of some can still be named (a record, a check), a name that is not one is passed over, and with none left it is every one; what a list of kinds covers is said from the kinds (a pass that asked The Crew's covered Code too); and every kind of every body makes a question",
     BODIES.join() === 'crew,code,math,logic,reasoning,instructions,tools,search' &&
       EQUIVALENCE.default === undefined &&
-      NAMES.length === 28 &&
-      new Set(NAMES).size === 28 &&
+      NAMES.length === 33 &&
+      new Set(NAMES).size === 33 &&
       NAMES.join() === kindsFor(BODIES).join() &&
       kindsFor().join() === NAMES.join() &&
       kindsFor([]).join() === NAMES.join() &&
@@ -2114,10 +2114,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       kindsFor(['crew']).join() === CREW_NAMES.join() &&
       kindsFor(['math']).slice().sort().join() === 'chain,count,rate,shop,units' &&
       kindsFor(['math', 'crew']).length === CREW_NAMES.length + 5 &&
-      kindsFor(['logic', 'reasoning']).length === 6 &&
-      make({ split: 'held', each: 2, kinds: kindsFor(['math', 'logic', 'reasoning']) }).length === 22 &&
-      make({ split: 'train', each: 6 }).length === 168 &&
-      make({ split: 'held', each: 6 }).length === 168 &&
+      kindsFor(['logic', 'reasoning']).length === 11 &&
+      make({ split: 'held', each: 2, kinds: kindsFor(['math', 'logic', 'reasoning']) }).length === 32 &&
+      make({ split: 'train', each: 6 }).length === 198 &&
+      make({ split: 'held', each: 6 }).length === 198 &&
       bodiesOf(NAMES).join() === BODIES.join() &&
       bodiesOf(CREW_NAMES).join() === 'crew,code' &&
       bodiesOf(CODE_KIND_NAMES).join() === 'code' &&
@@ -2347,7 +2347,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     byRecord === 'chain,order' &&
       before === CODE_KIND_NAMES.join() &&
       first === NAMES.join() &&
-      NAMES.length === 28 &&
+      NAMES.length === 33 &&
       withOldChoice === first &&
       readOld === undefined &&
       writtenOld === undefined,
@@ -7813,6 +7813,141 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+// ---- 9m1: THE REPLY CLOSES AS THE EARLIER REPLIES DO (plan.closeAs 'shown'): the form is read from the conversation, and the
+// reply ends with it around what was settled
+{
+  const R = await import('../src/read.mjs');
+  const { answer } = await import('../src/orchestrate.mjs');
+  const shots = [
+    { role: 'user', content: 'Ann lies. Bob says Ann lies. Does Bob tell the truth?' },
+    {
+      role: 'assistant',
+      content: "Let's think step by step.\n(1) Ann lies.\n(2) Bob says so, and it is so. So the answer is Yes.",
+    },
+    { role: 'user', content: 'Cy tells the truth. Di says Cy lies. Does Di tell the truth?' },
+    { role: 'assistant', content: 'Cy tells the truth, so what Di says is false. So the answer is No.' },
+    { role: 'user', content: 'Eve lies. Fay says Eve tells the truth. Does Fay tell the truth?' },
+  ];
+  const form = R.closingForm(shots);
+  const lettered = R.closingForm([
+    { role: 'assistant', content: 'a. So the answer is (A).' },
+    { role: 'assistant', content: 'b. So the answer is (C).' },
+  ]);
+  const briefs = {
+    marker: 'ANSWER:',
+    plan: { closeAs: 'shown', writeAs: 'settled' },
+    slots: [
+      { id: 'a-direct', member: 'a', stage: 'draft', brief: 'Answer.', maxTokens: 50 },
+      { id: 'b-direct', member: 'b', stage: 'draft', brief: 'Answer.', maxTokens: 50 },
+    ],
+  };
+  const ask = async () => ({ ok: true, text: 'Eve lies, so what Fay says is false.\nANSWER: No', ms: 1 });
+  const closed = await answer(shots, { briefs, ask });
+  const plain = await answer(shots, { briefs: { ...briefs, plan: { writeAs: 'settled' } }, ask });
+  const alone = await answer(shots.slice(-1), { briefs, ask });
+  check(
+    'where a plan says so, a reply closes as the earlier replies of the conversation do: the form is the words their last sentences share, the settled answer is put in it (a letter in brackets where they answer so), a last sentence that already begins that way is replaced, and nothing is done where no form is shown or the plan does not ask',
+    form.lead === 'So the answer is' &&
+      form.tail === '.' &&
+      form.bracket === false &&
+      lettered.bracket === true &&
+      R.closedAs('work', 'b', lettered) === 'work So the answer is (B).' &&
+      R.closedAs(
+        'It is Vincent. The answer is (C).',
+        'Vincent',
+        lettered,
+        'Who?\nOptions:\n(A) Louis\n(B) Gwen\n(C) Vincent',
+      ) === 'It is Vincent. The answer is (C). So the answer is (C).' &&
+      R.closedAs('It is 3.', '3', lettered, 'How many?\n(A) 1\n(B) 2') === 'It is 3.' &&
+      R.closedAs('It is red.', 'red', lettered, '(A) red\n(B) Red') === 'It is red.' &&
+      R.closedAs('x. So the answer is Yes.', 'No', form) === 'x. So the answer is No.' &&
+      R.closedAs('x. So the answer is No.', 'No', form) === 'x. So the answer is No.' &&
+      R.withoutRestating('Q: ((1 + 2)) =  \nA:  \nStep 1: add.', 'Q: ((1 + 2)) =\nA: Think step by step.') ===
+        'Step 1: add.' &&
+      R.withoutRestating('A: Step 1: add.\nA: more', 'Q: 1 + 2 =\nA: Think.') === 'Step 1: add.\nA: more' &&
+      R.withoutRestating('We are given 1 + 2.', 'Q: 1 + 2 =\nA: Think.') === 'We are given 1 + 2.' &&
+      R.withoutRestating('Q: 1 + 2 =', 'Q: 1 + 2 =') === 'Q: 1 + 2 =' &&
+      R.laidOutAs('one.  \n\nTwo.\n \n\nThree.', shots) === 'one.\nTwo.\nThree.' &&
+      R.laidOutAs('one.\n\nTwo.', [...shots, { role: 'assistant', content: 'a.\n\nb.' }]) === 'one.\n\nTwo.' &&
+      R.laidOutAs('one.\n\nTwo.', shots.slice(0, 2)) === 'one.\n\nTwo.' &&
+      R.closingForm(shots.slice(0, 2)) === null &&
+      R.closingForm([
+        { role: 'assistant', content: 'Hello there.' },
+        { role: 'assistant', content: 'You are welcome!' },
+      ]) === null &&
+      /So the answer is No\.$/.test(closed.reply) &&
+      /\+closed$/.test(closed.path) &&
+      !/the answer is/.test(plain.reply) &&
+      !/\+closed/.test(plain.path) &&
+      !/\+closed/.test(alone.path),
+    { form, lettered, closed: [closed.reply, closed.path], plain: [plain.reply, plain.path], alone: alone.path },
+  );
+}
+
+// ---- 9m3: EACH CLASS TRAINED AS A CLASS (training/classes.mjs): which questions, which candidates, what is kept; and a question
+// put as a standard test puts it
+{
+  const C = await import('../training/classes.mjs');
+  const { tasks: make, messagesOf: msgs, ownStandard: own } = await import('../training/tasks.mjs');
+  const { classOf: cls } = await import('../src/orchestrate.mjs');
+  const E = await import('../training/evaluate.mjs');
+  const q = (kind, n) => Array.from({ length: n }, (_, i) => ({ id: kind + i, kind }));
+  const picked = C.sampleOf([...q('a', 5), ...q('b', 1), ...q('c', 3)], 6).map((t) => t.id);
+  const rows = (bits) =>
+    bits.map((b) => ({ counted: !!b, any: true, settled: !!b, unread: b ? false : true, ms: 1000 }));
+  const up = C.pairedGain(rows([1, 1, 1, 1, 1, 1, 1, 0]), rows([0, 0, 0, 0, 0, 0, 1, 0]));
+  const flat = C.pairedGain(rows([1, 0, 1, 0]), rows([0, 1, 0, 1]));
+  const moves = ['x one', 'y one', 'x two', 'z', 'x three'].map((name) => ({ name }));
+  const plain = make({ split: 'train', each: 2 });
+  const withShown = make({ split: 'train', each: 2, shown: 1 });
+  const sh = withShown.filter((t) => t.shape === 'shown');
+  const one = sh.find((t) => t.kind === 'chain');
+  const lie = sh.find((t) => t.kind === 'lies');
+  const dir = path.join(os.tmpdir(), 'unread-' + process.pid);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, 's.jsonl'),
+    [
+      { filter: 'get-answer', resps: [['']], filtered_resps: ['[invalid]'] },
+      { filter: 'get-answer', resps: [['work']], filtered_resps: ['[invalid]'] },
+      { filter: 'get-answer', resps: [['So the answer is 4.']], filtered_resps: ['4'] },
+      { filter: 'other', resps: [['']], filtered_resps: ['[invalid]'] },
+    ]
+      .map((r) => JSON.stringify(r))
+      .join('\n'),
+  );
+  check(
+    'a class is trained as a class: its questions are taken kind by kind in turn; candidates are the moves the policy names, the first of each pattern before the second of any; the best is kept only where it is better on the held questions by more than twice its paired error; some of each kind with an answer of its own are also put as a standard test puts a question, reach the module as a conversation, and are good only where the reply says the answer as the examples do, in its first block; and an evaluation counts the replies its harness could not read',
+    picked.join() === 'a0,b0,c0,a1,c1,a2' &&
+      C.figuresOf(rows([1, 0, 1])).counted === 2 &&
+      C.figuresOf(rows([1, 0, 1])).unread === 1 &&
+      C.figuresOf([{ counted: true, any: true, settled: true, unread: null }]).unread === null &&
+      up.gain === 0.75 &&
+      C.worthKeeping(up, 0.02) &&
+      !C.worthKeeping(flat, 0) &&
+      !C.worthKeeping({ gain: 0.01, error: 0 }, 0.02) &&
+      C.candidatesOf(moves, ['^x', '^z', '^y'], 4)
+        .map((m) => m.name)
+        .join() === 'x one,z,y one,x two' &&
+      plain.every((t, i) => withShown[i].id === t.id && withShown[i].ask === t.ask) === false &&
+      plain.every((t) => withShown.some((x) => x.id === t.id && x.ask === t.ask)) &&
+      sh.length > 10 &&
+      sh.every(
+        (t) => own(t) && cls(msgs(t)) === 'talk' && t.turns.length === 7 && !plain.some((p) => p.ask === t.ask),
+      ) &&
+      (await one.good('Step by step.\nSo the answer is ' + one.want + '.')).grade === 'right' &&
+      (await one.good('It is ' + one.want + '.')).grade === 'wrong' &&
+      (await one.good('Working.\n\nSo the answer is ' + one.want + '.')).grade === 'wrong' &&
+      one.readable('It is ' + one.want) === false &&
+      (await one.plainGood('ANSWER: ' + one.want)).grade === 'right' &&
+      (await lie.good('So the answer is ' + lie.want + '.')).grade === 'right' &&
+      E.unreadIn(path.join(dir, 's.jsonl'), 'get-answer') === 2 &&
+      E.unreadIn(path.join(dir, 'none.jsonl'), 'x') === null,
+    { picked, up, flat, shown: sh.length, one: one && one.id },
+  );
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
 // ---- 9m2: PRETRAIN AIMED: where bodies of work are named, an adapter learns from their train questions alone
 {
   const A = await import('../training/adapters.mjs');
@@ -7827,8 +7962,32 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const two = A.aimedAt(list, ' math , code ', targets);
   const none = A.aimedAt(list, 'search', targets);
   const bad = A.aimedAt(list, 'math,poetry', targets);
+  const byKind = A.aimedAt(list, 'math', targets, 'fix');
+  const noKind = A.aimedAt(list, '', targets, 'none');
+  // where an adapter has something to teach: the kinds no slot had the answer to, a quarter of the time or more
+  const aim = A.aimOf({
+    classes: {
+      talk: { asItStands: { kinds: { lies: { n: 4, anySlot: 4 }, date: { n: 4, anySlot: 2 } } } },
+      words: {
+        asItStands: { kinds: { date: { n: 4, anySlot: 3 }, dyck: { n: 4, anySlot: 0 }, one: { n: 1, anySlot: 0 } } },
+      },
+      code: { skipped: 'too few' },
+    },
+  });
+  // only answers that are right by the question's own standard are taught
+  const good = (want) => async (reply) => ({ grade: reply === want ? 'right' : 'wrong' });
+  const taught = await A.rightOnly(
+    [
+      { id: 'q1', good: good('4') },
+      { id: 'q2', good: good('5') },
+      { id: 'q3' },
+      { id: 'q4', type: 'open', good: good('x') },
+      { id: 'q5', good: good('7') },
+    ],
+    { q1: '4', q2: 'nine', q3: 'anything', q4: 'words', q5: '' },
+  );
   check(
-    'pretrain aimed at named bodies of work learns from the train questions of their kinds alone; none named, every one; a name that is no body of work, or bodies with no train question, stop it with the reason',
+    "pretrain aimed at named bodies of work, or at kinds named outright, learns from the train questions of those alone; none named, every one; a name that is no body of work, or none with a train question, stops it with the reason; what it is aimed at by the class stage is the kinds no slot had the answer to a quarter of the time or more, the furthest short first; and only answers right by the question's own standard are taught, a question with none, or one a reader marks, taught as it was",
     all.list.length === 4 &&
       math.list.length === 2 &&
       math.list.every((t) => ['chain', 'shop'].includes(t.kind)) &&
@@ -7836,8 +7995,15 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       !none.list &&
       /no train question of search/.test(none.why) &&
       !bad.list &&
-      /not a body of work: poetry/.test(bad.why),
-    [all, math, two, none, bad],
+      /not a body of work: poetry/.test(bad.why) &&
+      byKind.list.length === 2 &&
+      byKind.list.every((t) => t.kind === 'fix') &&
+      /no train question of the kinds none/.test(noKind.why) &&
+      aim.join() === 'dyck,date' &&
+      A.aimOf({}).length === 0 &&
+      taught.list.map((t) => t.id).join() === 'q1,q3,q4,q5' &&
+      taught.dropped === 1,
+    [all, math, two, none, bad, aim, taught],
   );
 }
 
