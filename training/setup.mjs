@@ -190,7 +190,8 @@ async function model(m, what, check) {
   for (const [i, f] of files.entries()) {
     got = await fetchFile({
       url: fileUrl({ ...m, file: f.file }),
-      dest: path.join(dir, f.file),
+      // (a model that is a folder of files is kept in its own folder: `dir`)
+      dest: path.join(dir, m.dir || '', f.file),
       bytes: f.bytes,
       sha256: f.sha256,
       what: files.length > 1 ? what + ', part ' + (i + 1) + ' of ' + files.length : what,

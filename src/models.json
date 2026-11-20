@@ -29,7 +29,7 @@
       }
     }
   },
-  "enginesAbout": "engine: what serves a model here. Every small model is a GGUF file served by llama.cpp (engine \"llama\"); a larger model names its own. alsoOn: another engine whose maker lists the model among those it serves, with the repository it names (Qwen3.5 2B: read from TensorFold's README, 2026-11-20; LFM3 1.7B: served and asked here with TensorFold 1.3.1, 2026-11-20. LFM2.5 1.2B and 2.6B are refused by it: no backend for lfm2 checkpoints). The swarm does not serve a small model through it: it is said so that a person knows, not chosen.",
+  "enginesAbout": "engine: what serves a model here. \"llama\": a GGUF file served by llama.cpp. \"tensorfold\": an MLX build, a folder of files (dir; file is its weights and parts the files beside it), served by TensorFold on an Apple silicon Mac. A model both engines serve has an entry for each: another quantisation is another member, with its own record. Tried here with TensorFold 1.3.1, 2026-11-20: it serves LFM3 1.7B and Qwen3.5 2B, and refuses LFM2.5 1.2B and 2.6B (no backend for lfm2 checkpoints).",
   "small": [
     {
       "id": "lfm25-2.6b",
@@ -139,7 +139,6 @@
       "name": "Qwen3.5 2B",
       "by": "Alibaba (Qwen), packaged by Unsloth",
       "engine": "llama",
-      "alsoOn": { "tensorfold": "mlx-community/Qwen3.5-2B-MLX-4bit" },
       "params": 2,
       "repo": "unsloth/Qwen3.5-2B-GGUF",
       "rev": "f6d5376be1edb4d416d56da11e5397a961aca8ae",
@@ -148,6 +147,70 @@
       "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
       "license": "Apache-2.0",
       "serve": ["--reasoning-budget", "0"],
+      "sampling": {}
+    },
+    {
+      "id": "qwen35-2b-mlx",
+      "name": "Qwen3.5 2B MLX",
+      "by": "Alibaba (Qwen), packaged by MLX Community",
+      "engine": "tensorfold",
+      "needs": "an Apple silicon Mac with TensorFold",
+      "params": 2,
+      "repo": "mlx-community/Qwen3.5-2B-MLX-4bit",
+      "rev": "93760be4f1f69842a46bc13dbdc0f19e291392a3",
+      "dir": "Qwen3.5-2B-MLX-4bit",
+      "file": "model.safetensors",
+      "bytes": 1722271785,
+      "sha256": "713fe7e5d3c3965f7106b0d0ee17615f7869c23c8d327996df8c1196fbcf07d5",
+      "parts": [
+        {
+          "file": "chat_template.jinja",
+          "bytes": 7755,
+          "sha256": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80"
+        },
+        {
+          "file": "config.json",
+          "bytes": 3113,
+          "sha256": "beb7fc5a6e0405fe332821cf1a8ef7b69bb390a8c8933171647de5579debf949"
+        },
+        {
+          "file": "model.safetensors.index.json",
+          "bytes": 81722,
+          "sha256": "8294c05cca7d53a6c33e3db2b379539bd296d054e0b689711b16b6ac93c7e49d"
+        },
+        {
+          "file": "preprocessor_config.json",
+          "bytes": 390,
+          "sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516"
+        },
+        {
+          "file": "processor_config.json",
+          "bytes": 1300,
+          "sha256": "14932921ca485d458a04dafd8069fbb0a4505622a48208d19ed247115801385b"
+        },
+        {
+          "file": "tokenizer.json",
+          "bytes": 19989343,
+          "sha256": "87a7830d63fcf43bf241c3c5242e96e62dd3fdc29224ca26fed8ea333db72de4"
+        },
+        {
+          "file": "tokenizer_config.json",
+          "bytes": 1139,
+          "sha256": "e98f1901ac6f0adff67b1d540bfa0c36ac1a0cf59eb72ed78146ef89aafa1182"
+        },
+        {
+          "file": "video_preprocessor_config.json",
+          "bytes": 385,
+          "sha256": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13"
+        },
+        {
+          "file": "vocab.json",
+          "bytes": 6722759,
+          "sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003"
+        }
+      ],
+      "license": "Apache-2.0",
+      "serve": ["--no-thinking"],
       "sampling": {}
     },
     {
@@ -305,7 +368,6 @@
       "name": "LFM3 1.7B",
       "by": "Liquid AI",
       "engine": "llama",
-      "alsoOn": { "tensorfold": "LiquidAI/LFM3-1.7B-MLX-4bit" },
       "params": 1.7,
       "repo": "LiquidAI/LFM3-1.7B-GGUF",
       "rev": "cd0c74c575b5c416f3011b5b4c298077f26ca8c2",
@@ -314,6 +376,60 @@
       "sha256": "3793e1e6e2266919d6e015287221b41100175a98eddaba92e111aed3b05c93c4",
       "license": "LFM Open License v1.0",
       "serve": ["--reasoning-budget", "0"],
+      "sampling": {}
+    },
+    {
+      "id": "lfm3-1.7b-mlx",
+      "name": "LFM3 1.7B MLX",
+      "by": "Liquid AI",
+      "engine": "tensorfold",
+      "needs": "an Apple silicon Mac with TensorFold",
+      "params": 1.7,
+      "repo": "LiquidAI/LFM3-1.7B-MLX-4bit",
+      "rev": "91f34088d6946482cbcae11b85d4657093618c34",
+      "dir": "LFM3-1.7B-MLX-4bit",
+      "file": "model.safetensors",
+      "bytes": 973083386,
+      "sha256": "1be5bf672013cd91aa62148f77c5eea8d2784a95845d5fe826e08c7b84823815",
+      "parts": [
+        {
+          "file": "config.json",
+          "bytes": 2423,
+          "sha256": "7df2ea819f9a31b770192a0a9dc1b7953a7dd8c41b816cc3905bbec99ef332bd"
+        },
+        {
+          "file": "tokenizer.json",
+          "bytes": 17908634,
+          "sha256": "41927bd314d17d7d7fadb44e10cd0919f7b71528d7741596d8cbd15c6945ec44"
+        },
+        {
+          "file": "tokenizer_config.json",
+          "bytes": 1859,
+          "sha256": "b77214b9f12be74b9e5e1dab35d7dace077a31be969314bf38866fd6c8163853"
+        },
+        {
+          "file": "chat_template.jinja",
+          "bytes": 12143,
+          "sha256": "306497f109439afcfa248f4ef5800601de24942e2981d632ae63fc5c070ceb12"
+        },
+        {
+          "file": "special_tokens_map.json",
+          "bytes": 92,
+          "sha256": "7946f864cbfb62a1b041bda937244210a1a87f4a6cab3a48b791131b2cd57f88"
+        },
+        {
+          "file": "generation_config.json",
+          "bytes": 328,
+          "sha256": "0095ba7158e938b1e2d3082d412f00d8be85e42cbbd7608b63866f7a081cf270"
+        },
+        {
+          "file": "model.safetensors.index.json",
+          "bytes": 50700,
+          "sha256": "2c8b88e25f6a1055164dd051436b170872200047bce4b3ec5f2a58f6ef929a75"
+        }
+      ],
+      "license": "LFM Open License v1.0",
+      "serve": ["--no-thinking"],
       "sampling": {}
     },
     {

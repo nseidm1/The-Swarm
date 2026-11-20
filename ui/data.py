@@ -899,7 +899,9 @@ def spec(d):
     from statistics import median
     b, p = d["briefs"], d["splits"]["held"]["parity"]
     gb = lambda n: round(n / 2**30, 2)  # noqa: E731
-    file_of = lambda m: {k: m.get(k) for k in ("id", "name", "by", "params", "license", "repo", "rev", "file", "bytes", "sha256", "parts", "serve", "sampling") if m.get(k) not in (None, [], {})}  # noqa: E731
+    # (engine and dir: only where a member is not a GGUF file served by llama.cpp, which is what a record that names neither
+    # says. So a record written before a member could name its engine is the same record, and the same hash)
+    file_of = lambda m: {k: m.get(k) for k in ("id", "name", "by", "params", "license", "repo", "rev", "file", "bytes", "sha256", "parts", "serve", "sampling") + (("engine", "dir") if (m.get("engine") or "llama") != "llama" else ()) if m.get(k) not in (None, [], {})}  # noqa: E731
     a, bb = d["members"]["a"] or {}, d["members"]["b"] or {}
     held = d["splits"]["held"]["swarm"]
     last = (d["state"].get("history") or [None])[-1]

@@ -57,6 +57,31 @@ export function readSpec(from) {
   for (const [k, m] of Object.entries(r.members))
     if (!m || !m.file || !m.sha256)
       throw new Error('the small model in place ' + k + ' is not pinned (a file and its SHA-256)');
+  // (a member another engine serves, S2.8: only an engine this runtime can start, with the folder its files are kept in; and
+  // no adapter, which that engine does not load)
+  for (const [k, m] of Object.entries(r.members)) {
+    const engine = m.engine || 'llama';
+    if (!['llama', 'tensorfold'].includes(engine))
+      throw new Error(
+        'the small model in place ' +
+          k +
+          ' is served by ' +
+          JSON.stringify(engine) +
+          ', which this runtime cannot start',
+      );
+    if (engine !== 'llama' && !m.dir)
+      throw new Error(
+        'the small model in place ' + k + ' is served by ' + engine + ' and names no folder for its files (dir)',
+      );
+    if (engine !== 'llama' && (r.adapters || {})[k])
+      throw new Error(
+        'the small model in place ' +
+          k +
+          ' is served by ' +
+          engine +
+          ', which loads no adapter: the spec pins one for it',
+      );
+  }
   for (const [k, a] of Object.entries(r.adapters || {}))
     if (!r.members[k] || !a || !a.file || !a.sha256)
       throw new Error(

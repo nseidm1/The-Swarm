@@ -3072,6 +3072,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     spec: { ...spec.spec, recipeSha256: undefined },
     recipe: { ...recipe, members: { a: { id: 'x' }, b: recipe.members.b } },
   };
+  // (a member another engine serves: an engine the runtime cannot start, no folder named, or an adapter pinned for it)
+  const withB = (b, more = {}) => {
+    const r2 = { ...recipe, members: { a: recipe.members.a, b: { ...recipe.members.b, ...b } }, ...more };
+    return { ...spec, spec: { ...spec.spec, recipeSha256: recipeSha256(r2) }, recipe: r2 };
+  };
   check(
     "a swarm is made from its spec alone: its members, its arrangement (every slot told what the spec says) and its serving, and offered as a model by the call a chooser starts a model with; a spec changed after it was written (its hash no longer its recipe's), one of a format or version not read, and one whose small models are not pinned are each refused, saying why",
     fromIt.briefs.slots.find((x) => x.stage === 'write').brief.startsWith('From the spec') &&
@@ -3082,6 +3087,14 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       listed.data &&
       listed.data.length === 1 &&
       /does not match its hash/.test(refused(changed)) &&
+      /which this runtime cannot start/.test(refused(withB({ engine: 'other' }))) &&
+      /names no folder for its files/.test(refused(withB({ engine: 'tensorfold' }))) &&
+      /loads no adapter/.test(
+        refused(
+          withB({ engine: 'tensorfold', dir: 'X' }, { adapters: { b: { file: 'x.gguf', sha256: 'a'.repeat(64) } } }),
+        ),
+      ) &&
+      refused(withB({ engine: 'tensorfold', dir: 'X' })) === '' &&
       /not a SwOA spec/.test(refused({ spec: { format: 'other' } })) &&
       /version 9/.test(refused({ ...spec, spec: { ...spec.spec, version: 9 } })) &&
       /not pinned/.test(refused(unpinned)),
@@ -3159,7 +3172,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const { ORIGINALS } = await import('../training/adapters.mjs');
   const fs = await import('node:fs');
   const small = JSON.parse(fs.readFileSync(new URL('../src/models.json', import.meta.url), 'utf8')).small;
+  // (a model another engine serves is not adapted: an adapter here is a GGUF LoRA, which only llama.cpp loads, and mlxReady says so)
   const bad = small
+    .filter((m) => (m.engine || 'llama') === 'llama')
     .map((m) => [m.id, ORIGINALS[m.file]])
     .filter(
       ([, o]) =>
@@ -5007,7 +5022,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       (f) =>
         /^[0-9a-f]{64}$/.test(f.sha256) &&
         f.bytes > 0 &&
-        f.file.endsWith('.gguf') &&
+        // (a GGUF file for llama.cpp; for a model another engine serves, the files of its folder, which it names)
+        ((m.engine || 'llama') === 'llama' ? f.file.endsWith('.gguf') : !!m.dir && m.file.endsWith('.safetensors')) &&
         path.dirname(f.file) === path.dirname(m.file),
     ) &&
     m.license;
@@ -6214,6 +6230,20 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const { answerTools, fitted } = await import('../src/tools.mjs');
   const E = await import('../training/evaluate.mjs');
   const U = await import('../training/engine-update.mjs');
+  const MM = await import('../src/members.mjs');
+  const AD = await import('../training/adapters.mjs');
+  const TFDIR = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-tf-'));
+  fs.mkdirSync(path.join(TFDIR, 'LFM3-MLX'));
+  for (const f of ['model.safetensors', 'config.json']) fs.writeFileSync(path.join(TFDIR, 'LFM3-MLX', f), 'x');
+  const TFM = {
+    id: 'x-mlx',
+    key: 'b',
+    name: 'X MLX',
+    engine: 'tensorfold',
+    dir: 'LFM3-MLX',
+    file: 'model.safetensors',
+    parts: [{ file: 'config.json' }],
+  };
   const TWO = [
     { id: 'm', name: 'Math', benchmarks: [{ task: 'gsm' }] },
     {
@@ -6388,6 +6418,47 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       E.planOf(TWO, ['m'], ['bfcl']).length === 0 &&
       E.needsOf(E.planOf(TWO, ['m', 't'], ['lm'])).join() === 'lmeval' &&
       E.harnessKey({}) === 'lm' &&
+      // (a member another engine serves: started by that engine with its folder, a context for each of its streams and its own
+      // flags and none of llama.cpp's; found only in its own folder; never adapted)
+      MM.engineOf({}) === 'llama' &&
+      MM.engineOf(TFM) === 'tensorfold' &&
+      MM.serveArgs(TFM, {
+        file: '/m/LFM3-MLX/model.safetensors',
+        port: 9,
+        slots: 6,
+        contextPerSlot: 4096,
+        serve: ['--no-thinking'],
+        flags: ['--lora', 'x'],
+        tensorfold: '/tf',
+      })
+        .flat()
+        .join(' ') ===
+        '/tf serve /m/LFM3-MLX --host 127.0.0.1 --port 9 --name swarm-b --context 4096 --parallel 6 --no-update-check --no-thinking' &&
+      MM.serveArgs(
+        { file: 'a.gguf' },
+        {
+          file: '/m/a.gguf',
+          port: 9,
+          slots: 6,
+          contextPerSlot: 4096,
+          serve: ['--cache-ram', '0'],
+          flags: ['--lora', 'x'],
+          llamaServer: '/ll',
+        },
+      )
+        .flat()
+        .join(' ') === '/ll -m /m/a.gguf --host 127.0.0.1 --port 9 -c 24576 -np 6 --cache-ram 0 --lora x' &&
+      MM.modelFile(TFM, TFDIR) === path.join(TFDIR, 'LFM3-MLX', 'model.safetensors') &&
+      MM.modelFile({ ...TFM, dir: 'elsewhere' }, TFDIR) === '' &&
+      MM.modelFile({ ...TFM, parts: [{ file: 'missing.json' }] }, TFDIR) === '' &&
+      /TensorFold, which loads no adapter/.test(AD.mlxReady(TFM, TFDIR).why) &&
+      Object.keys(AD.lorasFor({ adapters: true }, { b: TFM }, TFDIR, 't', TFDIR)).length === 0 &&
+      (
+        await MM.startMember(TFM, { modelsDir: TFDIR, tensorfold: '', llamaServer: '/ll' }).then(
+          (r) => r,
+          () => ({}),
+        )
+      ).ok === false &&
       E.swarmWaysOf(web).join() === 'tools,after' &&
       E.swarmWaysOf({ ...web, targetAlsoAfter: false }).join() === 'tools',
     {

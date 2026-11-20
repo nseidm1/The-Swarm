@@ -6,11 +6,15 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
-- **The list of models says what serves each** (2026-11-20): llama.cpp for every small model, its own engine for a larger
-  one, on the pill of the one chosen and beside each in the list. Where another engine's maker lists a model too, the list
-  says so (TensorFold lists Qwen3.5 2B, and served LFM3 1.7B when it was tried here; it refuses LFM2.5 1.2B and 2.6B): the
-  swarm does not serve a small model through it. `src/models.json` `engine`,
-  `alsoOn`.
+- **A small model can be served by TensorFold** (2026-11-20, SwOA spec S2.8). The catalog has LFM3 1.7B and Qwen3.5 2B twice
+  each: the GGUF that llama.cpp serves, and the MLX 4-bit build ("LFM3 1.7B MLX", "Qwen3.5 2B MLX") served by TensorFold
+  on an Apple silicon Mac. Each is an entry of its own, chosen like any other, because another quantisation is another member with its own record; it can be
+  chosen only where TensorFold is. The swarm asks it exactly as it asks a llama.cpp member (`src/members.mjs` `serveArgs`,
+  `engineOf`). Its files are fetched and checked by their hashes like any model's, into a folder of their own. It runs
+  without adapters, which TensorFold does not load, and Pretrain says so. A spec records `engine` and `dir` only for such a
+  member, so every earlier spec keeps its hash.
+- **The list of models says what serves each** (2026-11-20): llama.cpp or TensorFold for a small model, its own engine for a
+  larger one, on the pill of the one chosen and beside each in the list (`src/models.json` `engine`).
 - **IFEval is listed under Instructions, and "The Crew" is "Programming and its conversation"** (2026-11-20). The Evaluate
   card showed "The Crew" over one test of following instructions. That test now sits under Instructions, the body of work
   whose questions train what it measures, and the body of work it left has the name the specification already gives it. A

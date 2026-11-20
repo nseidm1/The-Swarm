@@ -330,17 +330,21 @@ S1.1 Each value of `recipe.members` is a member record. A runtime MUST read the 
 | `serve` | array of strings | OPTIONAL | Extra engine command-line arguments for this member, in order (e.g. `["--reasoning-budget","0"]` or `["--reasoning","off"]`). |
 | `sampling` | object | OPTIONAL | Request-body fields merged into every request to this member (S3.3). Observed keys: `temperature`, `top_p`, `top_k`, `min_p`, `repeat_penalty`, `presence_penalty`. Any key MUST be passed through unchanged. |
 | `params` | number | OPTIONAL | Parameter count in billions. Used only to order members largest first where the arrangement asks for "the largest other member" (ties keep place order). A missing value counts as 0. |
+| `engine` | string | OPTIONAL | What serves the member: `llama` (the default: a GGUF file served by llama.cpp, S2.4) or `tensorfold` (S2.8). A runtime MUST refuse a record whose `engine` it cannot serve. |
+| `dir` | string | REQUIRED when `engine` is not `llama` | The directory, under the models directory, that holds the member's files (S2.8.1). |
 | `id`, `name`, `by`, `license` | string | OPTIONAL | Identification. `name` is used in error messages only. |
 
 S1.2 A recipe whose member record lacks `file` or `sha256` MUST be refused. A recipe with fewer than two members MUST be
 refused.
 
 S1.3 There is no chat-template field. The chat template is the one embedded in the model file, applied by the engine
-(S2.4 `--jinja`). A runtime MUST NOT substitute another template.
+(S2.4 `--jinja`); for a member whose `engine` is not `llama`, the one among the member's files (S2.8.1). A runtime MUST NOT
+substitute another template.
 
 S1.4 `recipe.adapters` (OPTIONAL) maps a place to `{file, sha256}` (and MAY carry `bytes`): a LoRA adapter in GGUF form that
 the member in that place is served with. Every key MUST name a place present in `recipe.members`, and every entry MUST
-carry `file` and `sha256`; otherwise the recipe MUST be refused.
+carry `file` and `sha256`; otherwise the recipe MUST be refused. A recipe that pins an adapter for a place whose member's
+`engine` is not `llama` MUST be refused (S2.8.4).
 
 S1.5 `recipe.serving` (OPTIONAL) holds:
 
@@ -488,6 +492,49 @@ beyond that MUST wait in a first-in, first-out queue and are released one per co
 its own.
 
 S2.7.2 The request timeout (S3.5) starts when a request leaves the queue, not when it is queued.
+
+#### S2.8 A member served by another engine
+
+A member record MAY name an `engine` other than `llama`. Such a member is another build of a model, in another engine's
+format, and is a member in its own right: a recipe that serves a model through one engine and a recipe that serves it
+through another are different base modules (section 5), and a proof of one is not a proof of the other. Everything in this
+specification applies to it unchanged except where this section says otherwise. One other engine is defined: `tensorfold`.
+
+S2.8.1 Files. The member's files are those of S2.1.1: `file` is its weights and `parts` the other files the engine reads
+(its configuration, tokenizer and chat template among them). Each is fetched as S2.1.2 says and stored at
+`<models directory>/<dir>/<file>`; S2.1.3 to S2.1.5 apply to every one. The member is located at
+`<models directory>/<dir>/<file>` only, usable when every part lies beside it; S2.1.6's search of other directories does
+not apply.
+
+S2.8.2 The engine is not fetched by the runtime and `recipe.engine` does not pin it: it is a program on the host. Where it
+is absent the member is "not present" and the swarm MUST NOT start. A proof (section 4) made with such a member SHOULD
+state the engine's version.
+
+S2.8.3 Command line. A started member whose `engine` is `tensorfold` MUST be launched as `tensorfold` with exactly these
+arguments, in this order:
+
+```
+serve <models directory>/<dir>
+--host 127.0.0.1
+--port <P>
+--name swarm-<place>
+--context <contextPerSlot>
+--parallel <slots>
+--no-update-check
+<serve…>                        (the member record's `serve`, in order)
+```
+
+`--context` is the context of each of the engine's `--parallel` streams, so each server slot has `contextPerSlot` tokens.
+None of `--jinja`, `--cache-ram` and `--lora` is passed: they are the other engine's. A record for a model that reasons
+before it answers MUST carry in `serve` the argument that turns that off (`--no-thinking`): left on, the member's reply tokens are spent before it answers.
+
+S2.8.4 Adapters. The engine loads no adapter. A place whose member is served by it has none (S1.4), and S2.1.7 does not
+apply to it.
+
+S2.8.5 Readiness, fallbacks, requests and revival. S2.5 and S2.6 apply as written, the member's own `serve` arguments
+being the ones dropped where the engine does not know them. Requests are sent exactly as S3 says, every field included:
+the engine MUST accept the fields it has no use for (`cache_prompt`, `id_slot`, `logit_bias`) without failing the request.
+S2.3.3 applies: an attached member's engine and its flags are the operator's responsibility.
 
 ---
 

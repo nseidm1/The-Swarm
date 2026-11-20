@@ -4,7 +4,8 @@
 //   { key, base, slots, ask(slotNumber, messages, params) -> { text, tokens, ms }, alive(), stop() }
 // and it never holds more conversations at once than it has slots: a call that finds every slot taken waits for one.
 // Each slot of the plan keeps to one server slot (id_slot), so the brief it starts with is read once and remembered by the server.
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
+import os from 'node:os';
 import net from 'node:net';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -180,8 +181,10 @@ export function modelFile(m, modelsDir) {
   if (!modelsDir || !fs.existsSync(modelsDir)) return '';
   const whole = (f) =>
     fs.existsSync(f) && (m.parts || []).every((p) => fs.existsSync(path.join(path.dirname(f), path.basename(p.file))));
-  const direct = path.join(modelsDir, m.file);
+  // (a model that is a folder of files, as an MLX build is: `dir` names the folder its files are kept in, under the models' own)
+  const direct = path.join(modelsDir, m.dir || '', m.file);
   if (whole(direct)) return direct;
+  if (m.dir) return '';
   for (const d of fs.readdirSync(modelsDir, { withFileTypes: true })) {
     if (!d.isDirectory()) continue;
     for (const f of [path.join(modelsDir, d.name, m.file), path.join(modelsDir, d.name, path.basename(m.file))])
@@ -267,6 +270,69 @@ export async function verifyModel(m, file) {
   return { ok: true, hashed };
 }
 
+// THE ENGINE THAT SERVES A MEMBER: llama.cpp, a GGUF file, unless the model names another (`engine` in the catalog).
+// `tensorfold`: an MLX build, a folder of files, served by TensorFold on an Apple silicon Mac. It is asked exactly as a
+// llama.cpp member is (the same client, member() above; measured 2026-11-20 with LFM3 1.7B: six requests side by side, the
+// sampling a request names, a tool call, and 15 of 40 held questions right against the GGUF's 16), so only how it is started
+// differs. It loads no LoRA: a member served this way runs without adapters.
+export const engineOf = (m) => String((m && m.engine) || 'llama');
+export function tensorfoldProgram() {
+  if (process.env.SWARM_TENSORFOLD)
+    return fs.existsSync(process.env.SWARM_TENSORFOLD) ? process.env.SWARM_TENSORFOLD : '';
+  const own = path.join(os.homedir(), '.tensorfold', 'bin', 'tensorfold');
+  if (fs.existsSync(own)) return own;
+  try {
+    return execFileSync(process.platform === 'win32' ? 'where' : 'which', ['tensorfold'], { encoding: 'utf8' })
+      .split(/\r?\n/)[0]
+      .trim();
+  } catch {
+    return '';
+  }
+}
+// what a member's server is started with: [program, args] for a port, the context of each slot and its own flags
+export function serveArgs(
+  m,
+  { file, port, slots, contextPerSlot, serve = [], flags = [], llamaServer = '', tensorfold = '' },
+) {
+  if (engineOf(m) === 'tensorfold')
+    return [
+      tensorfold,
+      [
+        'serve',
+        path.dirname(file),
+        '--host',
+        '127.0.0.1',
+        '--port',
+        String(port),
+        '--name',
+        'swarm-' + (m.key || m.id || 'member'),
+        '--context',
+        String(contextPerSlot),
+        '--parallel',
+        String(slots),
+        '--no-update-check',
+        ...serve,
+      ],
+    ];
+  return [
+    llamaServer,
+    [
+      '-m',
+      file,
+      '--host',
+      '127.0.0.1',
+      '--port',
+      String(port),
+      '-c',
+      String(slots * contextPerSlot),
+      '-np',
+      String(slots),
+      ...serve,
+      ...flags,
+    ],
+  ];
+}
+
 export async function startMember(m, opts = {}) {
   const {
     llamaServer,
@@ -281,7 +347,16 @@ export async function startMember(m, opts = {}) {
   if (!file) return { ok: false, why: m.name + ' is not here (' + m.file + '). Fetch it first.' };
   const checked = await verifyModel(m, file);
   if (!checked.ok) return { ok: false, why: checked.why };
-  if (!llamaServer) return { ok: false, why: 'no llama-server program was named' };
+  const viaTensorfold = engineOf(m) === 'tensorfold';
+  const tensorfold = viaTensorfold ? opts.tensorfold || tensorfoldProgram() : '';
+  if (viaTensorfold && !tensorfold)
+    return {
+      ok: false,
+      why: m.name + ' is served by TensorFold, which is not on this machine (an Apple silicon Mac with TensorFold)',
+    };
+  if (!viaTensorfold && !llamaServer) return { ok: false, why: 'no llama-server program was named' };
+  if (viaTensorfold && (opts.flags || []).length)
+    onLine(m.key + ': served by TensorFold, which loads no adapter: started without ' + opts.flags.join(' '));
   const UNKNOWN_FLAG = /invalid argument|unknown argument|unrecognized|error while handling argument/i;
   const NO_MEMORY =
     /out of memory|failed to allocate|insufficient memory|cannot allocate|bad_alloc|exit 137|exit -?9\b/i;
@@ -293,27 +368,26 @@ export async function startMember(m, opts = {}) {
   // model's 18. Each slot's own context still holds its brief between questions (id_slot, cache_prompt), which is what the
   // swarm reuses. SWARM_CACHE_RAM names another size in MiB
   const cacheRam = String(process.env.SWARM_CACHE_RAM || '').trim() || '0';
-  let serve = [...(opts.jinja ? ['--jinja'] : []), ...(m.serve || []), '--cache-ram', cacheRam];
+  // (those two are llama.cpp's own; a member another engine serves is given its catalog flags and no others)
+  let serve = viaTensorfold
+    ? [...(m.serve || [])]
+    : [...(opts.jinja ? ['--jinja'] : []), ...(m.serve || []), '--cache-ram', cacheRam];
   const tryWith = async () => {
     const port = await freePort();
     const base = 'http://127.0.0.1:' + port;
-    const args = [
-      '-m',
+    const [program, args] = serveArgs(m, {
       file,
-      '--host',
-      '127.0.0.1',
-      '--port',
-      String(port),
-      '-c',
-      String(slots * contextPerSlot),
-      '-np',
-      String(slots),
-      ...serve,
-      ...(opts.flags || []),
-    ];
+      port,
+      slots,
+      contextPerSlot,
+      serve,
+      flags: opts.flags || [],
+      llamaServer,
+      tensorfold,
+    });
     const tail = [];
     let exited = null;
-    const child = spawn(llamaServer, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    const child = spawn(program, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     const take = (c) =>
       String(c)
         .split(/[\r\n]+/)
@@ -377,8 +451,11 @@ export async function startMember(m, opts = {}) {
     let r = await tryWith();
     for (let attempt = 1; !r.ok && attempt <= 3; attempt++) {
       if (serve.length && UNKNOWN_FLAG.test(r.why)) {
-        onLine(m.key + ': this llama.cpp does not know ' + serve.join(' ') + ': starting without it.');
-        onRecover(m.name, 'this llama.cpp does not know ' + serve.join(' ') + ': started without it', { kind: 'flag' });
+        const eng = viaTensorfold ? 'TensorFold' : 'llama.cpp';
+        onLine(m.key + ': this ' + eng + ' does not know ' + serve.join(' ') + ': starting without it.');
+        onRecover(m.name, 'this ' + eng + ' does not know ' + serve.join(' ') + ': started without it', {
+          kind: 'flag',
+        });
         serve = [];
       } else if (NO_MEMORY.test(r.why) && contextPerSlot > SERVING.contextPerSlot / 4) {
         contextPerSlot = Math.floor(contextPerSlot / 2);

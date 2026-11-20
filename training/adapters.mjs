@@ -36,6 +36,8 @@ export function mlxReady(m, work) {
   const o = ORIGINALS[path.basename(m.file)];
   const p = mlxPaths(work);
   const no = (why) => ({ model: m.name, file: m.file, ok: false, why });
+  // (a member another engine serves: an adapter here is a GGUF LoRA, which llama.cpp loads and that engine does not)
+  if (m.engine && m.engine !== 'llama') return no('it is served by TensorFold, which loads no adapter');
   if (!o) return no('no original weights are named for it (training/originals.json)');
   if (o.cannot) return no(o.cannot);
   if (!fs.existsSync(p.python)) return no('MLX is not installed here: training/mlx-setup.sh');
@@ -309,6 +311,7 @@ export function lorasFor(config, members, work, targetId, modelsDir) {
   if (!config || !config.adapters) return {};
   const out = {};
   for (const [key, m] of Object.entries(members)) {
+    if (m.engine && m.engine !== 'llama') continue; // (served by an engine that loads no adapter)
     const r = adapterOf(work, targetId, { name: m.name, file: path.join(modelsDir, m.file) });
     if (r && r.ok) out[key] = r.gguf;
   }
