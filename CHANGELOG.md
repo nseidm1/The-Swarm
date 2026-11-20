@@ -12,8 +12,9 @@ The first version.
   results, the pass in hand) is said with its size and not removed from there. No file in `.work` is under no line.
 - **A small model can be served by TensorFold** (2026-11-20, SwOA spec S2.8). The catalog has LFM3 1.7B and Qwen3.5 2B twice
   each: the GGUF that llama.cpp serves, and the MLX 4-bit build ("LFM3 1.7B MLX", "Qwen3.5 2B MLX") served by TensorFold
-  on an Apple silicon Mac. Each is an entry of its own, chosen like any other, because another quantisation is another member with its own record; it can be
-  chosen only where TensorFold is. The swarm asks it exactly as it asks a llama.cpp member (`src/members.mjs` `serveArgs`,
+  on an Apple silicon Mac. Each is an entry of its own, chosen like any other, because another quantisation is another member with its own record. It can be
+  chosen on an Apple silicon Mac: where TensorFold is not there yet, making the models ready installs it with its maker's
+  installer, as llama.cpp is fetched where it is missing (the newest release: it cannot be pinned as llama.cpp's build is). The swarm asks it exactly as it asks a llama.cpp member (`src/members.mjs` `serveArgs`,
   `engineOf`). Its files are fetched and checked by their hashes like any model's, into a folder of their own. It runs
   without adapters, which TensorFold does not load, and Pretrain says so. A spec records `engine` and `dir` only for such a
   member, so every earlier spec keeps its hash.

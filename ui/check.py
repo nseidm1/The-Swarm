@@ -1737,17 +1737,21 @@ _tf12.write_text("")
 os.environ["SWARM_TENSORFOLD"] = str(_tf12)
 _p12_with = swarm_ui.pills(_d12)
 os.environ["SWARM_TENSORFOLD"] = ""
-_p12 = swarm_ui.pills(_d12)
+# (without it: on an Apple silicon Mac it can be chosen and is installed when training starts; on any other machine it cannot)
+_p12_mac = swarm_ui.pills(dict(_d12, machine=["mac"]))
+_p12 = swarm_ui.pills(dict(_d12, machine=[]))
 del os.environ["SWARM_TENSORFOLD"]
 _small12 = _d12["registry"]["small"]
 _a12 = _d12["members"]["a"]
-check("what serves a model is said beside it: every small model of the catalog names its engine, and in the list each one that is not the one chosen says it after its size; a model both engines serve has an entry for each, the other engine's chosen only where that engine is; the pill of the one chosen says it beside its size and in its title; the larger model's says its own engine; a decision model's does not (it is served as its recipe says)",
+check("what serves a model is said beside it: every small model of the catalog names its engine, and in the list each one that is not the one chosen says it after its size; a model both engines serve has an entry for each, TensorFold's chosen on an Apple silicon Mac (where TensorFold is not there yet the list says it is installed when training starts) and nowhere else; the pill of the one chosen says it beside its size and in its title; the larger model's says its own engine; a decision model's does not (it is served as its recipe says)",
       all(m.get("engine") in ("llama", "tensorfold") for m in _small12) and not any(m.get("alsoOn") for m in _small12)
       and [m["id"] for m in _small12 if m.get("engine") == "tensorfold"] == ["qwen35-2b-mlx", "lfm3-1.7b-mlx"]
       # (a model TensorFold serves has an entry of its own beside the GGUF's, and can be chosen only where TensorFold is)
       and re.search(r'<option value="lfm3-1\.7b-mlx">LFM3 1\.7B MLX · [\d.]+ GB · TensorFold</option>', _p12_with) is not None
       and re.search(r'<option value="lfm3-1\.7b-mlx" disabled>LFM3 1\.7B MLX · [\d.]+ GB · TensorFold · needs an Apple silicon Mac with TensorFold</option>', _p12) is not None
       and re.search(r'<option value="lfm3-1\.7b">LFM3 1\.7B · [\d.]+ GB · llama\.cpp</option>', _p12) is not None
+      and re.search(r'<option value="lfm3-1\.7b-mlx">LFM3 1\.7B MLX · [\d.]+ GB · TensorFold · installed when training starts</option>', _p12_mac) is not None
+      and "installed when training starts" not in _p12_with and "installed when training starts" not in _p12
       and re.search(r'<option value="qwen35-2b"[^>]*>Qwen3\.5 2B · [\d.]+ GB · llama\.cpp</option>', _p12) is not None
       and re.search(r'<option value="qwen35-2b-mlx">Qwen3\.5 2B MLX · [\d.]+ GB · TensorFold</option>', _p12_with) is not None
       and re.search(r'<option value="jan-code-4b"[^>]*>Jan-Code 4B · [\d.]+ GB · llama\.cpp</option>', _p12) is not None

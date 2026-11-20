@@ -20,7 +20,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { has, llamaServer, modelsDir, REPO_ROOT, WORK } from './support/bench.mjs';
 import { MEMBERS, DECIDER, TARGET, ENGINE, REGISTRY, fileUrl, engineBuild, engineUrl } from '../src/catalog.mjs';
-import { modelFile, filesOf } from '../src/members.mjs';
+import { modelFile, filesOf, engineOf, tensorfoldProgram } from '../src/members.mjs';
 import { programOf } from './target.mjs';
 
 const gb = (n) => (n / 2 ** 30).toFixed(n > 2 ** 30 ? 1 : 2) + ' GB';
@@ -267,6 +267,40 @@ function decider(check) {
   }
   return false;
 }
+// THE ENGINE OF A SMALL MODEL THAT IS NOT llama.cpp's: TensorFold, where a model the swarm is made of is served by it. On an
+// Apple silicon Mac it is installed here when it is missing, by its maker's installer (the catalog's engines.tensorfold.install:
+// the newest release, which cannot be pinned or checked by a hash as llama.cpp's build is, and the step says so). On any other
+// machine it cannot run, and the step says to choose the model's llama.cpp entry.
+function tensorfoldEngine(check) {
+  const what = 'The engine (TensorFold)';
+  if (tensorfoldProgram()) return (say(what, 'ready', { note: tensorfoldProgram() }), true);
+  const can = process.platform === 'darwin' && process.arch === 'arm64';
+  const how = ((REGISTRY.engines || {}).tensorfold || {}).install || '';
+  if (!can || !how)
+    return (
+      say(what, 'failed', {
+        why: 'TensorFold runs on an Apple silicon Mac, and this is not one: choose the llama.cpp entry of the model',
+      }),
+      false
+    );
+  if (check)
+    return (say(what, 'missing', { note: "installed by its maker's installer when training is started" }), false);
+  say(what, 'fetching', { note: "its maker's installer: " + how });
+  const r = spawnSync('sh', ['-c', how], { encoding: 'utf8', timeout: 30 * 60000 });
+  const got = tensorfoldProgram();
+  if (r.status === 0 && got)
+    return (
+      say(what, 'ready', {
+        note: got + ", installed now by its maker's installer (the newest release: it is not pinned)",
+      }),
+      true
+    );
+  const tail = (String(r.stdout || '') + String(r.stderr || '')).trim().split('\n').slice(-1)[0] || '';
+  return (
+    say(what, 'failed', { why: 'its installer did not leave it here' + (tail ? ': ' + tail.slice(0, 160) : '') }),
+    false
+  );
+}
 async function target(check) {
   const what = 'The larger model (' + TARGET.name + ')';
   if (process.env.SWARM_TARGET_BASE)
@@ -299,6 +333,13 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   }
   const ok = [];
   ok.push(await engine(check));
+  // (and TensorFold, where a small model the swarm is made of is served by it; --model: where one of the models named is)
+  const wantsTensorfold = has('model')
+    ? String(process.argv[process.argv.indexOf('--model') + 1] || '')
+        .split(',')
+        .some((id) => engineOf(REGISTRY.small.find((x) => x.id === id) || {}) === 'tensorfold')
+    : Object.values(MEMBERS).some((m) => engineOf(m) === 'tensorfold');
+  if (wantsTensorfold) ok.push(tensorfoldEngine(check));
   // (--model <id>[,<id>]: those small models of the catalog only, and nothing else)
   const named = String(process.argv[process.argv.indexOf('--model') + 1] || '');
   if (has('model')) {

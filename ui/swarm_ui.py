@@ -2773,11 +2773,14 @@ def pills(d):
                 # listed, so that it can be compared, and cannot be chosen here)
                 score = (" · index %s%s" % (m["index"]["score"], " (an older checkpoint)" if "older" in m["index"].get("as", "") else "")) if key in ("decider", "judge") and m.get("index") else ""
                 here = key not in ("decider", "judge") or not m.get("runsOn") or any(x in d.get("machine", []) for x in m["runsOn"])
-                # (a small model another engine serves can be chosen only where that engine is: TensorFold, on an Apple silicon Mac)
+                # (a small model TensorFold serves can be chosen on an Apple silicon Mac: where TensorFold is not there yet, making
+                # the models ready installs it (training/setup.mjs), and the list says so. On any other machine it cannot run)
+                tf_first = False
                 if key in ("a", "b", "c", "d") and m.get("engine") == "tensorfold" and not tensorfold_here():
-                    here = False
+                    here = "mac" in d.get("machine", [])
+                    tf_first = here
                 opts += '<option value="%s"%s%s>%s%s%s%s</option>' % (
-                    e(m["id"]), " selected" if mine else "", "" if here or mine else " disabled", e(m["name"]), "" if mine else score, "" if mine else weigh(m) + e(runs(m, key)),
+                    e(m["id"]), " selected" if mine else "", "" if here or mine else " disabled", e(m["name"]), "" if mine else score, "" if mine else weigh(m) + e(runs(m, key)) + (" · installed when training starts" if tf_first else ""),
                     "" if here else " · needs %s" % e(m.get("needs", "another machine")))
             opts += "</optgroup>"
         if group == "judge":

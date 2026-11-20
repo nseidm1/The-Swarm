@@ -29,6 +29,13 @@
       }
     }
   },
+  "engines": {
+    "tensorfold": {
+      "name": "TensorFold",
+      "install": "curl -fsSL https://tensorfold.dev/install.sh | sh",
+      "runsOn": ["mac"]
+    }
+  },
   "enginesAbout": "engine: what serves a model here. \"llama\": a GGUF file served by llama.cpp. \"tensorfold\": an MLX build, a folder of files (dir; file is its weights and parts the files beside it), served by TensorFold on an Apple silicon Mac. A model both engines serve has an entry for each: another quantisation is another member, with its own record. Tried here with TensorFold 1.3.1, 2026-11-20: it serves LFM3 1.7B and Qwen3.5 2B, and refuses LFM2.5 1.2B and 2.6B (no backend for lfm2 checkpoints).",
   "small": [
     {
