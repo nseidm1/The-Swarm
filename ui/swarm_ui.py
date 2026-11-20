@@ -289,6 +289,7 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .evalp details.psec:not([open])>summary>h4::after,.evalp details.psec.shutting>summary>h4::after{transform:rotate(-45deg)}
 .evalp details.psec:not([open])>summary>h4{margin-bottom:2px}.evalp details.psec:not([open]){border-top:1px solid var(--line2);padding-top:12px;margin-top:12px}
 .evalp .pmeta{display:block;font-size:13px;color:var(--mist);font-weight:600;line-height:1.4;overflow-wrap:anywhere;margin:0}.evalp details.psec[open]>summary>.pmeta{display:none}.evalp details.psec.shutting>summary>.pmeta{display:block}
+.evalp .evsum{display:block;max-width:560px;margin-top:8px}.evalp details.psec[open]>summary>.evsum{display:none}.evalp details.psec.shutting>summary>.evsum{display:block}.evsum.asking .evbar i{background:var(--sun)}
 .evall>summary>h4{margin:0 0 6px;font-size:15px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.evall{margin-top:14px}.evall[open]>.psecb>.evitem:first-child{margin-top:10px}
 .evrow{display:grid;grid-template-columns:minmax(150px,1.1fr) minmax(200px,1.4fr) minmax(200px,1.3fr);gap:6px 16px;padding:10px 0;border-top:1px solid var(--line2);align-items:center}
 .evname b{display:block;font-size:14px}.evname small,.evag small{display:block;font-size:12px;color:var(--mist);line-height:1.35;margin-top:2px}
@@ -857,8 +858,15 @@ async function evTick(){const box=$('#evalbox');if(!box||!box.dataset.running)re
       w.querySelector('i').style.width=pct.toFixed(1)+'%';const ws=w.querySelector('[data-ws]'),tx=(EVW[st.state]||(()=>''))(st);if(ws.textContent!==tx)ws.textContent=tx;}}
   // each body of work, in a line while it is folded; and the one being asked now opens, unless a person folded or opened it
   for(const m of box.querySelectorAll('[data-evm]')){const ts=(s.tasks||[]).filter(t=>m.dataset.evm==='*'||t.item===m.dataset.evm);if(!ts.length)continue;const tx=evMeta(ts,s.target||'the larger model');if(m.textContent!==tx)m.textContent=tx;}
+  // and its one bar, which shows while it is folded: how far the run is through the tasks it holds (_ev_through, the same share)
+  for(const m of box.querySelectorAll('[data-evp]')){const sh=evShare((s.tasks||[]).filter(t=>m.dataset.evp==='*'||t.item===m.dataset.evp));if(!sh)continue;
+    m.classList.toggle('asking',sh[1]);m.querySelector('i').style.width=sh[0].toFixed(1)+'%';}
   const at=(s.tasks||[]).find(t=>['target','swarm'].some(w=>(t[w]||{}).state==='asking'));
   if(at&&box.dataset.at!==at.item){box.dataset.at=at.item;const d=box.querySelector('details[data-keep="eval-'+at.item+'"]');let v=null;try{v=localStorage.getItem('swarm.open.eval-'+at.item);}catch(e){}if(d&&v===null)d.open=true;}}
+const evShare=all=>{const ts=all.filter(t=>!['target','swarm'].every(w=>String((t[w]||{}).why||'').startsWith('not asked')));if(!ts.length)return null;
+  let dn=0,tot=0,known=true,sum=0;for(const t of ts){const a=t.target||{},b=t.swarm||{},d=Math.min(Number(a.done)||0,Number(b.done)||0),n=Number(a.of||b.of)||0;dn+=d;tot+=n;
+    if(n)sum+=Math.min(1,d/n);else if([a,b].every(x=>['done','kept'].includes(x.state)))sum+=1;else known=false;}
+  return [Math.min(100,known&&tot?100*dn/tot:100*sum/ts.length),ts.some(t=>['target','swarm'].some(w=>(t[w]||{}).state==='asking'))];};
 const evMeta=(all,tn)=>{const na=t=>String((t.target||{}).why||'').startsWith('not asked');if(all.every(na))return all[0].target.why;
   const ts=all.filter(t=>!na(t)),k=all.length-ts.length;
   const w=who=>{const done=ts.filter(t=>['done','kept'].includes((t[who]||{}).state)).length,a=ts.find(t=>(t[who]||{}).state==='asking');
@@ -3840,6 +3848,33 @@ def _ev_bar(row, who, label):
             % (e(st.get("state") or "waiting"), who, pct, e(label), e(words)))
 
 
+def _ev_through(rows):
+    """HOW FAR A RUN IS THROUGH SOME OF ITS TASKS, as one share: (percent, whether one of them is being asked), or None where none
+    of them is asked. In questions, as the headline counts them (ev_progress): one is finished once both models answered it. Where
+    a task has not said how many it holds, each task counts alike instead. The page's script says the same as the run goes on (evShare)."""
+    ts = [r for r in rows if not all(str((r.get(w) or {}).get("why") or "").startswith("not asked") for w in ("target", "swarm"))]
+    if not ts:
+        return None
+    done = of = 0
+    parts = []
+    for r in ts:
+        a, b = r.get("target") or {}, r.get("swarm") or {}
+        d_, n_ = min(int(a.get("done") or 0), int(b.get("done") or 0)), int(a.get("of") or b.get("of") or 0)
+        done, of = done + d_, of + n_
+        parts.append(min(1.0, float(d_) / n_) if n_ else (1.0 if all((x.get("state") in ("done", "kept")) for x in (a, b)) else None))
+    pct = 100.0 * done / of if all(x is not None for x in parts) and of else 100.0 * sum(x or 0 for x in parts) / len(parts)
+    return min(100.0, pct), any((r.get(w) or {}).get("state") == "asking" for r in ts for w in ("target", "swarm"))
+
+
+def _ev_sum(key, rows):
+    """A folded section's one bar: how far the run is through the tasks it holds (console instruction 2026-11-20). '' where the
+    run asks none of them."""
+    sh = _ev_through(rows)
+    if not sh:
+        return ""
+    return '<span class="evsum%s" data-evp="%s"><span class="evbar"><i style="width:%.1f%%"></i></span></span>' % (" asking" if sh[1] else "", e(key), sh[0])
+
+
 def _ev_meta_live(rows, tname):
     """One body of work while a run is shown, in a line (the page's script says the same as the run goes on, evMeta): how many of its
     tasks each model has been asked, and the task in hand; or why none of it is asked."""
@@ -4222,9 +4257,9 @@ def eval_block(d):
         every_b = [b for t in listed for b in t.get("benchmarks") or []]
         every_live = [lrows[b["task"]] for b in every_b if b["task"] in lrows]
         out.append('<details class="psec evall" data-keep="eval-all"><summary><h4>Every task, by body of work <span class="muted small">%d bod%s of work · %d task%s</span></h4>'
-                   '<span class="pmeta" data-evm="*">%s</span></summary><div class="psecb">'
+                   '<span class="pmeta" data-evm="*">%s</span>%s</summary><div class="psecb">'
                    % (len(listed), "y" if len(listed) == 1 else "ies", len(every_b), "" if len(every_b) == 1 else "s",
-                      e(_ev_meta_live(every_live, tname) if every_live else _ev_meta_done(every_b, by_task))))
+                      e(_ev_meta_live(every_live, tname) if every_live else _ev_meta_done(every_b, by_task)), _ev_sum("*", every_live)))
     for t in listed:
         bms = t.get("benchmarks") or []
         tc = [by_task[b["task"]] for b in bms if b["task"] in by_task and by_task[b["task"]].get("agree") and not shown]
@@ -4233,10 +4268,10 @@ def eval_block(d):
         # it holds while folded. Folded to begin with, but for the one being asked while a run is shown
         live_rows = [lrows[b["task"]] for b in bms if b["task"] in lrows]
         asking = any((r.get(w) or {}).get("state") == "asking" for r in live_rows for w in ("target", "swarm"))
-        out.append('<details class="psec evitem" data-keep="eval-%s"%s><summary><h4>%s%s</h4><span class="pmeta" data-evm="%s">%s</span></summary><div class="psecb">'
+        out.append('<details class="psec evitem" data-keep="eval-%s"%s><summary><h4>%s%s</h4><span class="pmeta" data-evm="%s">%s</span>%s</summary><div class="psecb">'
                    % (e(t["id"]), " open" if shown and asking else "", e(t["name"]),
                       (' <span class="pill">the swarm %s%% · %s %s%%</span>' % (fmt_pct(data.percent(isw, iof)), e(res.get("target") or tname), fmt_pct(data.percent(itg, iof)))) if iof else "",
-                      e(t["id"]), e(_ev_meta_live(live_rows, tname) if live_rows else _ev_meta_done(bms, by_task))))
+                      e(t["id"]), e(_ev_meta_live(live_rows, tname) if live_rows else _ev_meta_done(bms, by_task)), _ev_sum(t["id"], live_rows)))
         if t.get("benchmarksNote"):
             out.append('<p class="muted small">%s.</p>' % e(t["benchmarksNote"]))
         if not bms:

@@ -510,6 +510,11 @@ with tempfile.TemporaryDirectory() as tmp:
           # (a row with no bars says so, and the script draws the card again when the run names that row's task; a row of a
           # running evaluation's own tasks has bars from the first draw that knows them)
           and 'data-none>not evaluated yet</span>' in ev0 and "row.querySelector('[data-none]')" in swarm_ui.JS and "data-none" not in ev_run.split('data-evt="bfcl_multiple"')[1].split("</div></div>")[0] and "/fragment/evtable?h=" in swarm_ui.JS
+          # (a folded section of a run shows one bar of how far the run is through its tasks, in questions; none where no run is shown)
+          and 'data-evp="*"' in ev_run and 'data-evp="tools"' in ev_run and "data-evp" not in ev0 and "'[data-evp]'" in swarm_ui.JS and "evShare" in swarm_ui.JS
+          and swarm_ui._ev_through([{"target": {"state": "kept", "done": 20, "of": 20}, "swarm": {"state": "asking", "done": 5, "of": 20}}, {"target": {"state": "kept", "done": 20, "of": 20}, "swarm": {"state": "waiting", "done": 0}}]) == (12.5, True)
+          and swarm_ui._ev_through([{"target": {"state": "done", "done": 4}, "swarm": {"state": "done", "done": 4}}, {"target": {"state": "waiting"}, "swarm": {"state": "waiting"}}]) == (50.0, False)
+          and swarm_ui._ev_through([{"target": {"why": "not asked: x"}, "swarm": {"why": "not asked: x"}}]) is None
           and swarm_ui.harnesses_of([{"benchmarks": [{"task": "a"}, {"task": "b", "harness": "new-one"}]}]) == ["lm", "new-one"] and swarm_ui.harness_name("new-one") == "new-one" and 'data-ev-item="crew"' not in ev0 and 'data-ev-item="instructions" data-h="lm"' in ev0 and '<span class="cfgl">Asks</span>' in ev0
           and "items:its.filter(x=>x.checked&&" in swarm_ui.JS and "harnesses:hs.filter(x=>x.checked)" in swarm_ui.JS and "localStorage.setItem('swarm.eval.off'" in swarm_ui.JS and "function evAsk()" in swarm_ui.JS
           and bad_size == 400 and foreign == 403 and bad_items == [400, 400, 400, 400]

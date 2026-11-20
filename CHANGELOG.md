@@ -6,6 +6,9 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A folded section of a running evaluation shows one bar** (2026-11-20). Each body of work, and the section that holds
+  them all, shows while folded how far the run is through its tasks, in questions both models have answered. It is amber
+  while one of its tasks is being asked.
 - **A running evaluation's tasks show their bars** (2026-11-20). Where the card was drawn in a run's first seconds, before it
   had said which tasks it asks, every task read "not evaluated yet" for as long as the run went on, the one being asked
   among them. The page now draws the card again once the run names its tasks.
