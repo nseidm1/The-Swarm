@@ -2743,6 +2743,14 @@ def pills(d):
     # (a model in parts weighs all of its parts)
     weigh = lambda m: (" · %.1f GB" % ((m["bytes"] + sum(p.get("bytes") or 0 for p in m.get("parts") or [])) / 2**30)) if m.get("bytes") else (" · about %s GB" % m["memGb"]) if m.get("memGb") else ""  # noqa: E731
 
+    # WHAT SERVES A MODEL HERE, said beside it in the list and on the pill: a small model is a GGUF file served by llama.cpp, a
+    # larger model names its own engine (src/models.json engine). Where another engine's maker lists the model too (alsoOn),
+    # the pill's title says so, and that the swarm does not serve it that way
+    ENGINES = {"llama": "llama.cpp", "tensorfold": "TensorFold"}
+    eng = lambda m: ENGINES.get(m.get("engine") or "", m.get("engine") or "")  # noqa: E731
+    runs = lambda m, key: (" · " + eng(m)) if key not in ("decider", "judge") and eng(m) else ""  # noqa: E731
+    also = lambda m: ("; %s lists it too (%s), which the swarm does not use" % (_and([ENGINES.get(k, k) for k in m["alsoOn"]]), ", ".join(m["alsoOn"].values()))) if m.get("alsoOn") else ""  # noqa: E731
+
     def pill(key, label, lst, chosen, group=None):
         opts = ""
         makers = list(dict.fromkeys(m.get("by", "").split(",")[0] for m in lst))
@@ -2760,7 +2768,7 @@ def pills(d):
                 score = (" · index %s%s" % (m["index"]["score"], " (an older checkpoint)" if "older" in m["index"].get("as", "") else "")) if key in ("decider", "judge") and m.get("index") else ""
                 here = key not in ("decider", "judge") or not m.get("runsOn") or any(x in d.get("machine", []) for x in m["runsOn"])
                 opts += '<option value="%s"%s%s>%s%s%s%s</option>' % (
-                    e(m["id"]), " selected" if mine else "", "" if here or mine else " disabled", e(m["name"]), "" if mine else score, "" if mine else weigh(m),
+                    e(m["id"]), " selected" if mine else "", "" if here or mine else " disabled", e(m["name"]), "" if mine else score, "" if mine else weigh(m) + e(runs(m, key)) + (e(" (%s lists it too)" % _and([ENGINES.get(k, k) for k in m["alsoOn"]])) if m.get("alsoOn") and runs(m, key) else ""),
                     "" if here else " · needs %s" % e(m.get("needs", "another machine")))
             opts += "</optgroup>"
         if group == "judge":
@@ -2770,7 +2778,7 @@ def pills(d):
             # a place that can be left empty: "none" takes the model out of the swarm (or, on an empty place, is what it shows)
             opts = '<option value=""%s>%s</option>' % ("" if chosen else " selected", "Remove it from the swarm" if chosen else "Add a model") + opts
         return '<label class="pick %s%s" title="%s"><small>%s%s</small><select data-pick="%s"%s aria-label="%s">%s</select></label>' % (
-            key, " add" if group == "optional" and not chosen else "", e("%s: %s%s" % (label, chosen["name"], weigh(chosen)) if chosen else label + ": none. Choose one to add a small model to the swarm"), e(label), '<i>%s</i>' % e(weigh(chosen).replace(" · ", "")) if chosen and weigh(chosen) else "", key, " disabled" if running else "", e(label), opts)
+            key, " add" if group == "optional" and not chosen else "", e("%s: %s%s%s%s" % (label, chosen["name"], weigh(chosen), (", served by " + eng(chosen)) if runs(chosen, key) else "", also(chosen)) if chosen else label + ": none. Choose one to add a small model to the swarm"), e(label), '<i>%s</i>' % e((weigh(chosen) + runs(chosen, key)).replace(" · ", "", 1)) if chosen and weigh(chosen) else "", key, " disabled" if running else "", e(label), opts)
 
     # a third and a fourth small model: each place that is filled, and the next one, empty, to add to
     more = ""

@@ -1728,6 +1728,20 @@ check("an engine installed here that is behind is said among the recommendations
       and swarm_ui.version_in("b12359") == ("b12359", (12359,)) and swarm_ui.version_in("v1.3.1") == ("1.3.1", (1, 3, 1)) and swarm_ui.version_in("none") == ("", ()),
       [_on11, _cur11, _unknown11])
 
+# ---- WHAT SERVES A MODEL is said beside it: in the list of models to choose from, and on the pill of the one chosen
+_d12 = data.load(REPO)
+swarm_ui.ARGS = _types.SimpleNamespace(root=str(REPO))
+_p12 = swarm_ui.pills(_d12)
+_small12 = _d12["registry"]["small"]
+_a12 = _d12["members"]["a"]
+check("what serves a model is said beside it: every small model of the catalog names its engine, and in the list each one that is not the one chosen says it after its size, with any other engine whose maker lists it too; the pill of the one chosen says it beside its size and in its title; the larger model's says its own engine; a decision model's does not (it is served as its recipe says)",
+      all(m.get("engine") == "llama" for m in _small12) and [m["id"] for m in _small12 if m.get("alsoOn")] == ["qwen35-2b"]
+      and re.search(r'<option value="qwen35-2b"[^>]*>Qwen3\.5 2B · [\d.]+ GB · llama\.cpp \(TensorFold lists it too\)</option>', _p12) is not None
+      and re.search(r'<option value="jan-code-4b"[^>]*>Jan-Code 4B · [\d.]+ GB · llama\.cpp</option>', _p12) is not None
+      and ('title="Small model 1: %s' % _a12["name"]) in _p12 and ", served by llama.cpp" in _p12 and re.search(r"<i>[\d.]+ GB · llama\.cpp</i>", _p12) is not None
+      and "GB · TensorFold</i>" in _p12 and "index" in _p12 and not re.search(r'<option value="kev-4b"[^>]*>[^<]*llama\.cpp', _p12),
+      re.findall(r"<i>[^<]*</i>", _p12))
+
 # ---- A RUN IS RUNNING ONLY WHILE ITS OWN PROCESS IS: an id is given again when its process has ended
 import subprocess as _sp10
 _p10 = _sp10.Popen([sys.executable, "-c", "import time; time.sleep(8)", "training/evaluate.sh"])

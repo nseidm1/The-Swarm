@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The list of models says what serves each** (2026-11-20): llama.cpp for every small model, its own engine for a larger
+  one, on the pill of the one chosen and beside each in the list. Where another engine's maker lists a model too, the list
+  says so (TensorFold lists Qwen3.5 2B): the swarm does not serve a small model through it. `src/models.json` `engine`,
+  `alsoOn`.
 - **IFEval is listed under Instructions, and "The Crew" is "Programming and its conversation"** (2026-11-20). The Evaluate
   card showed "The Crew" over one test of following instructions. That test now sits under Instructions, the body of work
   whose questions train what it measures, and the body of work it left has the name the specification already gives it. A
