@@ -6292,7 +6292,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const fit = fitted(long, 4000, 500);
   const web = { harness: 'bfcl', tools: 'x', category: 'web_search_base', search: true, targetAlsoAfter: true };
   check(
-    'a turn with tools: earlier results are cut, the earliest first, until the conversation fits, the latest never, and nothing is cut where it fits; where no drafter proposes a step that can be taken the turn is answered from what there is; with callFirst a reply fewer than most proposed is set aside and the step is chosen among the calls, and most replying still ends the work; the decision model is shown what was asked; with toolDecide "most" it is not asked; a refusal for want of room says the reply tokens that still fit; and the module is asked a search test both ways the larger model is',
+    'a turn with tools: earlier results are cut, the earliest first, until the conversation fits, the latest never, and nothing is cut where it fits; where no drafter proposes a step that can be taken the turn is answered from what there is; with callFirst a reply fewer than most proposed is set aside and the step is chosen among the calls, and most replying still ends the work; the decision model is shown what was asked; with toolDecide "most" it is not asked; a refusal for want of room says the reply tokens that still fit; and the module is asked a search test both ways the larger model is; and the larger model\'s kept answers are named by its engine\'s version',
     fit[1].content.startsWith('a'.repeat(500) + '\n[The rest of this result is left out: 2500 characters.]') &&
       fit[2].content.length < 600 &&
       fit[3].content === 'c'.repeat(3000) &&
@@ -6320,6 +6320,39 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       ) === 3750 &&
       E.roomLeft('maximum context length is 16384 tokens, but the rendered prompt has 16300 tokens') === null &&
       E.roomLeft('some other refusal') === null &&
+      // (the larger model's kept answers are named by the engine's version; ones kept before that are used while the engine's
+      // program is no newer than they are)
+      E.engineVersionIn('tensorfold-native 1.2.7') === '1.2.7' &&
+      E.engineVersionIn('version: 0.9.0 (build 12110, commit cd959bae9)\nbuilt with AppleClang 21.0.0') ===
+        '0.9.0-b12110' &&
+      E.engineVersionIn('nothing of the kind') === '' &&
+      E.enginePart('tensorfold', '1.2.7') === '-tensorfold1.2.7' &&
+      E.enginePart('tensorfold', '') === '' &&
+      E.keptFolder('new', 'old', 'prog', (f) => ({ new: 5, old: 3, prog: 1 })[f]) === 'new' &&
+      E.keptFolder(
+        'new',
+        'old',
+        'prog',
+        (f) =>
+          ({ old: 3, prog: 1 })[f] ??
+          (() => {
+            throw new Error('none');
+          })(),
+      ) === 'old' &&
+      E.keptFolder(
+        'new',
+        'old',
+        'prog',
+        (f) =>
+          ({ old: 3, prog: 9 })[f] ??
+          (() => {
+            throw new Error('none');
+          })(),
+      ) === 'new' &&
+      E.keptFolder('new', 'old', 'prog', () => {
+        throw new Error('none');
+      }) === 'new' &&
+      E.keptFolder('same', 'same', 'prog', () => 1) === 'same' &&
       E.swarmWaysOf(web).join() === 'tools,after' &&
       E.swarmWaysOf({ ...web, targetAlsoAfter: false }).join() === 'tools',
     {

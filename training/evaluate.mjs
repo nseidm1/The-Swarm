@@ -96,6 +96,37 @@ export const needsOf = (plan, env = process.env) => [
   ...(plan.some(isToolTest) ? ['bfcl'] : []),
   ...(plan.some((b) => b.search) && searchOf(env) === 'searxng' ? ['searxng'] : []),
 ];
+// THE ENGINE THAT SERVED THE LARGER MODEL IS PART OF WHAT ITS ANSWERS ARE. An engine's release mends wrong and empty replies
+// and changes how a model is sampled (read 2026-11-20: five releases of the one here in nine days, three of them saying so), so
+// answers kept from one version are not the model's under another, and the comparison would be with a model that is no longer
+// served. What an engine says of itself (`--version`) -> its version as it is written into a kept folder's name, '' where it
+// says none: "tensorfold-native 1.2.7" -> "1.2.7"; "version: 0.9.0 (build 12110, commit ...)" -> "0.9.0-b12110".
+export function engineVersionIn(said) {
+  const t = String(said || '');
+  const v = /(\d+\.\d+(?:\.\d+)?)/.exec(t);
+  const b = /build\s+(\d+)/i.exec(t);
+  return v ? v[1] + (b ? '-b' + b[1] : '') : b ? 'b' + b[1] : '';
+}
+export const enginePart = (engine, version) =>
+  version ? '-' + String(engine || 'engine').replace(/[^a-z0-9]/gi, '') + version : '';
+// WHICH FOLDER THE LARGER MODEL'S ANSWERS TO A TASK ARE KEPT IN: the one named with the engine's version. Answers kept before
+// folders said the version are this engine's where they were written after its program was put here, and are used as they
+// are (asking everything again to learn nothing is an hour); once the program is newer than they are, they are another
+// version's, and the folder with the version's name is begun.
+export function keptFolder(named, unnamed, program, stat = (f) => fs.statSync(f).mtimeMs) {
+  if (named === unnamed) return named;
+  const at = (f) => {
+    try {
+      return stat(f);
+    } catch {
+      return null;
+    }
+  };
+  if (at(named) !== null) return named;
+  const old = at(unnamed);
+  const prog = at(program);
+  return old !== null && prog !== null && old >= prog ? unnamed : named;
+}
 // a task that cannot be asked as things are, and why ('' where it can): a search test with no search behind it (the one this
 // machine serves is not installed; or the service named needs a key that is not here)
 export const blockedOf = (b, env = process.env, has = undefined) => (b.search ? searchBlocked(env, has) : '');
@@ -690,20 +721,34 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
 
   // THE LARGER MODEL FIRST, and only where its answers to this task, at this size, are not already kept (a tool test: each way
   // it is asked, kept apart)
-  const keep = (b) =>
-    path.join(
-      EVAL_DIR,
-      'target',
-      TARGET.id,
-      b.task +
-        '-' +
-        (limitOf(b) || 'all') +
-        '-r' +
-        RELAY_VERSION +
-        dayPart(b) +
-        searchPart(b) +
-        (b.way && b.way !== 'tools' ? '-' + b.way : ''),
-    );
+  const { programOf } = await import('./target.mjs');
+  const engineProgram = TARGET.engine === 'llama' ? B.llamaServer() : programOf(TARGET);
+  let engineSaid = '';
+  try {
+    const r = spawnSync(engineProgram, ['--version'], { encoding: 'utf8', timeout: 15000 });
+    engineSaid = String(r.stdout || '') + String(r.stderr || '');
+  } catch {
+    /* an engine that does not say: its answers are kept as before */
+  }
+  const engine = { name: TARGET.engine || '', version: engineProgram ? engineVersionIn(engineSaid) : '' };
+  const keep = (b) => {
+    const name = (part) =>
+      path.join(
+        EVAL_DIR,
+        'target',
+        TARGET.id,
+        b.task +
+          '-' +
+          (limitOf(b) || 'all') +
+          '-r' +
+          RELAY_VERSION +
+          part +
+          dayPart(b) +
+          searchPart(b) +
+          (b.way && b.way !== 'tools' ? '-' + b.way : ''),
+      );
+    return keptFolder(name(enginePart(engine.name, engine.version)), name(''), engineProgram);
+  };
   const targetAsks = askable.flatMap((b) => waysOf(b).map((way) => (way === 'tools' ? b : { ...b, way })));
   const needTarget = targetAsks.filter((b) => !keptIn(keep(b), b));
   for (const b of askable.filter((x) => !needTarget.some((y) => y.task === x.task))) {
@@ -921,6 +966,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     runtimeSha,
     adapters,
     target: TARGET.name,
+    // (the engine that served it, and its version: what its kept answers are named by)
+    targetEngine: engine,
     seconds: (Date.now() - live.startedAt) / 1000,
     results,
   };

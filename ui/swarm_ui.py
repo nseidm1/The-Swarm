@@ -2813,6 +2813,118 @@ def alone_scores(root, tid, members=()):
     return {"models": models, "spread": spread, "bar": max(5.0, spread), "set": sig[1]}
 
 
+# ---- THE ENGINES THAT SERVE THE MODELS, AND WHETHER A NEWER ONE IS OUT ----
+# The larger model is whatever its engine makes of it, and an engine's release mends wrong and empty replies (2026-11-20: the
+# one here was five releases behind after nine days, three of them saying so). So the page says when the engine installed here
+# is behind: among the recommendations, as something a person does, with the command its maker documents. The page installs
+# nothing itself. What the newest is, is asked of the place the catalog names for the engine (serve.releases, the one request
+# the page makes beyond this machine: the address alone, nothing of this machine in it), once a day, by the page as it runs
+# and never by a check; llama.cpp's is the build the catalog pins, which needs no asking.
+ENGINE_LOOKUP = False  # (main() turns it on: nothing is asked of the network where the page is only being checked)
+ENGINES_SEEN = False  # (nor is this machine's own engine looked at then: a check is the same on any machine)
+_ENGINE_SAID = {}
+
+
+def version_in(said):
+    """What an engine says of itself -> (its version as written, a tuple to compare by): 'tensorfold-native 1.2.7' ->
+    ('1.2.7', (1, 2, 7)); 'version: 0.9.0 (build 12110, ...)' and 'b12359' -> the build, ('b12110', (12110,)); else ('', ())."""
+    t = str(said or "")
+    b = re.search(r"build\s+(\d+)", t, re.I) or re.search(r"\bb(\d{4,})\b", t)
+    if b:
+        return "b" + b.group(1), (int(b.group(1)),)
+    v = re.search(r"(\d+(?:\.\d+){1,3})", t)
+    return (v.group(1), tuple(int(x) for x in v.group(1).split("."))) if v else ("", ())
+
+
+def engine_said(program):
+    """What `program --version` prints, asked at most once in ten minutes; '' where it cannot be asked."""
+    now = time.time()
+    was = _ENGINE_SAID.get(program)
+    if was and now - was[0] < 600:
+        return was[1]
+    try:
+        r = subprocess.run([program, "--version"], capture_output=True, text=True, timeout=10)
+        said = (r.stdout or "") + (r.stderr or "")
+    except (OSError, subprocess.SubprocessError):
+        said = ""
+    _ENGINE_SAID[program] = (now, said)
+    return said
+
+
+def program_of(serve):
+    """Where an engine's program is on this machine: in a folder its catalog entry names, else on the PATH; '' where it is not."""
+    for folder in (serve or {}).get("where") or []:
+        f = Path(os.path.expanduser(folder)) / serve.get("program", "")
+        if f.is_file():
+            return str(f)
+    return shutil.which((serve or {}).get("program") or "") or ""
+
+
+def engine_newest(root, engine, url):
+    """The newest release of an engine as the page last learned it ({tag, at} in .work/engines.json), or None. Where the page
+    is running and that is older than a day, it is asked again in the background; this call never waits for it."""
+    f = Path(root) / ".work" / "engines.json"
+    known = data._json(f, {}) or {}
+    row = known.get(engine)
+    if ENGINE_LOOKUP and url and (not row or time.time() - row.get("at", 0) > 86400) and not _ENGINE_SAID.get("asking:" + engine):
+        _ENGINE_SAID["asking:" + engine] = True
+
+        def ask():
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "the-swarm-page", "Accept": "application/vnd.github+json"})
+                with urllib.request.urlopen(req, timeout=8) as r:
+                    tag = str((json.loads(r.read().decode("utf-8", "replace")) or {}).get("tag_name") or "")
+                if tag:
+                    now = data._json(f, {}) or {}
+                    now[engine] = {"tag": tag, "at": time.time()}
+                    f.parent.mkdir(parents=True, exist_ok=True)
+                    f.write_text(json.dumps(now))
+            except Exception:  # noqa: BLE001 (no network, a limit, another answer: the page says nothing of a newer one)
+                pass
+            finally:
+                _ENGINE_SAID.pop("asking:" + engine, None)
+
+        import threading
+        threading.Thread(target=ask, daemon=True).start()
+    return row
+
+
+def engine_recommendations(d):
+    """An engine installed here that is behind -> a recommendation a person acts on outside the page (`yours`)."""
+    out = []
+    if not ENGINES_SEEN:
+        return out
+    reg = d.get("registry") or {}
+    tgt = next((t for t in reg.get("targets", []) if t.get("id") == (d.get("target") or {}).get("id")), None) or {}
+    serve = tgt.get("serve") or {}
+    prog = program_of(serve) if serve.get("releases") else ""
+    if prog:
+        have, have_t = version_in(engine_said(prog))
+        row = engine_newest(d["root"], tgt.get("engine") or serve.get("program"), serve.get("releases"))
+        new, new_t = version_in((row or {}).get("tag"))
+        if have_t and new_t and len(have_t) == len(new_t) and new_t > have_t:
+            name = str(tgt.get("by") or "").split("served by ")[-1] or serve.get("program")
+            out.append({"id": "engine:%s:%s" % (serve.get("program"), new), "strength": "info", "yours": True, "apply": None,
+                        "title": "Update %s, which serves %s, from %s to %s" % (name, tgt.get("name", "the larger model"), have, new),
+                        "why": "A newer %s is out. The larger model is what its engine makes of it: a release can mend wrong or empty replies and change its speed, and so its scores. The page installs nothing: with no run going, run <code>%s</code> in a terminal%s. Its kept answers are named by the engine&#39;s version, so the next Evaluate asks %s everything again by itself."
+                               % (e(name), e(serve.get("upgrade") or "its maker&#39;s installer"), (' (what changed: <a href="%s" target="_blank" rel="noopener">its release notes</a>)' % e(serve["notes"])) if serve.get("notes") else "", e(tgt.get("name", "it"))),
+                        "note": "here: %s" % prog})
+    # llama.cpp, which serves the small models: behind the build the catalog pins (no asking: the pin is in src/models.json)
+    eng = reg.get("engine") or {}
+    ls = shutil.which("llama-server") or ""
+    if ls and eng.get("tag"):
+        have, have_t = version_in(engine_said(ls))
+        pin, pin_t = version_in(eng.get("tag"))
+        if have_t and pin_t and len(have_t) == len(pin_t) == 1 and pin_t > have_t:
+            brew = "/homebrew/" in ls or "/Cellar/" in ls
+            out.append({"id": "engine:llama:%s" % pin, "strength": "info", "yours": True, "apply": None,
+                        "title": "Update llama.cpp, which serves the small models, from build %s to %s" % (have[1:], pin[1:]),
+                        "why": "The llama-server found on this machine is older than the build this repository is checked with (%s). It runs (the least it needs is build %s), and what was measured here was measured with it; a later build can serve a model differently, so after updating, a pass and an Evaluate are what would tell.%s"
+                               % (e(pin), e(str(eng.get("minBuild", "?"))), " With no run going: <code>brew upgrade llama.cpp</code>." if brew else " Update it the way it was installed."),
+                        "note": "here: %s" % ls})
+    return out
+
+
 def recommendations(d):
     """CHANGES TO THE CONFIGURATION THAT THE EVIDENCE POINTS AT: what only a person can change (a pass cannot change which models
     the swarm is made of), from what this configuration's passes measured for it (members-probe.mjs, decider-replay.mjs). Each says
@@ -3013,6 +3125,7 @@ def recommendations(d):
             r_["cost"] = ("about %.1f GB more" % dgb) if dgb > 0.05 else ("about %.1f GB less" % -dgb) if dgb < -0.05 else "about the same memory"
         if r_["strength"] == "measured" and r_.get("n", 99) < 20:
             r_["strength"] = "early"
+    out.extend(engine_recommendations(d))
     return out
 
 
@@ -3020,17 +3133,20 @@ def recs_panel(d):
     """The recommended changes to the configuration, each with its evidence and a button to make it."""
     rs = recommendations(d)
     running = bool((run_state() or {}).get("running"))
-    label = lambda r: {"measured": "Measured", "untested": "Untested", "info": "For training"}.get(r["strength"]) or "Early: %d answers" % r.get("n", 0)  # noqa: E731
+    label = lambda r: {"measured": "Measured", "untested": "Untested", "info": "For you" if r.get("yours") else "For training"}.get(r["strength"]) or "Early: %d answers" % r.get("n", 0)  # noqa: E731
     rests = lambda r: ("rests on %d answer%s" % (r["n"], "" if r["n"] == 1 else "s")) if r.get("n") else ""  # noqa: E731
     def item(r):
         meta = " · ".join(x for x in [rests(r), r.get("cost", ""), e(r.get("note", ""))] if x)
         act = ('<button type="button" class="btn top" data-rec-apply=\'%s\'%s>Make this change</button>' % (e(json.dumps(r["apply"])), " disabled" if running else "")) if r.get("apply") else ""
         return '<li class="rec %s"><div><span class="rstr">%s</span><b>%s</b><p>%s</p><small>%s</small></div>%s</li>' % (r["strength"], e(label(r)), e(r["title"]), r["why"], meta, act)
     mine_ = [r for r in rs if r.get("apply")]
-    theirs = [r for r in rs if not r.get("apply")]
+    theirs = [r for r in rs if not r.get("apply") and not r.get("yours")]
+    yours = [r for r in rs if r.get("yours")]
     items = "".join(item(r) for r in mine_) or '<li class="muted">No change to the configuration is recommended now%s.</li>' % (": what follows is for training" if theirs else "")
     if theirs:
         items += '<li class="rech">What training does about it itself</li>' + "".join(item(r) for r in theirs)
+    if yours:
+        items += '<li class="rech">What you do outside this page</li>' + "".join(item(r) for r in yours)
     return ('<div class="spec-head"><div><div class="kicker">What only you can change</div><h3 style="font-size:22px;margin-top:4px">Recommended configuration changes</h3></div>'
             '<button class="btn stop top" id="rec-close" type="button">Close</button></div>'
             '<p class="muted small" style="margin:8px 0 12px">A pass cannot change which models the swarm is made of: these are for you. Each says what it rests on. A change starts this configuration&#39;s own record, as choosing models in the pills does.%s</p>'
@@ -4690,6 +4806,9 @@ def main(argv=None):
     ap.add_argument("--port", type=int, default=8787)
     ap.add_argument("--root", default=str(Path(__file__).resolve().parent.parent), help="the repository (default: the one this file is in)")
     ARGS = ap.parse_args(argv)
+    global ENGINE_LOOKUP, ENGINES_SEEN
+    ENGINES_SEEN = True
+    ENGINE_LOOKUP = not os.environ.get("SWARM_NO_LOOKUP")
     srv = ThreadingHTTPServer(("127.0.0.1", ARGS.port), Handler)
     print("The Swarm's page is at http://127.0.0.1:%d/  (Ctrl+C stops it)" % srv.server_address[1], flush=True)
     try:

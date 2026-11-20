@@ -6,6 +6,13 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The larger model's kept answers are named by its engine's version** (2026-11-20), so after an engine is updated the next
+  Evaluate asks the larger model again by itself; a result says which engine and version served it (`targetEngine`).
+  Answers kept before this are used as they are while the engine's program is no newer than they are.
+- **The page says when an engine is behind** (2026-11-20), among the recommendations, under "What you do outside this page":
+  the larger model's engine against its newest release (the catalog names where releases are published, `serve.releases`;
+  the page asks that address once a day and sends nothing of this machine), and llama.cpp against the build the catalog
+  pins. Each gives the command to run. The page installs nothing.
 - **An evaluation of a swarm with no decision model starts at once** (2026-11-20). It said "Loading the decider" and waited
   a quarter of an hour for one that such a swarm does not have. And Pretrain's judging now ends by saying it is done: the
   page had read its verdict as a run that ended before it finished.

@@ -799,6 +799,9 @@
       "serve": {
         "program": "tensorfold",
         "where": ["~/.tensorfold/bin"],
+        "releases": "https://api.github.com/repos/ashhart/TensorFold/releases/latest",
+        "notes": "https://github.com/ashhart/TensorFold/releases",
+        "upgrade": "curl -fsSL https://tensorfold.dev/install.sh | sh",
         "args": [
           "serve",
           "TensorFold/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-MLX-4bit",

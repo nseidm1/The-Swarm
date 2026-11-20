@@ -1660,6 +1660,41 @@ check("where one of the swarm's own small models, put a pass's recorded choices 
       and "Make this change" in _panel9 and 'id="rec-open"' in _cfg9 and _few9 == [],
       [_r9, _cfg9[:200]])
 
+# ---- AN ENGINE INSTALLED HERE THAT IS BEHIND is said among the recommendations, as something a person does outside the page
+_root11 = Path(tempfile.mkdtemp(prefix="engines-"))
+shutil.copytree(REPO / "src", _root11 / "src")
+(_root11 / ".work").mkdir()
+(_root11 / ".work" / "engines.json").write_text(json.dumps({"tensorfold": {"tag": "v1.3.1", "at": time.time()}}))
+_d11 = data.load(_root11)
+_said11 = {"/fake/tensorfold": "tensorfold-native 1.2.7", "/fake/llama-server": "version: 0.9.0 (build 12110, commit abc)"}
+_keep11 = (swarm_ui.ENGINES_SEEN, swarm_ui.ENGINE_LOOKUP, swarm_ui.engine_said, swarm_ui.program_of, shutil.which, swarm_ui.ARGS)
+swarm_ui.ARGS = _types.SimpleNamespace(root=str(_root11))
+swarm_ui.engine_said = lambda p: _said11.get(p, "")
+swarm_ui.program_of = lambda serve: "/fake/tensorfold" if (serve or {}).get("program") == "tensorfold" else ""
+shutil.which = lambda n: "/fake/llama-server" if n == "llama-server" else None
+_off11 = swarm_ui.engine_recommendations(_d11)
+swarm_ui.ENGINES_SEEN = True
+_on11 = swarm_ui.engine_recommendations(_d11)
+_panel11 = swarm_ui.recs_panel(_d11)
+_said11["/fake/tensorfold"] = "tensorfold-native 1.3.1"
+_said11["/fake/llama-server"] = "version: 0.9.1 (build %s)" % _d11["registry"]["engine"]["tag"].lstrip("b")
+_cur11 = swarm_ui.engine_recommendations(_d11)
+(_root11 / ".work" / "engines.json").unlink()
+_said11["/fake/tensorfold"] = "tensorfold-native 1.2.7"
+_said11["/fake/llama-server"] = "version: 0.9.0 (build 12110, commit abc)"
+_unknown11 = swarm_ui.engine_recommendations(_d11)
+swarm_ui.ENGINES_SEEN, swarm_ui.ENGINE_LOOKUP, swarm_ui.engine_said, swarm_ui.program_of, shutil.which, swarm_ui.ARGS = _keep11
+shutil.rmtree(_root11, ignore_errors=True)
+_tf11 = next((r for r in _on11 if r["id"].startswith("engine:tensorfold")), None)
+_ll11 = next((r for r in _on11 if r["id"].startswith("engine:llama")), None)
+check("an engine installed here that is behind is said among the recommendations, as something a person does outside the page: the larger model's engine against the newest release the page last learned of (with the command its maker documents, where its notes are, and that the next Evaluate asks the larger model again), and llama.cpp against the build the catalog pins; neither has a button; nothing is said where the engine is current, where the newest is not known, or where the page is only being checked; and nothing is asked of the network by a check",
+      _off11 == [] and _tf11 is not None and _ll11 is not None and _tf11["apply"] is None and _tf11["yours"] is True
+      and "from 1.2.7 to 1.3.1" in _tf11["title"] and "TensorFold" in _tf11["title"] and "curl -fsSL https://tensorfold.dev/install.sh | sh" in _tf11["why"] and "release notes" in _tf11["why"] and "asks" in _tf11["why"]
+      and "from build 12110 to" in _ll11["title"] and "What you do outside this page" in _panel11 and "For you" in _panel11 and "Make this change" not in _panel11.split("What you do outside this page")[1]
+      and _cur11 == [] and [r["id"] for r in _unknown11] == [_ll11["id"]] and swarm_ui.ENGINE_LOOKUP is False
+      and swarm_ui.version_in("b12359") == ("b12359", (12359,)) and swarm_ui.version_in("v1.3.1") == ("1.3.1", (1, 3, 1)) and swarm_ui.version_in("none") == ("", ()),
+      [_on11, _cur11, _unknown11])
+
 # ---- A RUN IS RUNNING ONLY WHILE ITS OWN PROCESS IS: an id is given again when its process has ended
 import subprocess as _sp10
 _p10 = _sp10.Popen([sys.executable, "-c", "import time; time.sleep(8)", "training/evaluate.sh"])
