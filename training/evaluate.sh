@@ -95,14 +95,23 @@ DECIDER_STARTED=
 decider_down() { [ -n "$DECIDER_STARTED" ] && bash training/decider.sh stop > /dev/null 2>&1; DECIDER_STARTED=; }
 trap decider_down EXIT
 trap 'exit 143' TERM INT
-if [ -z "$SWARM_DECIDER" ] && bash training/decider.sh ready; then
+# (a swarm configured with no decision model, the decider `none`, starts none, as a training session starts none: session.sh.
+# It was asked for here all the same, 2026-11-20: `ready` is true of it and `serve` has nothing to serve, so the run said
+# "Loading the decider" and waited a quarter of an hour for an address nothing would ever answer at, then went on with it set)
+NO_DECIDER=$("$NODE" -e "import('./src/catalog.mjs').then(c=>console.log(c.NO_DECIDER?1:''))")
+if [ -n "$NO_DECIDER" ]; then
+  unset SWARM_DECIDER SWARM_KEV
+elif [ -z "$SWARM_DECIDER" ] && bash training/decider.sh ready; then
   say "Loading the decider"
   DECIDER_PORT=${DECIDER_PORT:-$("$NODE" training/support/recover.mjs port 8009)}
   bash training/decider.sh serve "$DECIDER_PORT" > .work/eval/decider.log 2>&1 &
+  DECIDER_PID=$!
   DECIDER_STARTED=1
   export SWARM_DECIDER="http://127.0.0.1:$DECIDER_PORT"
   for _ in $(seq 1 180); do
     "$NODE" -e "fetch('$SWARM_DECIDER/v1/models',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))" && break
+    # (it is not waited for once the program that would serve it has ended)
+    kill -0 "$DECIDER_PID" 2> /dev/null || { say "The decider did not start: $(tail -1 .work/eval/decider.log | cut -c1-160)"; break; }
     sleep 5
   done
 fi

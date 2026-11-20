@@ -993,8 +993,8 @@ What has not:
   adapter (perplexity 3.49 -> 2.75 for LFM2.5 1.2B, 2.73 -> 2.39 for Qwen3.5 2B, 2.43 -> 1.99 for Ministral 3 3B). Served
   with them, the swarm did worse on IFEval (the same result as Nemotron on 48 of 100 questions against 61 without; see
   [Measured, not claimed](#measured-not-claimed)). Adapters taught on more answers, of more bodies of work, have not been
-  tried. Bonsai 2 4B cannot be adapted (its weights are Hadamard-rotated; llama.cpp's own `llama-finetune` trains none of
-  these models).
+  tried. Bonsai 2 4B cannot be adapted here (only its ternary, Hadamard-rotated weights are published and its maker
+  documents no way to train an adapter on them; llama.cpp's own `llama-finetune` trains none of these models).
 - **Evaluate the swarm, at proof size.** It has run on IFEval, at most 100 questions, and on the function-calling test, 20
   a category. Code, Math, Logic and Reasoning, and every question of a task, had run against stand-ins only until the proof
   run begun on 2026-11-18, which is not read yet. Some tasks open the model's reply for it

@@ -33,7 +33,7 @@
       "repo": "prism-ml/Ternary-Bonsai-2-4B-mlx-2bit",
       "revision": "dff2caaa23fa8706164c44c10f1b58feb405f76a",
       "dir": "Ternary-Bonsai-2-4B-mlx-2bit",
-      "cannot": "its weights are Hadamard-rotated and load only through its maker's runtime, not stock mlx-lm"
+      "cannot": "only its ternary, Hadamard-rotated weights are published: the trainer here (mlx-lm) does not load them, and its maker documents no way to train an adapter on them"
     },
     "LFM2.5-2.6B-Q4_K_M.gguf": {
       "repo": "LiquidAI/LFM2.5-2.6B",
@@ -44,19 +44,19 @@
       "repo": "prism-ml/Ternary-Bonsai-2-2B-mlx-2bit",
       "revision": "1c6cbae21f8c38830ce337972b46fdae7b18eaaa",
       "dir": "Ternary-Bonsai-2-2B-mlx-2bit",
-      "cannot": "its weights are Hadamard-rotated and load only through its maker's runtime, not stock mlx-lm"
+      "cannot": "only its ternary, Hadamard-rotated weights are published: the trainer here (mlx-lm) does not load them, and its maker documents no way to train an adapter on them"
     },
     "Ternary-Bonsai-2-9B-Q2_0.gguf": {
       "repo": "prism-ml/Ternary-Bonsai-2-9B-mlx-2bit",
       "revision": "f4e28a59531731c41b6dfac88cf271bd58f0a287",
       "dir": "Ternary-Bonsai-2-9B-mlx-2bit",
-      "cannot": "its weights are Hadamard-rotated and load only through its maker's runtime, not stock mlx-lm"
+      "cannot": "only its ternary, Hadamard-rotated weights are published: the trainer here (mlx-lm) does not load them, and its maker documents no way to train an adapter on them"
     },
     "Ternary-Bonsai-2-27B-Q2_0.gguf": {
       "repo": "prism-ml/Ternary-Bonsai-2-27B-mlx-2bit",
       "revision": "24b5937a4a104a44f790b6ccbd0c79b6fabd4299",
       "dir": "Ternary-Bonsai-2-27B-mlx-2bit",
-      "cannot": "its weights are Hadamard-rotated and load only through its maker's runtime, not stock mlx-lm"
+      "cannot": "only its ternary, Hadamard-rotated weights are published: the trainer here (mlx-lm) does not load them, and its maker documents no way to train an adapter on them"
     },
     "Qwen3.5-4B-Q4_K_M.gguf": {
       "repo": "Qwen/Qwen3.5-4B",

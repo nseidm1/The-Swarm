@@ -264,8 +264,11 @@ the three (measured with build 12110: LFM2.5 1.2B's `SSM_CONV` and Qwen3.5 2B's 
 ([`support/mlx_adapter.py`](support/mlx_adapter.py); an example longer than 2,048 tokens is left out, since cutting it would cut
 the answer), writes it as a GGUF LoRA for the file the swarm serves, and keeps it only where llama.cpp, loading it with `--lora`,
 finds the trained answers likelier with it than without (its perplexity on them). Measured 2026-11-17 on the 84 train answers:
-LFM2.5 1.2B 3.23 -> 2.56 after 30 steps, Qwen3.5 2B 2.70 -> 2.63 after 30. Bonsai 2 4B is not trained: its weights are
-Hadamard-rotated and load only through its maker's runtime (the other Bonsai 2 sizes likewise); nor is LFM3 1.7B, whose
+LFM2.5 1.2B 3.23 -> 2.56 after 30 steps, Qwen3.5 2B 2.70 -> 2.63 after 30. Bonsai 2 4B is not trained: only its ternary,
+Hadamard-rotated weights are published. The trainer here (mlx-lm 0.32) does not load them (mlx-vlm 0.7.8 and later does, and
+its maker says the next mlx-lm will), and its maker documents no way to train an adapter on them, nor publishes the 4B at full
+precision (read 2026-11-20; llama.cpp does load a LoRA onto a Bonsai 2 at inference, and one person reports an adapter
+trained on the full-precision base model did not carry over). The other Bonsai 2 sizes likewise; nor is LFM3 1.7B, whose
 architecture mlx-lm 0.32.2 does not have. Every small model of the catalog names its original weights in
 [`originals.json`](originals.json), or why it cannot be adapted; where none of the swarm's can be, Pretrain cannot be pressed,
 and says why. Trying an adapter as a change (a member served with it, kept only if

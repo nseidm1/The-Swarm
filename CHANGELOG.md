@@ -6,6 +6,9 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **An evaluation of a swarm with no decision model starts at once** (2026-11-20). It said "Loading the decider" and waited
+  a quarter of an hour for one that such a swarm does not have. And Pretrain's judging now ends by saying it is done: the
+  page had read its verdict as a run that ended before it finished.
 - **A request longer than a slot holds is read in parts** (2026-11-20, SwOA spec O.13). A request whose last message passes
   8000 characters (`plan.splitOver`) fitted no drafter and the swarm replied with nothing. Its text is now cut at line ends
   into parts that fit (`plan.partChars`), each part is read by two drafters of different models side by side
