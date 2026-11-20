@@ -15,7 +15,7 @@
 // While it runs it writes .work/eval/live.json (what it is doing, the question it is on, how far each task is, how long a
 // question takes); when it ends .work/eval/results.json, and a line in .work/eval/history.jsonl. The larger model's answers are
 // kept (.work/eval/target/), so evaluating the swarm again asks only the swarm.
-//   bash training/evaluate.sh [--limit N] [--items crew,math]    (N questions a task, the first N as the harness orders them;
+//   bash training/evaluate.sh [--limit N] [--items crew,math] [--harnesses lm,bfcl]    (N questions a task, the first N as the harness orders them;
 //                                                                 none: every question)
 //
 // A SECOND HARNESS, FOR TOOLS. Calling a function and using a search tool have no task in lm-evaluation-harness. A benchmark that
@@ -75,10 +75,13 @@ const RELAY_VERSION = 2;
 
 // the tasks to run, of the bodies of work named: [{ item, itemName, task, name, metric, filter, compare }]
 // (every body of work that has a standard task, unless a run names which: --items, or the page's Evaluate)
-export function planOf(targets, ids) {
+// (harnesses: only the tasks of these harnesses, by the key a benchmark names one with, harnessKey; none named: every one)
+export const harnessKey = (b) => String((b && b.harness) || 'lm');
+export function planOf(targets, ids, harnesses = null) {
   const out = [];
   for (const t of targets.filter((x) => ids.includes(x.id)))
-    for (const b of t.benchmarks || []) out.push({ item: t.id, itemName: t.name, ...b });
+    for (const b of t.benchmarks || [])
+      if (!harnesses || harnesses.includes(harnessKey(b))) out.push({ item: t.id, itemName: t.name, ...b });
   return out;
 }
 
@@ -390,7 +393,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const proof = B.has('proof');
   const limitOf = (b) => sizeOf(b, { proof, limit });
   const ids = B.arg('items') ? String(B.arg('items')).split(',') : EQ.targets.map((t) => t.id);
-  const plan = planOf(EQ.targets, ids);
+  // (--harnesses lm,bfcl: only the tasks of those harnesses, of the bodies of work asked)
+  const plan = planOf(EQ.targets, ids, B.arg('harnesses') ? String(B.arg('harnesses')).split(',') : null);
   // (--needs: which harnesses the tasks of this run need installed, for training/evaluate.sh, and nothing else)
   if (B.has('needs')) {
     console.log(needsOf(plan).join(' '));

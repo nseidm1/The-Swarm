@@ -6,6 +6,11 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **An evaluation can be limited to chosen harnesses** (2026-11-20). Under the boxes for the bodies of work the Evaluate card
+  has a box for each harness they are measured by ("With"); a task is asked where its body of work and its harness are both
+  ticked, and a body of work with no harness ticked goes quiet (`evaluate.sh --harnesses lm,bfcl`). The table of scores has
+  the same boxes: unticking one leaves the other harness's tasks and sums every line again over them. A harness added to
+  the catalog has its box in both places without a change to the page.
 - **Kept answers are named by the engine's version** (2026-11-20): the larger model's by its engine's, the swarm's by the
   build of llama.cpp that serves its small models. After either is updated the next Evaluate asks again by itself; a result
   says which engine and version served each (`targetEngine`, `swarmEngine`).

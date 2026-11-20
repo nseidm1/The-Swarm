@@ -278,6 +278,7 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 /* which bodies of work an evaluation asks: a box for each, under the card's heading, every one ticked to begin with */
 .evask{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:12px 0 0;min-width:0}.evask .cfgl{flex:0 0 auto;margin-right:6px}
 .evask label{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);font-size:13px;font-weight:700;color:var(--fog);padding:6px 10px;cursor:pointer}
+.evask label small{font-weight:600;color:var(--mist);font-size:11.5px}.evask label.none{opacity:.45;border-style:dashed;background:var(--panel)!important}.evask.evharn{margin-top:8px}.evd-h{margin:14px 0 0}
 .evask input{width:15px;height:15px;margin:0;accent-color:var(--teal)}.evask label:has(input:checked){border-color:var(--teal2);background:#eefaf6}.evask label:has(input:disabled){cursor:default;opacity:.6}
 .evalp>.state,.prep>.state,.evnow{margin-top:12px}.evq{margin-top:8px;padding:10px 12px;border-radius:var(--r);background:var(--soft);font-size:13px}
 .evq .evql{display:flex;flex-direction:column;gap:2px}.evq .evql b{font-size:17px;line-height:1.3}.evq .evql span{color:var(--mist);font-size:15px;font-variant-numeric:tabular-nums}.evq p{margin:6px 0 0;overflow-wrap:anywhere;line-height:1.45}
@@ -789,17 +790,33 @@ async function evPost(url,into,body){const r=await fetch(url,{method:'POST',head
 // which. It is a choice for one run, not a setting of the swarm: training asks every body of work whatever is ticked here. The
 // boxes are drawn ticked, and painted from what the device kept whenever the card is drawn again
 function evOff(){try{const v=JSON.parse(localStorage.getItem('swarm.eval.off')||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
+// (AND WITH WHICH HARNESSES, kept the same way: a task is asked where its body of work and its harness are both ticked. A body
+// of work none of whose harnesses is ticked has nothing to ask: its box goes quiet, as it is, until one is ticked again)
+function evHOff(){try{const v=JSON.parse(localStorage.getItem('swarm.eval.hoff')||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
+function evLeft(){const hs=[...document.querySelectorAll('[data-ev-harness]')],on=hs.filter(h=>h.checked).map(h=>h.dataset.evHarness);
+  const bs=[...document.querySelectorAll('[data-ev-item]')];
+  bs.forEach(b=>{const has=!hs.length||(b.dataset.h||'').split(' ').some(k=>on.includes(k));b.closest('label').classList.toggle('none',!has);});
+  const go=$('#ev-go');if(go&&!go.dataset.held)go.disabled=!bs.some(b=>b.checked&&!b.closest('label').classList.contains('none'));}
 function evAsk(){const bs=[...document.querySelectorAll('[data-ev-item]')];if(!bs.length)return;const off=evOff();
   bs.forEach(b=>{b.checked=!off.includes(b.dataset.evItem);});if(!bs.some(b=>b.checked))bs.forEach(b=>{b.checked=true;});
-  const go=$('#ev-go');if(go&&!go.dataset.held)go.disabled=false;}
-document.addEventListener('change',(ev)=>{const b=ev.target.closest('[data-ev-item]');if(!b)return;const bs=[...document.querySelectorAll('[data-ev-item]')];
-  try{localStorage.setItem('swarm.eval.off',JSON.stringify(bs.filter(x=>!x.checked).map(x=>x.dataset.evItem)));}catch(e){}
-  const go=$('#ev-go');if(go&&!go.dataset.held)go.disabled=!bs.some(x=>x.checked);});
+  const hs=[...document.querySelectorAll('[data-ev-harness]')],hoff=evHOff();
+  hs.forEach(h=>{h.checked=!hoff.includes(h.dataset.evHarness);});if(hs.length&&!hs.some(h=>h.checked))hs.forEach(h=>{h.checked=true;});
+  evLeft();}
+document.addEventListener('change',async(ev)=>{
+  const d=ev.target.closest('[data-evd-harness]');
+  if(d){const on=[...document.querySelectorAll('[data-evd-harness]')].filter(x=>x.checked).map(x=>x.dataset.evdHarness);
+    if(!on.length){d.checked=true;return;}
+    await swap('/fragment/evtable?h='+encodeURIComponent(on.join(',')),'#evd-body');return;}
+  const b=ev.target.closest('[data-ev-item],[data-ev-harness]');if(!b)return;const bs=[...document.querySelectorAll('[data-ev-item]')];
+  try{localStorage.setItem('swarm.eval.off',JSON.stringify(bs.filter(x=>!x.checked).map(x=>x.dataset.evItem)));
+    localStorage.setItem('swarm.eval.hoff',JSON.stringify([...document.querySelectorAll('[data-ev-harness]')].filter(x=>!x.checked).map(x=>x.dataset.evHarness)));}catch(e){}
+  evLeft();});
 document.addEventListener('DOMContentLoaded',evAsk);
 document.addEventListener('click',async(ev)=>{
   const b=ev.target.closest('#ev-go,#ev-narrow,#ev-stop,#pre-go,#pre-stop');if(!b)return;b.disabled=true;
   if(b.id==='ev-go'){const its=[...document.querySelectorAll('[data-ev-item]')];
-    await evPost('/eval/start','#evalwrap',{limit:Number(($('#ev-size')||{}).value||0),...(its.length?{items:its.filter(x=>x.checked).map(x=>x.dataset.evItem)}:{})});}
+    const hs=[...document.querySelectorAll('[data-ev-harness]')];
+    await evPost('/eval/start','#evalwrap',{limit:Number(($('#ev-size')||{}).value||0),...(its.length?{items:its.filter(x=>x.checked&&!x.closest('label').classList.contains('none')).map(x=>x.dataset.evItem)}:{}),...(hs.length?{harnesses:hs.filter(x=>x.checked).map(x=>x.dataset.evHarness)}:{})});}
   else if(b.id==='ev-stop')await evPost('/eval/stop','#evalwrap');
   // A SECOND LOOK: only the bodies of work that fell short (the button carries them), at the size chosen
   else if(b.id==='ev-narrow')await evPost('/eval/start','#evalwrap',{limit:Number(($('#ev-size')||{}).value||0),items:b.dataset.items.split(',')});
@@ -3743,6 +3760,23 @@ def job_live(name):
 # (-1: a proof run, each task at the size its benchmark names: training/evaluate.mjs --proof)
 EVAL_SIZES = ((20, "20 a task (quick)"), (100, "100 a task"), (0, "every question"), (-1, "a proof run (about 500 a body of work)"))
 PROOF_SIZE = -1
+# THE HARNESSES A PERSON CHOOSES BETWEEN, by the key a benchmark names its harness with (training/equivalence.json `harness`;
+# none named: lm). A harness the page has no name for is shown by its key, so one added to the catalog has its box at once.
+HARNESS_NAMES = {"lm": "lm-evaluation-harness", "bfcl": "BFCL (function calling)"}
+harness_key = lambda b: str((b or {}).get("harness") or "lm")  # noqa: E731
+harness_name = lambda k: HARNESS_NAMES.get(k, k)  # noqa: E731
+
+
+def harnesses_of(listed):
+    """The harnesses the listed bodies of work are measured by, in the order they are first met: [key]."""
+    out = []
+    for t in listed:
+        for b in t.get("benchmarks") or []:
+            if harness_key(b) not in out:
+                out.append(harness_key(b))
+    return out
+
+
 HARNESS_WORDS = {"lm": "EleutherAI&#39;s lm-evaluation-harness 0.4.13", "bfcl": "for the use of tools, the Berkeley Function-Calling Leaderboard (bfcl-eval 2026.3.23)"}
 COMPARE_WORDS = {"answer": "the same answer", "verdict": "the same verdict on the task's tests", "instructions": "the same instructions kept and broken"}
 METRIC_WORDS = {"exact_match": "exact match", "pass@1": "pass@1", "pass_at_1": "pass@1", "prompt_level_strict_acc": "strict prompt accuracy", "accuracy": "the test's own checker"}
@@ -3823,7 +3857,7 @@ def _ev_share(sw, tg):
     return ("%s%%" % fmt_pct(data.percent(sw, tg))) if tg else "–"
 
 
-def eval_table(d):
+def eval_table(d, only=None):
     """EVERY BODY OF WORK AND TASK, SCORE BESIDE SCORE (opened from the Evaluate card's headline): the swarm's score, the larger
     model's on the same questions, the swarm's as a share of it, and how many questions. A body of work's line sums its tasks;
     the last line is the headline's own figures. Where there is an evaluation before this one (eval_view), SHARE BEFORE: what
@@ -3832,13 +3866,22 @@ def eval_table(d):
     res = view["res"]
     tname = res.get("target") or (d.get("target") or {}).get("name", "the larger model")
     by_task = view["by_task"]
-    listed = [t for t in (d.get("equivalence") or {}).get("targets", []) if t.get("benchmarks")]
+    every = [t for t in (d.get("equivalence") or {}).get("targets", []) if t.get("benchmarks")]
+    # BY HARNESS (only: the harnesses ticked in the table itself): the tasks of those harnesses and no others, a body of work
+    # with none of them left out, and every line summed again over what is shown, the last line with it. The boxes are the
+    # harnesses the bodies of work are measured by; one that is not known, or none ticked, shows every one
+    hs_all = harnesses_of(every)
+    hs = [h for h in hs_all if h in (only or hs_all)] or hs_all
+    listed = [dict(t, benchmarks=[b for b in t["benchmarks"] if harness_key(b) in hs]) for t in every]
+    listed = [t for t in listed if t["benchmarks"]]
     close = '<button class="btn stop top" id="evd-close" type="button">Close</button>'
     head = '<div class="spec-head"><div><div class="kicker">Evaluate the swarm</div><h3 style="font-size:22px;margin-top:4px">The swarm against %s</h3></div>%s</div>' % (e(tname), close)
     have = lambda task: by_task[task] if (by_task.get(task) or {}).get("agree") else None  # noqa: E731
     done = [have(b["task"]) for t in listed for b in t["benchmarks"] if have(b["task"])]
+    boxes = ('<div class="evask evharn evd-h" role="group" aria-label="Which harnesses the table shows"><span class="cfgl">Showing</span>%s</div>'
+             % "".join('<label><input type="checkbox" data-evd-harness="%s"%s>%s</label>' % (e(k), " checked" if k in hs else "", e(harness_name(k))) for k in hs_all)) if len(hs_all) > 1 else ""
     if not done:
-        return head + '<p class="muted">The swarm as it is now has not been evaluated yet.</p>'
+        return head + boxes + '<p class="muted">%s</p>' % ("Nothing of %s has been evaluated yet for the swarm as it is now." % e(_and([harness_name(k) for k in hs])) if len(hs) < len(hs_all) else "The swarm as it is now has not been evaluated yet.")
     was = any(r.get("before") for r in done)
     old = any(r.get("carried") for r in done)
 
@@ -3876,7 +3919,7 @@ def eval_table(d):
                     % (u.get("swarm") or 0, u.get("target") or 0, n)) if n and max(u.get("swarm") or 0, u.get("target") or 0) * 4 >= n else ""
             unread_any = unread_any or bool(mark)
             rows.append('<tr class="evt-task%s"><td>%s%s</td>%s</tr>' % (" evt-old" if r and r.get("carried") else "", e(b.get("name") or b["task"]), mark, cells([r] if r else [])))
-    rows.append('<tr class="evt-all"><th scope="row">Every question</th>%s</tr>' % cells(done))
+    rows.append('<tr class="evt-all"><th scope="row">%s</th>%s</tr>' % ("Every question" if len(hs) == len(hs_all) else "Every question of %s" % e(_and([harness_name(k) for k in hs])), cells(done)))
     when = (" Evaluated %s UTC." % e(_day(res.get("at")))) if res.get("at") else ""
     notes = ""
     if was:
@@ -3885,7 +3928,7 @@ def eval_table(d):
         notes += " A line in grey was not asked again this time: its figures are the earlier evaluation&#39;s."
     if unread_any:
         notes += " A task marked unread is one where the harness could not read a quarter or more of one model&#39;s replies as answers: its scores say how replies were read more than what either model knew."
-    return (head + '<p class="small muted" style="margin:10px 0 0">Each was put the same questions and marked by the benchmark&#39;s own checker. Share is the swarm&#39;s score as a share of %s&#39;s: '
+    return (head + boxes + '<p class="small muted" style="margin:10px 0 0">Each was put the same questions and marked by the benchmark&#39;s own checker. Share is the swarm&#39;s score as a share of %s&#39;s: '
             '100%% or more is where the swarm is level or ahead.%s%s</p>' % (e(tname), when, notes)
             + '<div class="evt-wrap"><table class="spec evt"><thead><tr><th>Body of work</th><th class="num">The swarm</th><th class="num">%s</th><th class="num">Share</th>%s<th class="num evn">Questions</th></tr></thead>'
             '<tbody>%s</tbody></table></div>' % (e(tname), '<th class="num">Share before</th>' if was else "", "".join(rows)))
@@ -4084,7 +4127,8 @@ def eval_block(d):
         size_run = PROOF_SIZE if live.get("proof") else (job_state("eval") or {}).get("limit", live.get("limit"))
         # (the tasks of this run: the ones it says it is asking; before it has said, those of the bodies of work it was started with)
         asked_ids = (job_state("eval") or {}).get("items") or [t["id"] for t in listed]
-        every = [b for t in listed for b in t.get("benchmarks") or [] if (b["task"] in lrows if lrows else t["id"] in asked_ids)]
+        asked_hs = (job_state("eval") or {}).get("harnesses")
+        every = [b for t in listed for b in t.get("benchmarks") or [] if (b["task"] in lrows if lrows else t["id"] in asked_ids and (not asked_hs or harness_key(b) in asked_hs))]
         # (a proof run asks each task its own size; where one of them is every question the sum is not known before it runs)
         asked_n = ((sum(int(b.get("proofN") or 0) for b in every) if all(b.get("proofN") for b in every) else 0) if size_run == PROOF_SIZE
                    else int(size_run) * len(every)) if size_run else 0
@@ -4121,8 +4165,19 @@ def eval_block(d):
         # (the page's evAsk) and sent with the press of Evaluate. A proof run asks what is ticked too: a proof is said
         # capability by capability, so one body of work can be proved, or asked again, by itself
         out.append('<div class="evask" role="group" aria-label="Which bodies of work this evaluation asks"><span class="cfgl">Asks</span>%s</div>'
-                   % "".join('<label title="%s"><input type="checkbox" data-ev-item="%s" checked%s>%s</label>'
-                             % (e(", ".join(b["name"] for b in t["benchmarks"])), e(t["id"]), " disabled" if held else "", e(t["name"])) for t in listed))
+                   % "".join('<label title="%s"><input type="checkbox" data-ev-item="%s" data-h="%s" checked%s>%s</label>'
+                             % (e(", ".join(b["name"] for b in t["benchmarks"])), e(t["id"]), e(" ".join(sorted({harness_key(b) for b in t["benchmarks"]}))), " disabled" if held else "", e(t["name"])) for t in listed))
+        # AND WITH WHICH HARNESSES: a box for each harness the listed bodies of work are measured by, every one ticked to begin
+        # with, kept on the device as the others are. A task is asked where its body of work and its harness are both ticked; a
+        # body of work none of whose harnesses is ticked has nothing to ask, and its box says so by going quiet. One harness
+        # only: no row (there is nothing to choose)
+        hs = harnesses_of(listed)
+        if len(hs) > 1:
+            out.append('<div class="evask evharn" role="group" aria-label="Which harnesses this evaluation uses"><span class="cfgl">With</span>%s</div>'
+                       % "".join('<label title="%s"><input type="checkbox" data-ev-harness="%s" checked%s>%s<small>%d task%s</small></label>'
+                                 % (e(", ".join(b["name"] for t in listed for b in t["benchmarks"] if harness_key(b) == k)), e(k), " disabled" if held else "", e(harness_name(k)),
+                                    n_, "" if n_ == 1 else "s")
+                                 for k in hs for n_ in [sum(1 for t in listed for b in t["benchmarks"] if harness_key(b) == k)]))
     # WHAT IS HAPPENING NOW (painted again in place from /api/eval)
     if running or (shown and live.get("phase") in ("stopped", "failed")):
         cls = "on" if running else ("warn" if live.get("phase") == "failed" else "")
@@ -4628,7 +4683,8 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/fragment/classes":
             return self._send(classes_block(d))
         if u.path == "/fragment/evtable":
-            return self._send(eval_table(d))
+            only = [h for h in (parse_qs(u.query).get("h") or [""])[0].split(",") if h]
+            return self._send(eval_table(d, only or None))
         if u.path == "/fragment/pretrain":
             return self._send(pretrain_block(d))
         if u.path == "/fragment/spec":
@@ -4709,8 +4765,19 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(items, list) or not items or any(i not in battery for i in items):
                 return self._send("Tick at least one body of work to ask.", 400, "text/plain; charset=utf-8")
             items = [i for i in battery if i in items]
-            why = start_job("eval", ["sh", "training/evaluate.sh"] + (["--proof"] if limit == PROOF_SIZE else ["--limit", str(limit)] if limit else []) + ["--items", ",".join(items)],
-                            keep={"limit": limit, "items": items, **({"proof": True} if limit == PROOF_SIZE else {})})
+            # AND WITH WHICH HARNESSES: the ones ticked, of those the listed bodies of work are measured by; every one where the
+            # request names none. At least one task must be left to ask
+            listed_ = [t for t in (data.load(ARGS.root).get("equivalence") or {}).get("targets", []) if t.get("benchmarks")]
+            known = harnesses_of(listed_)
+            hs = asked.get("harnesses", known) if isinstance(asked, dict) else known
+            if not isinstance(hs, list) or not hs or any(h not in known for h in hs):
+                return self._send("Tick at least one harness to use.", 400, "text/plain; charset=utf-8")
+            hs = [h for h in known if h in hs]
+            if not any(harness_key(b) in hs for t in listed_ if t["id"] in items for b in t["benchmarks"]):
+                return self._send("Nothing is left to ask: no body of work that is ticked is measured by a harness that is ticked.", 400, "text/plain; charset=utf-8")
+            why = start_job("eval", ["sh", "training/evaluate.sh"] + (["--proof"] if limit == PROOF_SIZE else ["--limit", str(limit)] if limit else []) + ["--items", ",".join(items)]
+                            + (["--harnesses", ",".join(hs)] if hs != known else []),
+                            keep={"limit": limit, "items": items, **({"harnesses": hs} if hs != known else {}), **({"proof": True} if limit == PROOF_SIZE else {})})
             if why:
                 return self._send(why, 409, "text/plain; charset=utf-8")
             time.sleep(0.3)

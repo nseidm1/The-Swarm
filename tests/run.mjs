@@ -6214,6 +6214,17 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const { answerTools, fitted } = await import('../src/tools.mjs');
   const E = await import('../training/evaluate.mjs');
   const U = await import('../training/engine-update.mjs');
+  const TWO = [
+    { id: 'm', name: 'Math', benchmarks: [{ task: 'gsm' }] },
+    {
+      id: 't',
+      name: 'Tools',
+      benchmarks: [
+        { task: 'calls', harness: 'bfcl', tools: 'x', category: 'c' },
+        { task: 'search', harness: 'bfcl', tools: 'x', category: 's', search: true },
+      ],
+    },
+  ];
   const tools = [
     {
       type: 'function',
@@ -6366,6 +6377,17 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       !U.answersTheSum('3.4') &&
       !U.answersTheSum('ĠĠ▁▁ qq 14 zz') &&
       !U.answersTheSum('') &&
+      // (an evaluation limited to the tasks of chosen harnesses: of the bodies of work asked, only those tasks)
+      E.planOf(TWO, ['m', 't']).length === 3 &&
+      E.planOf(TWO, ['m', 't'], ['lm'])
+        .map((b) => b.task)
+        .join() === 'gsm' &&
+      E.planOf(TWO, ['m', 't'], ['bfcl'])
+        .map((b) => b.task)
+        .join() === 'calls,search' &&
+      E.planOf(TWO, ['m'], ['bfcl']).length === 0 &&
+      E.needsOf(E.planOf(TWO, ['m', 't'], ['lm'])).join() === 'lmeval' &&
+      E.harnessKey({}) === 'lm' &&
       E.swarmWaysOf(web).join() === 'tools,after' &&
       E.swarmWaysOf({ ...web, targetAlsoAfter: false }).join() === 'tools',
     {
