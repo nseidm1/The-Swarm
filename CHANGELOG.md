@@ -6,6 +6,9 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A running evaluation's tasks show their bars** (2026-11-20). Where the card was drawn in a run's first seconds, before it
+  had said which tasks it asks, every task read "not evaluated yet" for as long as the run went on, the one being asked
+  among them. The page now draws the card again once the run names its tasks.
 - **The Uninstall Helper lists the whole of the work folder** (2026-11-20). A model that is a folder of files is listed by its
   name; a folder the list does not know by name (a trial's downloads) has a line of its own and can be removed; the small
   files beside the folders are one line; and what is left inside the folders it names (what training learned, the last

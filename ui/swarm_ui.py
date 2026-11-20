@@ -846,6 +846,11 @@ async function evTick(){const box=$('#evalbox');if(!box||!box.dataset.running)re
     set('eta','this one '+mins(on)+(n.avgSeconds?' · '+mins(n.avgSeconds)+' a question':'')+(left!==null?' · about '+mins(left)+' left in this task':''));
     set('ask',String(n.ask||'').replace(/\\s+/g,' ').slice(-300));}
     const l=s.last;set('reply',l&&l.seconds!=null?'Last answer ('+Math.round(l.seconds)+' s): '+String(l.reply||'').replace(/\\s+/g,' ').slice(0,240):'');}
+  // A ROW OF THIS RUN WITH NO BARS: the card was drawn in the run's first seconds, before it had said which tasks it asks, and
+  // each such row read "not evaluated yet" for as long as the run went on, the task being asked among them (2026-11-20). The
+  // card is drawn again, once, now that the run names its tasks; a row drawn from them has its bars
+  if((s.tasks||[]).some(t=>{const row=box.querySelector('[data-evt="'+t.task+'"]');return row&&row.querySelector('[data-none]');})){
+    await swap('/fragment/eval','#evalwrap');return;}
   for(const t of s.tasks||[]){const row=box.querySelector('[data-evt="'+t.task+'"]');if(!row)continue;
     for(const who of ['target','swarm']){const w=row.querySelector('[data-w="'+who+'"]'),st=t[who]||{};if(!w)continue;
       const pct=st.of?100*st.done/st.of:(st.state==='done'||st.state==='kept'?100:0);w.className='evw '+(st.state||'waiting');
@@ -4255,7 +4260,9 @@ def eval_block(d):
                        _ev_bar({"swarm": {"state": "done", "done": (r.get("swarm") or {}).get("n") or 0, "of": (r.get("swarm") or {}).get("n")}}, "swarm", "The swarm")
             else:
                 # (a body of work the run that is shown was not asked to put: said so, and not as if nothing had ever measured it)
-                bars = '<span class="muted small">%s</span>' % ("not in this run" if shown else "not evaluated yet")
+                # (data-none: a row with no bars to move. A run's first seconds are drawn before it has said which tasks it asks,
+                # so its own rows are drawn so; the page's script draws the card again once the run names one of them: evTick)
+                bars = '<span class="muted small" data-none>%s</span>' % ("not in this run" if shown else "not evaluated yet")
             out.append('<div class="evrow" data-evt="%s"><div class="evname"><b>%s</b><small>Scored by %s · equivalent: %s</small></div><div class="evbars">%s</div><div class="evag" data-ag>%s</div></div>'
                        % (e(b["task"]), e(b["name"]), e(METRIC_WORDS.get(b["metric"], b["metric"].replace("_", " "))), e(COMPARE_WORDS.get(b["compare"], "")), bars, _ev_agree(r) if (r or lr) else ""))
         out.append("</div></details>")

@@ -506,7 +506,10 @@ with tempfile.TemporaryDirectory() as tmp:
           and 'data-evd-harness="lm" checked>' in ev_table and 'data-evd-harness="bfcl" checked>' in ev_table
           and 'data-evd-harness="lm">' in ev_table_b and 'data-evd-harness="bfcl" checked>' in ev_table_b and "GSM8K" not in ev_table_b and "Nothing of BFCL (function calling) has been evaluated yet" in ev_table_b
           and ev_table_l.count('<tr class="evt-task') == 16 and "Every question of lm-evaluation-harness</th>" in ev_table_l and "BFCL web search" not in ev_table_l.split("</thead>")[1] and 'data-evd-harness="bfcl">' in ev_table_l and ev_table_x.count('<tr class="evt-task') == ev_table.count('<tr class="evt-task')
-          and "evLeft" in swarm_ui.JS and "swarm.eval.hoff" in swarm_ui.JS and "/fragment/evtable?h=" in swarm_ui.JS
+          and "evLeft" in swarm_ui.JS and "swarm.eval.hoff" in swarm_ui.JS
+          # (a row with no bars says so, and the script draws the card again when the run names that row's task; a row of a
+          # running evaluation's own tasks has bars from the first draw that knows them)
+          and 'data-none>not evaluated yet</span>' in ev0 and "row.querySelector('[data-none]')" in swarm_ui.JS and "data-none" not in ev_run.split('data-evt="bfcl_multiple"')[1].split("</div></div>")[0] and "/fragment/evtable?h=" in swarm_ui.JS
           and swarm_ui.harnesses_of([{"benchmarks": [{"task": "a"}, {"task": "b", "harness": "new-one"}]}]) == ["lm", "new-one"] and swarm_ui.harness_name("new-one") == "new-one" and 'data-ev-item="crew"' not in ev0 and 'data-ev-item="instructions" data-h="lm"' in ev0 and '<span class="cfgl">Asks</span>' in ev0
           and "items:its.filter(x=>x.checked&&" in swarm_ui.JS and "harnesses:hs.filter(x=>x.checked)" in swarm_ui.JS and "localStorage.setItem('swarm.eval.off'" in swarm_ui.JS and "function evAsk()" in swarm_ui.JS
           and bad_size == 400 and foreign == 403 and bad_items == [400, 400, 400, 400]
