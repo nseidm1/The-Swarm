@@ -405,18 +405,21 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     );
     const dir = path.join(work, 'library', 'adapters', TARGET.id);
     const have = models.map((m) => adapterOf(work, TARGET.id, m)).filter((r) => r && r.ok).length;
-    const say = (step) => {
+    // (its last word says the run is done: a run left at 'judging' with no process is read by the page as one that ended before
+    // it finished, 2026-11-20, and the page then showed the last line of an older run's log as the reason)
+    const say = (step, phase = 'judging') => {
       try {
         fs.mkdirSync(path.join(work, 'pretrain'), { recursive: true });
         const f = path.join(work, 'pretrain', 'live.json');
         const was = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : {};
-        fs.writeFileSync(f, JSON.stringify({ ...was, pid: process.pid, phase: 'judging', step, at: Date.now() }));
+        fs.writeFileSync(f, JSON.stringify({ ...was, pid: process.pid, phase, step, at: Date.now() }));
       } catch {
         /* the page goes without */
       }
     };
     if (!have) {
       console.log('no adapter to judge');
+      say('No adapter to judge', 'done');
       return null;
     }
     const held = sampleOf(
@@ -496,6 +499,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         (served
           ? 'the swarm is served with its adapters'
           : 'the adapters are not served: not better on the held questions'),
+      'done',
     );
     return verdict;
   };
@@ -705,9 +709,19 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     try {
       await judge();
     } catch (e) {
-      console.log('the adapters could not be judged: ' + String((e && e.message) || e).slice(0, 200));
+      const why = 'the adapters could not be judged: ' + String((e && e.message) || e).slice(0, 200);
+      console.log(why);
+      // (the judge's own reports are in the file by now: its last word is put there, so the run is not left at 'judging')
+      try {
+        const f = path.join(work, 'pretrain', 'live.json');
+        fs.writeFileSync(
+          f,
+          JSON.stringify({ ...JSON.parse(fs.readFileSync(f, 'utf8')), phase: 'done', step: 'Done; ' + why }),
+        );
+      } catch {
+        /* the page goes without */
+      }
     }
-    live.phase = 'done';
   }
   process.exit(failed ? 1 : 0);
 }
