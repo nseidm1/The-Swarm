@@ -239,6 +239,35 @@ export function steps(b, { cap = SERVING.slots, members = [...new Set(b.slots.ma
         ),
       },
     });
+  // THE STEP OF A TURN WITH TOOLS: the decider's choice, or the one most drafters proposed (src/tools.mjs: plan.toolDecide)
+  out.push({
+    name:
+      (b.plan || {}).toolDecide === 'most'
+        ? 'plan: the decider chooses the step of a turn with tools'
+        : 'plan: the step most drafters proposed stands',
+    briefs: {
+      ...b,
+      plan: Object.fromEntries(
+        Object.entries({ ...b.plan, toolDecide: (b.plan || {}).toolDecide === 'most' ? undefined : 'most' }).filter(
+          ([, v]) => v !== undefined,
+        ),
+      ),
+    },
+  });
+  // A TURN WITH TOOLS GOES ON WHERE MOST DRAFTERS WOULD (src/tools.mjs: plan.callFirst), or ends on the step most proposed
+  out.push({
+    name: (b.plan || {}).callFirst
+      ? 'plan: a turn with tools ends on the step most proposed'
+      : 'plan: a turn with tools goes on unless most would reply',
+    briefs: {
+      ...b,
+      plan: Object.fromEntries(
+        Object.entries({ ...b.plan, callFirst: (b.plan || {}).callFirst ? undefined : true }).filter(
+          ([, v]) => v !== undefined,
+        ),
+      ),
+    },
+  });
   // THE REPLY CLOSES AS THE EARLIER REPLIES DO, or as it was written (src/orchestrate.mjs: plan.closeAs)
   out.push({
     name:

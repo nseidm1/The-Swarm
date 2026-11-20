@@ -6207,6 +6207,131 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     },
   );
 }
+// ---- 9r: A TURN WITH TOOLS THAT GOES ON (SwOA specification T.11 to T.15): the conversation fitted to a slot; a turn answered
+// where no drafter proposed a step that can be taken; replies set aside unless most would reply; the decision model shown what
+// was asked; and the step most proposed standing where the plan says so
+{
+  const { answerTools, fitted } = await import('../src/tools.mjs');
+  const E = await import('../training/evaluate.mjs');
+  const tools = [
+    {
+      type: 'function',
+      function: { name: 'search', parameters: { type: 'object', properties: { query: { type: 'string' } } } },
+    },
+  ];
+  const call = (q) => ({
+    content: '',
+    calls: [{ function: { name: 'search', arguments: JSON.stringify({ query: q }) } }],
+  });
+  const three = {
+    slots: ['a1', 'b1', 'c1'].map((id) => ({ id, member: id[0], stage: 'draft' })),
+    plan: { toolReply: 'proposed' },
+  };
+  const convo = [
+    { role: 'user', content: 'Who leads the town of Quendale?' },
+    {
+      role: 'assistant',
+      content: '',
+      tool_calls: [{ id: 'c1', type: 'function', function: { name: 'search', arguments: '{"query":"Quendale"}' } }],
+    },
+    { role: 'tool', tool_call_id: 'c1', content: 'Quendale is a town.' },
+  ];
+  // two would search, each in its own words, and one would give up
+  const mixed = async (slot) =>
+    slot.id === 'a1'
+      ? { content: 'I cannot answer this.' }
+      : call(slot.id === 'b1' ? 'Quendale mayor' : 'mayor of Quendale');
+  const asked = [];
+  const decide = async (q) => (asked.push(q), { letter: 'B' });
+  const asItWas = await answerTools(convo, { tools, briefs: three, ask: mixed, decide });
+  const first = await answerTools(convo, {
+    tools,
+    briefs: { ...three, plan: { ...three.plan, callFirst: true } },
+    ask: mixed,
+    decide,
+  });
+  // (two of three would reply: most would end the work, and it is not taken from them)
+  const mostReply = await answerTools(convo, {
+    tools,
+    briefs: { ...three, plan: { ...three.plan, callFirst: true } },
+    ask: async (slot) => (slot.id === 'c1' ? call('Quendale mayor') : { content: 'It is not known.' }),
+    decide: async () => ({ letter: 'A' }),
+  });
+  let decided = 0;
+  const byMost = await answerTools(convo, {
+    tools,
+    briefs: { ...three, plan: { ...three.plan, toolDecide: 'most' } },
+    ask: async (slot) => (slot.id === 'a1' ? { content: 'I cannot answer this.' } : call('Quendale mayor')),
+    decide: async () => (decided++, { letter: 'A' }),
+  });
+  const none = await answerTools(convo, {
+    tools,
+    briefs: three,
+    ask: async () => {
+      throw new Error('the prompt does not fit');
+    },
+    answerReply: async () => ({
+      ok: true,
+      reply: ' From what was found: a town. ',
+      trace: [{ slot: 'w', stage: 'write' }],
+    }),
+  });
+  const noneAndNothing = await answerTools(convo, {
+    tools,
+    briefs: three,
+    ask: async () => {
+      throw new Error('the prompt does not fit');
+    },
+  });
+  const long = [
+    { role: 'user', content: 'q' },
+    { role: 'tool', content: 'a'.repeat(3000) },
+    { role: 'tool', content: 'b'.repeat(3000) },
+    { role: 'tool', content: 'c'.repeat(3000) },
+  ];
+  const fit = fitted(long, 4000, 500);
+  const web = { harness: 'bfcl', tools: 'x', category: 'web_search_base', search: true, targetAlsoAfter: true };
+  check(
+    'a turn with tools: earlier results are cut, the earliest first, until the conversation fits, the latest never, and nothing is cut where it fits; where no drafter proposes a step that can be taken the turn is answered from what there is; with callFirst a reply fewer than most proposed is set aside and the step is chosen among the calls, and most replying still ends the work; the decision model is shown what was asked; with toolDecide "most" it is not asked; a refusal for want of room says the reply tokens that still fit; and the module is asked a search test both ways the larger model is',
+    fit[1].content.startsWith('a'.repeat(500) + '\n[The rest of this result is left out: 2500 characters.]') &&
+      fit[2].content.length < 600 &&
+      fit[3].content === 'c'.repeat(3000) &&
+      long[1].content.length === 3000 &&
+      fitted(long, 20000)[1].content.length === 3000 &&
+      asked.length === 2 &&
+      asked[0].answers.length === 3 &&
+      asked[0].question.startsWith('What it was asked: Who leads the town of Quendale?') &&
+      asked[1].answers.length === 2 &&
+      asked[1].answers.every((a) => /^CALL/.test(a.final)) &&
+      first.calls.length === 1 &&
+      first.trace.some((r) => r.slot === 'a1' && r.aside) &&
+      !asItWas.trace.some((r) => r.aside) &&
+      mostReply.calls.length === 0 &&
+      mostReply.reply === 'It is not known.' &&
+      byMost.calls.length === 1 &&
+      decided === 0 &&
+      none.ok &&
+      none.path === 'none+answered' &&
+      none.reply === 'From what was found: a town.' &&
+      !noneAndNothing.ok &&
+      noneAndNothing.path === 'none' &&
+      E.roomLeft(
+        "This server's maximum context length is 16384 tokens, but the rendered prompt has 12570 tokens and requests 4096",
+      ) === 3750 &&
+      E.roomLeft('maximum context length is 16384 tokens, but the rendered prompt has 16300 tokens') === null &&
+      E.roomLeft('some other refusal') === null &&
+      E.swarmWaysOf(web).join() === 'tools,after' &&
+      E.swarmWaysOf({ ...web, targetAlsoAfter: false }).join() === 'tools',
+    {
+      fit: fit.map((m) => String(m.content).length),
+      asked: asked.map((q) => [q.question.slice(0, 60), q.answers.map((a) => a.final)]),
+      first: [first.path, first.calls.length],
+      mostReply: [mostReply.path, mostReply.reply],
+      byMost: [byMost.path, decided],
+      none: [none.path, none.reply, noneAndNothing.path],
+    },
+  );
+}
 // ---- 9a: a small model beside the decider in the decide step (plan.decideWith)
 {
   const { answer: orchestrate } = await import('../src/orchestrate.mjs');
@@ -8686,7 +8811,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       E.blockedOf(tool, {}, { installed: false }) === '' &&
       web.search === true &&
       !('needsKey' in web) &&
-      E.searchPart(web, {}) === '-searxng-p2000-n5' &&
+      E.searchPart(web, {}) === '-searxng-p2000-n5-prose' &&
       E.searchPart(web, { SWARM_SEARCH: 'serpapi' }) === '-serpapi' &&
       E.searchPart(tool, {}) === '' &&
       web.daily === true &&

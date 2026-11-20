@@ -691,6 +691,9 @@ def swoa_proof(d, arrangement_sha, pins):
                  **({"search": x["search"]} if x.get("search") else {}),
                  # (where the target was asked more than one way: the way it is counted by, its higher score, and what it scored each way)
                  **({"targetAsked": x["targetAsked"], "targetWays": {k: {"value": v.get("value"), "stderr": v.get("stderr")} for k, v in (x.get("targetWays") or {}).items()}} if x.get("targetAsked") else {}),
+                 # (and the module, where it was asked more than one way; and how many replies of each the harness could not read)
+                 **({"swoaAsked": x["swarmAsked"], "swoaWays": {k: {"value": v.get("value"), "stderr": v.get("stderr")} for k, v in (x.get("swarmWays") or {}).items()}} if x.get("swarmAsked") else {}),
+                 **({"unread": {"swoa": x["unread"].get("swarm"), "target": x["unread"].get("target")}} if isinstance(x.get("unread"), dict) else {}),
                  "proof": n >= PROOF_MIN_N, "at": r.get("at"), "runId": r.get("runId"),
                  "arrangementSha256": arrangement_sha, "configuration": r.get("configuration")}
             k = (h.get("name"), x.get("task"))
@@ -1175,7 +1178,7 @@ def swoa_card(sp):
             "", "Parity: within the margin of the target, or better, at 95%. Short: lower by more than the margin. Open: too few questions to say.", ""]
         body += ["Not claimed: %s." % "; ".join((pr.get("claims") or {}).get("notClaimed") or []), ""]
     body += (["| Task | Metric | Questions | SwOA | Target | Gap | |", "|---|---|---|---|---|---|---|"] + rows) if rows else ["No harness result has been measured on this SwOA."]
-    way_words = {"tools": "the tools in the request", "written": "the tools written into the conversation"}
+    way_words = {"tools": "the tools in the request", "written": "the tools written into the conversation", "after": "the form of its answer said after the question"}
     offered = ["- %s: each model was offered %s%s%s" % (
         e.get("name"), e["tools"], (", and both were asked on %s" % e["askedOn"]) if e.get("askedOn") else "",
         ("; the target was asked two ways and is counted by the one it scores higher by over the capability, here %s (on this task, %s)" % (way_words.get(e.get("targetAsked"), e.get("targetAsked")), ", ".join("%s: %.3f" % (way_words.get(k, k), v.get("value") or 0) for k, v in e["targetWays"].items()))) if e.get("targetWays") else "")

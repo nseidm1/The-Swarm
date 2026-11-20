@@ -12,6 +12,8 @@ whole (step `08-classes` of a pass):
 2. **Candidates**, each the class's arrangement with one thing changed: the moves `policy.json` names under `classes.moves`,
    at most `classes.tries` a round, scored on the same train questions (at most `classes.sample`, taken kind by kind in turn).
    Slot answers are reused between candidates, so a change to how the matter is settled or written costs no model's time.
+   For a turn with tools two of them are how a step is chosen: a reply set aside unless most drafters would reply
+   (`plan.callFirst`), and the step most proposed standing without the decision model (`plan.toolDecide`).
 3. **The best**, where it beats the swarm as it stands on the train questions, is asked the held questions of the class, and so
    is the swarm as it stands. It is kept, as any change is kept, where it is better there by more than twice its paired error
    and by at least `loop.classMinGain`. Then again from what was kept, `classes.rounds` times.

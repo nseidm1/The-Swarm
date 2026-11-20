@@ -153,6 +153,24 @@ const asCalls = (action) =>
     function: { name: c.name, arguments: JSON.stringify(c.args) },
   }));
 
+// THE CONVERSATION, MADE TO FIT A SLOT (SwOA specification T.11): a turn with tools is sent whole to every drafter, and it grows
+// with every step (each search's results, each page). A slot holds a few thousand tokens. So where what the tools have returned
+// comes to more than `most` characters in all, the earlier results are cut to `each` characters, the earliest first, until it
+// fits; the latest result is never cut. A cut result says so. (Measured 2026-11-19: four of forty questions of a search test
+// ended with no drafter able to propose a step, and nothing in the path cut anything.)
+export function fitted(messages, most = 8000, each = 500) {
+  const out = (messages || []).map((m) => ({ ...m }));
+  const size = () => out.filter((m) => m.role === 'tool').reduce((a, m) => a + textOf(m.content).length, 0);
+  const tools = out.filter((m) => m.role === 'tool');
+  for (const m of tools.slice(0, -1)) {
+    if (size() <= most) break;
+    const t = textOf(m.content);
+    if (t.length > each)
+      m.content = t.slice(0, each) + '\n[The rest of this result is left out: ' + (t.length - each) + ' characters.]';
+  }
+  return out;
+}
+
 // the turn itself: one proposal from each drafter, the same ones made one, the decider where they differ
 export async function answerTools(
   messages,
@@ -164,11 +182,14 @@ export async function answerTools(
   const drafters = (briefs.slots || []).filter((s) => s.stage === 'draft');
   const who = drafters.length ? drafters : [{ id: 'lead', member: lead, stage: 'draft', maxTokens: 700 }];
   const trace = [];
+  const plan = briefs.plan || {};
+  // (the conversation as every drafter is sent it: fitted to a slot, T.11)
+  const sent = fitted(messages, plan.toolFit || 8000);
   await Promise.all(
     who.map(async (s) => {
       const t1 = Date.now();
       try {
-        const r = await ask(s, messages, { tools, ...(tool_choice !== undefined ? { tool_choice } : {}) });
+        const r = await ask(s, sent, { tools, ...(tool_choice !== undefined ? { tool_choice } : {}) });
         const action = actionOf({ content: r.content !== undefined ? r.content : r.text, tool_calls: r.calls }, tools);
         trace.push({
           slot: s.id,
@@ -196,8 +217,47 @@ export async function answerTools(
   );
   // in the order the drafters stand, so that a tie goes to the first (the lead's own drafter first)
   trace.sort((x, y) => who.findIndex((s) => s.id === x.slot) - who.findIndex((s) => s.id === y.slot));
-  const good = trace.filter((r) => r.ok);
-  if (!good.length) return { ok: false, path: 'none', trace, ms: Date.now() - t0, text: '', reply: '', calls: [] };
+  let good = trace.filter((r) => r.ok);
+  if (!good.length) {
+    // NO DRAFTER PROPOSED A STEP THAT COULD BE TAKEN: the turn is answered from what there is, by the answer procedure, where
+    // there is one, and the path says so. It ended as an error, and the work with it (T.12)
+    if (answerReply) {
+      try {
+        const got = await answerReply(forAnswer(messages));
+        if (got && got.ok && String(got.reply || '').trim()) {
+          const rows = trace.map(({ action: _a, ...r }) => r);
+          for (const r of got.trace || []) rows.push({ ...r, reply: true });
+          const action = { reply: String(got.reply).trim() };
+          return {
+            ok: true,
+            action,
+            calls: [],
+            reply: action.reply,
+            text: actionText(action),
+            path: 'none+answered',
+            trace: rows,
+            ms: Date.now() - t0,
+          };
+        }
+      } catch {
+        /* the turn fails, as it did */
+      }
+    }
+    return { ok: false, path: 'none', trace, ms: Date.now() - t0, text: '', reply: '', calls: [] };
+  }
+  // A REPLY ENDS THE WORK ONLY WHERE MOST DRAFTERS WOULD END IT (plan.callFirst, T.13). Every reply counts as the same step
+  // whatever it says, and two calls as the same only when they are the same call word for word: six drafters that would search,
+  // each in its own words, are six steps of one voice, and two that would give up are the step most proposed. So with
+  // callFirst, where any drafter proposed a call and the replies are not more than half of what was proposed, the replies are
+  // set aside and the step is chosen among the calls. (Measured 2026-11-19 on a search test: the swarm stopped after a median
+  // of one search and said it did not know on 30 of 36 questions; the larger model took about ten steps.)
+  if (plan.callFirst && good.some((r) => r.action.calls)) {
+    const replies = good.filter((r) => !r.action.calls);
+    if (replies.length * 2 <= good.length) {
+      for (const r of replies) r.aside = true;
+      good = good.filter((r) => r.action.calls);
+    }
+  }
   const groups = [];
   for (const r of good) {
     const g = groups.find(
@@ -213,11 +273,18 @@ export async function answerTools(
     const most = [...groups].sort((x, y) => y.rows.length - x.rows.length)[0];
     pick = most;
     path = 'most';
-    if (decide) {
+    // (plan.toolDecide 'most': the step most drafters proposed stands and the decision model is not asked. T.15. Measured
+    // 2026-11-20 on recorded drafts of turns with tools: the decider's choice was good on 30 of 36, the step most proposed on 33)
+    if (decide && plan.toolDecide !== 'most') {
       const letters = groups.map((_, i) => String.fromCharCode(65 + i));
       const last = [...messages].reverse().find((m) => m.role === 'user' || m.role === 'tool');
+      // (what it was asked to do, where that is not the last thing said: after a step the last thing is what a tool returned,
+      // and a decider shown that alone chooses the next step without knowing what the work is for. T.14)
+      const first = messages.find((m) => m.role === 'user');
+      const task = first && first !== last ? 'What it was asked: ' + textOf(first.content).slice(0, 600) + '\n' : '';
       const k = await decide({
         question:
+          task +
           'An agent with tools (' +
           toolNames(tools).join(', ') +
           ') is at this point in its work: ' +

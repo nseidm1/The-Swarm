@@ -106,7 +106,9 @@ export const searchPart = (b, env = process.env) =>
     ? '-' +
       searchOf(env) +
       (searchOf(env) === 'searxng'
-        ? (PAGE_CHARS ? '-p' + PAGE_CHARS : '') + (RESULTS_MOST ? '-n' + RESULTS_MOST : '')
+        ? (PAGE_CHARS ? '-p' + PAGE_CHARS : '') +
+          (RESULTS_MOST ? '-n' + RESULTS_MOST : '') +
+          (PAGE_CHARS ? '-prose' : '')
         : '')
     : '';
 // THE WAYS THE LARGER MODEL IS ASKED A TOOL TEST: with the tools in the request, as the swarm is; and, where the benchmark says so
@@ -123,6 +125,12 @@ export const waysOf = (b) =>
   isToolTest(b)
     ? ['tools', ...(b.targetAlsoWritten ? ['written'] : []), ...(b.targetAlsoAfter ? ['after'] : [])]
     : ['tools'];
+// THE SWARM IS ASKED THE SAME TWO WAYS where the second is a matter of how the QUESTION is put and not of how a server returns
+// calls (targetAlsoAfter): the tools in the request, and the test's words on the form of the answer after the question. It was
+// asked the one way, and the larger model's score by the other way was set beside it: 7 of 40 against 1, where asked as the
+// swarm was the larger model also scored 1 (measured 2026-11-19). The written way stays the larger model's alone: it is there
+// for a server that returns one call of several, and the swarm's own runtime returns every call.
+export const swarmWaysOf = (b) => (isToolTest(b) && b.targetAlsoAfter ? ['tools', 'after'] : ['tools']);
 // THE WAY IT IS COUNTED BY IS ONE FOR A WHOLE BODY OF WORK: the way it scores higher by over that body's tasks together, the tools
 // in the request where the two tie. Not the better way task by task: neither is the better on every task (measured 2026-11-18,
 // 20 questions a task: written, 19, 18, 16 and 18 right where a call was needed against 14, 15, 2 and 8; and 10 against 20 where
@@ -236,23 +244,43 @@ export function relay(ask, on = {}) {
   );
 }
 
+// THE REPLY TOKENS THAT STILL FIT, from a server's refusal of a prompt and reply that together pass its context: what is left
+// after the prompt, less a margin; null where the refusal is of something else or under 256 are left. (Measured 2026-11-20, web
+// search without snippets: 11 of the larger model's 20 conversations ended in this refusal, most with 3000 tokens still free,
+// because 4096 were asked for whatever was left. The model lost its turn to the asking, not to what it could do.)
+export function roomLeft(refusal) {
+  const m = /maximum context length is (\d+) tokens.*?prompt has (\d+) tokens/s.exec(String(refusal || ''));
+  if (!m) return null;
+  const left = Number(m[1]) - Number(m[2]) - 64;
+  return left >= 256 ? left : null;
+}
+
 // a model behind an address that answers as llama.cpp's server does
 export const askAt = (base) => async (messages, body) => {
-  const r = await fetch(base + '/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    signal: AbortSignal.timeout(900000),
-    body: JSON.stringify({
-      model: body.model || 'model',
-      messages,
-      temperature: 0,
-      // (room for a model that thinks before it answers: the task's own stop strings still end the reply)
-      max_tokens: Math.max(Number(body.max_tokens || 0), 4096),
-      ...(body.stop ? { stop: body.stop } : {}),
-      stream: false,
-    }),
-  });
-  if (!r.ok) throw new Error('it answered ' + r.status + ': ' + (await r.text()).slice(0, 200));
+  const post = (most) =>
+    fetch(base + '/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      signal: AbortSignal.timeout(900000),
+      body: JSON.stringify({
+        model: body.model || 'model',
+        messages,
+        temperature: 0,
+        max_tokens: most,
+        ...(body.stop ? { stop: body.stop } : {}),
+        stream: false,
+      }),
+    });
+  // (room for a model that thinks before it answers: the task's own stop strings still end the reply)
+  let r = await post(Math.max(Number(body.max_tokens || 0), 4096));
+  if (!r.ok) {
+    const said = await r.text();
+    // (asked once more for the reply that still fits, where the prompt alone does)
+    const left = r.status === 400 ? roomLeft(said) : null;
+    if (!left) throw new Error('it answered ' + r.status + ': ' + said.slice(0, 200));
+    r = await post(left);
+    if (!r.ok) throw new Error('it answered ' + r.status + ': ' + (await r.text()).slice(0, 200));
+  }
   const j = await r.json();
   return String((j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '');
 };
@@ -732,10 +760,19 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
           'swarm',
           CONFIG_KEY,
           arrangementSha256.slice(0, 16) + '-' + runtimeSha + (adapters.length ? '-adapters' : ''),
-          b.task + '-' + (limitOf(b) || 'all') + '-r' + RELAY_VERSION + dayPart(b) + searchPart(b),
+          b.task +
+            '-' +
+            (limitOf(b) || 'all') +
+            '-r' +
+            RELAY_VERSION +
+            dayPart(b) +
+            searchPart(b) +
+            (b.way && b.way !== 'tools' ? '-' + b.way : ''),
         );
-  const needSwarm = askable.filter((b) => servedAt || B.has('fresh') || !keptIn(swarmKeep(b), b));
-  for (const b of askable.filter((x) => !needSwarm.includes(x))) {
+  // (each way the swarm is asked a task: swarmWaysOf)
+  const swarmAsks = askable.flatMap((b) => swarmWaysOf(b).map((way) => (way === 'tools' ? b : { ...b, way })));
+  const needSwarm = swarmAsks.filter((b) => servedAt || B.has('fresh') || !keptIn(swarmKeep(b), b));
+  for (const b of askable.filter((x) => !needSwarm.some((y) => y.task === x.task))) {
     const row = live.tasks.find((t) => t.task === b.task).swarm;
     const s = scoreIn(swarmKeep(b), b);
     Object.assign(row, { state: 'kept', done: s.n, of: s.n });
@@ -753,7 +790,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     live.phase = 'asking';
     // (a task asked again starts from nothing: what a stopped run left of it is not a whole answer to it)
     for (const b of needSwarm) fs.rmSync(swarmKeep(b), { recursive: true, force: true });
-    await askAll('swarm', askAt(served.base), askToolsAt(served.base, { model: 'swarm' }), needSwarm, swarmKeep);
+    await askAll('swarm', askAt(served.base), askToolsAt(served.base, { model: 'swarm' }), needSwarm, swarmKeep, {
+      after: askAfterAt(served.base, { model: 'swarm' }),
+    });
     await served.close();
     if (swarm) await swarm.stop();
   } else if (askable.length)
@@ -765,6 +804,18 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   live.phase = 'comparing';
   say('Comparing the answers, question by question');
   const results = [];
+  // (the way the swarm is counted by, where it was asked more than one: the same rule, from what is kept of each way)
+  const swarmWayOf = wayByItem(
+    askable.filter(isToolTest).flatMap((b) =>
+      swarmWaysOf(b)
+        .map((way) => ({ way, dir: swarmKeep(way === 'tools' ? b : { ...b, way }) }))
+        .filter((x) => keptIn(x.dir, b))
+        .map((x) => {
+          const sc = scoreIn(x.dir, b);
+          return { item: b.item, way: x.way, right: sc.right.length, n: sc.n };
+        }),
+    ),
+  );
   // the way the larger model is counted by on the tool tests, for each body of work (wayByItem), from what is kept of each way
   const wayOf = wayByItem(
     askable.filter(isToolTest).flatMap((b) =>
@@ -796,7 +847,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       continue;
     }
     const tf = waysOf(b).every((way) => keptIn(keep({ ...b, way }), b)) && keptIn(keep(b), b);
-    const sf = keptIn(swarmKeep(b), b);
+    const sf = swarmWaysOf(b).every((way) => keptIn(swarmKeep(way === 'tools' ? b : { ...b, way }), b));
     if (!tf || !sf) {
       results.push({
         ...b,
@@ -809,7 +860,13 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       // the larger model by the way it scores higher by over this body of work; the result says which, and what it scored each way
       const ways = waysOf(b).map((way) => ({ way, score: scoreIn(keep({ ...b, way }), b) }));
       const best = ways.find((w) => w.way === wayOf[b.item]) || ways[0];
-      const ss = scoreIn(swarmKeep(b), b);
+      // and the swarm by the way IT scores higher by over the body of work, where it was asked more than one way
+      const sways = swarmWaysOf(b).map((way) => ({
+        way,
+        score: scoreIn(swarmKeep(way === 'tools' ? b : { ...b, way }), b),
+      }));
+      const sbest = sways.find((w) => w.way === swarmWayOf[b.item]) || sways[0];
+      const ss = sbest.score;
       const agree = pairOf(best.score, ss);
       const lean = ({ value, stderr, n, of }) => ({ value, stderr, n, of });
       row.agree = agree;
@@ -821,6 +878,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         agree,
         ...(ways.length > 1
           ? { targetAsked: best.way, targetWays: Object.fromEntries(ways.map((w) => [w.way, lean(w.score)])) }
+          : {}),
+        ...(sways.length > 1
+          ? { swarmAsked: sbest.way, swarmWays: Object.fromEntries(sways.map((w) => [w.way, lean(w.score)])) }
           : {}),
       });
       continue;

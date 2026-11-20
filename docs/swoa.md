@@ -153,7 +153,8 @@ Each result:
 | `tools` | where the test offers tools: what each model was offered, in words. Absent where it offers none |
 | `askedOn` | where the answers depend on the day (a search of the live web): the day, `YYYY-MM-DD`, on which both models were asked |
 | `search` | where the test's tools search: the search service that stood behind them, the same for both models. `{ service }`, and where known `revision` (of the service's program), `where` (it ran), `engines` (that answered), `kept` (what of its answers was kept and given to both), `queries`, `pages`, `pageChars` (where a fetched page was cut before it was given: at how many characters, the same for both), `resultsMost` (where a search gave at most so many results, the same for both) |
-| `unread` | where the harness reads an answer out of a reply: `{ target, swarm }`, how many of each one's replies reached it empty or gave it no answer to read. A result with many unread on either side compares how replies were read, not the two models, and MUST be shown as such |
+| `unread` | where the harness reads an answer out of a reply: `{ swoa, target }`, how many of each one's replies reached it empty or gave it no answer to read. A result with many unread on either side compares how replies were read, not the two models, and MUST be shown as such |
+| `swoaAsked`, `swoaWays` | where the module was asked more than one way: the way it is counted by on this capability, and its `{ value, stderr }` on this task by each |
 | `targetAsked`, `targetWays` | where the target was asked more than one way (below): the way it is counted by on this capability, `"tools"`, `"written"` or `"after"`, and its `{ value, stderr }` on this task by each |
 | `proof` | boolean (the rule below) |
 | `at`, `runId` | when it was measured |
@@ -180,7 +181,9 @@ model wrote (only the first of several calls, for one). So the target MAY be ask
 into the conversation, each call a JSON object between `<tool_call>` tags, and its calls read from its reply. It is then
 counted by one way for the whole capability: the way it scores higher by over the capability's tasks together (the tools in
 the request where the two tie), never the better way task by task. Each result MUST say which way that is and give the
-target's score by each (`targetAsked`, `targetWays`). A test may also tell a model, in a system message, the form its final
+target's score by each (`targetAsked`, `targetWays`). Where the second way is of how the question is put (`"after"`), the
+module MUST be asked that way too and is counted by the same rule, the result saying which way it is counted by and its score
+by each (`swoaAsked`, `swoaWays`): a target's score by one way set beside a module's by another compares the ways. A test may also tell a model, in a system message, the form its final
 answer must take, and a target may read that as its whole instruction and answer at once without using the tools it was
 offered. So, on a test whose tools search, the target MAY be asked another way as well (`"after"`): the tools in the request,
 and that system message's words, unchanged, moved to the end of the first thing the user said, with nothing added. It is
@@ -1587,6 +1590,9 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `writeAs` | text | none | `settled`: no writer for non-code answers; `full`: the writers are told the FULL BRIEF in place of their own, except where a piece of writing is asked for (O.8.3, O.8.4, R.5) |
 | `runPrograms` | boolean | true | `false`: a program the question asks the output of is not run (R.4) |
 | `toolReply` | text | none | read from the arrangement for class `tools`: `proposed` keeps a proposed reply as the turn's reply (T.9) |
+| `toolFit` | integer | 8000 | read from the arrangement for class `tools`: the most characters of tool results a proposer is sent before the earlier ones are cut (T.11) |
+| `toolDecide` | text | none | read from the arrangement for class `tools`: `most` lets the step most proposers gave stand without the decision model (T.15) |
+| `callFirst` | boolean | false | read from the arrangement for class `tools`: replies are set aside where they are not more than half of what was proposed and a call was (T.13) |
 
 ### O.12 Notes on behaviour that is easy to get wrong
 
@@ -2865,6 +2871,43 @@ behind it, to the module and to its target on the same day. The result names the
 said to know with a search tool offered is said of that service: a module claims no knowledge with no tool offered.
 
 ---
+
+#### T.11 The conversation is made to fit
+
+T.11.1 A turn with tools is sent to every proposer as the conversation stands, and it grows with every step. Before it is
+sent, where the text of the messages of role `tool` comes to more than FIT characters in all (`plan.toolFit` of the
+arrangement for class `tools`; 8000 where none is set), the earlier of them are cut, the earliest first, until it does not:
+a cut message keeps its first 500 characters, followed by a line break and
+`[The rest of this result is left out: N characters.]`, N being what was removed. The last message of role `tool` is never
+cut. The conversation the caller is answered about is unchanged: only what the proposers are sent is cut.
+
+#### T.12 No usable proposal
+
+T.12.1 Where no proposer's action can be used (T.5) and the runtime has an answer procedure (T.9), the turn is answered by it
+as T.9.1 says, from the conversation as T.9 gives it. Where that yields a non-empty reply, the turn's action is that reply
+and its path is `none+answered`. Otherwise the turn fails as T.6 says.
+
+#### T.13 A reply ends the work only where most would end it
+
+T.13.1 When `plan.callFirst` of the arrangement for class `tools` is true, and at least one usable action is a call, and the
+usable actions that are replies are not more than half of the usable actions: the replies are set aside (their rows marked
+`aside`) and T.6 is applied to the calls alone. Otherwise T.6 is applied to every usable action, as without it.
+
+T.13.2 (informative) Every reply is the same step for T.6 whatever it says, and two calls are the same only where they are
+the same call. Several proposers that would each search, in their own words, are so many steps of one voice, and two that
+would stop are then the step most proposed.
+
+#### T.14 The decision model is shown what was asked
+
+T.14.1 Where the decision model is asked to choose a step (T.6) and the first message of role `user` is not the last
+message of role `user` or `tool`, its question begins `What it was asked: ` followed by the first 600 characters of that
+first message's text and a line break, before the rest of the question as T.6 gives it.
+
+#### T.15 The step most proposed stands
+
+T.15.1 When `plan.toolDecide` of the arrangement for class `tools` is `most`, the decision model is not asked in T.6: where
+the usable actions differ, the action most proposers gave is the turn's action (the first of them in slot order where
+several are level), and the path is `most`.
 
 # Annex A (informative): the default arrangement
 

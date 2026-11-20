@@ -6,6 +6,19 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A turn with tools goes on as the work needs** (2026-11-20, SwOA spec T.11 to T.15). The conversation sent to the drafters is
+  fitted to a slot: earlier tool results are cut, the earliest first, the latest never (`plan.toolFit`). Where no drafter
+  proposes a step that can be taken the turn is answered from what there is, not ended as an error. The decision model is
+  shown what was asked, not only what the last tool returned. Two settings the class stage may try and keep: `plan.callFirst`
+  (a reply is set aside unless most drafters would reply: one that gives up no longer ends work the others would go on with)
+  and `plan.toolDecide: "most"` (the step most proposed stands, the decision model not asked).
+- **The web search test is asked alike of both** (2026-11-20). The swarm is now asked both ways the larger model is (the form
+  of the answer said after the question as well) and its better way counts, as the larger model's does. A fetched page is
+  given from where its own words begin, its menus left out, for whoever asked. A model whose prompt fits its context but not
+  with the reply tokens asked for is asked once more for the reply that still fits: 11 of the larger model's 20
+  conversations without snippets had ended in that refusal. Measured in a trial that changed nothing kept, 20 questions a
+  task, `callFirst` on: with snippets the swarm 8 of 20 and the larger model 9 (they had been 1 and 7 of 40 over both tasks);
+  without snippets 0 and 1, the larger model's before the correction to how it is asked.
 - **A class of input is trained as a class** (2026-11-20). Before a pass goes question by question it now trains each class of
   input (with tools, a conversation, asking for code, a plain question) as a whole (`training/classes.mjs`): how the swarm stands
   on the class in three figures (some slot had a good answer, the swarm settled on one, the reply is good as it is read), a few

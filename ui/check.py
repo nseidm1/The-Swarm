@@ -1451,6 +1451,8 @@ check("the search behind the web search test gives a model what the test's own s
       and _r4 == {"error": _bs.NOTHING} and _r5 == _r4 and len([a for a in _asked if a[1] == "nothing"]) == 3 and len(_kept_files) == 3
       and _bs.fewest(10, "5") == 5 and _bs.fewest(3, 5) == 3 and _bs.fewest(10, None) == 10 and _bs.fewest(None, 0) == 10
       and _bs.cut_page({"content": "x" * 50}, 10)["content"].startswith("x" * 10 + "\n[The page goes on: only its first 10 characters are given, of 50.]") and _bs.cut_page({"content": "short"}, 10) == {"content": "short"}
+      and _bs.cut_page({"content": "Quendale\nJump to content\nMain menu\n" + "The town of Quendale stands on a hill. " * 12 + "\nMore."}, 100)["content"].startswith("Quendale\n[The page's menus are left out.]\nThe town of Quendale stands")
+      and "Main menu" not in _bs.cut_page({"content": "Quendale\nJump to content\nMain menu\n" + "The town of Quendale stands on a hill. " * 12 + "\nMore."}, 100)["content"]
       and _bs.cut_page({"error": "no"}, 10) == {"error": "no"} and _bs.cut_page({"content": "x" * 50}, 0)["content"] == "x" * 50 and _bs.cut_page({"content": "x" * 50}, None)["content"] == "x" * 50
       and _bs.language_of("wt-wt") == "all" and _bs.language_of("uk-en") == "en-GB" and _bs.language_of("tw-tzh") == "zh-TW" and _bs.language_of("ue-es") == "es-US" and _bs.language_of("") == "all"
       and _bs.is_page("https://a.example/") and not _bs.is_page("http:///go/v1/abc") and not _bs.is_page("ftp://a.example/") and not _bs.is_page(None)

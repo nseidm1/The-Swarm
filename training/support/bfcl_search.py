@@ -141,6 +141,18 @@ def cut_page(got, most):
     most = int(most or 0)
     if most <= 0 or not isinstance(got, dict) or not isinstance(got.get("content"), str) or len(got["content"]) <= most:
         return got
+    # THE CUT BEGINS WHERE THE PAGE'S OWN WORDS BEGIN: a page opens with its menus (measured 2026-11-19: of four pages fetched,
+    # three gave 2000 characters of "Jump to content / Main menu / 81 languages" and the article began after the cut). So what
+    # is given is from the first line that reads as prose, a line of 200 characters or more with twenty words or more, where
+    # there is one past the opening; the page's first line, its title, is kept before it. The same for whoever asked.
+    text = got["content"]
+    lines = text.split("\n")
+    at = next((i for i, l in enumerate(lines) if len(l.strip()) >= 200 and len(l.split()) >= 20), 0)
+    if at > 0:
+        first = next((l.strip() for l in lines if l.strip()), "")
+        body = "\n".join(lines[at:])
+        return dict(got, content=(first[:200] + "\n[The page's menus are left out.]\n" if first else "") + body[:most]
+                    + ("\n[The page goes on: only %d characters of it are given, of %d.]" % (most, len(text)) if len(body) > most else ""))
     return dict(got, content=got["content"][:most] + "\n[The page goes on: only its first %d characters are given, of %d.]" % (most, len(got["content"])))
 
 
