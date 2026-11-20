@@ -4498,7 +4498,15 @@ def pretrain_block(d):
         lm = lmod.get(m.get("file")) if running or live.get("phase") in ("stopped", "failed") else None
         if res and res.get("ok"):
             good += 1
-        if lm and lm.get("state") == "training" and not running:
+        if (m.get("engine") or "llama") != "llama":
+            # A MEMBER SERVED BY TENSORFOLD IS NOT PRETRAINED, and says so in its own words: TensorFold loads no adapter (spec
+            # S2.8), so there is nothing to train one for. It read "No original weights are named for it (training/originals.json)",
+            # which is true of it and is not the reason (console 2026-11-20). Where the catalog has the same model served by
+            # llama.cpp, that is the one that can be adapted, and it is named
+            twin = next((x for x in (d.get("registry") or {}).get("small", []) if x.get("id") == str(m.get("id", "")).replace("-mlx", "") and x.get("id") != m.get("id") and (x.get("engine") or "llama") == "llama"), None)
+            what = ('<small class="muted">Not pretrained: TensorFold serves it, and TensorFold loads no adapter.%s</small>'
+                    % ((" To pretrain it, choose %s in its place, which llama.cpp serves." % e(twin.get("name", ""))) if twin else ""))
+        elif lm and lm.get("state") == "training" and not running:
             it = _iter_of(lm.get("log", ""))
             what = '<small class="bad">Ended at step %d of %d, before it finished: not kept</small>' % (it[0] if it else 0, live.get("iters") or 100)
         elif lm and lm.get("state") == "training":

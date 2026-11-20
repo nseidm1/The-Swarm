@@ -515,6 +515,9 @@ with tempfile.TemporaryDirectory() as tmp:
           # (a swarm training has kept nothing for is recommended to be trained before its evaluation is relied on, and the Evaluate
           # card says so by its button; where its last evaluation marked tasks unread on its side, that is what is said, by name)
           and "or swarm_unread({\"results\": mine_})" in open(swarm_ui.__file__).read() and "or no answer was found in many of its replies" in open(swarm_ui.__file__).read()
+          # (a member TensorFold serves says on the Pretrain card why it is not pretrained, and names its llama.cpp build)
+          and "Not pretrained: TensorFold serves it, and TensorFold loads no adapter.%s" in open(swarm_ui.__file__).read()
+          and "To pretrain it, choose Qwen3.5 2B in its place, which llama.cpp serves." in swarm_ui.pretrain_block(dict(data.load(root), members={"a": dict(next(x for x in data.load(root)["registry"]["small"] if x["id"] == "qwen35-2b-mlx"), key="a")}))
           and swarm_ui.untrained({"learned": {"ledger": [], "passes": []}}) and not swarm_ui.untrained({"learned": {"ledger": [{"n": 1}]}})
           and swarm_ui.swarm_unread({"results": [{"name": "A", "agree": {"of": 20}, "unread": {"swarm": 5, "target": 0}}, {"name": "B", "agree": {"of": 20}, "unread": {"swarm": 4, "target": 19}}, {"name": "C"}]}) == [("A", 5, 20)]
           and "has not been trained" in swarm_ui.evaluation_caution({"learned": {}}, {}) and swarm_ui.evaluation_caution({"learned": {"ledger": [{"n": 1}]}}, {}) == ""

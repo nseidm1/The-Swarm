@@ -6,6 +6,8 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The Pretrain card says why a model TensorFold serves is not pretrained** (2026-11-20): TensorFold loads no adapter. It
+  names the same model's llama.cpp build, which can be adapted. It read "No original weights are named for it".
 - **"Check again what fell short" takes in the tasks where no answer was found** (2026-11-20). A body of work is asked again
   where the swarm scored under the larger model, or where no answer was found in a quarter or more of the swarm's replies
   to one of its tasks, whatever its score.
