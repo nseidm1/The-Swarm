@@ -153,7 +153,205 @@ export function briefsFor(briefs, question, kind = kindOf(question)) {
   return out;
 }
 
-export async function answer(
+// ---- AN INPUT TOO LONG FOR A SLOT IS READ IN PARTS (SwOA specification O.13) ----
+// A slot holds a few thousand tokens, and a request longer than that fits no drafter: the swarm replied with nothing (measured
+// 2026-11-20, one fact asked for out of a document: 5 of 5 at 1000 and 3000 tokens, 0 of 5 at 6000 and 12000, where the larger
+// model had 5 of 5 throughout). The context is not made larger, which every slot of every model would pay for in memory. The
+// text is cut into parts that fit, each part is read by one drafter for what it says on the question, the parts side by side,
+// and the question is then answered as any other is, over what the parts gave (the same measurement, read so: 20 of 20).
+export const PART_BRIEF =
+  'You are shown ONE PART of a longer text, and a question about the whole text. Copy out, word for word, the sentence or sentences of this part that answer the question or bear on it: each on its own line, at most four, and nothing else. Do not answer the question and do not add words of your own. If no sentence of this part bears on the question, answer exactly: NOT HERE.';
+export const NOT_HERE = /^\W*not here\W*$/i;
+export const SPLIT_OVER = 8000; // characters of a request's last message past which it is read in parts
+export const PART_CHARS = 6000; // the most characters of the text a part holds
+// WHAT A READER WROTE IS KEPT ONLY AS THE PART'S OWN WORDS. A small model asked what a part says will say what was asked for
+// whether the part says it or not (measured 2026-11-20: one model of three, reading parts of a register, gave the town asked
+// about with a length that belonged to another town in 9 parts of 20 questions, and the swarm then settled on it: 4 of 15
+// right). So each line a reader wrote is traced to the sentence of the part it comes from, and that sentence is what is kept:
+// a line that is in a sentence or holds one, else the one sentence that has four fifths of the line's words. A line from no
+// sentence of the part is dropped. At most `most` sentences a part.
+const wordsIn = (t) =>
+  String(t)
+    .toLowerCase()
+    .match(/[\p{L}\p{N}]+/gu) || [];
+export function groundedIn(reply, part, most = 4) {
+  const units = String(part || '')
+    .split('\n')
+    .flatMap((l) => (l.length > 400 ? l.split(/(?<=[.!?])\s+/) : [l]))
+    .map((u) => u.trim())
+    .filter(Boolean);
+  const flat = units.map((u) => wordsIn(u).join(' '));
+  const out = [];
+  for (const line of String(reply || '').split('\n')) {
+    const w = wordsIn(line);
+    if (!w.length) continue;
+    const l = w.join(' ');
+    let hits = units.filter(
+      (_, i) =>
+        (' ' + flat[i] + ' ').includes(' ' + l + ' ') ||
+        (flat[i].length >= 20 && (' ' + l + ' ').includes(' ' + flat[i] + ' ')),
+    );
+    if (!hits.length && new Set(w).size >= 4) {
+      const mine = [...new Set(w)];
+      const scored = units
+        .map((u, i) => ({
+          u,
+          share: mine.filter((x) => (' ' + flat[i] + ' ').includes(' ' + x + ' ')).length / mine.length,
+        }))
+        .sort((x, y) => y.share - x.share);
+      if (scored[0] && scored[0].share >= 0.8 && (!scored[1] || scored[1].share < scored[0].share))
+        hits = [scored[0].u];
+    }
+    // (a line found in many sentences says nothing of which one: a bare number that several hold, a common word)
+    if (hits.length > 3) continue;
+    for (const h of hits) if (!out.includes(h) && out.length < most) out.push(h);
+  }
+  return out;
+}
+// what a long message asks, and the text it asks it of: { head, text, ask }, or null where no question can be told from the text.
+// The question is the message's last block where that is short, else its last line; a short first block is the text's lead-in.
+export function askOf(message, most = 600) {
+  const all = String(message || '').trim();
+  const lastBlock = all.slice(all.lastIndexOf('\n\n') + 2);
+  const lastLine = all.slice(all.lastIndexOf('\n') + 1);
+  const ask =
+    all.includes('\n\n') && lastBlock.trim().length <= most ? lastBlock : lastLine.length <= most ? lastLine : '';
+  if (!ask.trim() || ask.length === all.length) return null;
+  let text = all.slice(0, all.length - ask.length).trim();
+  const firstEnd = text.indexOf('\n\n');
+  const head = firstEnd > 0 && firstEnd <= 300 ? text.slice(0, firstEnd).trim() : '';
+  if (head) text = text.slice(firstEnd).trim();
+  return text ? { head, text, ask: ask.trim() } : null;
+}
+// a text cut into parts of at most `most` characters, at its line ends; a line longer than a part at a sentence's end or a space
+export function partsOf(text, most = PART_CHARS) {
+  const out = [];
+  let cur = '';
+  const put = (piece) => {
+    if (cur && cur.length + piece.length + 1 > most) (out.push(cur), (cur = ''));
+    cur += (cur ? '\n' : '') + piece;
+  };
+  for (let line of String(text || '').split('\n')) {
+    while (line.length > most) {
+      const within = line.slice(0, most);
+      const at = Math.max(within.lastIndexOf('. ') + 1, within.lastIndexOf(' '));
+      const cut = at > most / 2 ? at : most;
+      put(line.slice(0, cut));
+      line = line.slice(cut).trimStart();
+    }
+    put(line);
+  }
+  if (cur.trim()) out.push(cur);
+  return out;
+}
+
+export async function answer(messages, opts) {
+  const mine = briefsFor(opts.briefs, '', classOf(messages)) || {};
+  const plan = mine.plan || {};
+  const lastAt = messages.map((m) => m.role).lastIndexOf('user');
+  const whole = lastAt >= 0 ? said(messages[lastAt]) : '';
+  const over = plan.splitOver || SPLIT_OVER;
+  const found = plan.split !== 'off' && whole.length > over ? askOf(whole) : null;
+  const readers = found ? (mine.slots || []).filter((s) => s.stage === 'draft' && !s.compute) : [];
+  if (!found || !readers.length) return answerWhole(messages, opts);
+  const t0 = Date.now();
+  const parts = partsOf(found.text, plan.partChars || PART_CHARS);
+  const rows = [];
+  // EACH PART IS READ BY TWO DRAFTERS, of different models where there are two (plan.partReaders): what either copied out that
+  // is the part's own is kept. A reader that misses the sentence asked for costs the answer, and the other model seldom misses
+  // the same one (measured 2026-11-20 with one reader a part: 18 of 20, both lost where one model copied out other sentences
+  // of the part that held the answer). As many calls at a time as there are drafters.
+  const per = Math.max(1, Math.min(readers.length, plan.partReaders || 2));
+  const jobs = [];
+  for (let n = 0; n < parts.length; n++) {
+    const first = readers[n % readers.length];
+    const rest = readers.filter((r) => r !== first);
+    const others = [...rest.filter((r) => r.member !== first.member), ...rest.filter((r) => r.member === first.member)];
+    // (the others turn about too, so that no one model reads every part twice)
+    const turned = others.length ? others.map((_, k) => others[(k + n) % others.length]) : [];
+    for (const reader of [first, ...turned].slice(0, per)) jobs.push({ n, reader });
+  }
+  const read = async ({ n, reader }) => {
+    const part = parts[n];
+    const slot = { ...reader, stage: 'part', maxTokens: 300 };
+    const at = Date.now();
+    const row = {
+      slot: slot.id,
+      member: slot.member,
+      stage: 'part',
+      part: n + 1,
+      of: parts.length,
+      ms: 0,
+      out: '',
+      final: '',
+      ok: false,
+    };
+    (opts.onStart || (() => {}))({ slot: slot.id, member: slot.member, stage: 'part' });
+    try {
+      const r = await opts.ask(slot, [
+        { role: 'system', content: PART_BRIEF },
+        {
+          role: 'user',
+          content:
+            (found.head ? found.head + '\n\n' : '') +
+            'Part ' +
+            (n + 1) +
+            ' of ' +
+            parts.length +
+            ':\n' +
+            part +
+            '\n\nThe question: ' +
+            found.ask,
+        },
+      ]);
+      row.out = String((r && r.text) || '').trim();
+      if (r && r.tokens) row.tokens = r.tokens;
+      row.ok = !!row.out;
+      row.final = row.ok && !NOT_HERE.test(row.out) ? groundedIn(row.out, part).join('\n').slice(0, 800) : '';
+      if (row.ok && !NOT_HERE.test(row.out) && !row.final) row.ungrounded = true;
+    } catch (e) {
+      row.out = 'Failed: ' + String((e && e.message) || e).slice(0, 160);
+    }
+    row.ms = Date.now() - at;
+    (opts.onStep || (() => {}))(row);
+    return row;
+  };
+  for (let i = 0; i < jobs.length; i += readers.length)
+    rows.push(...(await Promise.all(jobs.slice(i, i + readers.length).map(read))));
+  // what a part gave: the sentences its readers copied out, each once, in the order they were first given
+  const gave = parts
+    .map((_, n) => ({
+      part: n + 1,
+      final: [...new Set(rows.filter((r) => r.part === n + 1 && r.final).flatMap((r) => r.final.split('\n')))].join(
+        '\n',
+      ),
+    }))
+    .filter((g) => g.final);
+  // (what the parts gave must itself fit a slot: each is cut alike where together they would not)
+  const each = Math.max(120, Math.floor((over - 400) / Math.max(1, gave.length)));
+  const notes = gave.length
+    ? 'A longer text was read in ' +
+      parts.length +
+      ' parts. What its parts say on the question (a part that said nothing is left out):\n' +
+      gave.map((r) => '- Part ' + r.part + ': ' + r.final.slice(0, each).replace(/\s*\n\s*/g, ' ')).join('\n')
+    : 'A longer text was read in ' +
+      parts.length +
+      ' parts, and no part of it says anything that bears on the question.';
+  const shown = messages.map((m, i) =>
+    i === lastAt ? { ...m, content: (found.head ? found.head + '\n\n' : '') + notes + '\n\n' + found.ask } : m,
+  );
+  const got = await answerWhole(shown, opts);
+  return {
+    ...got,
+    path: got.path + '+split',
+    ms: Date.now() - t0,
+    trace: [...rows, ...got.trace],
+    parts: parts.length,
+    partsGave: gave.length,
+  };
+}
+
+async function answerWhole(
   messages,
   {
     briefs: given,

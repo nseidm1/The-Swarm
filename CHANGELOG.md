@@ -6,6 +6,15 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A request longer than a slot holds is read in parts** (2026-11-20, SwOA spec O.13). A request whose last message passes
+  8000 characters (`plan.splitOver`) fitted no drafter and the swarm replied with nothing. Its text is now cut at line ends
+  into parts that fit (`plan.partChars`), each part is read by two drafters of different models side by side
+  (`plan.partReaders`), and the question is answered as any other over what the parts gave. What a reader wrote is kept only
+  as the sentences of the part it comes from: a line that is in no sentence of its part is dropped. The context a slot is
+  served is unchanged, so the swarm's memory is. `plan.split: "off"` answers whole, as before. Measured on the real models,
+  one fact asked for out of a register, five questions a length: at 6000 and 12000 tokens 0 of 5 whole and 5 of 5 read in
+  parts, the larger model 5 of 5, in 10 and 20 seconds against its 7 and 15. Not measured: a question that needs several
+  parts put together, or a summary of the whole.
 - **A turn with tools goes on as the work needs** (2026-11-20, SwOA spec T.11 to T.15). The conversation sent to the drafters is
   fitted to a slot: earlier tool results are cut, the earliest first, the latest never (`plan.toolFit`). Where no drafter
   proposes a step that can be taken the turn is answered from what there is, not ended as an error. The decision model is

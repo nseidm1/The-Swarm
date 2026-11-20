@@ -6332,6 +6332,175 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     },
   );
 }
+// ---- 9s: A REQUEST LONGER THAN A SLOT HOLDS IS READ IN PARTS (SwOA specification O.13)
+{
+  const O = await import('../src/orchestrate.mjs');
+  const lines = Array.from(
+    { length: 400 },
+    (_, i) => 'The bridge at Town' + i + ' is ' + (1000 + i) + ' metres long and kept by the parish.',
+  );
+  const ask = 'From the register: how many metres long is the bridge at Town333? Answer with the number.';
+  const long = 'Here is a register.\n\n' + lines.join('\n') + '\n' + ask;
+  const briefs = {
+    marker: 'ANSWER:',
+    flow: [{ do: 'draft' }, { do: 'decide' }],
+    plan: { writeAs: 'settled' },
+    slots: [
+      { id: 'a1', member: 'a', stage: 'draft', brief: 'Answer.' },
+      { id: 'b1', member: 'b', stage: 'draft', brief: 'Answer.' },
+      { id: 'c1', member: 'c', stage: 'draft', brief: 'Compute.', compute: true },
+    ],
+  };
+  const sent = [];
+  let together = 0;
+  let most = 0;
+  const model = async (slot, msgs) => {
+    const said = msgs[msgs.length - 1].content;
+    sent.push({ stage: slot.stage, slot: slot.id, sys: msgs[0].content, said, maxTokens: slot.maxTokens });
+    if (slot.stage === 'part') {
+      most = Math.max(most, ++together);
+      await new Promise((ok) => setTimeout(ok, 5));
+      together--;
+      if (/Part 2 of/.test(said)) throw new Error('it stopped');
+      return { text: /Town333 is/.test(said) ? 'The bridge at Town333 is 1333 metres long.' : ' Not here. ' };
+    }
+    return {
+      text: /Part \d+: The bridge at Town333 is 1333 metres long and kept by the parish\./.test(said)
+        ? 'it says so\nANSWER: 1333'
+        : 'ANSWER: unknown',
+    };
+  };
+  const got = await O.answer(
+    [
+      { role: 'system', content: 'Be brief.' },
+      { role: 'user', content: long },
+    ],
+    { briefs, ask: model },
+  );
+  const parts = sent.filter((x) => x.stage === 'part');
+  const drafts = sent.filter((x) => x.stage === 'draft');
+  const mark = sent.length;
+  const one = await O.answer([{ role: 'user', content: long }], {
+    briefs: { ...briefs, plan: { ...briefs.plan, partReaders: 1 } },
+    ask: model,
+  });
+  const oneCalls = sent.slice(mark).filter((x) => x.stage === 'part').length;
+  const before = sent.length;
+  const short = await O.answer([{ role: 'user', content: 'What is six times seven?' }], { briefs, ask: model });
+  const off = await O.answer([{ role: 'user', content: long }], {
+    briefs: { ...briefs, plan: { ...briefs.plan, split: 'off' } },
+    ask: model,
+  });
+  const nothing = await O.answer(
+    [{ role: 'user', content: 'x'.repeat(9000) + '\n\n' + 'Is the word harbour in it?' }],
+    {
+      briefs,
+      ask: async (slot, msgs) =>
+        slot.stage === 'part'
+          ? { text: 'NOT HERE' }
+          : { text: /no part of it says anything/.test(msgs[1].content) ? 'ANSWER: no' : 'ANSWER: ?' },
+    },
+  );
+  const cut = O.partsOf(
+    'a'.repeat(50) + '\n' + 'b'.repeat(50) + '\n' + 'One. Two words here and more of them to pass the half. Three.',
+    60,
+  );
+  check(
+    'a request whose last message is longer than a slot holds is read in parts: the question is its last short block or line and a short first block its lead-in; the text is cut at line ends into parts that fit; each part is read by two drafters of different models (never one that answers by a program; one where the plan says one) under the part brief, as many calls side by side as there are drafters, and what either copied out is given once; a part that says NOT HERE or fails gives nothing; the question is then answered as any other over what the parts gave, the path says +split and the parts are in the trace; a short request, or one with split off, is answered whole; and where no part gave anything the question is asked saying so',
+    (got.reply.includes('1333') &&
+      /\+split$/.test(got.path) &&
+      // (each part read by both drafters, one of each model)
+      parts.length === got.parts * 2 &&
+      Array.from({ length: got.parts }, (_, i) =>
+        parts
+          .filter((x) => x.said.includes('Part ' + (i + 1) + ' of '))
+          .map((x) => x.slot)
+          .sort()
+          .join(),
+      ).every((x) => x === 'a1,b1') &&
+      one.parts === got.parts &&
+      oneCalls === one.parts &&
+      got.parts > 3 &&
+      got.partsGave === 1 &&
+      parts.every((x) => x.sys === O.PART_BRIEF && x.maxTokens === 300 && ['a1', 'b1'].includes(x.slot)) &&
+      parts.every(
+        (x) => x.said.startsWith('Here is a register.\n\nPart ') && x.said.endsWith('\n\nThe question: ' + ask),
+      ) &&
+      parts.every((x) => x.said.length < O.PART_CHARS + 300) &&
+      most === 2 &&
+      got.trace
+        .filter((r) => r.stage === 'part')
+        .map((r) => r.part)
+        .join() ===
+        Array.from({ length: got.parts }, (_, i) => [i + 1, i + 1])
+          .flat()
+          .join() &&
+      got.trace.filter((r) => r.part === 2).every((r) => r.out.startsWith('Failed: it stopped')) &&
+      got.trace.filter((r) => r.stage === 'part' && r.final).length === 2 &&
+      drafts.length >= 2 &&
+      drafts[0].said.startsWith('Here is a register.\n\nA longer text was read in ' + got.parts + ' parts.') &&
+      drafts[0].said.endsWith('\n\n' + ask) &&
+      drafts[0].said.length < 1000 &&
+      drafts[0].said.split('kept by the parish').length === 2 &&
+      drafts[0].sys.includes('Be brief.') &&
+      !/\+split/.test(short.path) &&
+      sent.slice(before).filter((x) => x.stage === 'part').length === 0 &&
+      !/\+split/.test(off.path) &&
+      /\+split$/.test(nothing.path) &&
+      nothing.partsGave === 0 &&
+      nothing.reply.includes('no')) ||
+      false,
+    {
+      path: got.path,
+      parts: got.parts,
+      gave: got.partsGave,
+      most,
+      reply: got.reply,
+      nothing: [nothing.path, nothing.reply],
+      cut,
+    },
+  );
+  const G = [
+    'The mill at Ashby is 397 metres long; it was finished in 1801.',
+    'The wall at Eldmouth is 7018 metres long; it was finished in 1790.',
+    'The tower at Fenby is 55 metres long; it was finished in 1702.',
+    'The dam at Garwick is 61 metres long; it was finished in 1750.',
+  ].join('\n');
+  const a1 = O.askOf('Lead.\n\n' + 'word '.repeat(400) + '\n\nWhat is it about?');
+  const a2 = O.askOf('word '.repeat(400) + '\nWhat is it about?');
+  check(
+    'the question of a long message and the parts of its text: the last block where it is short, else the last line; a short first block is the lead-in; no question where the end is long or there is no text before it; a part is closed at a line end before it would pass its size, and a line longer than a part is broken after a sentence or at a space; and what a reader wrote is kept only as the sentences of the part it comes from',
+    a1.head === 'Lead.' &&
+      a1.ask === 'What is it about?' &&
+      a1.text.startsWith('word word') &&
+      a2.head === '' &&
+      a2.ask === 'What is it about?' &&
+      O.askOf('word '.repeat(400)) === null &&
+      O.askOf('What is it about?') === null &&
+      O.askOf('x\n\n' + 'word '.repeat(400)) === null &&
+      cut.length === 4 &&
+      cut[0] === 'a'.repeat(50) &&
+      cut[1] === 'b'.repeat(50) &&
+      cut[2] === 'One. Two words here and more of them to pass the half.' &&
+      cut[3] === 'Three.' &&
+      cut.every((p) => p.length <= 60) &&
+      O.partsOf('', 10).length === 0 &&
+      // (what a reader wrote is kept as the part's own sentence: a line within one, a bare figure, a near copy; a line that is
+      // in no sentence of the part, or a figure that many hold, gives nothing)
+      O.groundedIn('The mill at Ashby is 397 metres long.', G).join() ===
+        'The mill at Ashby is 397 metres long; it was finished in 1801.' &&
+      O.groundedIn('7018', G).join() === 'The wall at Eldmouth is 7018 metres long; it was finished in 1790.' &&
+      O.groundedIn('- "The wall in Eldmouth is 7018 metres long"', G).join() ===
+        'The wall at Eldmouth is 7018 metres long; it was finished in 1790.' &&
+      O.groundedIn('The reservoir dam at Corford Parva is 397 metres long.', G).length === 0 &&
+      O.groundedIn('The register does not mention the wall.', G).length === 0 &&
+      O.groundedIn('metres', G).length === 0 &&
+      O.groundedIn('7018\n397\n7018', G).length === 2 &&
+      O.NOT_HERE.test(' Not here. ') &&
+      !O.NOT_HERE.test('It is not here, but the bridge is 5 metres.'),
+    { a1: a1 && [a1.head, a1.ask], a2: a2 && [a2.head, a2.ask], cut },
+  );
+}
 // ---- 9a: a small model beside the decider in the decide step (plan.decideWith)
 {
   const { answer: orchestrate } = await import('../src/orchestrate.mjs');

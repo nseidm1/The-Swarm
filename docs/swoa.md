@@ -1430,7 +1430,7 @@ If decided is non-empty, there are writers, and neither AS-IS nor PASS-OVER hold
 #### O.8.5 Path suffix order
 
 Suffixes are appended in this order when they apply: `+narrowed`, `+as-settled`, `+full`, `+trimmed`,
-`+rewritten`, `+described`, `+tool-call`, `+code-restored`, `+picked`, `+unwritten`, `+closed`.
+`+rewritten`, `+described`, `+tool-call`, `+code-restored`, `+picked`, `+unwritten`, `+closed`, `+split` (O.13).
 
 #### O.8.7 The reply closes as the earlier replies do
 
@@ -1530,7 +1530,7 @@ Base: `decided`, `decided-against-most`, `decided-early`, `most`, `most-tie-deci
 
 A row is recorded into the trace when its call completes, so concurrent calls are recorded in
 completion order. Rows record at least `slot`, `member`, `stage`, `ms`, `out`, `final`, `ok`, and
-where relevant `why`, `tokens`, `concluded`, `computed`, `picked`, `alone`, `round`, `describes`, `rewrite`, `trimmed`. The
+where relevant `part`, `of` (O.13.4), `why`, `tokens`, `concluded`, `computed`, `picked`, `alone`, `round`, `describes`, `rewrite`, `trimmed`. The
 decider's ruling row has `slot` `decide`, `member` `decider`, `stage` `decide`, its `probs`, `yes`,
 `close` (when ok and close), `retried` (when the decider says so), and, when not ok and its reason
 contains `did not answer`, `timedOut` = whether the reason contains `abort` or `timeout` (any
@@ -1578,6 +1578,10 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 |---|---|---|---|
 | `keepTurns` | integer | 6 | turns kept (top-level plan only; falsy means 6) |
 | `closeAs` | text | none | `shown`: the reply ends with the form the conversation's earlier replies close with, around what was settled (O.8.7) |
+| `split` | text | none | `off`: a request is never read in parts (O.13) |
+| `splitOver` | integer | 8000 | the characters of the request's last `user` message past which it is read in parts (O.13; falsy means 8000) |
+| `partReaders` | integer | 2 | how many READERS read each part, of different members where there are (O.13.4; falsy means 2) |
+| `partChars` | integer | 6000 | the most characters of the text a part holds (O.13; falsy means 6000) |
 | `byBehaviour` | boolean | true | `false` turns off probe, try and everything that depends on tried |
 | `agreeSkipsChecks` | boolean | true | `false` stops dispute steps being passed over when settled |
 | `onePerAnswer` | boolean | false | sheet shows one row per distinct answer even when not tried |
@@ -1606,6 +1610,100 @@ No other slot field (for example `copyOf`) is read by the orchestration.
    negative infinity: `decider-if-confident` then sets it aside, and in the `if-close` branch the
    map counts as empty (TOPW = 1).
 7. With more than 16 answers letters repeat (position mod 16).
+
+### O.13 A request longer than a slot holds
+
+A plan slot's request is bounded by the context its member serves a slot with (S2), and a request that passes it is
+answered by no slot. A module does not answer such a request by serving more context. It reads the text in parts.
+
+#### O.13.1 When
+
+Before O.3, with the effective arrangement for the request's class (O.2): W is the content, as text, of the last
+message of role `user`. The request is READ IN PARTS when `plan.split` is not `off`, W is longer than OVER characters
+(`plan.splitOver`), an ASK is found in W (O.13.2), and the arrangement has at least one slot of stage `draft` without
+`compute`: these are the READERS, in arrangement order. Otherwise the procedure runs as sections O.3 to O.12 say and
+nothing in this section applies.
+
+#### O.13.2 The question and the text
+
+W is trimmed. LAST BLOCK is what follows the last empty line of W (two line breaks together); LAST LINE is what
+follows its last line break. ASK is LAST BLOCK where W has an empty line and LAST BLOCK, trimmed, is at most 600
+characters; otherwise LAST LINE where that is at most 600 characters; otherwise there is no ASK. There is also no ASK
+where it is empty or is the whole of W. TEXT is W without ASK at its end, trimmed. Where TEXT's first empty line comes
+within its first 300 characters, HEAD is what precedes it, trimmed, and TEXT is the rest, trimmed; otherwise HEAD is
+empty. Where TEXT is then empty there is no ASK. ASK is used trimmed.
+
+#### O.13.3 The parts
+
+TEXT is taken line by line. A line longer than MOST characters (`plan.partChars`) is first broken: its first MOST
+characters are cut after the last `". "` or at the last space among them, whichever comes later, where that lies past
+half of MOST, and at MOST otherwise; the piece is taken, the rest has its leading white space removed, and this repeats
+while the rest is longer than MOST. Pieces and lines are gathered in order into the current part joined by one line
+break; a piece that would take a non-empty current part past MOST characters (its own length and one more for the
+line break counted) closes that part first. A last part that is only white space is dropped. There are N parts.
+
+#### O.13.4 Reading a part
+
+Each part is read PER times, PER being `plan.partReaders` and at most the number of READERS, at least 1. For the part
+of index n (from 0) with R READERS: its first reader is READER `n mod R`. OTHERS are the remaining READERS, those whose
+`member` differs from the first reader's before those whose `member` is the same, each group in arrangement order; the
+part's further readers are OTHERS taken from position `n mod |OTHERS|` and on, wrapping. The part's CALLS are its first
+`PER` readers in that order. All CALLS, part by part, are made in groups of R, group after group, the calls of a group
+side by side. A call is the reader's slot with stage `part` and `maxTokens` 300, and its messages are exactly two:
+
+1. role `system`: the PART BRIEF:
+
+   `You are shown ONE PART of a longer text, and a question about the whole text. Copy out, word for word, the sentence or sentences of this part that answer the question or bear on it: each on its own line, at most four, and nothing else. Do not answer the question and do not add words of your own. If no sentence of this part bears on the question, answer exactly: NOT HERE.`
+
+2. role `user`: `(HEAD ? HEAD + "\n\n" : "") + "Part " + I + " of " + N + ":\n" + PART + "\n\nThe question: " + ASK`,
+   I counted from 1.
+
+A call's row has `slot`, `member`, `stage` `part`, `part` (I), `of` (N), `ms`, `tokens` where known, and `out`: what the
+member wrote, trimmed, or `"Failed: "` and the first 160 characters of the reason where the call failed. `ok` holds
+where the call did not fail and `out` is non-empty. Where `ok` holds and `out` is not NOT HERE (the words `not here`, any
+case, with nothing before or after them but characters that are not letters, digits or `_`), `final` is the first 800
+characters of the part's GROUNDED sentences joined by line breaks; otherwise `final` is empty. Where `out` was not NOT
+HERE and nothing was GROUNDED, the row has `ungrounded` true. What a part GAVE is the lines of the `final` of its
+calls' rows, in call order, each line once; a part with any GAVE.
+
+**GROUNDED.** What a reader wrote is kept only as the part's own words. The part's UNITS are its lines, a line longer
+than 400 characters taken as its sentences (broken at white space after `.`, `!` or `?`), each trimmed, empty ones left
+out. The WORDS of a text are its runs of letters and digits, in lower case; its FLAT form is its WORDS joined by single
+spaces. For each line of `out` that has WORDS, in order:
+
+1. Its HITS are the UNITS whose FLAT form holds the line's FLAT form as whole words, and the UNITS of FLAT length 20 or
+   more whose FLAT form the line's FLAT form holds as whole words.
+2. Where there are no HITS and the line has four distinct WORDS or more: each UNIT's SHARE is the fraction of the
+   line's distinct WORDS that are WORDS of the UNIT. Where the greatest SHARE is 0.8 or more and no other UNIT has the
+   same SHARE, that UNIT is the line's one HIT.
+3. A line with more than three HITS gives nothing. Otherwise each HIT not yet taken is taken, in UNIT order, until four
+   are taken for the part.
+
+The GROUNDED sentences are the UNITS taken, as they stand in the part.
+
+#### O.13.5 The question, answered over what the parts gave
+
+EACH is `max(120, floor((OVER - 400) / G))`, G the number of parts that GAVE (1 where none did). NOTES is, where any
+part GAVE:
+
+`"A longer text was read in " + N + " parts. What its parts say on the question (a part that said nothing is left out):\n"`
+followed by one line for each part that GAVE, in part order, joined by line breaks:
+`"- Part " + I + ": " + ` the first EACH characters of what it GAVE, its lines joined by line breaks, with every line break and the white space around
+it made one space.
+
+and otherwise:
+
+`"A longer text was read in " + N + " parts, and no part of it says anything that bears on the question."`
+
+The request's last `user` message has its content replaced by
+`(HEAD ? HEAD + "\n\n" : "") + NOTES + "\n\n" + ASK`; every other message is as it was. The procedure of sections
+O.3 to O.12 is then run on that request, once; this section does not apply again within it.
+
+#### O.13.6 The result
+
+The result is that run's (O.10) with: `+split` appended to its path, after every other suffix; `ms` the time from the
+start of this section; the calls' rows, in the order the calls were made, before that run's rows in the trace; `parts` (N) and
+`partsGave` (G). A runtime MAY notify an observer of a part's call and row as O.10.4 says.
 
 ### R.1 Reading an answer out of what a model wrote
 
