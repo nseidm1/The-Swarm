@@ -358,10 +358,10 @@ with tempfile.TemporaryDirectory() as tmp:
     panel_q2 = get(base + "/fragment/questions?id=crew")[1]
     m_ok, _ = send("/questions", {"id": "math", "questions": [{"ask": "What is 17 times 23?", "mode": "developer"}]})
     m_file = json.loads((root / "training" / "questions" / "math.json").read_text())
-    check("each body of work has a button under the pills that opens its questions: the kinds the trainer makes (not edited) and the questions a person wrote, one row each, with Simple or Developer for The Crew; saving writes them whole (blank ones dropped, a mode only where it means something), the button then says how many there are, and the next opening shows them; they are asked beside the ones made, an addition and never a choice; an unknown body of work, more than 200, or a list that is not one is refused",
-          pens.count('class="ownb"') == 8 and 'data-qedit="crew"' in pens and "Your own questions for The Crew: none written" in pens and 'id="qedit"' in html and pens.startswith('<div class="ownq" id="ownq">')
-          and "Questions: The Crew" in panel_q and "Made by the trainer" in panel_q and "Simple: a piece of writing" in panel_q and "Developer: their own project" in panel_q and "Write a function: arrays" in panel_q and panel_q.count('class="qrow"') == 1 and "0 of 200" in panel_q
-          and q_ok == 200 and q_file == {"questions": [{"ask": "Move my dentist to Friday."}, {"ask": "Is a sleep a fix?", "mode": "developer"}]} and "The Crew <em>2</em>" in q_row and "Your own questions for The Crew: 2 written" in q_row and not q_row.startswith("<div") and '<div class="kicker">A body of work</div>' in panel_q and "<h4>Your own questions</h4>" in panel_q
+    check("each body of work has a button under the pills that opens its questions: the kinds the trainer makes (not edited) and the questions a person wrote, one row each, with Simple or Developer for programming and its conversation; saving writes them whole (blank ones dropped, a mode only where it means something), the button then says how many there are, and the next opening shows them; they are asked beside the ones made, an addition and never a choice; an unknown body of work, more than 200, or a list that is not one is refused",
+          pens.count('class="ownb"') == 8 and 'data-qedit="crew"' in pens and "Your own questions for Programming and its conversation: none written" in pens and 'id="qedit"' in html and pens.startswith('<div class="ownq" id="ownq">')
+          and "Questions: Programming and its conversation" in panel_q and "Made by the trainer" in panel_q and "Simple: a piece of writing" in panel_q and "Developer: their own project" in panel_q and "Write a function: arrays" in panel_q and panel_q.count('class="qrow"') == 1 and "0 of 200" in panel_q
+          and q_ok == 200 and q_file == {"questions": [{"ask": "Move my dentist to Friday."}, {"ask": "Is a sleep a fix?", "mode": "developer"}]} and "Programming and its conversation <em>2</em>" in q_row and "Your own questions for Programming and its conversation: 2 written" in q_row and not q_row.startswith("<div") and '<div class="kicker">A body of work</div>' in panel_q and "<h4>Your own questions</h4>" in panel_q
           and panel_q2.count('class="qrow"') == 3 and "Move my dentist to Friday." in panel_q2 and '<option value="developer" selected>' in panel_q2 and "2 of 200" in panel_q2
           and m_ok == 200 and m_file == {"questions": [{"ask": "What is 17 times 23?"}]} and "data-q-mode" not in get(base + "/fragment/questions?id=math")[1].split("<template")[0]
           and send("/questions", {"id": "poetry", "questions": []})[0] == 400 and send("/questions", {"id": "crew", "questions": "x"})[0] == 400 and send("/questions", {"id": "crew", "questions": [{"ask": "q"}] * 201})[0] == 400
@@ -383,7 +383,7 @@ with tempfile.TemporaryDirectory() as tmp:
           json.dumps(busy0))
     bad_size = send("/eval/start", {"limit": 7})[0]
     # (which bodies of work a run asks: none, one that is not listed, one with no standard test, or not a list, is refused)
-    bad_items = [send("/eval/start", {"limit": 20, "items": x})[0] for x in ([], ["poetry"], ["instructions"], "crew")]
+    bad_items = [send("/eval/start", {"limit": 20, "items": x})[0] for x in ([], ["poetry"], ["crew"], "instructions")]
     # (and the harnesses: none, one that is not a harness, not a list; and a body of work none of whose harnesses is ticked)
     bad_harness = [send("/eval/start", {"limit": 20, "harnesses": x})[0] for x in ([], ["mine"], "lm")] + [send("/eval/start", {"limit": 20, "items": ["math"], "harnesses": ["bfcl"]})[0]]
     foreign = send("/eval/start", {"limit": 20}, {"x-swarm": "0"})[0]
@@ -427,7 +427,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and '<span class="muted small">not asked</span>' in ev_pr and '<option value="-1" selected>' in ev_pr and "a proof run: its own number of questions a task" in ev_pr
           and 'data-evt="gsm8k"' in ev_pr and "not evaluated yet" in ev_pr.split('data-evt="gsm8k"')[1].split('data-evt="')[0]
           # (each body of work folds under its heading and says in a line what it holds: every one folded to begin with)
-          and '<details class="psec evitem" data-keep="eval-crew">' in ev_pr and '<details class="psec evitem" data-keep="eval-tools">' in ev_pr and 'class="psec evitem" data-keep="eval-instructions"' not in ev_pr
+          and '<details class="psec evitem" data-keep="eval-instructions">' in ev_pr and '<details class="psec evitem" data-keep="eval-tools">' in ev_pr and 'class="psec evitem" data-keep="eval-crew"' not in ev_pr
           and '<span class="pmeta" data-evm="tools">5 tasks · the same on 80 of 100 questions · 4 not evaluated</span>' in ev_pr
           # (and the whole breakdown is one section that folds, folded to begin with, with a line for all of it)
           and '<details class="psec evall" data-keep="eval-all"><summary><h4>Every task, by body of work <span class="muted small">7 bodies of work · 23 tasks</span></h4>' in ev_pr
@@ -456,9 +456,9 @@ with tempfile.TemporaryDirectory() as tmp:
     (root / ".work" / "eval" / "ui-run.json").unlink()
     tn_ = swarm_ui.e(data.load(root)["target"]["name"])
     check("while an evaluation runs its breakdown folds: all of it as one section, folded to begin with, and inside it body by body, the one being asked open and the others folded, each saying in a line how many of its tasks each model has been asked and the task in hand; the page's script keeps those lines current and opens the body the run moves on to, unless a person chose otherwise",
-          '<details class="psec evitem" data-keep="eval-tools" open>' in ev_run and '<details class="psec evitem" data-keep="eval-crew">' in ev_run
+          '<details class="psec evitem" data-keep="eval-tools" open>' in ev_run and '<details class="psec evitem" data-keep="eval-instructions">' in ev_run
           and ('<span class="pmeta" data-evm="tools">%s: 1 of 2 tasks asked, asking BFCL one of several functions 12 of 100 · the swarm: 0 of 2 tasks asked</span>' % tn_) in ev_run
-          and ('<span class="pmeta" data-evm="crew">%s: 1 of 1 task asked · the swarm: 0 of 1 task asked</span>' % tn_) in ev_run
+          and ('<span class="pmeta" data-evm="instructions">%s: 1 of 1 task asked · the swarm: 0 of 1 task asked</span>' % tn_) in ev_run
           and "const evMeta=(all,tn)=>" in swarm_ui.JS and "box.querySelectorAll('[data-evm]')" in swarm_ui.JS and "localStorage.getItem('swarm.open.eval-'+at.item)" in swarm_ui.JS
           # (the whole breakdown folded to begin with, its line counting every task; a folded body inside an open breakdown keeps its own line)
           and '<details class="psec evall" data-keep="eval-all"><summary>' in ev_run and ('<span class="pmeta" data-evm="*">%s: 2 of 3 tasks asked, asking BFCL one of several functions 12 of 100 · the swarm: 0 of 3 tasks asked</span>' % tn_) in ev_run
@@ -472,7 +472,7 @@ with tempfile.TemporaryDirectory() as tmp:
     a_off = send("/config", {"adapters": False})[0]
     a_cfg2 = json.loads((root / "src" / "config.json").read_text())
     # while an evaluation runs (this process stands in for it), training and pretraining wait, and each says why
-    (root / ".work" / "eval" / "ui-run.json").write_text(json.dumps({"pid": os.getpid(), "at": "now", "limit": 100, "items": ["crew", "code"]}))
+    (root / ".work" / "eval" / "ui-run.json").write_text(json.dumps({"pid": os.getpid(), "at": "now", "limit": 100, "items": ["instructions", "code"]}))
     held_pre = send("/pretrain/start", {})
     a_member = d["members"]["a"]
     a_orig = json.loads((REPO / "training" / "originals.json").read_text())["models"].get(a_member["file"]) or {}
@@ -507,7 +507,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and 'data-evd-harness="lm">' in ev_table_b and 'data-evd-harness="bfcl" checked>' in ev_table_b and "GSM8K" not in ev_table_b and "Nothing of BFCL (function calling) has been evaluated yet" in ev_table_b
           and ev_table_l.count('<tr class="evt-task') == 16 and "Every question of lm-evaluation-harness</th>" in ev_table_l and "BFCL web search" not in ev_table_l.split("</thead>")[1] and 'data-evd-harness="bfcl">' in ev_table_l and ev_table_x.count('<tr class="evt-task') == ev_table.count('<tr class="evt-task')
           and "evLeft" in swarm_ui.JS and "swarm.eval.hoff" in swarm_ui.JS and "/fragment/evtable?h=" in swarm_ui.JS
-          and swarm_ui.harnesses_of([{"benchmarks": [{"task": "a"}, {"task": "b", "harness": "new-one"}]}]) == ["lm", "new-one"] and swarm_ui.harness_name("new-one") == "new-one" and 'data-ev-item="instructions"' not in ev0 and '<span class="cfgl">Asks</span>' in ev0
+          and swarm_ui.harnesses_of([{"benchmarks": [{"task": "a"}, {"task": "b", "harness": "new-one"}]}]) == ["lm", "new-one"] and swarm_ui.harness_name("new-one") == "new-one" and 'data-ev-item="crew"' not in ev0 and 'data-ev-item="instructions" data-h="lm"' in ev0 and '<span class="cfgl">Asks</span>' in ev0
           and "items:its.filter(x=>x.checked&&" in swarm_ui.JS and "harnesses:hs.filter(x=>x.checked)" in swarm_ui.JS and "localStorage.setItem('swarm.eval.off'" in swarm_ui.JS and "function evAsk()" in swarm_ui.JS
           and bad_size == 400 and foreign == 403 and bad_items == [400, 400, 400, 400]
           and 'id="pre-go"' in pre0 and pre_ok and pre0.count('class="prerow"') == len([k for k in ("a", "b", "c", "d") if k in d["members"]])

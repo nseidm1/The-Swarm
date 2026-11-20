@@ -53,7 +53,7 @@ export const verdictOf = (gap, stderr, margin = MARGIN) =>
 
 // THE CAPABILITY A TASK MEASURES (ui/data.py capability_of reads it the same way): the body of work the task is listed under in
 // training/equivalence.json, unless the task names another whose kinds are training's own questions of what it measures
-// (`trains`: IFEval is listed under The Crew, and what it measures, following instructions, is the capability Instructions).
+// (`trains`; none does now: IFEval, the one that did, is listed under Instructions itself since 2026-11-20).
 // A task the list does not hold is of the body of work its result names. So a capability is always a body of work, and its
 // kinds are the questions that train it.
 export function capabilityOf(task, item, itemName, targets = []) {

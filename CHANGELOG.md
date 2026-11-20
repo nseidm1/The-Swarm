@@ -6,6 +6,11 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **IFEval is listed under Instructions, and "The Crew" is "Programming and its conversation"** (2026-11-20). The Evaluate
+  card showed "The Crew" over one test of following instructions. That test now sits under Instructions, the body of work
+  whose questions train what it measures, and the body of work it left has the name the specification already gives it. A
+  proof already named the capability Instructions, so no published figure moves, and earlier results of IFEval are shown
+  under the new heading. The body's id (`crew`) and the questions written for it are unchanged.
 - **An evaluation can be limited to chosen harnesses** (2026-11-20). Under the boxes for the bodies of work the Evaluate card
   has a box for each harness they are measured by ("With"); a task is asked where its body of work and its harness are both
   ticked, and a body of work with no harness ticked goes quiet (`evaluate.sh --harnesses lm,bfcl`). The table of scores has

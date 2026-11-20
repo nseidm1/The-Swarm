@@ -5567,7 +5567,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const { planOf, sizeOf } = await import('../training/evaluate.mjs');
   const EQ = JSON.parse(fs.readFileSync(new URL('../training/equivalence.json', import.meta.url), 'utf8'));
   const whole = { ifeval: 541, humaneval_instruct: 164 };
-  const plan = planOf(EQ.targets, ['crew', 'code', 'math', 'logic', 'reasoning']);
+  const plan = planOf(EQ.targets, ['instructions', 'code', 'math', 'logic', 'reasoning']);
   const by = {};
   for (const b of plan) by[b.item] = (by[b.item] || 0) + (sizeOf(b, { proof: true }) || whole[b.task] || NaN);
   check(
@@ -9021,7 +9021,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const E = await import('../training/evaluate.mjs');
   const T = await import('../training/support/bfcl.mjs');
   const EQ = JSON.parse(fs.readFileSync(new URL('../training/equivalence.json', import.meta.url), 'utf8'));
-  const plan = E.planOf(EQ.targets, ['crew', 'tools', 'search']);
+  const plan = E.planOf(EQ.targets, ['instructions', 'tools', 'search']);
   const tool = plan.find((b) => b.task === 'bfcl_simple_python');
   const web = plan.find((b) => b.task === 'bfcl_web_search_base');
   const ifeval = plan.find((b) => b.task === 'ifeval');
@@ -9030,7 +9030,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     'a body of work may be measured by the tool tests: its tasks say so, name the package category and what each model is offered; a plan says what it needs installed, the search behind a web search test among it; calling functions is asked about five hundred questions for a proof; and a search test with no search behind it is not asked, and says why',
     JSON.stringify(E.needsOf(plan, {})) === JSON.stringify(['lmeval', 'bfcl', 'searxng']) &&
       JSON.stringify(E.needsOf(plan, { SWARM_SEARCH: 'serpapi' })) === JSON.stringify(['lmeval', 'bfcl']) &&
-      JSON.stringify(E.needsOf(E.planOf(EQ.targets, ['crew']), {})) === JSON.stringify(['lmeval']) &&
+      JSON.stringify(E.needsOf(E.planOf(EQ.targets, ['instructions']), {})) === JSON.stringify(['lmeval']) &&
       JSON.stringify(E.needsOf(E.planOf(EQ.targets, ['tools']), {})) === JSON.stringify(['bfcl']) &&
       E.isToolTest(tool) &&
       !E.isToolTest(ifeval) &&
@@ -9250,7 +9250,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const E = await import('../training/evaluate.mjs');
   const T = await import('../training/support/bfcl.mjs');
   const EQ = JSON.parse(fs.readFileSync(new URL('../training/equivalence.json', import.meta.url), 'utf8'));
-  const plan = E.planOf(EQ.targets, ['crew', 'tools', 'search']);
+  const plan = E.planOf(EQ.targets, ['instructions', 'tools', 'search']);
   const tools = [{ type: 'function', function: { name: 'add', parameters: { type: 'object', properties: {} } } }];
   const call = { id: 'c1', type: 'function', function: { name: 'add', arguments: '{"a":1,"b":2}' } };
   const wm = T.writtenMessages(

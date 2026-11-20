@@ -3,7 +3,7 @@
   "targets": [
     {
       "id": "crew",
-      "name": "The Crew",
+      "name": "Programming and its conversation",
       "about": "The work of a seat on a team: programming, the conversation around it in Simple and in Developer, and an agent's steps with tools",
       "specName": "Programming and its conversation",
       "specAbout": "Programming, the conversation around it, and an agent's steps with tools",
@@ -23,18 +23,8 @@
         "shown",
         "agent"
       ],
-      "benchmarks": [
-        {
-          "task": "ifeval",
-          "proofN": 0,
-          "name": "IFEval",
-          "metric": "prompt_level_strict_acc",
-          "filter": "none",
-          "compare": "instructions",
-          "trains": "instructions"
-        }
-      ],
-      "benchmarksNote": "IFEval measures following instructions; the conversation has no standard task in either harness, and an agent's steps with tools are measured under Tools, so they are not in this figure"
+      "benchmarks": [],
+      "benchmarksNote": "Programming is measured under Code, an agent's steps with tools under Tools, and following instructions under Instructions (IFEval); the conversation itself has no standard task in either harness"
     },
     {
       "id": "code",
@@ -193,8 +183,16 @@
       "name": "Instructions",
       "about": "Following the rules a request sets on its reply: a length, a count, words to use or leave out, a shape, how it opens and closes. A program tests each rule",
       "kinds": ["rules"],
-      "benchmarks": [],
-      "benchmarksNote": "IFEval is the standard test of following instructions; it is listed under The Crew, and training's own questions of the family are these"
+      "benchmarks": [
+        {
+          "task": "ifeval",
+          "proofN": 0,
+          "name": "IFEval",
+          "metric": "prompt_level_strict_acc",
+          "filter": "none",
+          "compare": "instructions"
+        }
+      ]
     },
     {
       "id": "tools",

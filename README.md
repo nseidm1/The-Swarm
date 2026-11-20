@@ -34,7 +34,7 @@ tests of what a model of that size can do (following instructions, reasoning, co
 ([docs/swoa-parity.md](docs/swoa-parity.md)). It is never assumed: the proof says, capability by capability, parity, short,
 or too few questions to say. What it is trained and measured on is a list of bodies of work, each a set of kinds of
 question the trainer makes, the questions you write for it, and the standard tests it is evaluated on
-([`training/equivalence.json`](training/equivalence.json)). Today they are The Crew, Code, Math, Logic, Reasoning,
+([`training/equivalence.json`](training/equivalence.json)). Today they are Programming and its conversation, Code, Math, Logic, Reasoning,
 Instructions, Tools and Search. **A pass of training asks every one of them, and nothing is chosen.** The module picks its
 arrangement by the class of a request, not by the body of work, and a change is kept only when its class got better and no
 kind of question fell: a kind a pass does not ask is a kind nothing protects. What a pass asks more of is what the swarm
@@ -165,7 +165,7 @@ node bin/swarm.mjs serve --port 8090
 ## The Crew: the first project that uses it
 
 [The Crew](https://myfamilyoffice.eth.limo/start.html) is the reason this project exists, and its body of work is the
-first on the list: the work of a seat on a team, in two parts.
+first on the list, Programming and its conversation: the work of a seat on a team, in two parts.
 - **Programming.** A **function** is run on the question's inputs beside the question's own correct solution, and is right
   when it does the same on every one, however differently it is written; the larger model's function is counted the same way.
 - **The conversation around it.** A person writes to the team, in Simple mode (an everyday question, something the team
@@ -180,10 +180,9 @@ first on the list: the work of a seat on a team, in two parts.
   developer's words to someone who is not one). The decision model reads the act and the substance, in one request; the
   conventions are read off the words.
 
-Its benchmark in [Evaluate the swarm](#the-dashboard) is IFEval, which measures following instructions; the conversation
-has no standard task in either harness, and an agent's steps with tools are measured under Tools, so they are not in that
-figure. Code, Math, Logic, Reasoning, Instructions, Tools and Search stand on their own: chosen without The Crew, the swarm
-is trained and evaluated on them alone.
+It has no benchmark of its own in [Evaluate the swarm](#the-dashboard): programming is measured under Code, an agent's
+steps with tools under Tools, following instructions under Instructions (IFEval), and the conversation has no standard
+task in either harness. Code, Math, Logic, Reasoning, Instructions, Tools and Search stand on their own.
 
 ## How it works
 

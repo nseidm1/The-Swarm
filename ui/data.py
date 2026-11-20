@@ -559,8 +559,7 @@ NOT_CLAIMED = ["long conversations (the module keeps the last turns of one)", "s
 def capability_of(targets, task, item, item_name):
     """THE CAPABILITY A TASK MEASURES (training/support/emphasis.mjs capabilityOf reads it the same way): the body of work the task
     is listed under in training/equivalence.json, unless the task names another whose kinds are training's own questions of what
-    it measures (trains: IFEval is listed under The Crew, and what it measures, following instructions, is the capability
-    Instructions). Named by the work, not by the product it was first measured for (specName). A task the list does not hold is
+    it measures (trains; none does now: IFEval, the one that did, is listed under Instructions itself). Named by the work, not by the product it was first measured for (specName). A task the list does not hold is
     of the body of work its result names. -> (id, name)"""
     for t in targets or []:
         for b in t.get("benchmarks") or []:
