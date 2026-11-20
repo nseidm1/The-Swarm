@@ -599,7 +599,7 @@ document.addEventListener('click',(ev)=>{
 });
 // RECOMMENDED CONFIGURATION CHANGES: the note beside Configuration opens them; a change is made as a pill makes one
 document.addEventListener('click',async(ev)=>{
-  if(ev.target.closest('#rec-open')){ev.preventDefault();ev.stopPropagation();await swap('/fragment/recs','#recd-body');$('#recd').showModal();
+  if(ev.target.closest('#rec-open,[data-rec-open]')){ev.preventDefault();ev.stopPropagation();await swap('/fragment/recs','#recd-body');$('#recd').showModal();
     document.querySelectorAll('#recd-body [data-engine-update].busy').forEach(engineWatch);
     // (and the count beside the heading, from the same evidence at the same moment: it had been drawn when the page was, and
     // said "1 recommendation" over a dialog that had none)
@@ -630,6 +630,8 @@ document.addEventListener('click',async(ev)=>{
     const r=await fetch('/engine/update',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({id:up.dataset.engineUpdate})});
     if(!r.ok){alert(await r.text());up.disabled=false;return;}
     engineWatch(up);return;}
+  // TRAIN, FROM A RECOMMENDATION: the page's own Train button is pressed (what it starts, and when it may, are its own), and it is brought into view
+  if(ev.target.closest('[data-rec-train]')){$('#recd').close();const g=$('#run-go');if(g){g.scrollIntoView({block:'center'});if(!g.disabled)g.click();}return;}
   const a=ev.target.closest('[data-rec-apply]');if(!a)return;a.disabled=true;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:a.dataset.recApply});
   if(!r.ok){alert(await r.text());a.disabled=false;return;}
@@ -2115,7 +2117,7 @@ def classes_block(d):
             rows.append("<tr><td>%s</td><td class='muted' colspan='5'>Being asked as it stands: %d train questions</td></tr>" % (name, c.get("train", 0)))
             continue
         of = a.get("n") or 0
-        read = (" <span class='muted'>(%d unread)</span>" % a["unread"]) if a.get("unread") else ""
+        read = (" <span class='muted'>(%d with no answer found)</span>" % a["unread"]) if a.get("unread") else ""
         tried = sum(len(r.get("candidates") or []) for r in c.get("rounds") or [])
         kept = c.get("kept") or []
         rows.append("<tr><td>%s<br><span class='muted small'>%d questions of %d kinds</span></td><td>%d of %d</td><td>%d of %d</td><td>%d of %d%s</td><td>%d</td><td>%s</td></tr>"
@@ -2605,6 +2607,8 @@ def run_controls():
     held = busy_with()
     first = needs_eval()
     why = cannot_run() or held or first
+    # (and what an evaluation of part of the work leaves with no figure from before: said, not waited for)
+    first = first or eval_gaps()
     return ('<button class="btn top" id="run-go" type="button"%s title="Train question by question, pass after pass, until Stop training is pressed">Train</button>'
             '<button class="btn top quiet" id="run-clear" type="button"%s title="Start training again from pass 1: what it has tried, measured and kept is moved aside (to .work/archive), and each model&#39;s own answers are kept">Clear training state</button>%s'
             % (" disabled" if why else "", " disabled" if held else "", ('<small class="evwhy" id="run-first">%s</small>' % e(first)) if first else ""))
@@ -3061,6 +3065,63 @@ def engine_recommendations(d):
     return out
 
 
+def swarm_unread(res):
+    """The tasks of an evaluation where the benchmark could not read a quarter or more of THE SWARM's replies as answers (the
+    table's own mark, on the swarm's side): [(name, unread, of)]. Their scores say how its replies were written more than
+    what it knew."""
+    out = []
+    for r in (res or {}).get("results") or []:
+        n = ((r.get("agree") or {}).get("of")) or 0
+        u = ((r.get("unread") or {}).get("swarm")) or 0
+        if n and u * 4 >= n:
+            out.append((r.get("name") or r.get("task"), u, n))
+    return out
+
+
+def untrained(d):
+    """Whether training has kept nothing for this configuration yet: no change in its record, and no pass ended."""
+    lr = d.get("learned") or {}
+    return not lr.get("ledger") and not lr.get("passes")
+
+
+def evaluation_caution(d, res=None):
+    """WHAT A PERSON SHOULD KNOW BEFORE READING AN EVALUATION OF THIS SWARM, in a line for the Evaluate card ('' where nothing):
+    its last evaluation was scored on form on some tasks, or it has not been trained and its next one may be. A benchmark that
+    shows worked examples reads an answer only where a reply ends as they do, and stops at an empty line; ending a reply so is
+    a setting training turns on class by class (plan.closeAs), so a swarm that has kept nothing answers without it (measured
+    2026-11-20, on 40 questions of four such tasks: 7 right as an untrained swarm wrote them, 30 with the setting on)."""
+    if res is None:
+        res, _ = eval_of_config(ARGS.root, d)
+    un = swarm_unread(res)
+    if un:
+        return ("On %d task%s of the last evaluation the benchmark could not read many of the swarm&#39;s replies as answers (marked no answer found): those scores say how it wrote more than what it knew. %s"
+                % (len(un), "" if len(un) == 1 else "s", "This swarm has not been trained: a pass can turn on ending a reply as a benchmark&#39;s examples do. Train, then evaluate again." if untrained(d)
+                   else "A pass can turn on ending a reply as a benchmark&#39;s examples do. If one has been made since, evaluate again."))
+    if untrained(d):
+        return "This swarm has not been trained. An evaluation now may understate it on tasks that read an answer only in a set form: a pass can turn on ending a reply as a benchmark&#39;s examples do. Train first for figures to rely on."
+    return ""
+
+
+def evaluation_recommendations(d):
+    """The same, as recommendations (`next`: what to do before an evaluation is read; nothing they change is the configuration's)."""
+    res, _ = eval_of_config(d["root"], d)
+    un = swarm_unread(res)
+    out = []
+    if un:
+        out.append({"id": "unread:%s" % str(res.get("at", "")), "strength": "info", "yours": True, "next": True, "train": True, "apply": None, "n": sum(n for _, _, n in un),
+                    "title": "%d task%s of the last evaluation %s scored on form more than on answers" % (len(un), "" if len(un) == 1 else "s", "was" if len(un) == 1 else "were"),
+                    "why": "The benchmark could not read these of the swarm&#39;s replies as answers: %s. A reply it cannot read is marked wrong whatever it says. Ending a reply as a benchmark&#39;s examples do is a setting training can turn on, class by class. %s"
+                           % ("; ".join("%s %d of %d" % (e(nm), u, n) for nm, u, n in un),
+                              "This swarm has not been trained: train it, then evaluate again." if untrained(d) else "If a pass has been made since that evaluation, evaluate again; if not, train first."),
+                    "note": "evaluated %s UTC" % _day(res.get("at"))})
+    elif untrained(d):
+        out.append({"id": "untrained", "strength": "info", "yours": True, "next": True, "train": True, "apply": None, "n": 0,
+                    "title": "Train this swarm before relying on an evaluation of it",
+                    "why": "Training has kept nothing for this configuration yet. A benchmark that shows worked examples reads an answer only where a reply ends as they do; ending a reply so is a setting training can turn on, class by class. An evaluation before a pass may understate the swarm on those tasks.",
+                    "note": "nothing is changed by this: it is what to do first"})
+    return out
+
+
 def recommendations(d):
     """CHANGES TO THE CONFIGURATION THAT THE EVIDENCE POINTS AT: what only a person can change (a pass cannot change which models
     the swarm is made of), from what this configuration's passes measured for it (members-probe.mjs, decider-replay.mjs). Each says
@@ -3261,6 +3322,7 @@ def recommendations(d):
             r_["cost"] = ("about %.1f GB more" % dgb) if dgb > 0.05 else ("about %.1f GB less" % -dgb) if dgb < -0.05 else "about the same memory"
         if r_["strength"] == "measured" and r_.get("n", 99) < 20:
             r_["strength"] = "early"
+    out.extend(evaluation_recommendations(d))
     out.extend(engine_recommendations(d))
     return out
 
@@ -3274,6 +3336,11 @@ def recs_panel(d):
     def item(r):
         meta = " · ".join(x for x in [rests(r), r.get("cost", ""), e(r.get("note", ""))] if x)
         act = ('<button type="button" class="btn top" data-rec-apply=\'%s\'%s>Make this change</button>' % (e(json.dumps(r["apply"])), " disabled" if running else "")) if r.get("apply") else ""
+        if r.get("train"):
+            # (it presses the page's own Train: where that cannot start now, this cannot either, and says why)
+            why_not = "a session is running" if running else (cannot_run() or busy_with() or needs_eval(d) or "")
+            act = ('<div class="eng"><button type="button" class="btn top" data-rec-train%s>Train</button><small class="engs">%s</small></div>'
+                   % (" disabled" if why_not else "", e(("Not now: %s" % why_not) if why_not else "starts a session, as Train does")))
         if r.get("update"):
             st = engine_update_state(ARGS.root, r["update"]) or {}
             going = bool(st.get("running"))
@@ -3281,13 +3348,16 @@ def recs_panel(d):
             act = ('<div class="eng"><button type="button" class="btn top%s" data-engine-update="%s"%s>%s</button><progress class="engp"%s></progress><small class="engs">%s</small></div>'
                    % (" busy" if going else "", e(r["update"]), " disabled" if going or running else "", "Updating" if going else "Try again" if failed else "Update",
                       "" if going else " hidden", e(st.get("step", "")) if going or failed else ""))
-        return '<li class="rec %s%s"><div><span class="rstr">%s</span><b>%s</b><p>%s</p><small class="where">%s</small></div>%s</li>' % (r["strength"], " engine" if r.get("update") else "", e(label(r)), e(r["title"]), r["why"], meta, act)
+        return '<li class="rec %s%s"><div><span class="rstr">%s</span><b>%s</b><p>%s</p><small class="where">%s</small></div>%s</li>' % (r["strength"], " engine" if r.get("update") or r.get("train") else "", e(label(r)), e(r["title"]), r["why"], meta, act)
     mine_ = [r for r in rs if r.get("apply")]
     theirs = [r for r in rs if not r.get("apply") and not r.get("yours")]
-    yours = [r for r in rs if r.get("yours")]
+    yours = [r for r in rs if r.get("yours") and not r.get("next")]
+    nexts = [r for r in rs if r.get("next")]
     items = "".join(item(r) for r in mine_) or '<li class="muted">No change to the configuration is recommended now%s.</li>' % (": what follows is for training" if theirs else "")
     if theirs:
         items += '<li class="rech">What training does about it itself</li>' + "".join(item(r) for r in theirs)
+    if nexts:
+        items += '<li class="rech">Before you read an evaluation</li>' + "".join(item(r) for r in nexts)
     if yours:
         items += '<li class="rech">The engines on this machine</li>' + "".join(item(r) for r in yours)
     return ('<div class="spec-head"><div><div class="kicker">What only you can change</div><h3 style="font-size:22px;margin-top:4px">Recommended configuration changes</h3></div>'
@@ -3985,7 +4055,7 @@ def eval_table(d, only=None):
             u = (r or {}).get("unread") or {}
             n = ((r or {}).get("agree") or {}).get("of") or 0
             # (a task where a quarter or more of one model's replies were not read: marked, since its scores compare the reading)
-            mark = (' <b class="evt-unread" title="Not read by the harness: %s of the swarm&#39;s replies, %s of the larger model&#39;s, of %d">unread</b>'
+            mark = (' <b class="evt-unread" title="The harness found no answer in %s of the swarm&#39;s replies and %s of the larger model&#39;s, of %d">no answer found</b>'
                     % (u.get("swarm") or 0, u.get("target") or 0, n)) if n and max(u.get("swarm") or 0, u.get("target") or 0) * 4 >= n else ""
             unread_any = unread_any or bool(mark)
             rows.append('<tr class="evt-task%s"><td>%s%s</td>%s</tr>' % (" evt-old" if r and r.get("carried") else "", e(b.get("name") or b["task"]), mark, cells([r] if r else [])))
@@ -3997,7 +4067,7 @@ def eval_table(d, only=None):
     if old:
         notes += " A line in grey was not asked again this time: its figures are the earlier evaluation&#39;s."
     if unread_any:
-        notes += " A task marked unread is one where the harness could not read a quarter or more of one model&#39;s replies as answers: its scores say how replies were read more than what either model knew."
+        notes += " A task marked no answer found is one where the harness found no answer in a quarter or more of one model&#39;s replies: its scores say how replies were written more than what either model knew."
     return (head + boxes + '<p class="small muted" style="margin:10px 0 0">Each was put the same questions and marked by the benchmark&#39;s own checker. Swarm → target is the swarm&#39;s score as a share of %s&#39;s: '
             '100%% or more is where the swarm is level or ahead.%s%s</p>' % (e(tname), when, notes)
             + '<div class="evt-wrap"><table class="spec evt"><thead><tr><th>Body of work</th><th class="num">The swarm</th><th class="num evtg">%s</th><th class="num">Swarm → target</th>%s<th class="num evn">Questions</th></tr></thead>'
@@ -4033,7 +4103,7 @@ def _ev_agree(r):
     # the scores it makes unfair. A quarter or more of one side's replies unread is said as a warning)
     u = r.get("unread") or {}
     us, ut = u.get("swarm") or 0, u.get("target") or 0
-    unread = ('<small class="%s">Not read by the harness: %s of the swarm&#39;s replies, %s of %s&#39;s, of %d</small>'
+    unread = ('<small class="%s">The harness found no answer in %s of the swarm&#39;s replies and %s of %s&#39;s, of %d</small>'
               % ("bad" if max(us, ut) * 4 >= a["of"] else "evold", us, ut, e(r.get("targetName") or "the larger model"), a["of"])) if us or ut else ""
     c, b = r.get("carried"), r.get("before")
     note = ('<small class="evold">Not asked again: from the evaluation of %s%s</small>' % (e(_day(c.get("at"))), ", the swarm served differently then" if c.get("other") else "")) if c else \
@@ -4137,22 +4207,38 @@ def eval_view(root, d):
     return {"res": res, "any": any_res, "by_task": by, "short": short, "base": base, "carried": carried}
 
 
+def _unevaluated(d):
+    """-> (the bodies of work that have a standard task, those of them no evaluation of this configuration has compared a task of)"""
+    listed = [t for t in (d.get("equivalence") or {}).get("targets", []) if t.get("benchmarks")]
+    done = {x.get("task") for r in _eval_rows(Path(ARGS.root)) if r.get("configuration") == d.get("key") for x in r.get("results", []) if x.get("agree")}
+    return listed, [t for t in listed if not any(b["task"] in done for b in t["benchmarks"])]
+
+
 def needs_eval(d=None):
     """EVALUATE FIRST: why Pretrain and Train wait, in words, or '' when they need not. A configuration is evaluated before it is
     pretrained or trained, so that there is a figure from before to judge either by, and so that Pretrain knows where the swarm
     is short. It has been once an evaluation of this configuration (these small models, this decider, this larger model; with or
-    without adapters) has compared at least one task of every body of work that has a standard task. Nothing waits where no
-    body of work has one."""
+    without adapters) has compared a task of at least ONE body of work: a person who evaluated with one harness trains against
+    what was evaluated, to see those figures move (console instruction 2026-11-20; it had waited for every body of work). The
+    bodies of work with no figure yet are said beside the button, not waited for (eval_gaps). Nothing waits where no body of
+    work has a standard task."""
     d = d or data.load(ARGS.root)
-    listed = [t for t in (d.get("equivalence") or {}).get("targets", []) if t.get("benchmarks")]
-    if not listed:
+    listed, lacking = _unevaluated(d)
+    if not listed or len(lacking) < len(listed):
         return ""
-    done = {x.get("task") for r in _eval_rows(Path(ARGS.root)) if r.get("configuration") == d.get("key") for x in r.get("results", []) if x.get("agree")}
-    missing = [t["name"] for t in listed if not any(b["task"] in done for b in t["benchmarks"])]
-    if not missing:
+    return "Evaluate the swarm first: this configuration has not been evaluated. The evaluation is what Pretrain is aimed by and what either is judged against."
+
+
+def eval_gaps(d=None):
+    """THE BODIES OF WORK TRAINING WILL HAVE NO FIGURE FROM BEFORE FOR, in a line, or '': those no evaluation of this configuration
+    has compared, where others have been. It names the harness that measures them and where it is ticked. Training goes on
+    all the same; these are the ones whose figures cannot be seen to move."""
+    d = d or data.load(ARGS.root)
+    listed, lacking = _unevaluated(d)
+    if not lacking or len(lacking) == len(listed):
         return ""
-    return ("Evaluate the swarm first: this configuration has not been evaluated%s. The evaluation is what Pretrain is aimed by and what either is judged against."
-            % ("" if len(missing) == len(listed) else " on " + _and(missing)))
+    return ("%s %s no figure from before: to see %s move, evaluate with %s ticked (under With on the Evaluate card) before training."
+            % (_and([t["name"] for t in lacking]), "has" if len(lacking) == 1 else "have", "it" if len(lacking) == 1 else "them", _and([harness_name(k) for k in harnesses_of(lacking)])))
 
 
 def eval_block(d):
@@ -4221,6 +4307,12 @@ def eval_block(d):
                     '<small class="evwhy">Asks only %s again: where the swarm scored under %s in the evaluation of %s. The rest keep their last figures, marked as from before. '
                     'Evaluate asks everything.</small>'
                     % (e(",".join(t["id"] for t in short)), " disabled" if held else "", e(names), e(tname), e(_day(view["base"].get("at")))))
+        # (and what to know before reading its figures, as a button that opens the recommendations, where it is said in full
+        # and can be acted on: a paragraph under Evaluate was a wall of words, console 2026-11-20)
+        caution = evaluation_caution(d, res)
+        if caution:
+            ctl += ('<button type="button" class="recbadge" id="ev-caution" data-rec-open title="%s"><i></i>Recommendation: train%s</button>'
+                    % (caution, ", then evaluate again" if swarm_unread(res) else " first"))
     out = ['<div class="panel evalp" id="evalbox" data-phase="%s" data-run="%s"%s>' % (e(live.get("phase") or ""), e(live.get("runId") or ""), ' data-running="1"' if running else ""),
            '<div class="proghead">%s<span class="progline">Standard benchmarks (%s), asked of %s and of the swarm, '
            'and the two scores set side by side: the same questions, marked by the same checker. Kept apart from training: training never asks a benchmark&#39;s question.</span>'

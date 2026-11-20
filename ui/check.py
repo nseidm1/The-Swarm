@@ -512,6 +512,20 @@ with tempfile.TemporaryDirectory() as tmp:
           and 'data-none>not evaluated yet</span>' in ev0 and "row.querySelector('[data-none]')" in swarm_ui.JS and "data-none" not in ev_run.split('data-evt="bfcl_multiple"')[1].split("</div></div>")[0] and "/fragment/evtable?h=" in swarm_ui.JS
           # (the table's columns are of set widths, so its header breaks its lines alike whichever harnesses are shown)
           and "table.spec.evt{table-layout:fixed}" in swarm_ui.CSS and '<th class="num evtg">' in ev_table and '<th class="num evtg">' in ev_table_l and '<th class="num">Swarm → target</th>' in ev_table and ">Share<" not in ev_table
+          # (a swarm training has kept nothing for is recommended to be trained before its evaluation is relied on, and the Evaluate
+          # card says so by its button; where its last evaluation marked tasks unread on its side, that is what is said, by name)
+          and swarm_ui.untrained({"learned": {"ledger": [], "passes": []}}) and not swarm_ui.untrained({"learned": {"ledger": [{"n": 1}]}})
+          and swarm_ui.swarm_unread({"results": [{"name": "A", "agree": {"of": 20}, "unread": {"swarm": 5, "target": 0}}, {"name": "B", "agree": {"of": 20}, "unread": {"swarm": 4, "target": 19}}, {"name": "C"}]}) == [("A", 5, 20)]
+          and "has not been trained" in swarm_ui.evaluation_caution({"learned": {}}, {}) and swarm_ui.evaluation_caution({"learned": {"ledger": [{"n": 1}]}}, {}) == ""
+          and "On 1 task of the last evaluation" in swarm_ui.evaluation_caution({"learned": {"ledger": [{"n": 1}]}}, {"results": [{"name": "A", "agree": {"of": 20}, "unread": {"swarm": 5}}]})
+          and ("Before you read an evaluation" in get(base + "/fragment/recs")[1]) == any(r.get("next") for r in swarm_ui.recommendations(data.load(root)))
+          and ('id="ev-caution"' in get(base + "/fragment/eval")[1]) == bool(swarm_ui.evaluation_caution(data.load(root)))
+          # (on the card it is a button that opens the recommendations, not a paragraph; and the recommendation presses the page's own Train)
+          and "closest('#rec-open,[data-rec-open]')" in swarm_ui.JS and "closest('[data-rec-train]')" in swarm_ui.JS and "$('#run-go')" in swarm_ui.JS
+          and all(r.get("train") for r in swarm_ui.evaluation_recommendations(dict(data.load(root), learned={})))
+          and ("data-rec-train" in get(base + "/fragment/recs")[1]) == any(r.get("train") for r in swarm_ui.recommendations(data.load(root)))
+          and '<small class="evwhy" id="ev-caution">' not in get(base + "/fragment/eval")[1]
+          and [r["id"] for r in swarm_ui.evaluation_recommendations(dict(data.load(root), learned={}))][:1] in (["untrained"], [x["id"] for x in swarm_ui.evaluation_recommendations(data.load(root)) if x["id"].startswith("unread:")][:1])
           # (a run that stopped on an error says the error, not the name of the program that ran it)
           and swarm_ui._why_ended(["15:06:17 Comparing the answers", "node:fs:438", "TypeError [ERR_INVALID_ARG_TYPE]: The \"path\" argument must be of type string", "    at scoreOf (file:///x.mjs:370:27)", "}", "Node.js v22.23.3"]).startswith("TypeError [ERR_INVALID_ARG_TYPE]")
           and swarm_ui._why_ended(["one", "the last line"]) == "the last line"
@@ -680,7 +694,7 @@ with tempfile.TemporaryDirectory() as tmp:
     ap = send("/config", rs[0]["apply"])[0] if rs else 0
     now_cfg = json.loads((root / "src" / "config.json").read_text())
     check("beside Configuration, a note says when the evidence recommends a change to it, and opens them: each with what it rests on (measured: another decider that recovered more recorded choices than it lost; untested: a third small model where no slot drafted the answer and no other model was here to ask), and a button that makes the change as a pill does; a decider that lost more than it recovered is not recommended; with no evidence there is no note",
-          ('id="rec-open"' not in none_yet or "1 recommendation<" in none_yet) and [r["id"] for r in rs if not r["id"].startswith("judge:")] == ["decider:startlux-4b", "member:qwen35-2b"] and [r["strength"] for r in rs if not r["id"].startswith("judge:")] == ["measured", "untested"]
+          ('id="rec-open"' not in none_yet or "1 recommendation<" in none_yet) and [r["id"] for r in rs if not r["id"].startswith("judge:") and not r.get("next")] == ["decider:startlux-4b", "member:qwen35-2b"] and [r["strength"] for r in rs if not r["id"].startswith("judge:") and not r.get("next")] == ["measured", "untested"]
           and ("%d recommendations" % (2 + judge_here)) in sec and 'id="recd"' in html and "Decide with StartLux Decision 4B" in pop and "recovered 4" in pop and "Untested" in pop and "Qwen3.5 2B" in pop and "kev-9b" not in pop and "Kev 9B" not in pop
           and pop.count("data-rec-apply") == 2 + judge_here and any(r["id"].startswith("judge:") for r in rs) == bool(judge_here) and ap == 200 and now_cfg.get("decider") == "startlux-4b" and "stopPropagation" in html, [r["id"] for r in rs])
     # WHAT THE CONFIGURATION'S OWN ANSWERS SAY, AS THEY ARRIVE (ui/data.py session_evidence), and what is recommended from it
@@ -725,7 +739,7 @@ with tempfile.TemporaryDirectory() as tmp:
     ap2 = send("/config", next((r["apply"] for r in rs2 if r["id"].startswith("member:")), {}))[0]
     after = json.loads((root / "src" / "config.json").read_text())
     check("taking a recommended change does not undo one taken before it: with the decider changed, the third small model is still recommended, from the record of the same small models (and says so), nothing recommends going back, and taking it keeps the new decider",
-          [r["id"] for r in rs2 if not r["id"].startswith("judge:")] == ["member:qwen35-2b"] and ("decided by %s" % d["decider"]["name"].split(" ")[0]) in pop2 and ap2 == 200
+          [r["id"] for r in rs2 if not r["id"].startswith("judge:") and not r.get("next")] == ["member:qwen35-2b"] and ("decided by %s" % d["decider"]["name"].split(" ")[0]) in pop2 and ap2 == 200
           and after.get("decider") == "startlux-4b" and after.get("c") == "qwen35-2b", ([r["id"] for r in rs2], after))
     (root / "src" / "config.json").write_text(json.dumps(was_cfg, indent=2) + "\n")
     for fn in ("decider-replay.json", "members.json"):
@@ -1061,6 +1075,17 @@ with tempfile.TemporaryDirectory() as tmp:
     check("a configuration is evaluated before it is trained or pretrained: with no evaluation of it, Train is there but cannot be pressed and says why, a press sent all the same starts nothing, and it is free once every body of work that has a standard task has been evaluated",
           "Evaluate the swarm first: this configuration has not been evaluated." in first_said and 'id="run-go" type="button" disabled' in blocked_page and 'id="run-first"' in blocked_page
           and blocked_ran is False and swarm_ui.needs_eval(_fd) == "" and "needs_eval()" in open(swarm_ui.__file__).read().split("def start_run")[1].split("def ")[0], [first_said, blocked_ran])
+    # (evaluated on some bodies of work and not on others: training does not wait; it says which have no figure from before, the
+    # harness that measures them and where it is ticked)
+    _hist = fake / ".work" / "eval" / "history.jsonl"
+    _full_hist = _hist.read_text()
+    _row = json.loads(_full_hist)
+    _hist.write_text(json.dumps(dict(_row, results=[r for r in _row["results"] if not str(r["task"]).startswith("bfcl_")])) + "\n")
+    _part_need, _part_gap, _part_ctl = swarm_ui.needs_eval(_fd), swarm_ui.eval_gaps(_fd), swarm_ui.run_controls()
+    _hist.write_text(_full_hist)
+    check("evaluated with one harness only, Train can be pressed, and says beside it which bodies of work have no figure from before, the harness that measures them and where to tick it; evaluated on all, it says nothing",
+          _part_need == "" and _part_gap == "Tools and Search have no figure from before: to see them move, evaluate with BFCL (function calling) ticked (under With on the Evaluate card) before training."
+          and 'id="run-go" type="button" title=' in _part_ctl and "Tools and Search have no figure from before" in _part_ctl and swarm_ui.eval_gaps(_fd) == "" and swarm_ui.needs_eval(_fd) == "", [_part_need, _part_gap, _part_ctl[:200]])
     page0 = get(base + "/")[1]
     check("where training can be started the Train card has a Train button that can be pressed, no count of passes to choose, and says it goes on until it is stopped",
           'id="run-go" type="button" title="Train question by question, pass after pass, until Stop training is pressed">Train</button>' in page0 and 'id="run-stop"' not in page0 and 'id="run-passes"' not in page0 and 'class="facts"' not in page0
@@ -1867,8 +1892,8 @@ _blk_level = swarm_ui.eval_block(_d11)
 swarm_ui._eval_rows, swarm_ui.ARGS = _keep11, _args11
 check("a second look asks only the bodies of work where the swarm scored under the larger model, from its own button that says which and why; what it did not ask again keeps the earlier evaluation's figures of "
       "this configuration (never another's), marked and counted in the headline as from before; what it asked has its share before beside it in the table; with nothing short there is no button; and Pretrain is no longer aimed by it",
-      _v_full["short"] == ["math"] and _v_full["carried"] == 0 and "Not read by the harness: 9 of the swarm&#39;s replies, 0 of Big&#39;s, of 20" in _blk_full and 'class="evt-unread"' in _tab_full
-      and "A task marked unread" in _tab_full and 'class="evt-unread"' not in _tab11 and 'id="ev-narrow" type="button" data-items="math"' in _blk_full and "Asks only Math again" in _blk_full
+      _v_full["short"] == ["math"] and _v_full["carried"] == 0 and "The harness found no answer in 9 of the swarm&#39;s replies and 0 of Big&#39;s, of 20" in _blk_full and 'class="evt-unread"' in _tab_full
+      and "A task marked no answer found" in _tab_full and ">no answer found</b>" in _tab_full and ">unread<" not in _tab_full and 'class="evt-unread"' not in _tab11 and 'id="ev-narrow" type="button" data-items="math"' in _blk_full and "Asks only Math again" in _blk_full
       and 'id="pre-aim"' not in _pre_full
       and _v11["by_task"]["he"]["carried"]["at"] == _full11["at"] and _v11["by_task"]["he"]["swarm"]["value"] == 0.75 and _v11["carried"] == 20
       and _v11["by_task"]["gsm"]["before"]["swarm"]["value"] == 0.4 and "carried" not in _v11["by_task"]["gsm"] and _v11["short"] == ["math"]
@@ -1926,7 +1951,7 @@ shutil.rmtree(_r12, ignore_errors=True)
 check("the Train card says, for each class of input a pass trained as a class, how it stood in three figures (some slot had it, settled on it, reply good as read, with the replies no answer was read in), "
       "how many arrangements were tried and what was kept, and why by the held questions; a class with too few questions says so, one still being asked says so, and before the stage there is nothing",
       _none12 == "" and "First, each class of input as a class (3) 2026-11-20 03:40 UTC" in _cls12 and "n.trainer==='classes'" in swarm_ui.JS and "swap('/fragment/classes','#classes-wrap')" in swarm_ui.JS
-      and "<td>23 of 24</td><td>20 of 24</td><td>1 of 24 <span class='muted'>(19 unread)</span></td><td>2</td><td><b>the reply closes as the earlier replies do</b>" in _cls12
+      and "<td>23 of 24</td><td>20 of 24</td><td>1 of 24 <span class='muted'>(19 with no answer found)</span></td><td>2</td><td><b>the reply closes as the earlier replies do</b>" in _cls12
       and "now 20 of 24" in _cls12 and "was kept: better on the held questions (19 of 24, where it stood at 0; +79.2 points, paired error 8.5)" in _cls12
       and "Not trained as a class: fewer than four questions" in _cls12 and "Being asked as it stands: 24 train questions" in _cls12
       and swarm_ui.step_label("08-classes") == "Each class of input, trained as a class" and "Logic: who tells the truth" in swarm_ui.KIND_WORDS["lies"],

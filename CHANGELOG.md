@@ -6,6 +6,18 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A task's "unread" mark is "no answer found"** (2026-11-20): the benchmark looked for an answer in a reply and found none.
+  The table, its note and the recommendation say it so.
+- **Train and Pretrain wait for one evaluated body of work, not every one** (2026-11-20). A configuration evaluated with one
+  harness can be trained against what was evaluated, to see those figures move. Beside Train the page says which bodies of
+  work have no figure from before, the harness that measures them and where it is ticked. Before, they waited until every
+  body of work had been evaluated, and said only "evaluate first".
+- **The page recommends training before an evaluation is relied on** (2026-11-20). Where training has kept nothing for the
+  configured swarm, the recommendations say an evaluation now may understate it. Where its last
+  evaluation marked tasks "no answer found" on the swarm's side, they name each task and how many replies the benchmark could not
+  read, and say to train and evaluate again. On the Evaluate card it is a button that opens the recommendation, and the
+  recommendation has a Train button, which presses the page's own Train and says why where that cannot start. Measured on 40 questions of four such tasks: 7 right as an untrained swarm
+  wrote them, 30 with replies ended as the examples show.
 - **The swarm's kept answers are named by every engine that serves it** (2026-11-20). They were named by llama.cpp's build
   whatever served the members, so with members on TensorFold an update of TensorFold would not have had the swarm asked
   again. A swarm on both engines is named by both. Answers already kept under llama.cpp's name by a swarm on TensorFold are
@@ -148,59 +160,59 @@ The first version.
   class of the question it was written for and is offered on that class only (the 91 written before, with no class, are no
   longer offered); the teacher is told the wanted answer is the standard and never to teach a role to be shorter than it.
 - **Parity means capability, in the proof and in training** ([docs/swoa-parity.md](docs/swoa-parity.md)).
-  - *The proof.* A SwOA's proof gives a **verdict for each capability** (parity, short, open) from the paired gap over its
+  - _The proof._ A SwOA's proof gives a **verdict for each capability** (parity, short, open) from the paired gap over its
     tasks' questions against a margin of 0.05, and says what the SwOA does not claim. `evaluate.sh --proof` asks each task at
     a size that can give a verdict (about 500 questions a capability), keeps the swarm's answers task by task, and carries on
     where it stopped.
-  - *Grading.* An answer is graded by its question's own standard where it carries one (a correct solution, an answer, a
+  - _Grading._ An answer is graded by its question's own standard where it carries one (a correct solution, an answer, a
     flaw, rules a program checks, the step a scenario needs); the larger model is counted by the same standard. Where a
     question has none, the standard is the answers the larger model agrees with itself on, of up to three.
-  - *Keeping.* A change is kept when its class of questions got better (more than twice its error, no kind falling, the held
+  - _Keeping._ A change is kept when its class of questions got better (more than twice its error, no kind falling, the held
     questions not falling), not when one question came to parity. A question the change scores otherwise on is asked again,
     both ways, on another draw: a change that makes a question good on both draws and loses none is kept too, and one answer
     that came out otherwise once is no longer a fall. (Before, a change that fixed one question could never be kept: one
     question in thirty is within its own error.)
-  - *Order.* What a kind of change has yielded now ranks it before the record of the question, once it has been tried 12
+  - _Order._ What a kind of change has yielded now ranks it before the record of the question, once it has been tried 12
     times (the `yield` key of the loop's order). Two thirds of a pass's tries had gone to kinds that reached parity 4 times
     in 198.
-  - *A drafter that answers by a program.* A new change the trainer can try: a drafting slot that writes a short program
+  - _A drafter that answers by a program._ A new change the trainer can try: a drafting slot that writes a short program
     instead of an answer; the sandbox runs it and what it prints is the slot's answer (`compute` on a slot, SwOA spec
     O.6.1a). For counting, strings, totals and rates, where small models go wrong working it out in words.
-  - *Memory, measured, and bounded.* Every pass measures what each model's own process takes while it serves, every two
+  - _Memory, measured, and bounded._ Every pass measures what each model's own process takes while it serves, every two
     minutes, and writes it down beside the estimate from the files; the Memory saved card and the line under Train show
     the measured figure, from one source, and say so. The measurement found the fault it was built for: llama.cpp's server
     keeps a store of answered prompts in memory, 8 GB a server by default, and a swarm estimated to take 6.5 GB was taking
     17.4 GB against the larger model's 18. Every member is now started with that store off (`--cache-ram 0`, SwOA spec
     S2.4.5); each slot's own context still holds its brief between questions.
-  - *A small model can decide in place of the decider.* A new way to settle a dispute (`plan.decideWith.how: "alone"`, SwOA
+  - _A small model can decide in place of the decider._ A new way to settle a dispute (`plan.decideWith.how: "alone"`, SwOA
     spec O.6.6): one slot is shown every different answer and its word settles it; the decision model is not asked. The
     trainer tries it as its own kind of change. At the end of a pass each of the swarm's small models is put the pass's
     recorded choices as the decider (`decider-replay.mjs --members`), and where one chose at least as well as the decision
     model the recommendations say so, with what the swarm would not need. The count beside Configuration now includes
     every recommendation the dialog lists.
-  - *A swarm with no decision model.* The Decides pill has a last choice, "A small model of the swarm" (the decider
+  - _A swarm with no decision model._ The Decides pill has a last choice, "A small model of the swarm" (the decider
     `none`): nothing is loaded to decide, and where the drafts differ a slot of the swarm settles it. It takes the decision
     model's memory out of the swarm, about a third of it. Choosing it keeps the decider it had as the judge of equivalence
     for training, where no judge is named. The recommendation above has a button that makes this change.
-  - *A slot that decides is heard.* Asked with real models, a slot deciding between answers chose in its text and named
+  - _A slot that decides is heard._ Asked with real models, a slot deciding between answers chose in its text and named
     nothing on half the disputes: its last line echoed the instruction it was given ("ANSWER: B and the letter of the
     correct one"), which was not read as a letter, or it was cut off at its token limit before its last line. The
     instruction is reworded, a letter followed by those words is read as that letter, and a slot cut off is asked once more
     for its letter, as a checker is. This is the same slot that decides beside the decider.
-  - *A model alone is not asked again for another swarm.* The larger model's answers, the larger model against itself and
+  - _A model alone is not asked again for another swarm._ The larger model's answers, the larger model against itself and
     each small model alone depend on the model, the questions and who read the answers, not on which small models are in
     the swarm. A configuration now takes what another against the same larger model measured, on exactly the same
     questions and read by the same reader, and asks nothing: about half an hour at the start of every new configuration.
-  - *A check stopped in the middle carries on.* What a change has scored on its class is written down as the check goes,
+  - _A check stopped in the middle carries on._ What a change has scored on its class is written down as the check goes,
     so a pass stopped during one does not ask those questions again.
-  - *A pass that stops before training says why.* Where a kind of question has nothing to grade its answers by, the Train
+  - _A pass that stops before training says why._ Where a kind of question has nothing to grade its answers by, the Train
     card names the kinds, how the judge did on its check, and where to choose another.
-  - *Bounds.* A question's first visit is bounded in all (`firstVisitTries`, 40), whether or not its tries came closer, and
+  - _Bounds._ A question's first visit is bounded in all (`firstVisitTries`, 40), whether or not its tries came closer, and
     its return at twice that. A class of change that has brought one question nothing in 8 tries is tried last there
     (`dryClassAfter`).
-  - *Questions.* Three new bodies of work: **instructions** (rules a program checks), **tools** (calling a function, or
+  - _Questions._ Three new bodies of work: **instructions** (rules a program checks), **tools** (calling a function, or
     not), **search** (a search tool and facts made up from the seed, so no model can know them).
-  - *Tools.* In a turn with tools a reply is now written by the answer procedure, shown what the tools returned (SwOA T.9);
+  - _Tools._ In a turn with tools a reply is now written by the answer procedure, shown what the tools returned (SwOA T.9);
     before, the first drafter's reply went out unchecked. `plan.toolReply: "proposed"` keeps that.
 - **Calling functions and searching are measured by a standard test.** Tools and Search are evaluated by the
   [Berkeley Function-Calling Leaderboard](https://gorilla.cs.berkeley.edu/leaderboard.html)'s own package (`bfcl-eval`
@@ -252,7 +264,7 @@ The first version.
   every one ticked to begin with: untick some for a quicker look, or tick one to ask it by itself. It is a choice for one
   run, kept on the device, and applies to a proof run too. The card lists every such body of work, each folded to begin
   with; `evaluate.sh` with no `--items` asks them all.
-- **A proof run from the page.** *Evaluate* offers a fourth size, a proof run: each task at the size a verdict needs (five
+- **A proof run from the page.** _Evaluate_ offers a fourth size, a proof run: each task at the size a verdict needs (five
   hundred questions or more a body of work, never fewer than a hundred of one task). A run that is stopped carries on from
   the task it stopped in.
 - **What a run installs is its own, and is made again where it is broken.** Evaluate and Pretrain install what they need
