@@ -4311,8 +4311,7 @@ def eval_block(d):
         # and can be acted on: a paragraph under Evaluate was a wall of words, console 2026-11-20)
         caution = evaluation_caution(d, res)
         if caution:
-            ctl += ('<button type="button" class="recbadge" id="ev-caution" data-rec-open title="%s"><i></i>Recommendation: train%s</button>'
-                    % (caution, ", then evaluate again" if swarm_unread(res) else " first"))
+            ctl += ('<button type="button" class="recbadge" id="ev-caution" data-rec-open title="%s"><i></i>Recommendation</button>' % caution)
     out = ['<div class="panel evalp" id="evalbox" data-phase="%s" data-run="%s"%s>' % (e(live.get("phase") or ""), e(live.get("runId") or ""), ' data-running="1"' if running else ""),
            '<div class="proghead">%s<span class="progline">Standard benchmarks (%s), asked of %s and of the swarm, '
            'and the two scores set side by side: the same questions, marked by the same checker. Kept apart from training: training never asks a benchmark&#39;s question.</span>'

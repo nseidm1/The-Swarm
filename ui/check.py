@@ -525,6 +525,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and all(r.get("train") for r in swarm_ui.evaluation_recommendations(dict(data.load(root), learned={})))
           and ("data-rec-train" in get(base + "/fragment/recs")[1]) == any(r.get("train") for r in swarm_ui.recommendations(data.load(root)))
           and '<small class="evwhy" id="ev-caution">' not in get(base + "/fragment/eval")[1]
+          and "<i></i>Recommendation</button>" in open(swarm_ui.__file__).read() and "Recommendation: train" not in open(swarm_ui.__file__).read()
           and [r["id"] for r in swarm_ui.evaluation_recommendations(dict(data.load(root), learned={}))][:1] in (["untrained"], [x["id"] for x in swarm_ui.evaluation_recommendations(data.load(root)) if x["id"].startswith("unread:")][:1])
           # (a run that stopped on an error says the error, not the name of the program that ran it)
           and swarm_ui._why_ended(["15:06:17 Comparing the answers", "node:fs:438", "TypeError [ERR_INVALID_ARG_TYPE]: The \"path\" argument must be of type string", "    at scoreOf (file:///x.mjs:370:27)", "}", "Node.js v22.23.3"]).startswith("TypeError [ERR_INVALID_ARG_TYPE]")
