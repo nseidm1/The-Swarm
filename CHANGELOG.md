@@ -6,6 +6,9 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **"Check again what fell short" takes in the tasks where no answer was found** (2026-11-20). A body of work is asked again
+  where the swarm scored under the larger model, or where no answer was found in a quarter or more of the swarm's replies
+  to one of its tasks, whatever its score.
 - **A task's "unread" mark says in how many replies no answer was found** (2026-11-20): "no answer in 10 of 20". The
   benchmark looked for an answer in those replies and found none; each is marked wrong, and the score beside the mark is
   still of every question. The table, its note and the recommendation say it so.

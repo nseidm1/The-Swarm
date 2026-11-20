@@ -4204,8 +4204,11 @@ def eval_view(root, d):
     rows = by if res else {r["task"]: r for r in base.get("results", [])}
     short = []
     for t in listed:
-        sw, tg, of = _ev_right([rows[b["task"]] for b in t["benchmarks"] if b["task"] in rows])
-        if of and sw < tg:
+        mine_ = [rows[b["task"]] for b in t["benchmarks"] if b["task"] in rows]
+        sw, tg, of = _ev_right(mine_)
+        # (short: the swarm scored under the larger model; or the harness found no answer in a quarter or more of the swarm's
+        # replies to one of its tasks, whatever the scores came to: a score read from part of the replies is one to check again)
+        if (of and sw < tg) or swarm_unread({"results": mine_}):
             short.append(t["id"])
     return {"res": res, "any": any_res, "by_task": by, "short": short, "base": base, "carried": carried}
 
@@ -4313,7 +4316,7 @@ def eval_block(d):
         if short:
             names = _and([t["name"] for t in short])
             ctl += ('<button class="btn top ghost" id="ev-narrow" type="button" data-items="%s"%s>Check again what fell short</button>'
-                    '<small class="evwhy">Asks only %s again: where the swarm scored under %s in the evaluation of %s. The rest keep their last figures, marked as from before. '
+                    '<small class="evwhy">Asks only %s again: where the swarm scored under %s, or no answer was found in many of its replies, in the evaluation of %s. The rest keep their last figures, marked as from before. '
                     'Evaluate asks everything.</small>'
                     % (e(",".join(t["id"] for t in short)), " disabled" if held else "", e(names), e(tname), e(_day(view["base"].get("at")))))
     out = ['<div class="panel evalp" id="evalbox" data-phase="%s" data-run="%s"%s>' % (e(live.get("phase") or ""), e(live.get("runId") or ""), ' data-running="1"' if running else ""),
