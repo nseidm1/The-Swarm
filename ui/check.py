@@ -1755,6 +1755,33 @@ check("what serves a model is said beside it: every small model of the catalog n
       and "GB · TensorFold</i>" in _p12 and "index" in _p12 and not re.search(r'<option value="kev-4b"[^>]*>[^<]*llama\.cpp', _p12),
       re.findall(r"<i>[^<]*</i>", _p12))
 
+# ---- THE UNINSTALL HELPER'S LIST IS THE WHOLE OF .work: nothing in it goes unlisted
+_root13 = Path(tempfile.mkdtemp(prefix="tidy-"))
+shutil.copytree(REPO / "src", _root13 / "src")
+shutil.copytree(REPO / "training", _root13 / "training", ignore=shutil.ignore_patterns("questions"))
+_w13 = _root13 / ".work"
+for _f, _text in (("models/Jan-code-4b-Q4_K_M.gguf", "g" * 10), ("models/LFM3-1.7B-MLX-4bit/model.safetensors", "m" * 20), ("models/LFM3-1.7B-MLX-4bit/config.json", "{}"),
+                  ("tf-try/hf/blob", "t" * 30), ("class-train/report.json", "{}"), ("engines.json", "{}"), ("decider/port", "8009"), ("engine/update-llama.log", "x"),
+                  ("train/measured/a.json", "{}"), ("train/k--t/plan.json", "{}"), ("eval/history.jsonl", "{}"), ("eval/target/x/answers", "a"), ("library/k--t-policy.json", "{}")):
+    (_w13 / _f).parent.mkdir(parents=True, exist_ok=True)
+    (_w13 / _f).write_text(_text)
+_d13 = data.load(_root13)
+_inv13 = cleanup.inventory(_root13, _d13)
+_listed13 = {os.path.realpath(q) for x in _inv13 for q in x["paths"]}
+_unlisted13 = [str(q) for q in _w13.rglob("*") if q.is_file() and not any(os.path.realpath(q) == k or os.path.realpath(q).startswith(k + os.sep) for k in _listed13)]
+_by13 = {x["id"]: x for x in _inv13}
+_no13 = cleanup.remove(_root13, _d13, "kept:records")
+_yes13 = cleanup.remove(_root13, _d13, "left:tf-try")
+shutil.rmtree(_root13, ignore_errors=True)
+check("the Uninstall Helper lists the whole of the work folder: a model that is a folder of files by its name; a folder it does not know by name (a trial's downloads) on a line of its own, which can be removed; the small files beside the folders; and what is left inside the folders it names (what training learned, the last results, the pass in hand), said with its size and not removed from here, the folder of learned records never offered as an unknown one; no file in the work folder is under no line",
+      _unlisted13 == [] and _by13["model:LFM3-1.7B-MLX-4bit"]["what"] == "Small model: LFM3 1.7B MLX" and _by13["model:LFM3-1.7B-MLX-4bit"]["bytes"] > 0 and str(_by13["model:LFM3-1.7B-MLX-4bit"]["paths"][0]).endswith("LFM3-1.7B-MLX-4bit")
+      and _by13["left:tf-try"]["group"] == "Other things in .work" and _by13["left:tf-try"]["removable"] and "left:class-train" in _by13 and "left:files" in _by13
+      and _by13["kept:records"]["removable"] is False and _by13["kept:records"]["bytes"] > 0 and _no13[0] is False and _no13[1].startswith("That is not removed from here")
+      and _yes13[0] is True and "engine" in _by13
+      # (the folder of what was learned is never offered as one not known by name, even with nothing in it this list names)
+      and "left:library" not in _by13 and "left:train" not in _by13 and any(str(q).endswith("library") for q in _by13["kept:records"]["paths"]),
+      [_unlisted13, sorted(_by13), _no13, _yes13])
+
 # ---- A RUN IS RUNNING ONLY WHILE ITS OWN PROCESS IS: an id is given again when its process has ended
 import subprocess as _sp10
 _p10 = _sp10.Popen([sys.executable, "-c", "import time; time.sleep(8)", "training/evaluate.sh"])

@@ -63,7 +63,8 @@ def inventory(root, d):
     work = root / ".work"
     reg = d.get("registry") or {}
     members = d.get("members") or {}
-    used_files = {m.get("file") for m in members.values() if m}
+    # (a model that is a folder of files, as one TensorFold serves is, is known by its folder: `dir`)
+    used_files = {m.get("dir") or m.get("file") for m in members.values() if m}
     target = d.get("target") or {}
     decider = d.get("decider") or {}
     dkind = (decider.get("serve") or {"kind": "kev"}).get("kind")
@@ -79,7 +80,7 @@ def inventory(root, d):
     # the model files the swarm fetched (small models and the larger models served from a GGUF file)
     names = {}
     for m in reg.get("small", []):
-        names[m.get("file")] = ("Small model", m["name"])
+        names[m.get("dir") or m.get("file")] = ("Small model", m["name"])
     for m in reg.get("targets", []):
         if m.get("file"):
             names[m["file"]] = ("Larger model", m["name"])
@@ -90,7 +91,8 @@ def inventory(root, d):
             link = os.path.islink(f)
             add("model:" + f.name, "Models", "%s: %s" % (kind, name), [f],
                 used=f.name in used_files or f.name == target.get("file"),
-                note=("A link to %s: only the link is removed, the file it points at is kept." % os.readlink(f)) if link else f.name)
+                note=("A link to %s: only the link is removed, the file it points at is kept." % os.readlink(f)) if link
+                else ("%s: the folder of files TensorFold serves it from" % f.name) if f.is_dir() else f.name)
     # the llama.cpp build the swarm fetched, where it fetched one
     add("engine", "Programs", "The engine (llama.cpp)", [work / "engine"], used=True, note="Train fetches it again where no llama-server is on the PATH.")
     # the adapter trainer (training/mlx-setup.sh): MLX and the small models' original weights it trains from
@@ -158,10 +160,49 @@ def inventory(root, d):
     for d in sorted(work.iterdir()) if work.is_dir() else []:
         if d.is_dir() and not os.path.islink(d) and not inside(d) and any((d / v).is_dir() for v in ("venv", "uvenv", ".venv")):
             add("other:" + d.name, "Programs", "A program installed here: %s" % d.name, [d], note="A folder of .work with a Python of its own, which this list does not know by name. Whatever uses it installs it again.")
+    # AND EVERYTHING ELSE IN .work, so that the list is the whole of it: a folder this list does not know by name (a trial's
+    # downloads and results among them: on 2026-11-20 two models fetched to try an engine, 2.6 GB, were in a folder nothing
+    # here named), each its own line; and the small files beside them, as one. Nothing the Swarm needs is among them: what it
+    # needs is named above, and whatever wrote one of these writes it again
+    known = {os.path.realpath(q) for x in out for q in x["paths"]}
+    loose = []
+    # (never the folders that hold what training learned, its results and the state of a pass, whether or not anything inside
+    # them is named above: a folder of learned records with no adapter in it yet was offered here as one "not known by name")
+    KEPT = ("library", "train", "eval", "pretrain")
+    for d in sorted(work.iterdir()) if work.is_dir() else []:
+        if inside(d) or d.name in KEPT:
+            continue
+        if d.is_dir() and not os.path.islink(d):
+            add("left:" + d.name, "Other things in .work", "A folder not known by name: %s" % d.name, [d],
+                note="Nothing in this list uses it: left by a trial or an earlier version. Whatever made it makes it again where it is needed.")
+        else:
+            loose.append(d)
+    add("left:files", "Other things in .work", "Small files beside the folders", loose, note="Notes of state a run or the page left (a port, the newest engine release it learned of). Each is written again when it is next needed.")
+    # AND WHAT IS LEFT INSIDE THE FOLDERS NAMED ABOVE: what training has learned, its last results and the state of the pass in
+    # hand. Said, with its size, so that nothing in .work goes unlisted; not removed from here, because removing it is losing
+    # what was learned, which Clear training state does on purpose and this list must not do by the way
+    known = {os.path.realpath(q) for x in out for q in x["paths"]}
+    covered = lambda q: any(os.path.realpath(q) == k or os.path.realpath(q).startswith(k + os.sep) for k in known)  # noqa: E731
+    holds = lambda q: any(k.startswith(os.path.realpath(q) + os.sep) for k in known)  # noqa: E731
+    rest = []
+
+    def walk(folder):
+        for q in sorted(folder.iterdir()):
+            if covered(q):
+                continue
+            if q.is_dir() and not os.path.islink(q) and holds(q):
+                walk(q)
+            else:
+                rest.append(q)
+
+    if work.is_dir():
+        walk(work)
+    add("kept:records", "Training", "What training learned, its last results and the pass in hand", rest, removable=False,
+        note="Kept by this list: the records each configuration learned, the last evaluation, and where a pass stands. Clear training state begins a configuration again.")
     # kept by other programs, outside this folder: listed, not removed from here
     tf = Path.home() / ".tensorfold"
-    if (target.get("serve") or {}).get("program") == "tensorfold" and tf.is_dir():
-        out.append({"id": "tensorfold", "group": "Outside this folder", "what": "TensorFold and the larger models it serves", "paths": [str(tf)], "bytes": None,
+    if ((target.get("serve") or {}).get("program") == "tensorfold" or any((m or {}).get("engine") == "tensorfold" for m in members.values())) and tf.is_dir():
+        out.append({"id": "tensorfold", "group": "Outside this folder", "what": "TensorFold and the models it keeps", "paths": [str(tf)], "bytes": None,
                     "used": True, "note": "Kept by TensorFold in %s. Remove it with TensorFold's own commands." % tf, "removable": False})
     # (a Python uv fetched into its own folder, outside this one: the Swarm fetches its own into .work, and an install made before
     # that did not. Other programs may use the same folder, so it is listed and not removed from here)
@@ -181,7 +222,7 @@ def inventory(root, d):
     if llama:
         out.append({"id": "llama-path", "group": "Outside this folder", "what": "The llama-server on the PATH", "paths": [llama], "bytes": None, "used": True,
                     "note": "Installed by another program (%s), and used in place of fetching one." % llama, "removable": False})
-    order = ["Models", "Deciders", "Programs", "Pretrain", "Training", "Outside this folder"]
+    order = ["Models", "Deciders", "Programs", "Pretrain", "Training", "Other things in .work", "Outside this folder"]
     out.sort(key=lambda x: (order.index(x["group"]), -(x["bytes"] or 0)))
     return out
 
@@ -194,7 +235,8 @@ def remove(root, d, id_, *, decider_up=False):
     if not item:
         return False, "There is nothing called that to remove."
     if not item["removable"]:
-        return False, "That is kept by another program, outside this folder: " + item["note"]
+        # (kept by another program, outside this folder; or, inside it, what training has learned)
+        return False, ("That is kept by another program, outside this folder: " if item["group"] == "Outside this folder" else "That is not removed from here: ") + item["note"]
     if decider_up and item["group"] == "Deciders":
         return False, "A decider is loaded: stop it first (bash training/decider.sh stop)."
     freed = 0

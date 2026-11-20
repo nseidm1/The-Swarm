@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The Uninstall Helper lists the whole of the work folder** (2026-11-20). A model that is a folder of files is listed by its
+  name; a folder the list does not know by name (a trial's downloads) has a line of its own and can be removed; the small
+  files beside the folders are one line; and what is left inside the folders it names (what training learned, the last
+  results, the pass in hand) is said with its size and not removed from there. No file in `.work` is under no line.
 - **A small model can be served by TensorFold** (2026-11-20, SwOA spec S2.8). The catalog has LFM3 1.7B and Qwen3.5 2B twice
   each: the GGUF that llama.cpp serves, and the MLX 4-bit build ("LFM3 1.7B MLX", "Qwen3.5 2B MLX") served by TensorFold
   on an Apple silicon Mac. Each is an entry of its own, chosen like any other, because another quantisation is another member with its own record; it can be
