@@ -4055,8 +4055,11 @@ def eval_table(d, only=None):
             u = (r or {}).get("unread") or {}
             n = ((r or {}).get("agree") or {}).get("of") or 0
             # (a task where a quarter or more of one model's replies were not read: marked, since its scores compare the reading)
-            mark = (' <b class="evt-unread" title="The harness found no answer in %s of the swarm&#39;s replies and %s of the larger model&#39;s, of %d">no answer found</b>'
-                    % (u.get("swarm") or 0, u.get("target") or 0, n)) if n and max(u.get("swarm") or 0, u.get("target") or 0) * 4 >= n else ""
+            # (the mark says in how many: "no answer found" beside a score of 40% read as none found at all, console 2026-11-20.
+            # The swarm's count where it is a quarter or more; the larger model's, named, where only its own is)
+            us, ut = u.get("swarm") or 0, u.get("target") or 0
+            mark = (' <b class="evt-unread" title="The harness found no answer in %s of the swarm&#39;s replies and %s of the larger model&#39;s, of %d. Each such reply is marked wrong; the score is of all %d">%s</b>'
+                    % (us, ut, n, n, ("no answer in %d of %d" % (us, n)) if us * 4 >= n else ("larger model: no answer in %d of %d" % (ut, n)))) if n and max(us, ut) * 4 >= n else ""
             unread_any = unread_any or bool(mark)
             rows.append('<tr class="evt-task%s"><td>%s%s</td>%s</tr>' % (" evt-old" if r and r.get("carried") else "", e(b.get("name") or b["task"]), mark, cells([r] if r else [])))
     rows.append('<tr class="evt-all"><th scope="row">%s</th>%s</tr>' % ("Every question" if len(hs) == len(hs_all) else "Every question of %s" % e(_and([harness_name(k) for k in hs])), cells(done)))
@@ -4067,7 +4070,7 @@ def eval_table(d, only=None):
     if old:
         notes += " A line in grey was not asked again this time: its figures are the earlier evaluation&#39;s."
     if unread_any:
-        notes += " A task marked no answer found is one where the harness found no answer in a quarter or more of one model&#39;s replies: its scores say how replies were written more than what either model knew."
+        notes += " A task marked no answer in some of its replies is one where the harness found no answer in a quarter or more of one model&#39;s replies. Each such reply is marked wrong and the score is still of every question, so it says how replies were written more than what either model knew."
     return (head + boxes + '<p class="small muted" style="margin:10px 0 0">Each was put the same questions and marked by the benchmark&#39;s own checker. Swarm → target is the swarm&#39;s score as a share of %s&#39;s: '
             '100%% or more is where the swarm is level or ahead.%s%s</p>' % (e(tname), when, notes)
             + '<div class="evt-wrap"><table class="spec evt"><thead><tr><th>Body of work</th><th class="num">The swarm</th><th class="num evtg">%s</th><th class="num">Swarm → target</th>%s<th class="num evn">Questions</th></tr></thead>'

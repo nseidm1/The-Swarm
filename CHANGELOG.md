@@ -6,8 +6,9 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
-- **A task's "unread" mark is "no answer found"** (2026-11-20): the benchmark looked for an answer in a reply and found none.
-  The table, its note and the recommendation say it so.
+- **A task's "unread" mark says in how many replies no answer was found** (2026-11-20): "no answer in 10 of 20". The
+  benchmark looked for an answer in those replies and found none; each is marked wrong, and the score beside the mark is
+  still of every question. The table, its note and the recommendation say it so.
 - **Train and Pretrain wait for one evaluated body of work, not every one** (2026-11-20). A configuration evaluated with one
   harness can be trained against what was evaluated, to see those figures move. Beside Train the page says which bodies of
   work have no figure from before, the harness that measures them and where it is ticked. Before, they waited until every

@@ -1895,7 +1895,7 @@ swarm_ui._eval_rows, swarm_ui.ARGS = _keep11, _args11
 check("a second look asks only the bodies of work where the swarm scored under the larger model, from its own button that says which and why; what it did not ask again keeps the earlier evaluation's figures of "
       "this configuration (never another's), marked and counted in the headline as from before; what it asked has its share before beside it in the table; with nothing short there is no button; and Pretrain is no longer aimed by it",
       _v_full["short"] == ["math"] and _v_full["carried"] == 0 and "The harness found no answer in 9 of the swarm&#39;s replies and 0 of Big&#39;s, of 20" in _blk_full and 'class="evt-unread"' in _tab_full
-      and "A task marked no answer found" in _tab_full and ">no answer found</b>" in _tab_full and ">unread<" not in _tab_full and 'class="evt-unread"' not in _tab11 and 'id="ev-narrow" type="button" data-items="math"' in _blk_full and "Asks only Math again" in _blk_full
+      and "A task marked no answer in some of its replies" in _tab_full and ">no answer in 9 of 20</b>" in _tab_full and ">unread<" not in _tab_full and ">no answer found</b>" not in _tab_full and 'class="evt-unread"' not in _tab11 and 'id="ev-narrow" type="button" data-items="math"' in _blk_full and "Asks only Math again" in _blk_full
       and 'id="pre-aim"' not in _pre_full
       and _v11["by_task"]["he"]["carried"]["at"] == _full11["at"] and _v11["by_task"]["he"]["swarm"]["value"] == 0.75 and _v11["carried"] == 20
       and _v11["by_task"]["gsm"]["before"]["swarm"]["value"] == 0.4 and "carried" not in _v11["by_task"]["gsm"] and _v11["short"] == ["math"]
