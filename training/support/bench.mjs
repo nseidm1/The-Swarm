@@ -35,10 +35,18 @@ export const arg = (n, d) => {
 export const has = (n) => process.argv.includes('--' + n);
 export const modelsDir = () =>
   path.resolve(arg('models', process.env.SWARM_MODELS_DIR || path.join(REPO_ROOT, '.work', 'models')));
-// the llama-server program: the one named (--llama, SWARM_LLAMA_SERVER), the one on the PATH, or the one setup.mjs fetched
+// the llama-server program: the one named (--llama, SWARM_LLAMA_SERVER); the build a person updated to from the page, which was
+// made the swarm's only once every model of it answered with it (engine-update.mjs); the one on the PATH; or the one setup.mjs
+// fetched
 export function llamaServer() {
   const named = arg('llama', process.env.SWARM_LLAMA_SERVER || '');
   if (named) return named;
+  try {
+    const chosen = fs.readFileSync(path.join(REPO_ROOT, '.work', 'engine', 'chosen'), 'utf8').trim();
+    if (chosen && fs.existsSync(chosen)) return chosen;
+  } catch {
+    /* none was chosen */
+  }
   try {
     return execFileSync(process.platform === 'win32' ? 'where' : 'which', ['llama-server'], { encoding: 'utf8' })
       .split(/\r?\n/)[0]

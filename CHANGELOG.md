@@ -9,10 +9,16 @@ The first version.
 - **The larger model's kept answers are named by its engine's version** (2026-11-20), so after an engine is updated the next
   Evaluate asks the larger model again by itself; a result says which engine and version served it (`targetEngine`).
   Answers kept before this are used as they are while the engine's program is no newer than they are.
-- **The page says when an engine is behind** (2026-11-20), among the recommendations, under "What you do outside this page":
-  the larger model's engine against its newest release (the catalog names where releases are published, `serve.releases`;
-  the page asks that address once a day and sends nothing of this machine), and llama.cpp against the build the catalog
-  pins. Each gives the command to run. The page installs nothing.
+- **The page says when an engine is behind, and updates it** (2026-11-20), among the recommendations, under "The engines on
+  this machine": the larger model's engine against its newest release (the catalog names where releases are published,
+  `serve.releases`; the page asks that address once a day and sends nothing of this machine), and llama.cpp against the build
+  the catalog pins. Each has an Update button: it turns to a bar while the update runs, with the step under it, says Complete
+  when it is done and the recommendation goes; where it fails it says why and can be pressed again. No engine is updated
+  while a pass, an evaluation or pretraining runs. The larger model's engine is updated by its maker's installer
+  (`serve.upgrade`). **llama.cpp is updated with care for the models it serves** (`training/engine-update.mjs`): the pinned
+  build is fetched beside the one on this machine, which is not touched; each model of the swarm is loaded with it and asked
+  a sum; and it becomes the swarm's (`.work/engine/chosen`) only where every one answers. A model that needs support a build
+  may lack, as Bonsai 2's rotated ternary weights do, is found out there and the build that was here is kept.
 - **An evaluation of a swarm with no decision model starts at once** (2026-11-20). It said "Loading the decider" and waited
   a quarter of an hour for one that such a swarm does not have. And Pretrain's judging now ends by saying it is done: the
   page had read its verdict as a run that ended before it finished.

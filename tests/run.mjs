@@ -6213,6 +6213,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
 {
   const { answerTools, fitted } = await import('../src/tools.mjs');
   const E = await import('../training/evaluate.mjs');
+  const U = await import('../training/engine-update.mjs');
   const tools = [
     {
       type: 'function',
@@ -6353,6 +6354,18 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
         throw new Error('none');
       }) === 'new' &&
       E.keptFolder('same', 'same', 'prog', () => 1) === 'same' &&
+      // (an engine's update: what it says its version is, and what counts as a model still answering with a build)
+      U.versionIn('version: 0.9.0 (build 12110, commit cd959bae9)') === 'b12110' &&
+      U.versionIn('b12359') === 'b12359' &&
+      U.versionIn('tensorfold-native 1.3.1') === '1.3.1' &&
+      U.versionIn('') === '' &&
+      U.answersTheSum('4') &&
+      U.answersTheSum('The answer is 4.') &&
+      U.answersTheSum('Four') &&
+      !U.answersTheSum('44') &&
+      !U.answersTheSum('3.4') &&
+      !U.answersTheSum('ĠĠ▁▁ qq 14 zz') &&
+      !U.answersTheSum('') &&
       E.swarmWaysOf(web).join() === 'tools,after' &&
       E.swarmWaysOf({ ...web, targetAlsoAfter: false }).join() === 'tools',
     {

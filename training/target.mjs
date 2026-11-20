@@ -267,6 +267,14 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   // where the engine and the model files are, as the trainers find them (not imported from them: they import this file)
   const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
   let engine = process.env.SWARM_LLAMA_SERVER || '';
+  // (the build a person updated to from the page: support/bench.mjs llamaServer, the same order)
+  if (!engine)
+    try {
+      const chosen = fs.readFileSync(path.join(root, '.work', 'engine', 'chosen'), 'utf8').trim();
+      if (chosen && fs.existsSync(chosen)) engine = chosen;
+    } catch {
+      /* none was chosen */
+    }
   if (!engine)
     try {
       engine = execFileSync('which', ['llama-server'], { encoding: 'utf8' }).trim();

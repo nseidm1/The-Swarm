@@ -92,6 +92,7 @@ details.told{margin-top:4px}details.told summary{cursor:pointer;font-size:12px;f
 .equiv .tools{margin-top:12px}
 .tgl{display:inline-flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:var(--r);background:var(--soft)}.tgl .seg{border:0;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--mist);padding:7px 14px;border-radius:var(--r);cursor:pointer}
 .tgl .seg.on{background:#fff;color:var(--teal);box-shadow:0 1px 4px rgba(11,93,87,.15)}.tgl .seg:focus-visible{outline:3px solid var(--teal2)}fieldset.tools{margin-top:12px}
+.eng{display:flex;flex-direction:column;align-items:flex-end;gap:6px;min-width:120px;max-width:220px}.eng .engp{width:120px;height:6px}.eng .engs{color:var(--mist);font-size:11.5px;text-align:right;overflow-wrap:anywhere}.eng .btn.done{opacity:1}
 .rech{list-style:none;margin:8px 0 0;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mist)}
 @media (max-width:560px){.rec{grid-template-columns:minmax(0,1fr)}}
 details.cfg{margin-top:18px}details.cfg>summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}details.cfg>summary .cfgh{font-size:10.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--teal2)}
@@ -594,12 +595,36 @@ document.addEventListener('click',(ev)=>{
 // RECOMMENDED CONFIGURATION CHANGES: the note beside Configuration opens them; a change is made as a pill makes one
 document.addEventListener('click',async(ev)=>{
   if(ev.target.closest('#rec-open')){ev.preventDefault();ev.stopPropagation();await swap('/fragment/recs','#recd-body');$('#recd').showModal();
+    document.querySelectorAll('#recd-body [data-engine-update].busy').forEach(engineWatch);
     // (and the count beside the heading, from the same evidence at the same moment: it had been drawn when the page was, and
     // said "1 recommendation" over a dialog that had none)
     swap('/fragment/recslot','#rec-slot');}
 },true);
+// AN ENGINE'S UPDATE, FOLLOWED ON ITS BUTTON: it turns to a bar that only says something is going on (there is no knowing how
+// far an installer has got), with the step under it; when the update is done it says Complete, and the recommendation goes,
+// as it would on the next look (the engine is no longer behind); where it failed it says why and can be tried again
+function engineWatch(b){
+  const box=b.closest('.eng'),bar=box.querySelector('.engp'),said=box.querySelector('.engs');
+  b.disabled=true;b.classList.add('busy');b.textContent='Updating';bar.hidden=false;
+  const t=setInterval(async()=>{
+    if(!document.body.contains(b)){clearInterval(t);return;}
+    let st={};try{st=await (await fetch('/api/engine?id='+encodeURIComponent(b.dataset.engineUpdate))).json();}catch(_){return;}
+    said.textContent=st.step||'';
+    if(st.running)return;
+    clearInterval(t);bar.hidden=true;b.classList.remove('busy');
+    if(st.phase==='done'){b.textContent='Complete';b.classList.add('done');
+      setTimeout(async()=>{const li=b.closest('li');if(li)li.remove();await swap('/fragment/recslot','#rec-slot');
+        if(!document.querySelector('#recd-body .rec'))await swap('/fragment/recs','#recd-body');},1800);}
+    else{b.textContent='Try again';b.disabled=false;}
+  },2000);
+}
 document.addEventListener('click',async(ev)=>{
   if(ev.target.id==='rec-close'||ev.target.id==='recd'){$('#recd').close();return;}
+  const up=ev.target.closest('[data-engine-update]');
+  if(up){up.disabled=true;
+    const r=await fetch('/engine/update',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({id:up.dataset.engineUpdate})});
+    if(!r.ok){alert(await r.text());up.disabled=false;return;}
+    engineWatch(up);return;}
   const a=ev.target.closest('[data-rec-apply]');if(!a)return;a.disabled=true;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:a.dataset.recApply});
   if(!r.ok){alert(await r.text());a.disabled=false;return;}
@@ -2860,6 +2885,65 @@ def program_of(serve):
     return shutil.which((serve or {}).get("program") or "") or ""
 
 
+def llama_here(root):
+    """The llama-server the swarm uses here: the build a person updated to from the page (.work/engine/chosen, written only once
+    every model answered with it: training/engine-update.mjs), else the one on the PATH. training/support/bench.mjs, the same."""
+    try:
+        chosen = (Path(root) / ".work" / "engine" / "chosen").read_text().strip()
+        if chosen and Path(chosen).is_file():
+            return chosen
+    except OSError:
+        pass
+    return shutil.which("llama-server") or ""
+
+
+ENGINE_IDS = ("tensorfold", "llama")
+
+
+def engine_update_state(root, engine):
+    """How an update started from the page stands: {phase: running | done | failed, step, ...} with `running` (its process is
+    alive), or None where none was started. One that is not running and never said how it ended has failed."""
+    try:
+        st = json.loads((Path(root) / ".work" / "engine" / ("update-%s.json" % engine)).read_text())
+    except (OSError, ValueError):
+        return None
+    try:
+        try:
+            if os.waitpid(st["pid"], os.WNOHANG)[0] == st["pid"]:
+                raise OSError("ended")
+        except ChildProcessError:
+            pass
+        os.kill(st["pid"], 0)
+        st["running"] = st.get("phase") == "running"
+    except (OSError, KeyError):
+        st["running"] = False
+    if not st["running"] and st.get("phase") == "running":
+        st["phase"], st["step"] = "failed", "It ended before it finished: " + str(st.get("step", ""))
+    return st
+
+
+def engine_update_start(root, engine):
+    """Start an engine's update; '' when it started, else why not. Nothing else may be running: an engine is not changed under
+    a pass, an evaluation or pretraining."""
+    if engine not in ENGINE_IDS:
+        return "No engine of that name."
+    held = busy_with()
+    if held:
+        return "Wait for %s to end, or stop it: an engine is not changed under a run." % held
+    if any((engine_update_state(root, x) or {}).get("running") for x in ENGINE_IDS):
+        return "An engine is being updated already."
+    node = node_for_training()
+    if not node:
+        return "The update needs Node, and none is here."
+    folder = Path(root) / ".work" / "engine"
+    folder.mkdir(parents=True, exist_ok=True)
+    log = open(folder / ("update-%s.log" % engine), "wb")
+    p = subprocess.Popen([node, "training/engine-update.mjs", engine], cwd=str(root), stdout=log, stderr=log, stdin=subprocess.DEVNULL, start_new_session=True)
+    (folder / ("update-%s.json" % engine)).write_text(json.dumps({"id": engine, "pid": p.pid, "phase": "running", "step": "Starting", "at": time.time() * 1000}))
+    _ENGINE_SAID.clear()
+    return ""
+
+
 def engine_newest(root, engine, url):
     """The newest release of an engine as the page last learned it ({tag, at} in .work/engines.json), or None. Where the page
     is running and that is older than a day, it is asked again in the background; this call never waits for it."""
@@ -2904,23 +2988,22 @@ def engine_recommendations(d):
         new, new_t = version_in((row or {}).get("tag"))
         if have_t and new_t and len(have_t) == len(new_t) and new_t > have_t:
             name = str(tgt.get("by") or "").split("served by ")[-1] or serve.get("program")
-            out.append({"id": "engine:%s:%s" % (serve.get("program"), new), "strength": "info", "yours": True, "apply": None,
+            out.append({"id": "engine:%s:%s" % (serve.get("program"), new), "strength": "info", "yours": True, "apply": None, "update": "tensorfold" if serve.get("program") == "tensorfold" else None,
                         "title": "Update %s, which serves %s, from %s to %s" % (name, tgt.get("name", "the larger model"), have, new),
-                        "why": "A newer %s is out. The larger model is what its engine makes of it: a release can mend wrong or empty replies and change its speed, and so its scores. The page installs nothing: with no run going, run <code>%s</code> in a terminal%s. Its kept answers are named by the engine&#39;s version, so the next Evaluate asks %s everything again by itself."
+                        "why": "A newer %s is out. The larger model is what its engine makes of it: a release can mend wrong or empty replies and change its speed, and so its scores. Update runs its maker&#39;s installer, <code>%s</code>, on this machine%s. Its kept answers are named by the engine&#39;s version, so the next Evaluate asks %s everything again by itself."
                                % (e(name), e(serve.get("upgrade") or "its maker&#39;s installer"), (' (what changed: <a href="%s" target="_blank" rel="noopener">its release notes</a>)' % e(serve["notes"])) if serve.get("notes") else "", e(tgt.get("name", "it"))),
                         "note": "here: %s" % prog})
     # llama.cpp, which serves the small models: behind the build the catalog pins (no asking: the pin is in src/models.json)
     eng = reg.get("engine") or {}
-    ls = shutil.which("llama-server") or ""
+    ls = llama_here(d["root"])
     if ls and eng.get("tag"):
         have, have_t = version_in(engine_said(ls))
         pin, pin_t = version_in(eng.get("tag"))
         if have_t and pin_t and len(have_t) == len(pin_t) == 1 and pin_t > have_t:
-            brew = "/homebrew/" in ls or "/Cellar/" in ls
-            out.append({"id": "engine:llama:%s" % pin, "strength": "info", "yours": True, "apply": None,
+            out.append({"id": "engine:llama:%s" % pin, "strength": "info", "yours": True, "apply": None, "update": "llama",
                         "title": "Update llama.cpp, which serves the small models, from build %s to %s" % (have[1:], pin[1:]),
-                        "why": "The llama-server found on this machine is older than the build this repository is checked with (%s). It runs (the least it needs is build %s), and what was measured here was measured with it; a later build can serve a model differently, so after updating, a pass and an Evaluate are what would tell.%s"
-                               % (e(pin), e(str(eng.get("minBuild", "?"))), " With no run going: <code>brew upgrade llama.cpp</code>." if brew else " Update it the way it was installed."),
+                        "why": "The llama-server found on this machine is older than the build this repository is checked with (%s). It runs (the least it needs is build %s), and what was measured here was measured with it; a later build can serve a model differently, so after updating, a pass and an Evaluate are what would tell. Update fetches that build beside the one here, which it does not touch, loads each model of this swarm with it and asks it a sum, and makes it the swarm&#39;s only where every one answers: a model that needs support a build may lack (Bonsai 2) is found out then, and the build here is kept."
+                               % (e(pin), e(str(eng.get("minBuild", "?")))),
                         "note": "here: %s" % ls})
     return out
 
@@ -3138,6 +3221,13 @@ def recs_panel(d):
     def item(r):
         meta = " · ".join(x for x in [rests(r), r.get("cost", ""), e(r.get("note", ""))] if x)
         act = ('<button type="button" class="btn top" data-rec-apply=\'%s\'%s>Make this change</button>' % (e(json.dumps(r["apply"])), " disabled" if running else "")) if r.get("apply") else ""
+        if r.get("update"):
+            st = engine_update_state(ARGS.root, r["update"]) or {}
+            going = bool(st.get("running"))
+            failed = st.get("phase") == "failed"
+            act = ('<div class="eng"><button type="button" class="btn top%s" data-engine-update="%s"%s>%s</button><progress class="engp"%s></progress><small class="engs">%s</small></div>'
+                   % (" busy" if going else "", e(r["update"]), " disabled" if going or running else "", "Updating" if going else "Try again" if failed else "Update",
+                      "" if going else " hidden", e(st.get("step", "")) if going or failed else ""))
         return '<li class="rec %s"><div><span class="rstr">%s</span><b>%s</b><p>%s</p><small>%s</small></div>%s</li>' % (r["strength"], e(label(r)), e(r["title"]), r["why"], meta, act)
     mine_ = [r for r in rs if r.get("apply")]
     theirs = [r for r in rs if not r.get("apply") and not r.get("yours")]
@@ -3146,7 +3236,7 @@ def recs_panel(d):
     if theirs:
         items += '<li class="rech">What training does about it itself</li>' + "".join(item(r) for r in theirs)
     if yours:
-        items += '<li class="rech">What you do outside this page</li>' + "".join(item(r) for r in yours)
+        items += '<li class="rech">The engines on this machine</li>' + "".join(item(r) for r in yours)
     return ('<div class="spec-head"><div><div class="kicker">What only you can change</div><h3 style="font-size:22px;margin-top:4px">Recommended configuration changes</h3></div>'
             '<button class="btn stop top" id="rec-close" type="button">Close</button></div>'
             '<p class="muted small" style="margin:8px 0 12px">A pass cannot change which models the swarm is made of: these are for you. Each says what it rests on. A change starts this configuration&#39;s own record, as choosing models in the pills does.%s</p>'
@@ -4544,6 +4634,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(chips(d))
         if u.path == "/fragment/picks":
             return self._send(pills(d))
+        if u.path == "/api/engine":
+            eid = (parse_qs(u.query).get("id") or [""])[0]
+            st = engine_update_state(ARGS.root, eid) if eid in ENGINE_IDS else None
+            if st and not st.get("running"):
+                _ENGINE_SAID.clear()  # (what the engine says of itself is asked again: it has just changed)
+            return self._send(json.dumps({k: (st or {}).get(k) for k in ("phase", "step", "running", "from", "to")}), 200, "application/json")
         if u.path == "/fragment/recs":
             return self._send(recs_panel(d))
         if u.path == "/fragment/recslot":
@@ -4578,13 +4674,20 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         path = urlparse(self.path).path
         if path not in ("/run/start", "/run/stop", "/run/clear", "/config", "/questions", "/uninstall", "/steer", "/spec/publish",
-                        "/eval/start", "/eval/stop", "/pretrain/start", "/pretrain/stop"):
+                        "/eval/start", "/eval/stop", "/pretrain/start", "/pretrain/stop", "/engine/update"):
             return self._send("Not here.", 404, "text/plain; charset=utf-8")
         # only this page may start or stop a pass: another website can send a plain form to this address, but it cannot
         # send this header, and a request that names another origin is refused
         origin = self.headers.get("origin", "")
         if self.headers.get("x-swarm") != "1" or (origin and urlparse(origin).netloc != self.headers.get("host", "")):
             return self._send("Not from this page.", 403, "text/plain; charset=utf-8")
+        if path == "/engine/update":
+            try:
+                asked = json.loads(self.rfile.read(min(int(self.headers.get("content-length", 0)), 200)) or b"{}")
+            except ValueError:
+                asked = {}
+            why = engine_update_start(ARGS.root, asked.get("id") if isinstance(asked, dict) else None)
+            return self._send(why, 409, "text/plain; charset=utf-8") if why else self._send("started", 200, "text/plain; charset=utf-8")
         if path in ("/eval/start", "/eval/stop"):
             if path == "/eval/stop":
                 stop_job("eval")

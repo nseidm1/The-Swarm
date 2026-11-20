@@ -1676,6 +1676,20 @@ _off11 = swarm_ui.engine_recommendations(_d11)
 swarm_ui.ENGINES_SEEN = True
 _on11 = swarm_ui.engine_recommendations(_d11)
 _panel11 = swarm_ui.recs_panel(_d11)
+# (an update that is going is followed on its button; one that failed says why and can be tried again; one whose process is
+# gone and never said how it ended has failed)
+_eng11 = _root11 / ".work" / "engine"
+_eng11.mkdir()
+(_eng11 / "update-llama.json").write_text(json.dumps({"id": "llama", "pid": os.getpid(), "phase": "running", "step": "Checking that Bonsai 2 4B still answers"}))
+_going11 = swarm_ui.recs_panel(_d11)
+_busy11 = swarm_ui.engine_update_start(_root11, "tensorfold")
+(_eng11 / "update-llama.json").write_text(json.dumps({"id": "llama", "pid": os.getpid(), "phase": "failed", "step": "Bonsai 2 4B does not answer with build 12359: the build that was here is kept"}))
+_failed11 = swarm_ui.recs_panel(_d11)
+(_eng11 / "update-llama.json").write_text(json.dumps({"id": "llama", "pid": 2 ** 22 + 12345, "phase": "running", "step": "Fetching"}))
+_gone11 = swarm_ui.engine_update_state(_root11, "llama")
+(_eng11 / "chosen").write_text(str(_eng11 / "update-llama.json"))
+_chosen11 = swarm_ui.llama_here(_root11)
+(_eng11 / "chosen").unlink()
 _said11["/fake/tensorfold"] = "tensorfold-native 1.3.1"
 _said11["/fake/llama-server"] = "version: 0.9.1 (build %s)" % _d11["registry"]["engine"]["tag"].lstrip("b")
 _cur11 = swarm_ui.engine_recommendations(_d11)
@@ -1687,10 +1701,17 @@ swarm_ui.ENGINES_SEEN, swarm_ui.ENGINE_LOOKUP, swarm_ui.engine_said, swarm_ui.pr
 shutil.rmtree(_root11, ignore_errors=True)
 _tf11 = next((r for r in _on11 if r["id"].startswith("engine:tensorfold")), None)
 _ll11 = next((r for r in _on11 if r["id"].startswith("engine:llama")), None)
-check("an engine installed here that is behind is said among the recommendations, as something a person does outside the page: the larger model's engine against the newest release the page last learned of (with the command its maker documents, where its notes are, and that the next Evaluate asks the larger model again), and llama.cpp against the build the catalog pins; neither has a button; nothing is said where the engine is current, where the newest is not known, or where the page is only being checked; and nothing is asked of the network by a check",
+check("an engine installed here that is behind is said among the recommendations, with a button that updates it: the larger model's engine against the newest release the page last learned of (with the command its maker documents, where its notes are, and that the next Evaluate asks the larger model again), and llama.cpp against the build the catalog pins (fetched beside the one here and made the swarm's only where every model answers with it); the button follows the update, says why one failed and can be pressed again, and no second update or unknown engine is started; nothing is said where the engine is current, where the newest is not known, or where the page is only being checked; and nothing is asked of the network by a check",
       _off11 == [] and _tf11 is not None and _ll11 is not None and _tf11["apply"] is None and _tf11["yours"] is True
       and "from 1.2.7 to 1.3.1" in _tf11["title"] and "TensorFold" in _tf11["title"] and "curl -fsSL https://tensorfold.dev/install.sh | sh" in _tf11["why"] and "release notes" in _tf11["why"] and "asks" in _tf11["why"]
-      and "from build 12110 to" in _ll11["title"] and "What you do outside this page" in _panel11 and "For you" in _panel11 and "Make this change" not in _panel11.split("What you do outside this page")[1]
+      and "from build 12110 to" in _ll11["title"] and "The engines on this machine" in _panel11 and "For you" in _panel11 and "Make this change" not in _panel11.split("The engines on this machine")[1]
+      and _tf11["update"] == "tensorfold" and _ll11["update"] == "llama" and "Bonsai 2" in _ll11["why"] and "does not touch" in _ll11["why"]
+      and 'data-engine-update="tensorfold">Update</button>' in _panel11 and 'data-engine-update="llama">Update</button>' in _panel11 and _panel11.count("<progress") == 2 and _panel11.count('class="engp" hidden') == 2
+      and 'btn top busy" data-engine-update="llama" disabled>Updating</button><progress class="engp"></progress><small class="engs">Checking that Bonsai 2 4B still answers' in _going11
+      and "being updated already" in _busy11 and swarm_ui.engine_update_start(_root11, "rm -rf") == "No engine of that name."
+      and 'data-engine-update="llama">Try again</button>' in _failed11 and "the build that was here is kept" in _failed11
+      and _gone11["phase"] == "failed" and _gone11["running"] is False and _gone11["step"].startswith("It ended before it finished")
+      and _chosen11.endswith("update-llama.json") and "engineWatch" in swarm_ui.JS and "'/engine/update'" in swarm_ui.JS and "Complete" in swarm_ui.JS
       and _cur11 == [] and [r["id"] for r in _unknown11] == [_ll11["id"]] and swarm_ui.ENGINE_LOOKUP is False
       and swarm_ui.version_in("b12359") == ("b12359", (12359,)) and swarm_ui.version_in("v1.3.1") == ("1.3.1", (1, 3, 1)) and swarm_ui.version_in("none") == ("", ()),
       [_on11, _cur11, _unknown11])
