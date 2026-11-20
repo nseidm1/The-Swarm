@@ -356,7 +356,7 @@ table.evt tr.evt-all th,table.evt tr.evt-all td{border-top:2px solid var(--teal)
 table.evt b.evt-unread{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--wrong);margin-left:6px;white-space:nowrap}table.evt b.up{color:var(--right)}table.evt b.down{color:#9a5b00}table.evt i.up,table.evt i.down{font-style:normal;font-size:11px;font-weight:800;margin-left:4px}table.evt i.up{color:var(--right)}table.evt i.down{color:var(--wrong)}
 table.evt tr.evt-old td,table.evt tr.evt-old th,table.evt tr.evt-old b{color:var(--mist);font-weight:500}.evold{color:#9a5b00}
 /* A SECOND LOOK AT WHAT FELL SHORT (Evaluate) and WHAT PRETRAIN IS AIMED AT: a quieter button under the main one, and what it does in a line */
-.btn.ghost{background:var(--panel);color:var(--teal);box-shadow:inset 0 0 0 1.5px var(--teal);margin-top:0}.btn.ghost:disabled{opacity:.5;cursor:default}
+.evpair{display:flex;gap:8px;flex:1 1 auto;min-width:0}.evpair .btn{flex:1 1 0;white-space:nowrap;min-width:0}.btn.rec{background:#fdf0cf;color:#8a5a00;box-shadow:inset 0 0 0 1.5px #f3dfb8;display:inline-flex;align-items:center;justify-content:center;gap:8px}.btn.rec:hover{background:#fae6b5}.btn.rec i{width:7px;height:7px;border-radius:50%;background:#e8a317;box-shadow:0 0 0 3px #f9d98a;flex:none}.btn.ghost{background:var(--panel);color:var(--teal);box-shadow:inset 0 0 0 1.5px var(--teal);margin-top:0}.btn.ghost:disabled{opacity:.5;cursor:default}
 .evctl .evwhy{flex:1 1 100%;font-size:11.5px;line-height:1.4;color:var(--mist);font-weight:600}.evctl #ev-narrow{flex:1 1 100%}
 .preaim{display:flex;gap:8px;align-items:flex-start;margin:12px 0 0;font-size:13px;font-weight:700;color:var(--fog)}.preaim small{display:block;font-weight:600;color:var(--mist);margin-top:2px}
 dialog#steerd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#steerd::backdrop{background:rgba(11,40,38,.45)}
@@ -4295,8 +4295,14 @@ def eval_block(d):
     if running:
         ctl = '<button class="btn stop top" id="ev-stop" type="button">Stop evaluation</button>'
     else:
-        ctl = ('<select id="ev-size" aria-label="How many questions of each task"%s>%s</select><button class="btn top" id="ev-go" type="button"%s%s>Evaluate</button>'
-               % (" disabled" if held else "", opts, ' data-held="1"' if held else "", " disabled" if held or not listed else ""))
+        # WHAT TO KNOW BEFORE READING ITS FIGURES, as a button beside Evaluate and of its shape, which opens the recommendations,
+        # where it is said in full and can be acted on (a paragraph under Evaluate was a wall of words, console 2026-11-20). The
+        # two are one row whatever the card's width (.evpair): each on a line of its own read as two unrelated things
+        caution = evaluation_caution(d, res)
+        go = '<button class="btn top" id="ev-go" type="button"%s%s>Evaluate</button>' % (' data-held="1"' if held else "", " disabled" if held or not listed else "")
+        if caution:
+            go = '<span class="evpair">%s<button type="button" class="btn top rec" id="ev-caution" data-rec-open title="%s"><i></i>Recommendation</button></span>' % (go, caution)
+        ctl = '<select id="ev-size" aria-label="How many questions of each task"%s>%s</select>%s' % (" disabled" if held else "", opts, go)
         # A SECOND LOOK AT WHAT FELL SHORT, its own button: only the bodies of work where the swarm's score was under the larger
         # model's, asked again (after Pretrain, after training). It is not Evaluate with boxes unticked: it says which it asks and
         # why, and what it leaves alone keeps its last figures, marked as from before. Shown where an evaluation found any short
@@ -4307,11 +4313,6 @@ def eval_block(d):
                     '<small class="evwhy">Asks only %s again: where the swarm scored under %s in the evaluation of %s. The rest keep their last figures, marked as from before. '
                     'Evaluate asks everything.</small>'
                     % (e(",".join(t["id"] for t in short)), " disabled" if held else "", e(names), e(tname), e(_day(view["base"].get("at")))))
-        # (and what to know before reading its figures, as a button that opens the recommendations, where it is said in full
-        # and can be acted on: a paragraph under Evaluate was a wall of words, console 2026-11-20)
-        caution = evaluation_caution(d, res)
-        if caution:
-            ctl += ('<button type="button" class="recbadge" id="ev-caution" data-rec-open title="%s"><i></i>Recommendation</button>' % caution)
     out = ['<div class="panel evalp" id="evalbox" data-phase="%s" data-run="%s"%s>' % (e(live.get("phase") or ""), e(live.get("runId") or ""), ' data-running="1"' if running else ""),
            '<div class="proghead">%s<span class="progline">Standard benchmarks (%s), asked of %s and of the swarm, '
            'and the two scores set side by side: the same questions, marked by the same checker. Kept apart from training: training never asks a benchmark&#39;s question.</span>'
