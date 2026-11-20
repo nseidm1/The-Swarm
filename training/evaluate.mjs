@@ -165,6 +165,12 @@ export const waysOf = (b) =>
 // swarm was the larger model also scored 1 (measured 2026-11-19). The written way stays the larger model's alone: it is there
 // for a server that returns one call of several, and the swarm's own runtime returns every call.
 export const swarmWaysOf = (b) => (isToolTest(b) && b.targetAlsoAfter ? ['tools', 'after'] : ['tools']);
+
+// THE FILES A TASK IS COMPARED FROM, where every way it was asked is kept: the plain way's own files, or null where one of
+// the ways is missing. What is returned is the FILES, never whether they are there: the swarm's side returned true here
+// (2026-11-20), and every evaluation of the first harness's tasks stopped at the comparison, reading a score from no file.
+//   keptOfAll([files or null, of each way], the plain way's files) -> those files, or null
+export const keptOfAll = (ways, plain) => (ways.every(Boolean) && plain ? plain : null);
 // THE WAY IT IS COUNTED BY IS ONE FOR A WHOLE BODY OF WORK: the way it scores higher by over that body's tasks together, the tools
 // in the request where the two tie. Not the better way task by task: neither is the better on every task (measured 2026-11-18,
 // 20 questions a task: written, 19, 18, 16 and 18 right where a call was needed against 14, 15, 2 and 8; and 10 against 20 where
@@ -908,8 +914,14 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       results.push({ ...b, ...from, failed: blocked.get(b.task) });
       continue;
     }
-    const tf = waysOf(b).every((way) => keptIn(keep({ ...b, way }), b)) && keptIn(keep(b), b);
-    const sf = swarmWaysOf(b).every((way) => keptIn(swarmKeep(way === 'tools' ? b : { ...b, way }), b));
+    const tf = keptOfAll(
+      waysOf(b).map((way) => keptIn(keep({ ...b, way }), b)),
+      keptIn(keep(b), b),
+    );
+    const sf = keptOfAll(
+      swarmWaysOf(b).map((way) => keptIn(swarmKeep(way === 'tools' ? b : { ...b, way }), b)),
+      keptIn(swarmKeep(b), b),
+    );
     if (!tf || !sf) {
       results.push({
         ...b,

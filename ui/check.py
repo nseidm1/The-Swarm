@@ -510,6 +510,9 @@ with tempfile.TemporaryDirectory() as tmp:
           # (a row with no bars says so, and the script draws the card again when the run names that row's task; a row of a
           # running evaluation's own tasks has bars from the first draw that knows them)
           and 'data-none>not evaluated yet</span>' in ev0 and "row.querySelector('[data-none]')" in swarm_ui.JS and "data-none" not in ev_run.split('data-evt="bfcl_multiple"')[1].split("</div></div>")[0] and "/fragment/evtable?h=" in swarm_ui.JS
+          # (a run that stopped on an error says the error, not the name of the program that ran it)
+          and swarm_ui._why_ended(["15:06:17 Comparing the answers", "node:fs:438", "TypeError [ERR_INVALID_ARG_TYPE]: The \"path\" argument must be of type string", "    at scoreOf (file:///x.mjs:370:27)", "}", "Node.js v22.23.3"]).startswith("TypeError [ERR_INVALID_ARG_TYPE]")
+          and swarm_ui._why_ended(["one", "the last line"]) == "the last line"
           # (a folded section of a run shows one bar of how far the run is through its tasks, in questions; none where no run is shown)
           and 'data-evp="*"' in ev_run and 'data-evp="tools"' in ev_run and "data-evp" not in ev0 and "'[data-evp]'" in swarm_ui.JS and "evShare" in swarm_ui.JS
           and swarm_ui._ev_through([{"target": {"state": "kept", "done": 20, "of": 20}, "swarm": {"state": "asking", "done": 5, "of": 20}}, {"target": {"state": "kept", "done": 20, "of": 20}, "swarm": {"state": "waiting", "done": 0}}]) == (12.5, True)

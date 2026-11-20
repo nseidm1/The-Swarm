@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **An evaluation no longer stops at the comparison** (2026-11-20). Since the search test was asked alike of both, an
+  evaluation of lm-evaluation-harness tasks asked every question and then stopped on an error while comparing the answers,
+  so no result was written. The answers it kept are compared the next time it is run, with nothing asked again. A run that
+  stops on an error now says the error on the page, where it said only "Node.js" and its version.
 - **A folded section of a running evaluation shows one bar** (2026-11-20). Each body of work, and the section that holds
   them all, shows while folded how far the run is through its tasks, in questions both models have answered. It is amber
   while one of its tasks is being asked.

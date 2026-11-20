@@ -3786,8 +3786,18 @@ def job_live(name):
         except OSError:
             tail = []
         live["phase"] = "failed"
-        live["step"] = "It ended before it finished: " + (tail[-1][:220] if tail else "nothing was written")
+        live["step"] = "It ended before it finished: " + (_why_ended(tail)[:220] if tail else "nothing was written")
     return live
+
+
+def _why_ended(tail):
+    """The line of a run's log that says why it stopped. A program that stops on an error it did not catch ends its log with the
+    error, where it was raised, and the name of what ran it: the last line read "Node.js v22.23.3" (2026-11-20), which says
+    nothing. The error's own line is the one said; the last line where the log holds none."""
+    for x in reversed(tail):
+        if re.match(r"\s*(\w+\.)*\w*(Error|Exception)\b", x):
+            return x.strip()
+    return tail[-1]
 
 
 # (-1: a proof run, each task at the size its benchmark names: training/evaluate.mjs --proof)

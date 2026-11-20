@@ -6460,7 +6460,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
         )
       ).ok === false &&
       E.swarmWaysOf(web).join() === 'tools,after' &&
-      E.swarmWaysOf({ ...web, targetAlsoAfter: false }).join() === 'tools',
+      E.swarmWaysOf({ ...web, targetAlsoAfter: false }).join() === 'tools' &&
+      // (what a task is compared from is its FILES, never whether they are there; null where one way is missing)
+      E.keptOfAll([{ results: 'r' }], { results: 'r', samples: 's' }).results === 'r' &&
+      E.keptOfAll([{ results: 'r' }, null], { results: 'r' }) === null &&
+      E.keptOfAll([{ results: 'r' }], null) === null,
     {
       fit: fit.map((m) => String(m.content).length),
       asked: asked.map((q) => [q.question.slice(0, 60), q.answers.map((a) => a.final)]),
