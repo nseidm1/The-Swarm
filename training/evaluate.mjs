@@ -116,6 +116,17 @@ export const enginePart = (engine, version) =>
 // folders said the version are this engine's where they were written after its program was put here, and are used as they
 // are (asking everything again to learn nothing is an hour); once the program is newer than they are, they are another
 // version's, and the folder with the version's name is begun.
+// THE ENGINES THAT SERVE THE SWARM'S MODELS, each once, in the order of their names: what the swarm's kept answers are named
+// by. A swarm may be served by more than one (a member on llama.cpp beside one on TensorFold), and every one of them is part
+// of what its answers are. They were named by llama.cpp's build whatever served the members (2026-11-20: two members on
+// TensorFold, their answers kept as llama.cpp's), so an update of TensorFold would not have had the swarm asked again.
+//   swarmEnginesOf(the models served, (engine) -> its version) -> [{ name, version }]
+export function swarmEnginesOf(models, versionOf) {
+  const names = [...new Set(models.filter(Boolean).map((m) => String(m.engine || 'llama')))].sort();
+  return names.map((name) => ({ name, version: versionOf(name) || '' }));
+}
+// as a kept folder's name carries them: each engine's part, one after another ('' where none says a version)
+export const enginesPart = (engines) => engines.map((x) => enginePart(x.name, x.version)).join('');
 export function keptFolder(named, unnamed, program, stat = (f) => fs.statSync(f).mtimeMs) {
   if (named === unnamed) return named;
   const at = (f) => {
@@ -807,17 +818,42 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     )
     .digest('hex')
     .slice(0, 12);
-  // (and the swarm's, by the build of llama.cpp that serves its small models: the same reason, and the same rule for answers
-  // kept before folders said so. A build a person updates to from the page is another engine under the same arrangement)
-  const swarmProgram = B.llamaServer();
-  let swarmSaid = '';
-  try {
-    const r = spawnSync(swarmProgram, ['--version'], { encoding: 'utf8', timeout: 15000 });
-    swarmSaid = String(r.stdout || '') + String(r.stderr || '');
-  } catch {
-    /* an engine that does not say: its answers are kept as before */
-  }
-  const swarmEngine = { name: 'llama', version: swarmProgram ? engineVersionIn(swarmSaid) : '' };
+  // (and the swarm's, by the version of each engine that serves its models: the same reason. A build or a release a person
+  // updates to from the page is another engine under the same arrangement)
+  const { tensorfoldProgram } = await import('../src/members.mjs');
+  const { MEMBERS: SERVED, DECIDER: DECIDES, NO_DECIDER: NONE_DECIDES } = await import('../src/catalog.mjs');
+  const programFor = { llama: B.llamaServer(), tensorfold: tensorfoldProgram() };
+  const swarmEngines = swarmEnginesOf([...Object.values(SERVED), NONE_DECIDES ? null : DECIDES], (name) => {
+    try {
+      const r = spawnSync(programFor[name], ['--version'], { encoding: 'utf8', timeout: 15000 });
+      return programFor[name] ? engineVersionIn(String(r.stdout || '') + String(r.stderr || '')) : '';
+    } catch {
+      return ''; // an engine that does not say: its answers are kept as before
+    }
+  });
+  // (as a result says it, in one: "llama+tensorfold", "0.9.0-b12110+1.3.1")
+  const swarmEngine = {
+    name: swarmEngines.map((x) => x.name).join('+'),
+    version: swarmEngines.map((x) => x.version).join('+'),
+  };
+  // (the program its kept answers are dated against: the newest of the engines', so answers older than any of them are not used)
+  const swarmProgram = swarmEngines
+    .map((x) => programFor[x.name])
+    .filter(Boolean)
+    .sort((x, y) => fs.statSync(x).mtimeMs - fs.statSync(y).mtimeMs)
+    .at(-1);
+  let llamaSaid = null;
+  const llamaVersion = () => {
+    if (llamaSaid === null) {
+      try {
+        const r = spawnSync(programFor.llama, ['--version'], { encoding: 'utf8', timeout: 15000 });
+        llamaSaid = programFor.llama ? engineVersionIn(String(r.stdout || '') + String(r.stderr || '')) : '';
+      } catch {
+        llamaSaid = '';
+      }
+    }
+    return llamaSaid;
+  };
   const swarmKeep = (b) => {
     if (servedAt) return path.join(runDir, 'swarm', b.task);
     const name = (part) =>
@@ -835,7 +871,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
           searchPart(b) +
           (b.way && b.way !== 'tools' ? '-' + b.way : ''),
       );
-    return keptFolder(name(enginePart(swarmEngine.name, swarmEngine.version)), name(''), swarmProgram);
+    // (answers kept under llama.cpp's build while another engine served the swarm are those engines' where they were written
+    // after their programs were put here: used as they are, by the same rule as answers kept before folders said a version)
+    const named = name(enginesPart(swarmEngines));
+    const llamaNamed = name(enginePart('llama', swarmEngines.some((x) => x.name === 'llama') ? '' : llamaVersion()));
+    return keptFolder(named, fs.existsSync(llamaNamed) ? llamaNamed : name(''), swarmProgram);
   };
   // (each way the swarm is asked a task: swarmWaysOf)
   const swarmAsks = askable.flatMap((b) => swarmWaysOf(b).map((way) => (way === 'tools' ? b : { ...b, way })));

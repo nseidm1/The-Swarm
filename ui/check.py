@@ -510,6 +510,8 @@ with tempfile.TemporaryDirectory() as tmp:
           # (a row with no bars says so, and the script draws the card again when the run names that row's task; a row of a
           # running evaluation's own tasks has bars from the first draw that knows them)
           and 'data-none>not evaluated yet</span>' in ev0 and "row.querySelector('[data-none]')" in swarm_ui.JS and "data-none" not in ev_run.split('data-evt="bfcl_multiple"')[1].split("</div></div>")[0] and "/fragment/evtable?h=" in swarm_ui.JS
+          # (the table's columns are of set widths, so its header breaks its lines alike whichever harnesses are shown)
+          and "table.spec.evt{table-layout:fixed}" in swarm_ui.CSS and '<th class="num evtg">' in ev_table and '<th class="num evtg">' in ev_table_l and '<th class="num">Swarm → target</th>' in ev_table and ">Share<" not in ev_table
           # (a run that stopped on an error says the error, not the name of the program that ran it)
           and swarm_ui._why_ended(["15:06:17 Comparing the answers", "node:fs:438", "TypeError [ERR_INVALID_ARG_TYPE]: The \"path\" argument must be of type string", "    at scoreOf (file:///x.mjs:370:27)", "}", "Node.js v22.23.3"]).startswith("TypeError [ERR_INVALID_ARG_TYPE]")
           and swarm_ui._why_ended(["one", "the last line"]) == "the last line"
@@ -1871,7 +1873,7 @@ check("a second look asks only the bodies of work where the swarm scored under t
       and _v11["by_task"]["he"]["carried"]["at"] == _full11["at"] and _v11["by_task"]["he"]["swarm"]["value"] == 0.75 and _v11["carried"] == 20
       and _v11["by_task"]["gsm"]["before"]["swarm"]["value"] == 0.4 and "carried" not in _v11["by_task"]["gsm"] and _v11["short"] == ["math"]
       and "· 20 from before ·" in _blk11 and "Not asked again: from the evaluation of 2026-11-19 10:00" in _blk11 and "Before (2026-11-19 10:00): the swarm 40%" in _blk11
-      and '<th class="num">Share before</th>' in _tab11 and '<td class="num">50% <i class="up">up</i></td>' in _tab11 and 'class="evt-task evt-old"' in _tab11 and 'title="Not asked again">–</td>' in _tab11
+      and '<th class="num">Before</th>' in _tab11 and '<td class="num">50% <i class="up">up</i></td>' in _tab11 and 'class="evt-task evt-old"' in _tab11 and 'title="Not asked again">–</td>' in _tab11
       and '<tr class="evt-all"><th scope="row">Every question</th><td class="num">67.5%</td><td class="num">65%</td><td class="num"><b class="up">103.8%</b></td><td class="num">88.4% <i class="up">up</i></td>' in _tab11
       and _v_level["short"] == [] and 'id="ev-narrow"' not in _blk_level and swarm_ui._and(["a", "b", "c"]) == "a, b and c"
       and "b.id==='ev-narrow'" in swarm_ui.JS and "a&&a.checked?{kinds:a.dataset.kinds.split(',')}:{}" in swarm_ui.JS,

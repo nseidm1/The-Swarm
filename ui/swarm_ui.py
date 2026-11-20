@@ -346,7 +346,7 @@ dialog#evd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,94vw
 .evopen{appearance:none;border:0;background:none;padding:6px 10px;margin:-6px -10px;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:12px;max-width:100%}
 .evopen:hover{background:rgba(11,93,87,.07)}.evopen:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 /* THE TABLE FITS ITS DIALOG, at any width, with no sideways scroll: a column's heading may wrap (the larger model's name is long), a figure never does; on a phone the cells are tighter and the count of questions, the one column that is not a score, is left out */
-.evt-wrap{margin-top:12px;max-width:100%}table.spec.evt{table-layout:auto}table.spec.evt th,table.spec.evt td{padding:7px 8px;overflow-wrap:normal}table.evt td.num,table.evt th.num{text-align:right;font-variant-numeric:tabular-nums}table.evt td.num{white-space:nowrap}dialog#evd table.spec.evt thead th{white-space:normal}
+.evt-wrap{margin-top:12px;max-width:100%}table.spec.evt{table-layout:fixed}table.evt thead th.num{width:13%}table.evt thead th.evtg{width:22%}table.spec.evt th,table.spec.evt td{padding:7px 8px;overflow-wrap:normal}table.evt td.num,table.evt th.num{text-align:right;font-variant-numeric:tabular-nums}table.evt td.num{white-space:nowrap}dialog#evd table.spec.evt thead th{white-space:normal}
 table.evt th:first-child,table.evt td:first-child{overflow-wrap:anywhere}
 @media (max-width:760px){dialog#evd{padding:18px 12px}table.spec.evt{font-size:12px;table-layout:fixed}table.evt th:first-child{width:30%}table.spec.evt th,table.spec.evt td{padding:6px 4px}table.spec.evt thead th{font-size:9.5px;letter-spacing:.04em}table.evt .evn{display:none}
   table.evt tr.evt-task td:first-child{padding-left:12px}table.evt i.up,table.evt i.down{display:block;margin-left:0}}
@@ -3993,15 +3993,15 @@ def eval_table(d, only=None):
     when = (" Evaluated %s UTC." % e(_day(res.get("at")))) if res.get("at") else ""
     notes = ""
     if was:
-        notes += " Share before is the same line in the evaluation of this configuration before it."
+        notes += " Before is that figure for the same line in the evaluation of this configuration before it."
     if old:
         notes += " A line in grey was not asked again this time: its figures are the earlier evaluation&#39;s."
     if unread_any:
         notes += " A task marked unread is one where the harness could not read a quarter or more of one model&#39;s replies as answers: its scores say how replies were read more than what either model knew."
-    return (head + boxes + '<p class="small muted" style="margin:10px 0 0">Each was put the same questions and marked by the benchmark&#39;s own checker. Share is the swarm&#39;s score as a share of %s&#39;s: '
+    return (head + boxes + '<p class="small muted" style="margin:10px 0 0">Each was put the same questions and marked by the benchmark&#39;s own checker. Swarm → target is the swarm&#39;s score as a share of %s&#39;s: '
             '100%% or more is where the swarm is level or ahead.%s%s</p>' % (e(tname), when, notes)
-            + '<div class="evt-wrap"><table class="spec evt"><thead><tr><th>Body of work</th><th class="num">The swarm</th><th class="num">%s</th><th class="num">Share</th>%s<th class="num evn">Questions</th></tr></thead>'
-            '<tbody>%s</tbody></table></div>' % (e(tname), '<th class="num">Share before</th>' if was else "", "".join(rows)))
+            + '<div class="evt-wrap"><table class="spec evt"><thead><tr><th>Body of work</th><th class="num">The swarm</th><th class="num evtg">%s</th><th class="num">Swarm → target</th>%s<th class="num evn">Questions</th></tr></thead>'
+            '<tbody>%s</tbody></table></div>' % (e(tname), '<th class="num">Before</th>' if was else "", "".join(rows)))
 
 
 def _ev_meta_done(bms, by_task):

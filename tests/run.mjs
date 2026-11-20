@@ -6370,6 +6370,17 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       E.engineVersionIn('nothing of the kind') === '' &&
       E.enginePart('tensorfold', '1.2.7') === '-tensorfold1.2.7' &&
       E.enginePart('tensorfold', '') === '' &&
+      // (the swarm's answers are named by every engine that serves its models, each once: llama.cpp alone as before)
+      E.enginesPart(E.swarmEnginesOf([{ engine: 'llama' }, {}, null], () => '0.9.0-b12110')) === '-llama0.9.0-b12110' &&
+      E.enginesPart(E.swarmEnginesOf([{ engine: 'tensorfold' }, { engine: 'tensorfold' }], () => '1.3.1')) ===
+        '-tensorfold1.3.1' &&
+      E.enginesPart(
+        E.swarmEnginesOf(
+          [{ engine: 'tensorfold' }, { engine: 'llama' }],
+          (n) => ({ llama: '0.9.0', tensorfold: '1.3.1' })[n],
+        ),
+      ) === '-llama0.9.0-tensorfold1.3.1' &&
+      E.enginesPart(E.swarmEnginesOf([{ engine: 'tensorfold' }], () => '')) === '' &&
       E.keptFolder('new', 'old', 'prog', (f) => ({ new: 5, old: 3, prog: 1 })[f]) === 'new' &&
       E.keptFolder(
         'new',

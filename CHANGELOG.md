@@ -6,6 +6,18 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The swarm's kept answers are named by every engine that serves it** (2026-11-20). They were named by llama.cpp's build
+  whatever served the members, so with members on TensorFold an update of TensorFold would not have had the swarm asked
+  again. A swarm on both engines is named by both. Answers already kept under llama.cpp's name by a swarm on TensorFold are
+  used as they are where they were written after its program was put here.
+- **The score table's "Share" column is headed "Swarm → target"** (2026-11-20): the swarm's score as a share of the larger
+  model's. "Share before" is "Before".
+- **The score table's header breaks its lines alike** (2026-11-20), whichever harnesses are shown: its columns are of set
+  widths, where they took their widths from the rows shown.
+- **An evaluation no longer stops at the comparison** (2026-11-20). Since the search test was asked alike of both, an
+  evaluation of lm-evaluation-harness tasks asked every question and then stopped on an error while comparing the answers,
+  so no result was written. The answers it kept are compared the next time it is run, with nothing asked again. A run that
+  stops on an error now says the error on the page, where it said only "Node.js" and its version.
 - **A folded section of a running evaluation shows one bar** (2026-11-20). Each body of work, and the section that holds
   them all, shows while folded how far the run is through its tasks, in questions both models have answered. It is amber
   while one of its tasks is being asked.
