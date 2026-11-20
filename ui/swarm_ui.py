@@ -3086,19 +3086,20 @@ def untrained(d):
 
 def evaluation_caution(d, res=None):
     """WHAT A PERSON SHOULD KNOW BEFORE READING AN EVALUATION OF THIS SWARM, in a line for the Evaluate card ('' where nothing):
-    its last evaluation was scored on form on some tasks, or it has not been trained and its next one may be. A benchmark that
-    shows worked examples reads an answer only where a reply ends as they do, and stops at an empty line; ending a reply so is
-    a setting training turns on class by class (plan.closeAs), so a swarm that has kept nothing answers without it (measured
-    2026-11-20, on 40 questions of four such tasks: 7 right as an untrained swarm wrote them, 30 with the setting on)."""
+    the benchmark found no answer in many of its replies on some tasks of its last evaluation, or it has not been trained. A
+    benchmark that shows worked examples reads an answer only where a reply ends as they do, and stops at an empty line. Every
+    swarm starts with replies ended so (plan.closeAs 'shown' in src/briefs.json, since 2026-11-20: on 40 questions of four such
+    tasks, 7 right without it and 30 with), so what is left under this mark is how the models reason and write, which is
+    training's to change."""
     if res is None:
         res, _ = eval_of_config(ARGS.root, d)
     un = swarm_unread(res)
     if un:
         return ("On %d task%s of the last evaluation the benchmark could not read many of the swarm&#39;s replies as answers (marked no answer found): those scores say how it wrote more than what it knew. %s"
-                % (len(un), "" if len(un) == 1 else "s", "This swarm has not been trained: a pass can turn on ending a reply as a benchmark&#39;s examples do. Train, then evaluate again." if untrained(d)
-                   else "A pass can turn on ending a reply as a benchmark&#39;s examples do. If one has been made since, evaluate again."))
+                % (len(un), "" if len(un) == 1 else "s", "This swarm has not been trained: training is what changes how it answers. Train, then evaluate again." if untrained(d)
+                   else "Training is what changes how it answers. If a pass has been made since, evaluate again."))
     if untrained(d):
-        return "This swarm has not been trained. An evaluation now may understate it on tasks that read an answer only in a set form: a pass can turn on ending a reply as a benchmark&#39;s examples do. Train first for figures to rely on."
+        return "This swarm has not been trained. An evaluation now measures it as every swarm starts, before training has arranged it for these models. Train first for figures to rely on."
     return ""
 
 
@@ -3110,14 +3111,14 @@ def evaluation_recommendations(d):
     if un:
         out.append({"id": "unread:%s" % str(res.get("at", "")), "strength": "info", "yours": True, "next": True, "train": True, "apply": None, "n": sum(n for _, _, n in un),
                     "title": "%d task%s of the last evaluation %s scored on form more than on answers" % (len(un), "" if len(un) == 1 else "s", "was" if len(un) == 1 else "were"),
-                    "why": "The benchmark could not read these of the swarm&#39;s replies as answers: %s. A reply it cannot read is marked wrong whatever it says. Ending a reply as a benchmark&#39;s examples do is a setting training can turn on, class by class. %s"
+                    "why": "The benchmark could not read these of the swarm&#39;s replies as answers: %s. A reply it cannot read is marked wrong whatever it says. The swarm ends a reply as a benchmark&#39;s examples do where they show how; what is left is how its models reason and write, which training changes. %s"
                            % ("; ".join("%s %d of %d" % (e(nm), u, n) for nm, u, n in un),
                               "This swarm has not been trained: train it, then evaluate again." if untrained(d) else "If a pass has been made since that evaluation, evaluate again; if not, train first."),
                     "note": "evaluated %s UTC" % _day(res.get("at"))})
     elif untrained(d):
         out.append({"id": "untrained", "strength": "info", "yours": True, "next": True, "train": True, "apply": None, "n": 0,
                     "title": "Train this swarm before relying on an evaluation of it",
-                    "why": "Training has kept nothing for this configuration yet. A benchmark that shows worked examples reads an answer only where a reply ends as they do; ending a reply so is a setting training can turn on, class by class. An evaluation before a pass may understate the swarm on those tasks.",
+                    "why": "Training has kept nothing for this configuration yet. An evaluation now measures the swarm as every swarm starts, before training has arranged it for these models: which of them drafts, who decides, and what each is told. Figures from before a pass are a starting point, not what this swarm can do.",
                     "note": "nothing is changed by this: it is what to do first"})
     return out
 

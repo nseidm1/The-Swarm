@@ -5,7 +5,8 @@
   "plan": {
     "agreeSkipsChecks": true,
     "keepTurns": 6,
-    "byBehaviour": true
+    "byBehaviour": true,
+    "closeAs": "shown"
   },
   "slots": [
     {

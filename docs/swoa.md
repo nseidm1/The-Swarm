@@ -1505,7 +1505,10 @@ After O.8.6, when `plan.closeAs` is `shown`, the reply is non-empty, decided is 
 5. Where none of those earlier messages holds an empty line (a line break, then only spaces or tabs, then a line
    break), the reply is trimmed and each run of empty lines in it becomes one line break.
 6. Where the reply already ends with CLOSE (ignoring case) it stands. Where its last sentence begins with LEAD
-   (ignoring case), that sentence is replaced by CLOSE. Otherwise CLOSE is added after the reply and one space.
+   (ignoring case), OWN is what follows LEAD in that sentence, trimmed, without trailing `.`, `!` or `?`: where OWN is
+   non-empty and, where BRACKET holds, is one letter in round brackets, the reply stands as it is (it already ends
+   with the form around an answer of its own, which is kept even where it is not A); otherwise that sentence is
+   replaced by CLOSE. Where the last sentence does not begin with LEAD, CLOSE is added after the reply and one space.
 7. Where the reply changed, `+closed` is appended to path.
 
 #### O.8.6 Nothing written

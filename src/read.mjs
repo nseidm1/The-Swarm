@@ -223,8 +223,9 @@ const REMARK =
 //                            the same two words or more and then differs; null otherwise
 //   withoutRestating(reply, question) -> the reply without the question's own lines and labels at its head
 //   laidOutAs(reply, messages)    -> the reply with no empty line in it, where the earlier replies have none
-//   closedAs(reply, decided, form) -> the reply, ending with that form around what was settled: its last sentence replaced where
-//                            it already begins as the form does, the form added where it does not
+//   closedAs(reply, decided, form) -> the reply, ending with that form around what was settled: the form is added where the
+//                            reply does not end with it. A reply that already ends with the form around an answer of its
+//                            own stands as it was written
 const lastSentence = (text) => {
   const parts = String(text || '')
     .trim()
@@ -319,8 +320,21 @@ export function closedAs(reply, decided, form, question = '') {
   const text = String(reply || '').trimEnd();
   if (text.toLowerCase().endsWith(close.toLowerCase())) return text;
   const last = lastSentence(text);
-  if (last && last.toLowerCase().startsWith(form.lead.toLowerCase()))
+  if (last && last.toLowerCase().startsWith(form.lead.toLowerCase())) {
+    // A REPLY THAT ALREADY ENDS WITH THE FORM AROUND AN ANSWER OF ITS OWN STANDS. What was settled is not always what the
+    // reply came to, and where the two differ the reply's own was the right one each time it was measured (2026-11-20, one
+    // reply closed both ways: of 34 held questions with a form shown, 21 right with the last sentence replaced and 24 with
+    // it left, none the other way; on a test of boolean expressions four replies that ended "So the answer is False."
+    // were made to end "So the answer is and.", a word of the expression that had been taken for what was settled). The
+    // answer is of its own where there is one, in the shape the examples show: a letter in brackets where they show that.
+    // A last sentence that begins as the form does and holds no such answer is replaced, as before
+    const own = last
+      .slice(form.lead.length)
+      .trim()
+      .replace(/[.!?]+$/, '');
+    if (own && (!form.bracket || /^\([A-Za-z]\)$/.test(own))) return text;
     return text.slice(0, text.lastIndexOf(last)) + close;
+  }
   return (text ? text + ' ' : '') + close;
 }
 

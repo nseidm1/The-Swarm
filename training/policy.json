@@ -12,6 +12,7 @@
     "rounds": 2,
     "moves": [
       "the reply closes as the earlier replies do",
+      "the reply closes as it was written",
       "a turn with tools goes on unless most would reply",
       "the step most drafters proposed stands",
       "^plan: decide by most$",

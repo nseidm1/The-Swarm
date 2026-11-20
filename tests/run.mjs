@@ -8308,7 +8308,18 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       ) === 'It is Vincent. The answer is (C). So the answer is (C).' &&
       R.closedAs('It is 3.', '3', lettered, 'How many?\n(A) 1\n(B) 2') === 'It is 3.' &&
       R.closedAs('It is red.', 'red', lettered, '(A) red\n(B) Red') === 'It is red.' &&
-      R.closedAs('x. So the answer is Yes.', 'No', form) === 'x. So the answer is No.' &&
+      // (a reply that already ends with the form around an answer of its own stands, whatever was settled; one whose last
+      // sentence begins as the form does and holds no answer in the shape shown is closed with what was settled)
+      R.closedAs('x. So the answer is Yes.', 'No', form) === 'x. So the answer is Yes.' &&
+      R.closedAs('x. So the answer is (D).', 'C', lettered) === 'x. So the answer is (D).' &&
+      R.closedAs('x. So the answer is d.', 'c', lettered) === 'x. So the answer is (C).' &&
+      R.closedAs('x. So the answer is False.', 'and', form) === 'x. So the answer is False.' &&
+      R.closedAs('x. So the answer is', 'No', form) === 'x. So the answer is No.' &&
+      // (and the arrangement every swarm starts from has it on: training turns it off for a class where that does better)
+      JSON.parse(fs.readFileSync(new URL('../src/briefs.json', import.meta.url), 'utf8')).plan.closeAs === 'shown' &&
+      JSON.parse(fs.readFileSync(new URL('../training/policy.json', import.meta.url), 'utf8')).classes.moves.includes(
+        'the reply closes as it was written',
+      ) &&
       R.closedAs('x. So the answer is No.', 'No', form) === 'x. So the answer is No.' &&
       R.withoutRestating('Q: ((1 + 2)) =  \nA:  \nStep 1: add.', 'Q: ((1 + 2)) =\nA: Think step by step.') ===
         'Step 1: add.' &&

@@ -6,6 +6,16 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Every swarm starts with replies closed as the conversation's examples close** (2026-11-20). Where a conversation shows,
+  in two or more earlier replies, how a reply ends ("So the answer is (B)."), the swarm's reply ends that way and has no
+  empty line where they have none. It was a setting only training turned on, so an untrained swarm lost marks on
+  benchmarks that read an answer only in that form. Measured on 34 held questions with such a form: 14 right without it,
+  24 with it, none lost. Training can turn it off for a class where that does better. The next Evaluate asks the swarm
+  everything again, since its arrangement changed.
+- **A reply that already ends in the shown form keeps its own answer** (2026-11-20). The closing step replaced such a
+  reply's last sentence with what the swarm had separately settled on, which was sometimes wrong where the reply was
+  right: 3 of 34 held questions, and four replies to a test of boolean expressions made to end "So the answer is and."
+  It now leaves such a reply as written (SwOA specification O.8.7, step 6).
 - **The Pretrain card says why a model TensorFold serves is not pretrained** (2026-11-20): TensorFold loads no adapter. It
   names the same model's llama.cpp build, which can be adapted. It read "No original weights are named for it".
 - **"Check again what fell short" takes in the tasks where no answer was found** (2026-11-20). A body of work is asked again
