@@ -24,6 +24,22 @@ import data  # noqa: E402
 import sample  # noqa: E402
 import swarm_ui  # noqa: E402
 
+# THE CHECKS ARE THE SAME ON ANY MACHINE: where one needs the repository itself, it is given REPO, a copy of the code with a
+# lineup of the checks' own and none of this machine's state (no chosen configuration, no learned record, no working folder).
+# One read the configuration chosen here, 2026-11-20, and failed when a person chose a lineup with no decision model. The
+# checks in tests/ have had a configuration of their own for the same reason (tests/env.mjs); the same lineup is used here.
+_HERE = Path(__file__).resolve().parent.parent
+REPO = Path(tempfile.mkdtemp(prefix="swarm-check-repo-"))
+for _part in ("src", "training", "ui", "docs"):
+    if (_HERE / _part).is_dir():
+        shutil.copytree(_HERE / _part, REPO / _part, ignore=shutil.ignore_patterns("learned", "__pycache__", "node_modules", ".work", "questions"))
+for _f in ("package.json", "CHANGELOG.md", "README.md"):
+    if (_HERE / _f).is_file():
+        shutil.copy(_HERE / _f, REPO / _f)
+(REPO / "src" / "config.json").write_text(json.dumps({"a": "lfm25-2.6b", "b": "bonsai2-2b", "decider": "kev-4b", "target": "nemotron35-30b"}, indent=2) + "\n")
+import atexit as _atexit  # noqa: E402
+_atexit.register(lambda: shutil.rmtree(REPO, ignore_errors=True))
+
 # (the checks below stand in for a run this page started by writing down the id of THIS process: it is alive, and for them it is
 # the run. The page's own test of whose process an id is, _ours, is checked by itself at the end, with the real one)
 _ours_real = swarm_ui._ours
@@ -457,7 +473,7 @@ with tempfile.TemporaryDirectory() as tmp:
     (root / ".work" / "eval" / "ui-run.json").write_text(json.dumps({"pid": os.getpid(), "at": "now", "limit": 100, "items": ["crew", "code"]}))
     held_pre = send("/pretrain/start", {})
     a_member = d["members"]["a"]
-    a_orig = json.loads((Path(__file__).resolve().parent.parent / "training" / "originals.json").read_text())["models"].get(a_member["file"]) or {}
+    a_orig = json.loads((REPO / "training" / "originals.json").read_text())["models"].get(a_member["file"]) or {}
     ad = root / ".work" / "library" / "adapters" / d["target"]["id"] / (a_orig.get("dir") or a_member["file"])
     ad.mkdir(parents=True, exist_ok=True)
     (ad / "result.json").write_text(json.dumps({"ok": True, "gguf": str(ad / "x-lora.gguf"), "at": "2026-11-17T10:00:00Z", "examples": 72, "target": "the larger model", "items": ["crew"], "valLoss": [1.1, 0.7], "perplexity": {"without": 3.4, "with": 2.7}}))
@@ -502,7 +518,7 @@ with tempfile.TemporaryDirectory() as tmp:
     # THE UNINSTALL HELPER LISTS WHAT EVALUATING AND PRETRAINING FETCH: the harness, MLX, each model's original weights (the ones the
     # swarm is made of marked in use), the adapters, and every answer an evaluation kept; and removes nothing while either runs
     a_file = d["members"]["a"]["file"]
-    origs = json.loads((Path(__file__).resolve().parent.parent / "training" / "originals.json").read_text())["models"]
+    origs = json.loads((REPO / "training" / "originals.json").read_text())["models"]
     a_dir = (origs.get(a_file) or {}).get("dir") or "LFM2.5-1.2B-Instruct"
     for pth in (root / ".work" / "lmeval" / "venv", root / ".work" / "mlx" / "venv", root / ".work" / "mlx" / "python", root / ".work" / "mlx" / "hf" / a_dir, root / ".work" / "mlx" / "hf" / "Old-Model",
                 root / ".work" / "library" / "adapters" / d["target"]["id"] / a_dir, root / ".work" / "eval" / "target", root / ".work" / "eval" / "swarm",
@@ -1161,7 +1177,7 @@ with tempfile.TemporaryDirectory() as tmp:
     srv.shutdown()
     for k in ("NODE", "SWARM_LLAMA_SERVER", "TEACHER"):
         os.environ.pop(k, None)
-    srv, base = serve(Path(__file__).resolve().parent.parent)
+    srv, base = serve(REPO)
     code, html = get(base + "/")
     check("on this repository it opens and names the model being chased", code == 200 and "Nemotron 3.5 Lightning 30B" in html and "Sample data" not in html)
     srv.shutdown()
@@ -1188,7 +1204,7 @@ with tempfile.TemporaryDirectory() as tmp:
 
 # THE HEAD OF EVERY CARD IS ONE STRUCTURE: the figure, what the card does, its controls, in that order, on one grid of fixed columns
 with tempfile.TemporaryDirectory() as tmp:
-    srv, base = serve(Path(__file__).resolve().parent.parent)
+    srv, base = serve(REPO)
     page = get(base + "/")[1]
     srv.shutdown()
     heads = re.findall(r'<div class="proghead">(.*?)</div>', page, re.S)
@@ -1200,8 +1216,8 @@ with tempfile.TemporaryDirectory() as tmp:
 # THE DECIDE STEP SHOWS WHO DECIDES: a small model beside the decider has its face there too, in its model's colour, labelled with
 # how it is asked and with its own live line; and where the answer most slots hold settles it, the decider's face says it decides ties only
 import types as _types
-swarm_ui.ARGS = _types.SimpleNamespace(root=str(Path(__file__).resolve().parent.parent))
-_d = data.load(Path(__file__).resolve().parent.parent)
+swarm_ui.ARGS = _types.SimpleNamespace(root=str(REPO))
+_d = data.load(REPO)
 _b = _d["briefs"]
 _slot = next(x for x in _b["slots"] if x["member"] == "b")
 _with = swarm_ui.avatars(dict(_d, briefs=dict(_b, plan=dict(_b.get("plan") or {}, decideWith={"how": "if-close", "slot": _slot["id"]}))))
@@ -1326,7 +1342,7 @@ check("the questions' card sets the module beside the larger model family by fam
 # AN OPEN PAGE SAYS WHEN THE DASHBOARD'S CODE HAS CHANGED: it carries the build it was drawn with, asks the server's, and where they
 # differ shows a note with a Refresh button (hidden otherwise); it never reloads on its own
 with tempfile.TemporaryDirectory() as tmp:
-    srv, base = serve(Path(__file__).resolve().parent.parent)
+    srv, base = serve(REPO)
     pg, bj = get(base + "/")[1], json.loads(get(base + "/api/build")[1])
     srv.shutdown()
 check("an open page carries the build of the code it was drawn with, the server says which it runs, and where they differ the page shows a note with a Refresh button, hidden otherwise, and never reloads by itself",
@@ -1400,7 +1416,7 @@ swarm_ui.loop_live = _ll7
 check("a pass's record graded by an earlier rule says its questions will be asked again from the first when training starts, and not where it would carry on from; one graded by the rule in force says where it carries on; and the rule in force is read from the loop",
       "graded by an earlier rule: when training starts, its questions are asked again from the first" in _st_old and "it carries on from" not in _st_old
       and "Stopped; it carries on from question 3." in _st_new and "earlier rule" not in _st_new
-      and isinstance(data.scoring_now(Path(__file__).resolve().parent.parent), int) and data.scoring_now("/nowhere/at/all") is None, _st_old[-400:])
+      and isinstance(data.scoring_now(REPO), int) and data.scoring_now("/nowhere/at/all") is None, _st_old[-400:])
 
 # A CHANGE KEPT BY ITS CLASS says what its class gained, the error of that and over how many questions; one proposed for the class
 # says so; one kept before that rule says what it was kept on then. And the page says how a change is kept as the policy has it
@@ -1422,7 +1438,7 @@ check("while a change is scored on its class the page says so, and says which qu
 # what a model is given back is the shape the test's own search gives; a query's results are kept and given again; one that
 # returns nothing is asked again a few times, and then that is its answer
 import importlib.util as _ilu
-_sp = _ilu.spec_from_file_location("bfcl_search", Path(__file__).resolve().parent.parent / "training" / "support" / "bfcl_search.py")
+_sp = _ilu.spec_from_file_location("bfcl_search", REPO / "training" / "support" / "bfcl_search.py")
 _bs = _ilu.module_from_spec(_sp)
 _sp.loader.exec_module(_bs)
 _found = [{"title": "A", "url": "https://a.example/x", "content": "about a", "engines": ["brave"]}, {"title": "", "url": "https://b.example/"},
@@ -1461,10 +1477,10 @@ check("the search behind the web search test gives a model what the test's own s
 
 # WEB SEARCH IN THE SwOA SPEC (interface.webSearch; docs/swoa.md T.10): what it is to the module, whose each part is, how a caller
 # uses it, the limits the module keeps to (read from the runtime), and what the proof measured of it, with the search behind the test
-_tm = (Path(__file__).resolve().parent.parent / "src" / "tools.mjs").read_text()
+_tm = (REPO / "src" / "tools.mjs").read_text()
 _each, _all = int(re.search(r"^export const RESULT_MOST = (\d+);", _tm, re.M).group(1)), int(re.search(r"^export const FOUND_MOST = (\d+);", _tm, re.M).group(1))
-_ws = data.web_search_of({"root": str(Path(__file__).resolve().parent.parent)}, "swarm", {"name": "Small A"}, {})
-_ws_lead = data.web_search_of({"root": str(Path(__file__).resolve().parent.parent)}, "a", {"name": "Small A"}, {})
+_ws = data.web_search_of({"root": str(REPO)}, "swarm", {"name": "Small A"}, {})
+_ws_lead = data.web_search_of({"root": str(REPO)}, "a", {"name": "Small A"}, {})
 _srch = {"service": "SearXNG", "revision": "b867c56a5668966ef4be8097f1b559bdc2841743", "where": "served on the machine that measured, for the length of the run", "engines": ["brave", "duckduckgo"],
          "kept": "what each query returned and each page fetched, for the day: both models are given the same", "queries": 212, "pages": 40}
 _pr3 = {"rule": "r", "margin": 0.05, "claims": {"notClaimed": []},
@@ -1472,7 +1488,7 @@ _pr3 = {"rule": "r", "margin": 0.05, "claims": {"notClaimed": []},
         "results": [{"task": "bfcl_web_search_base", "name": "BFCL web search", "item": "search", "itemName": "Search", "metric": "accuracy", "harness": {"name": "bfcl-eval", "version": "2026.3.23"},
                      "n": 100, "of": 100, "swoa": {"value": 0.2, "stderr": 0.04}, "target": {"value": 0.41, "stderr": 0.05}, "gap": -0.21, "gapStderr": 0.05, "proof": True,
                      "tools": "search_engine_query and fetch_url_content, the search behind them a SearXNG served for the run (no key), each query and page kept for the day", "askedOn": "2026-11-19", "search": _srch}]}
-_ws_m = data.web_search_of({"root": str(Path(__file__).resolve().parent.parent)}, "swarm", {"name": "Small A"}, _pr3)
+_ws_m = data.web_search_of({"root": str(REPO)}, "swarm", {"name": "Small A"}, _pr3)
 _row = lambda k, v: "<tr><th>%s</th><td>%s</td></tr>" % (k, v)  # noqa: E731
 _wsb = swarm_ui.web_search_block({"interface": {"webSearch": _ws_m}}, _row)
 _pb3 = swarm_ui.proof_block({"target": {"name": "T"}, "proof": _pr3})
@@ -1496,7 +1512,7 @@ check("the SwOA spec says what web search is to the module and how it is used: a
 # WHAT A PASS ASKS MORE OF BECAUSE A PROOF FOUND THE MODULE SHORT (training/support/emphasis.mjs), as the page and the SwOA say it:
 # the rule a verdict is read by is the same numbers on both sides (tests/run.mjs holds the same cases), a capability is the body of
 # work that trains what a task measures, and a proof that weighted a pass is said to have, under the proof and on the card
-_tg5 = json.loads((Path(__file__).resolve().parent.parent / "training" / "equivalence.json").read_text())["targets"]
+_tg5 = json.loads((REPO / "training" / "equivalence.json").read_text())["targets"]
 _g5 = data.paired_gap({"of": 500, "onlySwarm": 30, "onlyTarget": 80})
 _st5 = {"focus": {"trap": 4, "rules": 2},
         "focusFrom": {"held": {"trap": 4}, "proof": {"at": "2026-11-20T10:00:00Z", "more": 2,
@@ -1619,12 +1635,7 @@ check("pressing Train or Stop training redraws the model pills at once (locked w
 
 # ---- A SMALL MODEL OF THE SWARM THAT CHOOSES AS WELL AS THE DECIDER is said among the recommendations, and can be reached
 _root9 = Path(tempfile.mkdtemp(prefix="recs-"))
-shutil.copytree(Path(__file__).resolve().parent.parent / "src", _root9 / "src")
-# (a lineup WITH a decision model, whatever this machine's own is: the recommendation is to do without one. With the machine's
-# lineup already without one, 2026-11-20, there was no such change to offer and this check failed on a machine, not on the page)
-_c9 = json.loads((_root9 / "src" / "config.json").read_text())
-_c9["decider"] = "kev-4b"
-(_root9 / "src" / "config.json").write_text(json.dumps(_c9))
+shutil.copytree(REPO / "src", _root9 / "src")
 _d9 = data.load(_root9)
 _wd9 = Path(_d9["root"]) / ".work" / "train" / _d9["key"]
 _wd9.mkdir(parents=True, exist_ok=True)
