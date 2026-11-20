@@ -1620,6 +1620,11 @@ check("pressing Train or Stop training redraws the model pills at once (locked w
 # ---- A SMALL MODEL OF THE SWARM THAT CHOOSES AS WELL AS THE DECIDER is said among the recommendations, and can be reached
 _root9 = Path(tempfile.mkdtemp(prefix="recs-"))
 shutil.copytree(Path(__file__).resolve().parent.parent / "src", _root9 / "src")
+# (a lineup WITH a decision model, whatever this machine's own is: the recommendation is to do without one. With the machine's
+# lineup already without one, 2026-11-20, there was no such change to offer and this check failed on a machine, not on the page)
+_c9 = json.loads((_root9 / "src" / "config.json").read_text())
+_c9["decider"] = "kev-4b"
+(_root9 / "src" / "config.json").write_text(json.dumps(_c9))
 _d9 = data.load(_root9)
 _wd9 = Path(_d9["root"]) / ".work" / "train" / _d9["key"]
 _wd9.mkdir(parents=True, exist_ok=True)
