@@ -92,7 +92,10 @@ details.told{margin-top:4px}details.told summary{cursor:pointer;font-size:12px;f
 .equiv .tools{margin-top:12px}
 .tgl{display:inline-flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:var(--r);background:var(--soft)}.tgl .seg{border:0;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--mist);padding:7px 14px;border-radius:var(--r);cursor:pointer}
 .tgl .seg.on{background:#fff;color:var(--teal);box-shadow:0 1px 4px rgba(11,93,87,.15)}.tgl .seg:focus-visible{outline:3px solid var(--teal2)}fieldset.tools{margin-top:12px}
-.eng{display:flex;flex-direction:column;align-items:flex-end;gap:6px;min-width:120px;max-width:220px}.eng .engp{width:120px;height:6px}.eng .engs{color:var(--mist);font-size:11.5px;text-align:right;overflow-wrap:anywhere}.eng .btn.done{opacity:1}
+.rec.engine{grid-template-columns:minmax(0,1fr) 168px;align-items:center}.eng{display:grid;gap:8px;justify-items:stretch}.eng .btn{margin:0;width:100%;padding:11px 14px}.eng .btn:disabled{cursor:default}.eng .btn.busy{background:var(--soft);color:var(--fog);box-shadow:none}.eng .btn.done{background:#d7f3e9;color:var(--right);box-shadow:none;opacity:1}
+.eng .engp{width:100%;height:6px;accent-color:var(--sun)}.eng .engs{color:var(--mist);font-size:11.5px;line-height:1.4;overflow-wrap:anywhere}.eng .engs:empty{display:none}
+.rec.engine code{font-size:12px;overflow-wrap:anywhere}.rec small.where{display:block;overflow-wrap:anywhere}
+@media (max-width:700px){.rec.engine{grid-template-columns:minmax(0,1fr)}.eng{margin-top:4px}}
 .rech{list-style:none;margin:8px 0 0;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mist)}
 @media (max-width:560px){.rec{grid-template-columns:minmax(0,1fr)}}
 details.cfg{margin-top:18px}details.cfg>summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}details.cfg>summary .cfgh{font-size:10.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--teal2)}
@@ -2990,8 +2993,8 @@ def engine_recommendations(d):
             name = str(tgt.get("by") or "").split("served by ")[-1] or serve.get("program")
             out.append({"id": "engine:%s:%s" % (serve.get("program"), new), "strength": "info", "yours": True, "apply": None, "update": "tensorfold" if serve.get("program") == "tensorfold" else None,
                         "title": "Update %s, which serves %s, from %s to %s" % (name, tgt.get("name", "the larger model"), have, new),
-                        "why": "A newer %s is out. The larger model is what its engine makes of it: a release can mend wrong or empty replies and change its speed, and so its scores. Update runs its maker&#39;s installer, <code>%s</code>, on this machine%s. Its kept answers are named by the engine&#39;s version, so the next Evaluate asks %s everything again by itself."
-                               % (e(name), e(serve.get("upgrade") or "its maker&#39;s installer"), (' (what changed: <a href="%s" target="_blank" rel="noopener">its release notes</a>)' % e(serve["notes"])) if serve.get("notes") else "", e(tgt.get("name", "it"))),
+                        "why": "A release can mend wrong or empty replies, and so change the larger model&#39;s scores. Update runs its maker&#39;s installer, <code>%s</code>%s. The next Evaluate then asks %s everything again."
+                               % (e(serve.get("upgrade") or "its maker&#39;s installer"), (' (<a href="%s" target="_blank" rel="noopener">release notes</a>)' % e(serve["notes"])) if serve.get("notes") else "", e(tgt.get("name", "it"))),
                         "note": "here: %s" % prog})
     # llama.cpp, which serves the small models: behind the build the catalog pins (no asking: the pin is in src/models.json)
     eng = reg.get("engine") or {}
@@ -3002,8 +3005,8 @@ def engine_recommendations(d):
         if have_t and pin_t and len(have_t) == len(pin_t) == 1 and pin_t > have_t:
             out.append({"id": "engine:llama:%s" % pin, "strength": "info", "yours": True, "apply": None, "update": "llama",
                         "title": "Update llama.cpp, which serves the small models, from build %s to %s" % (have[1:], pin[1:]),
-                        "why": "The llama-server found on this machine is older than the build this repository is checked with (%s). It runs (the least it needs is build %s), and what was measured here was measured with it; a later build can serve a model differently, so after updating, a pass and an Evaluate are what would tell. Update fetches that build beside the one here, which it does not touch, loads each model of this swarm with it and asks it a sum, and makes it the swarm&#39;s only where every one answers: a model that needs support a build may lack (Bonsai 2) is found out then, and the build here is kept."
-                               % (e(pin), e(str(eng.get("minBuild", "?")))),
+                        "why": "This is the build the repository is checked with (the least it needs is %s). Update fetches it beside the one here, which it does not touch, loads each model of this swarm with it, and switches only if every one answers: Bonsai 2 needs support a build may lack. If one does not, the build here is kept. Afterwards a pass and an Evaluate are what tell."
+                               % e(str(eng.get("minBuild", "?"))),
                         "note": "here: %s" % ls})
     return out
 
@@ -3228,7 +3231,7 @@ def recs_panel(d):
             act = ('<div class="eng"><button type="button" class="btn top%s" data-engine-update="%s"%s>%s</button><progress class="engp"%s></progress><small class="engs">%s</small></div>'
                    % (" busy" if going else "", e(r["update"]), " disabled" if going or running else "", "Updating" if going else "Try again" if failed else "Update",
                       "" if going else " hidden", e(st.get("step", "")) if going or failed else ""))
-        return '<li class="rec %s"><div><span class="rstr">%s</span><b>%s</b><p>%s</p><small>%s</small></div>%s</li>' % (r["strength"], e(label(r)), e(r["title"]), r["why"], meta, act)
+        return '<li class="rec %s%s"><div><span class="rstr">%s</span><b>%s</b><p>%s</p><small class="where">%s</small></div>%s</li>' % (r["strength"], " engine" if r.get("update") else "", e(label(r)), e(r["title"]), r["why"], meta, act)
     mine_ = [r for r in rs if r.get("apply")]
     theirs = [r for r in rs if not r.get("apply") and not r.get("yours")]
     yours = [r for r in rs if r.get("yours")]

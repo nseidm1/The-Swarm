@@ -797,23 +797,36 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     )
     .digest('hex')
     .slice(0, 12);
-  const swarmKeep = (b) =>
-    servedAt
-      ? path.join(runDir, 'swarm', b.task)
-      : path.join(
-          EVAL_DIR,
-          'swarm',
-          CONFIG_KEY,
-          arrangementSha256.slice(0, 16) + '-' + runtimeSha + (adapters.length ? '-adapters' : ''),
-          b.task +
-            '-' +
-            (limitOf(b) || 'all') +
-            '-r' +
-            RELAY_VERSION +
-            dayPart(b) +
-            searchPart(b) +
-            (b.way && b.way !== 'tools' ? '-' + b.way : ''),
-        );
+  // (and the swarm's, by the build of llama.cpp that serves its small models: the same reason, and the same rule for answers
+  // kept before folders said so. A build a person updates to from the page is another engine under the same arrangement)
+  const swarmProgram = B.llamaServer();
+  let swarmSaid = '';
+  try {
+    const r = spawnSync(swarmProgram, ['--version'], { encoding: 'utf8', timeout: 15000 });
+    swarmSaid = String(r.stdout || '') + String(r.stderr || '');
+  } catch {
+    /* an engine that does not say: its answers are kept as before */
+  }
+  const swarmEngine = { name: 'llama', version: swarmProgram ? engineVersionIn(swarmSaid) : '' };
+  const swarmKeep = (b) => {
+    if (servedAt) return path.join(runDir, 'swarm', b.task);
+    const name = (part) =>
+      path.join(
+        EVAL_DIR,
+        'swarm',
+        CONFIG_KEY,
+        arrangementSha256.slice(0, 16) + '-' + runtimeSha + (adapters.length ? '-adapters' : '') + part,
+        b.task +
+          '-' +
+          (limitOf(b) || 'all') +
+          '-r' +
+          RELAY_VERSION +
+          dayPart(b) +
+          searchPart(b) +
+          (b.way && b.way !== 'tools' ? '-' + b.way : ''),
+      );
+    return keptFolder(name(enginePart(swarmEngine.name, swarmEngine.version)), name(''), swarmProgram);
+  };
   // (each way the swarm is asked a task: swarmWaysOf)
   const swarmAsks = askable.flatMap((b) => swarmWaysOf(b).map((way) => (way === 'tools' ? b : { ...b, way })));
   const needSwarm = swarmAsks.filter((b) => servedAt || B.has('fresh') || !keptIn(swarmKeep(b), b));
@@ -968,6 +981,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     target: TARGET.name,
     // (the engine that served it, and its version: what its kept answers are named by)
     targetEngine: engine,
+    swarmEngine,
     seconds: (Date.now() - live.startedAt) / 1000,
     results,
   };

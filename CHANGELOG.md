@@ -6,8 +6,9 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
-- **The larger model's kept answers are named by its engine's version** (2026-11-20), so after an engine is updated the next
-  Evaluate asks the larger model again by itself; a result says which engine and version served it (`targetEngine`).
+- **Kept answers are named by the engine's version** (2026-11-20): the larger model's by its engine's, the swarm's by the
+  build of llama.cpp that serves its small models. After either is updated the next Evaluate asks again by itself; a result
+  says which engine and version served each (`targetEngine`, `swarmEngine`).
   Answers kept before this are used as they are while the engine's program is no newer than they are.
 - **The page says when an engine is behind, and updates it** (2026-11-20), among the recommendations, under "The engines on
   this machine": the larger model's engine against its newest release (the catalog names where releases are published,
