@@ -516,7 +516,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     halted = true;
     if (child) child.kill('SIGTERM');
     for (const t of live.tasks)
-      for (const w of ['target', 'swarm']) if (t[w].state === 'asking') t[w].state = 'stopped';
+      for (const w of Object.keys(t)) if (t[w] && t[w].state === 'asking') t[w].state = 'stopped';
     end('stopped', 'Stopped from the page');
     const all = Promise.all(
       stopping.splice(0).map((f) =>
@@ -710,7 +710,13 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     const relays = [r, rt, ...Object.values(ro)];
     for (const x of relays) if (x) stopping.push(x.close);
     for (const b of tasks) {
-      say('Asking ' + (who === 'target' ? TARGET.name : 'the swarm') + ': ' + b.name + (WAY_SAID[wayIs(b)] || ''));
+      say(
+        'Asking ' +
+          (who === 'target' ? TARGET.name : (live.alone || {})[who] ? live.alone[who] + ' by itself' : 'the swarm') +
+          ': ' +
+          b.name +
+          (WAY_SAID[wayIs(b)] || ''),
+      );
       if (isToolTest(b)) await toolTest(b, who, (ro[wayIs(b)] || rt).base, outOf(b));
       else await harness(b, who, r.base, outOf(b));
       if (halted) await never();
@@ -906,6 +912,79 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   } else if (askable.length)
     say('The swarm has answered every one of these tasks as it is now: nothing is asked again');
 
+  // AND EACH SMALL MODEL OF THE SWARM BY ITSELF, on the same tasks: what the orchestration adds is the swarm's score set
+  // beside its own models' scores, and that is the first thing a reader asks of it (console instruction 2026-11-21). A model
+  // does not change with the arrangement, so its answers are kept by the model and its engine's version
+  // (.work/eval/alone/<model>/...) and asked once, whichever swarm it is later part of. It is asked each task plainly, one
+  // call a question, served as the swarm serves it and with no adapter. --no-alone leaves this out
+  const aloneOf = {};
+  live.alone = {};
+  if (!B.has('no-alone')) {
+    const { startMember } = await import('../src/members.mjs');
+    for (const [k, m] of Object.entries(SERVED)) {
+      const who = 'alone-' + k;
+      const eng = swarmEngines.find((x) => x.name === String(m.engine || 'llama')) || { name: 'llama', version: '' };
+      const keepM = (b) =>
+        path.join(
+          EVAL_DIR,
+          'alone',
+          m.id,
+          b.task +
+            '-' +
+            (limitOf(b) || 'all') +
+            '-r' +
+            RELAY_VERSION +
+            enginePart(eng.name, eng.version) +
+            dayPart(b) +
+            searchPart(b),
+        );
+      aloneOf[k] = { who, m, keepM };
+      live.alone[who] = m.name;
+      for (const t of live.tasks)
+        t[who] = blocked.has(t.task)
+          ? { state: 'failed', why: blocked.get(t.task) }
+          : { state: 'waiting', done: 0, of: null, seconds: 0 };
+      const need = askable.filter((b) => !keptIn(keepM(b), b));
+      for (const b of askable.filter((x) => !need.includes(x))) {
+        const sc = scoreIn(keepM(b), b);
+        Object.assign(live.tasks.find((t) => t.task === b.task)[who], { state: 'kept', done: sc.n, of: sc.n });
+      }
+      if (!need.length) continue;
+      live.phase = 'loading';
+      say('Loading ' + m.name + ', by itself');
+      const r = await startMember(
+        { ...m, key: k },
+        { llamaServer: B.llamaServer(), modelsDir: B.modelsDir(), slots: 2, jinja: true },
+      );
+      if (!r.ok) {
+        // (a model that will not start alone is said, and the evaluation goes on: the swarm's own result does not wait on it)
+        for (const b of need)
+          Object.assign(live.tasks.find((t) => t.task === b.task)[who], {
+            state: 'failed',
+            why: 'it did not start: ' + r.why,
+          });
+        say(m.name + ' did not start by itself: ' + String(r.why).slice(0, 160));
+        continue;
+      }
+      stopping.push(r.stop);
+      live.phase = 'asking';
+      for (const b of need) fs.rmSync(keepM(b), { recursive: true, force: true });
+      await askAll(who, askAt(r.base), askToolsAt(r.base, { model: 'swarm-' + k }), need, keepM);
+      await r.stop();
+      if (halted) await never();
+    }
+  }
+  // (each model's score on a task, where its answers to it are kept: { key: { id, name, value, stderr, n, of } })
+  const aloneFor = (b) => {
+    const got = {};
+    for (const [k, a] of Object.entries(aloneOf)) {
+      if (!keptIn(a.keepM(b), b)) continue;
+      const sc = scoreIn(a.keepM(b), b);
+      got[k] = { id: a.m.id, name: a.m.name, value: sc.value, stderr: sc.stderr ?? null, n: sc.n, of: sc.of ?? null };
+    }
+    return Object.keys(got).length ? { alone: got } : {};
+  };
+
   if (search) await search.stop();
   if (halted) await never();
   // AND EACH QUESTION'S TWO ANSWERS COMPARED
@@ -989,6 +1068,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         ...from,
         target: lean(best.score),
         swarm: lean(ss),
+        ...aloneFor(b),
         agree,
         ...(ways.length > 1
           ? { targetAsked: best.way, targetWays: Object.fromEntries(ways.map((w) => [w.way, lean(w.score)])) }
@@ -1014,6 +1094,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       ...b,
       target: scoreOf(tf.results, b),
       swarm: scoreOf(sf.results, b),
+      ...aloneFor(b),
       agree,
       // (how many of each one's replies the harness could not read as an answer: unreadIn)
       unread: { target: unreadIn(tf.samples, b.filter), swarm: unreadIn(sf.samples, b.filter) },

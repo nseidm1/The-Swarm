@@ -6,6 +6,11 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **An evaluation also asks each small model of the swarm by itself** (2026-11-21), on the same tasks, so that what the
+  orchestration adds can be seen. A model's answers are kept by the model and its engine's version, so each is asked once,
+  whichever swarm it is later part of. The chart shows a point for each at its own memory beside the swarm and the larger
+  model, and says the swarm's score beside the best of them; the paper table has a column for each. `--no-alone` leaves
+  it out.
 - **The questions training asks can be read and audited** (2026-11-20). A Questions button on the Train card opens every train
   and held question as it is put, with the conversation before it, its kind, its class of input and what it is marked by,
   narrowed by class, kind and words to find. Above them it says whether any is a benchmark's: each question, and each
