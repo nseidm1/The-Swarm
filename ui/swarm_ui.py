@@ -2871,7 +2871,11 @@ def pills(d):
     # larger model names its own engine (src/models.json engine). A small model another engine serves has an entry of its own
     ENGINES = {"llama": "llama.cpp", "tensorfold": "TensorFold"}
     eng = lambda m: ENGINES.get(m.get("engine") or "", m.get("engine") or "")  # noqa: E731
-    runs = lambda m, key: (" · " + eng(m)) if key not in ("decider", "judge") and eng(m) else ""  # noqa: E731
+    # (every model is named alike, by its name alone, and what serves it is said after its size: a model two engines serve is
+    # two entries of one name, told apart there. "MLX" in a name read as "adapted with MLX", which is what Pretrain does, and
+    # naming the engine in the name left those two unlike every other, console 2026-11-21. A name that does say its engine
+    # is not said twice)
+    runs = lambda m, key: (" · " + eng(m)) if key not in ("decider", "judge") and eng(m) and eng(m) not in str(m.get("name", "")) else ""  # noqa: E731
 
     def pill(key, label, lst, chosen, group=None):
         opts = ""
@@ -4890,7 +4894,7 @@ def pretrain_block(d):
             # llama.cpp, that is the one that can be adapted, and it is named
             twin = next((x for x in (d.get("registry") or {}).get("small", []) if x.get("id") == str(m.get("id", "")).replace("-mlx", "") and x.get("id") != m.get("id") and (x.get("engine") or "llama") == "llama"), None)
             what = ('<small class="muted">Not pretrained: TensorFold serves it, and TensorFold loads no adapter.%s</small>'
-                    % ((" To pretrain it, choose %s in its place, which llama.cpp serves." % e(twin.get("name", ""))) if twin else ""))
+                    % (" To pretrain it, choose the one llama.cpp serves in its place (the same model, listed beside it)." if twin else ""))
         elif lm and lm.get("state") == "training" and not running:
             it = _iter_of(lm.get("log", ""))
             what = '<small class="bad">Ended at step %d of %d, before it finished: not kept</small>' % (it[0] if it else 0, live.get("iters") or 100)

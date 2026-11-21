@@ -517,7 +517,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and "or swarm_unread({\"results\": mine_})" in open(swarm_ui.__file__).read() and "or no answer was found in many of its replies" in open(swarm_ui.__file__).read()
           # (a member TensorFold serves says on the Pretrain card why it is not pretrained, and names its llama.cpp build)
           and "Not pretrained: TensorFold serves it, and TensorFold loads no adapter.%s" in open(swarm_ui.__file__).read()
-          and "To pretrain it, choose Qwen3.5 2B in its place, which llama.cpp serves." in swarm_ui.pretrain_block(dict(data.load(root), members={"a": dict(next(x for x in data.load(root)["registry"]["small"] if x["id"] == "qwen35-2b-mlx"), key="a")}))
+          and "To pretrain it, choose the one llama.cpp serves in its place (the same model, listed beside it)." in swarm_ui.pretrain_block(dict(data.load(root), members={"a": dict(next(x for x in data.load(root)["registry"]["small"] if x["id"] == "qwen35-2b-mlx"), key="a")}))
           and swarm_ui.untrained({"learned": {"ledger": [], "passes": []}}) and not swarm_ui.untrained({"learned": {"ledger": [{"n": 1}]}})
           and swarm_ui.swarm_unread({"results": [{"name": "A", "agree": {"of": 20}, "unread": {"swarm": 5, "target": 0}}, {"name": "B", "agree": {"of": 20}, "unread": {"swarm": 4, "target": 19}}, {"name": "C"}]}) == [("A", 5, 20)]
           and "has not been trained" in swarm_ui.evaluation_caution({"learned": {}}, {}) and swarm_ui.evaluation_caution({"learned": {"ledger": [{"n": 1}]}}, {}) == ""
@@ -1805,13 +1805,13 @@ check("what serves a model is said beside it: every small model of the catalog n
       all(m.get("engine") in ("llama", "tensorfold") for m in _small12) and not any(m.get("alsoOn") for m in _small12)
       and [m["id"] for m in _small12 if m.get("engine") == "tensorfold"] == ["qwen35-2b-mlx", "lfm3-1.7b-mlx"]
       # (a model TensorFold serves has an entry of its own beside the GGUF's, and can be chosen only where TensorFold is)
-      and re.search(r'<option value="lfm3-1\.7b-mlx">LFM3 1\.7B MLX · [\d.]+ GB · TensorFold</option>', _p12_with) is not None
-      and re.search(r'<option value="lfm3-1\.7b-mlx" disabled>LFM3 1\.7B MLX · [\d.]+ GB · TensorFold · needs an Apple silicon Mac with TensorFold</option>', _p12) is not None
+      and re.search(r'<option value="lfm3-1\.7b-mlx">LFM3 1\.7B · [\d.]+ GB · TensorFold</option>', _p12_with) is not None
+      and re.search(r'<option value="lfm3-1\.7b-mlx" disabled>LFM3 1\.7B · [\d.]+ GB · TensorFold · needs an Apple silicon Mac with TensorFold</option>', _p12) is not None
       and re.search(r'<option value="lfm3-1\.7b">LFM3 1\.7B · [\d.]+ GB · llama\.cpp</option>', _p12) is not None
-      and re.search(r'<option value="lfm3-1\.7b-mlx">LFM3 1\.7B MLX · [\d.]+ GB · TensorFold · installed when training starts</option>', _p12_mac) is not None
+      and re.search(r'<option value="lfm3-1\.7b-mlx">LFM3 1\.7B · [\d.]+ GB · TensorFold · installed when training starts</option>', _p12_mac) is not None
       and "installed when training starts" not in _p12_with and "installed when training starts" not in _p12
       and re.search(r'<option value="qwen35-2b"[^>]*>Qwen3\.5 2B · [\d.]+ GB · llama\.cpp</option>', _p12) is not None
-      and re.search(r'<option value="qwen35-2b-mlx">Qwen3\.5 2B MLX · [\d.]+ GB · TensorFold</option>', _p12_with) is not None
+      and re.search(r'<option value="qwen35-2b-mlx">Qwen3\.5 2B · [\d.]+ GB · TensorFold</option>', _p12_with) is not None
       and re.search(r'<option value="jan-code-4b"[^>]*>Jan-Code 4B · [\d.]+ GB · llama\.cpp</option>', _p12) is not None
       and ('title="Small model 1: %s' % _a12["name"]) in _p12 and ", served by llama.cpp" in _p12 and re.search(r"<i>[\d.]+ GB · llama\.cpp</i>", _p12) is not None
       and "GB · TensorFold</i>" in _p12 and "index" in _p12 and not re.search(r'<option value="kev-4b"[^>]*>[^<]*llama\.cpp', _p12),
@@ -1836,7 +1836,7 @@ _no13 = cleanup.remove(_root13, _d13, "kept:records")
 _yes13 = cleanup.remove(_root13, _d13, "left:tf-try")
 shutil.rmtree(_root13, ignore_errors=True)
 check("the Uninstall Helper lists the whole of the work folder: a model that is a folder of files by its name; a folder it does not know by name (a trial's downloads) on a line of its own, which can be removed; the small files beside the folders; and what is left inside the folders it names (what training learned, the last results, the pass in hand), said with its size and not removed from here, the folder of learned records never offered as an unknown one; no file in the work folder is under no line",
-      _unlisted13 == [] and _by13["model:LFM3-1.7B-MLX-4bit"]["what"] == "Small model: LFM3 1.7B MLX" and _by13["model:LFM3-1.7B-MLX-4bit"]["bytes"] > 0 and str(_by13["model:LFM3-1.7B-MLX-4bit"]["paths"][0]).endswith("LFM3-1.7B-MLX-4bit")
+      _unlisted13 == [] and _by13["model:LFM3-1.7B-MLX-4bit"]["what"] == "Small model: LFM3 1.7B" and _by13["model:LFM3-1.7B-MLX-4bit"]["bytes"] > 0 and str(_by13["model:LFM3-1.7B-MLX-4bit"]["paths"][0]).endswith("LFM3-1.7B-MLX-4bit")
       and _by13["left:tf-try"]["group"] == "Other things in .work" and _by13["left:tf-try"]["removable"] and "left:class-train" in _by13 and "left:files" in _by13
       and _by13["kept:records"]["removable"] is False and _by13["kept:records"]["bytes"] > 0 and _no13[0] is False and _no13[1].startswith("That is not removed from here")
       and _yes13[0] is True and "engine" in _by13

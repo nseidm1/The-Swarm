@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A model is named the same whatever serves it** (2026-11-21). The two models TensorFold serves are "Qwen3.5 2B" and
+  "LFM3 1.7B", as the ones llama.cpp serves are, and what serves each is said after its size, as for every other model.
+  They were "… MLX", which read as adapted with MLX: that is what Pretrain does, and these are not adapted. Their ids are
+  unchanged, so kept answers and records stand.
 - **An evaluation also asks each small model of the swarm by itself** (2026-11-21), on the same tasks, so that what the
   orchestration adds can be seen. A model's answers are kept by the model and its engine's version, so each is asked once,
   whichever swarm it is later part of. The chart shows a point for each at its own memory beside the swarm and the larger

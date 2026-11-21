@@ -158,7 +158,7 @@
     },
     {
       "id": "qwen35-2b-mlx",
-      "name": "Qwen3.5 2B MLX",
+      "name": "Qwen3.5 2B",
       "by": "Alibaba (Qwen), packaged by MLX Community",
       "engine": "tensorfold",
       "needs": "an Apple silicon Mac with TensorFold",
@@ -387,7 +387,7 @@
     },
     {
       "id": "lfm3-1.7b-mlx",
-      "name": "LFM3 1.7B MLX",
+      "name": "LFM3 1.7B",
       "by": "Liquid AI",
       "engine": "tensorfold",
       "needs": "an Apple silicon Mac with TensorFold",
