@@ -6,6 +6,11 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The questions training asks can be read and audited** (2026-11-20). A Questions button on the Train card opens every train
+  and held question as it is put, with the conversation before it, its kind, its class of input and what it is marked by,
+  narrowed by class, kind and words to find. Above them it says whether any is a benchmark's: each question, and each
+  worked example it shows, is set beside every benchmark question kept on the machine. `node training/questions-list.mjs`
+  writes the same list out.
 - **A training session can be limited to chosen classes of input** (2026-11-20). The Train card has a box for each class
   (with tools, a conversation, asking for code, a plain question), every one ticked to begin with and kept on the device.
   Train sends the ticked ones; the session then trains only those, as a class and question by question

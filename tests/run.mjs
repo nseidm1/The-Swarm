@@ -8315,6 +8315,28 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       R.closedAs('x. So the answer is d.', 'c', lettered) === 'x. So the answer is (C).' &&
       R.closedAs('x. So the answer is False.', 'and', form) === 'x. So the answer is False.' &&
       R.closedAs('x. So the answer is', 'No', form) === 'x. So the answer is No.' &&
+      // (the questions training asks can be written out for a person to read: every train and held question, as it is put)
+      (await (async () => {
+        const { spawnSync } = await import('node:child_process');
+        const r = spawnSync(
+          process.execPath,
+          [fileURLToPath(new URL('../training/questions-list.mjs', import.meta.url))],
+          {
+            encoding: 'utf8',
+            timeout: 60000,
+          },
+        );
+        const qs = JSON.parse(r.stdout || '[]');
+        return (
+          qs.length > 100 &&
+          qs.every(
+            (q) =>
+              q.id && q.kind && q.ask && ['train', 'held'].includes(q.split) && ['own', 'target'].includes(q.standard),
+          ) &&
+          ['tools', 'talk', 'code', 'words'].every((c) => qs.some((q) => q.class === c)) &&
+          new Set(qs.map((q) => q.id)).size === qs.length
+        );
+      })()) &&
       // (a pass can be told which classes of input to train: those named that are classes, in their order; none or all is every class)
       (await import('../training/loop.mjs')).classesNamed('words, code,nothing').join() === 'code,words' &&
       (await import('../training/loop.mjs')).classesNamed('') === null &&

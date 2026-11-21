@@ -343,7 +343,7 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .moves li.skipped{opacity:.55}.moves li.pinned{background:linear-gradient(90deg,#e8f6f1,transparent)}
 dialog#evd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#evd::backdrop{background:rgba(11,40,38,.45)}
 /* THE EVALUATE CARD'S HEADLINE IS A BUTTON (it opens the table, score beside score): it keeps the look of a headline, and says it can be pressed */
-.evhead{display:flex;flex-direction:column;gap:10px;align-items:flex-start;min-width:0}.evviews{display:flex;gap:8px;flex-wrap:wrap}.evviews .btn{padding:8px 14px;font-size:13px;white-space:nowrap}.ptab{font-family:Georgia,'Times New Roman',serif;color:var(--fog)}.ptab caption{caption-side:top;text-align:left;font-size:13.5px;line-height:1.5;padding:0 0 10px}.ptab caption b{font-weight:700}.ptab table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums;border-top:2px solid var(--fog);border-bottom:2px solid var(--fog)}.ptab th,.ptab td{padding:5px 10px;text-align:right;border:0;white-space:nowrap}.ptab th:first-child,.ptab td:first-child{text-align:left;white-space:normal}.ptab thead th{font-weight:400;border-bottom:1px solid var(--fog)}.ptab tr.pg td{font-style:italic;padding-top:10px;text-align:left}.ptab tr.pall td{border-top:1px solid var(--fog);padding-top:7px}.ptab td small{color:var(--mist);font-size:.82em}.ptab-wrap{overflow-x:auto;margin-top:12px}.ptab-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}#evd-latex{width:100%;min-height:160px;margin-top:10px;font:12px ui-monospace,Menlo,monospace}.evbench{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}.evbench .seg small{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#9a5b00;margin-left:4px}.evbench .seg:disabled{opacity:.45;cursor:default}.evchart{margin-top:12px}.evchart svg{display:block;width:100%;height:auto;max-width:720px}.evchart .ax{stroke:var(--line);stroke-width:1}.evchart .tk{fill:var(--mist);font-size:11px}.evchart .lb{fill:var(--fog);font-size:12.5px;font-weight:700}.evchart .sb{fill:var(--mist);font-size:11.5px}.evchart .at{fill:var(--mist);font-size:11.5px;font-weight:700;letter-spacing:.04em}.evchart .lg{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--fog);margin:0 0 6px}.evchart .lg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}.evopen{appearance:none;border:0;background:none;padding:6px 10px;margin:-6px -10px;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:12px;max-width:100%}
+.evhead{display:flex;flex-direction:column;gap:10px;align-items:flex-start;min-width:0}.evviews{display:flex;gap:8px;flex-wrap:wrap}.evviews .btn{padding:8px 14px;font-size:13px;white-space:nowrap}.ptab{font-family:Georgia,'Times New Roman',serif;color:var(--fog)}.ptab caption{caption-side:top;text-align:left;font-size:13.5px;line-height:1.5;padding:0 0 10px}.ptab caption b{font-weight:700}.ptab table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums;border-top:2px solid var(--fog);border-bottom:2px solid var(--fog)}.ptab th,.ptab td{padding:5px 10px;text-align:right;border:0;white-space:nowrap}.ptab th:first-child,.ptab td:first-child{text-align:left;white-space:normal}.ptab thead th{font-weight:400;border-bottom:1px solid var(--fog)}.ptab tr.pg td{font-style:italic;padding-top:10px;text-align:left}.ptab tr.pall td{border-top:1px solid var(--fog);padding-top:7px}.ptab td small{color:var(--mist);font-size:.82em}.ptab-wrap{overflow-x:auto;margin-top:12px}.ptab-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}#evd-latex{width:100%;min-height:160px;margin-top:10px;font:12px ui-monospace,Menlo,monospace}dialog#tqd{border:0;border-radius:var(--r);padding:26px;max-width:min(900px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#tqd::backdrop{background:rgba(11,40,38,.45)}.tqctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}.tqctl select,.tqctl input{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel)}.tqctl input{flex:1 1 160px;min-width:0}.tql{list-style:none;margin:0;padding:0;display:grid;gap:10px}.tql li{border:1px solid var(--line2);border-radius:var(--r);padding:12px 14px}.tqh{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}.tqh small{color:var(--mist);font-size:12px;font-weight:600}.tqa{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.5}.tqb{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.45;color:var(--mist)}.tqb b{color:var(--fog)}.tqw{display:block;margin-top:6px;color:var(--mist);overflow-wrap:anywhere}@media (max-width:760px){dialog#tqd{padding:18px 12px}}.evbench{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}.evbench .seg small{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#9a5b00;margin-left:4px}.evbench .seg:disabled{opacity:.45;cursor:default}.evchart{margin-top:12px}.evchart svg{display:block;width:100%;height:auto;max-width:720px}.evchart .ax{stroke:var(--line);stroke-width:1}.evchart .tk{fill:var(--mist);font-size:11px}.evchart .lb{fill:var(--fog);font-size:12.5px;font-weight:700}.evchart .sb{fill:var(--mist);font-size:11.5px}.evchart .at{fill:var(--mist);font-size:11.5px;font-weight:700;letter-spacing:.04em}.evchart .lg{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--fog);margin:0 0 6px}.evchart .lg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}.evopen{appearance:none;border:0;background:none;padding:6px 10px;margin:-6px -10px;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:12px;max-width:100%}
 .evopen:hover{background:rgba(11,93,87,.07)}.evopen:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 /* THE TABLE FITS ITS DIALOG, at any width, with no sideways scroll: a column's heading may wrap (the larger model's name is long), a figure never does; on a phone the cells are tighter and the count of questions, the one column that is not a score, is left out */
 .evt-wrap{margin-top:12px;max-width:100%}table.spec.evt{table-layout:fixed}table.evt thead th.num{width:13%}table.evt thead th.evtg{width:22%}table.spec.evt th,table.spec.evt td{padding:7px 8px;overflow-wrap:normal}table.evt td.num,table.evt th.num{text-align:right;font-variant-numeric:tabular-nums}table.evt td.num{white-space:nowrap}dialog#evd table.spec.evt thead th{white-space:normal}
@@ -648,6 +648,10 @@ document.addEventListener('click',async(ev)=>{
   {const vb=ev.target.closest('[data-evd-view]');if(vb){const dg=$('#evd');dg.dataset.view=vb.dataset.evdView;await swap('/fragment/evtable?view='+dg.dataset.view,'#evd-body');$('#evd').showModal();return;}}
   {const bb=ev.target.closest('[data-evd-bench]');if(bb){const dg=$('#evd');dg.dataset.bench=bb.dataset.evdBench;const on=[...document.querySelectorAll('[data-evd-harness]')].filter(x=>x.checked).map(x=>x.dataset.evdHarness);
     await swap('/fragment/evtable?view=chart&b='+encodeURIComponent(dg.dataset.bench)+'&h='+encodeURIComponent(on.join(',')),'#evd-body');return;}}
+  // THE QUESTIONS TRAINING ASKS (the Train card): opened, and narrowed by split, class, kind and words to find
+  if(ev.target.id==='tq-open'){await swap('/fragment/trainq','#tqd-body');$('#tqd').showModal();return;}
+  if(ev.target.id==='tq-close'||ev.target.id==='tqd'){$('#tqd').close();return;}
+  {const sg=ev.target.closest('[data-tq-split],[data-tq-cls]');if(sg){const c=$('.tqctl');if(sg.dataset.tqSplit!==undefined){c.dataset.split=sg.dataset.tqSplit;}else{c.dataset.cls=sg.dataset.tqCls;}c.dataset.kind='';await tqShow();return;}}
   if(ev.target.id==='evd-copy'){const ta=$('#evd-latex');try{await navigator.clipboard.writeText(ta.value);ev.target.textContent='Copied';}catch(e){ta.hidden=false;ta.select();}return;}
   if(ev.target.id==='evd-close'||ev.target.id==='evd'){$('#evd').close();return;}
 });
@@ -803,6 +807,10 @@ function evHOff(){try{const v=JSON.parse(localStorage.getItem('swarm.eval.hoff')
 function trainAsk(){const bs=[...document.querySelectorAll('[data-train-class]')];if(!bs.length)return;let off=[];try{off=JSON.parse(localStorage.getItem('swarm.train.off')||'[]');}catch(e){}
   bs.forEach(x=>{x.checked=!off.includes(x.dataset.trainClass);});if(!bs.some(x=>x.checked))bs.forEach(x=>{x.checked=true;});trainLeft();}
 function trainLeft(){const bs=[...document.querySelectorAll('[data-train-class]')],g=$('#run-go');if(g&&bs.length&&!bs[0].disabled)g.disabled=!bs.some(x=>x.checked);}
+async function tqShow(){const c=$('.tqctl');if(!c)return;const f=$('#tq-find');
+  await swap('/fragment/trainq?split='+encodeURIComponent(c.dataset.split||'')+'&cls='+encodeURIComponent(c.dataset.cls||'')+'&kind='+encodeURIComponent(c.dataset.kind||'')+'&q='+encodeURIComponent(f?f.value:''),'#tqd-body');}
+document.addEventListener('change',async(ev)=>{if(ev.target.id==='tq-kind'){$('.tqctl').dataset.kind=ev.target.value;await tqShow();}});
+document.addEventListener('keydown',async(ev)=>{if(ev.target.id==='tq-find'&&ev.key==='Enter'){ev.preventDefault();await tqShow();const f=$('#tq-find');if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}}});
 function evLeft(){const hs=[...document.querySelectorAll('[data-ev-harness]')],on=hs.filter(h=>h.checked).map(h=>h.dataset.evHarness);
   const bs=[...document.querySelectorAll('[data-ev-item]')];
   bs.forEach(b=>{const has=!hs.length||(b.dataset.h||'').split(' ').some(k=>on.includes(k));b.closest('label').classList.toggle('none',!has);});
@@ -2458,6 +2466,7 @@ def cannot_run():
 
 
 TRAIN_CLASSES = ("tools", "talk", "code", "words")
+TQ_BUTTON = '<button class="btn top ghost" id="tq-open" type="button" title="Read the questions training asks, and see whether any is a benchmark&#39;s">Questions</button>'
 
 
 def classes_asked(asked):
@@ -2465,6 +2474,62 @@ def classes_asked(asked):
     every one (which trains every class, and is not said to the session)."""
     got = [c for c in TRAIN_CLASSES if c in (asked or [])]
     return got if 0 < len(got) < len(TRAIN_CLASSES) else []
+
+
+def train_questions(d, split="train", cls="", kind="", find=""):
+    """THE QUESTIONS TRAINING ASKS, TO READ AND AUDIT (the Train card: Questions). Every train and held question as it is put,
+    with the conversation before it where there is one, its kind, the class of input the swarm takes it for and what it is
+    marked by; narrowed by split, class, kind and words to find. Above them, whether any is a benchmark's: each question and
+    each worked example it shows, set beside every benchmark question kept on this machine (ui/questions.py audit)."""
+    import questions as Q
+    qs, why = Q.load(ARGS.root, node_for_training())
+    head = ('<div class="spec-head"><div><div class="kicker">Train</div><h3 style="font-size:22px;margin-top:4px">The questions training asks</h3></div>'
+            '<button class="btn stop top" id="tq-close" type="button">Close</button></div>')
+    if not qs:
+        return head + '<p class="muted">%s</p>' % e(why or "No question could be read.")
+    split = split if split in ("train", "held") else "train"
+    mine = [q for q in qs if q["split"] == split]
+    kinds = sorted({q["kind"] for q in mine if not cls or q["class"] == cls})
+    shown = [q for q in mine if (not cls or q["class"] == cls) and (not kind or q["kind"] == kind)]
+    words = [w for w in str(find or "").lower().split() if w][:6]
+    if words:
+        shown = [q for q in shown if all(w in (q["ask"] + " " + q["id"] + " " + " ".join(b["content"] for b in q["before"])).lower() for w in words)]
+    a = Q.audit(ARGS.root, qs)
+    if not a["benchmark"]:
+        verdict = "No benchmark question is kept on this machine yet, so there is nothing to set these beside: evaluate first."
+    else:
+        c = a["closest"]
+        verdict = ("%s of the %d questions, or of the worked examples they show, is the same as one of the %d benchmark questions and examples kept on this machine (%d tasks; only what was asked here)."
+                   % ("None" if not a["same"] else "%d" % len(a["same"]), len(qs), a["benchmark"], a["tasks"]))
+        if a["same"]:
+            verdict += " The same: %s." % e(", ".join(a["same"][:8]))
+        if c:
+            verdict += (" The closest pair shares %s%% of its runs of five words: <code>%s</code> and a question of %s. Several kinds are made in the form of a benchmark&#39;s task (an order from clues, a chain of who lies, a date some days away), "
+                        "each with its own names and numbers: the form is shared, no question is." % (fmt_pct(100 * c["share"]), e(c["id"]), e(c["task"])))
+    seg = lambda attr, val, label, sel: '<button type="button" class="seg%s" data-tq-%s="%s" aria-pressed="%s">%s</button>' % (" on" if sel else "", attr, e(val), "true" if sel else "false", e(label))  # noqa: E731
+    n_of = lambda sp: sum(1 for q in qs if q["split"] == sp)  # noqa: E731
+    ctl = ('<div class="tqctl" data-split="%s" data-cls="%s" data-kind="%s"><div class="tgl" role="group" aria-label="Which questions">%s%s</div>'
+           '<div class="tgl" role="group" aria-label="Which class of input">%s%s</div>'
+           '<select id="tq-kind" aria-label="Which kind"><option value="">Every kind (%d)</option>%s</select>'
+           '<input id="tq-find" type="search" placeholder="Words to find" value="%s" aria-label="Words to find"></div>'
+           % (e(split), e(cls), e(kind), seg("split", "train", "Train (%d)" % n_of("train"), split == "train"), seg("split", "held", "Held (%d)" % n_of("held"), split == "held"),
+              seg("cls", "", "Every class", not cls), "".join(seg("cls", c_, CLASS_NAMES.get(c_, c_), cls == c_) for c_ in TRAIN_CLASSES if any(q["class"] == c_ for q in mine)),
+              len(kinds), "".join('<option value="%s"%s>%s (%d)</option>' % (e(k), " selected" if k == kind else "", e(k), sum(1 for q in mine if q["kind"] == k and (not cls or q["class"] == cls))) for k in kinds), e(find or "")))
+    most = 60
+    items = []
+    for q in shown[:most]:
+        before = "".join('<p class="tqb"><b>%s</b> %s</p>' % ("They" if b["role"] == "user" else "Reply" if b["role"] == "assistant" else e(b["role"].capitalize()), e(b["content"])) for b in q["before"])
+        meta = " · ".join(x for x in [e(q["kind"]), e(CLASS_NAMES.get(q["class"], q["class"])), "with worked examples" if q["shape"] == "shown" else "",
+                                      "marked by a program" if q["standard"] == "own" else "marked against %s&#39;s own answers" % e((d.get("target") or {}).get("name", "the larger model")),
+                                      ("tools: " + e(", ".join(q["tools"]))) if q["tools"] else ""] if x)
+        items.append('<li><div class="tqh"><code>%s</code><small>%s</small></div><p class="tqa">%s</p>%s%s</li>'
+                     % (e(q["id"]), meta, e(q["ask"]),
+                        ('<details class="told"><summary>The conversation before it (%d turn%s)</summary><div>%s</div></details>' % (len(q["before"]), "" if len(q["before"]) == 1 else "s", before)) if before else "",
+                        ('<small class="tqw">Wanted: %s</small>' % e(q["want"])) if q["want"] else ""))
+    more = ('<p class="muted small">%d more: narrow by class, kind or words to see them.</p>' % (len(shown) - most)) if len(shown) > most else ""
+    return (head + '<p class="small muted" style="margin:8px 0 0">Made by the trainers for this configuration (training/tasks.mjs), with any a person wrote beside them. Train questions are the ones training works on; held questions are never trained on and measure it.</p>'
+            + '<div class="state %s" style="margin-top:10px"><i></i><span>%s</span></div>' % ("warn" if a["same"] else "on" if a["benchmark"] else "", verdict)
+            + ctl + '<p class="small muted" style="margin:10px 0 6px">%d question%s shown.</p><ol class="tql">%s</ol>%s' % (len(shown), "" if len(shown) == 1 else "s", "".join(items) or '<li class="muted">None.</li>', more))
 
 
 def start_run(passes=0, classes=None):
@@ -2629,16 +2694,18 @@ def run_controls():
     if st and st["running"]:
         # (a session that trains some classes only says which, beside Stop)
         only = st.get("classes") or []
-        return ('<button class="btn stop top" id="run-stop" type="button">Stop training</button>'
+        return ('<button class="btn stop top" id="run-stop" type="button">Stop training</button>' + TQ_BUTTON
                 + (('<small class="evwhy" id="run-only">Training %s only, as chosen.</small>' % e(_and([CLASS_NAMES.get(c, c) for c in only]).lower())) if only else ""))
     held = busy_with()
     first = needs_eval()
     why = cannot_run() or held or first
     # (and what an evaluation of part of the work leaves with no figure from before: said, not waited for)
     first = first or eval_gaps()
-    return ('<button class="btn top" id="run-go" type="button"%s title="Train question by question, pass after pass, until Stop training is pressed">Train</button>'
-            '<button class="btn top quiet" id="run-clear" type="button"%s title="Start training again from pass 1: what it has tried, measured and kept is moved aside (to .work/archive), and each model&#39;s own answers are kept">Clear training state</button>%s'
-            % (" disabled" if why else "", " disabled" if held else "", ('<small class="evwhy" id="run-first">%s</small>' % e(first)) if first else "")
+    return (('<button class="btn top" id="run-go" type="button"%s title="Train question by question, pass after pass, until Stop training is pressed">Train</button>'
+             '<button class="btn top quiet" id="run-clear" type="button"%s title="Start training again from pass 1: what it has tried, measured and kept is moved aside (to .work/archive), and each model&#39;s own answers are kept">Clear training state</button>%s'
+             % (" disabled" if why else "", " disabled" if held else "", ('<small class="evwhy" id="run-first">%s</small>' % e(first)) if first else "")
+             # (Questions, between the two: the questions training asks, to read and audit)
+             ).replace('<button class="btn top quiet" id="run-clear"', TQ_BUTTON + '<button class="btn top quiet" id="run-clear"', 1)
             # WHICH CLASSES OF INPUT THIS SESSION TRAINS: a box for each, every one ticked to begin with, kept on the device and sent
             # with the press of Train (the page's trainAsk). An arrangement is kept class by class, so a class left out stays as
             # it is. With none ticked there is nothing to train, and Train waits
@@ -5024,7 +5091,7 @@ def page(d):
         '<main id="top"><header><div><div class="kicker">The Swarm · training overview</div><h1>Training Dashboard</h1></div>'
         '<div class="chips" id="chips">%s</div></header>%s%s'
         '<div id="body">%s</div>'
-        '%s</main></div><dialog id="spec"><div id="spec-body"></div></dialog><dialog id="qedit"><div id="qedit-body"></div></dialog><dialog id="tidy"><div id="tidy-body"></div></dialog><dialog id="steerd"><div id="steerd-body"></div></dialog><dialog id="recd"><div id="recd-body"></div></dialog><dialog id="evd"><div id="evd-body"></div></dialog>'
+        '%s</main></div><dialog id="spec"><div id="spec-body"></div></dialog><dialog id="qedit"><div id="qedit-body"></div></dialog><dialog id="tqd"><div id="tqd-body"></div></dialog><dialog id="tidy"><div id="tidy-body"></div></dialog><dialog id="steerd"><div id="steerd-body"></div></dialog><dialog id="recd"><div id="recd-body"></div></dialog><dialog id="evd"><div id="evd-body"></div></dialog>'
         '<script>%s</script></body></html>'
         % (CSS, chips(d), config_section(d), banner, main_body(d), footer(), JS)
     )
@@ -5092,6 +5159,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(eval_block(d))
         if u.path == "/fragment/classes":
             return self._send(classes_block(d))
+        if u.path == "/fragment/trainq":
+            g = lambda k: (parse_qs(u.query).get(k) or [""])[0]  # noqa: E731
+            return self._send(train_questions(d, g("split"), g("cls"), g("kind"), g("q")))
         if u.path == "/fragment/evtable":
             only = [h for h in (parse_qs(u.query).get("h") or [""])[0].split(",") if h]
             which = (parse_qs(u.query).get("view") or [""])[0]

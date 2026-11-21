@@ -532,6 +532,11 @@ with tempfile.TemporaryDirectory() as tmp:
           and '<span class="evpair">%s<button type="button" class="btn top rec" id="ev-caution"' in open(swarm_ui.__file__).read() and ".evpair{display:flex" in swarm_ui.CSS and ".evpair .btn{flex:1 1 auto;white-space:nowrap" in swarm_ui.CSS
           and "<i></i>Recommendation</button>" in open(swarm_ui.__file__).read() and "Recommendation: train" not in open(swarm_ui.__file__).read()
           and [r["id"] for r in swarm_ui.evaluation_recommendations(dict(data.load(root), learned={}))][:1] in (["untrained"], [x["id"] for x in swarm_ui.evaluation_recommendations(data.load(root)) if x["id"].startswith("unread:")][:1])
+          # (the Train card opens the questions training asks, to read and audit: each as it is put, narrowed by split, class, kind
+          # and words; and above them whether any is a benchmark's, from the benchmark questions kept on this machine)
+          and 'id="tq-open"' in swarm_ui.TQ_BUTTON and "ev.target.id==='tq-open'" in swarm_ui.JS and "'/fragment/trainq?split='" in swarm_ui.JS and '<dialog id="tqd">' in html
+          and get(base + "/fragment/trainq")[0] == 200 and 'id="tq-close"' in get(base + "/fragment/trainq")[1]
+          and __import__("questions").audit(str(root), [])["same"] == [] and __import__("questions")._runs("a b c d e f") == {"a b c d e", "b c d e f"}
           # (the Train card has a box for each class of input, every one ticked; a press of Train sends the ticked ones, and
           # fewer than all are said to the session, none or all are not)
           and swarm_ui.classes_asked(["words", "code", "x"]) == ["code", "words"] and swarm_ui.classes_asked([]) == [] and swarm_ui.classes_asked(list(swarm_ui.TRAIN_CLASSES)) == [] and swarm_ui.classes_asked(None) == []
