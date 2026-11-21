@@ -343,7 +343,7 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .moves li.skipped{opacity:.55}.moves li.pinned{background:linear-gradient(90deg,#e8f6f1,transparent)}
 dialog#evd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#evd::backdrop{background:rgba(11,40,38,.45)}
 /* THE EVALUATE CARD'S HEADLINE IS A BUTTON (it opens the table, score beside score): it keeps the look of a headline, and says it can be pressed */
-.evopen{appearance:none;border:0;background:none;padding:6px 10px;margin:-6px -10px;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:12px;max-width:100%}
+.evhead{display:flex;flex-direction:column;gap:10px;align-items:flex-start;min-width:0}.evviews{display:flex;gap:8px;flex-wrap:wrap}.evviews .btn{padding:8px 14px;font-size:13px;white-space:nowrap}.ptab{font-family:Georgia,'Times New Roman',serif;color:var(--fog)}.ptab caption{caption-side:top;text-align:left;font-size:13.5px;line-height:1.5;padding:0 0 10px}.ptab caption b{font-weight:700}.ptab table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums;border-top:2px solid var(--fog);border-bottom:2px solid var(--fog)}.ptab th,.ptab td{padding:5px 10px;text-align:right;border:0;white-space:nowrap}.ptab th:first-child,.ptab td:first-child{text-align:left;white-space:normal}.ptab thead th{font-weight:400;border-bottom:1px solid var(--fog)}.ptab tr.pg td{font-style:italic;padding-top:10px;text-align:left}.ptab tr.pall td{border-top:1px solid var(--fog);padding-top:7px}.ptab td small{color:var(--mist);font-size:.82em}.ptab-wrap{overflow-x:auto;margin-top:12px}.ptab-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}#evd-latex{width:100%;min-height:160px;margin-top:10px;font:12px ui-monospace,Menlo,monospace}.evbench{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}.evbench .seg small{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#9a5b00;margin-left:4px}.evbench .seg:disabled{opacity:.45;cursor:default}.evchart{margin-top:12px}.evchart svg{display:block;width:100%;height:auto;max-width:720px}.evchart .ax{stroke:var(--line);stroke-width:1}.evchart .tk{fill:var(--mist);font-size:11px}.evchart .lb{fill:var(--fog);font-size:12.5px;font-weight:700}.evchart .sb{fill:var(--mist);font-size:11.5px}.evchart .at{fill:var(--mist);font-size:11.5px;font-weight:700;letter-spacing:.04em}.evchart .lg{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--fog);margin:0 0 6px}.evchart .lg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}.evopen{appearance:none;border:0;background:none;padding:6px 10px;margin:-6px -10px;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:12px;max-width:100%}
 .evopen:hover{background:rgba(11,93,87,.07)}.evopen:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 /* THE TABLE FITS ITS DIALOG, at any width, with no sideways scroll: a column's heading may wrap (the larger model's name is long), a figure never does; on a phone the cells are tighter and the count of questions, the one column that is not a score, is left out */
 .evt-wrap{margin-top:12px;max-width:100%}table.spec.evt{table-layout:fixed}table.evt thead th.num{width:13%}table.evt thead th.evtg{width:22%}table.spec.evt th,table.spec.evt td{padding:7px 8px;overflow-wrap:normal}table.evt td.num,table.evt th.num{text-align:right;font-variant-numeric:tabular-nums}table.evt td.num{white-space:nowrap}dialog#evd table.spec.evt thead th{white-space:normal}
@@ -645,7 +645,10 @@ document.addEventListener('click',async(ev)=>{
   if(ev.target.closest('#steer-open')){await swap('/fragment/steer','#steerd-body');$('#steerd').showModal();return;}
   if(ev.target.id==='steer-close'||ev.target.id==='steerd'){$('#steerd').close();return;}
   // THE EVALUATION, BENCHMARK BY BENCHMARK: the Evaluate card's headline opens the table of every body of work and task
-  if(ev.target.closest('#ev-open')){await swap('/fragment/evtable','#evd-body');$('#evd').showModal();return;}
+  {const vb=ev.target.closest('[data-evd-view]');if(vb){const dg=$('#evd');dg.dataset.view=vb.dataset.evdView;await swap('/fragment/evtable?view='+dg.dataset.view,'#evd-body');$('#evd').showModal();return;}}
+  {const bb=ev.target.closest('[data-evd-bench]');if(bb){const dg=$('#evd');dg.dataset.bench=bb.dataset.evdBench;const on=[...document.querySelectorAll('[data-evd-harness]')].filter(x=>x.checked).map(x=>x.dataset.evdHarness);
+    await swap('/fragment/evtable?view=chart&b='+encodeURIComponent(dg.dataset.bench)+'&h='+encodeURIComponent(on.join(',')),'#evd-body');return;}}
+  if(ev.target.id==='evd-copy'){const ta=$('#evd-latex');try{await navigator.clipboard.writeText(ta.value);ev.target.textContent='Copied';}catch(e){ta.hidden=false;ta.select();}return;}
   if(ev.target.id==='evd-close'||ev.target.id==='evd'){$('#evd').close();return;}
 });
 document.addEventListener('input',(ev)=>{if(ev.target.id!=='steer-find')return;const q=ev.target.value.toLowerCase().trim();document.querySelectorAll('#steerd .movepick li').forEach(li=>{li.style.display=!q||li.dataset.q.includes(q)?'':'none';});});
@@ -809,7 +812,7 @@ document.addEventListener('change',async(ev)=>{
   const d=ev.target.closest('[data-evd-harness]');
   if(d){const on=[...document.querySelectorAll('[data-evd-harness]')].filter(x=>x.checked).map(x=>x.dataset.evdHarness);
     if(!on.length){d.checked=true;return;}
-    await swap('/fragment/evtable?h='+encodeURIComponent(on.join(',')),'#evd-body');return;}
+    await swap('/fragment/evtable?view='+($('#evd').dataset.view||'table')+'&b='+encodeURIComponent($('#evd').dataset.bench||'')+'&h='+encodeURIComponent(on.join(',')),'#evd-body');return;}
   const b=ev.target.closest('[data-ev-item],[data-ev-harness]');if(!b)return;const bs=[...document.querySelectorAll('[data-ev-item]')];
   try{localStorage.setItem('swarm.eval.off',JSON.stringify(bs.filter(x=>!x.checked).map(x=>x.dataset.evItem)));
     localStorage.setItem('swarm.eval.hoff',JSON.stringify([...document.querySelectorAll('[data-ev-harness]')].filter(x=>!x.checked).map(x=>x.dataset.evHarness)));}catch(e){}
@@ -4078,6 +4081,199 @@ def eval_table(d, only=None):
             '<tbody>%s</tbody></table></div>' % (e(tname), '<th class="num">Before</th>' if was else "", "".join(rows)))
 
 
+def _eval_scope(d, only=None):
+    """What a view of the evaluation's results is drawn from (as eval_table reads it): the bodies of work shown, each task's
+    result or None, the larger model's name, the dialog's heading and the harness boxes."""
+    view = eval_view(Path(ARGS.root), d)
+    res = view["res"]
+    tname = res.get("target") or (d.get("target") or {}).get("name", "the larger model")
+    every = [t for t in (d.get("equivalence") or {}).get("targets", []) if t.get("benchmarks")]
+    hs_all = harnesses_of(every)
+    hs = [h for h in hs_all if h in (only or hs_all)] or hs_all
+    listed = [dict(t, benchmarks=[b for b in t["benchmarks"] if harness_key(b) in hs]) for t in every]
+    listed = [t for t in listed if t["benchmarks"]]
+    by_task = view["by_task"]
+    have = lambda task: by_task[task] if (by_task.get(task) or {}).get("agree") else None  # noqa: E731
+    head = ('<div class="spec-head"><div><div class="kicker">Evaluate the swarm</div><h3 style="font-size:22px;margin-top:4px">The swarm against %s</h3></div>'
+            '<button class="btn stop top" id="evd-close" type="button">Close</button></div>' % e(tname))
+    boxes = ('<div class="evask evharn evd-h" role="group" aria-label="Which harnesses are shown"><span class="cfgl">Showing</span>%s</div>'
+             % "".join('<label><input type="checkbox" data-evd-harness="%s"%s>%s</label>' % (e(k), " checked" if k in hs else "", e(harness_name(k))) for k in hs_all)) if len(hs_all) > 1 else ""
+    return {"res": res, "tname": tname, "listed": listed, "have": have, "head": head, "boxes": boxes, "hs": hs, "hs_all": hs_all}
+
+
+def bench_groups(listed):
+    """THE BENCHMARKS AS THEY ARE KNOWN OUTSIDE THIS PROJECT, from the tasks listed: [(key, name, [task, ...])] in the order they
+    first appear. Tasks whose names begin with the same word are one benchmark's parts (BBH's tasks, BFCL's categories) where
+    two or more begin so; any other task is a benchmark by itself (HumanEval, GSM8K). The bodies of work are this project's
+    own grouping, for training; these are the names a result is reported under."""
+    bs = [b for t in listed for b in t["benchmarks"]]
+    first = lambda b: str(b.get("name") or b["task"]).split(" ")[0]  # noqa: E731
+    many = {w for w in {first(b) for b in bs} if sum(1 for b in bs if first(b) == w) > 1}
+    out = []
+    for b in bs:
+        name = first(b) if first(b) in many else str(b.get("name") or b["task"])
+        key = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+        row = next((g for g in out if g[0] == key), None)
+        if not row:
+            row = (key, name, [])
+            out.append(row)
+        row[2].append(b["task"])
+    return out
+
+
+def proof_sized(r):
+    """Whether a task's result rests on enough questions to be cited: a hundred or more, or every question the task has
+    (docs/swoa-parity.md: never fewer than a hundred of one task). A quick look at twenty a task is not."""
+    n = int(((r or {}).get("agree") or {}).get("of") or 0)
+    whole = int(((r or {}).get("swarm") or {}).get("of") or 0)
+    return n >= 100 or (whole and n >= whole)
+
+
+def _ev_mean(rs):
+    """A benchmark of several tasks as it is usually reported: the mean of its tasks' scores, each task counting alike.
+    -> (the swarm's, the larger model's, questions in all), in points"""
+    figs = []
+    for r in rs:
+        a = r["agree"]
+        figs.append((_ev_figure(r.get("swarm"), a, a["bothRight"] + a["onlySwarm"]), _ev_figure(r.get("target"), a, a["bothRight"] + a["onlyTarget"])))
+    return sum(f[0][0] for f in figs) / len(figs), sum(f[1][0] for f in figs) / len(figs), sum(f[0][2] for f in figs)
+
+
+def _ev_figure(side, a, counted):
+    """One model's score on one task and its standard error, in points: (score, error, questions). The harness's own error where
+    it gave one; otherwise the error of a share of that many questions."""
+    n = int(a.get("of") or 0)
+    p = float(side["value"]) if side and side.get("value") is not None else (float(counted) / n if n else 0.0)
+    se = float(side["stderr"]) if side and side.get("stderr") is not None else ((p * (1 - p) / n) ** 0.5 if n else 0.0)
+    return 100 * p, 100 * se, n
+
+
+def eval_paper(d, only=None):
+    """THE RESULTS AS A PAPER SETS THEM OUT: each benchmark by its own name, grouped by body of work, the two models side by
+    side, each score with its standard error, the higher in bold, the questions asked, and a last line over every question.
+    The caption says what is compared, how it was marked and when. The same table as LaTeX is copied by a button."""
+    sc = _eval_scope(d, only)
+    res, tname, have = sc["res"], sc["tname"], sc["have"]
+    rows = [(t, [(b, have(b["task"])) for b in t["benchmarks"] if have(b["task"])]) for t in sc["listed"]]
+    rows = [(t, bs) for t, bs in rows if bs]
+    if not rows:
+        return sc["head"] + sc["boxes"] + '<p class="muted">The swarm as it is now has not been evaluated yet.</p>'
+    fp = d.get("footprint") or {}
+    members = _and([m["name"] for m in (d.get("members") or {}).values() if m])
+    fmt = lambda x, se, bold: ("<b>%.1f</b>" if bold else "%.1f") % x + " <small>± %.1f</small>" % se  # noqa: E731
+    tex = lambda x, se, bold: ("\\textbf{%.1f}" if bold else "%.1f") % x + " {\\scriptsize $\\pm$ %.1f}" % se  # noqa: E731
+    out, lat = [], []
+    tot = [0.0, 0.0, 0]
+    for t, bs in rows:
+        out.append('<tr class="pg"><td colspan="5">%s</td></tr>' % e(t["name"]))
+        lat.append("\\multicolumn{5}{l}{\\textit{%s}} \\\\" % t["name"])
+        for b, r in bs:
+            a = r["agree"]
+            sw, sw_se, n = _ev_figure(r.get("swarm"), a, a["bothRight"] + a["onlySwarm"])
+            tg, tg_se, _ = _ev_figure(r.get("target"), a, a["bothRight"] + a["onlyTarget"])
+            tot[0] += sw * n / 100
+            tot[1] += tg * n / 100
+            tot[2] += n
+            name = b.get("name") or b["task"]
+            out.append('<tr><td>&nbsp;&nbsp;%s</td><td>%d</td><td>%s</td><td>%s</td><td>%+.1f</td></tr>' % (e(name), n, fmt(sw, sw_se, sw > tg), fmt(tg, tg_se, tg > sw), sw - tg))
+            lat.append("\\quad %s & %d & %s & %s & %+.1f \\\\" % (name.replace("&", "\\&"), n, tex(sw, sw_se, sw > tg), tex(tg, tg_se, tg > sw), sw - tg))
+    # EACH BENCHMARK OF SEVERAL TASKS, AS IT IS USUALLY REPORTED: the mean of its tasks (BBH, BFCL), each task counting alike.
+    # The bodies of work above are this project's grouping; a reader from outside looks for these lines
+    means = []
+    for key, name, tasks in bench_groups(sc["listed"]):
+        rs_ = [have(tk) for tk in tasks if have(tk)]
+        if len(tasks) > 1 and rs_:
+            msw, mtg, mn = _ev_mean(rs_)
+            means.append((name, len(rs_), len(tasks), msw, mtg, mn))
+    if means:
+        out.append('<tr class="pg"><td colspan="5">By benchmark, the mean of its tasks</td></tr>')
+        lat.append("\\midrule\n\\multicolumn{5}{l}{\\textit{By benchmark, the mean of its tasks}} \\\\")
+        for name, k, of_k, msw, mtg, mn in means:
+            label = "%s (%d task%s%s)" % (name, k, "" if k == 1 else "s", "" if k == of_k else " of %d" % of_k)
+            b_ = lambda x, hi: ("<b>%.1f</b>" if hi else "%.1f") % x  # noqa: E731
+            out.append('<tr><td>&nbsp;&nbsp;%s</td><td>%d</td><td>%s</td><td>%s</td><td>%+.1f</td></tr>' % (e(label), mn, b_(msw, msw > mtg), b_(mtg, mtg > msw), msw - mtg))
+            lat.append("\\quad %s & %d & %s & %s & %+.1f \\\\" % (label, mn, ("\\textbf{%.1f}" if msw > mtg else "%.1f") % msw, ("\\textbf{%.1f}" if mtg > msw else "%.1f") % mtg, msw - mtg))
+    n = tot[2]
+    sw, tg = 100 * tot[0] / n, 100 * tot[1] / n
+    se = lambda p: (p * (100 - p) / n) ** 0.5  # noqa: E731
+    out.append('<tr class="pall"><td>All questions</td><td>%d</td><td>%s</td><td>%s</td><td>%+.1f</td></tr>' % (n, fmt(sw, se(sw), sw > tg), fmt(tg, se(tg), tg > sw), sw - tg))
+    lat.append("\\midrule\nAll questions & %d & %s & %s & %+.1f \\\\" % (n, tex(sw, se(sw), sw > tg), tex(tg, se(tg), tg > sw), sw - tg))
+    mem = (" (%s GB in memory)" % fmt_pct(fp["swarm"])) if fp.get("swarm") else ""
+    tmem = (" (%s GB)" % fmt_pct(fp["target"])) if fp.get("target") else ""
+    cap = ("Accuracy (%%) of the swarm of %s%s and of %s%s on the same questions, each marked by its benchmark&#39;s own checker (%s). ± is one standard error. "
+           "<i>n</i> is the questions asked of each; Δ is the swarm&#39;s score less the larger model&#39;s, in points; the higher score is in bold. Evaluated %s UTC.%s"
+           % (e(members), mem, e(tname), tmem, e("; ".join(x for x in [res.get("harness", "")] if x) or "its harness"), e(_day(res.get("at"))),
+              # (a quick look is said to be one: a line that rests on fewer than a hundred questions, and not the whole task, is not a result to cite)
+              "" if all(proof_sized(r) for _, bs in rows for _, r in bs) else " A line of fewer than 100 questions that is not the whole task is a quick look, not a result to cite: a proof run asks more."))
+    plain = re.sub(r"<[^>]+>", "", cap).replace("&#39;", "'").replace("%", "\\%").replace("±", "$\\pm$").replace("Δ", "$\\Delta$").replace("&", "\\&")
+    latex = ("\\begin{table}[t]\n\\centering\n\\caption{%s}\n\\begin{tabular}{lrrrr}\n\\toprule\nBenchmark & $n$ & The swarm & %s & $\\Delta$ \\\\\n\\midrule\n%s\n\\bottomrule\n\\end{tabular}\n\\end{table}"
+             % (plain, tname, "\n".join(lat)))
+    return (sc["head"] + sc["boxes"]
+            + '<div class="ptab-wrap"><div class="ptab"><table><caption><b>Table 1.</b> %s</caption><thead><tr><th>Benchmark</th><th><i>n</i></th><th>The swarm</th><th>%s</th><th>Δ</th></tr></thead><tbody>%s</tbody></table></div></div>'
+            % (cap, e(tname), "".join(out))
+            + '<div class="ptab-act"><button type="button" class="btn top ghost" id="evd-copy">Copy as LaTeX</button><small class="muted">The same table, for a paper (booktabs).</small></div>'
+            + '<textarea id="evd-latex" hidden readonly>%s</textarea>' % e(latex))
+
+
+def eval_chart(d, only=None, bench=None):
+    """SCORE AGAINST MEMORY: the swarm and the larger model as two points, what each scored over the questions shown against
+    the memory it holds while it serves (the page's one source for memory, d["footprint"]). Memory is on a scale of doublings.
+    Each point is named beside it, with its figures; the same in a line under the chart."""
+    sc = _eval_scope(d, only)
+    tname, have = sc["tname"], sc["have"]
+    # WHAT THE SCORES ARE OF, one at a time: every question shown (this project's own mix: no one else reports it), or one
+    # benchmark by the name it is known by outside, the mean of its tasks where it has several. A choice says where what it
+    # shows is a quick look and not a result to cite, and where it has not been evaluated
+    groups = bench_groups(sc["listed"])
+    cur = next((g for g in groups if g[0] == bench), None)
+    tasks_of = lambda g: [have(tk) for tk in g[2] if have(tk)]  # noqa: E731
+    seg = lambda key, label, sel, rs: ('<button type="button" class="seg%s" data-evd-bench="%s" aria-pressed="%s"%s>%s%s</button>'  # noqa: E731
+                                       % (" on" if sel else "", e(key), "true" if sel else "false", "" if rs else ' disabled title="Not evaluated yet"', e(label),
+                                          "" if not rs or all(proof_sized(r) for r in rs) else ' <small title="Fewer than 100 questions of a task: a quick look">quick</small>'))
+    every = [have(b["task"]) for t in sc["listed"] for b in t["benchmarks"] if have(b["task"])]
+    pick = ('<div class="evbench"><span class="cfgl">Scores of</span><div class="tgl" role="group" aria-label="What the scores are of">%s%s</div></div>'
+            % (seg("", "All questions", not cur, every), "".join(seg(g[0], g[1], cur is g, tasks_of(g)) for g in groups))) if groups else ""
+    done = tasks_of(cur) if cur else every
+    fp = d.get("footprint") or {}
+    sw_r, tg_r, of = _ev_right(done)
+    if not of or not fp.get("swarm") or not fp.get("target"):
+        return sc["head"] + sc["boxes"] + pick + '<p class="muted">%s</p>' % ("The swarm as it is now has not been evaluated %s." % (("on %s yet" % e(cur[1])) if cur else "yet") if not of else "What each holds in memory is not known here, so there is nothing to set the scores against.")
+    sw_pc, tg_pc = 100.0 * sw_r / of, 100.0 * tg_r / of
+    if cur and len(done) > 1:
+        sw_pc, tg_pc, of = _ev_mean(done)  # (a benchmark of several tasks: the mean of its tasks, as it is reported)
+    pts = [("The swarm", float(fp["swarm"]), sw_pc, "var(--teal2)"), (tname, float(fp["target"]), tg_pc, "var(--tgt)")]
+    import math
+    lo = 2 ** math.floor(math.log2(min(p[1] for p in pts) / 1.4))
+    hi = 2 ** math.ceil(math.log2(max(p[1] for p in pts) * 1.4))
+    W, H, L, R, T, B = 680, 380, 56, 28, 18, 50
+    X = lambda gb: L + (W - L - R) * (math.log2(gb) - math.log2(lo)) / (math.log2(hi) - math.log2(lo))  # noqa: E731
+    Y = lambda pc: T + (H - T - B) * (1 - pc / 100.0)  # noqa: E731
+    g = []
+    for pc in (0, 20, 40, 60, 80, 100):
+        g.append('<line class="ax" x1="%d" x2="%d" y1="%.1f" y2="%.1f"/><text class="tk" x="%d" y="%.1f" text-anchor="end">%d%%</text>' % (L, W - R, Y(pc), Y(pc), L - 8, Y(pc) + 4, pc))
+    gb = lo
+    while gb <= hi:
+        g.append('<text class="tk" x="%.1f" y="%d" text-anchor="middle">%s GB</text>' % (X(gb), H - B + 18, ("%g" % gb)))
+        gb *= 2
+    g.append('<text class="at" x="%.1f" y="%d" text-anchor="middle">MEMORY HELD WHILE SERVING (EACH STEP DOUBLES)</text>' % ((L + W - R) / 2.0, H - 8))
+    for i, (name, mem, pc, col) in enumerate(pts):
+        x, y = X(mem), Y(pc)
+        left = x > (L + W - R) / 2.0  # (the name sits on the side with room)
+        tx, anchor = (x - 12, "end") if left else (x + 12, "start")
+        g.append('<g><title>%s: %s%% of %d questions, %s GB</title><circle cx="%.1f" cy="%.1f" r="7" fill="%s" stroke="var(--panel)" stroke-width="2"/>'
+                 '<text class="lb" x="%.1f" y="%.1f" text-anchor="%s">%s</text><text class="sb" x="%.1f" y="%.1f" text-anchor="%s">%s%% · %s GB</text></g>'
+                 % (e(name), fmt_pct(pc), of, fmt_pct(mem), x, y, col, tx, y - 2, anchor, e(name), tx, y + 13, anchor, fmt_pct(pc), fmt_pct(mem)))
+    share, memshare = data.percent(sw_pc, tg_pc), fp.get("share") or data.percent(fp["swarm"], fp["target"])
+    what = ("On %s%s" % (e(cur[1]), (", the mean of %d of its tasks," % len(done)) if len(done) > 1 else "")) if cur else "Over every question shown (this project&#39;s own mix of tasks)"
+    line = ("%s the swarm scored %s%% of what %s scored (%s%% against %s%%, on the same %d questions) while holding %s%% of its memory (%s GB against %s GB). Higher is better; further left is lighter.%s"
+            % (what, fmt_pct(share), e(tname), fmt_pct(sw_pc), fmt_pct(tg_pc), of, fmt_pct(memshare), fmt_pct(fp["swarm"]), fmt_pct(fp["target"]),
+               "" if all(proof_sized(r) for r in done) else " A quick look: fewer than 100 questions of a task. A proof run asks more, and is the one to cite."))
+    return (sc["head"] + sc["boxes"] + pick
+            + '<div class="evchart"><p class="lg"><span><i style="background:var(--teal2)"></i>The swarm</span><span><i style="background:var(--tgt)"></i>%s</span></p>'
+              '<svg viewBox="0 0 %d %d" role="img" aria-label="Score against memory: %s">%s</svg></div><p class="small muted" style="margin:10px 0 0">%s</p>'
+            % (e(tname), W, H, e(re.sub(r"<[^>]+>", "", line)), "".join(g), line))
+
+
 def _ev_meta_done(bms, by_task):
     """One body of work as the last evaluation left it, in a line: its tasks, and on how many questions the two gave the same."""
     rs = [by_task[b["task"]] for b in bms if b["task"] in by_task]
@@ -4277,11 +4473,17 @@ def eval_block(d):
     # against 71% is 83%), with the two scores under it. It is a button: it opens the table of every body of work and task
     # (eval_table), where each one's two scores sit side by side
     tn_res = res.get("target") or tname
-    head = (('<button type="button" class="evopen" id="ev-open" title="Every body of work and task: the swarm&#39;s score beside %s&#39;s">'
-             '<span class="memnum"><b class="pct">%s</b><span>of the larger model&#39;s score<small>%s%% against %s%% · %d questions%s · see each</small></span></span></button>'
-             % (e(tn_res), _ev_share(sw_right, tg_right), fmt_pct(data.percent(sw_right, of)), fmt_pct(data.percent(tg_right, of)), of,
+    # (the figure is not itself pressed: three buttons under it open the same results three ways, console 2026-11-20. EACH TASK:
+    # every body of work and task, score beside score (eval_table); PAPER TABLE: as a paper sets its results out, with each
+    # figure's standard error (eval_paper); SCORE AGAINST MEMORY: the two as points, what each scored against what it holds
+    # in memory (eval_chart))
+    head = (('<span class="evhead"><span class="memnum"><b class="pct">%s</b><span>of the larger model&#39;s score<small>%s%% against %s%% · %d questions%s</small></span></span>'
+             '<span class="evviews" role="group" aria-label="See the results of the evaluation"><button type="button" class="btn top ghost" id="ev-open" data-evd-view="table" title="Every body of work and task: the swarm&#39;s score beside %s&#39;s">Each task</button>'
+             '<button type="button" class="btn top ghost" data-evd-view="paper" title="The results as a paper sets them out: each benchmark, both models, with standard errors">Paper table</button>'
+             '<button type="button" class="btn top ghost" data-evd-view="chart" title="Score against memory: what each scored, set against the memory it holds">Chart</button></span></span>'
+             % (_ev_share(sw_right, tg_right), fmt_pct(data.percent(sw_right, of)), fmt_pct(data.percent(tg_right, of)), of,
                 # (questions this evaluation did not ask again: their figures are an earlier evaluation's, and the headline says so)
-                (" · %d from before" % view["carried"]) if view["carried"] else ""))
+                (" · %d from before" % view["carried"]) if view["carried"] else "", e(tn_res)))
             if of else '<span class="memnum"><b class="pct none">–</b><span>of the larger model&#39;s score<small>not evaluated yet</small></span></span>')
     # WHILE AN EVALUATION RUNS the headline is not the last one's: where the swarm's score and the larger model's will be, a
     # bar that moves (nothing is known until the answers are compared), and the questions it was asked to put, as chosen. Stopped
@@ -4863,7 +5065,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(classes_block(d))
         if u.path == "/fragment/evtable":
             only = [h for h in (parse_qs(u.query).get("h") or [""])[0].split(",") if h]
-            return self._send(eval_table(d, only or None))
+            which = (parse_qs(u.query).get("view") or [""])[0]
+            if which == "chart":
+                return self._send(eval_chart(d, only or None, (parse_qs(u.query).get("b") or [""])[0] or None))
+            return self._send({"paper": eval_paper}.get(which, eval_table)(d, only or None))
         if u.path == "/fragment/pretrain":
             return self._send(pretrain_block(d))
         if u.path == "/fragment/spec":

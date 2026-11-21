@@ -509,7 +509,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and "evLeft" in swarm_ui.JS and "swarm.eval.hoff" in swarm_ui.JS
           # (a row with no bars says so, and the script draws the card again when the run names that row's task; a row of a
           # running evaluation's own tasks has bars from the first draw that knows them)
-          and 'data-none>not evaluated yet</span>' in ev0 and "row.querySelector('[data-none]')" in swarm_ui.JS and "data-none" not in ev_run.split('data-evt="bfcl_multiple"')[1].split("</div></div>")[0] and "/fragment/evtable?h=" in swarm_ui.JS
+          and 'data-none>not evaluated yet</span>' in ev0 and "row.querySelector('[data-none]')" in swarm_ui.JS and "data-none" not in ev_run.split('data-evt="bfcl_multiple"')[1].split("</div></div>")[0] and "+'&h='+encodeURIComponent(on.join(','))" in swarm_ui.JS
           # (the table's columns are of set widths, so its header breaks its lines alike whichever harnesses are shown)
           and "table.spec.evt{table-layout:fixed}" in swarm_ui.CSS and '<th class="num evtg">' in ev_table and '<th class="num evtg">' in ev_table_l and '<th class="num">Swarm → target</th>' in ev_table and ">Share<" not in ev_table
           # (a swarm training has kept nothing for is recommended to be trained before its evaluation is relied on, and the Evaluate
@@ -532,6 +532,10 @@ with tempfile.TemporaryDirectory() as tmp:
           and '<span class="evpair">%s<button type="button" class="btn top rec" id="ev-caution"' in open(swarm_ui.__file__).read() and ".evpair{display:flex" in swarm_ui.CSS and ".evpair .btn{flex:1 1 auto;white-space:nowrap" in swarm_ui.CSS
           and "<i></i>Recommendation</button>" in open(swarm_ui.__file__).read() and "Recommendation: train" not in open(swarm_ui.__file__).read()
           and [r["id"] for r in swarm_ui.evaluation_recommendations(dict(data.load(root), learned={}))][:1] in (["untrained"], [x["id"] for x in swarm_ui.evaluation_recommendations(data.load(root)) if x["id"].startswith("unread:")][:1])
+          # (the results open three ways from buttons under the headline: each task, a paper's table, and score against memory)
+          and "closest('[data-evd-view]')" in swarm_ui.JS and "'/fragment/evtable?view='+" in swarm_ui.JS and "evd-copy" in swarm_ui.JS
+          and [round(x, 2) for x in swarm_ui._ev_figure({"value": 0.9, "stderr": 0.0688}, {"of": 20}, 18)] == [90.0, 6.88, 20] and [round(x, 2) for x in swarm_ui._ev_figure({"value": None}, {"of": 20}, 10)] == [50.0, 11.18, 20]
+          and get(base + "/fragment/evtable?view=paper")[0] == 200 and get(base + "/fragment/evtable?view=chart")[0] == 200 and 'id="evd-close"' in get(base + "/fragment/evtable?view=paper")[1] and 'id="evd-close"' in get(base + "/fragment/evtable?view=chart")[1]
           # (a run that stopped on an error says the error, not the name of the program that ran it)
           and swarm_ui._why_ended(["15:06:17 Comparing the answers", "node:fs:438", "TypeError [ERR_INVALID_ARG_TYPE]: The \"path\" argument must be of type string", "    at scoreOf (file:///x.mjs:370:27)", "}", "Node.js v22.23.3"]).startswith("TypeError [ERR_INVALID_ARG_TYPE]")
           and swarm_ui._why_ended(["one", "the last line"]) == "the last line"
@@ -550,7 +554,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and 'class="pct busy"' in held_ev and 'class="busyn"' in held_ev
           and 'class="pct busy"' in pre_run and "of %d adapted" % pre0.count('class="prerow"') in pre_run and "pct busy" not in pre_stop and '<b class="pct">1</b>' in pre_stop
           and "Adapted</b> 2026-11-17" in pre_stop and "a later attempt was not kept: llama.cpp did not load it" in pre_stop and "of 300 questions" in held_ev and 'class="evask"' not in held_ev and 'id="ev-open"' not in held_ev and "&#39;s score<small><i class=\"busyn\"" in held_ev
-          and '<button type="button" class="evopen" id="ev-open"' in ev_after and '<b class="pct">75%</b><span>of the larger model&#39;s score<small>45% against 60% · 20 questions' in ev_after and "equivalent<" not in ev_after
+          and 'id="ev-open" data-evd-view="table"' in ev_after and 'data-evd-view="paper"' in ev_after and 'data-evd-view="chart"' in ev_after and '<button type="button" class="evopen"' not in ev_after and '<b class="pct">75%</b><span>of the larger model&#39;s score<small>45% against 60% · 20 questions' in ev_after and "equivalent<" not in ev_after
           and '<tr class="evt-item"><th scope="row">' in ev_table and '<td class="num">45%</td><td class="num">60%</td><td class="num"><b class="down">75%</b></td><td class="num evn">20</td>' in ev_table
           and ev_table.count('<tr class="evt-task">') == 23 and "not evaluated" in ev_table and '<tr class="evt-all"><th scope="row">Every question</th><td class="num">45%</td>' in ev_table
           and swarm_ui._ev_share(5, 0) == "–" and "$('#evd').showModal()" in swarm_ui.JS and '<dialog id="evd">' in html and "pct busy" not in ev_after,
@@ -1887,6 +1891,21 @@ swarm_ui._eval_rows = lambda root: [_full11]
 _v_full = swarm_ui.eval_view(swarm_ui.ARGS.root, _d11)
 _blk_full = swarm_ui.eval_block(_d11)
 _tab_full = swarm_ui.eval_table(_d11)
+# (the same evaluation as a paper's table and as two points: each benchmark by name with its error, a last line over every
+# question, the table as LaTeX; and a point for each model where what each holds in memory is known, none where it is not)
+_pap11 = swarm_ui.eval_paper(_d11)
+_cht11 = swarm_ui.eval_chart(dict(_d11, footprint={"swarm": 4.0, "target": 16.0, "share": 25.0}))
+check("the evaluation's results as a paper sets them out, and as score against memory: a caption, each benchmark with both scores and their standard errors, the higher in bold, a line over every question and the table as LaTeX; and a point for each of the two, named, where their memory is known",
+      "<b>Table 1.</b>" in _pap11 and "± is one standard error" in _pap11 and 'class="pall"><td>All questions</td><td>40</td>' in _pap11 and "<small>± " in _pap11 and "\\begin{tabular}{lrrrr}" in _pap11 and "\\toprule" in _pap11 and 'id="evd-copy"' in _pap11
+      and _cht11.count("<circle ") == 2 and "while holding 25% of its memory (4 GB against 16 GB)" in _cht11 and "<title>The swarm: " in _cht11 and 'role="img"' in _cht11
+      and "nothing to set the scores against" in swarm_ui.eval_chart(dict(_d11, footprint={}))
+      # (the chart's scores are of one thing at a time: every question, or one benchmark by the name it is known by; a benchmark
+      # of several tasks is the mean of its tasks; a result of fewer than a hundred questions of a task says it is a quick look)
+      and swarm_ui.bench_groups([{"benchmarks": [{"task": "a", "name": "BBH one"}, {"task": "b", "name": "HumanEval"}]}, {"benchmarks": [{"task": "c", "name": "BBH two"}]}]) == [("bbh", "BBH", ["a", "c"]), ("humaneval", "HumanEval", ["b"])]
+      and swarm_ui.proof_sized({"agree": {"of": 100}}) and swarm_ui.proof_sized({"agree": {"of": 20}, "swarm": {"of": 20}}) and not swarm_ui.proof_sized({"agree": {"of": 20}, "swarm": {"of": 164}})
+      and [round(x, 1) for x in swarm_ui._ev_mean([{"agree": {"of": 10, "bothRight": 5, "onlySwarm": 0, "onlyTarget": 5}}, {"agree": {"of": 30, "bothRight": 30, "onlySwarm": 0, "onlyTarget": 0}}])] == [75.0, 100.0, 40]
+      and 'data-evd-bench="" aria-pressed="true"' in _cht11 and "Over every question shown (this project&#39;s own mix of tasks)" in _cht11 and "A quick look" in _cht11
+      and "closest('[data-evd-bench]')" in swarm_ui.JS and "'/fragment/evtable?view=chart&b='" in swarm_ui.JS, [_pap11[-600:], _cht11[-400:]])
 _pre_full = swarm_ui.pretrain_block(_d11)
 swarm_ui._eval_rows = lambda root: [_full11, _other11, _narrow11]
 _v11 = swarm_ui.eval_view(swarm_ui.ARGS.root, _d11)
@@ -1903,7 +1922,7 @@ check("a second look asks only the bodies of work where the swarm scored under t
       and 'id="pre-aim"' not in _pre_full
       and _v11["by_task"]["he"]["carried"]["at"] == _full11["at"] and _v11["by_task"]["he"]["swarm"]["value"] == 0.75 and _v11["carried"] == 20
       and _v11["by_task"]["gsm"]["before"]["swarm"]["value"] == 0.4 and "carried" not in _v11["by_task"]["gsm"] and _v11["short"] == ["math"]
-      and "· 20 from before ·" in _blk11 and "Not asked again: from the evaluation of 2026-11-19 10:00" in _blk11 and "Before (2026-11-19 10:00): the swarm 40%" in _blk11
+      and "· 20 from before</small>" in _blk11 and "Not asked again: from the evaluation of 2026-11-19 10:00" in _blk11 and "Before (2026-11-19 10:00): the swarm 40%" in _blk11
       and '<th class="num">Before</th>' in _tab11 and '<td class="num">50% <i class="up">up</i></td>' in _tab11 and 'class="evt-task evt-old"' in _tab11 and 'title="Not asked again">–</td>' in _tab11
       and '<tr class="evt-all"><th scope="row">Every question</th><td class="num">67.5%</td><td class="num">65%</td><td class="num"><b class="up">103.8%</b></td><td class="num">88.4% <i class="up">up</i></td>' in _tab11
       and _v_level["short"] == [] and 'id="ev-narrow"' not in _blk_level and swarm_ui._and(["a", "b", "c"]) == "a, b and c"

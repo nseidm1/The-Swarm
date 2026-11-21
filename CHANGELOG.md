@@ -6,6 +6,14 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **An evaluation's results open three ways** (2026-11-20), from buttons under the Evaluate card's headline, which is no
+  longer pressed itself. Each task: every body of work and task, score beside score, as before. Paper table: each
+  benchmark by name, both models with their standard errors, the higher in bold, a line over every question, and a button
+  that copies the table as LaTeX. Chart: the swarm and the larger model as two points, what each scored against the memory
+  it holds. The chart's scores are of one thing at a time, chosen above it: every question (this project's own mix),
+  or one benchmark by the name it is known by outside (HumanEval, MBPP, GSM8K, BBH, IFEval, BFCL), a benchmark of several
+  tasks as the mean of its tasks. The paper table has those means too. A result of fewer than 100 questions of a task
+  that is not the whole task says it is a quick look, not one to cite.
 - **Every swarm starts with replies closed as the conversation's examples close** (2026-11-20). Where a conversation shows,
   in two or more earlier replies, how a reply ends ("So the answer is (B)."), the swarm's reply ends that way and has no
   empty line where they have none. It was a setting only training turned on, so an untrained swarm lost marks on
