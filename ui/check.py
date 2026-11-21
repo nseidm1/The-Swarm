@@ -532,6 +532,11 @@ with tempfile.TemporaryDirectory() as tmp:
           and '<span class="evpair">%s<button type="button" class="btn top rec" id="ev-caution"' in open(swarm_ui.__file__).read() and ".evpair{display:flex" in swarm_ui.CSS and ".evpair .btn{flex:1 1 auto;white-space:nowrap" in swarm_ui.CSS
           and "<i></i>Recommendation</button>" in open(swarm_ui.__file__).read() and "Recommendation: train" not in open(swarm_ui.__file__).read()
           and [r["id"] for r in swarm_ui.evaluation_recommendations(dict(data.load(root), learned={}))][:1] in (["untrained"], [x["id"] for x in swarm_ui.evaluation_recommendations(data.load(root)) if x["id"].startswith("unread:")][:1])
+          # (the Train card has a box for each class of input, every one ticked; a press of Train sends the ticked ones, and
+          # fewer than all are said to the session, none or all are not)
+          and swarm_ui.classes_asked(["words", "code", "x"]) == ["code", "words"] and swarm_ui.classes_asked([]) == [] and swarm_ui.classes_asked(list(swarm_ui.TRAIN_CLASSES)) == [] and swarm_ui.classes_asked(None) == []
+          and "data-train-class" in swarm_ui.JS and "swarm.train.off" in swarm_ui.JS and "JSON.stringify({classes:" in swarm_ui.JS
+          and 'env["TRAIN_CLASSES"] = ",".join(only)' in open(swarm_ui.__file__).read()
           # (the results open three ways from buttons under the headline: each task, a paper's table, and score against memory)
           and "closest('[data-evd-view]')" in swarm_ui.JS and "'/fragment/evtable?view='+" in swarm_ui.JS and "evd-copy" in swarm_ui.JS
           and [round(x, 2) for x in swarm_ui._ev_figure({"value": 0.9, "stderr": 0.0688}, {"of": 20}, 18)] == [90.0, 6.88, 20] and [round(x, 2) for x in swarm_ui._ev_figure({"value": None}, {"of": 20}, 10)] == [50.0, 11.18, 20]

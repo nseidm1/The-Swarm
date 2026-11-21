@@ -55,6 +55,19 @@ export const AREAS_FOR = {
   writing: ['slots', 'briefs', 'flow', 'decider', 'loops', 'several'],
 };
 // THE KIND OF A CHANGE, which is what is learned: how often changes of each kind have brought a question to parity
+// THE CLASSES OF INPUT A PERSON NAMED ("words,code"), those of them that are classes, in the order classes are listed; null
+// where none is named or none is a class (which trains every class). And a list of questions, those of the classes named
+//   classesNamed(text) -> ['code', 'words'] or null      ofClasses(list, classes or null, (question) -> its class) -> list
+const INPUT_CLASSES = ['tools', 'talk', 'code', 'words'];
+export function classesNamed(text) {
+  const asked = String(text || '')
+    .split(',')
+    .map((s) => s.trim());
+  const found = INPUT_CLASSES.filter((c) => asked.includes(c));
+  return found.length && found.length < INPUT_CLASSES.length ? found : null;
+}
+export const ofClasses = (list, classes, classIs) =>
+  classes ? list.filter((t) => classes.includes(classIs(t))) : list;
 export function classOf(m) {
   const n = String(m.name || '');
   if (m.kind === 'brief')
@@ -2243,8 +2256,19 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       .map((s) => s.trim())
       .filter(Boolean),
   );
-  const list = questions('train', each).filter((t) => !skipKinds.has(t.kind));
+  // AND THE CLASSES OF INPUT A PERSON CHOSE TO TRAIN (--only-classes words,code; TRAIN_CLASSES in session.sh, the Train card's
+  // boxes): only the train questions of those classes are taken in hand. A class is the unit an arrangement is kept for
+  // (src/orchestrate.mjs classOf), so leaving a whole class out leaves its arrangement as it was and unprotects nothing: every
+  // kind of a class that IS trained is still asked. None named, or none of them a class: every class, as before
+  const onlyClasses = classesNamed(arg('only-classes', process.env.TRAIN_CLASSES || ''));
+  const list = ofClasses(
+    questions('train', each).filter((t) => !skipKinds.has(t.kind)),
+    onlyClasses,
+    (t) => inputClassOf(messagesOf(t), { tools: t.tools }),
+  );
   if (skipKinds.size) console.log('Left out of this pass, as asked: ' + [...skipKinds].join(', ') + '.');
+  if (onlyClasses)
+    console.log('This pass trains these classes of input only, as asked: ' + onlyClasses.join(', ') + '.');
   // what each question asks: a brief that names a function one of them asks for is passed over (support/teach.mjs givesAway)
   const asks = list.map((t) => t.ask || '');
   // (read here, before anything that builds the pool of changes: the pool passes over briefs that give a question away)

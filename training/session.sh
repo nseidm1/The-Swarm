@@ -162,13 +162,14 @@ while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
   # pass has questions of, how it stands (did some slot have the answer, did the swarm settle on it, is the reply good as it is
   # read), then a few candidate arrangements scored on the same questions, the best confirmed on held questions and kept where
   # it is better there. Only questions that carry a standard of their own are asked, and no benchmark's.
-  run 08-classes      training/classes.mjs
+  # (TRAIN_CLASSES=words,code: only those classes of input are trained, here and question by question; the Train card's boxes)
+  run 08-classes      training/classes.mjs ${TRAIN_CLASSES:+--only "$TRAIN_CLASSES"}
   # TRAINING, QUESTION BY QUESTION (training/loop.mjs). Each train question is put to the swarm and stays in hand until its reply
   # is at parity with the larger model's: where it is not, changes are tried one at a time on that question (another brief, the
   # check and decide steps configured another way, the writer), by where its answer was lost; a change that brings it to parity
   # and loses no question already there is kept, and is the arrangement for every question after. CAP changes at most (8).
   # This is the whole of training: there is no measuring everything, then trying, then measuring again.
-  run 10-questions    training/loop.mjs --each "$EACH" ${CAP:+--cap "$CAP"} ${GUARD:+--guard "$GUARD"}
+  run 10-questions    training/loop.mjs --each "$EACH" ${CAP:+--cap "$CAP"} ${GUARD:+--guard "$GUARD"} ${TRAIN_CLASSES:+--only-classes "$TRAIN_CLASSES"}
   # A KIND WITH NOTHING TO COMPARE STOPS THE PASS (exit 3, training/loop.mjs coverageOf): training it would train nothing and say only
   # "not compared". The pass stays open; started again (a judge named, or SKIP_KINDS=a,b to leave those kinds out) it carries on
   if [ $? = 3 ]; then

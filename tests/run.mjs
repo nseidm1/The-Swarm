@@ -8315,6 +8315,21 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       R.closedAs('x. So the answer is d.', 'c', lettered) === 'x. So the answer is (C).' &&
       R.closedAs('x. So the answer is False.', 'and', form) === 'x. So the answer is False.' &&
       R.closedAs('x. So the answer is', 'No', form) === 'x. So the answer is No.' &&
+      // (a pass can be told which classes of input to train: those named that are classes, in their order; none or all is every class)
+      (await import('../training/loop.mjs')).classesNamed('words, code,nothing').join() === 'code,words' &&
+      (await import('../training/loop.mjs')).classesNamed('') === null &&
+      (await import('../training/loop.mjs')).classesNamed('tools,talk,code,words') === null &&
+      (await import('../training/loop.mjs'))
+        .ofClasses([{ c: 'words' }, { c: 'code' }, { c: 'talk' }], ['code', 'words'], (x) => x.c)
+        .map((x) => x.c)
+        .join() === 'words,code' &&
+      (await import('../training/loop.mjs')).ofClasses([{ c: 'talk' }], null, (x) => x.c).length === 1 &&
+      /08-classes\s+training\/classes\.mjs \$\{TRAIN_CLASSES:\+--only "\$TRAIN_CLASSES"\}/.test(
+        fs.readFileSync(new URL('../training/session.sh', import.meta.url), 'utf8'),
+      ) &&
+      /--only-classes "\$TRAIN_CLASSES"/.test(
+        fs.readFileSync(new URL('../training/session.sh', import.meta.url), 'utf8'),
+      ) &&
       // (and the arrangement every swarm starts from has it on: training turns it off for a class where that does better)
       JSON.parse(fs.readFileSync(new URL('../src/briefs.json', import.meta.url), 'utf8')).plan.closeAs === 'shown' &&
       JSON.parse(fs.readFileSync(new URL('../training/policy.json', import.meta.url), 'utf8')).classes.moves.includes(

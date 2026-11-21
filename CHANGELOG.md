@@ -6,6 +6,11 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A training session can be limited to chosen classes of input** (2026-11-20). The Train card has a box for each class
+  (with tools, a conversation, asking for code, a plain question), every one ticked to begin with and kept on the device.
+  Train sends the ticked ones; the session then trains only those, as a class and question by question
+  (`TRAIN_CLASSES=words,code bash training/session.sh` does the same). An arrangement is kept class by class, so a class
+  left out stays as it is. The larger model's answers and the held measurement still cover every class.
 - **An evaluation's results open three ways** (2026-11-20), from buttons under the Evaluate card's headline, which is no
   longer pressed itself. Each task: every body of work and task, score beside score, as before. Paper table: each
   benchmark by name, both models with their standard errors, the higher in bold, a line over every question, and a button

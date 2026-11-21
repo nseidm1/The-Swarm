@@ -556,7 +556,7 @@ document.addEventListener('click',(ev)=>{
 // (saved on a click of its heading, and not on every toggle: a section that loads open fires one too, which would put "open" back)
 document.addEventListener('click',(ev)=>{const sm=ev.target.closest('details[data-keep]>summary');if(!sm)return;const d=sm.parentElement;setTimeout(()=>{try{localStorage.setItem('swarm.open.'+d.dataset.keep,d.open?'1':'0');}catch(e){}},0);});
 document.addEventListener('DOMContentLoaded',()=>keepOpen());
-async function swap(url,into,opts){const r=await fetch(url,opts);$(into).innerHTML=await r.text();keepOpen($(into));if(typeof sinceTick==='function')sinceTick();if(typeof evAsk==='function')evAsk();}
+async function swap(url,into,opts){const r=await fetch(url,opts);$(into).innerHTML=await r.text();keepOpen($(into));if(typeof sinceTick==='function')sinceTick();if(typeof evAsk==='function')evAsk();if(typeof trainAsk==='function')trainAsk();}
 document.addEventListener('click',async(ev)=>{
   const q=ev.target.closest('.q');
   if(q){document.querySelectorAll('.q[aria-current]').forEach(x=>x.removeAttribute('aria-current'));q.setAttribute('aria-current','true');
@@ -571,7 +571,7 @@ document.addEventListener('click',async(ev)=>{
     b.disabled=true;await swap('/run/clear','#score',{method:'POST',headers:{'x-swarm':'1'}});const kept=$('#score').innerHTML;await swap('/fragment/body','#body');$('#score').innerHTML=kept;return;}
   if(ev.target.id==='run-go'||ev.target.id==='run-stop'){const b=ev.target;b.disabled=true;
     if(b.id==='run-go')document.querySelectorAll('[data-pick]').forEach(x=>x.disabled=true);
-    const body='{}';
+    const body=b.id==='run-go'?JSON.stringify({classes:[...document.querySelectorAll('[data-train-class]')].filter(x=>x.checked).map(x=>x.dataset.trainClass)}):'{}';
     await swap(b.id==='run-go'?'/run/start':'/run/stop','#score',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body});
     // THE PILLS FOLLOW AT ONCE: they are locked while a session runs. The watch loop redrew them only where it had itself seen
     // the session running and then not, and after Stop this line has already redrawn the card as stopped: so the loop saw nothing
@@ -799,6 +799,10 @@ function evOff(){try{const v=JSON.parse(localStorage.getItem('swarm.eval.off')||
 // (AND WITH WHICH HARNESSES, kept the same way: a task is asked where its body of work and its harness are both ticked. A body
 // of work none of whose harnesses is ticked has nothing to ask: its box goes quiet, as it is, until one is ticked again)
 function evHOff(){try{const v=JSON.parse(localStorage.getItem('swarm.eval.hoff')||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
+// WHICH CLASSES A SESSION TRAINS: the boxes are as they were left on this device; with none ticked Train waits
+function trainAsk(){const bs=[...document.querySelectorAll('[data-train-class]')];if(!bs.length)return;let off=[];try{off=JSON.parse(localStorage.getItem('swarm.train.off')||'[]');}catch(e){}
+  bs.forEach(x=>{x.checked=!off.includes(x.dataset.trainClass);});if(!bs.some(x=>x.checked))bs.forEach(x=>{x.checked=true;});trainLeft();}
+function trainLeft(){const bs=[...document.querySelectorAll('[data-train-class]')],g=$('#run-go');if(g&&bs.length&&!bs[0].disabled)g.disabled=!bs.some(x=>x.checked);}
 function evLeft(){const hs=[...document.querySelectorAll('[data-ev-harness]')],on=hs.filter(h=>h.checked).map(h=>h.dataset.evHarness);
   const bs=[...document.querySelectorAll('[data-ev-item]')];
   bs.forEach(b=>{const has=!hs.length||(b.dataset.h||'').split(' ').some(k=>on.includes(k));b.closest('label').classList.toggle('none',!has);});
@@ -813,6 +817,7 @@ document.addEventListener('change',async(ev)=>{
   if(d){const on=[...document.querySelectorAll('[data-evd-harness]')].filter(x=>x.checked).map(x=>x.dataset.evdHarness);
     if(!on.length){d.checked=true;return;}
     await swap('/fragment/evtable?view='+($('#evd').dataset.view||'table')+'&b='+encodeURIComponent($('#evd').dataset.bench||'')+'&h='+encodeURIComponent(on.join(',')),'#evd-body');return;}
+  if(ev.target.closest('[data-train-class]')){try{localStorage.setItem('swarm.train.off',JSON.stringify([...document.querySelectorAll('[data-train-class]')].filter(x=>!x.checked).map(x=>x.dataset.trainClass)));}catch(e){}trainLeft();return;}
   const b=ev.target.closest('[data-ev-item],[data-ev-harness]');if(!b)return;const bs=[...document.querySelectorAll('[data-ev-item]')];
   try{localStorage.setItem('swarm.eval.off',JSON.stringify(bs.filter(x=>!x.checked).map(x=>x.dataset.evItem)));
     localStorage.setItem('swarm.eval.hoff',JSON.stringify([...document.querySelectorAll('[data-ev-harness]')].filter(x=>!x.checked).map(x=>x.dataset.evHarness)));}catch(e){}
@@ -895,7 +900,7 @@ async function busyTick(){const m=$('#busy');if(!m)return;let s;try{s=await (awa
   if(s.busy===m.dataset.busy)return;m.dataset.busy=s.busy;
   await swap('/fragment/eval','#evalwrap');await swap('/fragment/pretrain','#prewrap');await swap('/fragment/score','#score');
   if(s.busy==='training')watch();}
-setInterval(()=>{evTick();preTick();busyTick();},1500);
+trainAsk();setInterval(()=>{evTick();preTick();busyTick();},1500);
 // THE FACES DRAW THE ARRANGEMENT AS IT IS ASKED: while a try runs, the one it asks (the kept arrangement with the change on it); asked
 // again whenever the try changes (204 where the page already has it), and left alone while a slot's card is open below them
 async function facesTick(){const f=$('#faces');if(!f)return;const open=f.querySelector('#avdetail');if(open&&open.childElementCount)return;
@@ -2452,9 +2457,21 @@ def cannot_run():
     return ""
 
 
-def start_run(passes=0):
+TRAIN_CLASSES = ("tools", "talk", "code", "words")
+
+
+def classes_asked(asked):
+    """The classes of input a press of Train names, those of them that are classes, in their order: [] where it names none, or
+    every one (which trains every class, and is not said to the session)."""
+    got = [c for c in TRAIN_CLASSES if c in (asked or [])]
+    return got if 0 < len(got) < len(TRAIN_CLASSES) else []
+
+
+def start_run(passes=0, classes=None):
     """Training is continuous: question by question, pass after pass, until Stop training is pressed (passes=0). How many questions a
-    pass asks is the trainer's policy (training/policy.json: questions.each), which the session reads; it is not chosen here."""
+    pass asks is the trainer's policy (training/policy.json: questions.each), which the session reads; it is not chosen here.
+    classes: the classes of input to train, where a person ticked fewer than all (the Train card's boxes): the session trains
+    those only, as a class and question by question (TRAIN_CLASSES)."""
     st = run_state()
     if st and st["running"]:
         return
@@ -2467,8 +2484,12 @@ def start_run(passes=0):
     log = open(root / ".work" / "train" / "ui-run.log", "ab")
     env = dict(os.environ, PASSES=str(passes), NODE=node_for_training())
     env.pop("TEACHER", None)  # a teacher spends on a Claude plan: never started from a button
+    only = classes_asked(classes)
+    env.pop("TRAIN_CLASSES", None)
+    if only:
+        env["TRAIN_CLASSES"] = ",".join(only)
     p = subprocess.Popen(["bash", "training/session.sh"], cwd=str(root), env=env, stdout=log, stderr=log, stdin=subprocess.DEVNULL, start_new_session=True)
-    _run_file().write_text(json.dumps({"pid": p.pid, "at": time.strftime("%Y-%m-%d %H:%M:%S"), "passes": passes, "first": first}))
+    _run_file().write_text(json.dumps({"pid": p.pid, "at": time.strftime("%Y-%m-%d %H:%M:%S"), "passes": passes, "first": first, "classes": only}))
 
 
 def clear_state():
@@ -2606,7 +2627,10 @@ def run_controls():
     nothing runs; Stop training while a session does."""
     st = run_state()
     if st and st["running"]:
-        return '<button class="btn stop top" id="run-stop" type="button">Stop training</button>'
+        # (a session that trains some classes only says which, beside Stop)
+        only = st.get("classes") or []
+        return ('<button class="btn stop top" id="run-stop" type="button">Stop training</button>'
+                + (('<small class="evwhy" id="run-only">Training %s only, as chosen.</small>' % e(_and([CLASS_NAMES.get(c, c) for c in only]).lower())) if only else ""))
     held = busy_with()
     first = needs_eval()
     why = cannot_run() or held or first
@@ -2614,7 +2638,12 @@ def run_controls():
     first = first or eval_gaps()
     return ('<button class="btn top" id="run-go" type="button"%s title="Train question by question, pass after pass, until Stop training is pressed">Train</button>'
             '<button class="btn top quiet" id="run-clear" type="button"%s title="Start training again from pass 1: what it has tried, measured and kept is moved aside (to .work/archive), and each model&#39;s own answers are kept">Clear training state</button>%s'
-            % (" disabled" if why else "", " disabled" if held else "", ('<small class="evwhy" id="run-first">%s</small>' % e(first)) if first else ""))
+            % (" disabled" if why else "", " disabled" if held else "", ('<small class="evwhy" id="run-first">%s</small>' % e(first)) if first else "")
+            # WHICH CLASSES OF INPUT THIS SESSION TRAINS: a box for each, every one ticked to begin with, kept on the device and sent
+            # with the press of Train (the page's trainAsk). An arrangement is kept class by class, so a class left out stays as
+            # it is. With none ticked there is nothing to train, and Train waits
+            + '<div class="evask trainask" role="group" aria-label="Which classes of input this session trains"><span class="cfgl">Trains</span>%s</div>'
+            % "".join('<label title="%s"><input type="checkbox" data-train-class="%s" checked%s>%s</label>' % (e(CLASS_WORDS.get(c, c)), c, " disabled" if why else "", e(CLASS_NAMES.get(c, c))) for c in TRAIN_CLASSES))
 
 
 def _making_ready(st):
@@ -5348,7 +5377,11 @@ class Handler(BaseHTTPRequestHandler):
             (root / "src" / "config.json").write_text(text + "\n")
             return self._send(main_body(data.load(ARGS.root)))
         if path == "/run/start":
-            start_run()
+            try:
+                asked = json.loads(self.rfile.read(min(int(self.headers.get("content-length", 0)), 2000)) or b"{}")
+            except ValueError:
+                asked = {}
+            start_run(classes=asked.get("classes") if isinstance(asked, dict) and isinstance(asked.get("classes"), list) else None)
         else:
             stop_run()
         return self._send(progress_strip(data.load(ARGS.root)))
