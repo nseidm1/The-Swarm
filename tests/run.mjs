@@ -8,7 +8,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { createSwarm, serveSwarm, stopSwarms, ENTRY, MEMBERS, readBriefs } from '../src/index.mjs';
+import {
+  createSwarm as createSwarmAsStored,
+  serveSwarm,
+  stopSwarms,
+  ENTRY,
+  MEMBERS,
+  readBriefs,
+} from '../src/index.mjs';
 import { finalOf, plain, tally } from '../src/read.mjs';
 import { tasks, KIND_NAMES } from '../training/tasks.mjs';
 import { slotReport } from '../training/measure.mjs';
@@ -89,7 +96,13 @@ function standIn() {
 }
 const lfm = await standIn();
 const bonsai = await standIn();
-const briefs = readBriefs();
+// THE DEFAULT ARRANGEMENT, WITH EVERY DRAFT ASKED AT ONCE AND THE DECIDER DECIDING: what the checks below drive the runtime with,
+// since most of them are of what happens among four drafts, the checkers and the decider. The two settings the default adds
+// to that (draftFirst, decideBy: 'most') have checks of their own, which read the file as it stands (STORED).
+const STORED = readBriefs();
+const briefs = (({ draftFirst, decideBy, ...plan }) => ({ ...STORED, plan }))(STORED.plan);
+// (and a swarm made here is made with it, unless the check names an arrangement, a file of one or a spec)
+const createSwarm = (o = {}) => createSwarmAsStored(o.briefs || o.briefsFile || o.spec ? o : { ...o, briefs });
 const { PROBE_BRIEF } = await import('../src/behave.mjs');
 // which slot a request is for, told from what it was told first (the slot that writes calls to try is not one of the plan's slots)
 const roleOf = (body) =>
@@ -5902,11 +5915,12 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const inCheck = carried.asked.slice(0, carried.asked.indexOf('held-answer:one'));
   // "luck" brings it to parity on the first draw only: asked again it is as it was, and it is not kept
   const luck = await run({ base: () => 0.5, luck: (t, s, note) => (t.id === 'answer-1' && !note.draw ? 1 : s) });
-  // "wobble" makes it good on both draws, and one answer of another kind comes out lower on the first draw only: kept (one
+  // "wobble" makes it good on both draws and lifts the held questions, and one answer of another kind comes out lower on the first draw only: kept (one
   // answer of four that came out otherwise once is no fall of its kind)
   const wobble = await run({
     base: () => 0.5,
-    wobble: (t, s, note) => (t.id === 'answer-1' ? 1 : t.id === 'piece-2' && !note.draw ? 0.1 : s),
+    wobble: (t, s, note) =>
+      t.id === 'answer-1' || t.id.startsWith('held-') ? 1 : t.id === 'piece-2' && !note.draw ? 0.1 : s,
   });
   // "trade" makes it good and loses a question that was right, on both draws: not kept, and the question is named
   const trade = await run({
@@ -5936,7 +5950,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const kn = near.kept[0] || {};
   const k0 = lift.kept[0] || {};
   check(
-    'keeping by the class: a change that lifts its whole class is kept, with its gain, its error and over how many questions on the ledger; one that brings a single question to parity and moves no other is kept where the question is good on another draw too (and the ledger says that is why), and not where it was good on one draw only; a check stopped in the middle carries on, the questions the change was already scored on not asked with it again, its scores written down as it goes and gone when it has ended; one answer that came out otherwise once does not refuse it; one that loses a question right on both draws is refused, with the question named; one that lifts most kinds and drops one by more than the margin is not; one that lifts the train questions and drops the held ones is not; a change that falls on the first few questions it is raced on is not asked on the rest; and a change that brought questions closer and none to parity is proposed for the class at the end of the pass, and kept where the class gained',
+    'keeping by the class: a change that lifts its whole class is kept, with its gain, its error and over how many questions on the ledger; one that brings a single question to parity and leaves the held questions as they were is not kept, on either draw; a check stopped in the middle carries on, the questions the change was already scored on not asked with it again, its scores written down as it goes and gone when it has ended; one answer that came out otherwise once does not refuse it; one that loses a question right on both draws is refused, with the question named; one that lifts most kinds and drops one by more than the margin is not; one that lifts the train questions and drops the held ones is not; a change that falls on the first few questions it is raced on is not asked on the rest; and a change that brought questions closer and none to parity is proposed for the class at the end of the pass, and kept where the class gained',
     lift.kept.length >= 1 &&
       k0.classGain &&
       k0.classGain.keep === true &&
@@ -5945,12 +5959,23 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       k0.classGain.held.n === 3 &&
       /its class of 12 train questions gained/.test(k0.why) &&
       (lift.st.briefs.kinds || {}).words &&
-      one.kept.length === 1 &&
-      k1.classGain.by === 'made good' &&
-      k1.classGain.madeGood.join() === 'answer-1' &&
-      /made answer-1 good on both draws and lost no question/.test(k1.why) &&
+      // (one train question made good, and the held questions as they were: not kept. It was, for that one question)
+      one.kept.length === 0 &&
+      k1.classGain === undefined &&
+      one.st.questions.some((q) =>
+        (q.attempts || []).some(
+          (a) =>
+            a.classCheck &&
+            a.classCheck.keep === false &&
+            /on the held questions of its class, over 3 held questions and 2 draws it gained 0\.0 points/.test(
+              a.classCheck.why || '',
+            ),
+        ),
+      ) &&
       one.asked.includes('answer-1:') &&
-      carried.kept.length === 1 &&
+      one.asked.filter((x) => x === 'held-answer:one').length === 2 &&
+      one.asked.filter((x) => x === 'held-answer:').length === 2 &&
+      carried.kept.length === 0 &&
       !inCheck.includes('request-1:one') &&
       !inCheck.includes('piece-1:one') &&
       inCheck.includes('request-2:one') &&
@@ -5960,9 +5985,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       luck.kept.length === 0 &&
       luck.st.questions
         .find((q) => q.id === 'answer-1')
-        .attempts.some(
-          (a) => a.classCheck && a.classCheck.keep === false && /no question good on both draws/.test(a.classCheck.why),
-        ) &&
+        .attempts.some((a) => a.classCheck && a.classCheck.keep === false && /held questions/.test(a.classCheck.why)) &&
       wobble.kept.length === 1 &&
       trade.kept.length === 0 &&
       /it lost piece-2/.test(tradeWhy || '') &&
@@ -9557,6 +9580,168 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { half, old, here, rec, env, refused },
   );
   fs.rmSync(dir, { recursive: true, force: true });
+}
+
+// ---- ONE RULE FOR KEEPING A CHANGE, over two draws of the held questions; and the class stage's sweep
+{
+  const K = await import('../training/keep.mjs');
+  const C = await import('../training/classes.mjs');
+  const q = (id, kind, base, w) => ({ id, kind, base, with: w });
+  // ten questions: six gain on both draws, four stay
+  const gains = [...Array(10).keys()].map((i) => q('q' + i, i % 2 ? 'a' : 'b', [0, 0], i < 6 ? [1, 1] : [0, 0]));
+  const kept = K.keepOf(gains, { least: 0.02 });
+  // one draw only: never kept, however large
+  const oneDraw = K.keepOf(gains.map((r) => ({ ...r, base: [r.base[0]], with: [r.with[0]] })));
+  // a gain on one draw that the other takes back: nothing
+  const luck = K.keepOf(
+    [...Array(10).keys()].map((i) => q('q' + i, 'a', [0, 0], i < 3 ? [1, 0] : [0, 0])),
+    { least: 0.2 },
+  );
+  // right on both draws as it stands and wrong on both with it: lost, whatever else gains
+  const lost = K.keepOf([...gains, q('z', 'a', [1, 1], [0, 0])]);
+  // right once and wrong once is no loss
+  const wobble = K.keepOf([...gains, q('z', 'a', [1, 1], [1, 0])]);
+  // a kind that falls while the whole gains
+  const fell = K.keepOf([
+    ...[...Array(12).keys()].map((i) => q('g' + i, 'up', [0, 0], [1, 1])),
+    ...[...Array(4).keys()].map((i) => q('d' + i, 'down', [1, 1], i < 3 ? [0, 1] : [1, 1])),
+  ]);
+  const small = K.keepOf(gains.slice(0, 1));
+  const base = {
+    marker: 'ANSWER:',
+    plan: { keepTurns: 6 },
+    slots: [
+      { id: 'd', stage: 'draft', brief: 'x' },
+      { id: 'c', stage: 'check', brief: 'y' },
+    ],
+  };
+  const mv = (name, briefs) => ({ name, briefs });
+  const moves = [
+    mv('plan: decide by decider', { ...base, plan: { ...base.plan, decideBy: 'decider' } }),
+    mv('the checker told otherwise', { ...base, slots: [base.slots[0], { ...base.slots[1], brief: 'z' }] }),
+    mv('a drafter told otherwise', { ...base, slots: [{ ...base.slots[0], brief: 'w' }, base.slots[1]] }),
+    mv('plan: every draft at once', { ...base, plan: { ...base.plan, draftFirst: 2 } }),
+    mv('plan: closes as shown', { ...base, plan: { ...base.plan, closeAs: 'shown' } }),
+  ];
+  const round = C.roundOf(moves, base, ['a drafter', 'every draft'], 1);
+  const scored = [
+    { m: { ...moves[0], sweep: true }, g: { gain: 0.1 } },
+    { m: { ...moves[4], sweep: true }, g: { gain: 0.3 } },
+    { m: moves[2], g: { gain: 0.9 } },
+    { m: { ...moves[1], sweep: true }, g: { gain: -0.1 } },
+  ];
+  const both = C.togetherOf(scored, (b) => [
+    mv('plan: decide by decider', { ...b, plan: { ...b.plan, decideBy: 'decider' } }),
+  ]);
+  const sh = fs.readFileSync(new URL('../training/session.sh', import.meta.url), 'utf8');
+  const pol = JSON.parse(fs.readFileSync(new URL('../training/policy.json', import.meta.url), 'utf8'));
+  check(
+    'a change to a class is kept by one rule, the same for both stages of training: on the held questions, each asked on two draws or more, where the mean gain is over twice its error and at least the least gain, no question right every time is wrong every time with it, and no kind falls; one draw never keeps; the class stage tries every change that leaves the drafts as they are, a few of the others the policy names, and the best two of the first together; it asks every question of the class, and runs before the larger model is asked anything',
+    kept.keep === true &&
+      kept.gain === 0.6 &&
+      kept.draws === 2 &&
+      kept.n === 10 &&
+      oneDraw.keep === false &&
+      /one draw/.test(oneDraw.why) &&
+      luck.keep === false &&
+      /not more than twice its error/.test(luck.why) &&
+      lost.keep === false &&
+      lost.lost.join() === 'z' &&
+      wobble.keep === true &&
+      fell.keep === false &&
+      fell.fell.join() === 'down' &&
+      small.keep === false &&
+      C.keepsDrafts(base, moves[0].briefs) &&
+      C.keepsDrafts(base, moves[1].briefs) &&
+      !C.keepsDrafts(base, moves[2].briefs) &&
+      !C.keepsDrafts(base, moves[3].briefs) &&
+      round.map((m) => m.name).join('|') ===
+        'plan: decide by decider|the checker told otherwise|plan: closes as shown|a drafter told otherwise' &&
+      round.filter((m) => m.sweep).length === 3 &&
+      both &&
+      both.name === 'plan: closes as shown + plan: decide by decider' &&
+      both.briefs.plan.closeAs === 'shown' &&
+      both.briefs.plan.decideBy === 'decider' &&
+      C.togetherOf(scored.slice(0, 1), () => []) === null &&
+      C.sampleOf([1, 2, 3], 0).length === 3 &&
+      pol.classes.sample === 0 &&
+      pol.classes.draws === 2 &&
+      sh.indexOf('run 08-classes') > 0 &&
+      sh.indexOf('run 08-classes') < sh.indexOf('run 01-research') &&
+      sh.indexOf('run 08-classes') < sh.indexOf('run 02-target '),
+    { kept, oneDraw, luck, lost, fell, round: round.map((m) => m.name), both: both && both.name },
+  );
+}
+
+// ---- how long a side took over a task is kept with its answers
+{
+  const E = await import('../training/evaluate.mjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-secs-'));
+  const wrote = E.secondsNote(path.join(dir, 'a'), 91.26, 20);
+  check(
+    'the seconds a model took over a task are kept beside its answers and read back as seconds a question; nothing is kept of a task that took no time or had no question, and a folder with no such record reads as not known',
+    wrote === true &&
+      E.secondsIn(path.join(dir, 'a')) === 4.6 &&
+      E.secondsNote(path.join(dir, 'b'), 0, 20) === false &&
+      E.secondsNote(path.join(dir, 'b'), 10, 0) === false &&
+      E.secondsIn(path.join(dir, 'b')) === null &&
+      E.secondsIn(path.join(dir, 'none')) === null,
+    [wrote, E.secondsIn(path.join(dir, 'a'))],
+  );
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
+// ---- THE DEFAULT ARRANGEMENT DRAFTS IN TWO ROUNDS, AND THE ANSWER MOST SLOTS HOLD STANDS (console 2026-11-21: a swarm took
+// 27 s a question where its model took 8)
+{
+  const { firstDrafters } = await import('../src/orchestrate.mjs');
+  const ds = STORED.slots.filter((x) => x.stage === 'draft');
+  const ids = (list) => list && list.map((x) => x.id).join(',');
+  const one = ds.map((x) => ({ ...x, member: 'a' }));
+  let decided = 0;
+  const fast = await createSwarmAsStored({
+    attach: { a: lfm.base, b: bonsai.base },
+    decide: async () => ((decided += 1), { ok: false, why: 'not asked for here' }),
+  });
+  const draftsOf = (got) => got.trace.filter((r) => r.stage === 'draft').map((r) => r.slot);
+  // the two that draft first agree: no other slot drafts, no check, no decision
+  reset();
+  for (const m of [lfm, bonsai]) m.s.script = (b) => (roleOf(b).stage === 'write' ? 'It is 42.' : 'ANSWER: 42');
+  const agreed = await fast.answer(Q);
+  // they differ: the other two draft, then the checks; three hold 42, and it stands without the decider
+  reset();
+  for (const m of [lfm, bonsai])
+    m.s.script = (b) => {
+      const r = roleOf(b);
+      if (r.stage === 'write') return 'It is 42.';
+      if (r.stage === 'check') return 'ANSWER: A';
+      return 'ANSWER: ' + (r.id === 'b-direct' ? '41' : '42');
+    };
+  const split = await fast.answer(Q);
+  await fast.stop();
+  check(
+    'the default arrangement asks two drafts first, one of each small model, and the other two only where those differ; the answer most slots hold then stands with no decision asked for; a draft has 450 tokens and a check 250; and which slots draft first is one of each member, then in order, or every slot at once where the plan names no number that fits',
+    STORED.plan.draftFirst === 2 &&
+      STORED.plan.decideBy === 'most' &&
+      ds.every((x) => x.maxTokens === 450) &&
+      STORED.slots.filter((x) => x.stage === 'check').every((x) => x.maxTokens === 250) &&
+      ids(firstDrafters(ds, 2)) === 'a-direct,b-direct' &&
+      ids(firstDrafters(ds, 3)) === 'a-direct,a-steps,b-direct' &&
+      ids(firstDrafters(one, 2)) === 'a-direct,a-steps' &&
+      firstDrafters(ds, 4) === null &&
+      firstDrafters(ds, 1) === null &&
+      firstDrafters(ds, undefined) === null &&
+      firstDrafters(ds, 2.5) === null &&
+      draftsOf(agreed).sort().join(',') === 'a-direct,b-direct' &&
+      !agreed.trace.some((r) => r.stage === 'check') &&
+      agreed.decided === '42' &&
+      draftsOf(split).length === 4 &&
+      draftsOf(split).slice(0, 2).sort().join(',') === 'a-direct,b-direct' &&
+      split.decided === '42' &&
+      /^most/.test(split.path) &&
+      decided === 0,
+    { agreed: [draftsOf(agreed), agreed.path], split: [draftsOf(split), split.path, split.decided], decided },
+  );
 }
 
 await swarm.stop();

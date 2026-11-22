@@ -183,6 +183,32 @@ export const swarmWaysOf = (b) => (isToolTest(b) && b.targetAlsoAfter ? ['tools'
 // (2026-11-20), and every evaluation of the first harness's tasks stopped at the comparison, reading a score from no file.
 //   keptOfAll([files or null, of each way], the plain way's files) -> those files, or null
 export const keptOfAll = (ways, plain) => (ways.every(Boolean) && plain ? plain : null);
+// HOW LONG A MODEL TOOK OVER A TASK is kept beside its answers (seconds.json: { seconds, questions }), written when it has
+// answered the task, so that a result says the seconds a question each side took: a swarm that scores as the larger model does
+// in a tenth of the memory and eight times the time is not the same result as one that does it in the same time (measured
+// 2026-11-21: 28 s a question against 3.7, and no result said so). secondsIn: the seconds a question, or null where the answers
+// were kept before this was written down or the file does not read.
+export const secondsNote = (dir, seconds, questions) => {
+  try {
+    if (!(seconds > 0) || !(questions > 0)) return false;
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'seconds.json'),
+      JSON.stringify({ seconds: Math.round(seconds * 10) / 10, questions }),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+};
+export const secondsIn = (dir) => {
+  try {
+    const j = JSON.parse(fs.readFileSync(path.join(dir, 'seconds.json'), 'utf8'));
+    return j.seconds > 0 && j.questions > 0 ? Math.round((j.seconds / j.questions) * 10) / 10 : null;
+  } catch {
+    return null;
+  }
+};
 // THE WAY IT IS COUNTED BY IS ONE FOR A WHOLE BODY OF WORK: the way it scores higher by over that body's tasks together, the tools
 // in the request where the two tie. Not the better way task by task: neither is the better on every task (measured 2026-11-18,
 // 20 questions a task: written, 19, 18, 16 and 18 right where a call was needed against 14, 15, 2 and 8; and 10 against 20 where
@@ -597,6 +623,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     if (got.ok) {
       row.state = 'done';
       row.done = row.of;
+      secondsNote(out, row.seconds, row.of);
     } else {
       row.state = 'failed';
       row.why = got.why;
@@ -653,6 +680,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         if (code === 0) {
           row.state = 'done';
           row.done = row.of ?? row.done;
+          secondsNote(out, row.seconds, row.done);
           ok(true);
         } else {
           row.state = 'failed';
@@ -992,6 +1020,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     };
     return got.target || got.swarm ? { searches: got } : {};
   };
+  // (the seconds a question each side took over a task, where that was kept with its answers: secondsIn)
+  const secondsFor = (targetDir, swarmDir) => {
+    const got = { target: secondsIn(targetDir), swarm: secondsIn(swarmDir) };
+    return got.target || got.swarm ? { secondsEach: got } : {};
+  };
   // (each model's score on a task, where its answers to it are kept: { key: { id, name, value, stderr, n, of } })
   const aloneFor = (b) => {
     const got = {};
@@ -1092,6 +1125,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
           keep({ ...b, way: best.way }),
           swarmKeep(sbest.way === 'tools' ? b : { ...b, way: sbest.way }),
         ),
+        ...secondsFor(keep({ ...b, way: best.way }), swarmKeep(sbest.way === 'tools' ? b : { ...b, way: sbest.way })),
         agree,
         ...(ways.length > 1
           ? { targetAsked: best.way, targetWays: Object.fromEntries(ways.map((w) => [w.way, lean(w.score)])) }
@@ -1118,6 +1152,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       target: scoreOf(tf.results, b),
       swarm: scoreOf(sf.results, b),
       ...aloneFor(b),
+      ...secondsFor(keep(b), swarmKeep(b)),
       agree,
       // (how many of each one's replies the harness could not read as an answer: unreadIn)
       unread: { target: unreadIn(tf.samples, b.filter), swarm: unreadIn(sf.samples, b.filter) },

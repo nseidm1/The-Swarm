@@ -26,6 +26,7 @@
 // It carries on where it stopped: every finished question is written down (.work/train/<configuration>/loop.json).
 import fs from 'node:fs';
 import path from 'node:path';
+import { keepOf } from './keep.mjs';
 import { decideByOf, classOf as inputClassOf, briefsFor, KIND_PARTS, flowOf } from '../src/orchestrate.mjs';
 import {
   normal as normalPolicy,
@@ -1017,37 +1018,65 @@ export async function runLoop({
       record.fell = fell.map((y) => y.kind);
       return fail('its questions of the kind ' + fell[0].kind + ' fell by ' + -fell[0].gain);
     }
-    const byGain = record.gain > 2 * record.stderr && record.gain >= classMinGain;
-    const byGood = classConfirm && good.length > 0 && record.gain > 0;
-    if (!(byGain || byGood))
-      return fail(
-        'over the ' +
-          record.n +
-          ' questions of its class it gained ' +
-          record.gain +
-          ' (± ' +
-          record.stderr +
-          '): not more than twice its error and at least ' +
-          classMinGain +
-          (classConfirm ? ', and it made no question good on both draws' : ''),
-      );
-    record.by = byGain ? 'gain' : 'made good';
-    // THE HELD QUESTIONS OF THE CLASS: not worse there, by more than their own error
+    // KEPT OR NOT IS THE HELD QUESTIONS' TO SAY, ON TWO DRAWS (training/keep.mjs: the one rule, the class stage's too). The train
+    // questions, which the change was found on, only say whether it is worth asking them: it must have gained there. The route
+    // that kept a change for one train question made good on both draws is gone: it kept what the held questions did not bear
+    // out, and the class stage, judging the same change, did not (measured 2026-11-21).
     const hq = heldQs.filter((h) => kindOfT(h) === K);
     const heldWith = {};
-    if (hq.length) {
+    if (!hq.length) {
+      // (a class with no held question: the train questions are all there is, by the same bar)
+      if (!(record.gain > 2 * record.stderr && record.gain >= classMinGain))
+        return fail(
+          'over the ' +
+            record.n +
+            ' questions of its class it gained ' +
+            record.gain +
+            ' (± ' +
+            record.stderr +
+            '): not more than twice its error and at least ' +
+            classMinGain +
+            ', and its class has no held question',
+        );
+      record.by = 'gain';
+    } else {
+      if (!(record.gain > 0))
+        return fail(
+          'over the ' +
+            record.n +
+            ' train questions of its class it gained ' +
+            record.gain +
+            ': nothing for the held questions to confirm',
+        );
+      record.by = 'held';
       const hbase = await standingOf(K, 'held', hq, note);
-      const hd = [];
+      const rows = [];
       for (const [k, h] of hq.entries()) {
         if (hbase[h.id] === null || hbase[h.id] === undefined) continue;
-        const s = await ask(h, k, hq.length, true);
-        if (s === null) continue;
-        heldWith[h.id] = s;
-        hd.push(s - hbase[h.id]);
+        const w1 = await ask(h, k, hq.length, true);
+        if (w1 === null) continue;
+        heldWith[h.id] = w1;
+        const r2 = await attempt(flat(briefs, K), h, {
+          ...note,
+          move: 'as it stands, another draw',
+          guard: h.id,
+          standing: true,
+          held: true,
+          draw: 2,
+        });
+        const b2 = r2.grade === 'noref' ? null : scoreOf(r2);
+        const w2 = b2 === null ? null : await ask(h, k, hq.length, true, 2);
+        rows.push({
+          id: h.id,
+          kind: h.kind,
+          base: b2 === null || w2 === null ? [hbase[h.id]] : [hbase[h.id], b2],
+          with: b2 === null || w2 === null ? [w1] : [w1, w2],
+        });
       }
-      record.held = pairedOf(hd);
-      if (record.held.n && record.held.gain < -record.held.stderr)
-        return fail('on the ' + record.held.n + ' held questions of its class it fell by ' + -record.held.gain);
+      const two = rows.filter((r) => r.base.length > 1);
+      const v = keepOf(two, { least: classMinGain, margin: classMargin });
+      record.held = { n: v.n, gain: v.gain, stderr: v.error, draws: v.draws };
+      if (!v.keep) return fail('on the held questions of its class, ' + v.why);
     }
     delete st.checking;
     return { keep: true, why: '', record: { ...record, keep: true }, scores: { train: withIt, held: heldWith } };

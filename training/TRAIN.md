@@ -4,19 +4,24 @@
 
 An arrangement belongs to a class of input: a turn with tools, a conversation, a request for code, a plain question
 (`src/orchestrate.mjs` `classOf`). So before a pass goes question by question, `training/classes.mjs` trains each class as a
-whole (step `08-classes` of a pass):
+whole (step `08-classes` of a pass, which runs first, before the larger model is asked anything: it needs none of its
+answers, and what it keeps is then kept in a session's first minutes):
 
 1. **How it stands**, over the same questions, in three figures: on how many some slot's draft had a good answer, on how many
    the swarm settled on one, and on how many the reply is good as it is read (with how many replies a reader finds no answer
    in). Where answers are lost says what to change: drafting, choosing, or how the reply is written out.
-2. **Candidates**, each the class's arrangement with one thing changed: the moves `policy.json` names under `classes.moves`,
-   at most `classes.tries` a round, scored on the same train questions (at most `classes.sample`, taken kind by kind in turn).
-   Slot answers are reused between candidates, so a change to how the matter is settled or written costs no model's time.
+2. **Candidates**, each the class's arrangement with one thing changed, scored on the same train questions (every one of
+   the class; `classes.sample` names a most, taken kind by kind in turn). **The sweep:** every change that leaves the drafts
+   as they are (how the matter is settled, checked, closed and written) is tried, at most `classes.sweep`, because slot
+   answers are reused between candidates and such a change costs little. Of the changes that draft anew, the ones
+   `policy.json` names under `classes.moves`, at most `classes.tries` a round. Then the best two of the sweep together.
    For a turn with tools two of them are how a step is chosen: a reply set aside unless most drafters would reply
    (`plan.callFirst`), and the step most proposed standing without the decision model (`plan.toolDecide`).
-3. **The best**, where it beats the swarm as it stands on the train questions, is asked the held questions of the class, and so
-   is the swarm as it stands. It is kept, as any change is kept, where it is better there by more than twice its paired error
-   and by at least `loop.classMinGain`. Then again from what was kept, `classes.rounds` times.
+3. **The best**, where it beats the swarm as it stands on the train questions, is asked the held questions of the class, every
+   one, on `classes.draws` draws (two), and so is the swarm as it stands. Whether it is kept is `training/keep.mjs`'s to
+   say, the one rule the question-by-question stage keeps a change by as well: the mean gain more than twice its paired
+   error and at least `loop.classMinGain`, no question right on every draw wrong on every draw with it, no kind fallen.
+   Then again from what was kept, `classes.rounds` times.
 
 Only questions that carry a standard of their own are asked, so the larger model is not needed and the swarm can come out
 ahead of it. No benchmark's question is asked. `node training/classes.mjs --dry --out <file>` tries it and keeps nothing.

@@ -6,6 +6,21 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Training keeps a change by one rule, and finds what is cheap to find first** (2026-11-21). The two stages of training
+  each had their own rule and disagreed about the same change, and each judged on one draw, which cannot: the same change
+  measured 1.9 points on one draw and 11.1 on another. Now a change to a class is kept where its held questions, each asked
+  on two draws with it and without, gain by more than twice their error, lose no question on both draws, and drop no kind.
+  A change is no longer kept for one train question made good. The stage that trains each class as a class now tries every
+  change that leaves the drafts as they are, which costs little because the drafts are reused, then the best two together;
+  it asks every question of the class; and it runs first in a pass, before the larger model is asked anything, so a
+  session stopped early has still trained.
+- **A swarm answers faster, and an evaluation says how fast** (2026-11-21). A swarm of LFM3 1.7B took 27 seconds a question
+  where its model took 8 and the larger model under 4. Four things change, all in the default arrangement a swarm starts
+  from. Two drafts are asked first, one of each small model, and the other two only where those differ. Where the drafts
+  differ, the answer most of them hold stands; a model is no longer asked to decide, and a decision model, where there is
+  one, is asked only to break a tie. A draft has 450 tokens and a check 250, where each had 700. And an evaluation keeps
+  the seconds a question each side took, and says them over its results. Kept swarm answers are asked again under the new
+  arrangement; the larger model's are not. Not yet measured at an evaluation's size: whether these cost answers.
 - **Serving the swarm with its adapters is a setting of Configuration** (2026-11-21). The box stood under the Pretrain
   card, though it bears on training and an evaluation alike. It is now a row of Configuration, and says so when no adapter
   has been kept yet.

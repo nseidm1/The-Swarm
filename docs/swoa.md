@@ -1064,7 +1064,16 @@ probe.
 
 1. The drafting slots are the step's slots, default stage `draft`, less every slot whose `compute` is true
    where it does not compute (O.6.1a): such a slot is not called and records no row.
-2. At once, the runtime MUST call every drafting slot with `[system message of the slot, ...kept
+1a. **Drafting in two rounds.** If `plan.draftFirst` is an integer N with 2 <= N < the number of
+   drafting slots, and the pool is empty, the drafting slots are called in two rounds, each as
+   steps 2 to 5 below describe for the slots of the round. The FIRST ROUND is N slots: taking the
+   drafting slots in order, the first slot of each member not yet taken, then, if fewer than N are
+   taken, the remaining slots in order until N are. If after the first round settled holds (the
+   pool holds at least two rows and they are one answer), the other drafting slots are not called and
+   record no row. Otherwise the SECOND ROUND is every drafting slot not in the first. The probe
+   slot is called in the first round only. In every other case there is one round, of every
+   drafting slot.
+2. At once, the runtime MUST call every drafting slot of the round with `[system message of the slot, ...kept
    turns]`, and — only if BY-BEHAVIOUR holds and there is no probe yet — the **probe slot** with
    `[system message of the probe slot, ...kept turns]`. The probe slot is synthetic:
    - `id` `probe`, `stage` `probe`;
@@ -1634,6 +1643,7 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `partChars` | integer | 6000 | the most characters of the text a part holds (O.13; falsy means 6000) |
 | `byBehaviour` | boolean | true | `false` turns off probe, try and everything that depends on tried |
 | `agreeSkipsChecks` | boolean | true | `false` stops dispute steps being passed over when settled |
+| `draftFirst` | integer | none | drafting slots called first; the rest are called only if those do not settle the matter (O.6.1 step 1a; ignored unless at least 2 and fewer than the drafting slots) |
 | `onePerAnswer` | boolean | false | sheet shows one row per distinct answer even when not tried |
 | `decideBy` | text | `decider` | O.6.6 BY |
 | `decideMin` | number | 0.6 | threshold for `if-close` and `decider-if-confident` (an explicit 0 is honoured) |
@@ -3068,7 +3078,10 @@ The arrangement a swarm starts from has no `flow` (so the default flow of O.5.1 
   "plan": {
     "agreeSkipsChecks": true,
     "keepTurns": 6,
-    "byBehaviour": true
+    "byBehaviour": true,
+    "closeAs": "shown",
+    "decideBy": "most",
+    "draftFirst": 2
   },
   "slots": [
     {
@@ -3076,7 +3089,7 @@ The arrangement a swarm starts from has no `flow` (so the default flow of O.5.1 
       "member": "a",
       "stage": "draft",
       "purpose": "Drafts the answer plainly",
-      "maxTokens": 700,
+      "maxTokens": 450,
       "brief": "You answer one question. Read it twice: what exactly is asked, and in what form the answer is wanted. Answer it briefly and plainly. If it needs working out, work it out in a few short lines first. End with one last line that starts with ANSWER: and holds only the answer itself (a number, a word, a name, or one short sentence). If what is asked for is code, give the whole of it in one code block at the very end instead, with nothing after it."
     },
     {
@@ -3084,7 +3097,7 @@ The arrangement a swarm starts from has no `flow` (so the default flow of O.5.1 
       "member": "a",
       "stage": "draft",
       "purpose": "Drafts it step by step",
-      "maxTokens": 700,
+      "maxTokens": 450,
       "temperature": 0.3,
       "brief": "You solve one question step by step. First write what is given and what is asked. Then work in numbered steps, one small step on each line, doing every calculation in full and never skipping one in your head. Before you finish, read the question again and check that your result answers what was asked, in the unit and form asked for. End with one last line that starts with ANSWER: and holds only the answer itself. If what is asked for is code, give the whole of it in one code block at the very end instead, with nothing after it."
     },
@@ -3093,7 +3106,7 @@ The arrangement a swarm starts from has no `flow` (so the default flow of O.5.1 
       "member": "b",
       "stage": "draft",
       "purpose": "Drafts, then tests its first answer",
-      "maxTokens": 700,
+      "maxTokens": 450,
       "brief": "You answer one question. Say what the question asks in your own words, in one line. Then answer it. If the obvious answer comes at once, stop and test it against every detail in the question before you keep it: questions are often written so that the first answer is wrong. End with one last line that starts with ANSWER: and holds only the answer itself. If what is asked for is code, give the whole of it in one code block at the very end instead, with nothing after it."
     },
     {
@@ -3101,7 +3114,7 @@ The arrangement a swarm starts from has no `flow` (so the default flow of O.5.1 
       "member": "b",
       "stage": "draft",
       "purpose": "Drafts by another route",
-      "maxTokens": 700,
+      "maxTokens": 450,
       "brief": "You solve one question by a way most people would not take first: work backwards from what is asked, or try a small example, or list the cases, or estimate first and then compute. Show the work in short lines. End with one last line that starts with ANSWER: and holds only the answer itself. If what is asked for is code, give the whole of it in one code block at the very end instead, with nothing after it."
     },
     {
@@ -3109,7 +3122,7 @@ The arrangement a swarm starts from has no `flow` (so the default flow of O.5.1 
       "member": "a",
       "stage": "check",
       "purpose": "Checks each draft for its first slip",
-      "maxTokens": 700,
+      "maxTokens": 250,
       "brief": "You are given a question and several worked answers to it, lettered. They do not all agree. For each one, find the first line where it goes wrong, if it does: a misread of the question, a slip in a calculation, a step that does not follow. Say it in one line for each letter. Do not trust an answer because others agree with it. Then give the answer you find correct. If one of the lettered answers is correct, do not write it out again: your last line is ANSWER: and its letter, alone. Only if none of them is correct, give your own answer there instead (for code: the whole of it in one code block at the very end, with nothing after it)."
     },
     {
@@ -3118,7 +3131,7 @@ The arrangement a swarm starts from has no `flow` (so the default flow of O.5.1 
       "stage": "check",
       "purpose": "Checks each answer against the question",
       "sees": "finals",
-      "maxTokens": 700,
+      "maxTokens": 250,
       "brief": "You are given a question and the final answers others reached, without their work. Take each final answer in turn and test it: put it back into the question and see whether every statement in the question still holds. Say in one line for each whether it holds. Then give the answer that holds. If one of the lettered answers is correct, do not write it out again: your last line is ANSWER: and its letter, alone. Only if none of them is correct, give your own answer there instead (for code: the whole of it in one code block at the very end, with nothing after it)."
     },
     {

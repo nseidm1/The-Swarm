@@ -54,6 +54,15 @@ export const JUDGE_BRIEF =
 // how the matter is settled (plan.decideBy): 'decider' where nothing is said; the names from when Kev was the only decider are
 // read as the same
 export const decideByOf = (v) => String(v || 'decider');
+// THE SLOTS THAT DRAFT FIRST (plan.draftFirst: n), or null where every drafting slot drafts at once: n of them where n is a
+// whole number from 2 to one fewer than there are; in order, the first slot of each member, then the rest in order until n
+export function firstDrafters(slots, n) {
+  if (!Number.isInteger(n) || n < 2 || n >= slots.length) return null;
+  const out = [];
+  for (const s of slots) if (out.length < n && !out.some((x) => x.member === s.member)) out.push(s);
+  for (const s of slots) if (out.length < n && !out.includes(s)) out.push(s);
+  return slots.filter((s) => out.includes(s));
+}
 const LETTERS = 'ABCDEFGHIJKLMNOP'; // an answer for each slot that drafts: four models' worth, and room over
 // the flow of an arrangement: the one it names, or the plain one
 // what a writer is told, in place of its own brief, with plan.writeAs 'full' (SwOA specification O.8.3, O.8.4). It is the whole of
@@ -633,26 +642,39 @@ async function answerWhole(
         maxTokens: (plan.probe && plan.probe.maxTokens) || 260,
         temperature: 0.2,
       };
-      const [rows, probe] = await Promise.all([
-        all(drafting(step), (s) => [sys(s), ...kept]),
-        byBehaviour && !S.probe ? run(prober, [sys(prober), ...kept]) : null,
-      ]);
-      if (probe) S.probe = probe;
-      await Promise.all(
-        rows.map((r) =>
-          askAgain(
-            r,
-            drafting(step).find((s) => s.id === r.slot),
-            [sys(byId[r.slot]), ...kept],
+      const round = async (slots) => {
+        const [rows, probe] = await Promise.all([
+          all(slots, (s) => [sys(s), ...kept]),
+          byBehaviour && !S.probe ? run(prober, [sys(prober), ...kept]) : null,
+        ]);
+        if (probe) S.probe = probe;
+        await Promise.all(
+          rows.map((r) =>
+            askAgain(
+              r,
+              slots.find((s) => s.id === r.slot),
+              [sys(byId[r.slot]), ...kept],
+            ),
           ),
-        ),
-      );
-      for (const r of rows.filter((d) => d.ok)) {
-        const at = S.pool.findIndex((d) => d.slot === r.slot);
-        if (at >= 0) S.pool[at] = r;
-        else S.pool.push(r);
-      }
-      relabel();
+        );
+        for (const r of rows.filter((d) => d.ok)) {
+          const at = S.pool.findIndex((d) => d.slot === r.slot);
+          if (at >= 0) S.pool[at] = r;
+          else S.pool.push(r);
+        }
+        relabel();
+      };
+      // DRAFTING IN TWO ROUNDS (plan.draftFirst: n; SwOA specification O.6.1 step 1a): n slots draft first, one of each member
+      // before a second of any, and the rest draft only where those do not settle the matter. Every draft a swarm asks for on one
+      // machine slows the others (measured 2026-11-21, one model in both places: four drafts at once each wrote at a third of
+      // the speed of one by itself, and two that agreed were the whole answer on most questions), so the further drafts are
+      // asked for where there is something for them to settle. Only on the first drafting of a request: a loop drafts whole.
+      const slots = drafting(step);
+      const first = firstDrafters(slots, plan.draftFirst);
+      if (!first || S.pool.length) return round(slots);
+      await round(first);
+      if (settled()) return;
+      await round(slots.filter((s) => !first.includes(s)));
     },
     try: tryPool,
     // slots that are shown the answers and look for what is wrong with them, all at once

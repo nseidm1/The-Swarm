@@ -291,6 +291,17 @@ export function steps(b, { cap = SERVING.slots, members = [...new Set(b.slots.ma
     const now = b.plan && b.plan[key] !== undefined ? b.plan[key] : dflt;
     out.push({ name: 'plan: ' + key + ' ' + !now, briefs: { ...b, plan: { ...b.plan, [key]: !now } } });
   }
+  // DRAFTING IN TWO ROUNDS (src/orchestrate.mjs firstDrafters: plan.draftFirst): on, two draft first and the rest only where those
+  // differ; off, every drafter at once. The default is on, for its speed; a class it costs answers on can have it off
+  {
+    const now = (b.plan || {}).draftFirst;
+    const { draftFirst, ...rest } = b.plan || {};
+    out.push(
+      now
+        ? { name: 'plan: every draft at once', briefs: { ...b, plan: rest } }
+        : { name: 'plan: two drafts first', briefs: { ...b, plan: { ...rest, draftFirst: 2 } } },
+    );
+  }
   // how the matter is settled (training/replay.mjs says, from the last measurement, what each would have won)
   for (const way of ['decider', 'most', 'decider-if-confident', 'decider-unless-majority'])
     if (decideByOf((b.plan || {}).decideBy) !== way)

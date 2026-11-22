@@ -1102,6 +1102,13 @@ with tempfile.TemporaryDirectory() as tmp:
     _row = json.loads(_full_hist)
     _hist.write_text(json.dumps(dict(_row, results=[r for r in _row["results"] if not str(r["task"]).startswith("bfcl_")])) + "\n")
     _part_need, _part_gap, _part_ctl = swarm_ui.needs_eval(_fd), swarm_ui.eval_gaps(_fd), swarm_ui.run_controls()
+    # (how long each side took: said over a view where an evaluation timed both on a task, and not otherwise)
+    _spd = swarm_ui.ev_speed({"results": [{"task": "t1", "secondsEach": {"target": 4.0, "swarm": 10.0}}, {"task": "t2", "secondsEach": {"target": 2.0, "swarm": 8.0}},
+                                          {"task": "t3", "secondsEach": {"target": 3.0, "swarm": None}}, {"task": "t4"}]}, "Big <model>")
+    check("a view of an evaluation says the seconds a question each side took, as a mean over the tasks both were timed on, and how many times as long the swarm takes; nothing where no task has both",
+          "the swarm <b>9.0</b>" in _spd and "Big &lt;model&gt; <b>3.0</b>" in _spd and "the swarm takes 3 times as long" in _spd and "over the 2 tasks both were timed on" in _spd
+          and swarm_ui.ev_speed({"results": [{"task": "t1"}]}, "x") == "" and swarm_ui.ev_speed({}, "x") == ""
+          and "about the same" in swarm_ui.ev_speed({"results": [{"task": "t", "secondsEach": {"target": 5.0, "swarm": 5.2}}]}, "x"), [_spd])
     # (the card's head holds Train and Questions only; the class boxes, the reason and Clear training state go under it, across the card)
     _ctl_head, _, _ctl_below = _part_ctl.partition(swarm_ui.TRAIN_BELOW)
     _strip_tr = swarm_ui.progress_strip(_fd)
@@ -1297,7 +1304,7 @@ swarm_ui.ARGS = _types.SimpleNamespace(root=str(REPO))
 _d = data.load(REPO)
 _b = _d["briefs"]
 _slot = next(x for x in _b["slots"] if x["member"] == "b")
-_with = swarm_ui.avatars(dict(_d, briefs=dict(_b, plan=dict(_b.get("plan") or {}, decideWith={"how": "if-close", "slot": _slot["id"]}))))
+_with = swarm_ui.avatars(dict(_d, briefs=dict(_b, plan=dict(_b.get("plan") or {}, decideBy="decider", decideWith={"how": "if-close", "slot": _slot["id"]}))))
 _judge = re.search(r'<button[^>]*data-av="decide-judge".*?</button>', _with, re.S)
 _most = swarm_ui.avatars(dict(_d, briefs=dict(_b, plan=dict(_b.get("plan") or {}, decideBy="most", decideWith={"how": "together"}))))
 check("the decide step shows who decides: a small model beside the decider has its face there, in its model's colour, labelled with how it is asked and with its own live line; where most slots settle it, the decider's face says it decides ties only, and no model beside it is shown",
@@ -1322,7 +1329,7 @@ check("a question whose mark its own correct solution proves wrong is said in th
 # touches ringed and what else differs said; with no try running, the kept one; and the page is told when to draw them again
 _ll, _sl = swarm_ui.loop_live, swarm_ui.session_live
 _kb = _d["briefs"]
-_cand = {"version": _kb.get("version"), "slots": [dict(x, temperature=0.9) if i == 0 else x for i, x in enumerate(_kb["slots"])], "plan": dict(_kb.get("plan") or {}, decideBy="most"), "flow": _kb.get("flow")}
+_cand = {"version": _kb.get("version"), "slots": [dict(x, temperature=0.9) if i == 0 else x for i, x in enumerate(_kb["slots"])], "plan": dict(_kb.get("plan") or {}, decideBy="decider"), "flow": _kb.get("flow")}
 swarm_ui.loop_live = lambda: {"n": 25, "attempt": 7, "move": "a change", "briefs": _cand}
 swarm_ui.session_live = lambda: True
 _fb = swarm_ui.faces_block(_d)
@@ -1332,7 +1339,7 @@ _fk0, _fb0 = swarm_ui.faces_key(_d), swarm_ui.faces_block(_d)
 swarm_ui.loop_live, swarm_ui.session_live = _ll, _sl
 check("while a try runs the faces draw the arrangement it asks, marked as being tried and not kept, with the slot its change touches ringed and what else differs said; with none running, the kept one; and the key the page polls changes with the try",
       "Being tried, not kept:" in _fb and "change 7 on question 25" in _fb and "1 slot changed or added" in _fb and "the plan differs: decideBy" in _fb
-      and ('class="av %s trying' % _kb["slots"][0]["member"]) in _fb.replace(" norec", "") and ">ties only<" in _fb
+      and ('class="av %s trying' % _kb["slots"][0]["member"]) in _fb.replace(" norec", "") and ">ties only<" not in _fb
       and _fk.startswith("try-25-7-") and _fk0 == "kept-%s-" % _kb.get("version") and "Being tried, not kept" not in _fb0 and 'id="faces"' in _fb0
       and "async function facesTick()" in swarm_ui.JS,
       ["Being tried, not kept:" in _fb, "1 slot changed or added" in _fb, ('class="av %s trying' % _kb["slots"][0]["member"]) in _fb.replace(" norec", ""), ">ties only<" in _fb, _fk, _fk0, "Being tried, not kept" not in _fb0])

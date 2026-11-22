@@ -279,6 +279,7 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .evask{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:12px 0 0;min-width:0}.evask .cfgl{flex:0 0 auto;margin-right:6px}
 .evask label{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);font-size:13px;font-weight:700;color:var(--fog);padding:6px 10px;cursor:pointer}
 .evask label small{font-weight:600;color:var(--mist);font-size:11.5px}.evask label.none{opacity:.45;border-style:dashed;background:var(--panel)!important}.evask.evharn{margin-top:8px}
+.evspeed{margin:10px 0 0;font-size:13.5px;color:var(--fog);display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}.evspeed .cfgl{flex:0 0 auto;margin-right:6px}
 .trainbelow{margin-top:14px;display:grid;gap:10px}.trainbelow .evwhy{font-size:12.5px;font-weight:600;color:var(--mist);line-height:1.45}
 .trainopts{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 14px}
 .trainopts .trainask{margin:0;flex:1 1 320px;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,190px));gap:6px 8px}
@@ -2153,12 +2154,15 @@ def classes_block(d):
         for r in c.get("rounds") or []:
             h = r.get("held")
             if h:
-                notes.append("%s: <b>%s</b> %s on the held questions (%d of %d, where it stood at %d; %+.1f points, paired error %.1f)."
-                             % (name, e(str(r.get("best", "")).replace("plan: ", "")), "was kept: better" if r.get("kept") else "was not kept: not better by enough",
-                                h["with"]["counted"], h["with"]["n"], h["asItStood"]["counted"], 100 * h["gain"], 100 * h["error"]))
+                # (kept or not by the one rule, over the draws it was asked on; where it was not kept, the rule's own reason)
+                notes.append("%s: <b>%s</b> %s on the held questions (%d of %d, where it stood at %d; %+.1f points, paired error %.1f%s).%s"
+                             % (name, e(str(r.get("best", "")).replace("plan: ", "")), "was kept: better" if r.get("kept") else "was not kept",
+                                h["with"]["counted"], h["with"]["n"], h["asItStood"]["counted"], 100 * h["gain"], 100 * h["error"],
+                                (", over %d draws" % h["draws"]) if h.get("draws") else "",
+                                (" " + e(h["why"][0].upper() + h["why"][1:]) + ".") if h.get("why") and not r.get("kept") else ""))
     when = (" %s UTC" % e(_day(rec.get("done") or rec.get("at")))) if rec.get("at") else ""
     return ("<details class='fams' id='classes' open><summary>First, each class of input as a class (%d)%s</summary>"
-            "<p class='muted small' style='margin:6px 0 0'>Before going question by question, a pass scores a few arrangements on every question of a class at once, and keeps one only where it is better on held questions. "
+            "<p class='muted small' style='margin:6px 0 0'>First in a pass, every change that leaves the drafts as they are is scored on every question of a class at once, and the best is kept only where the held questions bear it out on two draws. "
             "The three figures say where answers are lost: no slot has it (drafting), a slot has it and the swarm does not settle on it (choosing), or it is settled and the reply is not read as saying it (writing out). "
             "Only questions with an answer of their own are asked, and no benchmark&#39;s.%s</p>"
             "<table class='spec'><tr><th>Class</th><th>Some slot had it</th><th>Settled on it</th><th>Reply good as read</th><th>Tried</th><th>Kept</th></tr>%s</table>%s</details>"
@@ -4316,6 +4320,22 @@ def eval_table(d, only=None, cfg=None):
             '<tbody>%s</tbody></table></div>' % (" evt-m" if alone else "", "".join('<th class="num evm">%s alone</th>' % e(n_) for _, n_ in alone), e(tname), '<th class="num">Before</th>' if was else "", "".join(rows)))
 
 
+def ev_speed(res, tname, hs=None):
+    """HOW LONG EACH SIDE TOOK, in a line over a view of an evaluation: the seconds a question of the swarm and of the larger
+    model, as a mean over the tasks both were timed on (evaluate.mjs keeps each side's seconds with its answers), and how many
+    times as long the swarm takes. '' where no task has both: an evaluation from before this was kept says nothing of it."""
+    both = [r["secondsEach"] for r in (res.get("results") or [])
+            if (r.get("secondsEach") or {}).get("target") and (r.get("secondsEach") or {}).get("swarm") and (not hs or harness_key(r) in hs)]
+    if not both:
+        return ""
+    sw = sum(x["swarm"] for x in both) / len(both)
+    tg = sum(x["target"] for x in both) / len(both)
+    ratio = sw / tg if tg else 0
+    than = ("the swarm takes %s times as long" % ("%.1f" % ratio).rstrip("0").rstrip(".")) if ratio >= 1.15 else ("the swarm is %s times as fast" % ("%.1f" % (1 / ratio)).rstrip("0").rstrip(".")) if 0 < ratio <= 0.87 else "about the same"
+    return ('<p class="evspeed"><span class="cfgl">Seconds a question</span>the swarm <b>%.1f</b> · %s <b>%.1f</b> <span class="muted">· %s, over the %d task%s both were timed on</span></p>'
+            % (sw, e(tname), tg, than, len(both), "" if len(both) == 1 else "s"))
+
+
 def _eval_scope(d, only=None, cfg=None):
     """What a view of the evaluation's results is drawn from (as eval_table reads it): the bodies of work shown, each task's
     result or None, the larger model's name, the dialog's heading and the harness boxes."""
@@ -4333,7 +4353,9 @@ def _eval_scope(d, only=None, cfg=None):
             '<button class="btn stop top" id="evd-close" type="button">Close</button></div>' % e(tname))
     boxes = ('<div class="evask evharn evd-h" role="group" aria-label="Which harnesses are shown"><span class="cfgl">Showing</span>%s</div>'
              % "".join('<label><input type="checkbox" data-evd-harness="%s"%s>%s</label>' % (e(k), " checked" if k in hs else "", e(harness_name(k))) for k in hs_all)) if len(hs_all) > 1 else ""
-    return {"res": res, "tname": tname, "listed": listed, "have": have, "head": head, "boxes": lineups + boxes, "harness": boxes, "hs": hs, "hs_all": hs_all, "d": d}
+    # (how long each side took, under the boxes of every view: a score beside a larger model's says little without it)
+    speed = ev_speed(res, tname, hs)
+    return {"res": res, "tname": tname, "listed": listed, "have": have, "head": head, "boxes": lineups + boxes + speed, "harness": boxes + speed, "hs": hs, "hs_all": hs_all, "d": d}
 
 
 def bench_groups(listed):

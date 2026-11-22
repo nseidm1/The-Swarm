@@ -6,7 +6,9 @@
     "agreeSkipsChecks": true,
     "keepTurns": 6,
     "byBehaviour": true,
-    "closeAs": "shown"
+    "closeAs": "shown",
+    "decideBy": "most",
+    "draftFirst": 2
   },
   "slots": [
     {
@@ -14,7 +16,7 @@
       "member": "a",
       "stage": "draft",
       "purpose": "Drafts the answer plainly",
-      "maxTokens": 700,
+      "maxTokens": 450,
       "brief": "You answer one question. Read it twice: what exactly is asked, and in what form the answer is wanted. Answer it briefly and plainly. If it needs working out, work it out in a few short lines first. End with one last line that starts with ANSWER: and holds only the answer itself (a number, a word, a name, or one short sentence). If what is asked for is code, give the whole of it in one code block at the very end instead, with nothing after it."
     },
     {
@@ -22,7 +24,7 @@
       "member": "a",
       "stage": "draft",
       "purpose": "Drafts it step by step",
-      "maxTokens": 700,
+      "maxTokens": 450,
       "temperature": 0.3,
       "brief": "You solve one question step by step. First write what is given and what is asked. Then work in numbered steps, one small step on each line, doing every calculation in full and never skipping one in your head. Before you finish, read the question again and check that your result answers what was asked, in the unit and form asked for. End with one last line that starts with ANSWER: and holds only the answer itself. If what is asked for is code, give the whole of it in one code block at the very end instead, with nothing after it."
     },
@@ -31,7 +33,7 @@
       "member": "b",
       "stage": "draft",
       "purpose": "Drafts, then tests its first answer",
-      "maxTokens": 700,
+      "maxTokens": 450,
       "brief": "You answer one question. Say what the question asks in your own words, in one line. Then answer it. If the obvious answer comes at once, stop and test it against every detail in the question before you keep it: questions are often written so that the first answer is wrong. End with one last line that starts with ANSWER: and holds only the answer itself. If what is asked for is code, give the whole of it in one code block at the very end instead, with nothing after it."
     },
     {
@@ -39,7 +41,7 @@
       "member": "b",
       "stage": "draft",
       "purpose": "Drafts by another route",
-      "maxTokens": 700,
+      "maxTokens": 450,
       "brief": "You solve one question by a way most people would not take first: work backwards from what is asked, or try a small example, or list the cases, or estimate first and then compute. Show the work in short lines. End with one last line that starts with ANSWER: and holds only the answer itself. If what is asked for is code, give the whole of it in one code block at the very end instead, with nothing after it."
     },
     {
@@ -47,7 +49,7 @@
       "member": "a",
       "stage": "check",
       "purpose": "Checks each draft for its first slip",
-      "maxTokens": 700,
+      "maxTokens": 250,
       "brief": "You are given a question and several worked answers to it, lettered. They do not all agree. For each one, find the first line where it goes wrong, if it does: a misread of the question, a slip in a calculation, a step that does not follow. Say it in one line for each letter. Do not trust an answer because others agree with it. Then give the answer you find correct. If one of the lettered answers is correct, do not write it out again: your last line is ANSWER: and its letter, alone. Only if none of them is correct, give your own answer there instead (for code: the whole of it in one code block at the very end, with nothing after it)."
     },
     {
@@ -56,7 +58,7 @@
       "stage": "check",
       "purpose": "Checks each answer against the question",
       "sees": "finals",
-      "maxTokens": 700,
+      "maxTokens": 250,
       "brief": "You are given a question and the final answers others reached, without their work. Take each final answer in turn and test it: put it back into the question and see whether every statement in the question still holds. Say in one line for each whether it holds. Then give the answer that holds. If one of the lettered answers is correct, do not write it out again: your last line is ANSWER: and its letter, alone. Only if none of them is correct, give your own answer there instead (for code: the whole of it in one code block at the very end, with nothing after it)."
     },
     {

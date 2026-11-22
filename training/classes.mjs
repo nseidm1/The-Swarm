@@ -8,12 +8,14 @@
 //   1. HOW IT STANDS, in three figures over the same questions: on how many some slot's draft had a good answer, on how many the
 //      swarm settled on one, and on how many the reply is good as it is read (and how many replies a reader finds no answer in
 //      at all). Where answers are lost says what to change: drafting, choosing, or how the reply is written out.
-//   2. CANDIDATES, each the class's arrangement with one thing changed (training/arrange.mjs steps, the ones the trainer's policy
-//      names for this stage), scored on the SAME train questions. Slot answers are reused between them, so a change to how the
-//      matter is settled or written costs no model's time.
+//   2. CANDIDATES, each the class's arrangement with one thing changed (training/arrange.mjs steps), scored on the SAME train
+//      questions. THE SWEEP: every change that leaves the drafts as they are (how the matter is settled, checked, closed and
+//      written) is tried, because the drafts are reused between them and such a change costs little (measured 2026-11-20:
+//      seventeen of them in seventeen minutes after a first asking of twenty-three). Of the changes that draft anew, the ones
+//      the trainer's policy names, a few. Then the best two of the sweep TOGETHER, where both gained.
 //   3. THE BEST OF THEM, where it beats the swarm as it stands on the train questions, is asked the HELD questions of the class,
-//      and so is the swarm as it stands. It is kept, as a change is kept (src/learned.mjs), where it is better there by more than
-//      twice its paired error and by at least the policy's least gain. Then again from what was kept, a few rounds.
+//      every one, on TWO DRAWS, and so is the swarm as it stands. Whether it is kept is training/keep.mjs's to say, the one
+//      rule both stages of training keep a change by. Then again from what was kept, a few rounds.
 // A question counts only where it carries a standard of its own (tasks.mjs ownStandard): nothing here is marked against the
 // larger model, so nothing here needs it loaded, and the swarm can come out ahead of it. No benchmark's question is asked.
 //   node training/classes.mjs [--sample N] [--tries N] [--rounds N] [--only talk,words] [--dry]
@@ -26,6 +28,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 // THE QUESTIONS OF A CLASS A STAGE ASKS: up to `most`, taken kind by kind in turn so that every kind of the class is among them
 export function sampleOf(list, most) {
+  if (!(most > 0)) return [...list]; // (no number, or 0: every one)
   const by = new Map();
   for (const t of list) by.set(t.kind, [...(by.get(t.kind) || []), t]);
   const out = [];
@@ -74,6 +77,57 @@ export function candidatesOf(moves, patterns, most) {
     for (const list of named) if (list[i] && !out.includes(list[i]) && out.length < most) out.push(list[i]);
   return out;
 }
+// A CHANGE THAT LEAVES THE DRAFTS AS THEY ARE: the same drafting slots, flow, examples and marker, and a plan that differs only
+// in what comes after the drafts. Asked with it, every draft is reused (openSwarm reuse), so it is tried for the cost of what it
+// changes: the sweep tries every one of these.
+const AFTER_DRAFTS = [
+  'decideBy',
+  'decideWith',
+  'decideMin',
+  'closeAs',
+  'writeAs',
+  'writeCode',
+  'agreeSkipsChecks',
+  'onePerAnswer',
+  'toolDecide',
+];
+const draftPartOf = (b) =>
+  JSON.stringify([
+    (b.slots || []).filter((x) => x.stage === 'draft'),
+    b.flow || null,
+    b.examples || null,
+    b.marker || null,
+    Object.entries(b.plan || {})
+      .filter(([k]) => !AFTER_DRAFTS.includes(k))
+      .sort(([a], [c]) => (a < c ? -1 : 1)),
+  ]);
+export const keepsDrafts = (base, cand) => draftPartOf(base) === draftPartOf(cand);
+// WHAT A ROUND TRIES: the sweep (every move that keeps the drafts, at most `sweep` of them), then of the others the ones the
+// policy names (candidatesOf), at most `tries`
+export function roundOf(moves, base, patterns, tries, sweep = 40) {
+  const cheap = moves.filter((m) => keepsDrafts(base, m.briefs)).slice(0, sweep);
+  return [
+    ...cheap.map((m) => ({ ...m, sweep: true })),
+    ...candidatesOf(
+      moves.filter((m) => !cheap.includes(m) && !keepsDrafts(base, m.briefs)),
+      patterns,
+      tries,
+    ),
+  ];
+}
+// THE BEST TWO OF THE SWEEP TOGETHER: the second's change made to the first's arrangement (the move of the same name from
+// there), or null where there are not two that gained or the second cannot be made from the first
+export function togetherOf(scored, stepsOf) {
+  const two = scored
+    .filter((c) => c.m.sweep && c.g.gain > 0)
+    .sort((a, b) => b.g.gain - a.g.gain)
+    .slice(0, 2);
+  if (two.length < 2) return null;
+  const again = stepsOf(two[0].m.briefs).find((m) => m.name === two[1].m.name);
+  return again
+    ? { name: two[0].m.name + ' + ' + two[1].m.name, briefs: again.briefs, sweep: true, together: true }
+    : null;
+}
 // kept or not: better on the held questions by more than twice the paired error, and by at least the least gain
 export const worthKeeping = (g, least = 0) => !!g && g.gain > 0 && g.gain > 2 * g.error && g.gain >= least;
 
@@ -85,7 +139,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const { steps } = await import('./arrange.mjs');
   const policy = JSON.parse(fs.readFileSync(path.join(HERE, 'policy.json'), 'utf8'));
   const P = policy.classes || {};
-  const sample = Number(B.arg('sample', P.sample || 24));
+  const { keepOf } = await import('./keep.mjs');
+  const sample = Number(B.arg('sample', P.sample ?? 0));
+  const draws = Math.max(2, Number(B.arg('draws', P.draws || 2)));
+  const sweep = Number(B.arg('sweep', P.sweep || 40));
+  const margin = Number((policy.loop || {}).classMargin ?? 0.05);
   const tries = Number(B.arg('tries', P.tries || 6));
   const rounds = Number(B.arg('rounds', P.rounds || 2));
   const least = Number((policy.loop || {}).classMinGain || 0);
@@ -99,7 +157,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const held = mine('held');
 
   let stored = readBriefs();
-  const record = { at: new Date().toISOString(), sample, tries, rounds, dry: B.has('dry'), classes: {} };
+  const record = { at: new Date().toISOString(), sample, tries, rounds, draws, dry: B.has('dry'), classes: {} };
   const save = () => {
     fs.mkdirSync(path.dirname(OUT), { recursive: true });
     fs.writeFileSync(OUT + '.tmp', JSON.stringify(record, null, 1));
@@ -110,7 +168,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     ...stored,
     kinds: { ...(stored.kinds || {}), [K]: { slots: b.slots, plan: b.plan, flow: b.flow } },
   });
-  const swarm = await B.openSwarm(stored, { seed: Number(B.arg('seed', 1)), reuse: true });
+  const seed0 = Number(B.arg('seed', 1));
+  const swarm = await B.openSwarm(stored, { seed: seed0, reuse: true });
   // one question under one arrangement: what was drafted, settled and replied, each marked by the question's own standard
   const ask = async (t, briefs) => {
     swarm.setBriefs(briefs);
@@ -139,6 +198,20 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     for (const [i, t] of list.entries()) {
       out.push(await ask(t, briefs));
       B.live({ trainer: 'classes', step: said + ', question ' + (i + 1) + ' of ' + list.length });
+    }
+    return out;
+  };
+
+  // the held questions on each draw (another seed for each, the first the one everything else is asked with; then put back)
+  const onDraws = async (list, briefs, said) => {
+    const out = [];
+    try {
+      for (let k = 0; k < draws; k++) {
+        swarm.seed = seed0 + k;
+        out.push(await all(list, briefs, said + ', draw ' + (k + 1) + ' of ' + draws));
+      }
+    } finally {
+      swarm.seed = seed0;
     }
     return out;
   };
@@ -181,10 +254,18 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         const R = { candidates: [] };
         C.rounds.push(R);
         let best = null;
-        for (const m of candidatesOf(steps(base), P.moves, tries)) {
+        const scored = [];
+        const tryOne = async (m) => {
           const rows = await all(tr, asClass(K, m.briefs), 'The class ' + K + ': ' + m.name);
           const g = pairedGain(rows, baseRows);
-          R.candidates.push({ name: m.name, ...figuresOf(rows), gain: g.gain, error: g.error });
+          R.candidates.push({
+            name: m.name,
+            ...figuresOf(rows),
+            gain: g.gain,
+            error: g.error,
+            ...(m.sweep ? { sweep: true } : {}),
+          });
+          scored.push({ m, rows, g });
           save();
           console.log(
             '  ' +
@@ -198,31 +279,55 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
               ' points)',
           );
           if (g.gain > 0 && (!best || g.gain > best.g.gain)) best = { m, rows, g };
-        }
+        };
+        for (const m of roundOf(steps(base), base, P.moves, tries, sweep)) await tryOne(m);
+        // (and the best two of the sweep together: two changes that each help may help more as one)
+        const both = togetherOf(scored, steps);
+        if (both) await tryOne(both);
         if (!best) break;
         // ON THE HELD QUESTIONS, which it was not chosen on: the swarm as it stands and the best, the same questions for both
-        const heldBase = await all(he, asClass(K, base), 'The class ' + K + ' as it stands, held questions');
-        const heldBest = await all(
+        const heldBase = await onDraws(he, asClass(K, base), 'The class ' + K + ' as it stands, held questions');
+        const heldBest = await onDraws(
           he,
           asClass(K, best.m.briefs),
           'The class ' + K + ': ' + best.m.name + ', held questions',
         );
-        const hg = pairedGain(heldBest, heldBase);
-        const keep = worthKeeping(hg, least);
+        const verdict = keepOf(
+          he.map((t, i) => ({
+            id: t.id,
+            kind: t.kind,
+            base: heldBase.map((d) => (d[i].counted ? 1 : 0)),
+            with: heldBest.map((d) => (d[i].counted ? 1 : 0)),
+          })),
+          { least, margin },
+        );
+        const hg = { gain: verdict.gain, error: verdict.error };
+        const keep = verdict.keep;
         Object.assign(R, {
           best: best.m.name,
-          held: { asItStood: figuresOf(heldBase), with: figuresOf(heldBest), gain: hg.gain, error: hg.error },
+          held: {
+            asItStood: figuresOf(heldBase[0]),
+            with: figuresOf(heldBest[0]),
+            gain: hg.gain,
+            error: hg.error,
+            draws: verdict.draws,
+            ...(verdict.lost.length ? { lost: verdict.lost } : {}),
+            ...(verdict.fell.length ? { fell: verdict.fell } : {}),
+            ...(verdict.why ? { why: verdict.why } : {}),
+          },
           kept: keep,
         });
         console.log(
           '  best: ' +
             best.m.name +
-            '; on held ' +
+            '; on held, ' +
+            verdict.draws +
+            ' draws: ' +
             (hg.gain * 100).toFixed(1) +
             ' points (paired error ' +
             (hg.error * 100).toFixed(1) +
             '): ' +
-            (keep ? 'kept' : 'not kept'),
+            (keep ? 'kept' : 'not kept: ' + verdict.why),
         );
         if (!keep) {
           save();
@@ -242,6 +347,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
             gain: hg.gain,
             error: hg.error,
             questions: he.length,
+            draws: verdict.draws,
           });
         }
         save();
