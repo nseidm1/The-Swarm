@@ -13,6 +13,11 @@ functions a model is offered, their descriptions and arguments, the questions, t
                        model and the swarm are asked on the same day with the same folder, so the same query gives both the
                        same results, and the same address the same page, whichever asked first
   SWARM_SEARCH_TRIES   how often a search that returned nothing is asked again before that is the answer (3)
+  SWARM_SEARCH_WAITS   how long is waited before each of those, in seconds ("5,15,30": the last one for any further try)
+  SWARM_SEARCH_PACE    the least seconds between two searches sent to the service (none or 0: no pause). One kept from before
+                       is given at once
+  SWARM_SEARCH_LOG     a file: one line for each search a model made (the query, how many results it was given), so that a
+                       result can say how many of one model's searches came back with nothing
   SWARM_SEARCH_PAGE_CHARS  the most of a fetched page a model is given, in characters (none or 0: all of it). A page is kept
                        whole and cut as it is given, the same for the larger model and the swarm, and says where it was cut
   SWARM_SEARCH_RESULTS_MOST  the most results a search gives, however many were asked for (none or 0: as many as asked)
@@ -106,17 +111,59 @@ def ask_searxng(base, keywords, language):
         return json.loads(r.read().decode("utf8"))
 
 
+def waits_of(text):
+    """How long is waited before each further try of a search that returned nothing: "5,15,30" -> [5.0, 15.0, 30.0]. An engine
+    that has just refused (a CAPTCHA, too many requests) refuses again two seconds later: measured 2026-11-21, 44 of 162
+    searches of one run came back with nothing, asked again after 2 and then 4 seconds."""
+    out = []
+    for x in str(text or "").split(","):
+        try:
+            if float(x) >= 0:
+                out.append(float(x))
+        except ValueError:
+            pass
+    return out or [5.0, 15.0, 30.0]
+
+
+def noted(path, keywords, found):
+    """One line of a model's own record of its searches (SWARM_SEARCH_LOG): the query and how many results it was given."""
+    if not path:
+        return
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        with open(path, "a", encoding="utf8") as f:
+            f.write(json.dumps({"q": keywords, "n": len(found.get("results") or []), **({"why": found["why"]} if found.get("why") else {})}) + "\n")
+    except OSError:
+        pass
+
+
+_SENT = [0.0]  # (when the last search was sent out, in this process: the pace is kept from it)
+
+
+def paced(wait=time.sleep, now=time.time, pace=None):
+    """Waits until `pace` seconds have gone by since the last search was sent, then marks this one as sent. The engines behind
+    SearXNG refuse a caller that asks without a pause (measured 2026-11-21: DuckDuckGo answered a CAPTCHA to 395 searches of
+    one run, and answered every one when asked every three seconds)."""
+    pace = float(pace if pace is not None else (os.environ.get("SWARM_SEARCH_PACE") or 0))
+    gap = pace - (now() - _SENT[0])
+    if pace > 0 and gap > 0:
+        wait(gap)
+    _SENT[0] = now()
+
+
 def search(base, folder, keywords, max_results=10, region="wt-wt", show_snippet=True, ask=ask_searxng, tries=None, wait=time.sleep):
     """search_engine_query, through SearXNG. A query's results are kept whole (before they are cut and shaped), so the same query
-    gives the same results whatever was asked of them. One that returns nothing is asked again a few times; then that is its
-    answer, for both models alike."""
+    gives the same results whatever was asked of them. One that returns nothing is asked again a few times, waiting longer each
+    time; then that is its answer, for both models alike."""
     tries = int(tries or os.environ.get("SWARM_SEARCH_TRIES") or 3)
+    waits = waits_of(os.environ.get("SWARM_SEARCH_WAITS"))
     language = language_of(region)
 
     def make():
         last = ""
         for k in range(tries):
             try:
+                paced(wait)
                 got = ask(base, keywords, language)
                 # (a result is a page with an address: a redirect an engine hands over with no host in it is not one)
                 rows = [{"title": r.get("title"), "url": r.get("url"), "content": r.get("content"), "engines": r.get("engines") or [r.get("engine")]}
@@ -127,10 +174,11 @@ def search(base, folder, keywords, max_results=10, region="wt-wt", show_snippet=
             except (urllib.error.URLError, OSError, ValueError) as e:
                 last = str(e)
             if k + 1 < tries:
-                wait(2 * (k + 1))
+                wait(waits[min(k, len(waits) - 1)])
         return {"results": [], "why": last}
 
     found = kept(os.path.join(folder, "queries") if folder else "", json.dumps({"q": keywords, "language": language}, sort_keys=True), make)
+    noted(os.environ.get("SWARM_SEARCH_LOG"), keywords, found)
     rows = to_results(found.get("results"), fewest(max_results, os.environ.get("SWARM_SEARCH_RESULTS_MOST")), show_snippet)
     return rows if rows else {"error": NOTHING}
 

@@ -4232,6 +4232,7 @@ def eval_table(d, only=None, cfg=None):
 
     rows = []
     unread_any = False
+    starved_any = False
     for t in listed:
         rs = [have(b["task"]) for b in t["benchmarks"] if have(b["task"])]
         rows.append('<tr class="evt-item%s"><th scope="row">%s</th>%s</tr>' % (" evt-old" if rs and all(r.get("carried") for r in rs) else "", e(t["name"]), cells(rs)))
@@ -4246,6 +4247,14 @@ def eval_table(d, only=None, cfg=None):
             mark = (' <b class="evt-unread" title="The harness found no answer in %s of the swarm&#39;s replies and %s of the larger model&#39;s, of %d. Each such reply is marked wrong; the score is of all %d">%s</b>'
                     % (us, ut, n, n, ("no answer in %d of %d" % (us, n)) if us * 4 >= n else ("larger model: no answer in %d of %d" % (ut, n)))) if n and max(us, ut) * 4 >= n else ""
             unread_any = unread_any or bool(mark)
+            # (a search task where a quarter or more of one model's searches came back with nothing: marked, since what it scored
+            # then is the search engines more than the model. The two are not served alike on such a day)
+            se = (r or {}).get("searches") or {}
+            starved = [(w, x) for w, x in (("the swarm", se.get("swarm")), (tname, se.get("target"))) if x and x.get("asked") and x.get("empty", 0) * 4 >= x["asked"]]
+            if starved:
+                mark += (' <b class="evt-unread" title="Searches that came back with nothing: %s">searches failed</b>'
+                         % e("; ".join("%s %d of %d" % (w, x["empty"], x["asked"]) for w, x in (("the swarm", se.get("swarm")), (tname, se.get("target"))) if x)))
+                starved_any = True
             rows.append('<tr class="evt-task%s"><td>%s%s</td>%s</tr>' % (" evt-old" if r and r.get("carried") else "", e(b.get("name") or b["task"]), mark, cells([r] if r else [])))
     rows.append('<tr class="evt-all"><th scope="row">%s</th>%s</tr>' % ("Every question" if len(hs) == len(hs_all) else "Every question of %s" % e(_and([harness_name(k) for k in hs])), cells(done)))
     when = (" Evaluated %s UTC." % e(_day(res.get("at")))) if res.get("at") else ""
@@ -4254,6 +4263,8 @@ def eval_table(d, only=None, cfg=None):
         notes += " Before is that figure for the same line in the evaluation of this configuration before it."
     if old:
         notes += " A line in grey was not asked again this time: its figures are the earlier evaluation&#39;s."
+    if starved_any:
+        notes += " A task marked searches failed is one where a quarter or more of one model&#39;s searches came back with nothing, because the search engines refused: its scores say more of the engines that day than of either model, and the two were not served alike."
     if unread_any:
         notes += " A task marked no answer in some of its replies is one where the harness found no answer in a quarter or more of one model&#39;s replies. Each such reply is marked wrong and the score is still of every question, so it says how replies were written more than what either model knew."
     return (head + boxes + '<p class="small muted" style="margin:10px 0 0">Each was put the same questions and marked by the benchmark&#39;s own checker. Swarm → target is the swarm&#39;s score as a share of %s&#39;s: '

@@ -1527,6 +1527,17 @@ with _tf.TemporaryDirectory() as _t3:
     _r4 = _bs.search("http://s", _t3, "nothing", 10, "wt-wt", True, ask=_ask, tries=3, wait=_waits.append)
     _r5 = _bs.search("http://s", _t3, "nothing", 10, "wt-wt", True, ask=_ask, tries=3, wait=_waits.append)
     _kept_files = sorted(os.listdir(os.path.join(_t3, "queries")))
+    _bs.noted(os.path.join(_t3, "log", "searches.jsonl"), "tea", {"results": [1, 2]})
+    _bs.noted(os.path.join(_t3, "log", "searches.jsonl"), "none", {"results": [], "why": "refused"})
+    _bs.noted("", "ignored", {"results": []})
+    _noted3 = [json.loads(x) for x in open(os.path.join(_t3, "log", "searches.jsonl")).read().splitlines()]
+    # (searches are sent no closer together than the pace: the second, one second after the first with a pace of three, waits two)
+    _paced3 = []
+    _bs._SENT[0] = 0.0
+    for _now, _pace in ((100.0, 3), (101.0, 3), (101.0, 0)):
+        _w = []
+        _bs.paced(_w.append, lambda: _now, _pace)
+        _paced3.append(_w)
     _made = []
     _k1 = _bs.kept(os.path.join(_t3, "pages"), "u", lambda: _made.append(1) or {"content": "page"})
     _k2 = _bs.kept(os.path.join(_t3, "pages"), "u", lambda: _made.append(1) or {"content": "another"})
@@ -1542,7 +1553,11 @@ check("the search behind the web search test gives a model what the test's own s
       and _bs.cut_page({"error": "no"}, 10) == {"error": "no"} and _bs.cut_page({"content": "x" * 50}, 0)["content"] == "x" * 50 and _bs.cut_page({"content": "x" * 50}, None)["content"] == "x" * 50
       and _bs.language_of("wt-wt") == "all" and _bs.language_of("uk-en") == "en-GB" and _bs.language_of("tw-tzh") == "zh-TW" and _bs.language_of("ue-es") == "es-US" and _bs.language_of("") == "all"
       and _bs.is_page("https://a.example/") and not _bs.is_page("http:///go/v1/abc") and not _bs.is_page("ftp://a.example/") and not _bs.is_page(None)
-      and _k1 == {"content": "page"} and _k2 == _k1 and len(_made) == 1 and _waits[:1] == [2],
+      # (a search that came back with nothing is asked again after a longer wait each time; and a model's own record of its
+      # searches says how many results each was given, so that a result can say how many came back with nothing)
+      and _bs.waits_of("5,15,30") == [5.0, 15.0, 30.0] and _bs.waits_of("") == [5.0, 15.0, 30.0] and _bs.waits_of("1, x,-2,3") == [1.0, 3.0]
+      and _noted3 == [{"q": "tea", "n": 2}, {"q": "none", "n": 0, "why": "refused"}] and _paced3 == [[], [2.0], []]
+      and _k1 == {"content": "page"} and _k2 == _k1 and len(_made) == 1 and _waits[:3] == [5.0, 5.0, 15.0],
       [_r1, _r2, _r4, _asked, _kept_files])
 
 # WEB SEARCH IN THE SwOA SPEC (interface.webSearch; docs/swoa.md T.10): what it is to the module, whose each part is, how a caller

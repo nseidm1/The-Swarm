@@ -9532,6 +9532,19 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       env.SWARM_SEARCH_URL === 'http://127.0.0.1:9' &&
       env.SWARM_SEARCH_CACHE === day &&
       env.SWARM_SEARCH_TRIES === '3' &&
+      // (longer waits between the tries of a search that came back with nothing; and how many of a model's searches did)
+      env.SWARM_SEARCH_WAITS === S.SEARCH.searxng.waits.join(',') &&
+      S.SEARCH.searxng.waits[0] >= 5 &&
+      env.SWARM_SEARCH_PACE === String(S.SEARCH.searxng.pace) &&
+      S.SEARCH.searxng.pace >= 1 &&
+      S.SEARCH.searxng.settings.engines.every((x) => x.name && x.disabled === false) &&
+      S.SEARCH.searxng.settings.engines.some((x) => x.name === 'bing') &&
+      (() => {
+        const f = path.join(dir, 'searches.jsonl');
+        fs.writeFileSync(f, '{"q":"a","n":3}\n{"q":"b","n":0}\n\n{"q":"c","n":0,"why":"refused"}\n');
+        const got = S.searchesIn(f);
+        return got.asked === 3 && got.empty === 2 && S.searchesIn(path.join(dir, 'no-such-file')) === null;
+      })() &&
       rec.service === 'SearXNG' &&
       rec.revision === S.SEARCH.searxng.rev &&
       JSON.stringify(rec.engines) === JSON.stringify(['brave', 'duckduckgo']) &&

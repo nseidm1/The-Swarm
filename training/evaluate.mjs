@@ -56,6 +56,7 @@ import {
   searchBlocked,
   openSearch,
   searchEnv,
+  searchesIn,
   searchFolder,
   searchRecord,
   searchWords,
@@ -544,9 +545,13 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   let search = null;
   const searchUp = async () => {
     if (!search) {
+      // (said only while it starts: the step that was being said, which model is asked which task, is said again once it serves.
+      // It stayed on the page for the whole of the test otherwise, as if nothing had been asked yet)
+      const before = live.step;
       say('Starting the search behind the web search test');
       search = await openSearch({ log: path.join(EVAL_DIR, 'search.log') });
       stopping.push(search.stop);
+      if (before && !halted) say(before);
     }
     return search;
   };
@@ -564,7 +569,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     let env = {};
     if (b.search && searchOf() === 'searxng') {
       try {
-        env = searchEnv((await searchUp()).base, SEARCH_KEPT);
+        // (and its own record of the searches it makes, beside its answers: how many came back with nothing is said in the result)
+        env = {
+          ...searchEnv((await searchUp()).base, SEARCH_KEPT),
+          SWARM_SEARCH_LOG: path.join(out, 'searches.jsonl'),
+        };
       } catch (e) {
         Object.assign(row, { state: 'failed', why: String((e && e.message) || e).slice(0, 240), seconds: 0 });
         write(true);
@@ -974,6 +983,15 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       if (halted) await never();
     }
   }
+  // (a task that searches: how many of each one's searches came back with nothing, where its record of them is kept)
+  const searchesFor = (b, targetDir, swarmDir) => {
+    if (!b.search) return {};
+    const got = {
+      target: searchesIn(path.join(targetDir, 'searches.jsonl')),
+      swarm: searchesIn(path.join(swarmDir, 'searches.jsonl')),
+    };
+    return got.target || got.swarm ? { searches: got } : {};
+  };
   // (each model's score on a task, where its answers to it are kept: { key: { id, name, value, stderr, n, of } })
   const aloneFor = (b) => {
     const got = {};
@@ -1069,6 +1087,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         target: lean(best.score),
         swarm: lean(ss),
         ...aloneFor(b),
+        ...searchesFor(
+          b,
+          keep({ ...b, way: best.way }),
+          swarmKeep(sbest.way === 'tools' ? b : { ...b, way: sbest.way }),
+        ),
         agree,
         ...(ways.length > 1
           ? { targetAsked: best.way, targetWays: Object.fromEntries(ways.map((w) => [w.way, lean(w.score)])) }

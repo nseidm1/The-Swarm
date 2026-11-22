@@ -10,9 +10,18 @@
     "settings": {
       "use_default_settings": true,
       "server": { "limiter": false, "public_instance": false, "image_proxy": false },
-      "search": { "safe_search": 0, "formats": ["html", "json"] }
+      "search": { "safe_search": 0, "formats": ["html", "json"] },
+      "engines": [
+        { "name": "bing", "disabled": false },
+        { "name": "yahoo", "disabled": false },
+        { "name": "yandex", "disabled": false },
+        { "name": "privacywall", "disabled": false }
+      ]
     },
+    "enginesAbout": "Engines turned on beside the ones SearXNG has on as it comes (measured from this project's machine 2026-11-21, six questions each, one every few seconds): Bing, Yahoo, Yandex and PrivacyWall answered every one, as DuckDuckGo and Brave did. Not turned on: Google (refused), Qwant and Fireball (access denied), Yep, Tusksearch, Baidu (errors), Mwmbl and Naver (they answer, but are a small index and a Korean one). A search is answered while any of them answers. pace: the least seconds between two searches sent out (one that is kept for the day is not sent): the engines refused when asked without one, and answered when asked every three seconds. waits: how long before each further try of a search that came back with nothing.",
+    "pace": 3,
     "tries": 3,
+    "waits": [5, 15, 30],
     "pageChars": 2000,
     "resultsMost": 5
   },

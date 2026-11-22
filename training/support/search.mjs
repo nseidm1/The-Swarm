@@ -70,9 +70,27 @@ export const searchEnv = (base, folder) => ({
   SWARM_SEARCH_URL: base,
   SWARM_SEARCH_CACHE: folder,
   SWARM_SEARCH_TRIES: String(SEARCH.searxng.tries || 3),
+  SWARM_SEARCH_WAITS: (SEARCH.searxng.waits || [5, 15, 30]).join(','),
+  SWARM_SEARCH_PACE: String(Number(SEARCH.searxng.pace) || 0),
   SWARM_SEARCH_PAGE_CHARS: String(PAGE_CHARS),
   SWARM_SEARCH_RESULTS_MOST: String(RESULTS_MOST),
 });
+
+// HOW MANY OF ONE MODEL'S SEARCHES CAME BACK WITH NOTHING, from its own record of them (bfcl_search.py SWARM_SEARCH_LOG):
+// { asked, empty }, or null where it kept none. A search test scores what a model made of what it found; where the engines
+// refused, it scores the engines.
+export function searchesIn(file) {
+  try {
+    const rows = fs
+      .readFileSync(file, 'utf8')
+      .split('\n')
+      .filter((l) => l.trim())
+      .map((l) => JSON.parse(l));
+    return { asked: rows.length, empty: rows.filter((r) => !r.n).length };
+  } catch {
+    return null;
+  }
+}
 
 const freePort = () =>
   new Promise((ok, no) => {

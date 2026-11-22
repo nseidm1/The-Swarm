@@ -6,6 +6,12 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The web search test is refused less, and says when it was** (2026-11-21). In one evaluation the public search engines
+  refused 44 of 162 searches, and the score fell for that reason alone. Measured one at a time, every engine that had
+  refused answered when asked every few seconds, so searches are now sent at least three seconds apart, and one that comes
+  back with nothing is tried again after 5, 15 and 30 seconds. Bing, Yahoo, Yandex and PrivacyWall answered every question
+  put to them and are turned on beside DuckDuckGo and Brave; none needs a key. Each side's searches are counted, and a task
+  where one in four or more came back with nothing is marked "searches failed" in the results.
 - **The chart shows every lineup at once, and the tables can show any lineup's** (2026-11-21). The chart plots each lineup
   evaluated against the larger model, the larger model, and each small model of the configured lineup by itself. Every
   point is a number, and a list under the chart says which is which: its score, its memory and how many questions it rests

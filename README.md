@@ -780,6 +780,15 @@ key. Nothing else of the test changes: the functions offered, the questions, the
   the test's search reached the SearXNG served here, the results came back in the test's own shape, and Brave, DuckDuckGo
   and Google's custom search answered. Asked again, the same query was given the same results from the day's folder and
   not searched for again.
+- **Which engines, and how fast** (measured 2026-11-21, six questions each, one every few seconds): Bing, Yahoo, Yandex and
+  PrivacyWall answered every one, as DuckDuckGo and Brave did, so they are turned on too and a search is answered while
+  any of them answers. Google refused, and so did Qwant; neither is relied on. Asked with no pause, the engines refused: in
+  one evaluation 44 of 162 searches came back with nothing. So searches are sent at least three seconds apart, and one that
+  comes back with nothing is tried again after 5, 15 and 30 seconds (`pace` and `waits` in
+  [`training/search.json`](training/search.json)). No engine here needs a key or an account.
+- **What is said when it still fails:** each side's searches are counted, and where one in four or more came back with
+  nothing the task is marked "searches failed" on the page, because its score then says more about the day's search than
+  about the model.
 - **What is kept:** what each query returned and each page fetched, for the day. The larger model and the swarm are asked on
   the same day, so the same query gives both the same findings, whichever asked first.
 - **What it cannot promise:** the public engines throttle. In three test queries DuckDuckGo answered one with a CAPTCHA; the
@@ -1052,7 +1061,7 @@ Known limits:
 | An evaluation stops at "Installing lm-evaluation-harness"             | There is no `uv` and no Python 3.10 or later                                                                                              | Install either; the section says which was missing                                                 |
 | An evaluation stops at "Installing the tool tests"                    | There is no `uv` and no Python from 3.10 to 3.12 (the package pins a numpy with no build for a newer one)                                 | Install `uv`, or one of those Pythons                                                              |
 | A web search task says it was not asked                               | The search behind it is not installed (the install needs `git` and a network), or `SWARM_SEARCH=serpapi` is set with no `SERPAPI_API_KEY` | Evaluate again: the install is tried again, and only that task is asked                            |
-| The web search test finds little                                      | The public search engines are refusing the SearXNG served here (a CAPTCHA, a rate limit)                                                  | Evaluate it on another day: what was kept is of the day it was asked on                            |
+| The web search test finds little                                      | The public search engines are refusing the SearXNG served here (a CAPTCHA, a rate limit)                                                  | The task is marked "searches failed". Evaluate it on another day, or raise `pace` in `training/search.json` |
 
 ## Repository layout
 
