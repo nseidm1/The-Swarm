@@ -21,7 +21,7 @@ answers, and what it keeps is then kept in a session's first minutes):
    one, on `classes.draws` draws (two), and so is the swarm as it stands. Whether it is kept is `training/keep.mjs`'s to
    say, the one rule the question-by-question stage keeps a change by as well: the mean gain more than twice its paired
    error and at least `loop.classMinGain`, what it loses (a question right on every draw, wrong on every draw with it)
-   outweighed by at least twice as many made good, no kind fallen.
+   outweighed by at least twice as many made good, no kind fallen (by more than the margin and twice its own error).
    Then again from what was kept, `classes.rounds` times.
 
 Only questions that carry a standard of their own are asked, so the larger model is not needed and the swarm can come out

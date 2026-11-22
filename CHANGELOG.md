@@ -6,6 +6,9 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A kind of question has fallen only where it fell by more than twice its error** (2026-11-22). A change was refused
+  where any kind fell by more than 0.05 and more than its own error. One answer on one draw is that much in a kind of
+  six, and a class has twenty kinds, so most changes showed one. A kind's fall is now held to the bar a gain is.
 - **Training keeps a change that gains more than it loses, and does not ask the same question of a class twice**
   (2026-11-22). In one pass 24 of 29 questions short of parity had a change that brought them there, 97 changes reached
   their class, and none was kept: 78 were refused for one question lost on both draws, among them one that made six

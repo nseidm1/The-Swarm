@@ -910,14 +910,16 @@ export async function runLoop({
   // one right both times without and neither time with it is LOST. Then
   //   a change is not kept for what it loses where it does not make good at least twice as many (keep.mjs outweighed; the
   //   question it was found on is not counted among those made good);
-  //   a kind has fallen only where its mean falls by more than classMargin AND by more than its own error (one answer of six
-  //   that came out otherwise once is exactly its error, and is not a fall);
+  //   a kind has fallen only where its mean falls by more than classMargin AND by more than twice its own error, the bar a
+  //   gain is held to (keep.mjs: one answer of six that came out otherwise once is not a fall, nor is one of twenty kinds
+  //   that came out a little lower);
   //   and a change is kept on the gain rule above, or where it made a question good, lost none, and the class's mean is up.
   // (Measured 2026-11-19, 31 code questions, 27 already good: changes brought a question to parity 25 times and none was kept.
   // One question made good in a class of 30 gains 1/30 with an error of 1/30, never twice its error; 13 were refused for a kind
   // "falling" by one answer of six, and 7 on the first 8 questions by one answer of eight.)
   // -> { keep, why, record, scores: { train: { id: score }, held: { id: score } } }. known: scores already measured with the change
-  const NEAR = 0.0015; // (the gains are kept to three places: a fall of exactly its own error is not beyond it)
+  const NEAR = 0.0015; // (the gains are kept to three places: a fall of exactly twice its own error is not beyond it)
+  const RULE = 'r2'; // (the keep rule's number, for what a refusal is remembered under: r2, a kind's fall at twice its error)
   const meanOf = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
   const classCheck = async (newBriefs, K, { what, note, known = {} }) => {
     const mine = list.filter((x) => kindOfT(x) === K && !wrongMarks.has(x.id));
@@ -935,7 +937,10 @@ export async function runLoop({
     // time asked of up to 141 questions. A change is known by what it makes of the class's arrangement (effectOn), not by its
     // name (two briefs by the larger model can have one title), and by the arrangement it was checked on: once a change is
     // kept the arrangement is another, and what was refused before may be asked again.
+    // (and by the rule it was refused under, RULE: a refusal under an earlier rule is asked again under this one)
     const rkey =
+      RULE +
+      '|' +
       K +
       '|' +
       ver +
@@ -1050,7 +1055,7 @@ export async function runLoop({
     if (!outweighed(lostQs.length, goodBeside().length)) return fail(lostWhy(lostQs, goodBeside()));
     const fell = [...new Set(diffs.map((y) => y.kind))]
       .map((kind) => ({ kind, ...pairedOf(diffs.filter((y) => y.kind === kind).map((y) => y.d)) }))
-      .filter((y) => y.gain < -classMargin && (!classConfirm || y.gain < -y.stderr - NEAR));
+      .filter((y) => y.gain < -classMargin && (!classConfirm || y.gain < -2 * y.stderr - NEAR));
     if (fell.length) {
       record.fell = fell.map((y) => y.kind);
       return fail('its questions of the kind ' + fell[0].kind + ' fell by ' + -fell[0].gain);

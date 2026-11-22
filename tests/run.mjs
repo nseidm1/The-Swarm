@@ -9715,6 +9715,12 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     ...[...Array(12).keys()].map((i) => q('g' + i, 'up', [0, 0], [1, 1])),
     ...[...Array(4).keys()].map((i) => q('d' + i, 'down', [1, 1], i < 3 ? [0, 1] : [1, 1])),
   ]);
+  // a kind that came out a little lower: two answers of sixteen, a fall of more than its own error and less than twice it. Not
+  // fallen (a gain is held to twice its error, and so is a fall)
+  const dipped = K.keepOf([
+    ...[...Array(12).keys()].map((i) => q('g' + i, 'up', [0, 0], [1, 1])),
+    ...[...Array(8).keys()].map((i) => q('d' + i, 'down', [1, 1], i < 2 ? [0, 1] : [1, 1])),
+  ]);
   const small = K.keepOf(gains.slice(0, 1));
   const base = {
     marker: 'ANSWER:',
@@ -9745,7 +9751,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const sh = fs.readFileSync(new URL('../training/session.sh', import.meta.url), 'utf8');
   const pol = JSON.parse(fs.readFileSync(new URL('../training/policy.json', import.meta.url), 'utf8'));
   check(
-    'a change to a class is kept by one rule, the same for both stages of training: on the held questions, each asked on two draws or more, where the mean gain is over twice its error and at least the least gain, what it loses (right every time as it stands, wrong every time with it) is outweighed by twice as many made good, and no kind falls; the bar is cleared by the held questions alone or with the other questions the change was not chosen on, and never where the held questions did not gain; one draw never keeps; the class stage tries every change that leaves the drafts as they are, a few of the others the policy names, and the best two of the first together; it asks every question of the class, and runs before the larger model is asked anything',
+    'a change to a class is kept by one rule, the same for both stages of training: on the held questions, each asked on two draws or more, where the mean gain is over twice its error and at least the least gain, what it loses (right every time as it stands, wrong every time with it) is outweighed by twice as many made good, and no kind falls by more than the margin and twice its own error; the bar is cleared by the held questions alone or with the other questions the change was not chosen on, and never where the held questions did not gain; one draw never keeps; the class stage tries every change that leaves the drafts as they are, a few of the others the policy names, and the best two of the first together; it asks every question of the class, and runs before the larger model is asked anything',
     kept.keep === true &&
       kept.gain === 0.6 &&
       kept.draws === 2 &&
@@ -9767,6 +9773,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       wobble.keep === true &&
       fell.keep === false &&
       fell.fell.join() === 'down' &&
+      dipped.keep === true &&
+      dipped.fell.length === 0 &&
       small.keep === false &&
       C.keepsDrafts(base, moves[0].briefs) &&
       C.keepsDrafts(base, moves[1].briefs) &&

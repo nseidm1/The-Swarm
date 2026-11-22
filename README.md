@@ -560,7 +560,7 @@ named.
   for every stage of training (`training/keep.mjs`): each held question of the class is asked on two draws, with the
   change and without, and the change is kept where the mean gain is more than twice its paired error and at least 0.02,
   what it loses (a question right on both draws and wrong on both with it) is outweighed by at least twice as many made
-  good, and no kind falls. The bar is cleared by the held questions alone, or by them together with the train questions
+  good, and no kind falls by more than 0.05 and twice its own error. The bar is cleared by the held questions alone, or by them together with the train questions
   the change was not found on; the held questions must have gained either way. A change refused for its class is not
   asked of it again while the arrangement stands. One draw is never enough: the same change
   measured 1.9 points on one draw and 11.1 on another. Among the changes it can try is a drafter that answers by a program: it writes a short program, the sandbox runs it, and what it prints is that slot's answer. At the end of a pass the changes

@@ -10,7 +10,11 @@
 //   - a question's gain is its mean score with the change less its mean score without, over the draws;
 //   - it is kept where the held questions gained, the mean gain is more than twice its paired error and at least the least gain
 //     the policy names, the questions it LOSES are outweighed by those it MAKES GOOD, and no kind of question falls by more
-//     than the margin and more than its own error.
+//     than the margin and more than twice its own error.
+// A KIND'S FALL IS HELD TO THE BAR A GAIN IS (2026-11-22). A kind is six to eight questions, and a class has twenty kinds: one
+// answer on one draw is a fall of 8 points in a kind of six, more than the margin and just more than its own error, and in
+// twenty kinds one such comes up most times by chance. With the lost question no longer refusing alone, the first change to
+// pass that gate (5.3 points over 141 questions, six made good, two lost) was refused for exactly that.
 // LOST AND MADE GOOD (2026-11-22). A question is lost where it is right on every draw as the swarm stands and wrong on every
 // draw with the change; made good, the other way about. One question lost used to refuse a change whatever it gained, and
 // small models answer otherwise from draw to draw: of 97 changes that reached their class in one pass, 78 were refused for one
@@ -52,7 +56,7 @@ export function keepOf(rows, { least = 0, margin = 0.05, beside = [] } = {}) {
     .map((r) => r.id);
   const fell = [...new Set(gains.map((r) => r.kind).filter(Boolean))]
     .map((kind) => ({ kind, ...pooled(gains.filter((r) => r.kind === kind).map((r) => r.d)) }))
-    .filter((k) => k.gain < -margin && k.gain < -k.error)
+    .filter((k) => k.gain < -margin && k.gain < -2 * k.error)
     .map((k) => k.kind);
   const pct = (x) => (x * 100).toFixed(1);
   // (the bar: a mean gain more than twice its error and at least the least; cleared by the held questions alone, or by them
