@@ -6,6 +6,8 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The chart rings the larger model too** (2026-11-21). The larger model configured now has a ring round its point, in its
+  own colour, and is marked in the list under the chart, as the lineup configured now is.
 - **Less standing text on the Train and Pretrain cards** (2026-11-21). The Train card no longer says "question by question,
   until stopped" beside how long a session has run, nor a sentence about question 1 before a pass has begun; and the
   Pretrain card says what it does in two sentences.

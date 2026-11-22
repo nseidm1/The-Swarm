@@ -1997,7 +1997,7 @@ swarm_ui._eval_rows = lambda root: [_full11]
 check("the evaluation's results as a paper sets them out, and as score against memory: a caption, each benchmark with both scores and their standard errors, the higher in bold, a line over every question and the table as LaTeX; and a point for each of the two, named, where their memory is known",
       "<b>Table 1.</b>" in _pap11 and "± is one standard error" in _pap11 and 'class="pall"><td>All questions</td><td>40</td>' in _pap11 and "<small>± " in _pap11 and "\\begin{tabular}{lrrrr}" in _pap11 and "\\toprule" in _pap11 and 'id="evd-copy"' in _pap11
       and _cht11.count('<text class="pn"') == 2 and "while holding 25% of its memory (4 GB against 16 GB)" in _cht11 and "<em>configured now</em>" in _cht11 and '<li class="mine">' in _cht11 and 'role="img"' in _cht11
-      and 'r="15" fill="none"' in _cht11 and "<em>the larger model</em>" in _cht11 and "No lineup has been evaluated yet." in _cht_none11 and 'id="evd-cfg"' not in _cht11
+      and 'r="15" fill="none"' in _cht11 and "<em>the larger model, configured now</em>" in _cht11 and 'stroke="var(--tgt)" stroke-width="2"/>' in _cht11 and 'class="mine tgt"' in _cht11 and "No lineup has been evaluated yet." in _cht_none11 and 'id="evd-cfg"' not in _cht11
       # (the chart's scores are of one thing at a time: every question, or one benchmark by the name it is known by; a benchmark
       # of several tasks is the mean of its tasks; a result of fewer than a hundred questions of a task says it is a quick look)
       and swarm_ui.bench_groups([{"benchmarks": [{"task": "a", "name": "BBH one"}, {"task": "b", "name": "HumanEval"}]}, {"benchmarks": [{"task": "c", "name": "BBH two"}]}]) == [("bbh", "BBH", ["a", "c"]), ("humaneval", "HumanEval", ["b"])]
