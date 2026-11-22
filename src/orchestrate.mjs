@@ -31,6 +31,8 @@ import {
   fenceOf,
   begunOf,
   continuedFrom,
+  optionsOf,
+  optionOf,
   asksForCode,
   asksForPiece,
   MARKER,
@@ -146,6 +148,12 @@ export const kindOf = (question) => (asksForCode(String(question || '')) ? 'code
 //   words   anything else
 // A class with no arrangement of its own is answered with the shared one (briefsFor).
 export const CLASSES = ['tools', 'talk', 'code', 'words'];
+// what a drafter whose answer is none of the options is told, where the question lists options
+export const OPTION_AGAIN =
+  'That is not one of the options. The answer is one of the options listed. Which one is closest to your work? End with one last line that starts with ANSWER: and holds only its letter.';
+// what a drafter that answered in words is told, where code was asked for
+export const CODE_AGAIN =
+  'That says what the code should do. Now give the code itself: the whole of it, in one code block, and nothing after it.';
 export function classOf(messages = [], { tools = null } = {}) {
   if (Array.isArray(tools) && tools.length) return 'tools';
   // (a reply already begun is not a turn of the conversation: it is the start of the answer to it)
@@ -523,7 +531,10 @@ async function answerWhole(
   };
   const byBehaviour = wantsCode && !!behave && plan.byBehaviour !== false;
   // two answers are the same answer when they do the same (where they were run), or read the same (where they were not)
-  const keyOf = (x) => (S.tried && x.does ? 'does:' + x.does : plain(x.final));
+  // (and where the question lists lettered options, an option's letter and its words are the same answer)
+  const OPTIONS = wantsCode ? [] : optionsOf(question);
+  const optOf = (x) => optionOf(x.final, OPTIONS);
+  const keyOf = (x) => (S.tried && x.does ? 'does:' + x.does : optOf(x) ? 'option:' + optOf(x) : plain(x.final));
   const tallyOf = (rows) => {
     const m = new Map();
     for (const r of rows) {
@@ -536,8 +547,15 @@ async function answerWhole(
   // WHERE CODE IS ASKED FOR, WORDS ARE NO ANSWER BESIDE CODE: once one answer is code, only the answers that are code are
   // counted and shown (measured 2026-11-22: three drafts wrote the function and one wrote a sentence about it; no two texts
   // were the same, the sentence came first, and the sentence went out). Where none is code, they all stand as before.
+  // AND WHERE THE QUESTION LISTS OPTIONS, AN ANSWER THAT IS NONE OF THEM IS NO ANSWER BESIDE ONE THAT IS (plan.options: false
+  // leaves it): measured 2026-11-22, drafts worked out a date that was not listed, one draft and one checker named an
+  // option, and the unlisted date went out with no letter to it. Where no answer is an option, they all stand.
   const answersOf = (rows) =>
-    wantsCode && rows.some((d) => isCode(d.final)) ? rows.filter((d) => isCode(d.final)) : rows;
+    wantsCode && rows.some((d) => isCode(d.final))
+      ? rows.filter((d) => isCode(d.final))
+      : OPTIONS.length && plan.options !== false && rows.some((d) => optOf(d))
+        ? rows.filter((d) => optOf(d))
+        : rows;
   const distinct = () => {
     const rows = answersOf(S.pool);
     return rows.filter((d, i) => rows.findIndex((x) => keyOf(x) === keyOf(d)) === i);
@@ -680,6 +698,46 @@ async function answerWhole(
             ),
           ),
         );
+        // WHERE CODE IS ASKED FOR, A DRAFTER THAT GAVE WORDS IS ASKED ONCE FOR THE CODE (plan.codeAgain: false leaves it).
+        // It has said what the code should do; it is shown the end of that and asked for the code itself. Its answer is
+        // then the code, where it gives code; where it gives words again, its first answer stands (and is no answer
+        // beside code). Measured 2026-11-22: three of four drafters ended with a sentence about the function.
+        if (wantsCode && plan.codeAgain !== false) {
+          await Promise.all(
+            rows.map(async (r, i) => {
+              if (!r.ok || isCode(r.final) || r.computed !== undefined) return;
+              const slot = slots.find((s) => s.id === r.slot);
+              const again = await run(slot, [
+                sys(byId[r.slot]),
+                ...kept,
+                { role: 'assistant', content: r.out.slice(-1500) },
+                { role: 'user', content: CODE_AGAIN },
+              ]);
+              again.again = 'code';
+              if (again.ok && isCode(again.final)) rows[i] = again;
+            }),
+          );
+        }
+        // AND WHERE THE QUESTION LISTS OPTIONS, A DRAFTER WHOSE ANSWER IS NONE OF THEM IS ASKED ONCE FOR THE OPTION
+        // (plan.optionAgain: false leaves it). It is shown the end of its work and told the answer is one of the options.
+        // Where it then names one, that is its answer; otherwise its first stands. Measured 2026-11-22: every drafter
+        // worked out a date that was not listed, and the reply named no letter.
+        if (OPTIONS.length && plan.optionAgain !== false) {
+          await Promise.all(
+            rows.map(async (r, i) => {
+              if (!r.ok || optOf(r) || r.computed !== undefined) return;
+              const slot = slots.find((s) => s.id === r.slot);
+              const again = await run({ ...slot, maxTokens: 120 }, [
+                sys(byId[r.slot]),
+                ...kept,
+                { role: 'assistant', content: r.out.slice(-1500) },
+                { role: 'user', content: OPTION_AGAIN },
+              ]);
+              again.again = 'option';
+              if (again.ok && optOf(again)) rows[i] = again;
+            }),
+          );
+        }
         for (const r of rows.filter((d) => d.ok)) {
           const at = S.pool.findIndex((d) => d.slot === r.slot);
           if (at >= 0) S.pool[at] = r;

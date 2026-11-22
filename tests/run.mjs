@@ -10311,6 +10311,107 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { calls: got.calls, path: got.path, asFalse: asFalse.slice(0, 1) },
   );
 }
+// ---- CODE ASKED FOR AGAIN, OPTIONS ARE THE ANSWERS, A TOOL STEP ASKED FOR WHAT FITS (src/orchestrate.mjs, src/read.mjs, bfcl.mjs)
+{
+  const R11 = await import('../src/read.mjs');
+  const { answer: orchestrate, CODE_AGAIN } = await import('../src/orchestrate.mjs');
+  const { startBriefs } = await import('../src/index.mjs');
+  const BF = await import('../training/support/bfcl.mjs');
+  // a drafter that answers a request for code in words is asked once for the code
+  const FN = 'def twice(x):\n    return x * 2';
+  const asked = [];
+  const again = await orchestrate([{ role: 'user', content: 'Write a python function twice(x) that doubles x.' }], {
+    briefs: startBriefs(),
+    behave: null,
+    ask: async (slot, m) => {
+      const last = m[m.length - 1].content;
+      asked.push(slot.stage + (last === CODE_AGAIN ? '+again' : ''));
+      if (slot.stage !== 'draft') return { text: 'ANSWER: A' };
+      return {
+        text:
+          last === CODE_AGAIN
+            ? '```python\n' + FN + '\n```'
+            : 'It doubles the number.\nANSWER: The function doubles x.',
+      };
+    },
+  });
+  const left = await orchestrate([{ role: 'user', content: 'Write a python function twice(x) that doubles x.' }], {
+    briefs: { ...startBriefs(), plan: { ...startBriefs().plan, codeAgain: false } },
+    behave: null,
+    ask: async (slot) => ({ text: slot.stage === 'draft' ? 'ANSWER: The function doubles x.' : 'ANSWER: A' }),
+  });
+  // where a question lists options, an answer that is none of them is no answer beside one that is
+  const Q = 'What is the date a month ago?\nOptions:\n(A) 12/02/1986\n(B) 12/01/1986\n(F) 02/06/1987';
+  const opts = R11.optionsOf(Q);
+  const said = { 'a-direct': '01/01/1987', 'a-steps': '01/01/1987', 'b-direct': '02/06/1987', 'b-other-way': '(F)' };
+  const pick = (plan) =>
+    orchestrate([{ role: 'user', content: Q }], {
+      briefs: { ...startBriefs(), plan: { ...startBriefs().plan, draftFirst: undefined, ...plan } },
+      ask: async (slot) => ({ text: 'ANSWER: ' + (said[slot.id] || '01/01/1987') }),
+      decide: async () => ({ ok: false, why: 'not asked' }),
+    });
+  const listed = await pick({});
+  // (every drafter gave what is not listed: each is asked once for the option, and names one)
+  const { OPTION_AGAIN } = await import('../src/orchestrate.mjs');
+  const asks = [];
+  const named = await orchestrate([{ role: 'user', content: Q }], {
+    briefs: startBriefs(),
+    ask: async (slot, m) => {
+      const last = m[m.length - 1].content;
+      if (last === OPTION_AGAIN) asks.push(slot.id);
+      return { text: 'ANSWER: ' + (last === OPTION_AGAIN ? 'B' : '01/01/1987') };
+    },
+    decide: async () => ({ ok: false, why: 'not asked' }),
+  });
+  const unlisted = await pick({ options: false });
+  // a step with tools is asked once more for the reply that still fits
+  const sent = [];
+  const refusal =
+    "This server's maximum context length is 16384 tokens, but the rendered prompt has 12614 tokens and requests 4096 reply tokens";
+  const fake = async (url, o) => {
+    const body = JSON.parse(o.body);
+    sent.push(body);
+    return sent.length === 1
+      ? { ok: false, status: 400, text: async () => refusal }
+      : { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'ok' } }], usage: {} }) };
+  };
+  const fitted = await BF.sendToFor(
+    'http://x',
+    { model: 'm', messages: [], tools: [{ type: 'function', function: { name: 'f' } }], parallel_tool_calls: true },
+    fake,
+  );
+  check(
+    "where code is asked for, a drafter that answered in words is asked once for the code itself and its code is then its answer (three of four drafters of a small model ended with a sentence about the function, and one draft of code is nothing to compare), and a plan can leave that; where a question lists lettered options an answer that is none of them is not counted beside one that is, and an option's letter and its words are one answer (an unlisted date with the most slots behind it went out with no letter), and a plan can leave that too; and a step with tools that a server refuses for want of room is asked once more for the reply that still fits, saying several calls may be made",
+    asked.filter((x) => x === 'draft+again').length >= 2 &&
+      /def twice/.test(again.reply) &&
+      !/def twice/.test(left.reply) &&
+      opts.map((o) => o.letter).join('') === 'ABF' &&
+      R11.optionOf('(F)', opts) === 'F' &&
+      R11.optionOf('f', opts) === 'F' &&
+      R11.optionOf('02/06/1987', opts) === 'F' &&
+      R11.optionOf('(B) 12/01/1986', opts) === 'B' &&
+      R11.optionOf('01/01/1987', opts) === '' &&
+      R11.optionOf('C', opts) === '' &&
+      R11.optionsOf('one line\n(A) only').length === 0 &&
+      R11.optionOf(listed.decided, opts) === 'F' &&
+      asks.length >= 2 &&
+      R11.optionOf(named.decided, opts) === 'B' &&
+      listed.decided !== '01/01/1987' &&
+      unlisted.decided === '01/01/1987' &&
+      sent.length === 2 &&
+      sent[0].max_tokens === 4096 &&
+      sent[1].max_tokens === 16384 - 12614 - 64 &&
+      sent[1].parallel_tool_calls === true &&
+      fitted.message.content === 'ok',
+    {
+      asked: asked.join(),
+      again: again.reply,
+      listed: [listed.decided, listed.path],
+      unlisted: [unlisted.decided, unlisted.path],
+      sent: sent.map((b) => b.max_tokens),
+    },
+  );
+}
 // ---- AN ADAPTER FOR EACH ROLE (training/roles.mjs; src/index.mjs roleLoras): what a role's examples are, and which adapter a
 // request names
 {

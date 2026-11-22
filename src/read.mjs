@@ -389,6 +389,33 @@ export function laidOutAs(reply, messages) {
     .trim()
     .replace(/[ \t]*\n(?:[ \t]*\n)+/g, '\n');
 }
+// THE OPTIONS A QUESTION LISTS: its lines that begin with one letter in round brackets, [{ letter, words }]; fewer than two
+// and it lists none. optionOf: the letter of the option an answer IS (its letter, alone or before its words; or its words,
+// where one option alone reads so), or ''.
+const plainWords = (x) =>
+  String(x)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+export function optionsOf(question) {
+  const out = [...String(question || '').matchAll(/^\s*\(([A-Za-z])\)[ \t]*(.+?)\s*$/gm)].map((m) => ({
+    letter: m[1].toUpperCase(),
+    words: m[2],
+  }));
+  return out.length >= 2 && new Set(out.map((o) => o.letter)).size === out.length ? out : [];
+}
+export function optionOf(final, options) {
+  if (!options || !options.length) return '';
+  const a = String(final ?? '')
+    .trim()
+    .replace(/[.]+$/, '');
+  if (!a || /\n/.test(a)) return '';
+  const m = a.match(/^\(([A-Za-z])\)(?=[\s.:]|$)|^([A-Za-z])(?=[.:)]?$)/);
+  const letter = m ? (m[1] || m[2]).toUpperCase() : '';
+  if (letter && options.some((o) => o.letter === letter)) return letter;
+  const same = options.filter((o) => plainWords(o.words) === plainWords(a));
+  return same.length === 1 ? same[0].letter : '';
+}
 export function closedAs(reply, decided, form, question = '') {
   let a = String(decided ?? '')
     .trim()

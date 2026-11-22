@@ -6,6 +6,20 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A drafter whose answer is none of the options is asked for the option** (2026-11-22). Where every drafter worked
+  out something that was not listed, no answer was an option and the reply named none. Each such drafter is asked
+  once which option is closest to its work (`plan.optionAgain`).
+- **Where a question lists options, the options are the answers** (2026-11-22). Drafts worked out a date that was not
+  among the options, and it went out with no letter to it, though a draft and a checker had named an option. An
+  answer that is none of the options is now not counted beside one that is, and an option's letter and its words are
+  one answer (`plan.options`).
+- **A drafter that answered a request for code in words is asked for the code** (2026-11-22). On a real request three
+  of four drafters of a small model ended with a sentence about the function. One draft of code is nothing to
+  compare, so nothing was run. Each such drafter is now asked once for the code itself (`plan.codeAgain`).
+- **A step with tools is asked for the reply that still fits** (2026-11-22). The larger model lost two of three
+  web-search conversations to its server's refusal: 4096 reply tokens were asked for whatever its context had left.
+  It is asked once more for what fits, as a plain question already was. A model asked by itself is also told several
+  calls may be made.
 - **Several calls at once** (2026-11-22). A turn that needs two calls got one: the engine returns one call a reply
   unless the request says several may be made, and the swarm never said so. It now does, unless the caller says not
   (`parallel_tool_calls: false`). The small model alone, asked the same way, gave both calls where it had given one.

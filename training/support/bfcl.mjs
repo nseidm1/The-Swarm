@@ -228,27 +228,47 @@ export function messageOf(m) {
 }
 
 // one request to a model behind an address that answers as llama.cpp's server does: its message, and its count of tokens
-const sendTo = async (base, { model, messages, tools, stop }) => {
-  const r = await fetch(base + '/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    signal: AbortSignal.timeout(900000),
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: 0,
-      max_tokens: 4096,
-      stream: false,
-      ...(stop ? { stop } : {}),
-      ...(tools && tools.length ? { tools } : {}),
-    }),
-  });
+// THE REPLY TOKENS THAT STILL FIT, from a server's refusal of a prompt and reply that together pass its context: what is left
+// after the prompt, less a margin; null where the refusal is of something else or under 256 are left. (Measured 2026-11-20 on
+// plain questions and 2026-11-22 on steps with tools: the larger model lost 2 of 3 web-search conversations to this refusal
+// with thousands of tokens still free, because 4096 were asked for whatever was left.)
+export function roomLeft(refusal) {
+  const m = /maximum context length is (\d+) tokens.*?prompt has (\d+) tokens/s.exec(String(refusal || ''));
+  if (!m) return null;
+  const left = Number(m[1]) - Number(m[2]) - 64;
+  return left >= 256 ? left : null;
+}
+const sendTo = async (base, { model, messages, tools, stop, parallel_tool_calls }, post = fetch) => {
+  const ask = (most) =>
+    post(base + '/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      signal: AbortSignal.timeout(900000),
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0,
+        max_tokens: most,
+        stream: false,
+        ...(stop ? { stop } : {}),
+        ...(tools && tools.length ? { tools, ...(parallel_tool_calls ? { parallel_tool_calls: true } : {}) } : {}),
+      }),
+    });
+  let r = await ask(4096);
+  if (!r.ok) {
+    const said = await r.text();
+    // (asked once more for the reply that still fits, where the prompt alone does)
+    const left = r.status === 400 ? roomLeft(said) : null;
+    if (!left) throw new Error('it answered ' + r.status + ': ' + said.slice(0, 200));
+    r = await ask(left);
+  }
   if (!r.ok) throw new Error('it answered ' + r.status + ': ' + (await r.text()).slice(0, 200));
   const j = await r.json();
   return { message: (j.choices && j.choices[0] && j.choices[0].message) || {}, usage: j.usage || {} };
 };
 
 // a model asked a step with tools, the tools in the request
+export const sendToFor = sendTo; // (for its check)
 export const askToolsAt =
   (base, { model = 'model', stop = null } = {}) =>
   ({ messages, tools }) =>

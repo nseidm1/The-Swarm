@@ -48,6 +48,7 @@ import {
   askToolsAt,
   askWrittenAt,
   askAfterAt,
+  roomLeft,
 } from './support/bfcl.mjs';
 import {
   searchOf,
@@ -409,16 +410,8 @@ export function relay(ask, on = {}) {
   );
 }
 
-// THE REPLY TOKENS THAT STILL FIT, from a server's refusal of a prompt and reply that together pass its context: what is left
-// after the prompt, less a margin; null where the refusal is of something else or under 256 are left. (Measured 2026-11-20, web
-// search without snippets: 11 of the larger model's 20 conversations ended in this refusal, most with 3000 tokens still free,
-// because 4096 were asked for whatever was left. The model lost its turn to the asking, not to what it could do.)
-export function roomLeft(refusal) {
-  const m = /maximum context length is (\d+) tokens.*?prompt has (\d+) tokens/s.exec(String(refusal || ''));
-  if (!m) return null;
-  const left = Number(m[1]) - Number(m[2]) - 64;
-  return left >= 256 ? left : null;
-}
+// (the reply tokens that still fit, from a server's refusal: support/bfcl.mjs roomLeft, used by a step with tools as well)
+export { roomLeft };
 
 // a model behind an address that answers as llama.cpp's server does
 export const askAt = (base) => async (messages, body) => {

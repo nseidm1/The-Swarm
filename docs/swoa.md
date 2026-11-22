@@ -1111,6 +1111,21 @@ probe.
    if that slot has none. Rows that are not ok do not enter the pool and do not remove anything.
 5. Relabel.
 
+1b. **Code asked for again.** Where the question wants code (R.1.4) and `plan.codeAgain` is not `false`, each
+   slot of a drafting round whose row is ok, whose final is not code (R.1.8) and which did not compute is
+   called once more, with its first messages, then `{role: assistant, content: the last 1500 characters of
+   its output}`, then `{role: user, content: "That says what the code should do. Now give the code itself:
+   the whole of it, in one code block, and nothing after it."}`. Where the new row is ok and its final is
+   code, it stands for the slot in place of the first; otherwise the first stands. Both rows are recorded.
+
+1c. **The option asked for again.** Where the question does not want code and lists options (R.1.16) and
+   `plan.optionAgain` is not `false`, each slot of a drafting round whose row is ok, whose final is no
+   option and which did not compute is called once more, with at most 120 tokens, with its first messages,
+   then `{role: assistant, content: the last 1500 characters of its output}`, then `{role: user, content:
+   "That is not one of the options. The answer is one of the options listed. Which one is closest to your
+   work? End with one last line that starts with ANSWER: and holds only its letter."}`. Where the new row is
+   ok and its final is an option, it stands for the slot in place of the first; otherwise the first stands.
+
 #### O.6.1a A drafting slot that answers by a program
 
 A slot **computes** exactly when its `compute` is true, its `stage` is `draft`, CODE-WANTED does not hold, and the
@@ -1649,6 +1664,9 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | field | type | default | effect |
 |---|---|---|---|
 | `keepTurns` | integer | 6 | turns kept (top-level plan only; falsy means 6) |
+| `options` | boolean | true | where the question lists lettered options, answers that are none of them are not counted or shown beside answers that are (R.1.16) |
+| `optionAgain` | boolean | true | where the question lists options, a drafter whose final is none of them is asked once more for the option (O.6.1 step 1c) |
+| `codeAgain` | boolean | true | where the question wants code, a drafter whose final is not code is asked once more for the code (O.6.1 step 1b) |
 | `closeAs` | text | none | `shown`: the reply ends with the form the conversation's earlier replies close with, around what was settled (O.8.7) |
 | `split` | text | none | `off`: a request is never read in parts (O.13) |
 | `splitOver` | integer | 8000 | the characters of the request's last `user` message past which it is read in parts (O.13; falsy means 8000) |
@@ -2072,6 +2090,20 @@ Given the start B (4.4), the reply R the answer procedure gave and the decided a
 5. Otherwise the result is R.
 
 Where the result differs from R the path gains `+continued`.
+
+#### R.1.16 The options a question lists
+
+The **options** of a question are its lines that begin with one letter in round brackets, each a letter (upper case)
+and the words after it; with fewer than two such lines, or a letter given twice, it lists none. An answer **is the
+option** L when, trimmed and without trailing full stops and holding no line break, it begins with L in round brackets
+followed by white space, `.`, `:` or its end, or is L alone with an optional `.`, `:` or `)`, L being a listed letter;
+or when exactly one option's words are the answer (compared in lower case with every run of characters other than
+letters and digits as one space).
+
+Where the question does not want code and lists options, two answers that are the same option are one answer (they
+share a key), and, unless `plan.options` is `false`, where at least one of the answers being counted or shown is an
+option, the answers that are no option MUST be left out of the count, of the table shown to checkers and deciders, and
+of the test for agreement. Where no answer is an option, all answers stand.
 
 ### R.2 Behaviour grouping of code answers ("try")
 
