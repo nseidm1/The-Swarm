@@ -11,7 +11,8 @@ The first version.
   has been kept yet.
 - **The Train card is tidier** (2026-11-21). Its head holds the two actions, Train and Questions, as the other cards hold
   theirs. Which classes a session trains is a row of boxes under the head, across the card, with Clear training state small
-  at its end. Why Train waits is said once, in one quiet line.
+  at its end. Why Train waits is said once, in one quiet line, and the Pretrain card says why it waits in the same place
+  and the same way.
 - **The web search test is refused less, and says when it was** (2026-11-21). In one evaluation the public search engines
   refused 44 of 162 searches, and the score fell for that reason alone. Measured one at a time, every engine that had
   refused answered when asked every few seconds, so searches are now sent at least three seconds apart, and one that comes

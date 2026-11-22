@@ -5106,8 +5106,6 @@ def pretrain_block(d):
         none_can = not any((orig.get((m or {}).get("file")) or {}) and not (orig.get((m or {}).get("file")) or {}).get("cannot") for m in (d.get("members") or {}).values() if m)
         ctl = ('<button class="btn top" id="pre-go" type="button"%s>Pretrain</button>'
                % ((' disabled title="None of the swarm\'s small models can be adapted here: each says why"' if none_can and apple else "") or (" disabled" if held or not apple or needs_eval(d) else "")))
-        if needs_eval(d):
-            ctl += '<small class="evwhy" id="pre-first">%s</small>' % e(needs_eval(d))
     # (the bodies of work this pass's train questions cover: every one, unless its record is of a pass that asked fewer)
     eqv = d.get("equivalence") or {}
     asked = [t["name"] for t in eqv.get("targets", []) if t["id"] in (eqv.get("asked") or [])]
@@ -5120,6 +5118,10 @@ def pretrain_block(d):
            # number; stopped or failed, the adapters that were there are there still, and the number comes back as it was)
            % (' aria-busy="true"' if running else "", busy("0") if running else '<b class="pct">%d</b>' % good, len(rows),
               e(tgt.get("name", "the larger model")), e(items or "this pass"), ctl)]
+    # (why Pretrain waits for an evaluation: one quiet line under the head, across the card, as the Train card says it; it stood
+    # in the head's narrow column under the button. Not said while something else has the models: that line says why it waits)
+    if needs_eval(d) and not running and not held:
+        out.append('<div class="trainbelow"><small class="evwhy" id="pre-first">%s</small></div>' % e(needs_eval(d)))
     if held and not running:
         out.append('<div class="state warn"><i></i><span>%s is running: pretraining waits for it.</span></div>' % e(held[0].upper() + held[1:]))
     elif not apple and not running:
