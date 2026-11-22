@@ -900,6 +900,22 @@ def spec_adapters(d):
         if not m:
             continue
         o = orig.get(m.get("file")) or {}
+        # AN ADAPTER FOR EACH ROLE (training/roles.mjs: roles.json beside the model's adapters), where pretraining made them:
+        # each role's file pinned apart, under its role's folder, so that the module can be made again as it was pretrained
+        rj = (_json(root / ".work" / "library" / "adapters" / tid / (o.get("dir") or m.get("file", "")) / "roles.json", None) or {}).get("roles") or {}
+        rpins, rmade = {}, {}
+        for role in ("draft", "check", "write"):
+            x = rj.get(role) or {}
+            f = Path(str(x.get("gguf") or ""))
+            if x.get("ok") and f.is_file():
+                rpins[role] = {"file": "%s/%s" % (role, f.name), "sha256": _sha256(f), "bytes": f.stat().st_size}
+                rmade[role] = {"examples": x.get("examples"), "perplexity": x.get("perplexity")}
+        if rpins:
+            pins[k] = {"roles": rpins}
+            made[k] = {"model": m.get("id"), "roles": rmade, "learned": "for each role, the requests its slots were sent on the train questions with the answers it gave that were right",
+                       "from": {"weights": o.get("repo"), "revision": o.get("revision")},
+                       "make": "node training/roles.mjs train (MLX LoRA from the original weights for each role, each converted to a GGUF LoRA for llama.cpp)"}
+            continue
         res = _json(root / ".work" / "library" / "adapters" / tid / (o.get("dir") or m.get("file", "")) / "result.json", None)
         g = Path(str((res or {}).get("gguf") or ""))
         if not res or not res.get("ok") or not g.is_file():
@@ -1121,7 +1137,8 @@ def spec(d):
             "flowIs": "the one this swarm has learned" if b.get("flow") else "the plain one every swarm starts from",
             # every slot WITH WHAT IT IS TOLD: without the words the arrangement cannot be made again
             "slots": [{k: v for k, v in s.items() if v is not None} | {"model": (d["members"].get(s["member"]) or {}).get("id")} for s in b.get("slots", [])],
-            "briefs": run_briefs,
+            # (the arrangement itself is `recipe.briefs`, once: it stood here again, word for word, and a third time as these slots)
+            "is": "recipe.briefs, laid out to read: the plan, the flow, and each slot with what it is told",
         },
         # WHAT IT HAS LEARNED: every change that was kept, in order, with the evidence it was kept on. Nothing is here that was
         # not measured. The arrangement above is the one these changes made.

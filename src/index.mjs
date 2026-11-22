@@ -123,6 +123,8 @@ export async function createSwarm(opts = {}) {
   const S = opts.spec ? fromSpec(opts.spec, { adaptersDir: opts.adaptersDir, anyAdapters: opts.anyAdapters }) : null;
   // (the adapters a spec pins, found and checked by fromSpec, unless the caller names its own)
   if (S && Object.keys(S.loras || {}).length && !opts.loras) opts = { ...opts, loras: S.loras };
+  // (and the adapters of each role, where the spec pins them so)
+  if (S && Object.keys(S.roleLoras || {}).length && !opts.roleLoras) opts = { ...opts, roleLoras: S.roleLoras };
   const MEM = S ? S.members : MEMBERS;
   let briefs = opts.briefs || (S && S.briefs) || readBriefs(opts.briefsFile);
   const slots = opts.slots || (S && S.slots) || SERVING.slots;

@@ -1922,7 +1922,7 @@ check("an engine installed here that is behind is said among the recommendations
       _off11 == [] and _tf11 is not None and _ll11 is not None and _tf11["apply"] is None and _tf11["yours"] is True
       and "from 1.2.7 to 1.3.1" in _tf11["title"] and "TensorFold" in _tf11["title"] and "curl -fsSL https://tensorfold.dev/install.sh | sh" in _tf11["why"] and "release notes" in _tf11["why"] and "asks" in _tf11["why"]
       and "from build 12110 to" in _ll11["title"] and "The engines on this machine" in _panel11 and "For you" in _panel11 and "Make this change" not in _panel11.split("The engines on this machine")[1]
-      and _tf11["update"] == "tensorfold" and _ll11["update"] == "llama" and "Bonsai 2" in _ll11["why"] and "does not touch" in _ll11["why"]
+      and _tf11["update"] == "tensorfold" and _ll11["update"] == "llama" and "Bonsai 2" not in _ll11["why"] and "a newer model can need support a build lacks" in _ll11["why"] and "does not touch" in _ll11["why"]
       and 'data-engine-update="tensorfold">Update</button>' in _panel11 and 'data-engine-update="llama">Update</button>' in _panel11 and _panel11.count("<progress") == 2 and _panel11.count('class="engp" hidden') == 2
       and 'btn top busy" data-engine-update="llama" disabled>Updating</button><progress class="engp"></progress><small class="engs">Checking that Bonsai 2 4B still answers' in _going11
       and "being updated already" in _busy11 and swarm_ui.engine_update_start(_root11, "rm -rf") == "No engine of that name."
@@ -2268,6 +2268,71 @@ check("the Run card has the head every card has (the figure and what it is, what
       and "Evaluate the swarm · Chart" in _alone and "evdsec" not in _alone and "The last evaluation in detail" not in _alone
       and swarm_ui.fmt_pct(100.0 * 0.55) == "55" and swarm_ui.fmt_pct(62.5) == "62.5" and swarm_ui.fmt_pct(100.0) == "100" and swarm_ui.fmt_pct(54.14) == "54.1",
       [_found, _shaped[:200]])
+
+# A JOB THAT ENDED WITHOUT SAYING WHY IS EXPLAINED FROM ITS OWN OUTPUT, OR NOT AT ALL
+import tempfile as _tf
+_er = Path(_tf.mkdtemp())
+(_er / ".work" / "pretrain").mkdir(parents=True)
+(_er / ".work" / "pretrain" / "ui-run.log").write_text("  Bonsai 2 4B: not trained, its weights are Hadamard-rotated\n")
+os.utime(_er / ".work" / "pretrain" / "ui-run.log", (1, 1))  # (a log of long ago)
+(_er / ".work" / "pretrain" / "ui-run.json").write_text("{}")
+_real_job_file = swarm_ui._job_file
+swarm_ui._job_file = lambda name: _er / ".work" / name / "ui-run.json"
+_old_log = swarm_ui._ended_words("pretrain", {"pid": 1}, _er)
+(_er / ".work" / "pretrain" / "ui-run.log").write_text("MLX is not installed\n")
+_own_log = swarm_ui._ended_words("pretrain", {"pid": 1}, _er)
+_rd = _er / ".work" / "run" / "k" / "pass-1"
+_rd.mkdir(parents=True)
+(_rd / "status.txt").write_text("16:38:38 START 2-pretrain\n16:38:53 STOPPED\n")
+_stopped = swarm_ui._ended_words("pretrain", {"pid": 1, "whole": True}, _er)
+(_rd / "status.txt").write_text("16:38:38 START 2-pretrain\n16:39:00 END   2-pretrain exit 1 0 min\n")
+(_rd / "2-pretrain.out").write_text("No train question was answered\n")
+_failed = swarm_ui._ended_words("pretrain", {"pid": 1, "whole": True}, _er)
+swarm_ui._job_file = _real_job_file
+check("a job that ended without saying why is explained from its own output or not at all: a log older than the job is another job's and is not quoted (a Pretrain stopped with the run was explained by the last line of a log three days old, "
+      "about a model the lineup no longer had); a step of the whole run that the run was stopped in says it was stopped and that Run carries on from it; one that ended on its own quotes that step's own output",
+      "Bonsai" not in _old_log[1] and _old_log == ("failed", "It ended before it finished: nothing was written")
+      and "MLX is not installed" in _own_log[1]
+      and _stopped == ("stopped", "Stopped with the run, before it finished. Run carries on from this step.")
+      and _failed[0] == "failed" and "No train question was answered" in _failed[1],
+      [_old_log, _own_log, _stopped, _failed])
+
+# THE SPEC PINS AN ADAPTER FOR EACH ROLE, WRITES THE ARRANGEMENT ONCE, AND ITS DIALOG SAYS WHAT A MODULE IS MADE AGAIN FROM
+_sr = Path(swarm_ui.ARGS.root)
+_scfg = _sr / "src" / "config.json"
+_scfg_was = _scfg.read_text()
+_sm = next(m for m in _dr["members"].values() if m)
+_so = (json.loads((REPO / "training" / "originals.json").read_text())["models"].get(_sm["file"]) or {})
+_sdir = _sr / ".work" / "library" / "adapters" / _dr["target"]["id"] / (_so.get("dir") or _sm["file"])
+(_sdir / "roles" / "draft").mkdir(parents=True, exist_ok=True)
+(_sdir / "roles" / "check").mkdir(parents=True, exist_ok=True)
+(_sdir / "roles" / "draft" / "m-lora.gguf").write_bytes(b"drafters")
+(_sdir / "roles" / "check" / "m-lora.gguf").write_bytes(b"checkers")
+_sroles_was = (_sdir / "roles.json").read_text() if (_sdir / "roles.json").exists() else None
+(_sdir / "roles.json").write_text(json.dumps({"roles": {
+    "draft": {"ok": True, "examples": 59, "gguf": str(_sdir / "roles" / "draft" / "m-lora.gguf"), "perplexity": {"without": 2.19, "with": 2.05}},
+    "check": {"ok": True, "examples": 15, "gguf": str(_sdir / "roles" / "check" / "m-lora.gguf")},
+    "write": {"ok": False, "examples": 3, "why": "too few"}}}))
+_scfg.write_text(json.dumps({**json.loads(_scfg_was), "adapters": True}))
+try:
+    _sd = data.load(str(_sr))
+    _spins, _smade = data.spec_adapters(_sd)
+    _shtml = swarm_ui.spec_panel(_sd)
+finally:  # (put back whatever happens: this is the sample's configuration, and the checks after this one read it)
+    _scfg.write_text(_scfg_was)
+    if _sroles_was is None:
+        (_sdir / "roles.json").unlink()
+    else:
+        (_sdir / "roles.json").write_text(_sroles_was)
+_sk = next(iter(_spins), None)
+check("a SwOA spec pins an adapter for each role where pretraining made them (each role's file under its role's folder, with its SHA-256; a role that was not trained is not pinned), so a module can be made again as it was pretrained; "
+      "the arrangement is in the spec once, as recipe.briefs, and is no longer written again beside the slots laid out to read; and the dialog says in one place what training added to the base module: its adapters, by role, and the instruments that are on",
+      _sk is not None and set(_spins[_sk]["roles"]) == {"draft", "check"} and _spins[_sk]["roles"]["draft"]["file"] == "draft/m-lora.gguf"
+      and len(_spins[_sk]["roles"]["draft"]["sha256"]) == 64 and _smade[_sk]["roles"]["draft"]["examples"] == 59
+      and "Adapter (place %s, draft)" % _sk in _shtml and "Adapter (place %s, check)" % _sk in _shtml and "Adapter (place %s, write)" % _sk not in _shtml and "taught on 59 of its own right answers" in _shtml and "Instruments on" in _shtml
+      and "none: training has turned none on" in _shtml
+      and "briefs" not in (json.loads(re.search(r'<pre[^>]*>([\s\S]*?)</pre>', _shtml).group(1).replace("&quot;", '"').replace("&#x27;", "'").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&"))["arrangement"]),
+      [_spins])
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

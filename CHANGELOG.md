@@ -6,6 +6,17 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A SwOA spec pins an adapter for each role** (2026-11-22). Pretraining makes an adapter for each role a slot can have,
+  and a spec could pin one adapter a model: a pretrained module could not be made again from its spec. `recipe.adapters`
+  now takes, for a place, either the one adapter or one for each role (`roles`: `draft`, `check`, `write`), each a file
+  and its SHA-256, and a runtime serves each request with its role's. The arrangement is in the spec once (it stood there
+  three times), and the spec dialog says in one place what a module is made from: its adapters, by role, and the
+  instruments that are on.
+- **The page explains an unfinished step from that step's own output** (2026-11-22). A Pretrain stopped with the run was
+  explained by the last line of a log three days old, about a model the lineup no longer had. A log older than the job
+  is not quoted; a step the run was stopped in says so.
+- **The README's pictures and its status were of another lineup** (2026-11-22). All eight pictures are taken again from the
+  page as it is served, and the words beside them and the status at the head say what is configured and measured now.
 - **The Run card is a card like the others, and stops a run it did not start** (2026-11-22). Its head had none of the
   classes the cards' shared head is styled by, so its figure fell to the right and its label ran into the description.
   And a run started from a shell was not the page's own: the card showed a dimmed "Carry on" where Stop belonged. The

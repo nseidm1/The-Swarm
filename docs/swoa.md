@@ -108,7 +108,7 @@ ignore members it does not know.
 | `engine` | object: the inference engine, with `name` and the build it was measured on |
 | `serving` | object: `slots` (concurrent requests each member serves), `contextPerSlot` (tokens), and `tools` (`"swarm"`: a request with tools is decided by the module; otherwise the place or id of the one member that takes it alone) |
 | `briefs` | object: the arrangement (section 4.3) |
-| `adapters` | object, optional, keyed by place: the adapter each member is served with, each with `file` and `sha256` |
+| `adapters` | object, optional, keyed by place: the adapter each member is served with. Either one adapter for the place, with `file` and `sha256`; or `roles`, an object keyed by role (`draft`, `check`, `write`), each with `file` and `sha256`: a request is then served with the adapter of its slot's role (a slot of stage `draft` or `revise`: `draft`; `check`: `check`; `write`: `write`), and a request of any other stage with none |
 
 A runtime MUST make the module from `recipe` exactly: these members, this decision model, this arrangement, these adapters.
 

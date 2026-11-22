@@ -82,11 +82,19 @@ export function readSpec(from) {
           ', which loads no adapter: the spec pins one for it',
       );
   }
-  for (const [k, a] of Object.entries(r.adapters || {}))
-    if (!r.members[k] || !a || !a.file || !a.sha256)
+  // (one adapter for the place, { file, sha256 }; or one for each role its slots can have, { roles: { draft, check, write } },
+  // each with a file and its SHA-256: a model taught each role apart is served with the adapter of the slot's role)
+  for (const [k, a] of Object.entries(r.adapters || {})) {
+    const roles = a && a.roles && typeof a.roles === 'object' ? Object.entries(a.roles) : null;
+    const pinned = (x) => !!(x && x.file && x.sha256);
+    const ok = roles ? roles.length > 0 && roles.every(([role, x]) => ROLES.includes(role) && pinned(x)) : pinned(a);
+    if (!r.members[k] || !ok)
       throw new Error(
-        'the adapter in place ' + k + ' is not pinned to a small model of the recipe (a file and its SHA-256)',
+        'the adapter in place ' +
+          k +
+          ' is not pinned to a small model of the recipe (a file and its SHA-256, for the place or for each role)',
       );
+  }
   const got = recipeSha256(r);
   if (head.recipeSha256 && got !== head.recipeSha256)
     throw new Error(
@@ -103,12 +111,20 @@ export function readSpec(from) {
 }
 
 const sha256Of = (file) => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+// the roles an adapter can be for (src/index.mjs ROLE_OF_STAGE: a drafter, also when it revises; a checker; the writer)
+export const ROLES = ['draft', 'check', 'write'];
 export function fromSpec(spec, { adaptersDir, anyAdapters = false } = {}) {
   const r = readSpec(spec).recipe;
   // THE ADAPTERS IT IS SERVED WITH: each found, and checked against its pin
   const dir = adaptersDir || (typeof spec === 'string' ? spec.replace(/\.json$/, '') + '.adapters' : '');
   const loras = {};
+  const roleLoras = {};
+  const pins = [];
   for (const [k, a] of Object.entries(r.adapters || {})) {
+    if (a.roles) for (const [role, x] of Object.entries(a.roles)) pins.push({ k, role, a: x });
+    else pins.push({ k, role: '', a });
+  }
+  for (const { k, role, a } of pins) {
     const file = dir ? path.join(dir, a.file) : '';
     if (!file || !fs.existsSync(file))
       throw new Error(
@@ -131,7 +147,8 @@ export function fromSpec(spec, { adaptersDir, anyAdapters = false } = {}) {
           a.sha256.slice(0, 12) +
           '): one trained again makes another swarm, whose equivalence has not been measured',
       );
-    loras[k] = file;
+    if (role) roleLoras[k] = { ...(roleLoras[k] || {}), [role]: file };
+    else loras[k] = file;
   }
   return {
     members: r.members,
@@ -141,5 +158,6 @@ export function fromSpec(spec, { adaptersDir, anyAdapters = false } = {}) {
     decider: r.decider || null,
     tools: (r.serving && r.serving.tools) || 'lead',
     loras,
+    roleLoras,
   };
 }

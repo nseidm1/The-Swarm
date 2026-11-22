@@ -10870,6 +10870,68 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { kept },
   );
 }
+// ---- A SPEC PINS AN ADAPTER FOR EACH ROLE, AND A RUNTIME SERVES THEM (src/spec.mjs readSpec, fromSpec; docs/swoa.md 4.2)
+{
+  const { fromSpec, readSpec, recipeSha256, ROLES } = await import('../src/spec.mjs');
+  const { createHash } = await import('node:crypto');
+  const os11 = await import('node:os');
+  const dir = fs.mkdtempSync(path.join(os11.tmpdir(), 'swarm-roles-spec-'));
+  const sha = (b) => createHash('sha256').update(b).digest('hex');
+  const D = Buffer.from('the drafters adapter');
+  const C = Buffer.from('the checkers adapter');
+  const recipe = {
+    members: Object.fromEntries(Object.entries(MEMBERS).slice(0, 2)),
+    decider: { id: 'none' },
+    engine: { name: 'llama.cpp' },
+    serving: { slots: 3, contextPerSlot: 2048 },
+    briefs,
+    adapters: {
+      a: {
+        roles: {
+          draft: { file: 'draft/m-lora.gguf', sha256: sha(D) },
+          check: { file: 'check/m-lora.gguf', sha256: sha(C) },
+        },
+      },
+    },
+  };
+  const spec = { spec: { format: 'the-swarm/spec', version: 3, recipeSha256: recipeSha256(recipe) }, recipe };
+  const file = path.join(dir, 'm.json');
+  fs.writeFileSync(file, JSON.stringify(spec));
+  const why = (f) => {
+    try {
+      f();
+      return '';
+    } catch (e) {
+      return e.message;
+    }
+  };
+  const missing = why(() => fromSpec(file));
+  fs.mkdirSync(path.join(dir, 'm.adapters', 'draft'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'm.adapters', 'check'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'm.adapters', 'draft', 'm-lora.gguf'), D);
+  fs.writeFileSync(path.join(dir, 'm.adapters', 'check', 'm-lora.gguf'), C);
+  const got = fromSpec(file);
+  fs.writeFileSync(path.join(dir, 'm.adapters', 'check', 'm-lora.gguf'), Buffer.from('trained again'));
+  const other = why(() => fromSpec(file));
+  const bad = (adapters) =>
+    why(() => readSpec({ ...spec, spec: { ...spec.spec, recipeSha256: undefined }, recipe: { ...recipe, adapters } }));
+  check(
+    "a SwOA spec pins an adapter for each role where pretraining made them so (draft, check, write, each a file and its SHA-256, under the place), beside the one adapter a place it could pin before, so that a module can be made again as it was pretrained: a runtime finds each in the adapters folder, checks it against its pin and serves each request with the adapter of its slot's role; one missing, or another than the one pinned, is refused; a role that is none of the three, a role with no hash, or no role at all is no pin",
+    ROLES.join() === 'draft,check,write' &&
+      /draft\/m-lora\.gguf|check\/m-lora\.gguf/.test(missing) &&
+      got.roleLoras.a.draft === path.join(dir, 'm.adapters', 'draft', 'm-lora.gguf') &&
+      got.roleLoras.a.check === path.join(dir, 'm.adapters', 'check', 'm-lora.gguf') &&
+      !got.roleLoras.a.write &&
+      Object.keys(got.loras).length === 0 &&
+      /is not the one the spec pins/.test(other) &&
+      /is not pinned/.test(bad({ a: { roles: { judge: { file: 'x', sha256: 'y' } } } })) &&
+      /is not pinned/.test(bad({ a: { roles: { draft: { file: 'x' } } } })) &&
+      /is not pinned/.test(bad({ a: { roles: {} } })) &&
+      bad({ a: { file: 'one.gguf', sha256: 'y' } }) === '' &&
+      /roleLoras: S\.roleLoras/.test(fs.readFileSync(new URL('../src/index.mjs', import.meta.url), 'utf8')),
+    { missing, other, got: got.roleLoras },
+  );
+}
 // ---- AN ADAPTER FOR EACH ROLE (training/roles.mjs; src/index.mjs roleLoras): what a role's examples are, and which adapter a
 // request names
 {

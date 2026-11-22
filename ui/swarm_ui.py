@@ -3255,7 +3255,7 @@ def engine_recommendations(d):
         if have_t and pin_t and len(have_t) == len(pin_t) == 1 and pin_t > have_t:
             out.append({"id": "engine:llama:%s" % pin, "strength": "info", "yours": True, "apply": None, "update": "llama",
                         "title": "Update llama.cpp, which serves the small models, from build %s to %s" % (have[1:], pin[1:]),
-                        "why": "This is the build the repository is checked with (the least it needs is %s). Update fetches it beside the one here, which it does not touch, loads each model of this swarm with it, and switches only if every one answers: Bonsai 2 needs support a build may lack. If one does not, the build here is kept. Afterwards a pass and an Evaluate are what tell."
+                        "why": "This is the build the repository is checked with (the least it needs is %s). Update fetches it beside the one here, which it does not touch, loads each model of this swarm with it, and switches only if every one answers: a newer model can need support a build lacks. If one does not, the build here is kept. Afterwards a pass and an Evaluate are what tell."
                                % e(str(eng.get("minBuild", "?"))),
                         "note": "here: %s" % ls})
     return out
@@ -3779,6 +3779,19 @@ def loop_changes(d):
         tries, len(ch), sum(1 for c in ch if c.get("kind") == "library"), len(library_of(d)), "" if len(library_of(d)) == 1 else "s")
 
 
+def _spec_instruments_words(sp):
+    """The instruments a spec's arrangement has on, by class of input (plan.instruments; none until training turns one on)."""
+    b = (sp.get("recipe") or {}).get("briefs") or {}
+    on = lambda p: (data.__dict__.get("INSTRUMENT_IDS") or ["sum", "truth", "sorted", "closed"]) if (p or {}).get("instruments") is True else list((p or {}).get("instruments") or [])  # noqa: E731
+    said = []
+    if on(b.get("plan")):
+        said.append("every class: %s" % e(", ".join(on(b.get("plan")))))
+    for c, k in (b.get("kinds") or {}).items():
+        if on((k or {}).get("plan")):
+            said.append("%s: %s" % (e(c), e(", ".join(on(k.get("plan"))))))
+    return "<br>".join(said) if said else "<span class='muted'>none: training has turned none on</span>"
+
+
 def spec_panel(d):
     """The SwOA spec (docs/swoa.md), for a person to read and to copy: what the configured swarm module is, what tunes it, and the
     proof of where it stands against its target."""
@@ -3829,9 +3842,16 @@ def spec_panel(d):
     gained = "<h4>How far training took it</h4>" + gained
     pins = sp["recipe"].get("adapters") or {}
     made = (sp.get("adapters") or {}).get("models") or {}
-    adapter_rows = "".join(row("Adapter (place %s)" % k, "<code>%s</code> <span class='muted'>%.1f MB</span><br><code>sha256 %s</code><br><span class='muted'>%s; from %s @ %s, %s steps</span>"
-                               % (e(a["file"]), a["bytes"] / 2**20, e(a["sha256"]), e(made.get(k, {}).get("learned", "")), e(str((made.get(k, {}).get("from") or {}).get("weights", ""))),
-                                  e(str((made.get(k, {}).get("from") or {}).get("revision", ""))[:12]), e(str(made.get(k, {}).get("iters", ""))))) for k, a in pins.items())
+    def _adapter_row(k, a):
+        """One row a pinned file: the one adapter of a place, or the adapter of each role it was pretrained for."""
+        mk = made.get(k, {})
+        frm = "from %s @ %s" % (e(str((mk.get("from") or {}).get("weights", ""))), e(str((mk.get("from") or {}).get("revision", ""))[:12]))
+        if a.get("roles"):
+            return "".join(row("Adapter (place %s, %s)" % (k, role), "<code>%s</code> <span class='muted'>%.1f MB</span><br><code>sha256 %s</code><br><span class='muted'>taught on %s of its own right answers as a slot of this role; %s</span>"
+                               % (e(x["file"]), (x.get("bytes") or 0) / 2**20, e(x["sha256"]), e(str(((mk.get("roles") or {}).get(role) or {}).get("examples", "?"))), frm)) for role, x in a["roles"].items())
+        return row("Adapter (place %s)" % k, "<code>%s</code> <span class='muted'>%.1f MB</span><br><code>sha256 %s</code><br><span class='muted'>%s; %s, %s steps</span>"
+                   % (e(a["file"]), a["bytes"] / 2**20, e(a["sha256"]), e(mk.get("learned", "")), frm, e(str(mk.get("iters", "")))))
+    adapter_rows = "".join(_adapter_row(k, a) for k, a in pins.items())
     if pins:
         adapter_rows += row("Adapter files", "<span class='muted'>%s</span>" % e(sp["adapters"]["filesAre"]))
     # AS A MODEL CHOOSER LISTS IT: the card, what it needs, what it can do, how it starts
@@ -3851,6 +3871,9 @@ def spec_panel(d):
                + row("Format", "<code>%s</code> version %s (docs/swoa.md)" % (e(sp["swoa"]["format"]), e(str(sp["swoa"]["version"]))))
                + row("Runtime", "%s %s" % (e(str((sp.get("runtime") or {}).get("library") or "")), e(str((sp.get("runtime") or {}).get("version") or ""))))
                + row("Written", e(str(sp["swoa"].get("writtenAt") or "")))
+               # WHAT TRAINING ADDED TO THE BASE MODULE, in one place: its adapters (by role where pretraining made them so) and the
+               # instruments that are on. With the arrangement below, that is the whole of what a module is made again from
+               + row("Instruments on", _spec_instruments_words(sp))
                + "".join(row(k.capitalize(), "<code>%s</code>" % e(v)) for k, v in st_.items())))
     return (
         '<div class="spec-head"><div><div class="kicker">SwOA spec</div><h3 style="font-size:24px">%s</h3><div class="muted small">%s</div></div>'
@@ -3864,8 +3887,10 @@ def spec_panel(d):
         % (
             e(sp["swoa"]["name"]), e(sp["what"]), publish_button,
             state_cls, e(("%s%% of the way to parity" % fmt_pct(t["progressPercent"])) if t.get("progressPercent") is not None and t["state"] != "at parity"
-                         else ("In training: pass %d under way" % ip["pass"]) if t["state"] == "not measured" and ip else t["state"].capitalize()), e(t["target"].get("name") or ""),
-            e(t["parityMeans"]), published_line,
+                         else ("In training: pass %d under way" % ip["pass"]) if t["state"] == "not measured" and ip
+                         # (training's own measure, on its held questions: said so, since the proof under it may hold an evaluation)
+                         else "Not yet measured by training" if t["state"] == "not measured" else t["state"].capitalize()), e(t["target"].get("name") or ""),
+            e(str(t["parityMeans"])[:1].upper() + str(t["parityMeans"])[1:]), published_line,
             under + proof_block(sp) + gained + learned_block(d), host,
             row("In", e(sp["interface"]["in"])), row("Out", e(sp["interface"]["out"])),
             row("Offered as", "<br>".join(e(x) for x in sp["interface"]["as"])),
@@ -4246,13 +4271,39 @@ def job_live(name):
     st = job_state(name) or {}
     live["running"] = bool(st.get("running"))
     if not live["running"] and st and live.get("phase") not in ("done", "stopped", "failed"):
+        ended = _ended_words(name, st)
+        live["phase"], live["step"] = ended
+    return live
+
+
+def _ended_words(name, st, root=None):
+    """WHY A JOB THAT DID NOT SAY SO ENDED, FROM ITS OWN OUTPUT OR NOT AT ALL -> (phase, words). The reason was read from the
+    job's log whatever its age, and a step of the whole run writes its output with the run, not there: a Pretrain stopped with
+    the run was explained by the last line of a log three days old, about a model the lineup no longer had.
+      - a step of the whole run that the run was stopped in: it was stopped, and Run carries on from it;
+      - a step of the whole run that ended on its own: the last lines of that step's own output;
+      - a job started from its card: its log, where the log was written since the job began; else nothing is quoted."""
+    root = Path(root or ARGS.root)
+    if st.get("whole"):
+        runs = sorted((root / ".work" / "run").glob("*/pass-*/status.txt"), key=lambda f: f.stat().st_mtime) if (root / ".work" / "run").is_dir() else []
+        last = runs[-1] if runs else None
+        lines = [x for x in (last.read_text(errors="replace").splitlines() if last else []) if x.strip()]
+        if lines and lines[-1].endswith(" STOPPED"):
+            return "stopped", "Stopped with the run, before it finished. Run carries on from this step."
+        step = next((x.split(" START ", 1)[1].strip() for x in reversed(lines) if " START " in x), "")
         try:
-            tail = [x for x in (root / "ui-run.log").read_text(errors="replace").splitlines() if x.strip()]
+            tail = [x for x in (last.parent / (step + ".out")).read_text(errors="replace").splitlines() if x.strip()] if last and step else []
         except OSError:
             tail = []
-        live["phase"] = "failed"
-        live["step"] = "It ended before it finished: " + (_why_ended(tail)[:220] if tail else "nothing was written")
-    return live
+        return "failed", "It ended before it finished: " + (_why_ended(tail)[:220] if tail else "its step of the run wrote nothing")
+    log = root / ".work" / name / "ui-run.log"
+    try:
+        # (its own log: one written since the job began. An older one is another job's)
+        fresh = log.stat().st_mtime >= _job_file(name).stat().st_mtime - 2
+        tail = [x for x in log.read_text(errors="replace").splitlines() if x.strip()] if fresh else []
+    except OSError:
+        tail = []
+    return "failed", "It ended before it finished: " + (_why_ended(tail)[:220] if tail else "nothing was written")
 
 
 def _why_ended(tail):
