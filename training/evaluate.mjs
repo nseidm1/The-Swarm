@@ -89,6 +89,92 @@ export function planOf(targets, ids, harnesses = null) {
 // how many of a task's questions a run asks: in a proof run the size its benchmark names (proofN; 0 or none: every question), else
 // the one size the run was given for every task (0: every question)
 export const sizeOf = (b, { proof = false, limit = 0 } = {}) => (proof ? Number(b.proofN) || 0 : Number(limit) || 0);
+// THE THREE THINGS SET SIDE BY SIDE (--variant; .workbench plan of 2026-11-22: one run, three figures). The same questions are
+// asked of the same configuration three ways, and what each came to is kept beside the others (compare.json):
+//   base        the module as configured: the arrangement it starts from, no adapter
+//   pretrained  that arrangement, each small model served with the adapter Pretrain trained
+//   trained     the arrangement training kept, with the adapters
+// -> { default: the starting arrangement, adapters: 'on' | 'off' }, or null where the name is none of them
+export const VARIANTS = {
+  base: { default: true, adapters: 'off', name: 'As configured' },
+  pretrained: { default: true, adapters: 'on', name: 'Pretrained' },
+  trained: { default: false, adapters: 'on', name: 'Pretrained and trained' },
+};
+export const variantOf = (name) => VARIANTS[String(name || '')] || null;
+// ONE SCORE FOR A WHOLE EVALUATION, WITH ITS ERROR: of every question asked, the share right, each task counted by its
+// questions; the error is the tasks' own standard errors put together the same way. who: 'swarm' or 'target'.
+// results: [{ swarm: { value, stderr, n }, target: {...} }] -> { value, stderr, n } (n 0 where nothing was scored)
+export function overallOf(results, who = 'swarm') {
+  const rows = (results || []).map((r) => r && r[who]).filter((x) => x && x.n > 0 && typeof x.value === 'number');
+  const n = rows.reduce((a, x) => a + x.n, 0);
+  if (!n) return { value: 0, stderr: 0, n: 0 };
+  const value = rows.reduce((a, x) => a + x.value * x.n, 0) / n;
+  const stderr = Math.sqrt(rows.reduce((a, x) => a + ((x.stderr || 0) * x.n) ** 2, 0)) / n;
+  return { value: Math.round(value * 10000) / 10000, stderr: Math.round(stderr * 10000) / 10000, n };
+}
+// IS ONE FIGURE BEYOND ANOTHER? Only where they differ by more than twice the error of the difference (the two errors put
+// together: the same questions were asked of both, so this errs toward saying nothing). -> { diff, stderr, beyond }
+export function beyondOf(a, b) {
+  const diff = Math.round((a.value - b.value) * 10000) / 10000;
+  const stderr = Math.round(Math.sqrt((a.stderr || 0) ** 2 + (b.stderr || 0) ** 2) * 10000) / 10000;
+  return { diff, stderr, beyond: a.n > 0 && b.n > 0 && Math.abs(diff) > 2 * stderr };
+}
+// THE SAME QUESTIONS, PAIRED. Two variants asked the same questions are set beside each other question by question: the mean
+// of (right with b) - (right with a) over every question, and its error from the spread of those differences. Most questions
+// come out the same both ways, so this error is much smaller than the two scores' errors put together, and a smaller gain
+// shows. a, b: compareRow().tasks. -> { n, diff, stderr, beyond, better, worse } or null where the questions are not the same
+export function pairedOf(a, b) {
+  const byTask = new Map((a || []).map((t) => [t.task, t]));
+  if (!a || !b || a.length !== b.length || !b.length) return null;
+  const ds = [];
+  for (const t of b) {
+    const u = byTask.get(t.task);
+    if (
+      !u ||
+      typeof u.bits !== 'string' ||
+      typeof t.bits !== 'string' ||
+      u.bits.length !== t.bits.length ||
+      !t.bits.length
+    )
+      return null;
+    for (let i = 0; i < t.bits.length; i++) ds.push((t.bits[i] === '1') - (u.bits[i] === '1'));
+  }
+  const n = ds.length;
+  const m = ds.reduce((x, y) => x + y, 0) / n;
+  const sd = n > 1 ? Math.sqrt(ds.reduce((x, y) => x + (y - m) ** 2, 0) / (n - 1)) : 0;
+  const stderr = sd / Math.sqrt(n);
+  const r4 = (x) => Math.round(x * 10000) / 10000;
+  return {
+    n,
+    diff: r4(m),
+    stderr: r4(stderr),
+    beyond: Math.abs(m) > 2 * stderr,
+    better: ds.filter((d) => d > 0).length,
+    worse: ds.filter((d) => d < 0).length,
+  };
+}
+// what one variant came to, as it is kept beside the others: when, on how many questions, of which arrangement and adapters
+export const compareRow = (out) => ({
+  at: out.at,
+  runId: out.runId,
+  limit: out.limit,
+  ...(out.proof ? { proof: true } : {}),
+  arrangement: out.arrangement,
+  arrangementSha256: out.arrangementSha256,
+  adapters: out.adapters,
+  ...(out.adaptersSha ? { adaptersSha: out.adaptersSha } : {}),
+  swarm: overallOf(out.results, 'swarm'),
+  target: overallOf(out.results, 'target'),
+  tasks: (out.results || []).map((r) => ({
+    item: r.item,
+    task: r.task,
+    name: r.name,
+    swarm: r.swarm,
+    target: r.target,
+    // (bits: which questions the swarm had right, in their order, where the comparison says: what two variants are paired by)
+    ...(r.agree && typeof r.agree.sbits === 'string' ? { bits: r.agree.sbits } : {}),
+  })),
+});
 
 // which harness a benchmark is a task of, as a SwOA's proof names one, and whether it is the tool tests
 export const isToolTest = (b) => b.harness === 'bfcl';
@@ -425,13 +511,23 @@ export function scoreOf(resultsFile, b) {
 
 // ---- run, when started as a program -------------------------------------------------------------------------------------
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  // (--variant: which of the three is measured. Said before anything reads the configuration: the adapters are this run's choice)
+  const VARIANT = process.argv.includes('--variant')
+    ? String(process.argv[process.argv.indexOf('--variant') + 1] || '')
+    : '';
+  const variant = variantOf(VARIANT);
+  if (VARIANT && !variant) {
+    console.error('--variant is one of: ' + Object.keys(VARIANTS).join(', '));
+    process.exit(2);
+  }
+  if (variant) process.env.SWARM_ADAPTERS = variant.adapters;
   const B = await import('./support/bench.mjs');
   // WHICH ARRANGEMENT IS MEASURED: the one the configuration runs, which is what training has kept for it; or, with --default,
   // the one it started from (src/briefs.json), so that what training kept can be set beside what it began with, measured by the
   // same code on the same questions. A result says which it is of ("arrangement": "default" or "trained"): the two are kept
   // apart already, each under its own arrangement's hash.
   const { readBriefs: storedBriefs, startBriefs } = await import('../src/index.mjs');
-  const readBriefs = () => (B.has('default') ? startBriefs() : storedBriefs());
+  const readBriefs = () => (B.has('default') || (variant && variant.default) ? startBriefs() : storedBriefs());
   const { serve } = await import('../src/server.mjs');
   const { readConfig, CONFIG_KEY, TARGET } = await import('../src/catalog.mjs');
   const CONFIG = readConfig();
@@ -481,6 +577,24 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     : Object.keys(lorasFor(CONFIG, MEMBERS, path.join(ROOT, '.work'), TARGET.id, B.modelsDir())).map(
         (k) => MEMBERS[k].name,
       );
+  // (WHICH adapters, by their bytes: answers given with one adapter are not another's. They were kept under "-adapters" alone,
+  // so a swarm pretrained again would have been handed the answers it gave before)
+  const adaptersSha = process.env.SWARM_EVAL_SWARM_BASE
+    ? ''
+    : (() => {
+        const files = Object.values(
+          lorasFor(CONFIG, MEMBERS, path.join(ROOT, '.work'), TARGET.id, B.modelsDir()),
+        ).sort();
+        if (!files.length) return '';
+        const h = crypto.createHash('sha256');
+        for (const f of [...new Set(files)]) h.update(fs.readFileSync(f));
+        return h.digest('hex').slice(0, 12);
+      })();
+  // (the pretrained figure is of a swarm that has an adapter: with none it would be the first figure under another name)
+  if (VARIANT === 'pretrained' && !adapters.length) {
+    console.error('No adapter is trained for this configuration: Pretrain makes one. Nothing was asked.');
+    process.exit(3);
+  }
 
   // WHAT IS HAPPENING, for the page: written as it changes (at most twice a second), and once more at the end
   const live = {
@@ -914,7 +1028,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         EVAL_DIR,
         'swarm',
         CONFIG_KEY,
-        arrangementSha256.slice(0, 16) + '-' + runtimeSha + (adapters.length ? '-adapters' : '') + part,
+        arrangementSha256.slice(0, 16) + '-' + runtimeSha + (adapters.length ? '-adapters-' + adaptersSha : '') + part,
         b.task +
           '-' +
           (limitOf(b) || 'all') +
@@ -1184,6 +1298,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     arrangement,
     runtimeSha,
     adapters,
+    ...(adaptersSha ? { adaptersSha } : {}),
+    ...(VARIANT ? { variant: VARIANT } : {}),
     target: TARGET.name,
     // (the engine that served it, and its version: what its kept answers are named by)
     targetEngine: engine,
@@ -1193,6 +1309,20 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   };
   fs.writeFileSync(path.join(EVAL_DIR, 'results.json'), JSON.stringify(out, null, 2));
   fs.appendFileSync(path.join(EVAL_DIR, 'history.jsonl'), JSON.stringify(out) + '\n');
+  // THE THREE SIDE BY SIDE: what this variant came to, kept under its configuration beside the other two (compare.json). A
+  // variant measured again replaces its own row; the others stand, each with the size it was asked at, which the page reads
+  if (VARIANT) {
+    const cf = path.join(EVAL_DIR, 'compare.json');
+    let all = {};
+    try {
+      all = JSON.parse(fs.readFileSync(cf, 'utf8'));
+    } catch {
+      /* the first one */
+    }
+    all[CONFIG_KEY] = { ...(all[CONFIG_KEY] || {}), [VARIANT]: compareRow(out) };
+    fs.writeFileSync(cf + '.tmp', JSON.stringify(all, null, 1));
+    fs.renameSync(cf + '.tmp', cf);
+  }
   const same = results.reduce((a, r) => a + ((r.agree && r.agree.same) || 0), 0);
   const of = results.reduce((a, r) => a + ((r.agree && r.agree.of) || 0), 0);
   end('done', 'Done: the same answer as ' + TARGET.name + ' on ' + same + ' of ' + of + ' questions');

@@ -6,6 +6,11 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Three evaluations side by side** (2026-11-22). An evaluation can be asked for as one of three things
+  (`training/evaluate.sh --variant base|pretrained|trained`): the module as configured, the same with the adapters
+  Pretrain trained, and what training kept with those adapters. Each comes to one score with its error, and the Evaluate
+  card sets the three beside each other; a gain or a loss is said only beyond twice the error. Answers given with an
+  adapter are now kept by that adapter's bytes, so a swarm pretrained again is asked again.
 - **A kind of question has fallen only where it fell by more than twice its error** (2026-11-22). A change was refused
   where any kind fell by more than 0.05 and more than its own error. One answer on one draw is that much in a kind of
   six, and a class has twenty kinds, so most changes showed one. A kind's fall is now held to the bar a gain is.

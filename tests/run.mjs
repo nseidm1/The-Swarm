@@ -9842,7 +9842,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     'the arrangement a swarm starts from can be read whatever the configuration has learned since, and an evaluation asked for it (--default) measures that one and says "default"; otherwise it says which of the two the stored arrangement is',
     start.plan.draftFirst === 2 &&
       start.slots.every((x) => Object.keys(MEMBERS).includes(x.member)) &&
-      /B\.has\('default'\) \? startBriefs\(\) : storedBriefs\(\)/.test(ev) &&
+      /B\.has\('default'\) \|\| \(variant && variant\.default\) \? startBriefs\(\) : storedBriefs\(\)/.test(ev) &&
       /\? 'default'\s*: 'trained'/.test(ev) &&
       (ev.match(/arrangementSha256,\n\s+arrangement,/g) || []).length === 2,
     Object.keys(start.plan),
@@ -9917,6 +9917,86 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       /^most/.test(split.path) &&
       decided === 0,
     { agreed: [draftsOf(agreed), agreed.path], split: [draftsOf(split), split.path, split.decided], decided },
+  );
+}
+
+// ---- THREE EVALUATIONS SIDE BY SIDE (training/evaluate.mjs --variant): the module as configured, pretrained, and pretrained and
+// trained; each one score with its error, and a difference said only beyond twice the error
+{
+  const E = await import('../training/evaluate.mjs');
+  const { readConfig } = await import('../src/catalog.mjs');
+  const res = [
+    {
+      item: 'code',
+      task: 't1',
+      name: 'T1',
+      swarm: { value: 0.8, stderr: 0.04, n: 100 },
+      target: { value: 0.9, stderr: 0.03, n: 100 },
+    },
+    {
+      item: 'math',
+      task: 't2',
+      name: 'T2',
+      swarm: { value: 0.5, stderr: 0.05, n: 300 },
+      target: { value: 0.7, stderr: 0.03, n: 300 },
+    },
+    { item: 'none', task: 't3', name: 'T3', swarm: null, target: { value: 1, stderr: 0, n: 0 } },
+  ];
+  const sw = E.overallOf(res, 'swarm');
+  const tg = E.overallOf(res, 'target');
+  const row = E.compareRow({
+    at: 'now',
+    runId: 'r',
+    limit: 100,
+    arrangement: 'default',
+    arrangementSha256: 'x',
+    adapters: [],
+    results: res,
+  });
+  const was = process.env.SWARM_ADAPTERS;
+  process.env.SWARM_ADAPTERS = 'on';
+  const on = readConfig().adapters;
+  process.env.SWARM_ADAPTERS = 'off';
+  const off = readConfig().adapters;
+  if (was === undefined) delete process.env.SWARM_ADAPTERS;
+  else process.env.SWARM_ADAPTERS = was;
+  const src = fs.readFileSync(new URL('../training/evaluate.mjs', import.meta.url), 'utf8');
+  check(
+    "an evaluation is of one of three things set side by side: the module as configured (the arrangement it starts from, no adapter), pretrained (the same with its adapters), and pretrained and trained (what training kept, with them); the adapters are that run's choice over the configuration's and the file is not written; each comes to one score over every question asked, each task counted by its questions, with its error; one figure is beyond another only where they differ by more than twice the error of the difference; what a variant came to is kept beside the other two; answers given with an adapter are kept by that adapter's bytes; and a pretrained figure is not taken of a swarm with no adapter",
+    E.variantOf('base').default === true &&
+      E.variantOf('base').adapters === 'off' &&
+      E.variantOf('pretrained').default === true &&
+      E.variantOf('pretrained').adapters === 'on' &&
+      E.variantOf('trained').default === false &&
+      E.variantOf('trained').adapters === 'on' &&
+      E.variantOf('other') === null &&
+      sw.n === 400 &&
+      sw.value === 0.575 &&
+      sw.stderr === 0.0388 &&
+      tg.value === 0.75 &&
+      E.overallOf([], 'swarm').n === 0 &&
+      E.beyondOf({ value: 0.6, stderr: 0.02, n: 400 }, { value: 0.5, stderr: 0.02, n: 400 }).beyond === true &&
+      E.beyondOf({ value: 0.53, stderr: 0.02, n: 400 }, { value: 0.5, stderr: 0.02, n: 400 }).beyond === false &&
+      E.beyondOf({ value: 0.9, stderr: 0, n: 0 }, { value: 0.5, stderr: 0.02, n: 400 }).beyond === false &&
+      row.swarm.n === 400 &&
+      row.tasks.length === 3 &&
+      // (paired by question: 3 better and 1 worse of 20 is +0.1; the same questions or nothing)
+      E.pairedOf([{ task: 't', bits: '11110000001111000000' }], [{ task: 't', bits: '11111110000111000000' }]).diff ===
+        0.1 &&
+      E.pairedOf([{ task: 't', bits: '11110000001111000000' }], [{ task: 't', bits: '11111110000111000000' }])
+        .better === 3 &&
+      E.pairedOf([{ task: 't', bits: '11110000001111000000' }], [{ task: 't', bits: '11111110000111000000' }]).worse ===
+        1 &&
+      E.pairedOf([{ task: 't', bits: '1111' }], [{ task: 't', bits: '11111' }]) === null &&
+      E.pairedOf([{ task: 't' }], [{ task: 't', bits: '1' }]) === null &&
+      E.compareRow({ results: [{ task: 't', swarm: { value: 1, stderr: 0, n: 2 }, agree: { sbits: '11' } }] }).tasks[0]
+        .bits === '11' &&
+      row.limit === 100 &&
+      on === true &&
+      off === undefined &&
+      /'-adapters-' \+ adaptersSha/.test(src) &&
+      /VARIANT === 'pretrained' && !adapters\.length/.test(src),
+    { sw, tg, on, off },
   );
 }
 

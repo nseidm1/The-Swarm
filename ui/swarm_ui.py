@@ -352,6 +352,8 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .moves li.skipped{opacity:.55}.moves li.pinned{background:linear-gradient(90deg,#e8f6f1,transparent)}
 dialog#evd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#evd::backdrop{background:rgba(11,40,38,.45)}
 /* THE EVALUATE CARD'S HEADLINE IS A BUTTON (it opens the table, score beside score): it keeps the look of a headline, and says it can be pressed */
+.cmph{margin:0 0 8px;font-size:15px}.cmpt{margin:0 0 6px}.cmpt tr.sum td{font-weight:700;border-top:2px solid var(--line,#d9e4e1)}.cmpbars{display:flex;flex-direction:column;gap:8px;margin:0 0 6px}.cmpbar{display:grid;grid-template-columns:minmax(120px,190px) 1fr minmax(110px,auto);gap:10px;align-items:center;font-size:13px}.cmpbar .mbar{position:relative;height:14px;background:#e4eeeb;border-radius:7px}.cmpbar .mbar i{position:absolute;left:0;top:0;bottom:0;background:#0f6b5a;border-radius:7px}.cmpbar .mbar u{position:absolute;top:-3px;bottom:-3px;border-left:2px solid #1d2b27;border-right:2px solid #1d2b27;background:rgba(29,43,39,.18)}.cmpbar .mbar s{position:absolute;top:-6px;bottom:-6px;border-left:2px dashed #3d4a8f}.cmpbar.none{opacity:.5}
+.cmp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 4px}.cmpc{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid var(--line,#d9e4e1);border-radius:10px;min-width:0}.cmpc b{font-size:13px}.cmpv{font-size:22px;font-weight:700}.cmpv i{font-style:normal;font-size:12px;font-weight:400;margin-left:6px;opacity:.7}.cmpc small{font-size:12px;opacity:.8}.cmpc.none .cmpv{opacity:.4}.cmpc small b.up{color:#0b6b57}.cmpc small b.down{color:#a23b2a}@media(max-width:640px){.cmp{grid-template-columns:1fr}}
 .evhead{display:flex;flex-direction:column;gap:10px;align-items:flex-start;min-width:0}.evviews{display:flex;gap:8px;flex-wrap:wrap}.evviews .btn{padding:8px 14px;font-size:13px;white-space:nowrap}.ptab{font-family:Georgia,'Times New Roman',serif;color:var(--fog)}.ptab caption{caption-side:top;text-align:left;font-size:13.5px;line-height:1.5;padding:0 0 10px}.ptab caption b{font-weight:700}.ptab table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums;border-top:2px solid var(--fog);border-bottom:2px solid var(--fog)}.ptab th,.ptab td{padding:5px 10px;text-align:right;border:0;white-space:nowrap}.ptab th:first-child,.ptab td:first-child{text-align:left;white-space:normal}.ptab thead th{font-weight:400;border-bottom:1px solid var(--fog)}.ptab tr.pg td{font-style:italic;padding-top:10px;text-align:left}.ptab tr.pall td{border-top:1px solid var(--fog);padding-top:7px}.ptab td small{color:var(--mist);font-size:.82em}.ptab-wrap{overflow-x:auto;margin-top:12px}.ptab-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}#evd-latex{width:100%;min-height:160px;margin-top:10px;font:12px ui-monospace,Menlo,monospace}dialog#tqd{border:0;border-radius:var(--r);padding:26px;max-width:min(900px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#tqd::backdrop{background:rgba(11,40,38,.45)}.tqctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}.tqctl select,.tqctl input{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel)}.tqctl input{flex:1 1 160px;min-width:0}.tql{list-style:none;margin:0;padding:0;display:grid;gap:10px}.tql li{border:1px solid var(--line2);border-radius:var(--r);padding:12px 14px}.tqh{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}.tqh small{color:var(--mist);font-size:12px;font-weight:600}.tqa{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.5}.tqb{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.45;color:var(--mist)}.tqb b{color:var(--fog)}.tqw{display:block;margin-top:6px;color:var(--mist);overflow-wrap:anywhere}@media (max-width:760px){dialog#tqd{padding:18px 12px}}.evbench select{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel);max-width:100%}.evbench{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}.evbench .seg small{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#9a5b00;margin-left:4px}.evbench .seg:disabled{opacity:.45;cursor:default}.evchart{margin-top:12px}.evchart svg{display:block;width:100%;height:auto;max-width:720px}.evchart .ax{stroke:var(--line);stroke-width:1}.evchart .tk{fill:var(--mist);font-size:11px}.evchart .lb{fill:var(--fog);font-size:12.5px;font-weight:700}.evchart .sb{fill:var(--mist);font-size:11.5px}.evchart .at{fill:var(--mist);font-size:11.5px;font-weight:700;letter-spacing:.04em}.evchart .pn{fill:#fff;font-size:11px;font-weight:800}.evchart .lgl{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px;font-size:13px;color:var(--fog)}.evchart .lgl li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.evchart .lgl i{flex:none;display:inline-block;min-width:20px;height:20px;line-height:20px;border-radius:50%;text-align:center;color:#fff;font-style:normal;font-size:11px;font-weight:800}.evchart .lgl span{color:var(--mist);font-variant-numeric:tabular-nums}.evchart .lgl i.hollow{background:var(--panel)}.evchart .lgl em{font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mist)}.evchart .lgl li.mine{background:var(--soft);border-radius:var(--r);padding:6px 8px;margin:0 -8px}.evchart .lgl li.mine em{color:var(--teal)}.lgl li.mine.tgt em{color:var(--tgt)}.evchart .pn.hollow{font-weight:800}.evopen{appearance:none;border:0;background:none;padding:6px 10px;margin:-6px -10px;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:12px;max-width:100%}
 .evopen:hover{background:rgba(11,93,87,.07)}.evopen:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 /* THE TABLE FITS ITS DIALOG, at any width, with no sideways scroll: a column's heading may wrap (the larger model's name is long), a figure never does; on a phone the cells are tighter and the count of questions, the one column that is not a score, is left out */
@@ -4980,6 +4982,97 @@ def eval_gaps(d=None):
             % (_and([t["name"] for t in lacking]), "has" if len(lacking) == 1 else "have", "it" if len(lacking) == 1 else "them", _and([harness_name(k) for k in harnesses_of(lacking)])))
 
 
+def eval_compare(d):
+    """THE THREE EVALUATIONS SIDE BY SIDE (data.compare_of): the module as configured, pretrained, and pretrained and trained. Each
+    is its score over every question asked, with its error, and what share of the larger model's score that is; under the second
+    and third, how they stand to the first: a gain or a loss only beyond twice the error, else no difference shown. One not
+    measured yet says so. Nothing where none of the three has been measured."""
+    rows = d.get("compare") or []
+    if not any(r.get("measured") for r in rows):
+        return ""
+    pts = lambda x: fmt_pct(100.0 * x)  # noqa: E731
+    cells = []
+    for r in rows:
+        if not r.get("measured"):
+            cells.append('<span class="cmpc none"><b>%s</b><span class="cmpv">–</span><small>not measured yet</small></span>' % e(r["name"]))
+            continue
+        if r["id"] == "base":
+            how = "the figure the others are set beside"
+        elif not r.get("sameQuestions", False):
+            how = "asked at another size than the first: not compared"
+        elif r.get("beyond"):
+            how = "<b class=\"%s\">%s %s points</b> on the first (error %s)%s" % ("up" if r["diff"] > 0 else "down", "a gain of" if r["diff"] > 0 else "a loss of", pts(abs(r["diff"])), pts(r["diffErr"]),
+                                                                                  (": %d questions better, %d worse" % (r["better"], r["worse"])) if r.get("paired") else "")
+        else:
+            how = "no difference shown: %s%s points on the first, within twice the error (%s)" % ("+" if r.get("diff", 0) >= 0 else "−", pts(abs(r.get("diff", 0))), pts(r.get("diffErr", 0)))
+        cells.append('<span class="cmpc"><b>%s</b><span class="cmpv">%s%%<i>± %s</i></span><small>%s of the larger model&#39;s score · %d questions</small><small>%s</small></span>'
+                     % (e(r["name"]), pts(r["value"]), pts(r["stderr"]), (fmt_pct(100.0 * r["share"]) + "%") if r.get("share") is not None else "–", r["n"], how))
+    return '<div class="cmp" role="group" aria-label="The three evaluations side by side">%s</div>' % "".join(cells)
+
+
+def compare_dialog(d, view="table"):
+    """THE THREE EVALUATIONS, AT THE HEAD OF EACH DIALOG, each said the way that dialog says things. EACH TASK (and any other
+    view): a line for every task, the larger model's score and then the three in their order, each with its questions.
+    PAPER TABLE: the same lines as a paper sets them out, each score with its standard error and the best of the three in bold.
+    CHART: one bar for each of the three on one scale, its error marked on it, and a line where the larger model scored.
+    Nothing where none of the three has been measured."""
+    rows = [r for r in (d.get("compare") or [])]
+    got = [r for r in rows if r.get("measured")]
+    if not got:
+        return ""
+    pts = lambda x: fmt_pct(100.0 * x)  # noqa: E731
+    tname = e((d.get("target") or {}).get("name", "the larger model"))
+    said = '<h3 class="cmph">The three evaluations</h3>'
+    if view == "chart":
+        top = max([r["value"] + 2 * r["stderr"] for r in got] + [r.get("target") or 0 for r in got] + [0.01])
+        scale = min(1.0, top * 1.1)
+        tg = next((r.get("target") for r in got if r.get("target")), None)
+        bars = []
+        for r in rows:
+            if not r.get("measured"):
+                bars.append('<span class="cmpbar none"><span class="ml">%s</span><span class="mbar"></span><span class="mv">not measured yet</span></span>' % e(r["name"]))
+                continue
+            lo, hi = max(0.0, r["value"] - 2 * r["stderr"]), min(scale, r["value"] + 2 * r["stderr"])
+            bars.append('<span class="cmpbar"><span class="ml">%s</span><span class="mbar"><i style="width:%.2f%%"></i><u style="left:%.2f%%;width:%.2f%%" title="twice its error either way"></u>%s</span>'
+                        '<span class="mv"><b>%s%%</b> ± %s</span></span>'
+                        % (e(r["name"]), 100.0 * r["value"] / scale, 100.0 * lo / scale, 100.0 * (hi - lo) / scale,
+                           ('<s style="left:%.2f%%" title="%s: %s%%"></s>' % (100.0 * tg / scale, tname, pts(tg))) if tg else "", pts(r["value"]), pts(r["stderr"])))
+        return ('%s<div class="cmpbars">%s</div><p class="small muted">Each bar is the share of every question asked that the swarm had right; the band on it is twice its error either way, and the line is where %s scored%s. '
+                'Two bars whose bands overlap are not shown to differ.</p>' % (said, "".join(bars), tname, (" (%s%%)" % pts(tg)) if tg else ""))
+    paper = view == "paper"
+    order, by = [], {}
+    for r in got:
+        for t in r.get("tasks") or []:
+            if t.get("task") not in by:
+                order.append(t.get("task"))
+                by[t.get("task")] = {"name": t.get("name") or t.get("task"), "v": {}}
+            by[t["task"]]["v"][r["id"]] = t
+    def cell(x, best=False):
+        if not x or not x.get("n"):
+            return '<td class="num muted">–</td>'
+        v = "%s%%" % pts(x["value"])
+        if paper:
+            v = "%s <span class=\"muted\">± %s</span>" % (pts(x["value"]), pts(x.get("stderr") or 0))
+        return '<td class="num">%s</td>' % (("<b>%s</b>" % v) if best else v)
+    lines = []
+    for k in order:
+        vs = by[k]["v"]
+        sw = {vid: (vs.get(vid) or {}).get("swarm") for vid in ("base", "pretrained", "trained")}
+        tgt = next(((vs[vid] or {}).get("target") for vid in vs if (vs[vid] or {}).get("target")), None)
+        top = max([x["value"] for x in sw.values() if x and x.get("n")] or [None]) if paper else None
+        n = max([x["n"] for x in sw.values() if x and x.get("n")] or [0])
+        lines.append('<tr><td>%s</td>%s%s<td class="num evn">%d</td></tr>' % (e(by[k]["name"]), cell(tgt), "".join(cell(sw[vid], top is not None and sw[vid] and sw[vid].get("n") and sw[vid]["value"] == top) for vid in ("base", "pretrained", "trained")), n))
+    allrow = {r["id"]: {"value": r["value"], "stderr": r["stderr"], "n": r["n"]} for r in got}
+    tg_all = next(({"value": r["target"], "stderr": 0, "n": r["n"]} for r in got if r.get("target") is not None), None)
+    lines.append('<tr class="sum"><td>Every question</td>%s%s<td class="num evn">%d</td></tr>' % (cell(tg_all), "".join(cell(allrow.get(vid)) for vid in ("base", "pretrained", "trained")), max(r["n"] for r in got)))
+    note = "; ".join("%s: %s" % (e(r["name"]), ("a gain" if r["diff"] > 0 else "a loss") + " of %s points on the first, beyond twice the error" % pts(abs(r["diff"])) if r.get("beyond")
+                     else ("asked at another size than the first, so not compared" if not r.get("sameQuestions", True) else "no difference from the first is shown"))
+                     for r in got if r["id"] != "base")
+    return ('%s<table class="evt cmpt"><thead><tr><th>Task</th><th class="num">%s</th><th class="num">As configured</th><th class="num">Pretrained</th><th class="num">Pretrained and trained</th><th class="num">Questions</th></tr></thead>'
+            '<tbody>%s</tbody></table><p class="small muted">The same questions, asked of the same lineup three ways and marked by each benchmark&#39;s own checker.%s</p>'
+            % (said, tname, "".join(lines), (" " + note[0].upper() + note[1:] + ".") if note else ""))
+
+
 def eval_block(d):
     """EVALUATE THE SWARM: standard benchmarks (lm-evaluation-harness), each asked of the larger model and of the swarm, and every
     question's two answers compared. Apart from training: training never asks a benchmark's question. Followed in place while it
@@ -5065,6 +5158,7 @@ def eval_block(d):
            '<span class="evctl">%s</span></div>'
            # (the harnesses of what is listed: the tool tests are named only where a body of work is measured by them)
            % (head, "; ".join(HARNESS_WORDS[k] for k in ("lm", "bfcl") if any((b.get("harness") or "lm") == k for t in listed for b in t.get("benchmarks") or [])) or HARNESS_WORDS["lm"], e(tname), ctl)]
+    out.append(eval_compare(d))
     if held and not running:
         out.append('<div class="state warn"><i></i><span>%s is running: an evaluation waits for it, since each needs the models to itself.</span></div>' % e(held[0].upper() + held[1:]))
     if listed and not running:
@@ -5612,9 +5706,11 @@ class Handler(BaseHTTPRequestHandler):
             only = [h for h in (parse_qs(u.query).get("h") or [""])[0].split(",") if h]
             which = (parse_qs(u.query).get("view") or [""])[0]
             cfg = (parse_qs(u.query).get("cfg") or [""])[0] or None
+            # (each dialog opens with the three evaluations of the lineup configured now, said its own way: compare_dialog)
+            three = compare_dialog(d, which) if not cfg else ""
             if which == "chart":
-                return self._send(eval_chart(d, only or None, (parse_qs(u.query).get("b") or [""])[0] or None, cfg))
-            return self._send({"paper": eval_paper}.get(which, eval_table)(d, only or None, cfg))
+                return self._send(three + eval_chart(d, only or None, (parse_qs(u.query).get("b") or [""])[0] or None, cfg))
+            return self._send(three + {"paper": eval_paper}.get(which, eval_table)(d, only or None, cfg))
         if u.path == "/fragment/pretrain":
             return self._send(pretrain_block(d))
         if u.path == "/fragment/spec":

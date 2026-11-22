@@ -157,6 +157,9 @@ export function pairOf(target, swarm) {
         });
     }
   }
+  // (which questions each had right, in the order they were asked: what two evaluations are paired by, question by question)
+  res.tbits = ids.map((id) => (t.has(id) ? '1' : '0')).join('');
+  res.sbits = ids.map((id) => (s.has(id) ? '1' : '0')).join('');
   return res;
 }
 

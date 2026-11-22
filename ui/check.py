@@ -1769,6 +1769,33 @@ _kept7s = {"config": "x+y+d", "members": {"a": 1.91, "b": 0}, "shared": {"b": "a
 _m7s = data.measured_footprint(_fp7, None, "x+y+d", _mem7s, None, kept=_kept7s)
 _m7s_old = data.measured_footprint(_fp7, None, "x+y+d", _mem7s, None, kept=dict(_kept7s, members={"a": 0.95, "b": 0}, swarm=1))
 _card7s = swarm_ui.memory_card({"footprint": _m7s})
+# ---- THE THREE EVALUATIONS SIDE BY SIDE
+_cmp_rows = {"base": {"limit": 50, "swarm": {"value": 0.60, "stderr": 0.02, "n": 800}, "target": {"value": 0.80, "stderr": 0.015, "n": 800}},
+             "pretrained": {"limit": 50, "swarm": {"value": 0.68, "stderr": 0.02, "n": 800}, "target": {"value": 0.80, "stderr": 0.015, "n": 800}, "adapters": ["Small"]},
+             "trained": {"limit": 20, "swarm": {"value": 0.70, "stderr": 0.03, "n": 320}, "target": {"value": 0.80, "stderr": 0.02, "n": 320}}}
+_cmp = data.compare_of(_cmp_rows)
+_pair_rows = {"base": dict(_cmp_rows["base"], tasks=[{"task": "t", "bits": "1" * 400 + "0" * 400}]), "pretrained": dict(_cmp_rows["pretrained"], swarm={"value": 0.63, "stderr": 0.02, "n": 800}, tasks=[{"task": "t", "bits": "1" * 424 + "0" * 376}])}
+_pair = data.compare_of(_pair_rows)
+_cmp_near = data.compare_of(dict(_cmp_rows, pretrained=dict(_cmp_rows["pretrained"], swarm={"value": 0.63, "stderr": 0.02, "n": 800})))
+_cmp_html = swarm_ui.eval_compare({"compare": _cmp})
+_cmp_near_html = swarm_ui.eval_compare({"compare": _cmp_near})
+check("the Evaluate card sets three evaluations side by side, always in their order: the module as configured, pretrained, and pretrained and trained; each is its score with its error, its share of the larger model's score and how many questions; the second and third say how they stand to the first, a gain or a loss only beyond twice the error of the difference and otherwise that no difference is shown; one asked at another size than the first is not compared; one not measured says so; and nothing is drawn where none was measured",
+      [r["id"] for r in _cmp] == ["base", "pretrained", "trained"] and _cmp[1]["beyond"] is True and _cmp[1]["diff"] == 0.08 and _cmp[2]["sameQuestions"] is False and _cmp[2]["beyond"] is False
+      and _cmp_near[1]["beyond"] is False and "a gain of 8 points" in _cmp_html.replace("8.0", "8") and "asked at another size than the first: not compared" in _cmp_html
+      and "no difference shown" in _cmp_near_html and "75% of the larger model" in _cmp_html.replace("75.0", "75") and "± 2" in _cmp_html.replace("2.0", "2")
+      and [r["measured"] for r in data.compare_of({})] == [False, False, False] and swarm_ui.eval_compare({"compare": data.compare_of({})}) == ""
+      and "not measured yet" in swarm_ui.eval_compare({"compare": data.compare_of({"base": _cmp_rows["base"]})})
+      # (paired by question, a gain of 3 points that the two errors together would not show is shown, with how many questions moved)
+      and _pair[1]["paired"] is True and _pair[1]["diff"] == 0.03 and _pair[1]["beyond"] is True and _pair[1]["better"] == 24 and _pair[1]["worse"] == 0
+      and "24 questions better, 0 worse" in swarm_ui.eval_compare({"compare": _pair}), [_cmp, _cmp_html[:500]])
+_cmp_t = lambda sw, n=400: [{"task": "t1", "name": "Task One", "swarm": {"value": sw, "stderr": 0.02, "n": n}, "target": {"value": 0.8, "stderr": 0.02, "n": n}},  # noqa: E731
+                           {"task": "t2", "name": "Task Two", "swarm": {"value": sw - 0.1, "stderr": 0.02, "n": n}, "target": {"value": 0.8, "stderr": 0.02, "n": n}}]
+_cmp_d = {"target": {"name": "Big"}, "compare": data.compare_of({"base": dict(_cmp_rows["base"], tasks=_cmp_t(0.6)), "pretrained": dict(_cmp_rows["pretrained"], tasks=_cmp_t(0.7))})}
+_cd_t, _cd_p, _cd_c = (swarm_ui.compare_dialog(_cmp_d, v) for v in ("table", "paper", "chart"))
+check("each dialog of the Evaluate card opens with the three evaluations, said its own way: Each task has a line for every task with the larger model's score and the three in their order, and a last line over every question; Paper table gives each score with its error and the best of the three in bold; Chart draws one bar for each on one scale with its error marked and a line where the larger model scored; one not measured is a dash or says so; and nothing is added where none was measured",
+      all("The three evaluations" in x for x in (_cd_t, _cd_p, _cd_c)) and "Task One" in _cd_t and "Every question" in _cd_t and _cd_t.count("</th>") == 6 and "Pretrained and trained" in _cd_t
+      and "±" in _cd_p and "<b>70" in _cd_p and "±" not in _cd_t.split("<tbody>")[1].split("</tbody>")[0] and _cd_c.count("cmpbar") >= 4 and "not measured yet" in _cd_c and "Big" in _cd_c
+      and "a gain of 8" in _cd_t and swarm_ui.compare_dialog({"compare": data.compare_of({})}, "table") == "", [_cd_t[:400], _cd_c[:400]])
 _card7k = swarm_ui.memory_card({"footprint": _m7_kept})
 _card7 = swarm_ui.memory_card({"footprint": _m7})
 _card7e = swarm_ui.memory_card({"footprint": _fp7})

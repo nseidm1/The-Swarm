@@ -142,6 +142,60 @@ def machine():
     return out
 
 
+COMPARE_VARIANTS = [("base", "As configured"), ("pretrained", "Pretrained"), ("trained", "Pretrained and trained")]
+
+
+def paired_of(a, b):
+    """Two variants asked the same questions, set beside each other question by question (as training/evaluate.mjs pairedOf): the
+    mean difference, its error from the spread of the differences, how many questions b had right that a had not, and the other
+    way. None where either does not say which questions it had right, or the questions are not the same."""
+    if not a or not b or len(a) != len(b):
+        return None
+    by = {t.get("task"): t for t in a}
+    ds = []
+    for t in b:
+        u = by.get(t.get("task"))
+        if not u or not isinstance(u.get("bits"), str) or not isinstance(t.get("bits"), str) or len(u["bits"]) != len(t["bits"]) or not t["bits"]:
+            return None
+        ds += [(y == "1") - (x == "1") for x, y in zip(u["bits"], t["bits"])]
+    n = len(ds)
+    m = sum(ds) / n
+    sd = (sum((d - m) ** 2 for d in ds) / (n - 1)) ** 0.5 if n > 1 else 0.0
+    err = sd / n ** 0.5
+    return {"n": n, "diff": round(m, 4), "stderr": round(err, 4), "beyond": abs(m) > 2 * err, "better": sum(1 for d in ds if d > 0), "worse": sum(1 for d in ds if d < 0)}
+
+
+def compare_of(rows):
+    """THE THREE EVALUATIONS SIDE BY SIDE: for each variant, in their order, what it scored over every question asked, with its
+    error, the larger model's score on the same questions, and whether it is BEYOND the first (the module as configured): only
+    where the two differ by more than twice the error of the difference. A variant measured at another size than the first is
+    said to be, and is not compared: the questions are not the same. -> [{id, name, measured, ...}], always three."""
+    out = []
+    base = (rows or {}).get("base") or {}
+    for vid, name in COMPARE_VARIANTS:
+        r = (rows or {}).get(vid) or {}
+        sw, tg = r.get("swarm") or {}, r.get("target") or {}
+        if not sw.get("n"):
+            out.append({"id": vid, "name": name, "measured": False})
+            continue
+        row = {"id": vid, "name": name, "measured": True, "value": sw["value"], "stderr": sw.get("stderr") or 0.0, "n": sw["n"], "target": tg.get("value"),
+               "share": (sw["value"] / tg["value"]) if tg.get("value") else None, "at": r.get("at"), "limit": r.get("limit"), "proof": bool(r.get("proof")),
+               "arrangement": r.get("arrangement"), "adapters": r.get("adapters") or [], "tasks": r.get("tasks") or []}
+        if vid != "base" and (base.get("swarm") or {}).get("n"):
+            b = base["swarm"]
+            same = (base.get("limit"), bool(base.get("proof")), b.get("n")) == (r.get("limit"), bool(r.get("proof")), sw["n"])
+            diff = sw["value"] - b["value"]
+            err = ((sw.get("stderr") or 0.0) ** 2 + (b.get("stderr") or 0.0) ** 2) ** 0.5
+            row.update({"sameQuestions": same, "diff": round(diff, 4), "diffErr": round(err, 4), "beyond": same and abs(diff) > 2 * err})
+            # (PAIRED where both say which questions they had right, training/evaluate.mjs pairedOf: the difference question by
+            # question and its error from the spread of those differences, which shows a smaller gain than the two errors together)
+            pair = paired_of(base.get("tasks"), r.get("tasks")) if same else None
+            if pair:
+                row.update({"paired": True, "diff": pair["diff"], "diffErr": pair["stderr"], "beyond": pair["beyond"], "better": pair["better"], "worse": pair["worse"]})
+        out.append(row)
+    return out
+
+
 def measured_footprint(fp, loop, cfg, members, decider, kept=None):
     """THE SAME NUMBER, MEASURED, where the pass in hand wrote it down (training/support/measure-memory.mjs: each small model's own
     process and the decider's, while they served): the footprint with the swarm's size, its parts and the saving taken from the
@@ -465,6 +519,9 @@ def load(root):
         # what the pass in hand asks more of, and why: its own held questions, and a proof where one was read (emphasis_of)
         "emphasis": emphasis_of(equiv.get("targets", []), state),
         "sample": (root / ".sample").exists(),
+        # THE THREE EVALUATIONS SIDE BY SIDE, of this configuration (training/evaluate.mjs --variant writes compare.json): the
+        # module as configured, pretrained, and pretrained and trained; each as it was last measured, or absent
+        "compare": compare_of(_json(root / ".work" / "eval" / "compare.json", {}).get(key) or {}),
         "briefs": briefs,
         # how this swarm is trained now: the settings every swarm starts with, and over them this configuration's own changes
         "policy": _merge(_json(root / "training" / "policy.json", {}), state.get("policy") or {}),

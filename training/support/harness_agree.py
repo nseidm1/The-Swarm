@@ -72,9 +72,14 @@ def main(tfile, sfile, flt, metric, compare):
     t, s = rows(tfile, flt), rows(sfile, flt)
     ids = sorted(set(t) & set(s))
     res = {"of": len(ids), "same": 0, "bothRight": 0, "bothWrong": 0, "differ": 0, "onlyTarget": 0, "onlySwarm": 0, "examples": []}
+    # (which questions each had right, in the order of the questions: "1011...". Two evaluations of the same questions are set
+    # beside each other question by question with these, which shows a smaller difference than their two scores can)
+    tbits, sbits = [], []
     for i in ids:
         a, b = t[i], s[i]
         ra, rb = right(a, metric), right(b, metric)
+        tbits.append("1" if ra else "0")
+        sbits.append("1" if rb else "0")
         if same(a, b, compare, metric):
             res["same"] += 1
             if ra and rb:
@@ -89,6 +94,7 @@ def main(tfile, sfile, flt, metric, compare):
                 res["onlySwarm"] += 1
             if len(res["examples"]) < 3:
                 res["examples"].append({"doc": i, "target": answer_of(a)[:160], "swarm": answer_of(b)[:160]})
+    res["tbits"], res["sbits"] = "".join(tbits), "".join(sbits)
     print(json.dumps(res))
 
 

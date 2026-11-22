@@ -51,6 +51,10 @@ export function readConfig() {
   // adapters switch reached nothing)
   if (typeof c.tools === 'string' && c.tools) out.tools = c.tools;
   if (c.adapters === true) out.adapters = true;
+  // (SWARM_ADAPTERS=on|off: one run's own choice over the configuration's, for a measurement that sets the same swarm with its
+  // adapters beside the same swarm without them; training/evaluate.mjs --variant. The configuration's file is not written)
+  if (process.env.SWARM_ADAPTERS === 'on') out.adapters = true;
+  if (process.env.SWARM_ADAPTERS === 'off') delete out.adapters;
   // the judge of equivalence apart from the decider, where one is chosen: kept as it is (it was left out here too, so the page said
   // a judge was chosen while every session went on reading answers in words with the decider: found 2026-11-18, Kev 0.8B reading
   // and failing its check, 42 questions not compared, with Jeffan 4B chosen as the judge)
