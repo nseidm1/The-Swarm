@@ -303,7 +303,7 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .evw[data-w="target"] .evbar i{background:var(--tgt)}.evw.asking .evbar i{background:var(--sun)}.evw.failed .evbar i{background:var(--wrong)}.evw.kept .evbar i{opacity:.55}
 .evag .evpct{font-size:20px;margin-right:4px}.prerows{margin-top:12px}.prerow{display:grid;grid-template-columns:minmax(130px,.6fr) minmax(0,2fr);gap:4px 16px;padding:10px 0;border-top:1px solid var(--line2);align-items:center}
 .prerow small{display:block;font-size:12.5px;color:var(--fog);line-height:1.4;margin-top:2px}.prerow .evbar{height:8px}.preuse{display:flex;gap:8px;align-items:baseline;margin-top:12px;font-weight:700;font-size:14px;flex-wrap:wrap}
-.preuse small{font-weight:500;color:var(--mist);font-size:12px}
+.preuse small{font-weight:500;color:var(--mist);font-size:12px}.cfgrow .preuse{margin-top:0}
 @media (max-width:760px){.evrow{grid-template-columns:minmax(0,1fr);gap:10px;padding:14px 0}.prerow{grid-template-columns:minmax(0,1fr)}.evctl{width:100%}.evctl .btn{flex:1}.evctl select{flex:1 1 100%}}
 /* THE HEADLINE NUMBERS (Training progress, Evaluate the swarm, Pretrain): the number, then its label beside it on the same line,
    and what it is a share of under the label, all read left to right (the memory chart's own number is right-aligned; not these) */
@@ -587,12 +587,12 @@ document.addEventListener('click',async(ev)=>{
 // A MODEL CHOSEN: written down, and everything that depends on it drawn again in place
 document.addEventListener('change',async(ev)=>{const s=ev.target.closest('[data-pick]');if(!s)return;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({[s.dataset.pick]:s.value})});
-  if(r.ok){$('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');liveTick();}else{alert(await r.text());await swap('/fragment/picks','#picks');}});
+  if(r.ok){$('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/adapt','#adapt');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');liveTick();}else{alert(await r.text());await swap('/fragment/picks','#picks');}});
 // TURNS WITH TOOLS: who takes an agent's turn, saved as a pill's choice is, and the row and the folded line drawn again in place
 document.addEventListener('click',async(ev)=>{const b=ev.target.closest('[data-tools]');if(!b||b.classList.contains('on'))return;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({tools:b.dataset.tools})});
   if(!r.ok){alert(await r.text());return;}
-  await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');});
+  await swap('/fragment/tools','#tools');await swap('/fragment/adapt','#adapt');await swap('/fragment/cfgmeta','#cfg-meta');});
 // THE ARRANGEMENT'S FACES: choosing one opens that slot's card below the row (what it is told, its record, what is being tried
 // on it); choosing it again closes it. The card is painted live like the faces, since it carries the same data-live.
 document.addEventListener('click',(ev)=>{
@@ -640,7 +640,7 @@ document.addEventListener('click',async(ev)=>{
   const a=ev.target.closest('[data-rec-apply]');if(!a)return;a.disabled=true;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:a.dataset.recApply});
   if(!r.ok){alert(await r.text());a.disabled=false;return;}
-  $('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/recslot','#rec-slot');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');$('#recd').close();
+  $('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/adapt','#adapt');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/recslot','#rec-slot');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');$('#recd').close();
 });
 // STEER IT: focus an area, queue or skip a move, choose any move; each choice written down and the plan drawn again in place
 const steerPost=async(body)=>{const r=await fetch('/steer',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify(body)});if(!r.ok){alert(await r.text());return false;}$('#plan').innerHTML=await r.text();keepOpen($('#plan'));return true;};
@@ -901,7 +901,7 @@ const evMeta=(all,tn)=>{const na=t=>String((t.target||{}).why||'').startsWith('n
 async function preTick(){const box=$('#prebox');if(!box||!box.dataset.running)return;
   let s;try{s=await (await fetch('/api/pretrain')).json();}catch(e){return;}
   const key=(s.models||[]).map(m=>m.state).join();
-  if(!s.running||(box.dataset.k&&box.dataset.k!==key)){box.dataset.k='';await swap('/fragment/pretrain','#prewrap');if(!s.running)await swap('/fragment/score','#score');return;}
+  if(!s.running||(box.dataset.k&&box.dataset.k!==key)){box.dataset.k='';await swap('/fragment/pretrain','#prewrap');await swap('/fragment/adapt','#adapt');if(!s.running)await swap('/fragment/score','#score');return;}
   box.dataset.k=key;const st=box.querySelector('[data-pre-step]');if(st&&st.textContent!==s.step)st.textContent=s.step||'';
   for(const m of s.models||[]){const row=box.querySelector('[data-pre="'+m.file+'"]');if(!row)continue;
     if(m.state==='fetching'){const t=row.querySelector('[data-pm]');if(t)t.textContent=t.textContent.replace(/ · [^·]* so far$/,' · '+m.got+' so far');continue;}
@@ -3495,8 +3495,37 @@ def config_section(d):
     badge = ('<button type="button" class="recbadge" id="rec-open" title="Open the recommended configuration changes"><i></i>%d recommendation%s</button>' % (n, "" if n == 1 else "s")) if n else ""
     return ('<details class="cfg fold" data-keep="cfg" open><summary><span class="cfgh">Configuration</span><span id="rec-slot">%s</span><span class="fmeta" id="cfg-meta">%s</span></summary>'
             '<div class="foldb">%s<div class="cfgrows"><div class="cfgrow"><span class="cfgl">Turns with tools</span>%s</div>'
+            '<div class="cfgrow"><span class="cfgl">Adapters</span>%s</div>'
             '<div class="cfgrow"><span class="cfgl">Your own questions</span>%s</div></div></div></details>'
-            % (badge, e(cfg_meta(d)), pills(d), tools_toggle(d), own_questions(d)))
+            % (badge, e(cfg_meta(d)), pills(d), tools_toggle(d), adapters_toggle(d), own_questions(d)))
+
+
+def adapters_kept(d):
+    """How many of the configured swarm's small models have an adapter that was kept, for the larger model configured (Pretrain
+    writes .work/library/adapters/<larger model>/<model>/result.json)."""
+    root = Path(ARGS.root)
+    orig = _originals()
+    tgt = d.get("target") or {}
+    n = 0
+    for m in (d.get("members") or {}).values():
+        if not m:
+            continue
+        o = orig.get(m.get("file")) or {}
+        res = data._json(root / ".work" / "library" / "adapters" / str(tgt.get("id", "")) / (o.get("dir") or m.get("file", "")) / "result.json", None)
+        n += 1 if res and res.get("ok") else 0
+    return n
+
+
+def adapters_toggle(d, inner=False):
+    """WITH OR WITHOUT ITS ADAPTERS: a row of Configuration, since it is a fact of how the swarm is served, to training and to an
+    evaluation alike ("adapters" in src/config.json; an evaluation is kept apart for each). It stood under the Pretrain card,
+    as if it were Pretrain's alone. It cannot be ticked while no adapter has been kept, and says so."""
+    kept = adapters_kept(d)
+    on = bool((data._json(Path(ARGS.root) / "src" / "config.json", {}) or {}).get("adapters"))
+    body = ('<label class="preuse"><input type="checkbox" id="pre-use"%s%s> Serve the swarm with its adapters <small>%s</small></label>'
+            % (" checked" if on else "", "" if kept else " disabled",
+               "from the next time it is loaded: training, an evaluation" if kept else "none has been kept yet: Pretrain makes them"))
+    return body if inner else '<div id="adapt">%s</div>' % body
 
 
 def tools_toggle(d, inner=False):
@@ -5123,8 +5152,8 @@ def pretrain_block(d):
                       ("The swarm would be served with them." if jd.get("served") else "They would not be served: not better by more than twice the error.") + " (A trial: the configuration was not changed.)" if jd.get("dry")
                       else "The swarm is served with them." if jd.get("served") else "They are not served: not better by more than twice the error."))
     out.append('<div class="prerows">%s</div>' % "".join(rows))
-    out.append('<label class="preuse"><input type="checkbox" id="pre-use"%s%s> Serve the swarm with its adapters <small>from the next time it is loaded: training, an evaluation</small></label>'
-               % (" checked" if on else "", " disabled" if not good else ""))
+    # (whether the swarm is served with them is asked in Configuration, where everything else about how it is served is: it
+    # bears on training and an evaluation alike, and under this card it read as Pretrain's own business. Console 2026-11-21)
     out.append("</div>")
     return "".join(out)
 
@@ -5427,6 +5456,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(own_questions(d, inner=True))
         if u.path == "/fragment/tools":
             return self._send(tools_toggle(d, inner=True))
+        if u.path == "/fragment/adapt":
+            return self._send(adapters_toggle(d, inner=True))
         if u.path == "/fragment/tidy":
             return self._send(tidy_panel(d))
         if u.path == "/fragment/questions":

@@ -335,7 +335,7 @@ with tempfile.TemporaryDirectory() as tmp:
     tg = eq_all["targets"]
     parts_nc = {
         "no boxes": "Equivalent on" not in html and "data-equiv" not in html and 'class="equiv"' not in html and 'class="tick"' not in html and 'class="tick on"' not in html and "data-qedit" in html and "{equivalence:" not in html and "/fragment/equiv" not in html,
-        "two rows": cfg_html.count('class="cfgrow"') == 2 and '<span class="cfgl">Turns with tools</span><div class="tools" id="tools">' in cfg_html and '<span class="cfgl">Your own questions</span><div class="ownq" id="ownq">' in cfg_html,
+        "two rows": cfg_html.count('class="cfgrow"') == 3 and '<span class="cfgl">Adapters</span><div id="adapt"><label class="preuse"><input type="checkbox" id="pre-use"' in cfg_html and 'id="pre-use"' not in swarm_ui.pretrain_block(data.load(root)) and '<span class="cfgl">Turns with tools</span><div class="tools" id="tools">' in cfg_html and '<span class="cfgl">Your own questions</span><div class="ownq" id="ownq">' in cfg_html,
         "no description": 'data-tools="swarm"' in cfg_html and "An agent&#x27;s turn" not in cfg_html and "<p>" not in cfg_html and "<p " not in cfg_html and "<small>The " not in cfg_html,
         "eight buttons": cfg_html.count('class="ownb"') == 8 and all('data-qedit="%s"' % i in cfg_html for i in ("crew", "code", "math", "logic", "reasoning", "instructions", "tools", "search")),
         "refused": e_no == 400 and "every body of work" in e_why and "equivalence" not in json.loads(cfg_was) and get(base + "/fragment/equiv")[0] == 404,

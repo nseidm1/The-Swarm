@@ -6,6 +6,9 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Serving the swarm with its adapters is a setting of Configuration** (2026-11-21). The box stood under the Pretrain
+  card, though it bears on training and an evaluation alike. It is now a row of Configuration, and says so when no adapter
+  has been kept yet.
 - **The Train card is tidier** (2026-11-21). Its head holds the two actions, Train and Questions, as the other cards hold
   theirs. Which classes a session trains is a row of boxes under the head, across the card, with Clear training state small
   at its end. Why Train waits is said once, in one quiet line.
