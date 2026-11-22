@@ -13,6 +13,7 @@
 //             narrows before the one that settles, a second writer with the decider picking the reply, a step taken out
 //   plan      one worked answer for each different answer; the checks passed over when the drafts agree; drafts of code
 //             compared by what they do, or as text
+import { INSTRUMENT_IDS, INSTRUMENT_NAMES, instrumentsOn } from '../src/instruments.mjs';
 import { briefHash } from './state.mjs';
 import { SERVING } from '../src/index.mjs';
 import { flowOf, decideByOf, COMPUTE_BRIEF } from '../src/orchestrate.mjs';
@@ -43,8 +44,17 @@ export const shapeOf = (b) =>
 
 // every arrangement one step from this one: [{ name, briefs }]
 export function steps(b, { cap = SERVING.slots, members = [...new Set(b.slots.map((s) => s.member))].sort() } = {}) {
-  // the flow first: with nothing measured to point anywhere, a pass tries the order of steps before it tries who sits where
-  const out = [...flowMoves(b)];
+  // AN INSTRUMENT TURNED ON (src/instruments.mjs): a question of the class that IS an operation is done by code. First of
+  // all, since it costs nothing to try (no model is asked where it applies) and is exact where it does
+  const instrOn = instrumentsOn((b.plan || {}).instruments);
+  const out = [
+    ...INSTRUMENT_IDS.filter((id) => !instrOn.includes(id)).map((id) => ({
+      name: 'plan: a question ' + INSTRUMENT_NAMES[id] + ' is done by code',
+      briefs: { ...b, plan: { ...b.plan, instruments: [...instrOn, id] } },
+    })),
+    // the flow next: with nothing measured to point anywhere, a pass tries the order of steps before it tries who sits where
+    ...flowMoves(b),
+  ];
   const used = (m, slots = b.slots) => slots.filter((s) => s.member === m).length;
   const withSlots = (slots) => ({ ...b, slots });
   const drafts = b.slots.filter((s) => s.stage === 'draft');

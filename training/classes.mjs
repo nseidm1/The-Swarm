@@ -370,6 +370,27 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   } finally {
     await swarm.stop();
   }
+  // WHERE CODE COULD DO THE WORK: the kinds of question on a quarter or more of which no slot's draft had a good answer, the
+  // furthest short first. No rearranging mends these (nothing good is there to choose), so they are where an instrument,
+  // if the kind is an operation code can do, or an adapter, has something to add. Said, for a person to read
+  {
+    const by = {};
+    for (const c of Object.values(record.classes))
+      for (const [k, v] of Object.entries(((c || {}).asItStands || {}).kinds || {})) {
+        by[k] = by[k] || { kind: k, n: 0, anySlot: 0 };
+        by[k].n += v.n || 0;
+        by[k].anySlot += v.anySlot || 0;
+      }
+    record.wanted = Object.values(by)
+      .filter((x) => x.n >= 2 && (x.n - x.anySlot) * 4 >= x.n)
+      .sort((a, b) => a.anySlot / a.n - b.anySlot / b.n);
+    if (record.wanted.length)
+      console.log(
+        'No slot had a good answer on a quarter or more of: ' +
+          record.wanted.map((x) => x.kind + ' (' + x.anySlot + ' of ' + x.n + ')').join(', ') +
+          '. These are where an instrument or an adapter has something to add.',
+      );
+  }
   record.done = new Date().toISOString();
   save();
   B.live({ trainer: 'classes', step: 'Each class trained as a class' });

@@ -23,6 +23,7 @@ import { RULE_KINDS, rulesHeld } from './tasks-rules.mjs';
 import { CALL_KINDS } from './tasks-calls.mjs';
 import { SEARCH_KINDS } from './tasks-search.mjs';
 import { LOGIC_KINDS, logicTask, asShown } from './tasks-logic.mjs';
+import { EXACT_KINDS } from './tasks-exact.mjs';
 
 const rng = (seed) => () => {
   seed |= 0;
@@ -164,12 +165,31 @@ const readAs = (type, among, ask) => (reply) => {
   }
   return bag(src) ? '' : '';
 };
+// a series (words in an order, or brackets in an order): right when the reply holds it, in that order, however it parts the
+// items (a space, a comma, a line); the marks of a series of brackets are compared with nothing between them
+const series = (want) =>
+  tagged('series', (reply) => {
+    const letters = /[a-z0-9]/i.test(want);
+    const flat = (x) =>
+      letters
+        ? ' ' +
+          String(x || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim() +
+          ' '
+        : String(x || '').replace(/[\s,`'"]+/g, '');
+    if (!flat(reply).trim()) return 'unsure';
+    return flat(reply).includes(flat(want)) ? 'right' : 'wrong';
+  });
 const graderFor = (type, among) => (answer) =>
   type === 'number'
     ? number(Number(answer))
     : type === 'choice'
       ? choice(String(answer), among)
-      : exact(String(answer));
+      : type === 'series'
+        ? series(String(answer))
+        : exact(String(answer));
 
 const NAMES = ['Ada', 'Ben', 'Cleo', 'Dev', 'Esme', 'Finn', 'Gia', 'Hugo', 'Ines', 'Jon', 'Kai', 'Lena'];
 const THINGS = ['apples', 'pencils', 'tickets', 'bricks', 'stamps', 'cards', 'bolts', 'seeds'];
@@ -424,6 +444,24 @@ const ALL = {
   ...SEARCH_KINDS,
   // (harder questions of logic, each with its own answer: tasks-logic.mjs. Last, so that no earlier kind's questions change)
   ...LOGIC_KINDS,
+  // (questions that are an operation code does exactly: tasks-exact.mjs. After them, for the same reason)
+  ...Object.fromEntries(
+    Object.entries(EXACT_KINDS).map(([k, make]) => [
+      k,
+      (t) => {
+        const m = make(t);
+        return {
+          ...m,
+          grade:
+            m.as === 'number'
+              ? number(Number(m.want))
+              : m.among
+                ? choice(String(m.want), m.among)
+                : series(String(m.want)),
+        };
+      },
+    ]),
+  ),
 };
 // the programming kinds, and with them the conversation a seat on a team carries: what a pass asks, unless its record says otherwise
 export const CODE_KIND_NAMES = [...Object.keys(CODE_KINDS), 'trace'];

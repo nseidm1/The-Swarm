@@ -1670,6 +1670,8 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `options` | boolean | true | where the question lists lettered options, answers that are none of them are not counted or shown beside answers that are (R.1.16) |
 | `optionAgain` | boolean | true | where the question lists options, a drafter whose final is none of them is asked once more for the option (O.6.1 step 1c) |
 | `piece` | boolean | true | a reply the request sets countable rules on is written whole and kept to them (R.5.1) |
+| `instruments` | list of ids, or `true` | none | the instruments that are on: a question that is one of their operations is done by code and no model is asked (R.6) |
+| `searchFirst` | boolean | true | a turn with a search tool offered and nothing yet looked up does not end without a call (T.13a) |
 | `codeAgain` | boolean | true | where the question wants code, a drafter whose final is not code is asked once more for the code (O.6.1 step 1b) |
 | `closeAs` | text | none | `shown`: the reply ends with the form the conversation's earlier replies close with, around what was settled (O.8.7) |
 | `split` | text | none | `off`: a request is never read in parts (O.13) |
@@ -2623,6 +2625,27 @@ of Part II is not run. Instead:
 5. The chosen reply is the reply and the decided answer. The path is `piece`, with `+rewritten` where step 4 changed
    it. Every call is recorded as a draft row with the rules it kept.
 
+### R.6 Instruments: what code does exactly, code does
+
+`plan.instruments` is a list of the ids of the instruments that are on (or `true`: every one). It is absent from an
+arrangement as it starts: an instrument is on where training kept it for the class of input. Where the question does
+not want code and at least one is on, the question is first read by the instruments that are on, in the order below. The question is taken trimmed, without a leading `Q:` or `Question:` and without a
+closing line `A:` (with or without `Let's think step by step.`). Where an instrument applies, the answer procedure of
+Part II is not run and no model is called: the decided answer is what the instrument gives, the reply is that answer
+(closed in the form the earlier replies show, O.8.7, where `plan.closeAs` is `shown` and a form is shown), the path is
+`instrument`, and one row is recorded with slot `instrument`, member `code`, stage `run`. An instrument applies only
+where it can read the WHOLE of what it needs; otherwise it does not apply and the question is answered as any other.
+
+| Instrument | Applies when | Gives |
+|---|---|---|
+| sum | the question, less an optional label ending in a colon, an optional `what is`, `compute`, `calculate` or `evaluate`, and an optional closing `=`, `= ?` or `?`, is an expression of numbers, `+ - * /` and round brackets with at least one operator | its value, by the usual precedence; an integer written without a decimal point; division by zero does not apply |
+| truth | the question, less an optional label, is `True`, `False`, `not`, `and`, `or` and round brackets with at least one operator, followed by `is` or `=` | `True` or `False`, with `not` binding tighter than `and`, and `and` tighter than `or` |
+| sorted | it says to sort, order, arrange or put in alphabetical (or dictionary) order, does not say reverse or descending, and after its last colon is one line of two or more words parted by white space, or by commas | the words in order by character in lower case, joined as they were parted |
+| closed | it speaks of closing or completing parentheses, brackets or a sequence, and after its last colon is a run of `( ) [ ] { } < >` and white space that closes nothing it did not open and leaves at least one open | the closing bracket of each one left open, the last opened first, with one space between |
+
+A result MUST say which instruments were on: a task that IS one of these operations is then answered by code, not by a
+model.
+
 ---
 
 # Part IV: The decision model
@@ -3148,6 +3171,17 @@ gives `false`, and `true` otherwise (several calls may be made in one reply unle
 return one call alone where the request does not say so). Other request members are not forwarded to proposers in mode
 swarm (only `messages`, `tools`, `tool_choice` and `parallel_tool_calls` from the caller's body are used). In mode lead
 the body is forwarded whole (T.3), with `parallel_tool_calls` as above.
+
+#### T.13a Search first (mode swarm)
+
+A tool **searches** when its name, with `_`, `.` and `-` read as spaces, holds one of the words `search`, `web`,
+`browse`, `browser`, `lookup`, `look up`, `google`, `bing`, `duckduckgo`, or its description speaks of searching or
+looking up the web, the internet or online, or of a web search or a search engine. Where `plan.searchFirst` is not
+`false`, the caller gave no `tool_choice`, at least one tool offered searches, the conversation holds no message of
+role `tool` and no assistant message with tool calls, at least one proposal is usable and no usable proposal is a
+call: the first two proposers are called once more with `tool_choice` `required`. Where at least one of those gives a
+usable call, every earlier proposal is set aside and the step is chosen (T.6) among those calls. Otherwise the turn
+goes on as it would have. The rows of the second asking are recorded.
 
 #### T.9 A reply is answered (mode swarm)
 

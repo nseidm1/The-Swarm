@@ -881,6 +881,22 @@ export function callsIn(lang, code, name, calls, opts = {}) {
   seen.set(key, p);
   return p;
 }
+// WHAT A WHOLE PYTHON PROGRAM PRINTS, run once in the box as it stands: { text } (what it printed, trimmed), or null where
+// Python cannot be run here, the program fails or runs out of time, or it prints nothing. (A slot that answers by a program.)
+export async function printedByPython(code, { timeoutMs = 6000 } = {}) {
+  const t = toolsOf();
+  if (!t.python || !boxThere() || !String(code || '').trim()) return null;
+  const dir = path.join(BASE, 'print-' + process.pid + '-' + ++runs);
+  fs.mkdirSync(path.join(dir, 'tmp'), { recursive: true });
+  try {
+    fs.writeFileSync(path.join(dir, 'prog.py'), String(code));
+    const r = await boxed(dir, [t.python, '-I', '-B', 'prog.py'], { timeoutMs, extraRead: [t.python] });
+    const text = String(r.out || '').trim();
+    return r.code === 0 && text ? { text: text.slice(0, 4000) } : null;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
 // CAN THIS LANGUAGE BE RUN HERE? Asked once for each: a function that returns 1, run in the box.
 const ONE = {
   python: ['def one():\n    return 1\n', 'one()'],

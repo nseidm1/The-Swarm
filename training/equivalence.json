@@ -54,7 +54,7 @@
       "id": "math",
       "name": "Math",
       "about": "Arithmetic in words: sums in a row, rates, units, counting",
-      "kinds": ["chain", "shop", "rate", "units", "count"],
+      "kinds": ["chain", "shop", "rate", "units", "count", "sum"],
       "benchmarks": [
         {
           "task": "gsm8k",
@@ -126,7 +126,7 @@
       "id": "reasoning",
       "name": "Reasoning",
       "about": "Following a procedure exactly: letters counted, a word changed step by step, a figure read out of a passage",
-      "kinds": ["letters", "string", "extract"],
+      "kinds": ["letters", "string", "extract", "truth", "sorted", "closed"],
       "benchmarks": [
         {
           "task": "bbh_cot_fewshot_word_sorting",

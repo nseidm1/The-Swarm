@@ -171,6 +171,17 @@ export function fitted(messages, most = 8000, each = 500) {
   return out;
 }
 
+// IS A TOOL ONE THAT SEARCHES? By its name or its description: it searches, looks up, browses or queries the web
+export const isSearchTool = (t) => {
+  const f = (t && t.function) || t || {};
+  const name = String(f.name || '').replace(/[_.\-]+/g, ' ');
+  return (
+    /\b(?:search|web|browse|browser|lookup|look up|google|bing|duckduckgo)\b/i.test(name) ||
+    /\b(?:search(?:es|ing)? (?:the )?(?:web|internet|online)|web search|search engine|look(?:s)? up (?:the )?(?:web|internet|online))\b/i.test(
+      String(f.description || ''),
+    )
+  );
+};
 // the turn itself: one proposal from each drafter, the same ones made one, the decider where they differ
 export async function answerTools(
   messages,
@@ -222,6 +233,70 @@ export async function answerTools(
   // in the order the drafters stand, so that a tie goes to the first (the lead's own drafter first)
   trace.sort((x, y) => who.findIndex((s) => s.id === x.slot) - who.findIndex((s) => s.id === y.slot));
   let good = trace.filter((r) => r.ok);
+  // SEARCH FIRST (plan.searchFirst: false leaves it). A tool that searches is offered, nothing has been looked up yet in this
+  // conversation, and no drafter proposed a call: each would answer from what it remembers, or say it cannot know. The first
+  // two drafters are asked once more for a call (tool_choice: required), and where one gives a call the replies are set
+  // aside: the turn does not end unsearched while the means to search stand offered. (Measured 2026-11-22 on a standard
+  // test of searching: the module and its model alone called the search tool on none of 40 questions; the model wrote "I can
+  // search the web for that. Would you like me to?")
+  if (
+    plan.searchFirst !== false &&
+    tool_choice === undefined &&
+    good.length &&
+    !good.some((r) => r.action.calls) &&
+    tools.some(isSearchTool) &&
+    !messages.some(
+      (m) => m && (m.role === 'tool' || (m.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.length)),
+    )
+  ) {
+    const again = [];
+    await Promise.all(
+      who.slice(0, 2).map(async (s) => {
+        const t1 = Date.now();
+        try {
+          const r = await ask(s, sent, {
+            tools,
+            tool_choice: 'required',
+            ...(parallel_tool_calls !== undefined ? { parallel_tool_calls } : {}),
+          });
+          const action = actionOf(
+            { content: r.content !== undefined ? r.content : r.text, tool_calls: r.calls },
+            tools,
+          );
+          again.push({
+            slot: s.id,
+            member: s.member,
+            stage: 'draft',
+            ms: Date.now() - t1,
+            tokens: r.tokens || 0,
+            ok: !action.bad,
+            final: action.bad ? '' : actionText(action),
+            out: action.bad ? 'Left out: ' + action.bad + '.' : actionText(action),
+            action,
+            again: 'search',
+          });
+        } catch (e) {
+          again.push({
+            slot: s.id,
+            member: s.member,
+            stage: 'draft',
+            ms: Date.now() - t1,
+            ok: false,
+            final: '',
+            out: 'Failed: ' + String((e && e.message) || e).slice(0, 160),
+            again: 'search',
+          });
+        }
+      }),
+    );
+    again.sort((x, y) => who.findIndex((s) => s.id === x.slot) - who.findIndex((s) => s.id === y.slot));
+    trace.push(...again);
+    const calls = again.filter((r) => r.ok && r.action.calls);
+    if (calls.length) {
+      for (const r of good) r.aside = true;
+      good = calls;
+    }
+  }
   if (!good.length) {
     // NO DRAFTER PROPOSED A STEP THAT COULD BE TAKEN: the turn is answered from what there is, by the answer procedure, where
     // there is one, and the path says so. It ended as an error, and the work with it (T.12)

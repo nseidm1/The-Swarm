@@ -47,6 +47,7 @@ import {
 } from './read.mjs';
 import { probeBriefFor, expectBriefFor, langOfQuestion, expectedIn, programOf } from './behave.mjs';
 import { answerPiece, setsRules } from './piece.mjs';
+import { instrumentFor } from './instruments.mjs';
 
 // an answer as it is shown to another slot or to the person: code in a block of its own, anything else as it is
 const fenced = (final) => (isCode(final) ? '\n```\n' + final + '\n```' : ' ' + final);
@@ -421,6 +422,38 @@ async function answerWhole(
     .map(said)
     .join('\n')
     .trim();
+  // WHAT CODE DOES EXACTLY, CODE DOES (instruments.mjs; plan.instruments: the ones training turned on): where the question IS an operation
+  // (a sum, an expression of true and false, words to put in order, brackets to close) it is done by code, and what that
+  // gives is the answer. No model is asked. The reply closes as the earlier replies do, where they show a form
+  if (!wantsCode && plan.instruments) {
+    const it = instrumentFor(question, plan.instruments);
+    if (it) {
+      const form = plan.closeAs === 'shown' ? closingForm(talk.slice(0, -1)) : null;
+      const reply = form ? closedAs('', it.answer, form, question) : it.answer;
+      const row = {
+        slot: 'instrument',
+        member: 'code',
+        stage: 'run',
+        ms: Date.now() - t0,
+        out: 'The question is ' + it.name + ', by code.',
+        final: it.answer,
+        ok: true,
+        instrument: it.id,
+      };
+      onStart({ slot: 'instrument', member: 'code', stage: 'run' });
+      onStep(row);
+      return {
+        reply: reply || it.answer,
+        decided: it.answer,
+        path: 'instrument',
+        ms: Date.now() - t0,
+        trace: [row],
+        ok: true,
+        tried: null,
+        instrument: it.id,
+      };
+    }
+  }
   // A REPLY THE REQUEST SETS COUNTABLE RULES ON IS WRITTEN WHOLE (piece.mjs; plan.piece: false leaves it): so many words, no
   // comma, every letter a capital, parts with labels. Only a reply written whole can keep such a rule, and a short answer to
   // agree on is not what was asked for. The first drafters each write it, each is measured against the rules by counting,

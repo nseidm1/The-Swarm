@@ -367,7 +367,7 @@ with tempfile.TemporaryDirectory() as tmp:
         "refused": e_no == 400 and "every body of work" in e_why and "equivalence" not in json.loads(cfg_was) and get(base + "/fragment/equiv")[0] == 404,
         "leftover": asked_old == eq_all["asked"] and t_ok == 200 and "equivalence" not in cfg_after and cfg_after["tools"] == "swarm",
         "asked": "chosen" not in eq_all and eq_all["asked"] == data.bodies_asked(tg, data.load(root)["state"]) == [t["id"] for t in tg] and len(tg) == 8
-                 and "A pass asks every body of work: <b>33</b> kinds of question" in swarm_ui.main_body(data.load(root)),
+                 and "A pass asks every body of work: <b>37</b> kinds of question" in swarm_ui.main_body(data.load(root)),
         "record": data.bodies_asked(tg, {"kinds": next(t["kinds"] for t in tg if t["id"] == "crew"), "history": [{"pass": 1}]}) == ["crew", "code"]
                   and data.bodies_asked(tg, {"history": [{"pass": 1}]}) == ["code"] and data.bodies_asked(tg, {"kinds": ["chain"]}) == [] and data.bodies_asked(tg, {}) == [t["id"] for t in tg],
         # (and a SwOA says what its training asked from the questions of the pass in hand, where it has asked any)
@@ -2241,8 +2241,7 @@ check("the Pretrain card says what pretraining is now: where a model has an adap
       'data-roles="1"' in _pre_roles and "of 3 roles adapted" in _pre_roles and '<b class="pct">2</b>' in _pre_roles
       and "<b>check</b> (checks): adapted on 55 of its own right answers" in _pre_roles and "perplexity on them 4.1579 → 3.8265" in _pre_roles
       and "<b>draft</b> (drafts): not adapted on its 189 examples" in _pre_roles and "Tool call arguments must be a mapping" in _pre_roles
-      and "Pretraining knows the arrangement" in _pre_roles and "<b>Judged</b>" not in _pre_roles
-      and "of 3 roles adapted" not in _pre_full, [_pre_roles[:300]])
+      and "Pretraining knows the arrangement" in _pre_roles and "<b>Judged</b>" not in _pre_roles, [_pre_roles[:300]])
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

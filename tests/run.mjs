@@ -1149,7 +1149,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           c.briefs.slots.find((x) => x.id === 'a-steps').stage === 'check',
       ) &&
       all.some((c) => /b-recompute drafts instead of checking/.test(c.name)) &&
-      /^flow: /.test(all[0].name) &&
+      // (an instrument turned on comes first of all: it costs nothing to try; then the flow)
+      /^plan: a question .* is done by code$/.test(all[0].name) &&
+      all.filter((c) => / is done by code$/.test(c.name)).length === 4 &&
+      /^flow: /.test(all[4].name) &&
       first.every((c) => c.briefs.flow[0].do === 'draft'),
     { first: names(briefs), second: second.map((c) => c.name) },
   );
@@ -1789,10 +1792,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const refs = reference(second);
   const more = tasks({ split: 'held', each: 2, tiers: { fix: 2 } });
   check(
-    "every kind of held question has a second wording that changes how it is put and nothing of what it asks, and is compared with the larger model's answer to the first: a programming question by its form, every other kind from its own draw, with every number and quoted word of the first in the second, every rule word for word and in the same order, every argument a call needs said outright, and the same answer good for both; a step that is followed by a search and what it returned keeps them as they were and puts only the question another way; the only questions without one are a message there is no other way to put and an agent's steps that end on what a tool returned (4 of 168); and a kind that is asked more of keeps the questions it had and adds to them",
+    "every kind of held question has a second wording that changes how it is put and nothing of what it asks, and is compared with the larger model's answer to the first: a programming question by its form, every other kind from its own draw, with every number and quoted word of the first in the second, every rule word for word and in the same order, every argument a call needs said outright, and the same answer good for both; a step that is followed by a search and what it returned keeps them as they were and puts only the question another way; the only questions without one are a message there is no other way to put and an agent's steps that end on what a tool returned (4 of 222); and a kind that is asked more of keeps the questions it had and adds to them",
     second.length === held.length &&
-      others.length === 114 &&
-      others2.length === 114 &&
+      others.length === 138 &&
+      others2.length === 138 &&
       others2.every(
         (t) =>
           t.ask &&
@@ -1802,7 +1805,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           digits(t.ask) === digits(firstOf(t).ask) &&
           quoted(t.ask) === quoted(firstOf(t).ask),
       ) &&
-      rightBoth.length === 96 &&
+      rightBoth.length === 120 &&
       rightBoth.every(Boolean) &&
       // a request with rules: every rule word for word, in the same order, after the request
       others2
@@ -1834,8 +1837,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
             t.turns.slice(1).every((m, i) => m === firstOf(t).turns[i + 1]),
         ) &&
       others2.filter((t) => t.kind === 'search' && t.turns.length === 3).length >= 3 &&
-      everyKind.length === 198 &&
-      everyKind2.length === 194 &&
+      everyKind.length === 222 &&
+      everyKind2.length === 218 &&
       without.sort().join() === 'agent,agent,agent,answer' &&
       second.every(
         (t, i) =>
@@ -2135,8 +2138,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     "what the swarm is trained on is every body of work of a list kept as data (The Crew, Code, Math, Logic, Reasoning, Instructions, Tools, Search), and nothing is chosen: a pass asks the kinds of them all, each once (Code's are among The Crew's); the list has no default, since there is nothing to fall back to; the kinds of some can still be named (a record, a check), a name that is not one is passed over, and with none left it is every one; what a list of kinds covers is said from the kinds (a pass that asked The Crew's covered Code too); and every kind of every body makes a question",
     BODIES.join() === 'crew,code,math,logic,reasoning,instructions,tools,search' &&
       EQUIVALENCE.default === undefined &&
-      NAMES.length === 33 &&
-      new Set(NAMES).size === 33 &&
+      NAMES.length === 37 &&
+      new Set(NAMES).size === 37 &&
       NAMES.join() === kindsFor(BODIES).join() &&
       kindsFor().join() === NAMES.join() &&
       kindsFor([]).join() === NAMES.join() &&
@@ -2144,12 +2147,12 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       kindsFor(['code']).join() === CODE_KIND_NAMES.join() &&
       kindsFor(['code', 'crew']).join() === CREW_NAMES.join() &&
       kindsFor(['crew']).join() === CREW_NAMES.join() &&
-      kindsFor(['math']).slice().sort().join() === 'chain,count,rate,shop,units' &&
-      kindsFor(['math', 'crew']).length === CREW_NAMES.length + 5 &&
-      kindsFor(['logic', 'reasoning']).length === 11 &&
-      make({ split: 'held', each: 2, kinds: kindsFor(['math', 'logic', 'reasoning']) }).length === 32 &&
-      make({ split: 'train', each: 6 }).length === 198 &&
-      make({ split: 'held', each: 6 }).length === 198 &&
+      kindsFor(['math']).slice().sort().join() === 'chain,count,rate,shop,sum,units' &&
+      kindsFor(['math', 'crew']).length === CREW_NAMES.length + 6 &&
+      kindsFor(['logic', 'reasoning']).length === 14 &&
+      make({ split: 'held', each: 2, kinds: kindsFor(['math', 'logic', 'reasoning']) }).length === 40 &&
+      make({ split: 'train', each: 6 }).length === 222 &&
+      make({ split: 'held', each: 6 }).length === 222 &&
       bodiesOf(NAMES).join() === BODIES.join() &&
       bodiesOf(CREW_NAMES).join() === 'crew,code' &&
       bodiesOf(CODE_KIND_NAMES).join() === 'code' &&
@@ -2379,7 +2382,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     byRecord === 'chain,order' &&
       before === CODE_KIND_NAMES.join() &&
       first === NAMES.join() &&
-      NAMES.length === 33 &&
+      NAMES.length === 37 &&
       withOldChoice === first &&
       readOld === undefined &&
       writtenOld === undefined,
@@ -5018,13 +5021,13 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const heldUnweighted = tasks({ split: 'held', each: 6, focus: e7.next.focus });
   check(
     "what the proof found the swarm short on is asked more of in the next pass: so many more train questions of each kind of the body of work that trains the capability (a capability is a body of work: IFEval's is Instructions, though the test is listed under The Crew), added to what the pass's own held questions ask more of, to at most six more of a kind; only a short verdict asks more, an open one or parity nothing; the pass keeps which came from where with the proof it read, a pass that was weighted by one says so in its own line of the record, and a new target starts with neither; nothing is read where the policy says 0 or no evaluation is this configuration's; and the held questions are never weighted",
-    Object.keys(pfocus.focus).sort().join() === 'chain,count,rate,rules,shop,units' &&
+    Object.keys(pfocus.focus).sort().join() === 'chain,count,rate,rules,shop,sum,units' &&
       Object.values(pfocus.focus).every((n) => n === 2) &&
       pfocus.from.more === 2 &&
       pfocus.from.at === '2026-11-10T00:00:00Z' &&
       pfocus.from.short.map((c) => c.id).join() === 'instructions,math' &&
       pfocus.from.short[0].kinds.join() === 'rules' &&
-      pfocus.from.short[1].kinds.slice().sort().join() === 'chain,count,rate,shop,units' &&
+      pfocus.from.short[1].kinds.slice().sort().join() === 'chain,count,rate,shop,sum,units' &&
       pfocus.from.read.map((c) => c.id + ':' + c.verdict).join() ===
         'code:parity,instructions:short,logic:open,math:short' &&
       proofFocus({ rows: evals, configuration: 'mine', adapters: [], more: 0, targets: EQL.targets }).from === null &&
@@ -10508,6 +10511,170 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       r3: R3.map((r) => r.id),
       plain: plain.path,
     },
+  );
+}
+// ---- INSTRUMENTS AND SEARCH FIRST (src/instruments.mjs, src/orchestrate.mjs; src/tools.mjs): code does what it does exactly
+{
+  const I = await import('../src/instruments.mjs');
+  const T = await import('../src/tools.mjs');
+  const { answer: orchestrate } = await import('../src/orchestrate.mjs');
+  const { startBriefs } = await import('../src/index.mjs');
+  const of = (q) => {
+    const r = I.instrumentFor(q);
+    return r ? r.id + ':' + r.answer : null;
+  };
+  const asked = [];
+  const shots = [
+    { role: 'user', content: "Q: Sort the following words alphabetically: List: b a\nA: Let's think step by step." },
+    { role: 'assistant', content: 'a before b. So the answer is a b.' },
+    { role: 'user', content: "Q: Sort the following words alphabetically: List: d c\nA: Let's think step by step." },
+    { role: 'assistant', content: 'c before d. So the answer is c d.' },
+    {
+      role: 'user',
+      content:
+        "Q: Sort the following words alphabetically: List: thrill splutter panicking dot\nA: Let's think step by step.",
+    },
+  ];
+  const withThem = { ...startBriefs(), plan: { ...startBriefs().plan, instruments: ['sorted'] } };
+  const done = await orchestrate(shots, {
+    briefs: withThem,
+    ask: async (slot) => (asked.push(slot.id), { text: 'ANSWER: no' }),
+  });
+  const none0 = asked.length;
+  const off = await orchestrate(shots, {
+    briefs: startBriefs(),
+    ask: async (slot) => (asked.push(slot.id), { text: 'ANSWER: thrill dot' }),
+  });
+  const calls0 = asked.length;
+  check(
+    'what code does exactly, code does: a question that IS an operation is read from its own text and done by code with no model asked (a sum, by the usual precedence; an expression of true and false, not before and before or; words in alphabetical order, parted as they were; the brackets left open closed, the last opened first), the reply closes as the earlier replies do, and the path says an instrument answered; an instrument applies only where it reads the whole of what it needs (a sum with a word in it, a run that closes what it did not open, a question about the world: none), and none is on until training turns it on: a module as it starts asks its models',
+    of("Q: ((-1 + 2 + 9 * 5) - (-2 + -4 + -4 * -7)) =\nA: Let's think step by step.") === 'sum:24' &&
+      of('What is 2 + 3 * 4?') === 'sum:14' &&
+      of('7 / 2 =') === 'sum:3.5' &&
+      of('1 / 0 =') === null &&
+      of('2 + x =') === null &&
+      of('42') === null &&
+      of('Q: not ( True ) and ( True ) is') === 'truth:False' &&
+      of('not not True or False and False is') === 'truth:True' &&
+      of('True is') === null &&
+      of('Sort the following words alphabetically: List: syndrome therefrom') === 'sorted:syndrome therefrom' &&
+      of('Put these in alphabetical order: pear, Apple, fig') === 'sorted:Apple, fig, pear' &&
+      of('Sort these words in reverse alphabetical order: b a') === null &&
+      of(
+        'Q: Complete the rest of the sequence, making sure that the parentheses are closed properly. Input: [ { ( < >',
+      ) === 'closed:) } ]' &&
+      of('Complete the sequence, making sure the parentheses are closed properly. Input: ( ]') === null &&
+      of('Complete the sequence, making sure the parentheses are closed properly. Input: ( )') === null &&
+      of('What is the capital of France?') === null &&
+      of('I have 3 apples and 2 pears. How many fruits do I have?') === null &&
+      done.ok &&
+      done.path === 'instrument' &&
+      done.decided === 'dot panicking splutter thrill' &&
+      done.reply === 'So the answer is dot panicking splutter thrill.' &&
+      done.trace.length === 1 &&
+      done.trace[0].member === 'code' &&
+      none0 === 0 &&
+      calls0 > 0 &&
+      off.path !== 'instrument' &&
+      // (none is on until training turns it on; one that is on does not answer for another)
+      I.instrumentFor('What is 2 + 3 * 4?', ['sorted']) === null &&
+      I.instrumentFor('What is 2 + 3 * 4?', []) === null &&
+      I.instrumentFor('What is 2 + 3 * 4?', undefined).answer === '14' &&
+      I.instrumentsOn(['sum', 'nothing']).join() === 'sum' &&
+      !('instruments' in (startBriefs().plan || {})),
+    {
+      done: [done.path, done.reply],
+      off: off.path,
+      sum: of('What is 2 + 3 * 4?'),
+      closed: of(
+        'Q: Complete the rest of the sequence, making sure that the parentheses are closed properly. Input: [ { ( < >',
+      ),
+    },
+  );
+  // SEARCH FIRST: a search tool is offered, nothing is looked up yet, every drafter would reply: asked once more for a call
+  const search = {
+    type: 'function',
+    function: {
+      name: 'search_engine_query',
+      description: 'Search the web.',
+      parameters: { type: 'object', properties: { keywords: { type: 'string' } }, required: ['keywords'] },
+    },
+  };
+  const other = {
+    type: 'function',
+    function: {
+      name: 'spotify_play',
+      description: 'Play a song.',
+      parameters: { type: 'object', properties: { artist: { type: 'string' } }, required: ['artist'] },
+    },
+  };
+  const call = [
+    {
+      id: 'c1',
+      type: 'function',
+      function: { name: 'search_engine_query', arguments: '{"keywords":"richest person"}' },
+    },
+  ];
+  const sent = [];
+  const turn = (tools, messages, extra = {}) =>
+    T.answerTools(messages, {
+      tools,
+      briefs: startBriefs(),
+      ask: async (slot, msgs, o) => (
+        sent.push(o.tool_choice || ''),
+        o.tool_choice === 'required'
+          ? { ok: true, content: '', calls: call, text: '' }
+          : {
+              ok: true,
+              content: 'I can search the web for that. Would you like me to?',
+              calls: [],
+              text: 'I can search the web for that. Would you like me to?',
+            }
+      ),
+      decide: async () => ({ ok: false, why: 'not asked' }),
+      ...extra,
+    });
+  const Qs = [{ role: 'user', content: 'Who is the richest person in the country that makes the most expensive tea?' }];
+  const first = await turn([search], Qs);
+  const forced = sent.filter((x) => x === 'required').length;
+  sent.length = 0;
+  const noSearchTool = await turn([other], Qs);
+  const n2 = sent.filter((x) => x === 'required').length;
+  sent.length = 0;
+  const already = await turn(
+    [search],
+    [
+      ...Qs,
+      { role: 'assistant', content: '', tool_calls: call },
+      { role: 'tool', tool_call_id: 'c1', content: 'results' },
+    ],
+  );
+  const n3 = sent.filter((x) => x === 'required').length;
+  sent.length = 0;
+  const leftOut = await T.answerTools(Qs, {
+    tools: [search],
+    briefs: { ...startBriefs(), plan: { ...startBriefs().plan, searchFirst: false } },
+    ask: async (slot, msgs, o) => (
+      sent.push(o.tool_choice || ''),
+      { ok: true, content: 'I do not know.', calls: [], text: 'I do not know.' }
+    ),
+    decide: async () => ({ ok: false, why: 'not asked' }),
+  });
+  check(
+    'search first: where a tool that searches is offered, nothing has been looked up yet in the conversation and every drafter would reply, the first two are asked once more for a call and the call goes out (the module and its model alone had called the search tool on none of 40 questions); it is not done where no tool offered searches (a turn where no function fits still ends with a reply), where something has been looked up already, or where the plan says not',
+    T.isSearchTool(search) &&
+      !T.isSearchTool(other) &&
+      T.isSearchTool({ type: 'function', function: { name: 'fetch', description: 'Looks up the web for a page.' } }) &&
+      forced === 2 &&
+      (first.calls || []).length === 1 &&
+      first.calls[0].function.name === 'search_engine_query' &&
+      n2 === 0 &&
+      !(noSearchTool.calls || []).length &&
+      n3 === 0 &&
+      !(already.calls || []).length &&
+      !sent.includes('required') &&
+      !(leftOut.calls || []).length,
+    { forced, first: [first.path, first.calls], n2, n3, leftOut: leftOut.path },
   );
 }
 // ---- AN ADAPTER FOR EACH ROLE (training/roles.mjs; src/index.mjs roleLoras): what a role's examples are, and which adapter a

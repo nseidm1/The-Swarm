@@ -6,6 +6,23 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Training chooses the instruments** (2026-11-22). No instrument is on in a module as it starts: it asks its models.
+  Training asks questions of its own that are an operation (`training/tasks-exact.mjs`: a sum, an expression of true and
+  false, words to sort, brackets to close; made from a seed in wordings of its own, each with the answer its maker worked
+  out), the class stage tries each instrument first of all (it costs no model call), and an instrument is turned on for a
+  class of input where the class got better with it on held questions, as every change is kept. A benchmark then measures
+  whether what was earned on training's wordings carries to wordings training never saw. The class stage also says, when
+  it ends, the kinds of question on which no slot had a good answer: where the next instrument, or an adapter, has
+  something to add.
+- **What code does exactly, code does** (2026-11-22). A question that IS an operation (a sum, an expression of true
+  and false, words to put in alphabetical order, brackets to close) is read from its own text and done by code, and
+  no model is asked (`src/instruments.mjs`; `plan.instruments` names the ones that are on). A 1.2B model sorted none of 20 word lists and closed
+  none of 20 bracket runs; asked for a program, it printed its own guess from inside one. The instruments answer all
+  80 stored questions of four such tasks and apply to none of 80 of four others. A module's result must say whether
+  they were on, since such a task is then answered by code.
+- **Search first** (2026-11-22). Where a tool that searches is offered, nothing has been looked up yet and every
+  drafter would reply, the first two are asked once more for a call, and the turn does not end unsearched
+  (`plan.searchFirst`). The module and its model alone had called the search tool on none of 40 questions.
 - **A reply the request sets rules on is written whole** (2026-11-22). Asked for a resume with twelve placeholders the
   module gave 43 words and six; asked for 400 words it gave 297. Such a request went the way a question goes: a line of
   answer from each drafter, a vote, and a reply written from the line. Where a request sets a rule that can be counted

@@ -1041,7 +1041,8 @@ def donut(parts, total, label):
     return "".join(out)
 
 
-KIND_WORDS = {"lies": "Logic: who tells the truth along a chain", "free": "Logic: when someone was free", "date": "Logic: a date some days away", "valid": "Logic: whether an argument is valid",
+KIND_WORDS = {"sum": "An operation: a sum to work out", "truth": "An operation: an expression of true and false", "sorted": "An operation: words to put in alphabetical order", "closed": "An operation: brackets to close",
+              "lies": "Logic: who tells the truth along a chain", "free": "Logic: when someone was free", "date": "Logic: a date some days away", "valid": "Logic: whether an argument is valid",
               "deduce": "Logic: an order from clues", "rules": "Instructions: rules a program checks", "calls": "Calling a function, or not", "search": "Search: a tool for what is not known",
               "agent": "An agent's next step, with tools", "write-arrays": "Write a function: arrays", "write-strings": "Write a function: strings", "write-numbers": "Write a function: numbers",
               "write-parsing": "Write a function: parsing", "fix": "Correct a function", "bug": "Say what is wrong", "trace": "Say what a program prints",
@@ -5455,7 +5456,7 @@ def pretrain_block(d):
            # number; stopped or failed, the adapters that were there are there still, and the number comes back as it was)
            # (by role, as the run pretrains: three roles, and how many have an adapter. Else the one adapter a model, as before)
            % (' aria-busy="true"' if running else "", busy("0") if running else '<b class="pct">%d</b>' % (role_good if by_role else good),
-              3 if by_role else len(rows), "roles adapted" if by_role else "adapted",
+              3 if by_role or not good else len(rows), "roles adapted" if by_role or not good else "adapted",
               ("Pretraining knows the arrangement: for each role a slot can have (draft, check, write the reply) a small model is taught that role&#39;s own requests on the train questions of %s, with the answers it gave that were right. "
                "Each request is then served with the adapter of its slot&#39;s role. Evaluate the swarm, as configured and pretrained, says what they bought." % e(items or "this pass")) if by_role or not good else
               ("Each small model is taught %s&#39;s right answers to the train questions of %s. An adapter is served only where it makes the swarm better on held questions." % (e(tgt.get("name", "the larger model")), e(items or "this pass"))),
