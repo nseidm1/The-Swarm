@@ -6,6 +6,12 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The README is short, and its detail is in pages of its own** (2026-11-22). It had grown to 1,170 lines. It is now
+  about 260: what the module is, how to start, how it works, the API, training, today's results, with a link to each
+  page under `docs/`: how it works, models and configuration, the API and the spec's parts, the dashboard, training,
+  every measurement, status and limits, troubleshooting. Nothing was dropped; what had gone stale was corrected on the
+  way (the Run card, adapters by role, the languages drafts are run in, the counts of questions and checks, what has
+  now been asked of real models).
 - **A SwOA spec pins an adapter for each role** (2026-11-22). Pretraining makes an adapter for each role a slot can have,
   and a spec could pin one adapter a model: a pretrained module could not be made again from its spec. `recipe.adapters`
   now takes, for a place, either the one adapter or one for each role (`roles`: `draft`, `check`, `write`), each a file
@@ -612,4 +618,4 @@ The first version.
   model, with a button that fetches what is needed and runs a pass.
 
 Measured so far: five passes on one configuration, 59.5% of the way to parity with Nemotron 3.5 Lightning 30B (25 of 42
-held answers). See [Measured, not claimed](README.md#measured-not-claimed).
+held answers). See [Measured, not claimed](docs/measured.md).

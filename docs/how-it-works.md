@@ -1,0 +1,88 @@
+# How it works
+
+What happens to a request inside the module: the stages, the requests code takes without them, the flow, and what is done when things fail. [architecture.md](architecture.md) has the files and what each slot is sent.
+
+| Stage                               | Slots                                            | What they do                                                                                                                                                                                                                                                                                                                                                                                  |
+| ----------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Draft                               | `a-direct`, `a-steps`, `b-direct`, `b-other-way` | Answer the question, each told to go about it differently. Two draft first, one of each small model; the other two draft only where those two differ                                                                                                                                                                                                                                                                                                                        |
+| Try (where a function is asked for) | the sandbox                                      | The drafts are run on the same calls, which one model writes while the others draft. Drafts that return the same are one answer, however differently they are written; one that does not run is none                                                                                                                                                                                          |
+| Check                               | `a-critic`, `b-recompute`                        | Shown one draft for each different answer, and the calls on which they part. One looks for the first line where each goes wrong; one puts each final answer back into the question. Each names the answer it finds correct by its letter                                                                                                                                                      |
+| Decide                              | The decider                                      | Picks which answer stands. The decider is whichever decision model the configuration names (Kev, Jeffan, StartLux Decision, and the others below): a model that writes nothing: it is given the question, each different answer and what the checkers said, and returns a probability for each answer. A plan can put one of the small models beside it (below)                               |
+| Write                               | `a-writer`                                       | Writes the reply a person reads, from what was settled and the draft it came from. Code goes out exactly as it was settled, and is not written out again. A closing paragraph about how the reply was made ("settled based on the provided draft") is cut. A reply that describes the answer instead of giving it is not sent: the largest other small model writes it, or the draft goes out |
+
+**Some requests are not put to the stages at all.** The module is used as one chat model; what happens inside is its
+wiring, and part of the wiring is code that decides, with no model, how a request is taken:
+
+| What the request is | What is done | Where |
+| --- | --- | --- |
+| An operation code does exactly (a sum, an expression of true and false, words to put in alphabetical order, brackets to close) | Done by code; no model is asked. **Only where training turned that instrument on** for the class of input | `src/instruments.mjs` |
+| A request that sets rules that can be counted (so many words, no comma, every letter a capital, labelled parts, placeholders) | The first drafters each write the whole reply, each is counted against the rules, the one that keeps the most goes out, and its writer is told once what it broke | `src/piece.mjs` |
+| A conversation that ends with the start of the reply | The conversation before it is answered and the reply follows the start (for a Python function, its body) | `src/read.mjs` |
+| A function, in JavaScript, TypeScript, Python, Go, Swift, Dart, Flutter or Kotlin | The drafts are run on the same calls, boxed, and drafts that do the same are one answer | `src/behave.mjs`, `src/langs.mjs` |
+| A question that lists lettered options | An answer that is none of them is not counted beside one that is | `src/orchestrate.mjs` |
+| A turn with a search tool offered and nothing looked up yet | It does not end without a search: the first drafters are asked once more for a call | `src/tools.mjs` |
+
+Each is a switch of the arrangement's plan, so training can turn it off for a class of input, and an evaluation can be
+run either way.
+
+**The order of these steps is not fixed.** It is the arrangement's _flow_, and training changes it the way it changes
+everything else, one step at a time and only on evidence. A flow can send the answers back to the slots that wrote them
+(with the other answers, where they part, and what the checkers said), loop checking and revising while the answers still
+differ, decide more than once (a first decision that keeps the likeliest two, a check of those, then the decision that
+settles), and have more than one slot write the reply with the decider picking between them. The plain flow above is where
+it starts:
+
+```json
+"flow": [
+  { "do": "draft" }, { "do": "try" },
+  { "do": "repeat", "upTo": 2, "steps": [{ "do": "check" }, { "do": "revise" }] },
+  { "do": "decide", "keep": 2 }, { "do": "check" }, { "do": "decide" },
+  { "do": "write" }
+]
+```
+
+**The arrangement is chosen by the class of the request**, the same way in training and in the running module, from the
+request alone and with no model asked: `tools` (the request offers tools), `talk` (the conversation already holds a reply),
+`code` (code is asked for), `words` (anything else). A class can have an arrangement of its own (its slots, its plan, its
+flow); one that has none is answered with the shared one. What training learns on a class stays with that class
+([docs/swoa-classes.md](swoa-classes.md)).
+
+Every arrangement of a few small models and a decision model, however long its flow, holds the same few gigabytes: a
+fraction of what the larger model takes. Finding the one that does what the larger model does is what the trainers are for.
+
+**What is learned belongs to one configuration.** `src/briefs.json` is where every swarm starts. What training finds is
+true of these two small models and this decider against this larger model, so it is kept in a file of its own
+(`src/learned/<small 1>+<small 2>+<decider>--<larger model>.json`): the arrangement as it now stands, which is what the
+swarm runs, and a ledger of every change that was kept with the evidence it was kept on. Choose other models and that
+swarm starts from `briefs.json` and keeps its own record. The SwOA spec is that file read out. What a configuration
+remembers of its training (which pass it is, what it tried and did not keep) is its own in the same way; only what was
+read on arXiv is shared, since a paper read once need not be read again.
+
+**But what one configuration learns is evidence for the others.** A change another configuration kept is not adopted: it is
+measured here first ([`training/support/across.mjs`](../training/support/across.mjs)). An arrangement or flow kept elsewhere
+goes to the head of this configuration's plan, and a brief kept elsewhere for a slot of the same name is one more candidate
+for that slot. Either is kept here only on this configuration's own evidence, by the same rule as any move. What the
+configurations measure together also points at the configuration itself: see [recommended changes](dashboard.md#recommended-changes).
+
+`a` and `b` are the two places a small model sits in; a slot is named for its place, not for the model in it. What each slot
+is told is one file, [`src/briefs.json`](../src/briefs.json): that file, and the arrangement of the slots, are what training
+changes.
+
+How it behaves when things go its way, and when they do not:
+
+| Situation                                                                                                      | What happens                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every draft reaches the same answer (for a function: every draft does the same on the calls tried)             | Nothing is in dispute: the checks and the decider are passed over                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| The first two drafts reach the same answer | The other two are not asked, and nothing is in dispute. This is what keeps a swarm near its model's own speed on the questions it finds easy |
+| The drafts differ, and no decision model is asked | The answer most slots hold stands (`decideBy: "most"`, the default); a decision model, where there is one, is asked only where two answers are held by as many |
+| The drafts cannot be tried (a language the machine has no tools for, no calls could be read, a Node older than 20, or `runCode: false`) | They are compared as text                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| A slot runs out of room before it answers                                                                      | It is asked once more for its answer alone (a checker: the letter of the answer it finds correct)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| A model has a token for opening a tool call                                                                    | The server is asked for it once and it is forbidden in every request without tools, so the model cannot answer a question with a call                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| A slot fails                                                                                                   | The others carry on                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| The decider is not running, or does not answer                                                                 | The answer most slots gave stands                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| The writer answers with a call to a tool                                                                       | That is not sent: the answer that was settled goes out as it stands                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Nothing can be written                                                                                         | The answer and its work are the reply                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Nothing answers at all                                                                                         | `ok: false` and no reply. Nothing is made up                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| The request carries tools (an agent's turn)                                                                    | With `"tools": "swarm"`: every drafter proposes the next step with the tools offered; a call to a tool not offered, or with arguments that are not an object, is left out; the same steps are one; the decider picks where they differ; it goes back as `tool_calls`, streamed or not. Where the step is a reply, the reply is written as any answer is (drafted, checked, decided, written), shown what the tools returned ([`src/tools.mjs`](../src/tools.mjs)). Otherwise to the one small model the setting names, alone and untouched (the model in place `a` where nothing is chosen) |
+
+[docs/architecture.md](architecture.md) has the files, what each slot is sent, and each kind of failure.
