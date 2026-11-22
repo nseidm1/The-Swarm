@@ -79,7 +79,7 @@ keeps it: a role costs its brief the first time and only the question after that
 |---|---|
 | draft | its brief, the conversation's last turns |
 | probe (where code is asked for) | a brief of its own and the conversation's last turns: it writes calls to try the drafts with, and is not asked for their results. Not one of the plan's slots: it shares a model's server slots |
-| run | no model: every draft is run on those calls in the sandbox (`src/behave.mjs`, `src/sandbox.mjs`), and drafts that return the same are one answer |
+| run | no model: every draft is run on those calls, in the language it is written in (`src/behave.mjs`; JavaScript and TypeScript in `src/sandbox.mjs`, the other languages boxed by `src/langs.mjs`), and drafts that return the same are one answer |
 | check | its brief, the earlier turns, then the question with the lettered drafts (the critic with their work, the other without). It may answer with the letter of the draft it finds correct, which counts as that draft's answer whole |
 | decide (the decider) | no brief: one `POST /v1/systemone` with the question, one worked answer for each different answer and what the checkers said as state; a choice among the answers and a yes/no for each as questions. No slot judges, unless the plan puts one beside the decider (`plan.decideWith`): a small model asked which answer is correct where the decider is close, together with it, or where it parts from most |
 | write | its brief, the earlier turns, the person's message, what was settled (a short statement of the answer, not the reply), the draft it came from, and a request for the reply itself |

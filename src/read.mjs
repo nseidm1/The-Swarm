@@ -104,9 +104,22 @@ export const asksForPiece = (question) =>
     String(question || ''),
   );
 // is an answer code? Words about a function are not: code has the marks of code (a function with its brackets, an arrow, a
-// statement ended, a name given a value)
+// statement ended, a name given a value), or the marks of Python (a def or a class with its colon, a line that imports, a
+// lambda). Python had none of the first marks, so a Python function was taken for words (measured 2026-11-22: 0 of 40).
+import { hasMarks, marksOf, FENCE } from './langs.mjs';
+const JS_MARKS = /\bfunction\s*\w*\s*\([^)]*\)\s*\{|=>\s*[{(\w[]|;\s*(\n|$)|^\s*(const|let|var)\s+\w+\s*=/m;
+const PY_MARKS =
+  /^\s*(?:async\s+)?def\s+\w+\s*\([^)]*\)[^:\n]*:|^\s*class\s+\w+[^:\n]*:\s*$|^\s*(?:from\s+[\w.]+\s+)?import\s+[\w.,* ]+$|\blambda\b[^:\n]*:/m;
 export const isCode = (final) =>
-  /\bfunction\s*\w*\s*\([^)]*\)\s*\{|=>\s*[{(\w[]|;\s*(\n|$)|^\s*(const|let|var)\s+\w+\s*=/m.test(String(final || ''));
+  JS_MARKS.test(String(final || '')) || PY_MARKS.test(String(final || '')) || hasMarks(final);
+// the language code is fenced as where it goes out: the one whose marks it has, and JavaScript where it has JavaScript's
+export const fenceOf = (final) => {
+  const m = marksOf(final);
+  const js = JS_MARKS.test(String(final || ''));
+  if (PY_MARKS.test(String(final || '')) && !js) return 'python';
+  if (m && m !== 'ts' && m !== 'python') return FENCE[m];
+  return js && m === 'ts' ? 'ts' : 'js';
+};
 export function finalOf(text, marker = MARKER, wantsCode = false) {
   const block = lastBlock(text, marker, wantsCode);
   if (block) return block.code;

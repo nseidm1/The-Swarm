@@ -1524,7 +1524,8 @@ After O.8.6, when `plan.closeAs` is `shown`, the reply is non-empty, decided is 
 
 If the reply is still empty:
 
-1. If decided is non-empty: if "is code" holds, the reply is `"```js\n" + DECIDED + "\n```"`;
+1. If decided is non-empty: if "is code" holds, the reply is `"```" + LANG + "\n" + DECIDED + "\n```"`,
+   LANG being its fence language (R.1.8);
    else if path contains `+described` and WORK is non-empty, the reply is WORK; else it is
    `(WORK ? WORK + "\n\n" : "") + DECIDED`.
 2. Otherwise, if any recorded row has non-empty `out`, take the first such row in record order
@@ -1884,8 +1885,26 @@ A final **is code** when it matches
 /\bfunction\s*\w*\s*\([^)]*\)\s*\{|=>\s*[{(\w[]|;\s*(\n|$)|^\s*(const|let|var)\s+\w+\s*=/m
 ```
 (a function head with its brace, an arrow followed by a body or expression, a statement-ending
-semicolon at a line end, or a line that binds a name with `const`/`let`/`var`). Words about a function
-are not code.
+semicolon at a line end, or a line that binds a name with `const`/`let`/`var`), or when it matches
+```
+/^\s*(?:async\s+)?def\s+\w+\s*\([^)]*\)[^:\n]*:|^\s*class\s+\w+[^:\n]*:\s*$|^\s*(?:from\s+[\w.]+\s+)?import\s+[\w.,* ]+$|\blambda\b[^:\n]*:/m
+```
+(the marks of Python: a `def` or a `class` head with its colon, a line that imports, a lambda). Words
+about a function are not code.
+
+A final is also code when it bears the marks of Go (a `package` line, a `func` head with its brace, or
+`:=`), of Swift (a `func` head with its brace, `guard let`, or a typed `let`), of Kotlin (a `fun`
+head), of Dart (a typed function head with its brace or arrow) or of Flutter (an import of Flutter, or
+a class that extends a stateless or stateful widget).
+
+The **fence language** of a final that is code is `js` (or `ts` where it also bears type annotations)
+when it matches the first pattern; else `python` when it matches the second; else the language whose
+marks it bears (`dart` for Flutter); else `js`.
+
+**Words are no answer beside code.** When the question asks for code (R.1.4) and at least one answer
+among those being counted or shown is code, the answers that are not code MUST be left out of the
+count, of the table shown to checkers and deciders, and of the test for agreement. When no answer is
+code, all answers stand.
 
 #### R.1.9 Is a reply a tool call?
 
@@ -2029,9 +2048,10 @@ the same results on every call are one answer (one **behaviour**). Grouping says
 same answer and where the others differ; it MUST NOT be taken to say which behaviour is correct. A
 draft that does not run at all is no answer.
 
-Only JavaScript is executed. If the drafts are not runnable JavaScript, if the sandbox (R.3) is
-unavailable, or if usable calls cannot be obtained, grouping yields **no result** and the drafts MUST
-be compared as text (R.1.11).
+The drafts are executed in the language they are written in (R.3.9): JavaScript, TypeScript, Python,
+Go, Swift, Dart, Flutter's Dart, or Kotlin. If the language cannot be executed safely where the module
+runs, if the sandbox (R.3) is unavailable, or if usable calls cannot be obtained, grouping yields **no
+result** and the drafts MUST be compared as text (R.1.11).
 
 #### R.2.2 The two briefs
 
@@ -2382,6 +2402,62 @@ A runtime MAY cache run outcomes keyed by (function name, the ORIGINAL code befo
 mode, and the exact argument lists or call texts), since the same function on the same inputs gives
 the same results. A cache MUST be bounded (for example at most 400
 entries, cleared entirely when full); it MAY hold failed (unrunnable) outcomes too.
+
+#### R.3.9 Languages other than JavaScript
+
+**Which language.** The language of a set of drafts is, in order: the language the question names
+(TypeScript; Python; Go; Swift; Kotlin; Flutter, also where it says "widget"; Dart; JavaScript); else
+the language most drafts bear the marks of; else JavaScript. In the two briefs of R.2.2 the word
+JavaScript is replaced by the name of the language the question names.
+
+**TypeScript** has its type annotations removed and is then executed as JavaScript, under R.3.1 to
+R.3.8 unchanged.
+
+**Every other language** is executed by that language's own tools inside an isolation the operating
+system enforces. The isolation MUST refuse all network access, MUST refuse every write outside a
+folder made for that one execution, and MUST refuse to read the person's own folders except that
+folder and the language's tools. An implementation that has no such isolation for a language MUST NOT
+execute that language, and MUST NOT install anything in order to. The folder is removed afterwards.
+
+**One execution of a draft** takes the draft and the list of calls, written as that language writes
+them, and gives for each call either the value it returned, as text, or that it failed. A function
+named `main` in the draft is renamed. A call the language's compiler refuses fails, and the other
+calls are still made (the draft is compiled once more without the refused calls). A draft that does
+not compile without any call, or none of whose calls returns, does not run: it is no answer. Where
+starting a process is cheap, each call SHOULD be a process of its own, so that a call that never
+returns, or that stops the program, fails alone. Each call has a time limit.
+
+**Values as text.** A value is written as JSON where the language can write it so (sets in sorted
+order); otherwise as the language's own description of it. Two drafts are compared only with drafts
+in the same language, so the text need only be the same for the same value.
+
+**The function's name** (R.2.3) is the name most drafts declare with the language's own head (`def`,
+`func`, `fun`, or a typed head in Dart), `main` and the methods a framework calls left out.
+
+**Literal calls** (R.2.4) may, beside values, hold the words the language needs to write a value: in
+Go the names of types and `nil`; in Kotlin `listOf`, `arrayOf`, `intArrayOf`, `setOf`, `mapOf`, `to`,
+type names and `null`; in Python `True`, `False`, `None`; in Swift `nil` and argument labels; in Dart
+`null` and type names, and in Flutter `const` as well. The calls the question itself gives for the
+function are calls to make: every place the question writes the name with its opening bracket is read as
+R.2.4 reads a line.
+
+**Calls built without a model** (R.2.5) are built from the function's parameters and their declared
+types: integers 0, 1, 2, -3, 10; reals 0.0, 1.5, -2.25, 10.0, 3.0; strings (the question's own quoted
+strings first) "", "a", "aaabcc", "Hello, World", "  two  words "; booleans true and false in turn;
+lists of integers [], [1], [1, 2, 3, 4, 5], [3, 1, 2, 2, 3], [-2, 0, 7]; lists of strings [], ["a"],
+["b", "a", "c"], ["x", "x"], ["Hello", "World"]; each written as the language writes it, with the
+argument label where the language needs one. A parameter with no type takes its kind from its name
+(R.2.5). If the kind of any parameter is unknown, no calls are built. A function that takes nothing
+has one call, and for it one call is enough (the minimum of R.2.6 is one). The i-th call gives the k-th
+parameter the (i + k)-th value of its kind, so that two parameters of one kind differ.
+
+**Flutter.** Dart that imports Flutter or declares a widget is compiled against Flutter and executed
+where Flutter needs no screen. Where a draft declares a widget, the name is the widget's and a call
+constructs it, giving the positional parameters and the named parameters that are required; a
+parameter that is a callback is given one that does nothing, a widget an empty box, a colour a fixed
+colour. A call whose value is a widget has the widget built inside an application, and its value as
+text is the texts it shows, in order, and the types of the widgets under it, in order. A widget that
+fails while it is built fails.
 
 ### R.4 A program the question asks the output of
 

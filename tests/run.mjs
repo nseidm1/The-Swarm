@@ -9920,6 +9920,268 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+// ---- A PYTHON FUNCTION IS CODE (src/read.mjs isCode, fenceOf; src/orchestrate.mjs answersOf): words are no answer beside code
+{
+  const R8 = await import('../src/read.mjs');
+  const { answer: orchestrate } = await import('../src/orchestrate.mjs');
+  const { startBriefs } = await import('../src/index.mjs');
+  const PY = 'def remove_occ(s, ch):\n    i = s.find(ch)\n    return s[:i] + s[i + 1:]';
+  const PY2 = 'def remove_occ(s, ch):\n    return s.replace(ch, "", 1)';
+  const WORDS = 'The function should strip the first occurrence of the character from the string';
+  const QPY = [
+    {
+      role: 'user',
+      content: 'Write a python function remove_occ(s, ch) to remove the first occurrence of a character.',
+    },
+  ];
+  const said = {
+    'a-direct': 'ANSWER: ' + WORDS,
+    'a-steps': '```python\n' + PY + '\n```',
+    'b-direct': '```python\n' + PY2 + '\n```',
+  };
+  const asked = [];
+  const got = await orchestrate(QPY, {
+    briefs: startBriefs(),
+    ask: async (slot) => (
+      asked.push(slot.stage),
+      { text: said[slot.id] || (slot.stage === 'draft' ? '```python\n' + PY + '\n```' : 'ANSWER: A') }
+    ),
+  });
+  const none = await orchestrate(QPY, { briefs: startBriefs(), ask: async () => ({ text: 'ANSWER: ' + WORDS }) });
+  check(
+    'a Python function is code: it has its own marks (a def or class with its colon, an import line, a lambda), words about a function are still words, and code goes out fenced in its own language; and where code is asked for and one answer is code, an answer in words is not counted beside it (three drafts wrote the function and one a sentence, the sentence came first, and the sentence went out: 0 of 40) and the function goes out as it was written, not as a sentence; where no answer is code the words stand as before',
+    R8.isCode(PY) &&
+      R8.isCode('import math\nx = 1') &&
+      R8.isCode('f = lambda x: x + 1') &&
+      R8.isCode('class A(B):\n    pass') &&
+      !R8.isCode(WORDS) &&
+      !R8.isCode('Define the function: it returns the string. Import nothing.') &&
+      R8.isCode('const f = (a) => a + 1;') &&
+      R8.fenceOf(PY) === 'python' &&
+      R8.fenceOf('function f(a) { return a; }') === 'js' &&
+      got.ok &&
+      R8.isCode(got.decided) &&
+      /def remove_occ/.test(got.reply) &&
+      !got.reply.includes(WORDS) &&
+      !asked.includes('write') &&
+      none.ok &&
+      none.reply.includes(WORDS),
+    { path: got.path, decided: got.decided, reply: got.reply, asked: asked.join(), none: none.reply },
+  );
+}
+// ---- DRAFTS ARE RUN IN THE LANGUAGE THEY ARE WRITTEN IN (src/langs.mjs; src/behave.mjs): each language, the box, and the swarm
+{
+  const L = await import('../src/langs.mjs');
+  const { behaviours, probeBriefFor, callsIn: callsInText } = await import('../src/behave.mjs');
+  const { answer: orchestrate } = await import('../src/orchestrate.mjs');
+  const { startBriefs } = await import('../src/index.mjs');
+  const R9 = await import('../src/read.mjs');
+  // one function in each language: an ordinary call, a call that fails as the program runs, a call the compiler refuses
+  const CASES = {
+    ts: [
+      'function inc(a: number, by: number = 1): number { if (a > 8) throw new Error("no"); return a + by; }',
+      ['inc(1)', 'inc(9)', 'inc(2, 5)'],
+      ['2', 'E', '7'],
+    ],
+    python: [
+      'def add(a, b):\n    return [a + b, {"k": (1, 2)}]\n',
+      ['add(1, 2)', 'add(1, "x")', 'add("a", "b")'],
+      ['[3, {"k": [1, 2]}]', 'E', '["ab", {"k": [1, 2]}]'],
+    ],
+    go: [
+      'import "errors"\nfunc div(a int, b int) (int, error) {\n\tif b == 0 { return 0, errors.New("zero") }\n\tif b == 7 { var x []int; return x[3], nil }\n\treturn a / b, nil\n}\n',
+      ['div(6, 3)', 'div(1, 7)', 'div("a", 1)', 'div(1, 0)'],
+      ['[2,null]', 'E', 'E', '[0,"zero"]'],
+    ],
+    swift: [
+      'func rev(_ s: String, times n: Int) -> [String] {\n  if n < 0 { let a: [Int] = []; return [String(a[2])] }\n  return Array(repeating: String(s.reversed()), count: n)\n}\n',
+      ['rev("abc", times: 2)', 'rev("x", times: -1)', 'rev(3, times: 1)'],
+      ['["cba", "cba"]', 'E', 'E'],
+    ],
+    dart: [
+      'List<int> twice(List<int> xs) {\n  if (xs.length == 3) throw StateError("no");\n  return xs.map((x) => x * 2).toList();\n}\nvoid main() { print("the draft has a main of its own"); }\n',
+      ['twice(<int>[1, 2])', 'twice(<int>[1, 2, 3])', 'twice("a")'],
+      ['[2,4]', 'E', 'E'],
+    ],
+    kotlin: [
+      'fun evens(xs: List<Int>): List<Int> {\n  if (xs.size == 3) throw IllegalStateException("no")\n  return xs.filter { it % 2 == 0 }\n}\n',
+      ['evens(listOf(2, 3, 4, 6))', 'evens(listOf(1, 2, 4))', 'evens("a")'],
+      ['[2, 4, 6]', 'E', 'E'],
+    ],
+  };
+  const WIDGET = (extra) =>
+    "import 'package:flutter/material.dart';\nclass Greeting extends StatelessWidget {\n  final String name;\n  final VoidCallback onTap;\n" +
+    '  const Greeting(this.name, {super.key, required this.onTap});\n  @override\n' +
+    "  Widget build(BuildContext context) => Column(children: [Text('Hi $name'), " +
+    extra +
+    "ElevatedButton(onPressed: onTap, child: const Text('Go'))]);\n}\n" +
+    "void main() => runApp(MaterialApp(home: Greeting('x', onTap: () {})));\n";
+  const ready = {};
+  await Promise.all(L.LANGS.map(async (id) => (ready[id] = await L.langReady(id))));
+  const got = {};
+  await Promise.all(
+    Object.entries(CASES).map(async ([id, [code, calls]]) => {
+      if (!ready[id]) return;
+      const name = id === 'ts' ? 'inc' : L.nameIn(id, [code]);
+      const out = await L.callsIn(id, code, name, calls);
+      got[id] = out ? out.map((o) => (o.e ? 'E' : o.v)) : null;
+    }),
+  );
+  const wrong = Object.entries(CASES)
+    .filter(([id, c]) => ready[id] && JSON.stringify(got[id]) !== JSON.stringify(c[2]))
+    .map(([id]) => id);
+  check(
+    "a function is run in the language it is written in (TypeScript, Python, Go, Swift, Dart, Kotlin: each one this machine has the tools of): a call gives what the function returned; a call that fails as the program runs (it throws, or it stops the program) fails alone; a call the compiler refuses fails and the others are still made; a main of the draft's own is not in the way. A language with no tools here is not run: " +
+      (L.LANGS.filter((id) => !ready[id]).join(', ') || 'none is missing'),
+    !wrong.length && ready.ts,
+    { wrong, got, ready },
+  );
+  // THE BOX: nothing leaves, nothing is written outside the run's folder, and the person's folders are not read
+  if (ready.python) {
+    const esc =
+      'import urllib.request, os\ndef leak():\n    r = []\n' +
+      '    try:\n        urllib.request.urlopen("http://example.com", timeout=2); r.append("NET")\n    except Exception:\n        r.append("no net")\n' +
+      '    try:\n        open(' +
+      JSON.stringify(path.join(os.homedir(), 'swoa-box-escape-2.txt')) +
+      ', "w").write("x"); r.append("WRITE")\n    except Exception:\n        r.append("no write")\n' +
+      '    try:\n        os.listdir(' +
+      JSON.stringify(os.homedir()) +
+      '); r.append("READ")\n    except Exception:\n        r.append("no read")\n' +
+      '    return r\n';
+    const out = await L.callsIn('python', esc, 'leak', ['leak()']);
+    check(
+      "code a model wrote runs in a box: it reaches no network, writes nothing outside the folder made for the run, and does not read the person's folders",
+      !!out &&
+        out[0].v === '["no net", "no write", "no read"]' &&
+        !fs.existsSync(path.join(os.homedir(), 'swoa-box-escape-2.txt')),
+      { out },
+    );
+  }
+  // FLUTTER: a function that uses Flutter, and a widget, built with no screen and known by what it shows
+  if (ready.flutter) {
+    const a = WIDGET('');
+    const b = WIDGET('const Icon(Icons.add), ');
+    const name = L.nameIn('flutter', [a, b]);
+    const calls = L.callsFor('flutter', 'Greet "Ann"', [a, b], name).slice(0, 2);
+    const fn =
+      "import 'package:flutter/material.dart';\nColor blend(Color a, double t) => Color.lerp(a, const Color(0xFF000000), t)!;\n";
+    const [ra, ra2, rb, rf] = await Promise.all([
+      L.callsIn('flutter', a, name, calls),
+      L.callsIn('dart', a.replace("'Hi $name'", "'Hi ' + name"), name, calls),
+      L.callsIn('flutter', b, name, calls),
+      L.callsIn('dart', fn, 'blend', ['blend(const Color(0xFFFFFFFF), 0.5)']),
+    ]);
+    check(
+      'Flutter code is run as well, where no screen is needed: a function that uses Flutter gives its value; a widget is constructed with what it requires (a callback that does nothing where it wants one) and built, and is known by the texts it shows and the widgets under it, so two widgets written differently that show the same are the same and one with an icon more is another',
+      name === 'Greeting' &&
+        calls[0] === 'Greeting("Ann", onTap: () {})' &&
+        !!ra &&
+        !!rb &&
+        !!ra2 &&
+        !!rf &&
+        /"texts":\["Hi Ann","Go"\]/.test(ra[0].v) &&
+        JSON.stringify(ra) === JSON.stringify(ra2) &&
+        JSON.stringify(ra) !== JSON.stringify(rb) &&
+        /red: 0\.5/.test(rf[0].v),
+      { name, calls, ra: ra && ra[0].v.slice(0, 200), rf },
+    );
+  }
+  // which language, calls with no model, literal calls, and what is code
+  const goCode = 'func sum(xs []int, k int) int {\n\treturn len(xs) + k\n}';
+  const swCode = 'func rev(_ s: String, times n: Int) -> [String] {\n  return []\n}';
+  const ktCode = 'fun evens(xs: List<Int>): List<Int> {\n  return xs\n}';
+  check(
+    'the language of the drafts is the one the request names, else the one most drafts bear the marks of, else JavaScript; calls are built with no model from the parameters and their types, written as the language writes them (a typed list in Go, a label in Swift, listOf in Kotlin); a literal call may hold the words its language needs and no other name; code in these languages is code and is fenced as its own; and the probing slot is asked for calls in the language asked for',
+    L.langOf('Write a Python function f', []) === 'python' &&
+      L.langOf('Write a function in Go that sums', []) === 'go' &&
+      L.langOf('Build a Flutter widget', []) === 'flutter' &&
+      L.langOf('Write a function', [goCode, goCode, 'def f(x):\n    return x']) === 'go' &&
+      L.langOf('Write a function', ['function f(a) { return a; }']) === 'js' &&
+      L.callsFor('go', '', [goCode], 'sum')[1] === 'sum([]int{1}, 2)' &&
+      L.callsFor('swift', 'reverse "abc"', [swCode], 'rev')[0] === 'rev("abc", times: 1)' &&
+      L.callsFor('kotlin', '', [ktCode], 'evens')[2] === 'evens(listOf<Int>(1, 2, 3, 4, 5))' &&
+      L.callsFor('python', '', ['def f(n, items):\n    return n'], 'f')[1] === 'f(1, [1, 2, 3, 4, 5])' &&
+      L.callsFor('python', '', ['def f(thing):\n    return thing'], 'f').length === 0 &&
+      callsInText('sum([]int{1, 2}, 3)\nsum(other(1), 2)', 'sum', { words: L.CALL_WORDS.go }).join() ===
+        'sum([]int{1, 2}, 3)' &&
+      callsInText('sum([]int{1, 2}, 3)', 'sum').length === 0 &&
+      R9.isCode(goCode) &&
+      R9.isCode(swCode) &&
+      R9.isCode(ktCode) &&
+      R9.isCode(WIDGET('')) &&
+      !R9.isCode('The function should walk the list and return its length.') &&
+      R9.fenceOf(goCode) === 'go' &&
+      R9.fenceOf(ktCode) === 'kotlin' &&
+      R9.fenceOf(WIDGET('')) === 'dart' &&
+      R9.fenceOf('function f(a) { return a; }') === 'js' &&
+      /as Python/.test(probeBriefFor('python')) &&
+      /as JavaScript/.test(probeBriefFor('js')),
+    {
+      go: L.callsFor('go', '', [goCode], 'sum'),
+      swift: L.callsFor('swift', 'reverse "abc"', [swCode], 'rev'),
+      kotlin: L.callsFor('kotlin', '', [ktCode], 'evens'),
+    },
+  );
+  // THE SWARM: Python drafts are run, the ones that do the same are one answer, and the answer most drafts DO goes out
+  if (ready.python) {
+    const QPY =
+      'Write a python function first_gone(s, ch) that removes the first occurrence of ch from s. It should pass: assert first_gone("hello", "l") == "helo"';
+    const RIGHT1 = 'def first_gone(s, ch):\n    i = s.find(ch)\n    return s if i < 0 or not ch else s[:i] + s[i + 1:]';
+    const RIGHT2 = 'def first_gone(s, ch):\n    return s.replace(ch, "", 1)';
+    const WRONG = 'def first_gone(s, ch):\n    return s.replace(ch, "")';
+    const grouped = await behaviours({
+      question: QPY,
+      drafts: [
+        { letter: 'A', final: WRONG },
+        { letter: 'B', final: RIGHT1 },
+        { letter: 'C', final: RIGHT2 },
+        { letter: 'D', final: 'def first_gone(s, ch)\n    return oops' },
+      ],
+      probeText: 'function first_gone(s, ch) { return s; }',
+    });
+    const said = { 'a-direct': WRONG, 'a-steps': RIGHT1, 'b-direct': RIGHT2, 'b-other-way': RIGHT1 };
+    const stages = [];
+    const out = await orchestrate([{ role: 'user', content: QPY }], {
+      briefs: startBriefs(),
+      behave: behaviours,
+      ask: async (slot) => (
+        stages.push(slot.stage),
+        {
+          text:
+            slot.stage === 'draft'
+              ? '```python\n' + (said[slot.id] || RIGHT1) + '\n```'
+              : slot.stage === 'probe'
+                ? 'first_gone("aXbXc", "X")\nfirst_gone("", "a")\nfirst_gone("abc", "z")'
+                : 'ANSWER: B',
+        }
+      ),
+    });
+    const ran = (out.trace || []).find((r) => r.stage === 'run');
+    check(
+      "the swarm runs Python drafts: drafts that do the same are one answer (two functions written differently that return the same, against one that removes every occurrence), a draft that does not compile is no answer, the calls come from the probing slot and from the request's own example where the slot wrote none that can be used, and the answer that goes out is the one most drafts DO, though the first draft does another thing",
+      !!grouped &&
+        grouped.lang === 'python' &&
+        grouped.groups.length === 2 &&
+        grouped.groups.some((g) => g.join() === 'B,C') &&
+        grouped.by.D === '' &&
+        grouped.calls.includes('first_gone("hello", "l")') &&
+        out.ok &&
+        !!ran &&
+        ran.ok &&
+        ran.behaviours === 2 &&
+        /find\(ch\)|replace\(ch, "", 1\)/.test(out.reply) &&
+        !/replace\(ch, ""\)/.test(out.reply),
+      {
+        groups: grouped && grouped.groups,
+        calls: grouped && grouped.calls,
+        summary: grouped && grouped.summary,
+        path: out.path,
+        ran,
+        reply: out.reply,
+      },
+    );
+  }
+}
 // ---- AN ADAPTER FOR EACH ROLE (training/roles.mjs; src/index.mjs roleLoras): what a role's examples are, and which adapter a
 // request names
 {

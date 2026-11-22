@@ -28,6 +28,7 @@ import {
   workOf as readWork,
   plain,
   isCode,
+  fenceOf,
   asksForCode,
   asksForPiece,
   MARKER,
@@ -40,7 +41,7 @@ import {
   laidOutAs,
   withoutRestating,
 } from './read.mjs';
-import { PROBE_BRIEF, EXPECT_BRIEF, expectedIn, programOf } from './behave.mjs';
+import { probeBriefFor, expectBriefFor, langOfQuestion, expectedIn, programOf } from './behave.mjs';
 
 // an answer as it is shown to another slot or to the person: code in a block of its own, anything else as it is
 const fenced = (final) => (isCode(final) ? '\n```\n' + final + '\n```' : ' ' + final);
@@ -518,14 +519,22 @@ async function answerWhole(
     }
     return [...m.values()].sort((a, b) => b.by.length - a.by.length);
   };
-  const distinct = () => S.pool.filter((d, i) => S.pool.findIndex((x) => keyOf(x) === keyOf(d)) === i);
+  // WHERE CODE IS ASKED FOR, WORDS ARE NO ANSWER BESIDE CODE: once one answer is code, only the answers that are code are
+  // counted and shown (measured 2026-11-22: three drafts wrote the function and one wrote a sentence about it; no two texts
+  // were the same, the sentence came first, and the sentence went out). Where none is code, they all stand as before.
+  const answersOf = (rows) =>
+    wantsCode && rows.some((d) => isCode(d.final)) ? rows.filter((d) => isCode(d.final)) : rows;
+  const distinct = () => {
+    const rows = answersOf(S.pool);
+    return rows.filter((d, i) => rows.findIndex((x) => keyOf(x) === keyOf(d)) === i);
+  };
   const relabel = () => S.pool.forEach((d, i) => (d.letter = LETTERS[i % LETTERS.length]));
   // nothing is in dispute: at least two answers, and they are all the same one
-  const settled = () => S.pool.length >= 2 && distinct().length === 1;
-  const votes = () => tallyOf([...S.pool, ...S.backers.filter((c) => c.final && (!S.tried || c.does))]);
+  const settled = () => answersOf(S.pool).length >= 2 && distinct().length === 1;
+  const votes = () => tallyOf(answersOf([...S.pool, ...S.backers.filter((c) => c.final && (!S.tried || c.does))]));
   // one worked answer for each different answer (plan.onePerAnswer; after arXiv 2610.21290), and always where the answers were
   // run: two drafts that do the same are not two answers
-  const tableOf = () => (plan.onePerAnswer || S.tried ? distinct() : S.pool);
+  const tableOf = () => (plan.onePerAnswer || S.tried ? distinct() : answersOf(S.pool));
   const shownTo = (table, withWork) =>
     'The question:\n' +
     question +
@@ -638,7 +647,7 @@ async function answerWhole(
         member:
           (plan.probe && plan.probe.member) ||
           (briefs.slots.find((s) => s.member === 'b') ? 'b' : briefs.slots[0].member),
-        brief: (plan.probe && plan.probe.brief) || PROBE_BRIEF,
+        brief: (plan.probe && plan.probe.brief) || probeBriefFor(langOfQuestion(question)),
         maxTokens: (plan.probe && plan.probe.maxTokens) || 260,
         temperature: 0.2,
       };
@@ -1079,7 +1088,7 @@ async function answerWhole(
         member:
           (plan.expect && plan.expect.member) ||
           (briefs.slots.find((s) => s.member === 'a') ? 'a' : briefs.slots[0].member),
-        brief: (plan.expect && plan.expect.brief) || EXPECT_BRIEF,
+        brief: (plan.expect && plan.expect.brief) || expectBriefFor(S.tried.lang),
         maxTokens: (plan.expect && plan.expect.maxTokens) || 360,
         temperature: 0,
       };
@@ -1174,7 +1183,7 @@ async function answerWhole(
   if (!S.decided && S.pool.length) {
     const tally = votes();
     if (settled()) {
-      S.decided = S.pool[0].final;
+      S.decided = distinct()[0].final;
       S.path = S.disputed ? 'converged' : 'agreed';
     } else if (tally.length) {
       S.decided = tally[0].final;
@@ -1318,7 +1327,7 @@ async function answerWhole(
     // nothing could be written: the answer and its work, as they stand
     if (decided)
       reply = isCode(decided)
-        ? '```js\n' + decided + '\n```'
+        ? '```' + fenceOf(decided) + '\n' + decided + '\n```'
         : /\+described/.test(path) && work
           ? work
           : (work ? work + '\n\n' : '') + decided;

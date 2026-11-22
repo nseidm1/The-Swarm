@@ -1033,7 +1033,13 @@ Known limits:
 - **How the larger model is served can hide what it can do, with tools above all.** Its server here returns only the first of the calls the model writes. On the function-calling test it is therefore asked two ways and counted by the better; in training it is still asked the one way, so on training's own tool questions its count beside the swarm's is a low one wherever more than one call is needed (the swarm's grade does not depend on it there).
 - **A search of the live web does not repeat.** The web search test reads different pages a day apart, so both models are asked on the same day, through the same search, and what each query returned is kept and given to both; the result says the day and the search. A score through this search is not one to set beside the published leaderboard's.
 - **Slow by design.** A question the drafts disagree about takes four stages.
-- **Only JavaScript is run.** Drafts in any other language are compared as text, and so are seldom found to agree.
+- **Which languages are run.** JavaScript, TypeScript, Python, Go, Swift, Dart, Flutter and Kotlin, each where the
+  machine already has its tools (nothing is installed for it; Kotlin's compiler is the one Android Studio carries).
+  Every language but JavaScript and TypeScript runs under macOS's own sandbox, with no network, no write outside the
+  folder of the run and no reading of your folders; on a system without it those languages are not run. Drafts in a
+  language that is not run are compared as text, and so are seldom found to agree. Kotlin takes about ten seconds a
+  draft, Flutter about four. A Flutter widget is known by the texts it shows and the widgets under it, so two that
+  look the same and are built of other widgets count as two answers.
 - **Doing the same on the calls tried is not being the same.** Drafts are one answer when they agree on about ten calls a small model wrote. Two functions that part only on a case nobody tried are taken for one.
 - **The reply is whole before it is sent.** A streamed reply is the finished one, in pieces.
 - **Small questions only.** Small JavaScript functions and short conversations. Larger programs, other languages and long

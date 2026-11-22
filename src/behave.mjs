@@ -8,9 +8,11 @@
 //      decider are shown one draft for each behaviour, and exactly where they part
 // Nothing here says which behaviour is RIGHT. It says which drafts are the same answer, and what the difference between the
 // others is. A draft that does not run at all is no answer.
-// Only JavaScript is run. Anything else, a machine that cannot run it safely (Node older than 20), or calls that could not be
-// read, and the drafts are compared as text, as before.
+// The drafts are run in the language they are written in: JavaScript and TypeScript in the sandbox (sandbox.mjs), Python, Go,
+// Swift, Dart and Kotlin in the machine's own box (langs.mjs). A language this machine cannot run safely, or calls that could
+// not be read, and the drafts are compared as text, as before.
 import { callsOf, sandboxReady, printedBy } from './sandbox.mjs';
+import * as L from './langs.mjs';
 
 // A QUESTION THAT ASKS WHAT A PROGRAM PRINTS: its first line asks what it prints, outputs or logs, and the program calls
 // console.log. The program is the last fenced block of the question where it has one, else everything after its first blank line.
@@ -36,6 +38,21 @@ export const PROBE_BRIEF =
   'of it is correct: a few ordinary ones, then awkward ones (an empty input, one item, zero, negative numbers, repeats, the ' +
   'smallest and largest cases the request mentions). One call on each line, as JavaScript, using the name the request gives ' +
   'the function, with literal arguments only. Nothing else: no results, no comments, no explanation.';
+
+// the two briefs, for the language the request asks for (the calls are written in it, and so are the results)
+const NAMES = {
+  js: 'JavaScript',
+  ts: 'TypeScript',
+  python: 'Python',
+  go: 'Go',
+  swift: 'Swift',
+  dart: 'Dart',
+  kotlin: 'Kotlin',
+};
+export const probeBriefFor = (lang) => PROBE_BRIEF.replace('as JavaScript', 'as ' + (NAMES[lang] || NAMES.js));
+export const expectBriefFor = (lang) =>
+  EXPECT_BRIEF.replace('a JavaScript literal', 'a ' + (NAMES[lang] || NAMES.js) + ' literal');
+export const langOfQuestion = (question) => L.langOf(question, []);
 
 export const EXPECT_BRIEF =
   'You are given a request for a function, and some calls to it. Do not write the function. For each call, work out from the ' +
@@ -94,7 +111,9 @@ export function nameOf(codes, question = '') {
 }
 
 // the calls in what the probing slot wrote: each line's `name( ... )`, whole (its brackets close), a literal call and nothing more
-export function callsIn(text, name, { most = 12 } = {}) {
+// (words: the words a literal call of this language may hold beside its values: Go's `[]int{1, 2}`, Kotlin's `listOf(1, 2)`)
+export function callsIn(text, name, { most = 12, words = [] } = {}) {
+  const allowed = words.length ? new RegExp('\\b(?:' + words.join('|') + ')\\b', 'g') : null;
   if (!name) return [];
   const out = [];
   for (const raw of String(text || '').split(/\r?\n/)) {
@@ -126,6 +145,7 @@ export function callsIn(text, name, { most = 12 } = {}) {
       .slice(name.length)
       .replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, '""')
       .replace(/\b(?:true|false|null|undefined|NaN|Infinity)\b/g, '0')
+      .replace(allowed || /$^/, '0')
       .replace(/[A-Za-z_$][\w$]*\s*:/g, '0:');
     if (/[A-Za-z_$]/.test(args.replace(/\b\d+(?:\.\d+)?(?:e[+-]?\d+)?n?\b/gi, '0')) || call.length > 240) continue;
     if (!out.includes(call)) out.push(call);
@@ -212,33 +232,41 @@ export async function behaviours({
   probeText = '',
   run = callsOf,
   ready = sandboxReady,
+  lang = '',
 } = {}) {
-  if (drafts.length < 2 || !(await ready())) return null;
-  const name = nameOf(
-    drafts.map((d) => d.final),
-    question,
-  );
-  let calls = callsIn(probeText, name);
+  const finals = drafts.map((d) => d.final);
+  // THE LANGUAGE THE DRAFTS ARE IN: what the request asks for, else what most drafts bear the marks of, else JavaScript
+  lang = lang || L.langOf(question, finals);
+  const boxed = lang !== 'js' && lang !== 'ts';
+  const own = run === callsOf && ready === sandboxReady;
+  if (drafts.length < 2 || !(await (own ? L.langReady(lang) : ready()))) return null;
+  if (own) run = (code, n, cs) => L.callsIn(lang, code, n, cs);
+  const name = boxed ? L.nameIn(lang, finals, question) : nameOf(finals, question);
+  const words = L.CALL_WORDS[lang] || [];
+  let calls = callsIn(probeText, name, { words });
+  // the request's own calls ("it should pass: assert f(\"hello\", \"l\") == ...") are calls to try as well
+  // (every place the request writes the function with its brackets, not the first on a line only: "write f(s, ch) ... assert f(...)")
+  const asked = String(question)
+    .split(name + '(')
+    .slice(1)
+    .map((x) => name + '(' + x.split(/\r?\n/)[0])
+    .join('\n');
+  if (lang !== 'js' && name) calls = [...new Set([...callsIn(asked, name, { words }), ...calls])].slice(0, 12);
   // the probing slot gave too few: calls from the question and the drafts themselves (callsFrom)
   if (calls.length < 3)
     calls = [
-      ...new Set([
-        ...calls,
-        ...callsFrom(
-          question,
-          drafts.map((d) => d.final),
-          name,
-        ),
-      ]),
+      ...new Set([...calls, ...(boxed ? L.callsFor(lang, question, finals, name) : callsFrom(question, finals, name))]),
     ].slice(0, 12);
-  if (calls.length < 3) return null;
+  // (a function, or a widget, that takes nothing has one call, and that one is enough)
+  const least = boxed && L.takesNothing(lang, finals, name) ? 1 : 3;
+  if (calls.length < least) return null;
   const outs = {};
   await Promise.all(drafts.map(async (d) => (outs[d.letter] = await run(d.final, name, calls))));
   const ran = drafts.filter((d) => outs[d.letter]);
   if (ran.length < 2) return null;
   // a call that fails in every draft that runs says nothing about any of them (it was most likely not a call to make)
   const keep = calls.map((_, i) => !ran.every((d) => outs[d.letter][i].e));
-  if (keep.filter(Boolean).length < 2) return null;
+  if (keep.filter(Boolean).length < Math.min(2, least)) return null;
   const sigFor = (o) => (o ? JSON.stringify(o.filter((_, i) => keep[i]).map((x) => (x.e ? 'E' : x.v))) : '');
   const by = {};
   for (const d of drafts) by[d.letter] = sigFor(outs[d.letter]);
@@ -254,6 +282,7 @@ export async function behaviours({
   const dead = drafts.filter((d) => !outs[d.letter]).map((d) => d.letter);
   return {
     name,
+    lang,
     calls: calls.filter((_, i) => keep[i]),
     by,
     groups,

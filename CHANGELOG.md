@@ -6,6 +6,17 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Drafts are run in the language they are written in** (2026-11-22). Where code is asked for, the drafts are run on
+  the same calls and those that do the same are one answer; that was done for JavaScript alone. It is now done for
+  TypeScript, Python, Go, Swift, Dart, Flutter and Kotlin as well (`src/langs.mjs`). Each language but TypeScript runs
+  under the system's own sandbox: no network, no write outside the run's folder, no reading of the person's folders.
+  A Flutter widget is built where no screen is needed and is known by what it shows. Nothing is installed: a language
+  whose tools are not on the machine, or a system with no such sandbox, has its drafts compared as text as before.
+- **A Python function is code** (2026-11-22). An answer was taken for code by the marks of JavaScript alone, so a
+  function in Python was taken for words: a draft that wrote a sentence about the function stood beside the drafts
+  that wrote it, and the settled function was written out again as a sentence. Two small models answered 0 of 40
+  code questions that way. Python now has its marks, code goes out fenced in its own language, and where code is
+  asked for and one answer is code, the answers in words are not counted beside it.
 - **The drafters' adapter is trained, and the class stage ends at its time** (2026-11-22). The first whole run on the
   real models showed two faults. The drafters' examples carried a tool call's arguments as text, which the model's
   chat template refuses, so the role with the most examples had no adapter; the arguments are now given as the
