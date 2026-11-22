@@ -62,7 +62,26 @@ function sumOf(text) {
     return null;
   }
 }
-// the question is a sum and nothing else: its text, less a label before it and "=" (or "= ?", "is") after it
+// WORDS OF ASKING: what a question may hold beside the thing to work on and still be nothing but the operation. A word that
+// is not one of these (a name, a thing, a unit) means the question is about something, and is not ours.
+const ASKING = new Set(
+  (
+    'a an and answer as be calculate can come compute could determine do does equal equals evaluate evaluates expression ' +
+    'figure find following for get give help here how i if in is it its kindly me much need now number of one out please ' +
+    'provide question result show simplify so solve state statement sum task tell that the this to total truth value ' +
+    'what whether which work would you your q'
+  ).split(' '),
+);
+// is what is left of a question, the operand taken out, only words of asking (and signs that ask: = ? . , : !)?
+const onlyAsking = (rest, also = []) =>
+  String(rest)
+    .toLowerCase()
+    .replace(/[=?.,:!'"`]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((w) => ASKING.has(w) || also.includes(w));
+// THE QUESTION HOLDS ONE SUM AND, BESIDE IT, ONLY WORDS OF ASKING. The sum is the one run of numbers, signs and round brackets
+// that works out; a date written with strokes or dashes is no sum.
 function sumIn(q0) {
   // (operators said in words: "98 plus 45", "95 times 45", "6 divided by 3")
   const q = /\d\s+(?:plus|minus|times|multiplied by|divided by)\s+-?\d/i.test(q0)
@@ -72,11 +91,16 @@ function sumIn(q0) {
         .replace(/\b(?:times|multiplied by)\b/gi, '*')
         .replace(/\bdivided by\b/gi, '/')
     : q0;
-  const m =
-    /^(?:[A-Za-z ]{0,40}:\s*)?(?:what is\s+|compute\s+|calculate\s+|evaluate\s+)?([-+*/().\d\s]{3,400}?)\s*(?:=\s*\??|\?)?\s*$/i.exec(
-      q,
-    );
-  return m ? sumOf(m[1]) : null;
+  // (a date, as dates are written: 3/4/2020, 2020-11-22; with no space in it. A sum of the same numbers has its spaces or its brackets)
+  if (/(?:^|[^\d/])\d{1,2}\/\d{1,2}\/\d{2,4}(?![\d/])|(?:^|[^\d-])\d{4}-\d{1,2}-\d{1,2}(?![\d-])/.test(q)) return null;
+  const runs = [...q.matchAll(/[-+(\d][-+*/().\d\s]*/g)]
+    .map((m) => ({ text: m[0].trim().replace(/[.]+$/, ''), at: m.index, len: m[0].length }))
+    .filter((x) => /\d/.test(x.text));
+  if (runs.length !== 1) return null;
+  const v = sumOf(runs[0].text);
+  if (v === null) return null;
+  const rest = q.slice(0, runs[0].at) + ' ' + q.slice(runs[0].at + runs[0].len);
+  return onlyAsking(rest) ? v : null;
 }
 
 // ---- true and false -------------------------------------------------------------------------------------------------------
@@ -127,53 +151,82 @@ function truthOf(text) {
     return null;
   }
 }
+// THE QUESTION HOLDS ONE SUCH EXPRESSION AND, BESIDE IT, ONLY WORDS OF ASKING. Two runs of True and False (as in "is this True
+// or False? not True and False") are two expressions, and it is not said which is asked: none
 function truthIn(q) {
-  const m = /^(?:[A-Za-z ]{0,40}:\s*)?((?:\(|\)|\s|\b(?:True|False|not|and|or)\b)+?)\s*(?:is|=)\s*\??\s*$/.exec(q);
-  return m ? truthOf(m[1]) : null;
+  const runs = [
+    ...q.matchAll(/(?:\(|\)|\b(?:True|False|not|and|or)\b)(?:\s*(?:\(|\)|\b(?:True|False|not|and|or)\b))*/g),
+  ]
+    .map((m) => ({ text: m[0], at: m.index, len: m[0].length }))
+    .filter((x) => /\b(?:True|False)\b/.test(x.text));
+  // ("... True or False?" names the two answers there are: it is part of the asking, where another run is the expression)
+  const named = (x) => /^True\s+or\s+False$/.test(x.text.trim());
+  const exprs = runs.length > 1 ? runs.filter((x) => !named(x)) : runs;
+  if (exprs.length !== 1) return null;
+  const v = truthOf(exprs[0].text);
+  if (v === null) return null;
+  let rest = q.slice(0, exprs[0].at) + ' ' + q.slice(exprs[0].at + exprs[0].len);
+  if (runs.length > 1) rest = rest.replace(/\bTrue\s+or\s+False\b/, ' ');
+  return onlyAsking(rest.replace(/\btrue or false\b/i, ' ')) ? v : null;
 }
 
 // ---- words in order -------------------------------------------------------------------------------------------------------
-// "Sort the following words alphabetically: List: b a c" -> "a b c". The words are what follows the last colon, parted by white
-// space or by commas; in order as a dictionary has them (by character, lower case; a shorter word before a longer one it begins)
+// "Sort the following words alphabetically: List: b a c" -> "a b c". AN INSTRUCTION, not a question about sorting: the verb
+// stands at the head of a sentence ("Why do dictionaries sort words alphabetically: is it convention?" is no instruction, and
+// was answered "convention is it"), and what follows the last colon is a list, not a question. The words are parted by
+// commas, semicolons, bars or lines where the list has them, else by white space; an item with no letter or digit in it is no
+// word (a list parted by bars came back with the bars sorted in). In order as a dictionary has them (by character, lower case).
+const SORT_VERB =
+  /(?:^|[.!?\n]\s*|^[A-Za-z ]{1,20}:\s*)(?:please\s+|kindly\s+|could you\s+|can you\s+|would you\s+)*(?:sort|order|arrange|put|organi[sz]e|list|rank|alphabeti[sz]e)\b/i;
+const SORT_HOW =
+  /\b(?:alphabetical(?:ly)?|alphabetic|alphabeti[sz]e|dictionary order|lexicographic(?:al)?(?:ly)?|from a to z|by the alphabet)\b/i;
+// (or a request put as a question: "What is the alphabetical order of these words: ...", "Give me the alphabetical list of ...",
+// "How would you alphabetize ...". Not a question ABOUT sorting, which asks why, whether or when)
+const SORT_ASK =
+  /(?:^|[.!?\n]\s*)(?:what is|what's|what would be|give me|show me|i need|how would you|how do (?:i|you)|can you give me|tell me)\b[^:\n?]{0,60}\b(?:alphabetical|alphabeti[sz]e|lexicographic)/i;
 function sortedIn(q) {
-  if (
-    !/\b(?:sort|order|arrange|put)\b[^:\n]{0,80}\b(?:alphabetical(?:ly)?|alphabetic|in alphabetical order|dictionary order)\b/i.test(
-      q,
-    )
-  )
-    return null;
-  if (/\b(?:reverse|descending|backwards?)\b/i.test(q)) return null;
+  if (!(SORT_VERB.test(q) || SORT_ASK.test(q)) || !SORT_HOW.test(q)) return null;
+  if (/(?:^|[.!?\n]\s*)(?:why|whether|when|should|is it|are)\b/i.test(q)) return null;
+  if (/\b(?:reverse|reversed|descending|backwards?|from z to a)\b/i.test(q)) return null;
   const at = q.lastIndexOf(':');
   if (at < 0) return null;
-  const list = q
-    .slice(at + 1)
-    .trim()
-    .replace(/[.?]$/, '');
-  if (!list || /\n/.test(list)) return null;
-  const byComma = list.includes(',');
-  const words = (byComma ? list.split(',') : list.split(/\s+/)).map((w) => w.trim()).filter(Boolean);
-  if (words.length < 2 || words.some((w) => w.length > 40 || (byComma ? false : /[,;:]/.test(w)))) return null;
+  const list = q.slice(at + 1).trim();
+  if (!list || /\?\s*$/.test(list)) return null;
+  const lines = list
+    .split(/\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const [parts, glue] =
+    lines.length > 1
+      ? [lines.map((l) => l.replace(/^(?:[-*•]|\d+[.)])\s+/, '')), ' ']
+      : list.includes(',')
+        ? [list.split(','), ', ']
+        : list.includes(';')
+          ? [list.split(';'), '; ']
+          : list.includes('|')
+            ? [list.split('|'), ' | ']
+            : [list.replace(/[.]$/, '').split(/\s+/), ' '];
+  const words = parts.map((w) => w.trim().replace(/[.]$/, '')).filter(Boolean);
+  if (words.length < 2 || words.some((w) => w.length > 40 || !/^[\p{L}\p{N}][\p{L}\p{N}'’&.-]*$/u.test(w))) return null;
   const key = (w) => w.toLowerCase();
-  const out = [...words].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0));
-  return out.join(byComma ? ', ' : ' ');
+  return [...words].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0)).join(glue);
 }
 
 // ---- brackets closed ------------------------------------------------------------------------------------------------------
 // "Complete the rest of the sequence, making sure that the parentheses are closed properly. Input: [ { (" -> ") } ]"
 const PAIR = { '(': ')', '[': ']', '{': '}', '<': '>' };
 function closedIn(q) {
-  if (
-    !/\b(?:clos(?:e|ed|ing)|complete|balanc(?:e|ed))\b[^\n]{0,120}\b(?:parenthes[ie]s|brackets?|braces?|sequence)\b|\b(?:parenthes[ie]s|brackets?)\b[^\n]{0,80}\bclosed\b/i.test(
-      q,
-    )
-  )
+  // (it speaks of closing, completing, finishing, balancing, or of what is missing)
+  if (!/\b(?:clos(?:e|es|ed|ing)|complet(?:e|es|ed|ing)|finish(?:es|ed|ing)?|balanc(?:e|es|ed|ing)|missing)\b/i.test(q))
     return null;
-  const at = q.lastIndexOf(':');
-  if (at < 0) return null;
-  const seq = q.slice(at + 1).trim();
-  if (!seq || !/^[()[\]{}<>\s]+$/.test(seq)) return null;
+  // the run of brackets the question ends with (after its last colon, or simply at its end): all of it brackets and white space
+  // (or that it begins with: "( [ { needs its closing brackets"; one run, at its end or at its head, and words for the rest)
+  const m = /([()[\]{}<>][()[\]{}<>\s]*)$/.exec(q) || /^([()[\]{}<>][()[\]{}<>\s]*)/.exec(q);
+  if (!m) return null;
+  const before = q.slice(0, m.index) + ' ' + q.slice(m.index + m[1].length);
+  if (!/[A-Za-z]/.test(before) || /[()[\]{}<>]/.test(before)) return null; // (brackets elsewhere, with words between: not one run)
   const stack = [];
-  for (const ch of seq.replace(/\s+/g, '')) {
+  for (const ch of m[1].replace(/\s+/g, '')) {
     if (PAIR[ch]) stack.push(ch);
     else if (!stack.length || PAIR[stack.pop()] !== ch) return null; // (it closes what was never opened: not ours to mend)
   }

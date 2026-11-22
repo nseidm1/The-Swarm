@@ -1002,7 +1002,13 @@ What has been run:
   arithmetic suite): 22,959 read, every one answered as its set says. **A limit, said plainly:** the instruments were
   written after four tasks of a benchmark were read, and their reading was widened after the other contributors'
   sets were read (an answer label at the end; operators in words); before that widening they read 2,060 of the
-  104,520. What they read they answered rightly throughout. A source read by nobody beforehand has not been tried.
+  104,520. What they read they answered rightly throughout.
+- **The instruments, against questions nobody read (2026-11-22).** Made at random from a seed, with near misses made on
+  purpose: 20,000 a run read all but a handful and none wrong; 6,800 near misses, none answered. That found two faults
+  the benchmarks had not (a question about sorting answered as an instruction; a list parted by bars), both mended. And
+  wordings the larger model wrote in a pass, in voices of its choosing: 21 of the first 37 read, then, the reading
+  widened, 26 of a fresh 27; right on every one read. The larger model now writes such wordings in every pass, and an
+  instrument is kept on ones its trying never saw.
 
 - **Checks:** all of them, against stand-ins.
 - **Training question by question, on real models:** a night and a morning with LFM2.5 1.2B, Qwen3.5 2B, Bonsai 2 4B,

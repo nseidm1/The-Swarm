@@ -142,6 +142,12 @@ while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
   # read), then a few candidate arrangements scored on the same questions, the best confirmed on held questions and kept where
   # it is better there. Only questions that carry a standard of their own are asked, and no benchmark's.
   # (TRAIN_CLASSES=words,code: only those classes of input are trained, here and question by question; the Train card's boxes)
+  # THE LARGER MODEL WRITES HOW THE EXACT-OPERATION QUESTIONS ARE ASKED, new each pass (training/wordings.mjs): the class stage
+  # then tries an instrument on wordings nobody here wrote and keeps it on others its trying never saw. A pass goes on with what
+  # there is: none written (the larger model not at hand) and the questions are worded as this repository words them
+  [ -n "$NO_WORDINGS" ] || run 06-wordings training/wordings.mjs
+  WORDINGS_FILE=$("$NODE" -e "import('./training/support/bench.mjs').then(B=>console.log(require('node:path').join(B.WORKC,'wordings.json')))" 2> /dev/null)
+  [ -n "$WORDINGS_FILE" ] && [ -f "$WORDINGS_FILE" ] && export SWARM_WORDINGS="$WORDINGS_FILE"
   run 08-classes      training/classes.mjs ${TRAIN_CLASSES:+--only "$TRAIN_CLASSES"}
   # (SESSION_STEPS=classes: the class stage and no more, for the run that sets three evaluations side by side, training/run.sh.
   # The pass is left open: a session started after it carries on from here, the class stage passed over as done)

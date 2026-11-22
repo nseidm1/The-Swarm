@@ -20,6 +20,18 @@ like any other and keeps it for a class where the class got better on held quest
 names the kinds of question on which no slot had a good answer a quarter of the time or more: no rearranging mends
 those, and they are where the next instrument, or an adapter, has something to add.
 
+**The larger model words those questions, new each pass.** A kind kept on wordings this repository wrote proves
+little of wordings anyone else writes. So step `06-wordings` of a pass (`training/wordings.mjs`), before the class stage,
+asks the larger model for other ways of asking each such kind, as a different kind of person each time (a busy
+colleague, a teacher, a child); puts a small example through each and keeps a wording only where the larger model's own
+answer to it is the answer the maker worked out; and parts what is kept between the train questions and the held ones
+(`<work>/wordings.json`; the session names it to the later steps in `SWARM_WORDINGS`). A question worded by one of them
+carries another id. With none written (`NO_WORDINGS=1`, or the larger model not at hand) the questions are worded as
+this repository words them.
+
+**Probes that need no model** stand beside the checks: `.workbench` holds the ones used on 2026-11-22 (every benchmark
+question at hand, benchmarks by other contributors, and questions and near misses made at random from a seed).
+
 **The whole of it is one run:** `bash training/run.sh [--limit N | --proof] [--train classes|off] [--train-minutes M]
 [--items a,b]`. It evaluates the module as configured, pretrains it by role and evaluates it, trains its arrangement
 (the class stage) and evaluates it again, each on the same questions, and writes the three figures side by side

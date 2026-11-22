@@ -6,6 +6,22 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The larger model writes how training's operation questions are asked, in the pass** (2026-11-22). A new step of a
+  pass (`training/wordings.mjs`, `06-wordings`) asks the larger model for other ways of asking each kind, as a different
+  kind of person each time, checks each by its own answer to a small example (a wording that changed the task is refused
+  there), and parts the ones kept between the train questions and the held ones. An instrument is then tried on
+  wordings nobody here wrote and kept on others its trying never saw. On the first two batches it wrote (64 wordings):
+  the instruments read 21 of the first 37 and, after their reading was widened, 26 of a fresh 27, and were right on
+  every one they read.
+- **An instrument reads by one rule, and two faults were mended** (2026-11-22). A question is an operation where it
+  holds the thing to work on and, beside it, only words of asking. A generator of random questions and near misses
+  (no model) found that "Why do dictionaries sort words alphabetically: is it convention?" was answered with its last
+  words sorted, and that a list parted by bars came back with the bars as words. Both are mended. Of 20,000 random
+  questions a run, the instruments now read all but a handful and are wrong on none; of 6,800 near misses they answer
+  none.
+- **The swarm's memory is measured in the run a person starts** (2026-11-22). It was measured by the question-by-question
+  stage alone, so the page said "estimated, not measured" after the one-button run. The class stage and pretraining by
+  role measure it too.
 - **The specification says what a module is to its consumer, and what training achieves** (2026-11-22). Its head now
   says outright that a consumer relies on the interface of a standard chat model and on nothing inside it: the wiring
   is what training found, carried by the SwOA. A short section says what training looks for (the arrangement, adapters

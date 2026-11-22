@@ -170,6 +170,14 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   });
   const seed0 = Number(B.arg('seed', 1));
   const swarm = await B.openSwarm(stored, { seed: seed0, reuse: true });
+  // (what the swarm takes in memory, measured while this stage serves it: support/measure-memory.mjs watchMemory)
+  const { watchMemory } = await import('./support/measure-memory.mjs');
+  const { CONFIG_ID: MEM_CONFIG, footprintOf: memEstimate } = await import('../src/catalog.mjs');
+  const memStop = watchMemory(swarm, {
+    file: path.join(B.WORKC, 'memory.json'),
+    config: MEM_CONFIG,
+    target: (memEstimate() || {}).target,
+  });
   // one question under one arrangement: what was drafted, settled and replied, each marked by the question's own standard
   const ask = async (t, briefs) => {
     swarm.setBriefs(briefs);
@@ -368,6 +376,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       }
     }
   } finally {
+    memStop();
     await swarm.stop();
   }
   // WHERE CODE COULD DO THE WORK: the kinds of question on a quarter or more of which no slot's draft had a good answer, the

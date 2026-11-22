@@ -2669,12 +2669,17 @@ Part II is not run and no model is called: the decided answer is what the instru
 `instrument`, and one row is recorded with slot `instrument`, member `code`, stage `run`. An instrument applies only
 where it can read the WHOLE of what it needs; otherwise it does not apply and the question is answered as any other.
 
-| Instrument | Applies when | Gives |
+**The rule every instrument applies by:** the question holds the thing to work on (the OPERAND) and, beside it, only
+words of asking. The words of asking are a fixed list (what, is, the, value, of, compute, calculate, evaluate, find,
+determine, solve, work, out, how, much, please, help, tell, give, me, result, answer, and the like, with the signs
+`= ? . , : !`); a word that is not one of them means the question is about something, and no instrument applies.
+
+| Instrument | The operand, and what else must hold | Gives |
 |---|---|---|
-| sum | (where a number is followed by `plus`, `minus`, `times`, `multiplied by` or `divided by` and a number, those words are first read as `+`, `-`, `*`, `*`, `/`) the question, less an optional label ending in a colon, an optional `what is`, `compute`, `calculate` or `evaluate`, and an optional closing `=`, `= ?` or `?`, is an expression of numbers, `+ - * /` and round brackets with at least one operator | its value, by the usual precedence; an integer written without a decimal point; division by zero does not apply |
-| truth | the question, less an optional label, is `True`, `False`, `not`, `and`, `or` and round brackets with at least one operator, followed by `is` or `=` | `True` or `False`, with `not` binding tighter than `and`, and `and` tighter than `or` |
-| sorted | it says to sort, order, arrange or put in alphabetical (or dictionary) order, does not say reverse or descending, and after its last colon is one line of two or more words parted by white space, or by commas | the words in order by character in lower case, joined as they were parted |
-| closed | it speaks of closing or completing parentheses, brackets or a sequence, and after its last colon is a run of `( ) [ ] { } < >` and white space that closes nothing it did not open and leaves at least one open | the closing bracket of each one left open, the last opened first, with one space between |
+| sum | exactly one run of numbers, `+ - * /` and round brackets that begins with a number, a sign or a bracket and works out (operators between two numbers may be written `plus`, `minus`, `times`, `multiplied by`, `divided by`). A date as dates are written (`3/4/2020`, `2020-11-22`) is no sum | its value, by the usual precedence; an integer without a decimal point; division by zero does not apply |
+| truth | exactly one run of `True`, `False`, `not`, `and`, `or` and round brackets that works out with at least one operator. A second run that is exactly `True or False` names the two answers and is part of the asking | `True` or `False`; `not` binds tighter than `and`, `and` tighter than `or` |
+| sorted | an instruction to sort (a verb of ordering at the head of a sentence, or after a short label and a colon; or a request put as a question: `what is`, `give me`, `how would you`, ... then alphabetical) that says alphabetical, dictionary or lexicographic order, `from A to Z` or `by the alphabet`, and not reverse or descending; not a question that asks why, whether, when or should; and after its last colon a list of two or more items that does not end with `?`. Items are parted by lines where there are several, else by commas, semicolons or bars where the list holds one, else by white space; each item holds a letter or a digit | the items in order by character in lower case, joined as they were parted (a space for lines) |
+| closed | it speaks of closing, completing, finishing, balancing or of what is missing, and holds exactly one run of `( ) [ ] { } < >` and white space, at its end or at its head, with letters in the rest and no bracket elsewhere; the run closes nothing it did not open and leaves at least one open | the closing bracket of each one left open, the last opened first, with one space between |
 
 A result is of the arrangement its `arrangementSha256` names (section 4), and so of the instruments that were on in it: a
 task that IS one of these operations is then answered by code, not by a model, and a card (section 7) SHOULD say which

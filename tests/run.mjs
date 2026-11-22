@@ -10689,6 +10689,187 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { forced, first: [first.path, first.calls], n2, n3, leftOut: leftOut.path },
   );
 }
+// ---- THE INSTRUMENTS AGAINST QUESTIONS MADE AT RANDOM, WORDINGS THE LARGER MODEL WRITES, MEMORY MEASURED BY ANY STAGE
+{
+  const I = await import('../src/instruments.mjs');
+  const W = await import('../training/wordings.mjs');
+  const E = await import('../training/tasks-exact.mjs');
+  const { tasks } = await import('../training/tasks.mjs');
+  const MM = await import('../training/support/measure-memory.mjs');
+  const of = (q) => {
+    const r = I.instrumentFor(q, true);
+    return r ? r.id + ':' + r.answer : null;
+  };
+  // questions made at random from a seed, each with an answer worked out here: read or not, an instrument is never wrong
+  let a = 20261122;
+  const r = () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const int = (lo, hi) => lo + Math.floor(r() * (hi - lo + 1));
+  const pick = (l) => l[Math.floor(r() * l.length)];
+  const OPEN = ['', 'Q: ', 'Task: ', 'Please help. ', 'Here is one for you. '];
+  const AFTER = ['', '\nA:', '\nAnswer:', '\nOutput:', "\nA: Let's think step by step."];
+  const made = { n: 0, read: 0, wrong: [] };
+  const flat = (x) =>
+    String(x)
+      .trim()
+      .replace(/[\s,;|]+/g, ' ');
+  for (let i = 0; i < 600; i++) {
+    const kind = pick(['sum', 'sorted', 'closed']);
+    let q;
+    let want;
+    if (kind === 'sum') {
+      const tree = (d) =>
+        d <= 0 || r() < 0.3
+          ? String(int(-20, 99))
+          : '(' + tree(d - 1) + ' ' + pick(['+', '-', '*']) + ' ' + tree(d - 1) + ')';
+      const expr = tree(int(1, 3)) + ' ' + pick(['+', '-', '*']) + ' ' + tree(int(0, 2));
+      want = String(Function('"use strict"; return (' + expr + ')')());
+      q = pick(['X =', 'What is X?', 'Compute X', 'How much is X?', 'Find the value of X.', 'X']).replace('X', expr);
+    } else if (kind === 'sorted') {
+      const ws = [
+        ...new Set(
+          Array.from({ length: int(2, 9) }, () =>
+            Array.from({ length: int(2, 8) }, () => String.fromCharCode(97 + int(0, 25))).join(''),
+          ),
+        ),
+      ];
+      if (ws.length < 2) ws.push('zz' + i);
+      const sep = pick([' ', ', ', '; ', ' | ', '\n']);
+      want = [...ws].sort().join(' ');
+      q =
+        pick(['Sort', 'Arrange', 'Please sort', 'Rank']) +
+        ' these words ' +
+        pick(['alphabetically', 'in alphabetical order', 'lexicographically', 'from A to Z']) +
+        pick([': ', ':\n', '. They are: ']) +
+        ws.join(sep);
+    } else {
+      const P = { '(': ')', '[': ']', '{': '}', '<': '>' };
+      const st = [];
+      const seq = [];
+      for (let k = 0, n = int(2, 12); k < n; k++) {
+        if (st.length && r() < 0.4) seq.push(P[st.pop()]);
+        else {
+          const o = pick(Object.keys(P));
+          seq.push(o);
+          st.push(o);
+        }
+      }
+      if (!st.length) (seq.push('['), st.push('['));
+      want = [...st]
+        .reverse()
+        .map((o) => P[o])
+        .join(' ');
+      q = pick([
+        'Complete this sequence so that every bracket is closed properly: X',
+        'What closes this? X',
+        'Which brackets are missing at the end? X',
+      ]).replace('X', seq.join(pick([' ', ''])));
+    }
+    q = pick(OPEN) + q + pick(AFTER);
+    const got = I.instrumentFor(q, true);
+    made.n++;
+    if (!got) continue;
+    made.read++;
+    if (flat(got.answer) !== flat(want) && made.wrong.length < 3) made.wrong.push({ q, gave: got.answer, want });
+  }
+  check(
+    'an instrument reads an operation by one rule (the question holds the thing to work on and, beside it, only words of asking) and is never wrong where it reads: 600 questions made at random from a seed, with openings, ways of asking, separators and closing labels combined as nobody wrote them, are read nine times in ten and answered rightly every time; and the near misses a random generator found are refused (a question ABOUT sorting was answered with its last words sorted; a list parted by bars came back with the bars as words; a sum in a story, a date, a sum with a letter in it, brackets that close what was never opened, a question that asks whether to sort)',
+    made.read >= made.n * 0.9 &&
+      !made.wrong.length &&
+      of('Why do dictionaries sort words alphabetically: is it convention?') === null &&
+      of('Sort these words alphabetically: b | a | c') === 'sorted:a | b | c' &&
+      of('Sort these words alphabetically: zeta\nalpha\nmid') === 'sorted:alpha mid zeta' &&
+      of('Task: Sort these words alphabetically: b a') === 'sorted:a b' &&
+      of('Sort these words alphabetically: is it convention?') === null &&
+      of('Please help. How much is 3 + 4 * 2?') === 'sum:11' &&
+      of('Find the value of (2 + 3) * 4.') === 'sum:20' &&
+      of('Tom has 3 apples plus a pear and buys 4 more. How many apples does he have?') === null &&
+      of('What day is 3/4/2020?') === null &&
+      of('What is 2020-11-22?') === null &&
+      of('( -9 - 5 - 3 ) * 2 =') === 'sum:-34' &&
+      of('What is 7 + x * 2?') === null &&
+      of('Pages 12-45') === null &&
+      of('What closes this? ( [ {') === 'closed:} ] )' &&
+      of('Complete the sequence so every bracket is closed: ( a [ b') === null &&
+      // (a question that names its two answers, "True or False?", and holds one expression: the expression is what is asked)
+      of('Is this True or False? not True and False') === 'truth:False' &&
+      of('Does not ( True and False ) or False evaluate to True or False?') === 'truth:True' &&
+      of('( [ { needs its closing brackets added correctly') === 'closed:} ] )' &&
+      of('What is the alphabetical order of these words: pear fig apple') === 'sorted:apple fig pear' &&
+      of('Should I sort these alphabetically: a b') === null &&
+      of('Is it True or False that the sky is green?') === null &&
+      of('Please help. not ( True and False ) or False =') === 'truth:True',
+    { made },
+  );
+  // WORDINGS THE LARGER MODEL WRITES: read out of what it wrote, parted between train and held, and used by the makers
+  const wrote =
+    '1. Could you alphabetize this for me? <<DATA>>\n- "<<DATA>> -- put these in ABC order"\nSort these words alphabetically: <<DATA>>\nno slot here\n<<DATA>> and <<DATA>>\n<<DATA>>\nWords:\\n<<DATA>>\\nIn order:\nCould you alphabetize this for me? <<DATA>>';
+  const found = W.wordingsIn(wrote, 'Sort these words alphabetically: <<DATA>>');
+  const split = W.parted(['a', 'b', 'c', 'd', 'e']);
+  const before = tasks({ split: 'train', each: 6, kinds: ['sorted', 'sum'] });
+  E.setWordings({
+    kinds: { sorted: { train: ['Could you alphabetize this for me? <<DATA>>'], held: ['HELD ONLY: <<DATA>>'] } },
+  });
+  const withT = tasks({ split: 'train', each: 6, kinds: ['sorted', 'sum'] });
+  const withH = tasks({ split: 'held', each: 6, kinds: ['sorted'] });
+  E.setWordings(null);
+  const after = tasks({ split: 'train', each: 6, kinds: ['sorted', 'sum'] });
+  const theirs = withT.filter((t) => /alphabetize this for me/.test(t.ask));
+  const graded = theirs.length ? await theirs[0].good('Here: ' + theirs[0].want) : { grade: 'none' };
+  check(
+    'the larger model writes how the exact-operation questions are asked: its wordings are read out of what it wrote (a line with the slot once, less a number, a mark or quotes; not the one it was shown, none twice, a line break it wrote as two characters a line break), parted between the train questions and the held ones, and a maker then words a question by one of them as often as by its own, the train questions by the train wordings and the held by the held, each such question known by another id and marked by the same standard; with none written the questions are as they were, word for word; each kind says what it is, one way of asking and a small example whose answer its check accepts and whose wrong answer it refuses',
+    found.join('|') ===
+      'Could you alphabetize this for me? <<DATA>>|<<DATA>> -- put these in ABC order|Words:\n<<DATA>>\nIn order:' &&
+      split.train.join() === 'a,c,e' &&
+      split.held.join() === 'b,d' &&
+      theirs.length >= 1 &&
+      theirs.every((t) => /\.w[a-z0-9]+$/.test(t.id)) &&
+      !withT.some((t) => /HELD ONLY/.test(t.ask)) &&
+      withH.some((t) => /HELD ONLY/.test(t.ask)) &&
+      graded.grade === 'right' &&
+      JSON.stringify(after.map((t) => [t.id, t.ask])) === JSON.stringify(before.map((t) => [t.id, t.ask])) &&
+      JSON.stringify(withT.filter((t) => t.kind === 'sum').map((t) => t.ask)) ===
+        JSON.stringify(before.filter((t) => t.kind === 'sum').map((t) => t.ask)) &&
+      Object.keys(W.KINDS).join() === 'sum,truth,sorted,closed' &&
+      Object.values(W.KINDS).every((k) => k.way.includes('<<DATA>>') && k.read('The answer is ' + k.want + '.')) &&
+      !W.KINDS.sorted.read('pear fig apple') &&
+      !W.KINDS.sum.read('It is 10') &&
+      !W.KINDS.closed.read(') ] }') &&
+      /exactly once/.test(W.askFor('sorted', 8)) &&
+      /session\.sh/.test('session.sh') &&
+      /06-wordings\s+training\/wordings\.mjs/.test(
+        fs.readFileSync(new URL('../training/session.sh', import.meta.url), 'utf8'),
+      ),
+    { found, theirs: theirs.map((t) => t.id), graded },
+  );
+  // MEMORY, MEASURED BY ANY STAGE THAT SERVES THE SWARM: watched, the most seen kept, written where the page reads it
+  const os10 = await import('node:os');
+  const mdir = fs.mkdtempSync(path.join(os10.tmpdir(), 'mem-'));
+  const mfile = path.join(mdir, 'memory.json');
+  const stop = MM.watchMemory(
+    { members: { a: { pid: process.pid } }, decider: '' },
+    { file: mfile, config: 'mine', target: 18, firstMs: 3600000, everyMs: 3600000 },
+  );
+  stop();
+  const kept = fs.existsSync(mfile) ? JSON.parse(fs.readFileSync(mfile, 'utf8')) : null;
+  const src = (f) => fs.readFileSync(new URL('../training/' + f, import.meta.url), 'utf8');
+  check(
+    'what the swarm takes in memory is measured by any stage that serves it, not by the question loop alone (the run a person starts takes the class stage and pretraining, and the page said "estimated, not measured" of a swarm that had served for an hour): a watch measures each model\'s own process, keeps the most it saw and writes it where the page reads it, and the class stage and pretraining by role both keep one',
+    !!kept &&
+      kept.config === 'mine' &&
+      kept.swarm > 0 &&
+      kept.target === 18 &&
+      /watchMemory\(swarm/.test(src('classes.mjs')) &&
+      /watchMemory\(swarm/.test(src('roles.mjs')) &&
+      /memStop\(\);\s*await swarm\.stop\(\)/.test(src('classes.mjs')),
+    { kept },
+  );
+}
 // ---- AN ADAPTER FOR EACH ROLE (training/roles.mjs; src/index.mjs roleLoras): what a role's examples are, and which adapter a
 // request names
 {

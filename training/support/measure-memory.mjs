@@ -15,6 +15,8 @@
 //                              saved, savedGb, at } or null where no member could be measured. A decider that does not run on
 //                              this machine is not measured, and `decider` is then absent: `swarm` says so in `without`
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const r1 = (x) => Math.round(x * 10) / 10;
 const r2 = (x) => Math.round(x * 100) / 100;
@@ -96,4 +98,43 @@ export function measureSwarm({ members = {}, decider = '', target = 0 } = {}, to
   }
   out.at = new Date().toISOString();
   return out;
+}
+
+// WATCHED WHILE A STAGE SERVES: any stage that has the swarm loaded and asks it questions measures it (the question loop did, and
+// it alone; the run a person starts from the page takes the class stage and pretraining, so the page said "estimated, not
+// measured" of a swarm that had been serving for an hour). Measured a minute in and every two minutes after, the most seen
+// kept (a server's contexts fill as it is asked), written where the page and the end of a pass read it.
+//   watchMemory(swarm, { file, config, target }) -> stop()        swarm: { members: { a: { pid } }, decider }
+export function watchMemory(swarm, { file, config, target, firstMs = 60000, everyMs = 120000 } = {}) {
+  let most = null;
+  try {
+    const kept = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (kept && kept.config === config && kept.swarm) most = kept;
+  } catch {
+    /* nothing measured yet */
+  }
+  const once = () => {
+    try {
+      const pids = Object.fromEntries(Object.entries((swarm && swarm.members) || {}).map(([k, m]) => [k, m && m.pid]));
+      if (!Object.keys(pids).length || !Object.values(pids).every((p) => p > 0)) return;
+      const m = measureSwarm({ members: pids, decider: swarm.decider, target });
+      if (m && (!most || m.swarm >= most.swarm)) {
+        most = m;
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file + '.part', JSON.stringify({ config, ...m }));
+        fs.renameSync(file + '.part', file);
+      }
+    } catch {
+      /* measured again next time */
+    }
+  };
+  const first = setTimeout(once, firstMs);
+  const timer = setInterval(once, everyMs);
+  first.unref();
+  timer.unref();
+  return () => {
+    clearTimeout(first);
+    clearInterval(timer);
+    once();
+  };
 }

@@ -23,7 +23,15 @@ import { RULE_KINDS, rulesHeld } from './tasks-rules.mjs';
 import { CALL_KINDS } from './tasks-calls.mjs';
 import { SEARCH_KINDS } from './tasks-search.mjs';
 import { LOGIC_KINDS, logicTask, asShown } from './tasks-logic.mjs';
-import { EXACT_KINDS } from './tasks-exact.mjs';
+import { EXACT_KINDS, setWordings } from './tasks-exact.mjs';
+// (the wordings the larger model wrote in this pass, where a session names their file: training/wordings.mjs)
+if (process.env.SWARM_WORDINGS) {
+  try {
+    setWordings(JSON.parse(fs.readFileSync(process.env.SWARM_WORDINGS, 'utf8')));
+  } catch {
+    /* none written yet: the questions are worded as this repository words them */
+  }
+}
 
 const rng = (seed) => () => {
   seed |= 0;
@@ -609,7 +617,9 @@ export function tasks({
     for (let i = 0; i < n; i++) {
       const made = ALL[kind](t, i);
       const base = {
-        id: split + '-' + from + '-' + kind + '-' + (i + 1),
+        // (a question worded by one of the larger model's wordings is another question than the one this place held before: it
+        // says which wording, so that no answer kept for the one is taken for the other)
+        id: split + '-' + from + '-' + kind + '-' + (i + 1) + (made.tag ? '.w' + made.tag : ''),
         kind,
         split,
         seed: from,

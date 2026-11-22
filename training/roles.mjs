@@ -141,6 +141,14 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       calls.set(cur, [...(calls.get(cur) || []), c]);
     },
   });
+  // (what the swarm takes in memory, measured while this step serves it: support/measure-memory.mjs watchMemory)
+  const { watchMemory } = await import('./support/measure-memory.mjs');
+  const { CONFIG_ID: MEM_CONFIG, footprintOf: memEstimate } = await import('../src/catalog.mjs');
+  const memStop = watchMemory(swarm, {
+    file: path.join(B.WORKC, 'memory.json'),
+    config: MEM_CONFIG,
+    target: (memEstimate() || {}).target,
+  });
   let rows = [];
   try {
     say(
@@ -174,6 +182,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       markOf: (t) => readerMark(B.WORKC, t.type),
     });
   } finally {
+    memStop();
     await swarm.stop();
   }
   // 3  EXAMPLES, by role

@@ -64,6 +64,32 @@ const WORDS = [
 const OPEN = ['(', '[', '{', '<'];
 const SHUT = { '(': ')', '[': ']', '{': '}', '<': '>' };
 
+// WORDINGS THE LARGER MODEL WROTE (training/wordings.mjs): for each kind, ways of asking it that nobody here wrote, each
+// with a slot where the data goes. Some are for the train questions and others for the held ones, so a change is kept on
+// wordings its trying never saw. Where there are some, a question is worded by one of them as often as by one of this
+// file's own, and says which (tag), so that the question is known as another question.
+export const SLOT = '<<DATA>>';
+let LEARNED = {};
+export const setWordings = (w) => {
+  LEARNED = (w && w.kinds) || {};
+};
+export const wordingsOf = () => LEARNED;
+const tagOf = (text) => {
+  let h = 2166136261;
+  for (const ch of text) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  return h.toString(36).slice(0, 5);
+};
+// -> { ask, tag }: `own` are this file's ways (functions of the thing itself), `data` the thing as text, for a slot
+function worded(kind, t, own, thing, data) {
+  const theirs = ((LEARNED[kind] || {})[t.split === 'train' ? 'train' : 'held'] || []).filter(
+    (x) => typeof x === 'string' && x.includes(SLOT),
+  );
+  // (with none of theirs, the draw is as it always was: the questions of a pass without them do not change)
+  if (!theirs.length) return { ask: t.pick(own)(thing) };
+  if (t.pick([true, false])) return { ask: t.pick(own)(thing) };
+  const tpl = t.pick(theirs);
+  return { ask: tpl.replace(SLOT, data), tag: tagOf(tpl) };
+}
 export const EXACT_KINDS = {
   // a sum of whole numbers with brackets: worked out by the usual order (inside brackets first, then times, then plus and minus)
   sum(t) {
@@ -105,13 +131,14 @@ export const EXACT_KINDS = {
       return v;
     }
     const want = add();
-    const how = t.pick([
-      (e) => `${e} =`,
-      (e) => `What is ${e}?`,
-      (e) => `Work this out: ${e} =`,
-      (e) => `Calculate ${e}`,
-    ]);
-    return { ask: how(expr), again: `Give the value of this as one number: ${expr}`, want, as: 'number' };
+    const w = worded(
+      'sum',
+      t,
+      [(e) => `${e} =`, (e) => `What is ${e}?`, (e) => `Work this out: ${e} =`, (e) => `Calculate ${e}`],
+      expr,
+      expr,
+    );
+    return { ask: w.ask, tag: w.tag, again: `Give the value of this as one number: ${expr}`, want, as: 'number' };
   },
   // an expression of True and False: not before and, and before or
   truth(t) {
@@ -154,9 +181,16 @@ export const EXACT_KINDS = {
       return x;
     }
     const want = or() ? 'True' : 'False';
-    const how = t.pick([(e) => `${e} is`, (e) => `${e} =`, (e) => `What does this come to, True or False? ${e}`]);
+    const w = worded(
+      'truth',
+      t,
+      [(e) => `${e} is`, (e) => `${e} =`, (e) => `What does this come to, True or False? ${e}`],
+      expr,
+      expr,
+    );
     return {
-      ask: how(expr),
+      ask: w.ask,
+      tag: w.tag,
       again: `Say True or False: what is the value of ${expr}`,
       want,
       as: 'exact',
@@ -167,14 +201,21 @@ export const EXACT_KINDS = {
   sorted(t) {
     const words = t.mix(WORDS).slice(0, t.int(4, 9));
     const want = [...words].sort().join(' ');
-    const how = t.pick([
-      (w) => `Sort these words alphabetically: ${w.join(' ')}`,
-      (w) => `Put the following words in alphabetical order: ${w.join(', ')}`,
-      (w) => `Arrange these in dictionary order. Words: ${w.join(' ')}`,
-      (w) => `Here are some words. Order them alphabetically and write them on one line: ${w.join(' ')}`,
-    ]);
+    const w = worded(
+      'sorted',
+      t,
+      [
+        (w) => `Sort these words alphabetically: ${w.join(' ')}`,
+        (w) => `Put the following words in alphabetical order: ${w.join(', ')}`,
+        (w) => `Arrange these in dictionary order. Words: ${w.join(' ')}`,
+        (w) => `Here are some words. Order them alphabetically and write them on one line: ${w.join(' ')}`,
+      ],
+      words,
+      words.join(' '),
+    );
     return {
-      ask: how(words),
+      ask: w.ask,
+      tag: w.tag,
       again: `Write these words on one line in alphabetical order, with a space between each: ${words.join(' ')}`,
       want,
       as: 'exact',
@@ -200,13 +241,20 @@ export const EXACT_KINDS = {
       .reverse()
       .map((o) => SHUT[o])
       .join(' ');
-    const how = t.pick([
-      (q) => `Complete this sequence so that every bracket is closed properly: ${q}`,
-      (q) => `Some of these brackets are still open. Write what closes them, in the right order. Sequence: ${q}`,
-      (q) => `Finish the sequence, making sure the parentheses are closed properly. Input: ${q}`,
-    ]);
+    const w = worded(
+      'closed',
+      t,
+      [
+        (q) => `Complete this sequence so that every bracket is closed properly: ${q}`,
+        (q) => `Some of these brackets are still open. Write what closes them, in the right order. Sequence: ${q}`,
+        (q) => `Finish the sequence, making sure the parentheses are closed properly. Input: ${q}`,
+      ],
+      seq.join(' '),
+      seq.join(' '),
+    );
     return {
-      ask: how(seq.join(' ')),
+      ask: w.ask,
+      tag: w.tag,
       again: `Which closing brackets, in order, complete this so that every bracket is closed properly? ${seq.join(' ')}`,
       want,
       as: 'exact',
