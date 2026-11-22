@@ -1102,6 +1102,13 @@ with tempfile.TemporaryDirectory() as tmp:
     _row = json.loads(_full_hist)
     _hist.write_text(json.dumps(dict(_row, results=[r for r in _row["results"] if not str(r["task"]).startswith("bfcl_")])) + "\n")
     _part_need, _part_gap, _part_ctl = swarm_ui.needs_eval(_fd), swarm_ui.eval_gaps(_fd), swarm_ui.run_controls()
+    # (the card's head holds Train and Questions only; the class boxes, the reason and Clear training state go under it, across the card)
+    _ctl_head, _, _ctl_below = _part_ctl.partition(swarm_ui.TRAIN_BELOW)
+    _strip_tr = swarm_ui.progress_strip(_fd)
+    check("the Train card's head holds its two actions, Train and Questions; which classes it trains, why it waits and Clear training state are under the head, across the card",
+          'id="run-go"' in _ctl_head and 'id="tq-open"' in _ctl_head and "data-train-class" not in _ctl_head and 'id="run-clear"' not in _ctl_head
+          and _ctl_below.count("data-train-class") == 4 and 'id="run-clear"' in _ctl_below and swarm_ui.TRAIN_BELOW not in _strip_tr
+          and _strip_tr.index('class="trainbelow"') > _strip_tr.index('class="evctl"') and '.trainopts' in swarm_ui.CSS, [_ctl_head[:200], _ctl_below[:200]])
     _hist.write_text(_full_hist)
     check("evaluated with one harness only, Train can be pressed, and says beside it which bodies of work have no figure from before, the harness that measures them and where to tick it; evaluated on all, it says nothing",
           _part_need == "" and _part_gap == "Tools and Search have no figure from before: to see them move, evaluate with BFCL (function calling) ticked (under With on the Evaluate card) before training."

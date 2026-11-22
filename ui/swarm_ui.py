@@ -278,7 +278,12 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 /* which bodies of work an evaluation asks: a box for each, under the card's heading, every one ticked to begin with */
 .evask{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:12px 0 0;min-width:0}.evask .cfgl{flex:0 0 auto;margin-right:6px}
 .evask label{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);font-size:13px;font-weight:700;color:var(--fog);padding:6px 10px;cursor:pointer}
-.evask label small{font-weight:600;color:var(--mist);font-size:11.5px}.evask label.none{opacity:.45;border-style:dashed;background:var(--panel)!important}.evask.evharn{margin-top:8px}.evd-h{margin:14px 0 0}
+.evask label small{font-weight:600;color:var(--mist);font-size:11.5px}.evask label.none{opacity:.45;border-style:dashed;background:var(--panel)!important}.evask.evharn{margin-top:8px}
+.trainbelow{margin-top:14px;display:grid;gap:10px}.trainbelow .evwhy{font-size:12.5px;font-weight:600;color:var(--mist);line-height:1.45}
+.trainopts{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 14px}
+.trainopts .trainask{margin:0;flex:1 1 320px;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,190px));gap:6px 8px}
+.trainopts .trainask .cfgl{grid-column:1/-1;margin:0}
+.trainopts .btn{width:auto;margin:0 0 0 auto;padding:7px 12px;font-size:12.5px;white-space:nowrap}.evd-h{margin:14px 0 0}
 .evask input{width:15px;height:15px;margin:0;accent-color:var(--teal)}.evask label:has(input:checked){border-color:var(--teal2);background:#eefaf6}.evask label:has(input:disabled){cursor:default;opacity:.6}
 .evalp>.state,.prep>.state,.evnow{margin-top:12px}.evq{margin-top:8px;padding:10px 12px;border-radius:var(--r);background:var(--soft);font-size:13px}
 .evq .evql{display:flex;flex-direction:column;gap:2px}.evq .evql b{font-size:17px;line-height:1.3}.evq .evql span{color:var(--mist);font-size:15px;font-variant-numeric:tabular-nums}.evq p{margin:6px 0 0;overflow-wrap:anywhere;line-height:1.45}
@@ -2472,6 +2477,9 @@ TRAIN_CLASSES = ("tools", "talk", "code", "words")
 TQ_BUTTON = '<button class="btn top ghost" id="tq-open" type="button" title="Read the questions training asks, and see whether any is a benchmark&#39;s">Questions</button>'
 
 
+TRAIN_BELOW = "<!--below-->"  # (what follows it in run_controls goes under the card's head, across the card)
+
+
 def classes_asked(asked):
     """The classes of input a press of Train names, those of them that are classes, in their order: [] where it names none, or
     every one (which trains every class, and is not said to the session)."""
@@ -2697,23 +2705,28 @@ def run_controls():
     if st and st["running"]:
         # (a session that trains some classes only says which, beside Stop)
         only = st.get("classes") or []
-        return ('<button class="btn stop top" id="run-stop" type="button">Stop training</button>' + TQ_BUTTON
+        return ('<button class="btn stop top" id="run-stop" type="button">Stop training</button>' + TQ_BUTTON + TRAIN_BELOW
                 + (('<small class="evwhy" id="run-only">Training %s only, as chosen.</small>' % e(_and([CLASS_NAMES.get(c, c) for c in only]).lower())) if only else ""))
     held = busy_with()
     first = needs_eval()
     why = cannot_run() or held or first
     # (and what an evaluation of part of the work leaves with no figure from before: said, not waited for)
     first = first or eval_gaps()
-    return (('<button class="btn top" id="run-go" type="button"%s title="Train question by question, pass after pass, until Stop training is pressed">Train</button>'
-             '<button class="btn top quiet" id="run-clear" type="button"%s title="Start training again from pass 1: what it has tried, measured and kept is moved aside (to .work/archive), and each model&#39;s own answers are kept">Clear training state</button>%s'
-             % (" disabled" if why else "", " disabled" if held else "", ('<small class="evwhy" id="run-first">%s</small>' % e(first)) if first else "")
-             # (Questions, between the two: the questions training asks, to read and audit)
-             ).replace('<button class="btn top quiet" id="run-clear"', TQ_BUTTON + '<button class="btn top quiet" id="run-clear"', 1)
-            # WHICH CLASSES OF INPUT THIS SESSION TRAINS: a box for each, every one ticked to begin with, kept on the device and sent
-            # with the press of Train (the page's trainAsk). An arrangement is kept class by class, so a class left out stays as
-            # it is. With none ticked there is nothing to train, and Train waits
-            + '<div class="evask trainask" role="group" aria-label="Which classes of input this session trains"><span class="cfgl">Trains</span>%s</div>'
-            % "".join('<label title="%s"><input type="checkbox" data-train-class="%s" checked%s>%s</label>' % (e(CLASS_WORDS.get(c, c)), c, " disabled" if why else "", e(CLASS_NAMES.get(c, c))) for c in TRAIN_CLASSES))
+    # THE CARD'S HEAD HOLDS THE TWO ACTIONS, Train and Questions, as Evaluate and Pretrain hold theirs. Under the head, across the
+    # card (after TRAIN_BELOW, which progress_strip splits at): why Train waits, in a line; then which classes this session
+    # trains, with Clear training state, the lesser action, small at the end of that row. They were all in the head's narrow
+    # column, where the boxes broke over three ragged rows and the reason stood as loud as the buttons.
+    # WHICH CLASSES OF INPUT THIS SESSION TRAINS: a box for each, every one ticked to begin with, kept on the device and sent
+    # with the press of Train (the page's trainAsk). An arrangement is kept class by class, so a class left out stays as
+    # it is. With none ticked there is nothing to train, and Train waits
+    return ('<button class="btn top" id="run-go" type="button"%s title="Train question by question, pass after pass, until Stop training is pressed">Train</button>' % (" disabled" if why else "")
+            + TQ_BUTTON + TRAIN_BELOW
+            # (one reason at a time: while something else has the models, the line under the card says so, and that is why Train waits)
+            + (('<small class="evwhy" id="run-first">%s</small>' % e(first)) if first and not held else "")
+            + '<div class="trainopts"><div class="evask trainask" role="group" aria-label="Which classes of input this session trains"><span class="cfgl">Trains</span>%s</div>'
+            % "".join('<label title="%s"><input type="checkbox" data-train-class="%s" checked%s>%s</label>' % (e(CLASS_WORDS.get(c, c)), c, " disabled" if why else "", e(CLASS_NAMES.get(c, c))) for c in TRAIN_CLASSES)
+            + '<button class="btn top quiet" id="run-clear" type="button"%s title="Start training again from pass 1: what it has tried, measured and kept is moved aside (to .work/archive), and each model&#39;s own answers are kept">Clear training state</button></div>'
+            % (" disabled" if held else ""))
 
 
 def _making_ready(st):
@@ -3847,9 +3860,10 @@ def progress_strip(d, cleared=""):
     # (while a session runs, a bar that moves in place of the share: the line beside it, the bar and the counts below go on saying
     # where the pass is; stopped, the share comes back, as far as the pass got)
     running_now = bool((run_state() or {}).get("running"))
+    _ctl = run_controls().partition(TRAIN_BELOW)
     return ('<div class="trainprog trainhead"><div class="proghead"><span class="memnum"' + (' aria-busy="true">' + busy() if running_now else '><b class="pct">%s%%</b>' % fmt_pct(pct)) + '<span>answers good<small>pass %s</small></span></span>'
-            '<span class="progline">%s %s</span><span class="evctl">%s</span></div>%s</div>'
-            % (e(str(lp.get("pass") or (d.get("state") or {}).get("pass", 0) + 1)), line, now, run_controls(), run_lines(cleared)))
+            '<span class="progline">%s %s</span><span class="evctl">%s</span></div>%s%s</div>'
+            % (e(str(lp.get("pass") or (d.get("state") or {}).get("pass", 0) + 1)), line, now, _ctl[0], ('<div class="trainbelow">%s</div>' % _ctl[2]) if _ctl[2] else "", run_lines(cleared)))
 
 
 def memory_card(d):
@@ -4743,7 +4757,7 @@ def needs_eval(d=None):
     listed, lacking = _unevaluated(d)
     if not listed or len(lacking) < len(listed):
         return ""
-    return "Evaluate the swarm first: this configuration has not been evaluated. The evaluation is what Pretrain is aimed by and what either is judged against."
+    return "Evaluate the swarm first: this configuration has not been evaluated. Training and Pretrain are judged against it."
 
 
 def eval_gaps(d=None):
