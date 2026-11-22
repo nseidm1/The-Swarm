@@ -352,6 +352,7 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .moves li.skipped{opacity:.55}.moves li.pinned{background:linear-gradient(90deg,#e8f6f1,transparent)}
 dialog#evd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#evd::backdrop{background:rgba(11,40,38,.45)}
 /* THE EVALUATE CARD'S HEADLINE IS A BUTTON (it opens the table, score beside score): it keeps the look of a headline, and says it can be pressed */
+.wsl{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.ws{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--line,#d9e4e1);border-radius:10px;font-size:13px;min-width:0}.ws i{width:10px;height:10px;border-radius:50%;background:#c8d4d0}.ws.done i{background:#0f6b5a}.ws.running i{background:#c98a0b}.ws.failed i{background:#a23b2a}.ws.not-taken i,.ws.stopped i{background:#7a8a86}.ws small{opacity:.75}.wholet{display:flex;gap:6px;align-items:center;font-size:13px}@media(max-width:760px){.wsl{grid-template-columns:1fr}}
 .cmph{margin:0 0 8px;font-size:15px}.cmpt{margin:0 0 6px}.cmpt tr.sum td{font-weight:700;border-top:2px solid var(--line,#d9e4e1)}.cmpbars{display:flex;flex-direction:column;gap:8px;margin:0 0 6px}.cmpbar{display:grid;grid-template-columns:minmax(120px,190px) 1fr minmax(110px,auto);gap:10px;align-items:center;font-size:13px}.cmpbar .mbar{position:relative;height:14px;background:#e4eeeb;border-radius:7px}.cmpbar .mbar i{position:absolute;left:0;top:0;bottom:0;background:#0f6b5a;border-radius:7px}.cmpbar .mbar u{position:absolute;top:-3px;bottom:-3px;border-left:2px solid #1d2b27;border-right:2px solid #1d2b27;background:rgba(29,43,39,.18)}.cmpbar .mbar s{position:absolute;top:-6px;bottom:-6px;border-left:2px dashed #3d4a8f}.cmpbar.none{opacity:.5}
 .cmp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 4px}.cmpc{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid var(--line,#d9e4e1);border-radius:10px;min-width:0}.cmpc b{font-size:13px}.cmpv{font-size:22px;font-weight:700}.cmpv i{font-style:normal;font-size:12px;font-weight:400;margin-left:6px;opacity:.7}.cmpc small{font-size:12px;opacity:.8}.cmpc.none .cmpv{opacity:.4}.cmpc small b.up{color:#0b6b57}.cmpc small b.down{color:#a23b2a}@media(max-width:640px){.cmp{grid-template-columns:1fr}}
 .evhead{display:flex;flex-direction:column;gap:10px;align-items:flex-start;min-width:0}.evviews{display:flex;gap:8px;flex-wrap:wrap}.evviews .btn{padding:8px 14px;font-size:13px;white-space:nowrap}.ptab{font-family:Georgia,'Times New Roman',serif;color:var(--fog)}.ptab caption{caption-side:top;text-align:left;font-size:13.5px;line-height:1.5;padding:0 0 10px}.ptab caption b{font-weight:700}.ptab table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums;border-top:2px solid var(--fog);border-bottom:2px solid var(--fog)}.ptab th,.ptab td{padding:5px 10px;text-align:right;border:0;white-space:nowrap}.ptab th:first-child,.ptab td:first-child{text-align:left;white-space:normal}.ptab thead th{font-weight:400;border-bottom:1px solid var(--fog)}.ptab tr.pg td{font-style:italic;padding-top:10px;text-align:left}.ptab tr.pall td{border-top:1px solid var(--fog);padding-top:7px}.ptab td small{color:var(--mist);font-size:.82em}.ptab-wrap{overflow-x:auto;margin-top:12px}.ptab-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}#evd-latex{width:100%;min-height:160px;margin-top:10px;font:12px ui-monospace,Menlo,monospace}dialog#tqd{border:0;border-radius:var(--r);padding:26px;max-width:min(900px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#tqd::backdrop{background:rgba(11,40,38,.45)}.tqctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}.tqctl select,.tqctl input{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel)}.tqctl input{flex:1 1 160px;min-width:0}.tql{list-style:none;margin:0;padding:0;display:grid;gap:10px}.tql li{border:1px solid var(--line2);border-radius:var(--r);padding:12px 14px}.tqh{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}.tqh small{color:var(--mist);font-size:12px;font-weight:600}.tqa{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.5}.tqb{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.45;color:var(--mist)}.tqb b{color:var(--fog)}.tqw{display:block;margin-top:6px;color:var(--mist);overflow-wrap:anywhere}@media (max-width:760px){dialog#tqd{padding:18px 12px}}.evbench select{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel);max-width:100%}.evbench{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}.evbench .seg small{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#9a5b00;margin-left:4px}.evbench .seg:disabled{opacity:.45;cursor:default}.evchart{margin-top:12px}.evchart svg{display:block;width:100%;height:auto;max-width:720px}.evchart .ax{stroke:var(--line);stroke-width:1}.evchart .tk{fill:var(--mist);font-size:11px}.evchart .lb{fill:var(--fog);font-size:12.5px;font-weight:700}.evchart .sb{fill:var(--mist);font-size:11.5px}.evchart .at{fill:var(--mist);font-size:11.5px;font-weight:700;letter-spacing:.04em}.evchart .pn{fill:#fff;font-size:11px;font-weight:800}.evchart .lgl{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px;font-size:13px;color:var(--fog)}.evchart .lgl li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.evchart .lgl i{flex:none;display:inline-block;min-width:20px;height:20px;line-height:20px;border-radius:50%;text-align:center;color:#fff;font-style:normal;font-size:11px;font-weight:800}.evchart .lgl span{color:var(--mist);font-variant-numeric:tabular-nums}.evchart .lgl i.hollow{background:var(--panel)}.evchart .lgl em{font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mist)}.evchart .lgl li.mine{background:var(--soft);border-radius:var(--r);padding:6px 8px;margin:0 -8px}.evchart .lgl li.mine em{color:var(--teal)}.lgl li.mine.tgt em{color:var(--tgt)}.evchart .pn.hollow{font-weight:800}.evopen{appearance:none;border:0;background:none;padding:6px 10px;margin:-6px -10px;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:12px;max-width:100%}
@@ -812,6 +813,11 @@ setInterval(liveTick,1500);liveTick();
 
 // EVALUATE THE SWARM and PRETRAIN: started and stopped from their own buttons, and followed IN PLACE while they run (the bars, the
 // question being asked, how long a question takes, the step a model is on); each section is drawn again only when its run ends
+// THE WHOLE RUN'S ONE BUTTON (whole_block): Start or Carry on with the size and whether to train; Stop. Its steps are drawn again
+// every three seconds while it runs, and the cards under it follow their own steps as they always do
+document.addEventListener('click',async ev=>{const b=ev.target;if(b.id!=='whole-go'&&b.id!=='whole-stop')return;b.disabled=true;
+  await evPost(b.id==='whole-go'?'/whole/start':'/whole/stop','#wholewrap',b.id==='whole-go'?{limit:Number(($('#whole-size')||{}).value||20),train:!!($('#whole-train')||{}).checked}:{});});
+setInterval(async()=>{if($('#wholebox[data-running]')||$('#busy[data-busy="the run"]'))await swap('/fragment/whole','#wholewrap');},3000);
 async function evPost(url,into,body){const r=await fetch(url,{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify(body||{})});
   if(!r.ok){alert(await r.text());evAsk();return;}$(into).innerHTML=await r.text();keepOpen($(into));evAsk();}
 // WHICH BODIES OF WORK AN EVALUATION ASKS: every one to begin with; a person unticks some for a quicker look, and the device keeps
@@ -2443,7 +2449,7 @@ def _ours(pid, marker):
 
 
 # what each kind of run this page starts is started as (start_run, start_job): looked for in the command line of its process
-RUN_MARKS = {"train": "training/session.sh", "eval": "training/evaluate.sh", "pretrain": "training/adapters.mjs"}
+RUN_MARKS = {"train": "training/session.sh", "eval": "training/evaluate.sh", "pretrain": "training/adapters.mjs", "whole": "training/run.sh"}
 
 
 def run_state():
@@ -4099,6 +4105,9 @@ def busy_with():
     for name, what in (("eval", "an evaluation"), ("pretrain", "pretraining")):
         if (job_state(name) or {}).get("running"):
             return what
+    # (the whole run, between two of its steps: nothing of the three is running for a moment, and it still has the models)
+    if (job_state("whole") or {}).get("running"):
+        return "the run"
     return ""
 
 
@@ -5457,15 +5466,76 @@ def pretrain_api():
     return live
 
 
+WHOLE_STEPS = (("1-evaluate-as-configured", "Evaluate the module as configured"), ("2-pretrain", "Pretrain"), ("3-evaluate-pretrained", "Evaluate it pretrained"),
+               ("4-train-classes", "Train the arrangement"), ("5-evaluate-trained", "Evaluate it pretrained and trained"))
+
+
+def whole_steps(root, key):
+    """WHERE THE WHOLE RUN IS, step by step, from what it wrote down (training/run.sh: .work/run/<configuration>/pass-1/status.txt):
+    each of its five steps as done, running, not taken (it refused: nothing to pretrain, no adapter to measure), failed, or
+    waiting; and whether the run is done. -> ([{id, name, state, minutes}], done)"""
+    try:
+        lines = (Path(root) / ".work" / "run" / key / "pass-1" / "status.txt").read_text().splitlines()
+    except OSError:
+        lines = []
+    state, mins = {}, {}
+    for ln in lines:
+        m = re.match(r"\S+ (START|END|SKIP)\s+(\S+)(?: exit (\d+) (\d+) min)?", ln)
+        if not m:
+            continue
+        what, name, code, took = m.groups()
+        if what == "START":
+            state[name] = "running"
+        elif what == "SKIP":
+            state[name] = "done"
+        else:
+            state[name] = "done" if code == "0" else ("not taken" if code == "3" else "failed")
+            mins[name] = int(took or 0)
+    return [{"id": k, "name": n, "state": state.get(k, "waiting"), "minutes": mins.get(k)} for k, n in WHOLE_STEPS], any(ln.endswith(" DONE") for ln in lines[-1:])
+
+
+def whole_block(d):
+    """THE WHOLE RUN, ONE BUTTON: the module as configured is evaluated, pretrained and evaluated, its arrangement trained and
+    evaluated, each on the same questions, so the Evaluate card can set the three side by side (training/run.sh). The size of
+    each evaluation and whether the arrangement is trained are chosen here; Start begins or carries on, Stop stops whatever
+    step it is in. Under it, the five steps and where each stands."""
+    st = job_state("whole") or {}
+    running = bool(st.get("running"))
+    held = busy_with()
+    steps, done = whole_steps(ARGS.root, d.get("key") or "")
+    if not running:  # (a step left as running by a run that was stopped is not running)
+        steps = [dict(x, state="stopped" if x["state"] == "running" else x["state"]) for x in steps]
+    size = st.get("limit", 20)
+    opts = "".join('<option value="%d"%s>%s</option>' % (n, " selected" if n == size else "", e(w)) for n, w in EVAL_SIZES if n != 0)
+    if running:
+        ctl = '<button class="btn stop top" id="whole-stop" type="button">Stop</button>'
+    else:
+        blocked = held and held != "the run"
+        ctl = ('<select id="whole-size" aria-label="How many questions of each task, in each of the three evaluations"%s>%s</select>'
+               '<label class="wholet"><input type="checkbox" id="whole-train"%s%s>Train the arrangement too (the class stage, two hours at most)</label>'
+               '<button class="btn top" id="whole-go" type="button"%s>%s</button>'
+               % (" disabled" if blocked else "", opts, "" if st.get("train") == "off" else " checked", " disabled" if blocked else "", " disabled" if blocked else "",
+                  "Carry on" if any(x["state"] in ("done", "stopped") for x in steps) and not done else "Start"))
+    word = {"done": "done", "running": "running", "stopped": "stopped here", "not taken": "not taken", "failed": "failed", "waiting": "waiting"}
+    rows = "".join('<li class="ws %s"><i></i><span>%s</span><small>%s%s</small></li>'
+                   % (x["state"].replace(" ", "-"), e(x["name"]), word[x["state"]], (" · %d min" % x["minutes"]) if x.get("minutes") else "") for x in steps)
+    return ('<div class="panel wholep" id="wholebox"%s><div class="proghead"><span class="memnum"><b class="pct">%d</b><span>of 5 steps<small>%s</small></span></span>'
+            '<span class="progline">One run, three figures: the module as configured is evaluated, then pretrained and evaluated, then its arrangement trained and evaluated, '
+            'each on the same questions. Stop is safe at any step; Start carries on from the step it stopped in.</span><span class="evctl">%s</span></div><ol class="wsl">%s</ol></div>'
+            % (' data-running="1"' if running else "", sum(1 for x in steps if x["state"] == "done"),
+               "running" if running else ("done" if done else ("%s is running" % e(held) if held else "not started" if not any(x["state"] != "waiting" for x in steps) else "stopped")), ctl, rows))
+
+
 def main_body(d):
     """Everything that depends on which models are chosen: drawn again, in place, when one is changed."""
     return (
         '<i id="busy" data-busy="%s" hidden></i>'
+        '<h2>Run</h2><div id="wholewrap">%s</div>'
         '%s'
         '<h2>Evaluate the swarm</h2><div id="evalwrap">%s</div>'
         '<h2>Pretrain</h2><div id="prewrap">%s</div>'
         '<h2 id="arrangement">Train</h2>%s'
-        % (e(busy_with()), '<div id="memwrap">%s</div>' % memory_card(d), eval_block(d), pretrain_block(d), arrangement(d))
+        % (e(busy_with()), whole_block(d), '<div id="memwrap">%s</div>' % memory_card(d), eval_block(d), pretrain_block(d), arrangement(d))
     )
 
 
@@ -5699,6 +5769,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(faces_block(d))
         if u.path == "/fragment/eval":
             return self._send(eval_block(d))
+        if u.path == "/fragment/whole":
+            return self._send(whole_block(d))
         if u.path == "/fragment/trainq":
             g = lambda k: (parse_qs(u.query).get(k) or [""])[0]  # noqa: E731
             return self._send(train_questions(d, g("split"), g("cls"), g("kind"), g("q")))
@@ -5761,7 +5833,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         path = urlparse(self.path).path
         if path not in ("/run/start", "/run/stop", "/run/clear", "/config", "/questions", "/uninstall", "/steer", "/spec/publish",
-                        "/eval/start", "/eval/stop", "/pretrain/start", "/pretrain/stop", "/engine/update"):
+                        "/eval/start", "/eval/stop", "/pretrain/start", "/pretrain/stop", "/engine/update", "/whole/start", "/whole/stop"):
             return self._send("Not here.", 404, "text/plain; charset=utf-8")
         # only this page may start or stop a pass: another website can send a plain form to this address, but it cannot
         # send this header, and a request that names another origin is refused
@@ -5775,6 +5847,25 @@ class Handler(BaseHTTPRequestHandler):
                 asked = {}
             why = engine_update_start(ARGS.root, asked.get("id") if isinstance(asked, dict) else None)
             return self._send(why, 409, "text/plain; charset=utf-8") if why else self._send("started", 200, "text/plain; charset=utf-8")
+        if path in ("/whole/start", "/whole/stop"):
+            # THE WHOLE RUN (training/run.sh): the size of its three evaluations, one of the sizes the Evaluate card offers, and
+            # whether the arrangement is trained. Stop ends the step it is in, and the models that step started
+            if path == "/whole/stop":
+                stop_job("whole")
+                return self._send(whole_block(data.load(ARGS.root)))
+            try:
+                asked = json.loads(self.rfile.read(min(int(self.headers.get("content-length", 0)), 2000)) or b"{}")
+            except ValueError:
+                asked = {}
+            limit = asked.get("limit") if isinstance(asked, dict) else None
+            if limit not in [n for n, _ in EVAL_SIZES if n != 0]:
+                return self._send("Choose how many questions of each task.", 400, "text/plain; charset=utf-8")
+            train = "classes" if not isinstance(asked, dict) or asked.get("train", True) else "off"
+            argv = ["bash", "training/run.sh"] + (["--proof"] if limit == PROOF_SIZE else ["--limit", str(limit)]) + ["--train", train]
+            why = start_job("whole", argv, {"limit": limit, "train": train})
+            if why:
+                return self._send(why, 409, "text/plain; charset=utf-8")
+            return self._send(whole_block(data.load(ARGS.root)))
         if path in ("/eval/start", "/eval/stop"):
             if path == "/eval/stop":
                 stop_job("eval")

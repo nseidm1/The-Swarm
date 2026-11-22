@@ -9920,6 +9920,73 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+// ---- THE WHOLE RUN (training/run.sh): one start, the steps in order, each written down where its card looks; a step that refuses
+// is said and the run goes on; a run stopped part way carries on from the step it stopped in
+{
+  const { execFileSync } = await import('node:child_process');
+  const os9 = await import('node:os');
+  const dir = fs.mkdtempSync(path.join(os9.tmpdir(), 'whole-run-'));
+  const log = path.join(dir, 'log');
+  fs.writeFileSync(
+    path.join(dir, 'ev.sh'),
+    'echo "eval $*" >> "$LOG"; case "$*" in *pretrained*) exit ${PRE_EXIT:-0};; *trained*) exit ${TRAINED_EXIT:-0};; esac; exit 0\n',
+  );
+  fs.writeFileSync(path.join(dir, 'pre.sh'), 'echo pretrain >> "$LOG"\n');
+  fs.writeFileSync(path.join(dir, 'se.sh'), 'echo "session $PASSES $SESSION_STEPS" >> "$LOG"\n');
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const go = (args, env = {}) => {
+    try {
+      return execFileSync('bash', ['training/run.sh', ...args], {
+        cwd: root,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          NODE: process.execPath,
+          LOG: log,
+          RUN_WORK: path.join(dir, 'work'),
+          RUN_EVALUATE: 'sh ' + path.join(dir, 'ev.sh'),
+          RUN_PRETRAIN: 'sh ' + path.join(dir, 'pre.sh'),
+          RUN_SESSION: 'sh ' + path.join(dir, 'se.sh'),
+          ...env,
+        },
+      });
+    } catch (e) {
+      return String(e.stdout || '') + String(e.stderr || '');
+    }
+  };
+  // the first start: no adapter can be measured (the pretrained evaluation refuses), and the last evaluation fails
+  const said = go(['--limit', '50', '--train-minutes', '1'], { PRE_EXIT: '3', TRAINED_EXIT: '1' });
+  const first = fs.readFileSync(log, 'utf8').trim().split('\n');
+  const keyDir = fs.readdirSync(path.join(dir, 'work', 'run'))[0];
+  const statusFile = path.join(dir, 'work', 'run', keyDir, 'pass-1', 'status.txt');
+  // (taken as stopped before it was done: the last line is not DONE)
+  fs.writeFileSync(statusFile, fs.readFileSync(statusFile, 'utf8').replace(/\n\S+ DONE\n$/, '\n'));
+  go(['--limit', '50', '--train-minutes', '1']);
+  const second = fs.readFileSync(log, 'utf8').trim().split('\n').slice(first.length);
+  const evalJob = JSON.parse(fs.readFileSync(path.join(dir, 'work', 'eval', 'ui-run.json'), 'utf8'));
+  const off = go(['--limit', '20', '--train', 'off']);
+  const third = fs
+    .readFileSync(log, 'utf8')
+    .trim()
+    .split('\n')
+    .slice(first.length + second.length);
+  check(
+    'the whole run is one start: the module as configured is evaluated, it is pretrained and evaluated, its arrangement is trained (the class stage and no more, one pass) and it is evaluated again, in that order and at the size asked; a step that refuses (no adapter to measure) is said and the run goes on; each step is written down where its card looks; a run stopped part way carries on, the steps that ended well passed over and the ones that did not taken again; and with training off the third figure is not taken, and a run at another size begins again',
+    first.join('|') ===
+      'eval --variant base --limit 50|pretrain|eval --variant pretrained --limit 50|session 1 classes|eval --variant trained --limit 50' &&
+      /No adapter is trained for this configuration: the pretrained figure is not taken/.test(said) &&
+      /The trained module was not evaluated/.test(said) &&
+      second.join('|') === 'eval --variant pretrained --limit 50|eval --variant trained --limit 50' &&
+      evalJob.limit === 50 &&
+      evalJob.whole === true &&
+      evalJob.pid > 0 &&
+      third.join('|') === 'eval --variant base --limit 20|pretrain|eval --variant pretrained --limit 20' &&
+      /third figure is not taken/.test(off) &&
+      /SESSION_STEPS" = classes/.test(fs.readFileSync(new URL('../training/session.sh', import.meta.url), 'utf8')),
+    { first, second, third },
+  );
+}
+
 // ---- THREE EVALUATIONS SIDE BY SIDE (training/evaluate.mjs --variant): the module as configured, pretrained, and pretrained and
 // trained; each one score with its error, and a difference said only beyond twice the error
 {

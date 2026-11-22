@@ -143,6 +143,9 @@ while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
   # it is better there. Only questions that carry a standard of their own are asked, and no benchmark's.
   # (TRAIN_CLASSES=words,code: only those classes of input are trained, here and question by question; the Train card's boxes)
   run 08-classes      training/classes.mjs ${TRAIN_CLASSES:+--only "$TRAIN_CLASSES"}
+  # (SESSION_STEPS=classes: the class stage and no more, for the run that sets three evaluations side by side, training/run.sh.
+  # The pass is left open: a session started after it carries on from here, the class stage passed over as done)
+  if [ "$SESSION_STEPS" = classes ]; then echo "$(date +%H:%M:%S) The class stage is done: this session was asked for that and no more."; break; fi
   # what has been published on what the last pass left open
   if [ -n "$TEACHER" ]; then run 01-research training/research.mjs --teacher "$TEACHER" --spend-claude
   else run 01-research training/research.mjs; fi

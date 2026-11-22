@@ -1796,6 +1796,22 @@ check("each dialog of the Evaluate card opens with the three evaluations, said i
       all("The three evaluations" in x for x in (_cd_t, _cd_p, _cd_c)) and "Task One" in _cd_t and "Every question" in _cd_t and _cd_t.count("</th>") == 6 and "Pretrained and trained" in _cd_t
       and "±" in _cd_p and "<b>70" in _cd_p and "±" not in _cd_t.split("<tbody>")[1].split("</tbody>")[0] and _cd_c.count("cmpbar") >= 4 and "not measured yet" in _cd_c and "Big" in _cd_c
       and "a gain of 8" in _cd_t and swarm_ui.compare_dialog({"compare": data.compare_of({})}, "table") == "", [_cd_t[:400], _cd_c[:400]])
+# ---- THE WHOLE RUN, ONE BUTTON
+import tempfile as _tf9
+_wr = Path(_tf9.mkdtemp())
+(_wr / ".work" / "run" / "k" / "pass-1").mkdir(parents=True)
+(_wr / ".work" / "run" / "k" / "pass-1" / "status.txt").write_text("10:00:00 START 1-evaluate-as-configured\n10:20:00 END   1-evaluate-as-configured exit 0 20 min\n10:20:00 START 2-pretrain\n10:21:00 END   2-pretrain exit 0 1 min\n"
+                                                                  "10:21:00 START 3-evaluate-pretrained\n10:21:00 END   3-evaluate-pretrained exit 3 0 min\n10:21:00 START 4-train-classes\n")
+_ws, _wdone = swarm_ui.whole_steps(_wr, "k")
+_ws0, _ = swarm_ui.whole_steps(_wr, "none")
+_root9 = swarm_ui.ARGS.root
+swarm_ui.ARGS.root = str(_wr)
+_wb = swarm_ui.whole_block({"key": "k"})
+swarm_ui.ARGS.root = _root9
+check("the whole run has one button: Run is the first card, with the size of its three evaluations, whether the arrangement is trained too, and Start (Carry on where a run was stopped part way); under it its five steps in order, each done, running, not taken where it refused, failed or waiting, with how long it took; a step a stopped run left as running reads as stopped; and the page says the run has the models while it is between two steps",
+      [x["state"] for x in _ws] == ["done", "done", "not taken", "running", "waiting"] and _ws[0]["minutes"] == 20 and _wdone is False and all(x["state"] == "waiting" for x in _ws0)
+      and 'id="whole-go"' in _wb and "Carry on" in _wb and 'id="whole-size"' in _wb and 'id="whole-train"' in _wb and _wb.count('<li class="ws ') == 5 and "stopped here" in _wb and "not taken" in _wb
+      and html.index("<h2>Run</h2>") < html.index("<h2>Memory saved</h2>") and '"whole": "training/run.sh"' in open(swarm_ui.__file__).read() and 'return "the run"' in open(swarm_ui.__file__).read(), [_ws, _wb[:300]])
 _card7k = swarm_ui.memory_card({"footprint": _m7_kept})
 _card7 = swarm_ui.memory_card({"footprint": _m7})
 _card7e = swarm_ui.memory_card({"footprint": _fp7})

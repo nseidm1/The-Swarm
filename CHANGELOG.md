@@ -6,6 +6,11 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **One run, one button** (2026-11-22). Run, the first card, starts the whole of it (`training/run.sh`): the module as
+  configured is evaluated, it is pretrained and evaluated, its arrangement is trained (the class stage, two hours at
+  most, where asked) and it is evaluated a third time, each on the same questions. Stop is safe at any step and Start
+  carries on. A step that cannot be taken (a model that cannot be pretrained here) is said and the run goes on. The
+  cards under it show each step as it runs; their own buttons are still there.
 - **Three evaluations side by side** (2026-11-22). An evaluation can be asked for as one of three things
   (`training/evaluate.sh --variant base|pretrained|trained`): the module as configured, the same with the adapters
   Pretrain trained, and what training kept with those adapters. Each comes to one score with its error, and the Evaluate
