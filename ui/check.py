@@ -1763,6 +1763,12 @@ _line7 = swarm_ui.progress_strip(dict(_d, footprint=_m7_kept, loop={"of": 5, "ch
                                                                    "families": [{"kind": "fix", "asked": 1, "own": True, "module": 1, "target": 1, "targetKnown": 1}], "list": [{"id": "a", "state": "at parity"}]}))
 _line7e = swarm_ui.progress_strip(dict(_d, footprint=_fp7, loop={"of": 5, "changes": [], "families": [{"kind": "fix", "asked": 1, "own": True, "module": 1, "target": 1, "targetKnown": 1}], "list": [{"id": "a", "state": "at parity"}]}))
 swarm_ui.loop_live = _ll8
+# (one model in both places, its file's size on record: the measurement the trainer writes for a shared load)
+_mem7s = {"a": {"name": "Small", "bytes": 2**30}, "b": {"name": "Small", "bytes": 2**30}}
+_kept7s = {"config": "x+y+d", "members": {"a": 1.91, "b": 0}, "shared": {"b": "a"}, "without": "the decider", "swarm": 1.9}
+_m7s = data.measured_footprint(_fp7, None, "x+y+d", _mem7s, None, kept=_kept7s)
+_m7s_old = data.measured_footprint(_fp7, None, "x+y+d", _mem7s, None, kept=dict(_kept7s, members={"a": 0.95, "b": 0}, swarm=1))
+_card7s = swarm_ui.memory_card({"footprint": _m7s})
 _card7k = swarm_ui.memory_card({"footprint": _m7_kept})
 _card7 = swarm_ui.memory_card({"footprint": _m7})
 _card7e = swarm_ui.memory_card({"footprint": _fp7})
@@ -1771,6 +1777,10 @@ check("where the pass in hand measured what the swarm takes in memory, the card 
       and _m7_other is _fp7 and _m7_nodec["swarm"] == 16.1 and _m7_nodec["deciderListed"] is True
       and "measured while it trained" in _card7 and "the estimate from the model files was 8.5 GB" in _card7 and "<b class=\"pct\">26.7%</b>" in _card7
       and "estimated from the model files and the listed sizes, not measured" in _card7e, [_m7, _card7[:300]])
+check("a measured swarm is drawn in the parts an estimated one is: each model once at the size of its file, said to be in so many places where places share its load (a place that shares is not a part of 0 GB), and what its process holds besides as their contexts; the parts sum to what was measured; and a process measured smaller than its file (before the weights were counted) stays one part",
+      [(x["name"], x["gb"], x["kind"]) for x in _m7s["parts"]] == [("Small, in 2 places", 1.0, "model"), ("Their contexts", 0.91, "contexts")]
+      and _m7s["swarm"] == 1.9 and _m7s["saved"] == 89.4 and "Small, in 2 places <b>1 GB</b>" in _card7s and "Their contexts <b>0.9 GB</b>" in _card7s and "0 GB" not in _card7s.replace("1.0 GB", "")
+      and [(x["name"], x["gb"]) for x in _m7s_old["parts"]] == [("Small, in 2 places", 0.95)], [_m7s["parts"], _m7s_old["parts"], _card7s[-400:]])
 check("every memory figure on the page has one source: the newest measurement the trainer wrote while it ran is taken before the one in the pass's row (and never another configuration's); the line under Train and the Memory saved card say the same size and the same saving, whatever the pass's row holds; and the card is redrawn every half minute, as the line is",
       _m7_kept["swarm"] == 8.0 and _m7_kept["saved"] == 55.6 and _m7_kept["measuredAt"] == "2026-11-19T17:11:00Z" and _m7_kept_other["swarm"] == 13.2
       and "it takes <b>8.0 GB</b> of memory against 18 GB: <b>55.6%</b> saved" in _line7 and "<b class=\"pct\">55.6%</b>" in _card7k and "77" not in _line7 and "99 GB" not in _line7

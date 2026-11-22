@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The Memory saved card draws the contexts when the size is measured** (2026-11-22). A measured swarm was drawn as
+  one part for each place, a place that shared a load at 0 GB, and the contexts were inside the model's part. It is
+  now drawn as an estimated one is: each model once at the size of its file, in so many places, and what its process
+  holds besides as their contexts. The total is the same.
 - **The memory a swarm is measured to take counts its models' weights** (2026-11-22). On a Mac the measurement read
   what each model's process had written and held on the GPU, which leaves out a model file mapped into the process:
   the weights. A swarm of one 1.1 GB model read 1 GB where it held 2, and 18 times smaller than the larger model

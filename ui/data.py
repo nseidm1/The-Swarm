@@ -154,7 +154,23 @@ def measured_footprint(fp, loop, cfg, members, decider, kept=None):
     got = m.get("members") or {}
     if not fp or not m.get("swarm") or set(got) != set(members or {}):
         return fp
-    parts = [{"name": (mm or {}).get("name", k), "gb": round(float(got[k]), 2), "kind": "model", "place": k} for k, mm in (members or {}).items()]
+    # ITS PARTS, AS THE ESTIMATE DRAWS THEM: each model once, at the size of its file, and what its process holds besides, which is
+    # the contexts of its slots and the engine's working memory. A place that shares another's load is that load (the measurement
+    # names it in `shared`), not a part of 0 GB. Where the file's size is not on record, or the process was measured smaller than
+    # its file (a measurement from before the weights were counted), the process is one part, as it was.
+    shared = m.get("shared") or {}
+    parts, rest = [], 0.0
+    for k, mm in (members or {}).items():
+        if k in shared:
+            continue
+        held = float(got[k])
+        places = 1 + sum(1 for v in shared.values() if v == k)
+        file_gb = ((mm or {}).get("bytes") or 0) / 2**30
+        own = file_gb if 0 < file_gb < held else held
+        rest += held - own
+        parts.append({"name": (mm or {}).get("name", k) + (", in %d places" % places if places > 1 else ""), "gb": round(own, 2), "kind": "model", "place": k})
+    if round(rest, 2) > 0:
+        parts.append({"name": "Their contexts", "gb": round(rest, 2), "kind": "contexts"})
     dec = m.get("decider")
     listed = (decider or {}).get("memGb") or 0
     if dec or listed:
