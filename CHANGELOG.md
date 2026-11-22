@@ -6,6 +6,11 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The page draws the shape that is run** (2026-11-21). The picture of training has the class stage as a lane of its own,
+  first in a pass: as it stands, the sweep, the best two together, the held questions on two draws, the one rule that
+  keeps. Inside one try it says how many slots draft first and that the answer most slots hold stands. The faces show a
+  model that fills every role once, with all its slots; say plainly where there is no decision model and what settles an
+  answer then; and mark the drafts that are asked only where the first two differ.
 - **Configuration asks first whether the swarm is one model or several** (2026-11-21). One model, the default, is a single
   pill: the small model that fills every role of the module. Several models, a pill for each place, is marked experimental
   and says what was measured of it: on this project's own questions a mix of two small models scored 173 of 216 where the

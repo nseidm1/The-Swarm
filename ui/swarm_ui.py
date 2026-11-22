@@ -410,6 +410,7 @@ button.mav{position:relative;border:0;font:inherit;color:inherit;text-align:left
 .st.mk{margin-left:auto;margin-right:0;background:#eef0f8;border-color:#d7dcef}.st.mk .stt{color:var(--tgt)}
 /* the faces in even columns, as many as the box holds (a free wrap broke six faces into rows of 2, 1, 1, 1, 1 by the width of their names) */
 .avs{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));justify-items:center;gap:6px 2px}
+.av.later .ring{outline:1.5px dashed var(--line);outline-offset:2px}.av.later .nm{color:var(--mist)}
 .av{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:64px;padding:4px 4px 2px;border:0;border-radius:var(--r);background:none;font:inherit;color:inherit;cursor:pointer}
 .av:hover,.av.sel{background:rgba(11,93,87,.07)}.av:focus-visible{outline:3px solid var(--teal2);outline-offset:1px}
 .av .ring{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:conic-gradient(var(--fc) calc(var(--p,0)*1%),#dfe8e5 0)}
@@ -772,9 +773,9 @@ async function liveTick(){
     // table (how each class stands, what was tried and kept) is drawn again in place every few ticks while it runs
     else if(n.running&&n.trainer==='classes'){qn.dataset.k='';qn.textContent=(n.step||'Training each class of input as a class')+'. Question by question begins after it.';
       window.__cl=(window.__cl||0)+1;if(window.__cl%6===1&&$('#classes-wrap'))swap('/fragment/classes','#classes-wrap');}
-    else if(n.running&&n.trainer!=='loop'){qn.dataset.k='';qn.textContent='Training begins after the larger model has answered and the plan is written: first each class of input as a class, then question by question.';}
+    else if(n.running&&n.trainer!=='loop'){qn.dataset.k='';qn.textContent='A pass trains each class of input as a class first; then the larger model answers, the plan is written, and training goes question by question.';}
     // THE BOX THE LOOP IS IN NOW, on the system's picture and in the plan's list of steps (the same reading of the live note as the server's loop_phase)
-    {const ph=!(lp&&n.trainer==='loop')?'':lp.guard?'guard':!lp.attempt?'ask':(lp.method&&lp.method.area==='library')?'library':(lp.method&&lp.method.area==='suggested')?'suggest':'search';
+    {const ph=n.trainer==='classes'?'classes':!(lp&&n.trainer==='loop')?'':lp.guard?'guard':!lp.attempt?'ask':(lp.method&&lp.method.area==='library')?'library':(lp.method&&lp.method.area==='suggested')?'suggest':'search';
       document.querySelectorAll('#viz [data-part]').forEach(b=>b.classList.toggle('on',b.dataset.part===ph));}
     if(pp){const key=done.map(x=>x.s).join()+'|'+(lp&&n.trainer==='loop'?lp.n:'')+'|'+of;
       if(pp.dataset.k!==key){pp.dataset.k=key;pp.innerHTML='';
@@ -1307,31 +1308,46 @@ def viz_block(d):
     by_class = lpol_.get("classKeep") is True
     tname = (d.get("target") or {}).get("name", "the larger model")
     dname = (d.get("decider") or {}).get("name", "the decider")
+    cpol = (d.get("policy") or {}).get("classes") or {}
+    # (inside one try, as the arrangement that is run says it: how many draft first, and how the matter is settled)
+    plan_ = (d.get("briefs") or {}).get("plan") or {}
+    n_draft = len([x for x in (d.get("briefs") or {}).get("slots", []) if x.get("stage") == "draft"])
+    first_n = plan_.get("draftFirst") if isinstance(plan_.get("draftFirst"), int) and 2 <= plan_.get("draftFirst") < n_draft else 0
+    no_dec = ((d.get("decider") or {}).get("serve") or {}).get("kind") == "none"
+    most = str(plan_.get("decideBy") or "") == "most"
     box = lambda code, part, title, body: ('<div class="vbox"%s><b><span class="vcode">%s</span>%s</b><small>%s</small></div>'  # noqa: E731
                                            % ((' data-part="%s"' % part) if part else "", code, e(title), e(body)))
     arrow = '<span class="varr" aria-hidden="true"></span>'
     lane = lambda key, title, boxes, foot="": ('<div class="vlane"><div class="vhead"><span class="vkey">%s</span><b>%s</b></div><div class="vrow">%s</div>%s</div>'  # noqa: E731
                                                % (key, e(title), arrow.join(boxes), ('<p class="vfoot">%s</p>' % foot) if foot else ""))
     return ('<div class="panel viz"><p class="vintro">Every part of training, coded so it can be named (B3, D2). Lanes run top to bottom; '
-            "steps run in the order of the arrows. The marked box is where the loop is now.</p>%s%s%s%s%s</div>" % (
+            "steps run in the order of the arrows. The marked box is where the loop is now.</p>%s%s%s%s%s%s</div>" % (
                 lane("A", "Once a pass", [
                     box("A1", "", "Questions", "Of every body of work. Train questions are trained on; held questions are only checked."),
                     box("A2", "", "The standard", "The question's own where it has one; else the answers %s agrees with itself on." % tname),
                     box("A3", "", "The plan", "The moves the search draws its changes from.")]),
+                # FIRST IN A PASS: each class of input as a class (training/classes.mjs), before the larger model is asked anything
+                lane("S", "First in a pass: each class of input, as a class", [
+                    box("S1", "classes", "As it stands", "Every question of the class: did a slot have it, was it settled on, is the reply good."),
+                    box("S2", "", "Sweep", "Every change that leaves the drafts as they are, on the same questions; the drafts are reused."),
+                    box("S3", "", "Together", "The best two of the sweep as one change."),
+                    box("S4", "", "Held, twice", "The best against the swarm as it stands: every held question of the class, %s draws." % cpol.get("draws", 2)),
+                    box("S5", "", "Keep", "Gain over twice its error, no question lost on every draw, no kind fallen.")],
+                     "The same rule keeps a change at B5. Then again from what was kept, up to %s rounds a class." % cpol.get("rounds", 2)),
                 lane("B", "Each question, until its answer is good", [
                     box("B1", "ask", "Ask", "The swarm as it stands."),
                     box("B2", "library", "Found arrangements", "%d, the most successful first." % lib),
                     box("B3", "search", "Search", "Best first: builds on what came closer, widens when all are tried."),
                     box("B4", "suggest", "Suggestions", "Every %s failed tries, %s names changes to try." % (pol["suggestEvery"], tname)),
-                    box("B5", "guard", "Check", ("Scored on the questions of its class: %s first, then the rest." % lpol_.get("classRace", 8)) if by_class else "Asked again on up to %s questions already good." % guard),
+                    box("B5", "guard", "Check", ("Its class's train questions, %s first; then its held questions on two draws, by the rule at S5." % lpol_.get("classRace", 8)) if by_class else "Asked again on up to %s questions already good." % guard),
                     box("B6", "keep", "Keep", "Into the arrangement, the found arrangements and the spec.")],
                      ("Not good yet: back to B3; it never moves on. Its class no better at B5: not kept, back to B3." if by_class
                       else "Not good yet: back to B3; it never moves on. Loses a question at B5: built on, aimed at that question, and swapped after %s." % e(swap_words(pol)))),
                 lane("C", "Inside one try", [
-                    box("C1", "", "Draft", "Each slot answers its own way."),
+                    box("C1", "", "Draft", ("%d slots first, each its own way; the other %d only where those differ." % (first_n, n_draft - first_n)) if first_n else "Each slot answers its own way."),
                     box("C2", "", "Try", "Code runs in a sandbox; drafts that behave alike are one answer."),
-                    box("C3", "", "Check, revise", "Checkers find faults; answers are revised."),
-                    box("C4", "", "Decide", "%s picks the answer." % dname),
+                    box("C3", "", "Check, revise", "Only where the drafts differ: checkers find faults; answers are revised."),
+                    box("C4", "", "Decide", ("The answer most slots hold stands%s." % ("" if no_dec else "; %s breaks a tie" % dname)) if most else ("A small model of the swarm picks the answer." if no_dec else "%s picks the answer." % dname)),
                     box("C5", "", "Write", "The reply."),
                     box("C6", "", "Grade", "Good by its standard? Partial credit says how close.")]),
                 lane("D", "Always: how the search improves", [
@@ -1483,7 +1499,7 @@ def plan_panel(d):
         return (
             '<div class="panel plan"><div class="plan-head"><h3>The plan for pass %d</h3><span class="muted small">Not written yet</span></div>'
             '<p class="muted" style="margin:8px 0 0">A pass writes its plan when it begins, from what the last pass left: '
-            "where the answers were lost decides what is listed first. Training then tries from it, question by question.</p></div>" % n
+            "where the answers were lost decides what is listed first. Before it, each class of input is trained as a class: every change that leaves the drafts as they are is scored on the whole class, and the best is kept where the held questions bear it out. Training then tries from the plan, question by question.</p></div>" % n
         )
     moves = p.get("moves") or []
     done = [m for m in moves if m.get("status") in ("kept", "not kept")]
@@ -1930,13 +1946,29 @@ def avatars(d, changed=None):
     trying = set(changed) if changed is not None else {m["slot"] for m in trying_moves((p or {}).get("moves")) if m.get("slot")}
     # the roster: each model once, with what it brings
     roster = []
-    for place in [k for k in ("a", "b", "c", "d") if k in members]:
+    # ONE MODEL IN EVERY PLACE IS ONE FACE: its slots and its memory over the places it holds (it is loaded once for each)
+    filled = [k for k in ("a", "b", "c", "d") if k in members]
+    same_model = len(filled) > 1 and len({(members[k] or {}).get("id") for k in filled}) == 1
+    if same_model:
+        gb = sum(((members.get(k) or {}).get("bytes") or 0) for k in filled) / 2**30
+        roster.append('<div class="mav %s"><span class="face">%s</span><div><b>%s</b><small>in every role · %d slots · loaded %d times%s</small></div></div>'
+                      % (filled[0], e(fc[filled[0]]), e(name(filled[0])), len(slots), len(filled), (" · %.1f GB" % gb) if gb else ""))
+    for place in ([] if same_model else filled):
         n_ = sum(1 for s in slots if s["member"] == place)
         gb = ((members.get(place) or {}).get("bytes") or 0) / 2**30
         roster.append('<div class="mav %s"><span class="face">%s</span><div><b>%s</b><small>%d slot%s%s</small></div></div>'
                       % (place, e(fc[place]), e(name(place)), n_, "" if n_ == 1 else "s", (" · %.1f GB" % gb) if gb else ""))
-    roster.append('<div class="mav decider"><span class="face">%s</span><div><b>%s</b><small>decides%s</small></div></div>'
-                  % (e(initials(dec)), e(dec), (" · about %s GB" % e(str(d["decider"]["memGb"]))) if (d.get("decider") or {}).get("memGb") else ""))
+    # WHO DECIDES, as the arrangement that is run has it: a decision model; or none, and then the answer most slots hold stands
+    # (decideBy "most") or a small model of the swarm picks
+    plan0 = b.get("plan") or {}
+    no_dec = ((d.get("decider") or {}).get("serve") or {}).get("kind") == "none"
+    most0 = str(plan0.get("decideBy") or "") == "most"
+    if no_dec:
+        roster.append('<div class="mav decider"><span class="face">%s</span><div><b>%s</b><small>%s</small></div></div>'
+                      % (("&#8805;" if most0 else e(initials(dec))), "No decision model", "the answer most slots hold stands" if most0 else "a small model of the swarm decides"))
+    else:
+        roster.append('<div class="mav decider"><span class="face">%s</span><div><b>%s</b><small>%s%s</small></div></div>'
+                      % (e(initials(dec)), e(dec), "breaks ties" if most0 else "decides", (" · about %s GB" % e(str(d["decider"]["memGb"]))) if (d.get("decider") or {}).get("memGb") else ""))
     if t:
         roster.append('<button type="button" class="mav tgt" data-av="target" title="%s: the larger model the swarm is brought to parity with. Choose it to read how it is served"><span class="face">%s</span><div><b>%s</b><small>the target%s</small></div>'
                       '<span class="live" data-live="target"><i></i><span>Idle</span></span></button>'
@@ -1977,8 +2009,25 @@ def avatars(d, changed=None):
         do = step.get("do")
         off = do in off_set
         faces = []
+        later = 0
         if do in ("draft", "revise"):
-            faces = [face_of(x) for x in of(step, "draft")]
+            ds = of(step, "draft")
+            # DRAFTING IN TWO ROUNDS (plan.draftFirst; src/orchestrate.mjs firstDrafters, the same rule): the slots that draft
+            # first are drawn first, and the others after them, marked as asked only where the first differ
+            nfirst = plan0.get("draftFirst")
+            if do == "draft" and isinstance(nfirst, int) and 2 <= nfirst < len(ds):
+                lead = []
+                for x in ds:
+                    if len(lead) < nfirst and not any(y["member"] == x["member"] for y in lead):
+                        lead.append(x)
+                for x in ds:
+                    if len(lead) < nfirst and x not in lead:
+                        lead.append(x)
+                rest = [x for x in ds if x not in lead]
+                later = len(rest)
+                faces = [face_of(x) for x in ds if x in lead] + [re.sub(r'class="av (\w+)', r'class="av \1 later', face_of(x), count=1).replace('title="', 'title="Drafts only where the first %d differ · ' % nfirst, 1) for x in rest]
+            else:
+                faces = [face_of(x) for x in ds]
         elif do == "check":
             faces = [face_of(x) for x in of(step, "check")]
         elif do == "write":
@@ -2001,8 +2050,8 @@ def avatars(d, changed=None):
             # (settled by the answer most slots hold: the decider is asked only where the most are tied, and its face says so)
             most = not keep and not step.get("sure") and str(plan_.get("decideBy") or "") == "most" and cls != "tools"
             if most:
-                what = "ties only"
-            faces = [special("decide", "decider", e(initials(dec)), what, "%s: %s" % (dec, "keeps the likeliest %d answers" % keep if keep else "settles it here only if it is sure" if step.get("sure")
+                what = "most hold" if no_dec else "ties only"
+            faces = [special("decide", "decider", "&#8805;" if most and no_dec else e(initials(dec)), what, "%s: %s" % (dec, "keeps the likeliest %d answers" % keep if keep else "settles it here only if it is sure" if step.get("sure")
                                                                                       else "asked only on a tie: the answer most slots hold stands, and where two or more are held by as many, it chooses among those" if most else "decides which answer stands"), decider_card(d))]
             # A SMALL MODEL BESIDE THE DECIDER (plan.decideWith), where the plan has one: its face in the same step, in its model's colour,
             # labelled with how it is asked, with its own live line while it works (the slot it answers as is decide-judge)
@@ -2019,6 +2068,8 @@ def avatars(d, changed=None):
         else:
             return ""
         extra = ""
+        if later:
+            extra = '<span>%d first; %d only if those differ</span>' % (len(faces) - later, later)
         if do == "write" and len(faces) > 1:
             extra = '<span>the decider picks the reply</span>'
         # (it grows by how many faces it holds: the drafts' box takes the room six faces need, a step of one face the room of one)
@@ -2054,7 +2105,9 @@ def avatars(d, changed=None):
         roster.append('<div class="mav tgt"><span class="face">?</span><div><b>No larger model is named</b><small>choose one above</small></div></div>')
     flow_line = '<p class="flowline"><b>The flow:</b> %s. %s</p>' % (
         e(" → ".join(_flow_words(x) for x in flow_of(d))),
-        "This is the plain flow; a pass can change it." if not b.get("flow") else "A pass changed it from the plain flow, and can change it again.")
+        ("This is the plain flow; a pass can change it." if not b.get("flow") else "A pass changed it from the plain flow, and can change it again.")
+        + ((" Two slots draft first, and the others only where those two differ." if plan0.get("draftFirst") == 2 else " %d slots draft first, and the others only where those differ." % plan0["draftFirst"]) if isinstance(plan0.get("draftFirst"), int) and plan0.get("draftFirst") >= 2 else "")
+        + (" Where the drafts agree, the checks and the decision are passed over; where they differ, the answer most slots hold stands." if most0 else ""))
     # said once, here, rather than under every face: a measurement under way has answers not yet judged
     unjudged = any(r.get("ran") and not r.get("judged", r["ran"]) for k, r in d["record"].items() if k in by_id)
     key = ('<div class="avkey"><span><i class="kr"></i>ring: its record, answers equivalent to the larger model&#39;s'

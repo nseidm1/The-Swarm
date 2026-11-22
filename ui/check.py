@@ -1140,6 +1140,23 @@ with tempfile.TemporaryDirectory() as tmp:
           and 'data-pick="b"' in _diff and 'data-mix="1" aria-pressed="true"' in _diff
           and all('data-pick="%s"' % k in x for k in ("decider", "target") for x in (_same, _chosen, _diff))
           and "body:JSON.stringify({mix:b.dataset.mix==='1'})" in swarm_ui.JS and _tg1.count(" alone</button>") == 1, [_same[:300]])
+    # THE PAGE DRAWS THE SHAPE THAT IS RUN (console 2026-11-21): the class stage as a lane of its own, first in a pass; inside one
+    # try, how many draft first and how the matter is settled; and in the faces, one model once, no decision model said plainly,
+    # and the drafts that are asked only where the first differ marked as such
+    _shape_d = dict(_rd, members={"a": dict(_sm[0], key="a"), "b": dict(_sm[0], key="b")}, decider={"id": "none", "name": "A small model of the swarm", "serve": {"kind": "none"}})
+    _vz2, _av2 = swarm_ui.viz_block(_shape_d), swarm_ui.avatars(_shape_d)
+    _with_dec = swarm_ui.avatars(dict(_shape_d, members={"a": dict(_sm[0], key="a"), "b": dict(_sm[1], key="b")}, decider={"id": "x", "name": "Decider X", "serve": {"kind": "llama"}}))
+    _all_once = swarm_ui.avatars(dict(_shape_d, briefs=dict(_rd["briefs"], plan={k: v for k, v in _rd["briefs"]["plan"].items() if k not in ("draftFirst", "decideBy")})))
+    check("the page draws the shape that is run: training's picture has the class stage as a lane of its own before the questions (as it stands, the sweep, the best two together, the held questions on two draws, the one keep rule), and inside one try says how many slots draft first and that the answer most slots hold stands; the faces show one model once with every slot, say there is no decision model and what settles it, and mark the drafts asked only where the first differ; with a decision model it breaks ties; with every draft at once and a model deciding, none of that is said",
+          all(">%s</span>" % c in _vz2 for c in ("S1", "S2", "S3", "S4", "S5", "B1", "B5", "C1", "C4")) and _vz2.index(">S1</span>") < _vz2.index(">B1</span>") and _vz2.index(">A1</span>") < _vz2.index(">S1</span>")
+          and 'data-part="classes"' in _vz2 and "2 draws" in _vz2 and "2 slots first, each its own way; the other 2 only where those differ." in _vz2 and "The answer most slots hold stands." in _vz2
+          and "n.trainer==='classes'?'classes'" in swarm_ui.JS
+          and _av2.count('class="mav a"') == 1 and 'class="mav b"' not in _av2 and "in every role · 7 slots · loaded 2 times" in _av2
+          and "No decision model" in _av2 and "the answer most slots hold stands" in _av2 and ">most hold<" in _av2
+          and len(re.findall(r'class="av \w+ later', _av2)) == 2 and "<span>2 first; 2 only if those differ</span>" in _av2 and "Two slots draft first, and the others only where those two differ." in _av2
+          and re.findall(r'data-av="((?:a|b)-[a-z-]+)"', _av2)[:4] == ["a-direct", "b-direct", "a-steps", "b-other-way"]
+          and 'class="mav b"' in _with_dec and "breaks ties" in _with_dec and ">ties only<" in _with_dec and "No decision model" not in _with_dec
+          and "later" not in _all_once and "only if those differ" not in _all_once and "a small model of the swarm decides" in _all_once, [_av2[:300]])
     # (how long each side took: said over a view where an evaluation timed both on a task, and not otherwise)
     _spd = swarm_ui.ev_speed({"results": [{"task": "t1", "secondsEach": {"target": 4.0, "swarm": 10.0}}, {"task": "t2", "secondsEach": {"target": 2.0, "swarm": 8.0}},
                                           {"task": "t3", "secondsEach": {"target": 3.0, "swarm": None}}, {"task": "t4"}]}, "Big <model>")
