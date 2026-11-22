@@ -5967,6 +5967,27 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     .flatMap((q) => q.attempts || [])
     .map((a) => (a.classCheck || {}).why)
     .find(Boolean);
+  // "twice" brings two questions to parity and loses one that was right, on both draws: one made good beside the one it was
+  // found on is not twice what it loses, so it is refused. Found again on the second question, it is not asked of its class
+  // again: the refusal is remembered while the arrangement stands
+  const twice = await run({
+    base: (t) => (t.id === 'piece-2' ? 1 : 0.5),
+    twice: (t, s) => (t.id === 'answer-1' || t.id === 'answer-2' ? 1 : t.id === 'piece-2' ? 0.2 : s),
+  });
+  const twiceChecks = twice.st.questions
+    .flatMap((q) => q.attempts || [])
+    .map((a) => a.classCheck)
+    .filter(Boolean);
+  // "outweigh" makes two good beside the one it was found on, loses one, and lifts the held questions: kept
+  const outweigh = await run({
+    base: (t) => (t.id === 'piece-2' ? 1 : 0.5),
+    outweigh: (t, s) =>
+      ['answer-1', 'answer-2', 'answer-3'].includes(t.id) || t.id.startsWith('held-')
+        ? 1
+        : t.id === 'piece-2'
+          ? 0.2
+          : s,
+  });
   // "skew" lifts the answers and drops the pieces by more than the margin: not kept, whatever the mean
   const skew = await run({ base: () => 0.5, skew: (t) => (t.kind === 'piece' ? 0.2 : 1) });
   // "overfit" lifts every train question and drops the held ones: not kept
@@ -5986,7 +6007,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const kn = near.kept[0] || {};
   const k0 = lift.kept[0] || {};
   check(
-    'keeping by the class: a change that lifts its whole class is kept, with its gain, its error and over how many questions on the ledger; one that brings a single question to parity and leaves the held questions as they were is not kept, on either draw; a check stopped in the middle carries on, the questions the change was already scored on not asked with it again, its scores written down as it goes and gone when it has ended; one answer that came out otherwise once does not refuse it; one that loses a question right on both draws is refused, with the question named; one that lifts most kinds and drops one by more than the margin is not; one that lifts the train questions and drops the held ones is not; a change that falls on the first few questions it is raced on is not asked on the rest; and a change that brought questions closer and none to parity is proposed for the class at the end of the pass, and kept where the class gained',
+    'keeping by the class: a change that lifts its whole class is kept, with its gain, its error and over how many questions on the ledger; one that brings a single question to parity and leaves the held questions as they were is not kept, on either draw; a check stopped in the middle carries on, the questions the change was already scored on not asked with it again, its scores written down as it goes and gone when it has ended; one answer that came out otherwise once does not refuse it; one that loses a question right on both draws and does not make twice as many good beside the one it was found on is refused, with the question named, and is not asked of its class again when it is found on a later question; one that makes two good beside for one lost is kept; one that lifts most kinds and drops one by more than the margin is not; one that lifts the train questions and drops the held ones is not; a change that falls on the first few questions it is raced on is not asked on the rest; and a change that brought questions closer and none to parity is proposed for the class at the end of the pass, and kept where the class gained',
     lift.kept.length >= 1 &&
       k0.classGain &&
       k0.classGain.keep === true &&
@@ -6025,6 +6046,16 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       wobble.kept.length === 1 &&
       trade.kept.length === 0 &&
       /it lost piece-2/.test(tradeWhy || '') &&
+      twice.kept.length === 0 &&
+      twiceChecks.length === 2 &&
+      /it lost piece-2, .* and made 1 good beside the one it was found on: not twice as many/.test(
+        twiceChecks[0].why,
+      ) &&
+      !twiceChecks[0].again &&
+      twiceChecks[1].again === true &&
+      twice.asked.filter((x) => x === 'piece-2:twice').length === 2 &&
+      Object.keys(twice.st.refused || {}).length === 1 &&
+      outweigh.kept.length === 1 &&
       skew.kept.length === 0 &&
       skew.st.questions.some((q) =>
         (q.attempts || []).some((a) => a.classCheck && (a.classCheck.fell || []).includes('piece')),
@@ -6055,6 +6086,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       luck: luck.kept.length,
       wobble: wobble.kept.length,
       trade: [trade.kept.length, tradeWhy],
+      twice: [twice.kept.length, twiceChecks, twice.asked.filter((x) => x === 'piece-2:twice').length],
+      outweigh: outweigh.kept.length,
       skew: skew.kept.length,
       overfit: overfit.kept.length,
       race: [race.kept.length, raceCheck],
@@ -9661,8 +9694,20 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     [...Array(10).keys()].map((i) => q('q' + i, 'a', [0, 0], i < 3 ? [1, 0] : [0, 0])),
     { least: 0.2 },
   );
-  // right on both draws as it stands and wrong on both with it: lost, whatever else gains
+  // right on both draws as it stands and wrong on both with it: lost. Six made good outweigh one lost (twice as many at least);
+  // they do not outweigh four
   const lost = K.keepOf([...gains, q('z', 'a', [1, 1], [0, 0])]);
+  const lostMore = K.keepOf([...gains, ...[1, 2, 3, 4].map((i) => q('z' + i, 'a', [1, 1], [0, 0]))]);
+  // four held questions, one made good: a gain within twice its error, alone. With twelve other questions the change was not
+  // chosen on, six of them gaining, the bar is cleared; and held questions that did not gain keep nothing, whatever the others did
+  const thin = [...Array(4).keys()].map((i) => q('h' + i, 'a', [0, 0], i < 1 ? [1, 1] : [0, 0]));
+  const others = [...Array(12).keys()].map((i) => q('t' + i, 'a', [0], i < 6 ? [1] : [0]));
+  const thinAlone = K.keepOf(thin, { least: 0.02 });
+  const thinBeside = K.keepOf(thin, { least: 0.02, beside: others });
+  const flatHeld = K.keepOf(
+    thin.map((r) => ({ ...r, with: [0, 0] })),
+    { least: 0.02, beside: others },
+  );
   // right once and wrong once is no loss
   const wobble = K.keepOf([...gains, q('z', 'a', [1, 1], [1, 0])]);
   // a kind that falls while the whole gains
@@ -9700,7 +9745,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const sh = fs.readFileSync(new URL('../training/session.sh', import.meta.url), 'utf8');
   const pol = JSON.parse(fs.readFileSync(new URL('../training/policy.json', import.meta.url), 'utf8'));
   check(
-    'a change to a class is kept by one rule, the same for both stages of training: on the held questions, each asked on two draws or more, where the mean gain is over twice its error and at least the least gain, no question right every time is wrong every time with it, and no kind falls; one draw never keeps; the class stage tries every change that leaves the drafts as they are, a few of the others the policy names, and the best two of the first together; it asks every question of the class, and runs before the larger model is asked anything',
+    'a change to a class is kept by one rule, the same for both stages of training: on the held questions, each asked on two draws or more, where the mean gain is over twice its error and at least the least gain, what it loses (right every time as it stands, wrong every time with it) is outweighed by twice as many made good, and no kind falls; the bar is cleared by the held questions alone or with the other questions the change was not chosen on, and never where the held questions did not gain; one draw never keeps; the class stage tries every change that leaves the drafts as they are, a few of the others the policy names, and the best two of the first together; it asks every question of the class, and runs before the larger model is asked anything',
     kept.keep === true &&
       kept.gain === 0.6 &&
       kept.draws === 2 &&
@@ -9709,8 +9754,16 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       /one draw/.test(oneDraw.why) &&
       luck.keep === false &&
       /not more than twice its error/.test(luck.why) &&
-      lost.keep === false &&
+      lost.keep === true &&
       lost.lost.join() === 'z' &&
+      lost.good.length === 6 &&
+      lostMore.keep === false &&
+      /it lost z1 and 3 more, .* and made 6 good: not twice as many/.test(lostMore.why) &&
+      thinAlone.keep === false &&
+      /not more than twice its error/.test(thinAlone.why) &&
+      thinBeside.keep === true &&
+      thinBeside.judged.n === 16 &&
+      flatHeld.keep === false &&
       wobble.keep === true &&
       fell.keep === false &&
       fell.fell.join() === 'down' &&

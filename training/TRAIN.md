@@ -20,7 +20,8 @@ answers, and what it keeps is then kept in a session's first minutes):
 3. **The best**, where it beats the swarm as it stands on the train questions, is asked the held questions of the class, every
    one, on `classes.draws` draws (two), and so is the swarm as it stands. Whether it is kept is `training/keep.mjs`'s to
    say, the one rule the question-by-question stage keeps a change by as well: the mean gain more than twice its paired
-   error and at least `loop.classMinGain`, no question right on every draw wrong on every draw with it, no kind fallen.
+   error and at least `loop.classMinGain`, what it loses (a question right on every draw, wrong on every draw with it)
+   outweighed by at least twice as many made good, no kind fallen.
    Then again from what was kept, `classes.rounds` times.
 
 Only questions that carry a standard of their own are asked, so the larger model is not needed and the swarm can come out
@@ -100,7 +101,10 @@ Swarm's reply is good ("at parity", in the loop's record) ([`loop.mjs`](loop.mjs
    otherwise on is **asked again on another draw** (`classConfirm`, on), as the swarm stands and with the change, and scored
    by the mean of the two: a change that made a question good on both draws, lost none on both, and left the mean higher is
    kept too (one question made good in a class of thirty is within its own error, and could never be kept before); a change
-   that lost a question is not kept; and a kind has fallen only where it fell by more than its own error as well, so one
+   is not kept for what it lost where it did not make good at least twice as many beside the question it was found on
+   (one lost question used to refuse a change whatever it gained: 78 of 97 in one pass); a change refused for its class
+   is not asked of it again while the arrangement stands; the held questions then judge its gain, alone or with the
+   train questions it was not found on; and a kind has fallen only where it fell by more than its own error as well, so one
    answer of six that came out otherwise once is no fall. What the check has asked is written down as it goes, so a pass stopped
    in the middle of one carries on from there. It is raced on 8 questions
    first, and asked on the rest only where those did not fall. Kept, it is the arrangement for every question of the class

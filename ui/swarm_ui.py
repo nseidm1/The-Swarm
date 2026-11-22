@@ -1335,7 +1335,7 @@ def viz_block(d):
                     box("S2", "", "Sweep", "Every change that leaves the drafts as they are, on the same questions; the drafts are reused."),
                     box("S3", "", "Together", "The best two of the sweep as one change."),
                     box("S4", "", "Held, twice", "The best against the swarm as it stands: every held question of the class, %s draws." % cpol.get("draws", 2)),
-                    box("S5", "", "Keep", "Gain over twice its error, no question lost on every draw, no kind fallen.")],
+                    box("S5", "", "Keep", "Gain over twice its error, losses outweighed by twice as many made good, no kind fallen.")],
                      "The same rule keeps a change at B5. Then again from what was kept, up to %s rounds a class." % cpol.get("rounds", 2)),
                 lane("B", "Each question, until its answer is good", [
                     box("B1", "ask", "Ask", "The swarm as it stands."),

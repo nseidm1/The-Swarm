@@ -26,7 +26,8 @@
 // It carries on where it stopped: every finished question is written down (.work/train/<configuration>/loop.json).
 import fs from 'node:fs';
 import path from 'node:path';
-import { keepOf } from './keep.mjs';
+import crypto from 'node:crypto';
+import { keepOf, outweighed } from './keep.mjs';
 import { decideByOf, classOf as inputClassOf, briefsFor, KIND_PARTS, flowOf } from '../src/orchestrate.mjs';
 import {
   normal as normalPolicy,
@@ -798,7 +799,7 @@ export async function runLoop({
   classMargin = 0.05,
   classTries = 0,
   // classConfirm: a question a change scores otherwise on is asked again, as it stands and with the change, on another draw, and
-  // a change that makes a question good on both draws and loses none on both is kept (classCheck)
+  // what a change loses on both draws is weighed against what it makes good on both (classCheck)
   classConfirm = true,
   // the larger model writing new briefs for a slot that failed on this question: teach(slot, missed) -> [{ name, brief }], written
   // where the pool reads candidates (null: never)
@@ -907,7 +908,8 @@ export async function runLoop({
   // that scores otherwise with a change is asked again, as the swarm stands and with the change, with another seed, and its
   // score each way is the mean of the two. A question right both times with the change and neither time without is MADE GOOD;
   // one right both times without and neither time with it is LOST. Then
-  //   a change that loses a question is not kept;
+  //   a change is not kept for what it loses where it does not make good at least twice as many (keep.mjs outweighed; the
+  //   question it was found on is not counted among those made good);
   //   a kind has fallen only where its mean falls by more than classMargin AND by more than its own error (one answer of six
   //   that came out otherwise once is exactly its error, and is not a fall);
   //   and a change is kept on the gain rule above, or where it made a question good, lost none, and the class's mean is up.
@@ -926,6 +928,31 @@ export async function runLoop({
     // from its first question each time)
     await onTry(st);
     const ver = briefs.version || 1;
+    // (the questions the change was found on: not counted among those it made good, nor in the gain the held step judges)
+    const foundOn = new Set(Object.keys(known));
+    // A REFUSAL IS REMEMBERED WHILE THE ARRANGEMENT STANDS (st.refused, 2026-11-22). The search begins again on every question,
+    // so it finds the same change again: in one pass one change was brought to its class 37 times and refused 37 times, each
+    // time asked of up to 141 questions. A change is known by what it makes of the class's arrangement (effectOn), not by its
+    // name (two briefs by the larger model can have one title), and by the arrangement it was checked on: once a change is
+    // kept the arrangement is another, and what was refused before may be asked again.
+    const rkey =
+      K +
+      '|' +
+      ver +
+      '|' +
+      crypto
+        .createHash('sha1')
+        .update(JSON.stringify(effectOn(newBriefs, K)))
+        .digest('hex')
+        .slice(0, 16);
+    const before = (st.refused || {})[rkey];
+    if (before)
+      return {
+        keep: false,
+        why: before.why + ' (as when it was first checked on this arrangement: not asked again)',
+        record: { ...before.record, again: true },
+        scores: { train: {}, held: {} },
+      };
     const was = st.checking && st.checking.what === what && st.checking.K === K && st.checking.ver === ver;
     const first = was ? { ...st.checking.scores } : {};
     known = { ...first, ...known };
@@ -954,7 +981,9 @@ export async function runLoop({
     const record = { class: K };
     const fail = (why) => {
       delete st.checking;
-      return { keep: false, why, record: { ...record, keep: false, why }, scores: { train: withIt, held: {} } };
+      const refused = { ...record, keep: false, why };
+      st.refused = { ...(st.refused || {}), [rkey]: { why, record: refused } };
+      return { keep: false, why, record: refused, scores: { train: withIt, held: {} } };
     };
     const ds = () => diffs.map((y) => y.d);
     const confirm = async () => {
@@ -980,7 +1009,15 @@ export async function runLoop({
     };
     const madeGood = () => diffs.filter((y) => y.w.length > 1 && y.w.every((v) => v === 1) && y.b.every((v) => v < 1));
     const lostNow = () => diffs.filter((y) => y.b.length > 1 && y.b.every((v) => v === 1) && y.w.every((v) => v < 1));
-    const lostWhy = (y) => 'it lost ' + y.x.id + ', right as the swarm stands and not with it, on both draws';
+    // (made good, for weighing against what is lost: the question the change was found on is good by how it was chosen)
+    const goodBeside = () => madeGood().filter((y) => !foundOn.has(y.x.id));
+    const lostWhy = (ls, gs) =>
+      'it lost ' +
+      ls[0].x.id +
+      (ls.length > 1 ? ' and ' + (ls.length - 1) + ' more' : '') +
+      ', right as the swarm stands and not with it, on both draws, and made ' +
+      (gs.length || 'none') +
+      ' good beside the one it was found on: not twice as many';
     for (const [k, x] of order.entries()) {
       const s = await ask(x, k, order.length, false);
       if (s !== null) {
@@ -997,7 +1034,7 @@ export async function runLoop({
         if (record.race.gain < 0) {
           await confirm();
           record.race = pairedOf(ds());
-          if (lostNow().length) return fail(lostWhy(lostNow()[0]));
+          if (!outweighed(lostNow().length, goodBeside().length)) return fail(lostWhy(lostNow(), goodBeside()));
           if (record.race.gain < 0 && (!classConfirm || diffs.filter((y) => y.d < -0.05).length > 1))
             return fail('on the first ' + record.race.n + ' questions of its class it fell by ' + -record.race.gain);
         }
@@ -1010,7 +1047,7 @@ export async function runLoop({
     if (classConfirm) Object.assign(record, { madeGood: good.map((y) => y.x.id), lost: lostQs.map((y) => y.x.id) });
     // (one question is no class: there is no error to set its gain beside)
     if (record.n < 2) return fail('its class has fewer than two questions to score it on');
-    if (lostQs.length) return fail(lostWhy(lostQs[0]));
+    if (!outweighed(lostQs.length, goodBeside().length)) return fail(lostWhy(lostQs, goodBeside()));
     const fell = [...new Set(diffs.map((y) => y.kind))]
       .map((kind) => ({ kind, ...pairedOf(diffs.filter((y) => y.kind === kind).map((y) => y.d)) }))
       .filter((y) => y.gain < -classMargin && (!classConfirm || y.gain < -y.stderr - NEAR));
@@ -1074,8 +1111,21 @@ export async function runLoop({
         });
       }
       const two = rows.filter((r) => r.base.length > 1);
-      const v = keepOf(two, { least: classMinGain, margin: classMargin });
-      record.held = { n: v.n, gain: v.gain, stderr: v.error, draws: v.draws };
+      // (the gain is judged over the held questions and the train questions the change was not found on: keep.mjs `beside`)
+      const v = keepOf(two, {
+        least: classMinGain,
+        margin: classMargin,
+        beside: diffs
+          .filter((y) => !foundOn.has(y.x.id))
+          .map((y) => ({ id: y.x.id, kind: y.kind, base: y.b, with: y.w })),
+      });
+      record.held = {
+        n: v.n,
+        gain: v.gain,
+        stderr: v.error,
+        draws: v.draws,
+        ...(v.judged ? { judged: v.judged } : {}),
+      };
       if (!v.keep) return fail('on the held questions of its class, ' + v.why);
     }
     delete st.checking;
@@ -2456,7 +2506,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     classKeep
       ? 'Kept by the class: a change is kept only where its class of train questions gains more than twice its error (and ' +
           (lp.classMinGain === undefined ? 0.02 : lp.classMinGain) +
-          ' at least), or makes a question good on two draws and loses none; no kind of them falls, and the held questions of the class do not fall.'
+          ' at least) over every question it was not found on, held and train, and its held questions gain; what it loses on two draws is outweighed by twice as many made good; no kind falls. A change refused for its class is not asked again while the arrangement stands.'
       : heldQs.length
         ? 'Held guard: a change is kept only if it loses none of up to ' +
           heldGuard +

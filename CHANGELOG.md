@@ -6,6 +6,15 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Training keeps a change that gains more than it loses, and does not ask the same question of a class twice**
+  (2026-11-22). In one pass 24 of 29 questions short of parity had a change that brought them there, 97 changes reached
+  their class, and none was kept: 78 were refused for one question lost on both draws, among them one that made six
+  good, lost two, and gained 5.2 points over 141 questions; it was found again and refused 37 times. Three things
+  changed. A change is refused for what it loses only where it does not make good at least twice as many questions
+  (in the question loop, beside the one it was found on). A change refused for its class is remembered while the
+  arrangement stands, and is not asked of the class again. And the bar of twice the error can be cleared by the held
+  questions together with the train questions the change was not found on, where thirty held questions alone could
+  only show a gain of five points or more; the held questions must still have gained by themselves.
 - **The Memory saved card draws the contexts when the size is measured** (2026-11-22). A measured swarm was drawn as
   one part for each place, a place that shared a load at 0 GB, and the contexts were inside the model's part. It is
   now drawn as an estimated one is: each model once at the size of its file, in so many places, and what its process
