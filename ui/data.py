@@ -770,7 +770,7 @@ def swoa_proof(d, arrangement_sha, pins):
                  **({"targetAsked": x["targetAsked"], "targetWays": {k: {"value": v.get("value"), "stderr": v.get("stderr")} for k, v in (x.get("targetWays") or {}).items()}} if x.get("targetAsked") else {}),
                  # (and the module, where it was asked more than one way; and how many replies of each the harness could not read)
                  **({"swoaAsked": x["swarmAsked"], "swoaWays": {k: {"value": v.get("value"), "stderr": v.get("stderr")} for k, v in (x.get("swarmWays") or {}).items()}} if x.get("swarmAsked") else {}),
-                 **({"unread": {"swoa": x["unread"].get("swarm"), "target": x["unread"].get("target")}} if isinstance(x.get("unread"), dict) else {}),
+                 **({"unread": {"swoa": x["unread"].get("swarm"), "target": x["unread"].get("target"), **({"alone": x["unread"]["alone"]} if x["unread"].get("alone") is not None else {})}} if isinstance(x.get("unread"), dict) else {}),
                  "proof": n >= PROOF_MIN_N, "at": r.get("at"), "runId": r.get("runId"),
                  "arrangementSha256": arrangement_sha, "configuration": r.get("configuration")}
             k = (h.get("name"), x.get("task"))

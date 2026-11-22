@@ -2219,5 +2219,30 @@ check("the controls of a card's head stay inside the third column (a chooser as 
       and ".trainhead>.proghead>.evctl{min-width:0;max-width:100%}" in swarm_ui.CSS
       and ".trainhead>.proghead{display:grid;grid-template-columns:330px minmax(0,1fr) 300px;" in swarm_ui.CSS, "")
 
+# THE PRETRAIN CARD SAYS WHAT PRETRAINING IS NOW: an adapter for each role (training/roles.mjs writes roles.json)
+_rroot = Path(swarm_ui.ARGS.root)
+_dr = data.load(str(_rroot))
+_ra = next(m for m in _dr["members"].values() if m)
+_ro = (json.loads((REPO / "training" / "originals.json").read_text())["models"].get(_ra["file"]) or {})
+_rdir = _rroot / ".work" / "library" / "adapters" / _dr["target"]["id"] / (_ro.get("dir") or _ra["file"])
+_rdir.mkdir(parents=True, exist_ok=True)
+_had_roles = (_rdir / "roles.json").read_text() if (_rdir / "roles.json").exists() else None
+(_rdir / "roles.json").write_text(json.dumps({"roles": {
+    "draft": {"ok": False, "examples": 189, "why": "jinja2.exceptions.TemplateError: Tool call arguments must be a mapping"},
+    "check": {"ok": True, "examples": 55, "perplexity": {"without": 4.1579, "with": 3.8265}},
+    "write": {"ok": True, "examples": 90, "perplexity": {"without": 4.1476, "with": 3.9506}}}}))
+_pre_roles = swarm_ui.pretrain_block(_dr)
+if _had_roles is None:
+    (_rdir / "roles.json").unlink()
+else:
+    (_rdir / "roles.json").write_text(_had_roles)
+check("the Pretrain card says what pretraining is now: where a model has an adapter for each role its row names each role (draft, check, write the reply), what it was taught on and what llama.cpp found, "
+      "or why a role has none; the head counts the roles that have one of three and says the adapters are taught each role's own right answers in the arrangement and served by role; and the verdict on the one adapter of the old way is not shown beside them",
+      'data-roles="1"' in _pre_roles and "of 3 roles adapted" in _pre_roles and '<b class="pct">2</b>' in _pre_roles
+      and "<b>check</b> (checks): adapted on 55 of its own right answers" in _pre_roles and "perplexity on them 4.1579 → 3.8265" in _pre_roles
+      and "<b>draft</b> (drafts): not adapted on its 189 examples" in _pre_roles and "Tool call arguments must be a mapping" in _pre_roles
+      and "Pretraining knows the arrangement" in _pre_roles and "<b>Judged</b>" not in _pre_roles
+      and "of 3 roles adapted" not in _pre_full, [_pre_roles[:300]])
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

@@ -1522,6 +1522,9 @@ After O.8.6, when `plan.closeAs` is `shown`, the reply is non-empty, decided is 
    LEAD and TAIL; where one is empty or longer than 200 characters there is no FORM. BRACKET holds when every ANSWER
    is one letter in round brackets. NUMBER holds when every ANSWER is one number and nothing more (digits, with an
    optional leading minus, sign of money, commas and one decimal part).
+   SPACED holds when every ANSWER is marks (characters that are no letter, digit or white space) with one space
+   between each, and at least one ANSWER holds a space. Where SPACED holds, an A (step 3) or an OWN (step 6) that is two
+   or more marks with no space between them is written with one space between each.
 3. A is decided, trimmed, without trailing full stops; where it holds a line break nothing is done. Where BRACKET
    holds, and the reply's last sentence does not begin with LEAD (ignoring case) and ends with `answer is`, an
    optional colon, and one letter, bracketed or not, with an optional `.` or `!` (ignoring case), that sentence is
@@ -1666,6 +1669,7 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `keepTurns` | integer | 6 | turns kept (top-level plan only; falsy means 6) |
 | `options` | boolean | true | where the question lists lettered options, answers that are none of them are not counted or shown beside answers that are (R.1.16) |
 | `optionAgain` | boolean | true | where the question lists options, a drafter whose final is none of them is asked once more for the option (O.6.1 step 1c) |
+| `piece` | boolean | true | a reply the request sets countable rules on is written whole and kept to them (R.5.1) |
 | `codeAgain` | boolean | true | where the question wants code, a drafter whose final is not code is asked once more for the code (O.6.1 step 1b) |
 | `closeAs` | text | none | `shown`: the reply ends with the form the conversation's earlier replies close with, around what was settled (O.8.7) |
 | `split` | text | none | `off`: a request is never read in parts (O.13) |
@@ -2579,6 +2583,45 @@ That is: one of the four verbs as a whole word, then at most 60 characters holdi
 break, then one of the listed nouns as a whole word. `Write a text to Maya to cancel dinner` asks for one;
 `write to my sister for me` and `What should I write? My text got no reply.` do not. The reply to such a
 question is the piece itself, so it is never written under FULL (O.8.3).
+
+#### R.5.1 A reply the request sets countable rules on is written whole
+
+The **rules** of a question are those of the following it states, read from its text without regard to case:
+
+| Rule | Stated as | Kept when |
+|---|---|---|
+| words, at least N | `at least`, `a minimum of`, `no fewer than`, `more than` or `over` N words; `N+ words`; `N or more words` | the reply has N words or more (a word holds a letter or a digit) |
+| words, fewer than N | `fewer than`, `less than` or `under` N words | fewer than N |
+| words, at most N | `at most`, `no more than`, `a maximum of` N words | N or fewer |
+| sentences, at least / fewer than / at most N | the same words with `sentences` | counted at `.`, `!`, `?` followed by white space, and at line breaks |
+| placeholders, at least N | `at least N placeholders` | N or more runs of text in square brackets |
+| highlights, at least N | `highlight (at least) N sections`, parts, words or phrases | N or more runs between single asterisks |
+| bullets, exactly N | `exactly N bullet points` | exactly N lines that begin with `* ` or `- ` |
+| no comma | `no commas`, `without commas`, `do not use (any) commas`, `avoid commas` | the reply holds no comma |
+| capitals | `all capital letters`, `all caps`, `capital letters only`, `no lowercase` | the reply is its own upper case |
+| lower case | `all lowercase`, `no capital letters`, `lowercase letters only` | the reply is its own lower case |
+| labelled parts | `with LABEL X`, LABEL one of PARAGRAPH, SECTION, Part, Day, Chapter; the count is the number given for that kind of part, else one | that many different `LABEL n` |
+| title | a title in double angular brackets | the reply holds `<<...>>` |
+| last words | `end with (the phrase) "..."` | the reply, trimmed, ends with the quoted words |
+| postscript | a postscript or `P.S.` to add | a line begins `P.S.` |
+
+Where the question does not want code, states at least one rule, and `plan.piece` is not `false`, the answer procedure
+of Part II is not run. Instead:
+
+1. The slots of the first drafting round (O.6.1 step 1a; the first two drafting slots where the plan names no number)
+   are each called once, at once, with one system message (the brief below, then the rules, one a line, under a line
+   that says they are the request's and are not to be repeated, then the conversation's own system text) and the kept
+   turns, with room for at least 900 tokens, and for 1.9 tokens a word plus 250 where a least number of words is set,
+   to 2400 at most. The brief: "Write what is asked for, whole, exactly as it is asked for: its length, its form, its
+   labels, the words to use and the words to leave out. Begin with it and end with it: no line about what you will do,
+   no list of the rules, no notes after it, no line that starts with ANSWER."
+2. Lines at the head of a reply that say the rules over are removed. Each reply is counted against every rule.
+3. The reply that keeps the most rules is chosen; the first of them where they keep as many.
+4. Where the chosen reply breaks a rule, its slot is called once more, shown its reply and told each rule it breaks
+   with the count ("it has 297 words, and at least 400 are asked for"), and asked for the whole again. The new reply
+   is chosen in its place where it keeps more rules.
+5. The chosen reply is the reply and the decided answer. The path is `piece`, with `+rewritten` where step 4 changed
+   it. Every call is recorded as a draft row with the rules it kept.
 
 ---
 

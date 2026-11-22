@@ -1140,6 +1140,14 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     return got.target || got.swarm ? { secondsEach: got } : {};
   };
   // (each model's score on a task, where its answers to it are kept: { key: { id, name, value, stderr, n, of } })
+  const aloneUnread = (b) => {
+    for (const a of Object.values(aloneOf)) {
+      const kept = keptIn(a.keepM(b), b);
+      const n = kept && kept.samples ? unreadIn(kept.samples, b.filter) : null;
+      if (n !== null && n !== undefined) return { alone: n };
+    }
+    return {};
+  };
   const aloneFor = (b) => {
     const got = {};
     for (const [k, a] of Object.entries(aloneOf)) {
@@ -1269,7 +1277,13 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       ...secondsFor(keep(b), swarmKeep(b)),
       agree,
       // (how many of each one's replies the harness could not read as an answer: unreadIn)
-      unread: { target: unreadIn(tf.samples, b.filter), swarm: unreadIn(sf.samples, b.filter) },
+      // (and of the first small model's own, asked by itself: its score beside the module's is of how it lays a reply
+      // out where most of them were not read)
+      unread: {
+        target: unreadIn(tf.samples, b.filter),
+        swarm: unreadIn(sf.samples, b.filter),
+        ...aloneUnread(b),
+      },
       ...(agree ? {} : { failed: 'the answers could not be compared: ' + String(a.stderr).trim().split('\n').pop() }),
     };
     row.agree = agree;

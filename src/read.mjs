@@ -347,6 +347,9 @@ export function closingForm(messages) {
     bracket: answers.every((a) => /^\([A-Za-z]\)$/.test(a)),
     // (every example's answer is a number and nothing more: what is settled is said as its number)
     number: answers.every((a) => /^-?\$?\d[\d,]*(?:\.\d+)?$/.test(a)),
+    // (every example's answer is marks with a space between each, as "] ] >": an answer of marks is said so)
+    spaced:
+      answers.every((a) => /^[^\sA-Za-z0-9](?: [^\sA-Za-z0-9])*$/.test(a)) && answers.some((a) => a.includes(' ')),
   };
 }
 // AND IT DOES NOT OPEN BY SAYING THE QUESTION AGAIN: lines at the head of the reply that are lines of the person's message, word
@@ -434,6 +437,7 @@ export function closedAs(reply, decided, form, question = '') {
     if (own0)
       return text0.slice(0, text0.lastIndexOf(last0)) + form.lead + ' (' + own0[1].toUpperCase() + ')' + form.tail;
   }
+  if (form.spaced && /^[^\sA-Za-z0-9]{2,}$/.test(a)) a = a.split('').join(' ');
   if (form.number) {
     // (the number in what was settled: the last one, without its sign of money or its commas; none, and nothing is done)
     const nums = a.match(/-?\$?\d[\d,]*(?:\.\d+)?/g);
@@ -477,6 +481,9 @@ export function closedAs(reply, decided, form, question = '') {
       .slice(form.lead.length)
       .trim()
       .replace(/[.!?]+$/, '');
+    // (its own answer of marks written without the spaces the examples show: said with them)
+    if (own && form.spaced && /^[^\sA-Za-z0-9]{2,}$/.test(own))
+      return text.slice(0, text.lastIndexOf(last)) + form.lead + ' ' + own.split('').join(' ') + form.tail;
     if (own && (!form.bracket || /^\([A-Za-z]\)$/.test(own))) return text;
     return text.slice(0, text.lastIndexOf(last)) + close;
   }

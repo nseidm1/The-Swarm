@@ -8425,6 +8425,20 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           ]) === null
         );
       })() &&
+      // (examples that answer in marks with a space between each: an answer of marks is said with the spaces)
+      (() => {
+        const marks = R.closingForm([
+          { role: 'assistant', content: 'a. So the answer is ] ] >.' },
+          { role: 'assistant', content: 'b. So the answer is ) }.' },
+        ]);
+        return (
+          marks.spaced === true &&
+          R.closedAs('work', ']]>', marks) === 'work So the answer is ] ] >.' &&
+          R.closedAs('x. So the answer is ]].', '>', marks) === 'x. So the answer is ] ].' &&
+          R.closedAs('x. So the answer is ] ].', '>', marks) === 'x. So the answer is ] ].' &&
+          lettered.spaced === false
+        );
+      })() &&
       // (a start that only opens a block of code has the code put in it, and the block closed)
       R.continuedFrom('\n```python\n', '```\ndef f(a):\n    return a\n```', 'def f(a):\n    return a') ===
         'def f(a):\n    return a\n```' &&
@@ -10409,6 +10423,90 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       listed: [listed.decided, listed.path],
       unlisted: [unlisted.decided, unlisted.path],
       sent: sent.map((b) => b.max_tokens),
+    },
+  );
+}
+// ---- A REPLY THE REQUEST SETS RULES ON IS WRITTEN WHOLE (src/piece.mjs; src/orchestrate.mjs): counted, chosen, told once
+{
+  const P = await import('../src/piece.mjs');
+  const { answer: orchestrate } = await import('../src/orchestrate.mjs');
+  const { startBriefs } = await import('../src/index.mjs');
+  const Q1 = 'Write a blog post with 40 or more words about hammocks. Do not use any commas.';
+  const rules = P.rulesOf(Q1);
+  const short = 'Hammocks are restful, and cheap.';
+  const long = Array.from({ length: 45 }, (_, i) => 'word' + i).join(' ') + '.';
+  const calls = [];
+  const got = await orchestrate([{ role: 'user', content: Q1 }], {
+    briefs: startBriefs(),
+    ask: async (slot, m) => {
+      const last = m[m.length - 1].content;
+      calls.push({
+        slot: slot.id,
+        again: /breaks these rules/.test(last),
+        told: last,
+        room: slot.maxTokens,
+        sys: m[0].content,
+      });
+      // (the first drafter keeps one rule of two, the second none; told what it breaks, the first keeps both)
+      if (/breaks these rules/.test(last)) return { text: long };
+      return {
+        text:
+          slot.id === 'a-direct'
+            ? long.replace('word1 ', 'word1, ')
+            : 'Rules the request sets (keep every one; do not repeat them in what you write):\n- no comma anywhere\n\n' +
+              short,
+      };
+    },
+  });
+  const plain = await orchestrate([{ role: 'user', content: Q1 }], {
+    briefs: { ...startBriefs(), plan: { ...startBriefs().plan, piece: false } },
+    ask: async () => ({ text: 'ANSWER: hammocks are restful' }),
+  });
+  const R2 = P.rulesOf(
+    'Write a 2 paragraph critique in all capital letters, no lowercase letters allowed. Label each paragraph with PARAGRAPH X.',
+  );
+  const R3 = P.rulesOf(
+    'Write a resume. Make sure to include at least 12 placeholder represented by square brackets, such as [address]. Finish with the phrase "Thank you." and add a postscript starting with P.S.',
+  );
+  check(
+    'a reply the request sets countable rules on is written whole: the rules are read from the request (so many words, no comma, every letter a capital, parts with a label and a number, placeholders, last words, a postscript), the first drafters each write the whole reply with room for its length and told the rules, a reply that says the rules over has them taken off, each is counted against the rules and the one that keeps the most is chosen, the rule it breaks is told to its writer once with the count and the rewriting stands where it keeps more, and no writer or vote is asked; a request that sets no rule, and a plan that says not, go the way they went',
+    rules.map((r) => r.id).join() === 'words-least,no-comma' &&
+      P.keptBy(rules, long) === 2 &&
+      P.keptBy(rules, short) === 0 &&
+      rules[0].broken(short) === 'it has 5 words, and at least 40 are asked for' &&
+      R2.map((r) => r.id).join() === 'capitals,labels' &&
+      R2[1].keeps('PARAGRAPH 1\nA.\n\nPARAGRAPH 2\nB.') &&
+      !R2[1].keeps('PARAGRAPH 1\nA.') &&
+      R2[0].keeps('ALL CAPS HERE.') &&
+      !R2[0].keeps('Not caps.') &&
+      R3.map((r) => r.id).join() === 'placeholders,ends-with,postscript' &&
+      !R3[0].keeps('[a] [b]') &&
+      P.rulesOf('What is the capital of France?').length === 0 &&
+      !P.setsRules('Write a short letter to my boss Sam saying I am quitting.') &&
+      P.withoutRules(
+        'Rules the request sets (keep every one; do not repeat them in what you write):\n- no comma anywhere\n\nThe piece.',
+        rules,
+      ) === 'The piece.' &&
+      P.roomFor('Write 400 or more words') === 1010 &&
+      got.ok &&
+      got.path === 'piece+rewritten' &&
+      got.reply === long &&
+      calls.length === 3 &&
+      calls.filter((c) => c.again).length === 1 &&
+      calls.find((c) => c.again).slot === 'a-direct' &&
+      /it has 1 commas, and none is allowed/.test(calls.find((c) => c.again).told) &&
+      calls.every((c) => c.room >= 900 && /no comma anywhere/.test(c.sys)) &&
+      got.trace.every((r) => r.stage === 'draft') &&
+      got.trace.find((r) => r.slot === 'b-direct').out === short &&
+      plain.path !== 'piece' &&
+      !/piece/.test(plain.path),
+    {
+      ids: rules.map((r) => r.id),
+      path: got.path,
+      calls: calls.map((c) => [c.slot, c.again, c.room]),
+      r2: R2.map((r) => r.id),
+      r3: R3.map((r) => r.id),
+      plain: plain.path,
     },
   );
 }

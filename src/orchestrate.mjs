@@ -46,6 +46,7 @@ import {
   withoutRestating,
 } from './read.mjs';
 import { probeBriefFor, expectBriefFor, langOfQuestion, expectedIn, programOf } from './behave.mjs';
+import { answerPiece, setsRules } from './piece.mjs';
 
 // an answer as it is shown to another slot or to the person: code in a block of its own, anything else as it is
 const fenced = (final) => (isCode(final) ? '\n```\n' + final + '\n```' : ' ' + final);
@@ -420,6 +421,15 @@ async function answerWhole(
     .map(said)
     .join('\n')
     .trim();
+  // A REPLY THE REQUEST SETS COUNTABLE RULES ON IS WRITTEN WHOLE (piece.mjs; plan.piece: false leaves it): so many words, no
+  // comma, every letter a capital, parts with labels. Only a reply written whole can keep such a rule, and a short answer to
+  // agree on is not what was asked for. The first drafters each write it, each is measured against the rules by counting,
+  // and the one that keeps the most goes out
+  if (!wantsCode && plan.piece !== false && setsRules(question)) {
+    const drafters = stage('draft').filter((s) => !s.compute);
+    const first = firstDrafters(drafters, plan.draftFirst) || drafters.slice(0, 2);
+    if (first.length) return answerPiece({ question, kept, house, slots: first, ask, onStep, onStart, isToolCall, t0 });
+  }
   // A DRAFTER THAT ANSWERS BY A PROGRAM (slot.compute, O.6.1a): only where no code is asked for and a program can be run here;
   // anywhere else the slot is left out of the step
   const computing = (slot) => !!slot.compute && slot.stage === 'draft' && !wantsCode && !!print;

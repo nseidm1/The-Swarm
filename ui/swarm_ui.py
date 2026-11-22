@@ -4481,6 +4481,12 @@ def eval_table(d, only=None, cfg=None):
             us, ut = u.get("swarm") or 0, u.get("target") or 0
             mark = (' <b class="evt-unread" title="The harness found no answer in %s of the swarm&#39;s replies and %s of the larger model&#39;s, of %d. Each such reply is marked wrong; the score is of all %d">%s</b>'
                     % (us, ut, n, n, ("no answer in %d of %d" % (us, n)) if us * 4 >= n else ("larger model: no answer in %d of %d" % (ut, n)))) if n and max(us, ut) * 4 >= n else ""
+            # (and the small model asked by itself: where a quarter or more of ITS replies were not read, its figure beside
+            # the swarm's is of how it laid its reply out, and is said so)
+            ua = u.get("alone") or 0
+            if n and ua * 4 >= n:
+                mark += (' <b class="evt-unread" title="Asked by itself, the small model gave %d of %d replies the harness found no answer in. Each is marked wrong: its score here says how it laid its reply out more than what it knew">by itself: no answer in %d of %d</b>'
+                         % (ua, n, ua, n))
             unread_any = unread_any or bool(mark)
             # (a search task where a quarter or more of one model's searches came back with nothing: marked, since what it scored
             # then is the search engines more than the model. The two are not served alike on such a day)
@@ -5353,6 +5359,7 @@ def pretrain_block(d):
     import platform
     apple = sys.platform == "darwin" and platform.machine() == "arm64"  # (MLX runs on Apple silicon only)
     rows, good = [], 0
+    by_role, role_good = False, 0  # (pretraining by role: an adapter for each role a slot can have)
     lmod = {m.get("file"): m for m in live.get("models") or []}
     names = {t["id"]: t["name"] for t in (d.get("equivalence") or {}).get("targets", [])}
     for k in ("a", "b", "c", "d"):
@@ -5367,6 +5374,27 @@ def pretrain_block(d):
         if fail and res and str(fail.get("at", "")) < str(res.get("at", "")):
             fail = None
         lm = lmod.get(m.get("file")) if running or live.get("phase") in ("stopped", "failed") else None
+        # AN ADAPTER FOR EACH ROLE (training/roles.mjs writes roles.json beside the model's adapters; while it trains, what it has
+        # so far is in the job's own live file). Where there is one, it is what the swarm is served with, and the row says each
+        # role: what it was taught on, and what llama.cpp found, or why it has none
+        roles = ((data._json(adir / "roles.json", None) or {}).get("roles")) or ((live.get("roles") or {}) if running else {})
+        if roles and (m.get("engine") or "llama") == "llama":
+            parts = []
+            for rname, does in (("draft", "drafts"), ("check", "checks"), ("write", "writes the reply")):
+                r = roles.get(rname)
+                if not r:
+                    parts.append('<span class="muted"><b>%s</b> (%s): too few right answers of its own to teach it from</span>' % (rname, does))
+                elif r.get("ok"):
+                    px = r.get("perplexity") or {}
+                    parts.append('<span><b>%s</b> (%s): adapted on %d of its own right answers · llama.cpp perplexity on them %s → %s</span>'
+                                 % (rname, does, r.get("examples") or 0, px.get("without"), px.get("with")))
+                else:
+                    parts.append('<span class="bad"><b>%s</b> (%s): not adapted on its %d examples: %s</span>' % (rname, does, r.get("examples") or 0, e(str(r.get("why") or "")[:160])))
+            if not by_role:
+                role_good = sum(1 for r in roles.values() if r and r.get("ok"))
+            by_role = True
+            rows.append('<div class="prerow" data-pre="%s" data-roles="1"><b>%s</b><div><small>%s</small></div></div>' % (e(m.get("file", "")), e(m.get("name", "")), "<br>".join(parts)))
+            continue
         if res and res.get("ok"):
             good += 1
         if (m.get("engine") or "llama") != "llama":
@@ -5421,12 +5449,17 @@ def pretrain_block(d):
     asked = [t["name"] for t in eqv.get("targets", []) if t["id"] in (eqv.get("asked") or [])]
     items = "every body of work" if asked and len(asked) == len(eqv.get("targets", [])) else ", ".join(asked)
     out = ['<div class="panel prep" id="prebox"%s>' % (' data-running="1"' if running else ""),
-           '<div class="proghead"><span class="memnum"%s>%s<span>of %d adapted<small>LoRA, with MLX</small></span></span>'
-           '<span class="progline">Each small model is taught %s&#39;s right answers to the train questions of %s. An adapter is served only where it makes the swarm better on held questions.</span><span class="evctl">%s</span></div>'
+           '<div class="proghead"><span class="memnum"%s>%s<span>of %d %s<small>LoRA, with MLX</small></span></span>'
+           '<span class="progline">%s</span><span class="evctl">%s</span></div>'
            # (while it runs, how many are adapted is not known until each model's run is checked: a bar that moves in place of the
            # number; stopped or failed, the adapters that were there are there still, and the number comes back as it was)
-           % (' aria-busy="true"' if running else "", busy("0") if running else '<b class="pct">%d</b>' % good, len(rows),
-              e(tgt.get("name", "the larger model")), e(items or "this pass"), _starts(ctl, ("pre-go", "pre-stop")))]
+           # (by role, as the run pretrains: three roles, and how many have an adapter. Else the one adapter a model, as before)
+           % (' aria-busy="true"' if running else "", busy("0") if running else '<b class="pct">%d</b>' % (role_good if by_role else good),
+              3 if by_role else len(rows), "roles adapted" if by_role else "adapted",
+              ("Pretraining knows the arrangement: for each role a slot can have (draft, check, write the reply) a small model is taught that role&#39;s own requests on the train questions of %s, with the answers it gave that were right. "
+               "Each request is then served with the adapter of its slot&#39;s role. Evaluate the swarm, as configured and pretrained, says what they bought." % e(items or "this pass")) if by_role or not good else
+              ("Each small model is taught %s&#39;s right answers to the train questions of %s. An adapter is served only where it makes the swarm better on held questions." % (e(tgt.get("name", "the larger model")), e(items or "this pass"))),
+              _starts(ctl, ("pre-go", "pre-stop")))]
     # (why Pretrain waits for an evaluation: one quiet line under the head, across the card, as the Train card says it; it stood
     # in the head's narrow column under the button. Not said while something else has the models: that line says why it waits)
     if needs_eval(d) and not running and not held:
@@ -5457,7 +5490,7 @@ def pretrain_block(d):
     # HOW THE ADAPTERS WERE JUDGED (adapters.mjs judge): the held questions, the swarm without them and with them, and whether
     # they are served for it. Pretrain ends with it; the box below still lets a person say otherwise
     jd = data._json(root / ".work" / "library" / "adapters" / str(tgt.get("id", "")) / "judged.json", None)
-    if jd and not running:
+    if jd and not running and not by_role:
         out.append('<p class="small %s" style="margin:12px 0 0"><b>Judged</b> %s UTC on %d held questions: %d right without the adapters, %d with them (%+.1f points, paired error %.1f). %s</p>'
                    % ("" if jd.get("served") else "muted", e(_day(jd.get("at"))), jd.get("questions", 0), jd.get("without", 0), jd.get("with", 0), 100 * (jd.get("gain") or 0), 100 * (jd.get("error") or 0),
                       ("The swarm would be served with them." if jd.get("served") else "They would not be served: not better by more than twice the error.") + " (A trial: the configuration was not changed.)" if jd.get("dry")

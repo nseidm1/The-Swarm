@@ -6,6 +6,17 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A reply the request sets rules on is written whole** (2026-11-22). Asked for a resume with twelve placeholders the
+  module gave 43 words and six; asked for 400 words it gave 297. Such a request went the way a question goes: a line of
+  answer from each drafter, a vote, and a reply written from the line. Where a request sets a rule that can be counted
+  (so many words or sentences, no comma, every letter a capital, labelled parts, placeholders, bullets), the first
+  drafters now each write the whole reply, each is counted against the rules, the one that keeps the most goes out,
+  and a rule it breaks is told to its writer once (`src/piece.mjs`, `plan.piece`). On a standard test of following
+  instructions: 15 of 20 before, 17 after; the small model alone 18.
+- **An answer of marks is said with the spaces the examples show** (2026-11-22). `]]` where the examples close `] ] >`.
+- **A small model's unread replies are counted too** (2026-11-22). Asked by itself on tasks of worked examples a small
+  model gave 217 of 240 replies the harness read no answer in, and scored 4% and under 1% where the module scored 48%
+  and 41%. That difference is mostly of form. An evaluation now counts those replies and the table marks the task.
 - **A drafter whose answer is none of the options is asked for the option** (2026-11-22). Where every drafter worked
   out something that was not listed, no answer was an option and the reply named none. Each such drafter is asked
   once which option is closest to its work (`plan.optionAgain`).
