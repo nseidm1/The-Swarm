@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The memory a swarm is measured to take counts its models' weights** (2026-11-22). On a Mac the measurement read
+  what each model's process had written and held on the GPU, which leaves out a model file mapped into the process:
+  the weights. A swarm of one 1.1 GB model read 1 GB where it held 2, and 18 times smaller than the larger model
+  where it was 9. The mapped files a process holds in memory are now counted.
 - **A swarm with no decision model has its answers in words compared** (2026-11-22). The check of the reader of answers
   in words gave up where there was no decision model, before it looked at the judge named apart from it, so a pass
   compared none of those answers and stopped at its first question. The judge is now the reader where there is no

@@ -3571,11 +3571,23 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
 // ---- 6af: WHAT THE SWARM TAKES IN MEMORY, MEASURED (training/support/measure-memory.mjs): each model's own process and the
 // decider's, by what the machine says they hold, not by the size of their files
 {
-  const { footprintIn, gbOfPid, pidOnPort, measureSwarm } = await import('../training/support/measure-memory.mjs');
+  const { footprintIn, mappedIn, gbOfPid, pidOnPort, measureSwarm } =
+    await import('../training/support/measure-memory.mjs');
+  // (a server that maps its model's file: 954.1M written and on the GPU, and 1.0G of a 1.1G file in memory, none written to)
+  const row = (v, r, d) =>
+    'mapped file                        ' +
+    v +
+    '     ' +
+    r +
+    '       ' +
+    d +
+    '       0K       0K       0K       0K        8 \n';
+  const vmMapped = 'Physical footprint:         954.1M\nPhysical footprint (peak):  1.0G\n' + row('1.1G', '1.0G', '0K');
+  const vmWritten = 'Physical footprint:         2.0G\n' + row('3.0G', '2.5G', '512.0M');
   const vm = 'Process: llama-server [8868]\nPhysical footprint:         10.3G\nPhysical footprint (peak):  10.4G\n';
   const exec = (cmd, args) =>
     cmd === 'vmmap'
-      ? { 11: vm, 12: 'Physical footprint:         838.0M\n', 13: '' }[args[1]] || ''
+      ? { 11: vm, 12: 'Physical footprint:         838.0M\n', 13: '', 15: vmMapped, 16: vmWritten }[args[1]] || ''
       : cmd === 'ps'
         ? { 13: ' 2202009\n', 14: '' }[args[3]] || ''
         : cmd === 'lsof' && args[1] === '-iTCP:8009'
@@ -3586,11 +3598,16 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const far = measureSwarm({ members: { a: 11, b: 12 }, decider: 'http://10.0.0.5:8009', target: 18 }, mac);
   const gone = measureSwarm({ members: { a: 11, b: 14 }, decider: 'http://127.0.0.1:8009', target: 18 }, mac);
   check(
-    "the memory a swarm takes is measured from its own processes: on a Mac a process's physical footprint, elsewhere (or where that says nothing) its resident size; the decider is found by the port it listens on, and one that is not on this machine is left out and said to be; the saving is worked out against the larger model's size; and where a small model cannot be measured nothing is written down",
+    "the memory a swarm takes is measured from its own processes: on a Mac a process's physical footprint and the files mapped into it that are in memory and not written to (a model's weights, which the footprint leaves out; what was written to is in the footprint and is not counted twice), elsewhere (or where that says nothing) its resident size; the decider is found by the port it listens on, and one that is not on this machine is left out and said to be; the saving is worked out against the larger model's size; and where a small model cannot be measured nothing is written down",
     footprintIn(vm) === 10.3 &&
       footprintIn('nothing') === null &&
       gbOfPid(11, mac) === 10.3 &&
       gbOfPid(12, mac) === 0.82 &&
+      mappedIn(vmMapped) === 1 &&
+      mappedIn(vmWritten) === 2 &&
+      mappedIn(vm) === 0 &&
+      gbOfPid(15, mac) === 1.93 &&
+      gbOfPid(16, mac) === 4 &&
       gbOfPid(13, mac) === 2.1 &&
       gbOfPid(13, { platform: 'linux', exec }) === 2.1 &&
       gbOfPid(14, mac) === null &&

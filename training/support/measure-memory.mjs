@@ -5,8 +5,11 @@
 // model's 18. (That store is now off, src/members.mjs --cache-ram 0; it was first misread as a two-bit model's weights unpacked.)
 // So a pass measures each model's own process while it serves, and writes that down beside the estimate.
 //   gbOfPid(pid)            -> GB that process holds, or null. On a Mac its physical footprint (vmmap; what Activity Monitor
-//                              calls Memory, which counts what a model holds on the GPU); elsewhere, or where vmmap says nothing,
-//                              its resident size (ps)
+//                              calls Memory, which counts what a model holds on the GPU) and the files mapped into it that
+//                              are in memory and not written to, which the footprint leaves out: a model's weights are such
+//                              a file (found 2026-11-22: the server of a 1.1 GB model read 0.95 GB, its weights not
+//                              counted, and the swarm read 18 times smaller where it was 9); elsewhere, or where vmmap
+//                              says nothing, its resident size (ps), which counts them
 //   pidOnPort(port)         -> the process listening on a port of this machine, or null (a decider is known by its address)
 //   measureSwarm({ members: { a: pid, ... }, decider: url, target: gb }) -> { members: { a: gb }, decider: gb, swarm, target,
 //                              saved, savedGb, at } or null where no member could be measured. A decider that does not run on
@@ -23,17 +26,26 @@ const run = (cmd, args, timeout = 8000) => {
     return '';
   }
 };
+const PER_GB = { K: 1024 * 1024, M: 1024, G: 1 };
 // "Physical footprint:         10.3G" -> 10.3 (K, M and G as vmmap writes them)
 export function footprintIn(text) {
   const m = /^Physical footprint:\s+([\d.]+)([KMG])/m.exec(String(text || ''));
   if (!m) return null;
-  return Number(m[1]) / { K: 1024 * 1024, M: 1024, G: 1 }[m[2]];
+  return Number(m[1]) / PER_GB[m[2]];
+}
+// "mapped file      1.1G     1.0G       0K ..." (virtual, resident, dirty) -> 1.0: the files mapped into the process that are
+// in memory and were not written to. The footprint counts what a process wrote and what it holds on the GPU, and not these:
+// an engine that maps a model's file holds the weights here. (What was written to is in the footprint: it is not counted twice.)
+export function mappedIn(text) {
+  const m = /^mapped file\s+([\d.]+)([KMG])\s+([\d.]+)([KMG])\s+([\d.]+)([KMG])/m.exec(String(text || ''));
+  return m ? Math.max(0, Number(m[3]) / PER_GB[m[4]] - Number(m[5]) / PER_GB[m[6]]) : 0;
 }
 export function gbOfPid(pid, { platform = process.platform, exec = run } = {}) {
   if (!Number.isInteger(pid) || pid <= 0) return null;
   if (platform === 'darwin') {
-    const gb = footprintIn(exec('vmmap', ['-summary', String(pid)]));
-    if (gb) return r2(gb);
+    const text = exec('vmmap', ['-summary', String(pid)]);
+    const gb = footprintIn(text);
+    if (gb) return r2(gb + mappedIn(text));
   }
   const kb = Number(exec('ps', ['-o', 'rss=', '-p', String(pid)]).trim());
   return kb > 0 ? r2(kb / 1024 / 1024) : null;
