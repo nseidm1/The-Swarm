@@ -104,9 +104,14 @@ A runtime MUST choose the arrangement for each request by its class, decided fro
 1. **`tools`**: the request offers one or more tools.
 2. **`talk`**: the conversation already holds a turn with the role `assistant`.
 3. **`code`**: the text of the last `user` turn matches, ignoring case, the regular expression
-   `code block|write a (?:\w+ )*function|corrected function|give the (?:\w+ )*function`
+   `code block|write a (?:\w+ )*(?:function|program|method)|write a (?:\w+ )*solution\b[\s\S]*```|corrected function|give the (?:\w+ )*function`
    (where content is a list of parts, its text parts are joined).
 4. **`words`**: anything else.
+
+**A reply already begun.** Where the last message of the conversation has the role `assistant`, holds
+text and makes no tool call, it is not a turn of the conversation: it is the start of the reply. The
+class is decided, and the answer procedure is run, on the conversation without it, and the reply is
+then made to follow the start (R.1.15).
 
 `system` turns do not count toward any class. For a request of class C, the runtime MUST use `kinds[C].slots`, `kinds[C].plan`
 and `kinds[C].flow` where each is present, and the shared `slots`, `plan` and `flow` otherwise. Training MUST classify its own
@@ -1496,11 +1501,18 @@ After O.8.6, when `plan.closeAs` is `shown`, the reply is non-empty, decided is 
    non-empty text (a sentence ends at `.`, `!` or `?` followed by white space, or at a line break). With fewer than two
    such messages there is no FORM and nothing is done.
 2. LEAD is the longest run of leading words that every one of those sentences begins with, leaving each at least one
-   word more. With fewer than two words in LEAD there is no FORM. TAIL is the last character of the sentences where
+   word more. With fewer than two words in LEAD there is no FORM, unless LEAD is one word that holds no
+   letter and no digit (a mark, as in `#### 18`). TAIL is the last character of the sentences where
    every one ends with the same one of `.`, `!`, `?`; otherwise empty. Each sentence's ANSWER is what lies between
    LEAD and TAIL; where one is empty or longer than 200 characters there is no FORM. BRACKET holds when every ANSWER
-   is one letter in round brackets.
+   is one letter in round brackets. NUMBER holds when every ANSWER is one number and nothing more (digits, with an
+   optional leading minus, sign of money, commas and one decimal part).
 3. A is decided, trimmed, without trailing full stops; where it holds a line break nothing is done. Where BRACKET
+   holds, and the reply's last sentence does not begin with LEAD (ignoring case) and ends with `answer is`, an
+   optional colon, and one letter, bracketed or not, with an optional `.` or `!` (ignoring case), that sentence is
+   replaced by LEAD, a space, that letter in upper case in round brackets, and TAIL, and nothing more is done by this
+   section but step 7. Where NUMBER holds, A becomes the last number in A, without sign of money or commas; where A
+   holds no number nothing more is done. Where BRACKET
    holds and A begins with a letter, bracketed or not, that stands alone, A becomes that letter, upper case, in round
    brackets. Where BRACKET holds and A does not begin so, A becomes the bracketed letter of the one option of the
    question whose words are A (an option is a line of the question that begins with one letter in round brackets;
@@ -1827,7 +1839,7 @@ tools. The **tool-call code** of a reply is determined as follows:
 
 A question wants code if and only if its text matches
 ```
-/code block|write a (?:\w+ )*function|corrected function|give the (?:\w+ )*function/i
+/code block|write a (?:\w+ )*(?:function|program|method)|write a (?:\w+ )*solution\b[\s\S]*```|corrected function|give the (?:\w+ )*function/i
 ```
 
 #### R.1.5 The answer block ("last block")
@@ -2037,6 +2049,29 @@ The first paragraph is never removed, so a reply of one paragraph is returned as
 reply that is nothing but such talk is for R.1.13 to read.
 
 ---
+
+#### R.1.15 What follows a reply already begun
+
+Given the start B (4.4), the reply R the answer procedure gave and the decided answer D:
+
+1. If B is empty or only white space, the result is R.
+2. CODE is D where D is code (R.1.8); else the text of the last fenced block of R; else empty.
+3. If B holds an odd number of fence marks (a block is open) and CODE is not empty: TAIL is the text of
+   B after its last fence line. If TAIL holds a Python function head (`def NAME(`), take the last one,
+   and with INNER its indentation plus four spaces (where TAIL is empty or only white space, the result
+   is CODE without trailing white space, a line end and a fence mark: the block the start opened is
+   closed):
+   * if CODE declares `def NAME(`: the BODY is the lines after the head (the head ends at the first
+     line ending in a colon) while they are blank or set in further than the head, less a docstring
+     at its start. If the BODY holds nothing, go to step 4. The result is every other line of CODE (the
+     lines before the head and after the body), then the BODY, each of the two set in at INNER with
+     its own least indentation removed, ended by one line end;
+   * if CODE declares no function at all, the result is CODE set in at INNER;
+   * otherwise go to step 4.
+4. If R, less leading white space, begins with B trimmed, the result is the rest of it.
+5. Otherwise the result is R.
+
+Where the result differs from R the path gains `+continued`.
 
 ### R.2 Behaviour grouping of code answers ("try")
 
@@ -2867,7 +2902,8 @@ caller's `messages` **exactly as received**: no brief, no system text, no exampl
 - `max_tokens`: the slot's `maxTokens`, or 400 where the slot has none (700 for the fallback slot of T.4.1);
 - the slot's `temperature`, `top_p`, `top_k` where present (and the member's own sampling settings);
 - `stream: false`;
-- **only if the caller's `tools` is a non-empty array**: `tools` as received, and `tool_choice` as received if the caller's
+- **only if the caller's `tools` is a non-empty array**: `tools` as received, `parallel_tool_calls` (T.8.2), and
+  `tool_choice` as received if the caller's
   body contains `tool_choice` (any value, including null). If the caller's `tools` is empty or absent, neither is sent, and
   the member is asked as for a plain answer (the runtime then also forbids, by logit bias, any single token that opens a
   tool call in the model's template, as in S3.6).
@@ -3032,8 +3068,11 @@ function, nor suppress calls when it is `"none"`; a proposal is judged only by T
 under `"required"`, and a call to a different offered tool MAY be returned when one function was named, if that is what the
 proposers produced and the choice of T.6 selected.
 
-T.8.2 `parallel_tool_calls` and other request members are not forwarded to proposers in mode swarm (only `messages`, `tools`
-and `tool_choice` from the caller's body are used). In mode lead the body is forwarded whole (T.3).
+T.8.2 Every request to a proposer that carries tools MUST carry `parallel_tool_calls`: `false` where the caller's body
+gives `false`, and `true` otherwise (several calls may be made in one reply unless the caller said not; an engine may
+return one call alone where the request does not say so). Other request members are not forwarded to proposers in mode
+swarm (only `messages`, `tools`, `tool_choice` and `parallel_tool_calls` from the caller's body are used). In mode lead
+the body is forwarded whole (T.3), with `parallel_tool_calls` as above.
 
 #### T.9 A reply is answered (mode swarm)
 

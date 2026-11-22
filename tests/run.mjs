@@ -8397,7 +8397,37 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
         'Vincent',
         lettered,
         'Who?\nOptions:\n(A) Louis\n(B) Gwen\n(C) Vincent',
-      ) === 'It is Vincent. The answer is (C). So the answer is (C).' &&
+      ) === 'It is Vincent. So the answer is (C).' &&
+      // (a reply's own letter, said in other words than the form's, is said in the form: a reader of the form reads no other)
+      R.closedAs(
+        'Susan was free then. The answer is (A).',
+        'between 6pm and 7pm',
+        lettered,
+        '(A) 6pm to 7pm\n(B) 1pm to 2pm',
+      ) === 'Susan was free then. So the answer is (A).' &&
+      R.closedAs('It is b. the answer is: b', 'x y', lettered) === 'It is b. So the answer is (B).' &&
+      // (examples that close with a mark and a number are a form, and what was settled is said as its number)
+      (() => {
+        const marked = R.closingForm([
+          { role: 'assistant', content: 'She sells 9 at $2.\n#### 18' },
+          { role: 'assistant', content: 'Half of 10.\n#### 5' },
+        ]);
+        return (
+          !!marked &&
+          marked.lead === '####' &&
+          marked.number === true &&
+          R.closedAs('Janet makes 26 dollars every day.', '$1,026 dollars', marked) ===
+            'Janet makes 26 dollars every day. #### 1026' &&
+          R.closedAs('No number here.', 'many', marked) === 'No number here.' &&
+          R.closingForm([
+            { role: 'assistant', content: 'a.\nYes 1' },
+            { role: 'assistant', content: 'b.\nYes 2' },
+          ]) === null
+        );
+      })() &&
+      // (a start that only opens a block of code has the code put in it, and the block closed)
+      R.continuedFrom('\n```python\n', '```\ndef f(a):\n    return a\n```', 'def f(a):\n    return a') ===
+        'def f(a):\n    return a\n```' &&
       R.closedAs('It is 3.', '3', lettered, 'How many?\n(A) 1\n(B) 2') === 'It is 3.' &&
       R.closedAs('It is red.', 'red', lettered, '(A) red\n(B) Red') === 'It is red.' &&
       // (a reply that already ends with the form around an answer of its own stands, whatever was settled; one whose last
@@ -10181,6 +10211,105 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       },
     );
   }
+}
+// ---- A REPLY ALREADY BEGUN IS CONTINUED (src/read.mjs begunOf, continuedFrom; src/orchestrate.mjs answer, classOf)
+{
+  const R10 = await import('../src/read.mjs');
+  const { answer: orchestrate, classOf } = await import('../src/orchestrate.mjs');
+  const { startBriefs } = await import('../src/index.mjs');
+  const HEAD =
+    'from typing import List\n\n\ndef total(xs: List[int]) -> int:\n    """ Sum the numbers.\n    >>> total([1, 2])\n    3\n    """\n';
+  const ASK =
+    'Write a solution to the following problem and make sure that it passes the tests:\n```python\n' + HEAD + '\n```\n';
+  const BEGUN = 'Here is the completed function:\n```python\n' + HEAD + '\n';
+  const WHOLE =
+    'import math\n\ndef helper(x):\n    return x\n\ndef total(xs):\n    """Sum."""\n    s = 0\n    for x in xs:\n        s += helper(x)\n    return s';
+  const cont = R10.continuedFrom(BEGUN, '```python\n' + WHOLE + '\n```', WHOLE);
+  const msgs = [
+    { role: 'user', content: ASK },
+    { role: 'assistant', content: BEGUN },
+  ];
+  const seen = [];
+  const got = await orchestrate(msgs, {
+    briefs: startBriefs(),
+    behave: null,
+    ask: async (slot, m) => (seen.push(m[m.length - 1].content), { text: '```python\n' + WHOLE + '\n```' }),
+  });
+  // the start and what follows it are the function: run it
+  let ran = '';
+  try {
+    const { execFileSync } = await import('node:child_process');
+    ran = execFileSync('python3', ['-I', '-c', HEAD + '\n' + got.reply + '\nprint(total([1, 2, 3]))'], {
+      encoding: 'utf8',
+    }).trim();
+  } catch (e) {
+    ran = 'failed: ' + String(e.stderr || e.message).slice(-200);
+  }
+  check(
+    "a conversation that ends with the assistant's own turn is a reply already begun: the conversation before it is what is answered (the start is not taken for the question, and is no turn that makes the conversation a talk), a request to write a solution to a problem given as code asks for code, and the reply is what follows the start: where the start stands inside a Python function, the body of the function the swarm settled on, set in as the start sets it in, less its docstring, with the import and the helper it wrote beside the function put first inside it, so that the start and the reply together run; a reply that repeats the start has it taken off; and with no start a reply stands as it is",
+    R10.begunOf(msgs) === BEGUN &&
+      R10.begunOf(msgs.slice(0, 1)) === '' &&
+      R10.asksForCode(ASK) &&
+      !R10.asksForCode('Write a solution to the housing shortage.') &&
+      classOf(msgs) === 'code' &&
+      classOf([...msgs, { role: 'user', content: 'and now?' }]) === 'talk' &&
+      cont ===
+        '    import math\n\n    def helper(x):\n        return x\n\n    s = 0\n    for x in xs:\n        s += helper(x)\n    return s\n' &&
+      R10.continuedFrom(BEGUN, 'x', 'import math\nreturn math.fsum(xs)') ===
+        '    import math\n    return math.fsum(xs)\n' &&
+      R10.continuedFrom('The answer is', 'The answer is 42.', '42') === ' 42.' &&
+      R10.continuedFrom('', 'as it is', '') === 'as it is' &&
+      R10.continuedFrom(BEGUN, 'It sums them.', 'It sums them.') === 'It sums them.' &&
+      got.ok &&
+      got.begun === true &&
+      /\+continued/.test(got.path) &&
+      got.reply === cont &&
+      seen.every((q) => !q.startsWith('Here is the completed function')) &&
+      ran === '6',
+    { cont, path: got.path, reply: got.reply, ran, cls: classOf(msgs) },
+  );
+}
+// ---- SEVERAL CALLS AT ONCE (src/members.mjs, src/tools.mjs): the engine is told several calls may be made, unless the caller says not
+{
+  const T = await import('../src/tools.mjs');
+  const { startBriefs } = await import('../src/index.mjs');
+  const tools = [
+    {
+      type: 'function',
+      function: {
+        name: 'play',
+        parameters: { type: 'object', properties: { artist: { type: 'string' } }, required: ['artist'] },
+      },
+    },
+  ];
+  const two = [
+    { id: 'c1', type: 'function', function: { name: 'play', arguments: '{"artist":"A"}' } },
+    { id: 'c2', type: 'function', function: { name: 'play', arguments: '{"artist":"B"}' } },
+  ];
+  const sent = [];
+  const run = (extra) =>
+    T.answerTools([{ role: 'user', content: 'Play A and B.' }], {
+      tools,
+      briefs: startBriefs(),
+      ask: async (slot, msgs, o) => (sent.push(o), { ok: true, content: '', calls: two, text: '' }),
+      decide: async () => ({ ok: false, why: 'not asked' }),
+      ...extra,
+    });
+  const got = await run({});
+  const asDefault = sent.splice(0);
+  await run({ parallel_tool_calls: false });
+  const asFalse = sent.splice(0);
+  const src = fs.readFileSync(new URL('../src/members.mjs', import.meta.url), 'utf8');
+  check(
+    'several calls may be made in one reply: the engine is told so with every request that carries tools (it gives one call alone where it is not told: a question that needs two calls got one), a caller that says not is obeyed, and both calls of a turn go out',
+    /parallel_tool_calls: parallel_tool_calls !== false/.test(src) &&
+      asDefault.length > 0 &&
+      asDefault.every((o) => o.parallel_tool_calls === undefined) &&
+      asFalse.length > 0 &&
+      asFalse.every((o) => o.parallel_tool_calls === false) &&
+      (got.calls || []).length === 2,
+    { calls: got.calls, path: got.path, asFalse: asFalse.slice(0, 1) },
+  );
 }
 // ---- AN ADAPTER FOR EACH ROLE (training/roles.mjs; src/index.mjs roleLoras): what a role's examples are, and which adapter a
 // request names

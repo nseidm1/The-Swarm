@@ -252,7 +252,8 @@ const sendTo = async (base, { model, messages, tools, stop }) => {
 export const askToolsAt =
   (base, { model = 'model', stop = null } = {}) =>
   ({ messages, tools }) =>
-    sendTo(base, { model, messages, tools, stop });
+    // (several calls may be made in one reply: a model asked by itself is asked as the swarm asks its own)
+    sendTo(base, { model, messages, tools, stop, parallel_tool_calls: true });
 
 // ---- THE FUNCTIONS WRITTEN INTO THE CONVERSATION. A server may not return what its model wrote: the larger model first measured
 // here, served by its maker's own server, wrote two and three calls where a question needed them, and its server returned the first

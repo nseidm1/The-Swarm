@@ -6,6 +6,19 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Several calls at once** (2026-11-22). A turn that needs two calls got one: the engine returns one call a reply
+  unless the request says several may be made, and the swarm never said so. It now does, unless the caller says not
+  (`parallel_tool_calls: false`). The small model alone, asked the same way, gave both calls where it had given one.
+- **Replies a harness could not read** (2026-11-22). A probe of every evaluation task counts the replies its harness
+  read no answer out of, beside the larger model's. Three faults of form were found and mended: a start that only
+  opens a block of code has the code put in it and the block closed; examples that close with a mark and a number
+  (`#### 18`) are a form, and what was settled is said as its number; and a reply that ends "The answer is (A)."
+  where the examples close "So the answer is (B)." has its own answer said in the examples' words.
+- **A reply already begun is continued** (2026-11-22). A conversation that ends with the assistant's own turn gives
+  the start of the reply. The swarm took that start for the question: a benchmark that gives a function's head and
+  reads what follows as its body got words about the function (1 of 20, the small model alone 11). The conversation
+  before the start is now answered, and the reply follows the start: for a Python function, its body. A request to
+  "write a solution" to a problem given as code now counts as asking for code.
 - **Drafts are run in the language they are written in** (2026-11-22). Where code is asked for, the drafts are run on
   the same calls and those that do the same are one answer; that was done for JavaScript alone. It is now done for
   TypeScript, Python, Go, Swift, Dart, Flutter and Kotlin as well (`src/langs.mjs`). Each language but TypeScript runs

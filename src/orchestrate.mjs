@@ -29,6 +29,8 @@ import {
   plain,
   isCode,
   fenceOf,
+  begunOf,
+  continuedFrom,
   asksForCode,
   asksForPiece,
   MARKER,
@@ -146,6 +148,8 @@ export const kindOf = (question) => (asksForCode(String(question || '')) ? 'code
 export const CLASSES = ['tools', 'talk', 'code', 'words'];
 export function classOf(messages = [], { tools = null } = {}) {
   if (Array.isArray(tools) && tools.length) return 'tools';
+  // (a reply already begun is not a turn of the conversation: it is the start of the answer to it)
+  if (begunOf(messages)) messages = messages.slice(0, -1);
   const ms = (Array.isArray(messages) ? messages : []).filter(
     (m) => m && (m.role === 'user' || m.role === 'assistant'),
   );
@@ -255,7 +259,17 @@ export function partsOf(text, most = PART_CHARS) {
   return out;
 }
 
+// A REPLY ALREADY BEGUN (a conversation that ends with the assistant's own turn): the conversation before it is answered, and
+// the reply is what follows the start (read.mjs continuedFrom). Measured 2026-11-22: a benchmark gives the head of a function
+// as the start of the reply and reads what follows as its body; the start was taken for the question and answered in words.
 export async function answer(messages, opts) {
+  const begun = begunOf(messages);
+  if (!begun) return answerAsked(messages, opts);
+  const got = await answerAsked(messages.slice(0, -1), opts);
+  const reply = continuedFrom(begun, got.reply, got.decided);
+  return { ...got, reply, begun: true, path: reply !== got.reply ? got.path + '+continued' : got.path };
+}
+async function answerAsked(messages, opts) {
   const mine = briefsFor(opts.briefs, '', classOf(messages)) || {};
   const plan = mine.plan || {};
   const lastAt = messages.map((m) => m.role).lastIndexOf('user');

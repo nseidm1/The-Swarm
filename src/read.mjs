@@ -95,7 +95,9 @@ export const textOf = (content) =>
         ? ''
         : String(content);
 export const asksForCode = (question) =>
-  /code block|write a (?:\w+ )*function|corrected function|give the (?:\w+ )*function/i.test(String(question || ''));
+  /code block|write a (?:\w+ )*(?:function|program|method)|write a (?:\w+ )*solution\b[\s\S]*```|corrected function|give the (?:\w+ )*function/i.test(
+    String(question || ''),
+  );
 // DOES A QUESTION ASK FOR A PIECE OF WRITING (a text, a message, an email, a note to send)? Then the reply is the piece itself,
 // and is never written out "in full" with reasons and next steps around it (orchestrate.mjs writeAs 'full'; SwOA specification
 // R.5): a verb of writing, and within 60 characters of it, in the same sentence, the name of a thing that is sent or posted
@@ -120,6 +122,83 @@ export const fenceOf = (final) => {
   if (m && m !== 'ts' && m !== 'python') return FENCE[m];
   return js && m === 'ts' ? 'ts' : 'js';
 };
+// A REPLY ALREADY BEGUN. A conversation that ends with the assistant's own turn gives the start of the reply, and what is
+// wanted is what follows it. begunOf: that start, or '' (the last message is a person's, or there is none).
+export const begunOf = (messages) => {
+  const last = Array.isArray(messages) && messages.length ? messages[messages.length - 1] : null;
+  if (!last || last.role !== 'assistant' || (Array.isArray(last.tool_calls) && last.tool_calls.length)) return '';
+  return typeof last.content === 'string' ? last.content : '';
+};
+// WHAT FOLLOWS THE START. Where the start has opened a block of code and stands inside a Python function (its head, perhaps
+// its docstring), and the settled answer is that function written whole, what follows is the function's BODY, set in as the
+// start sets it in, with whatever else the answer wrote beside the function (an import, a helper) put first inside it: the
+// start and the continuation together are then the function. Where the reply repeats the start, the start is taken off.
+// Otherwise the reply stands as it is.
+export function continuedFrom(begun, reply, decided = '') {
+  const b = String(begun || '');
+  const r = String(reply || '');
+  if (!b.trim()) return r;
+  const open = (b.match(/```/g) || []).length % 2 === 1;
+  const fenced = [...r.matchAll(/```[a-zA-Z]*\n([\s\S]*?)(?:```|$)/g)].map((m) => m[1]);
+  const code = isCode(decided) ? String(decided) : fenced.length ? fenced[fenced.length - 1] : '';
+  if (open && code) {
+    const tail = b.slice(b.lastIndexOf('```')).replace(/^```[^\n]*\n?/, '');
+    const body = pythonBodyFor(tail, code);
+    if (body !== null) return body;
+    // (the start opened the block and wrote nothing in it: the code goes in it, and the block is closed)
+    if (!tail.trim()) return code.replace(/\s+$/, '') + '\n```';
+  }
+  if (r.trimStart().startsWith(b.trim())) return r.trimStart().slice(b.trim().length);
+  return r;
+}
+const indentOf = (line) => line.match(/^[ \t]*/)[0];
+function pythonBodyFor(tail, code) {
+  const heads = [...String(tail).matchAll(/^([ \t]*)(?:async\s+)?def\s+([A-Za-z_]\w*)\s*\(/gm)];
+  if (!heads.length) return null;
+  const head = heads[heads.length - 1];
+  const inner = head[1] + '    ';
+  const lines = String(code).replace(/\r/g, '').split('\n');
+  const at = lines.findIndex((l) => new RegExp('^[ \\t]*(?:async\\s+)?def\\s+' + head[2] + '\\s*\\(').test(l));
+  const set = (ls) => {
+    const real = ls.filter((l) => l.trim());
+    const least = real.length ? Math.min(...real.map((l) => indentOf(l).length)) : 0;
+    return ls.map((l) => (l.trim() ? inner + l.slice(least) : ''));
+  };
+  // (the answer is the body alone: no function is declared at its top)
+  if (at < 0) return /^(?:async\s+)?def\s/m.test(code) ? null : set(lines).join('\n').replace(/\s+$/, '') + '\n';
+  const own = indentOf(lines[at]).length;
+  let from = at;
+  while (from < lines.length && !/:\s*(?:#.*)?$/.test(lines[from])) from++;
+  from++;
+  let to = from;
+  while (to < lines.length && (!lines[to].trim() || indentOf(lines[to]).length > own)) to++;
+  let body = lines.slice(from, to);
+  // (its docstring is in the start already)
+  const first = body.findIndex((l) => l.trim());
+  const q = first >= 0 ? (body[first].trim().match(/^[rRuU]?("""|''')/) || [])[1] : '';
+  if (q) {
+    let end = first;
+    if (
+      body[first]
+        .trim()
+        .replace(/^[rRuU]?/, '')
+        .slice(3)
+        .includes(q)
+    )
+      end = first;
+    else {
+      end = first + 1;
+      while (end < body.length && !body[end].includes(q)) end++;
+    }
+    body = body.slice(end + 1);
+  }
+  if (!body.some((l) => l.trim())) return null;
+  const beside = [...lines.slice(0, at), ...lines.slice(to)].filter(
+    (l, i, a) => l.trim() || (i > 0 && a[i - 1].trim()),
+  );
+  const outer = beside.some((l) => l.trim()) ? set(beside) : [];
+  return [...outer, ...set(body)].join('\n').replace(/\s+$/, '') + '\n';
+}
 export function finalOf(text, marker = MARKER, wantsCode = false) {
   const block = lastBlock(text, marker, wantsCode);
   if (block) return block.code;
@@ -255,13 +334,20 @@ export function closingForm(messages) {
   let n = 0;
   // (the words every one begins with, leaving each at least one word of its own: its answer)
   while (words.every((w) => w.length > n + 1 && w[n] === words[0][n])) n++;
-  if (n < 2) return null;
+  // (two words or more; or one that is a mark and no word, as in examples that close "#### 18")
+  if (n < 2 && !(n === 1 && !/[A-Za-z0-9]/.test(words[0][0]))) return null;
   const lead = words[0].slice(0, n).join(' ');
   const rests = lasts.map((l) => l.slice(lead.length).trim());
   const tail = rests.every((r) => /[.!?]$/.test(r) && r.slice(-1) === rests[0].slice(-1)) ? rests[0].slice(-1) : '';
   const answers = rests.map((r) => (tail ? r.slice(0, -1) : r).trim());
   if (answers.some((a) => !a || a.length > 200)) return null;
-  return { lead, tail, bracket: answers.every((a) => /^\([A-Za-z]\)$/.test(a)) };
+  return {
+    lead,
+    tail,
+    bracket: answers.every((a) => /^\([A-Za-z]\)$/.test(a)),
+    // (every example's answer is a number and nothing more: what is settled is said as its number)
+    number: answers.every((a) => /^-?\$?\d[\d,]*(?:\.\d+)?$/.test(a)),
+  };
 }
 // AND IT DOES NOT OPEN BY SAYING THE QUESTION AGAIN: lines at the head of the reply that are lines of the person's message, word
 // for word, are taken off, and so is a label the message's lines begin with ("Q:", "A:") standing at the head of the reply, alone
@@ -308,6 +394,25 @@ export function closedAs(reply, decided, form, question = '') {
     .trim()
     .replace(/[.]+$/, '');
   if (!form || !a || /\n/.test(a)) return reply;
+  // THE REPLY'S OWN ANSWER, IN OTHER WORDS THAN THE FORM'S. The examples close "So the answer is (B)." and the reply ends
+  // "The answer is (A).": it has an answer of its own and says it in words a reader of the form does not read (measured
+  // 2026-11-22: 7 of 40 replies on two tests). Its last sentence is said in the form, around the reply's own letter.
+  if (form.bracket) {
+    const text0 = String(reply || '').trimEnd();
+    const last0 = lastSentence(text0);
+    const own0 =
+      last0 &&
+      !last0.toLowerCase().startsWith(form.lead.toLowerCase()) &&
+      last0.match(/\banswer is:?\s*\(?([A-Za-z])\)?[.!]?$/i);
+    if (own0)
+      return text0.slice(0, text0.lastIndexOf(last0)) + form.lead + ' (' + own0[1].toUpperCase() + ')' + form.tail;
+  }
+  if (form.number) {
+    // (the number in what was settled: the last one, without its sign of money or its commas; none, and nothing is done)
+    const nums = a.match(/-?\$?\d[\d,]*(?:\.\d+)?/g);
+    if (!nums) return reply;
+    a = nums[nums.length - 1].replace(/[$,]/g, '');
+  }
   if (form.bracket) {
     // (the earlier replies answer "(B)": a settled "B", "b" or "(B) the blue book" is said that way)
     const m = a.match(/^\(?([A-Za-z])\)?(?=[\s.:)]|$)/);

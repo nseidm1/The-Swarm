@@ -361,6 +361,7 @@ export async function createSwarm(opts = {}) {
           maxTokens: 700,
           tools: o.tools,
           ...(o.tool_choice !== undefined ? { tool_choice: o.tool_choice } : {}),
+          ...(o.parallel_tool_calls !== undefined ? { parallel_tool_calls: o.parallel_tool_calls } : {}),
         });
         const { actionOf, actionText } = await import('./tools.mjs');
         const action = actionOf({ content: r.content, tool_calls: r.calls }, o.tools);
@@ -391,6 +392,7 @@ export async function createSwarm(opts = {}) {
       last = await answerTools(messages, {
         tools: o.tools,
         tool_choice: o.tool_choice,
+        parallel_tool_calls: o.parallel_tool_calls,
         briefs: o.briefs || briefs,
         ask,
         decide,

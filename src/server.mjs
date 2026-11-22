@@ -59,7 +59,11 @@ export function serve(swarm, { port = 0, host = '127.0.0.1', lead = 'a', name = 
         body.messages.some((m) => m.role === 'tool' || m.tool_calls);
       // a step in an agent's work, decided by the swarm
       if (toolTurn && swarm.toolMode === 'swarm') {
-        const got = await swarm.answerTools(body.messages, { tools: body.tools || [], tool_choice: body.tool_choice });
+        const got = await swarm.answerTools(body.messages, {
+          tools: body.tools || [],
+          tool_choice: body.tool_choice,
+          parallel_tool_calls: body.parallel_tool_calls,
+        });
         const id = 'chatcmpl-swarm-' + Date.now().toString(36) + '-' + ++n;
         const created = Math.floor(Date.now() / 1000);
         if (!got.ok) return json(res, 502, { error: { message: 'no drafter proposed a step that could be taken' } });

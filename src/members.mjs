@@ -106,7 +106,9 @@ function member(m, base, slots, stop = () => {}, { revive = null, onRecover = ()
         banned = banned || findBanned();
         const noCall = await banned;
         // A TURN WITH TOOLS (tools.mjs): the tools offered are sent, nothing is forbidden, and a call comes back as calls
-        const { maxTokens = 400, signal, timeoutMs, tools, tool_choice, ...sampling } = params;
+        // SEVERAL CALLS MAY BE MADE IN ONE REPLY, unless the caller said not: the engine gives one call a reply where the
+        // request does not say so (measured 2026-11-22: a question that needs two calls got one, on every such question)
+        const { maxTokens = 400, signal, timeoutMs, tools, tool_choice, parallel_tool_calls, ...sampling } = params;
         const withTools = Array.isArray(tools) && tools.length > 0;
         const once = async () => {
           const r = await fetch(self.base + '/v1/chat/completions', {
@@ -120,7 +122,11 @@ function member(m, base, slots, stop = () => {}, { revive = null, onRecover = ()
               id_slot: pinned.get(slotId),
               max_tokens: maxTokens,
               ...(withTools
-                ? { tools, ...(tool_choice !== undefined ? { tool_choice } : {}) }
+                ? {
+                    tools,
+                    ...(tool_choice !== undefined ? { tool_choice } : {}),
+                    parallel_tool_calls: parallel_tool_calls !== false,
+                  }
                 : noCall.length
                   ? { logit_bias: noCall.map((id) => [id, false]) }
                   : {}),

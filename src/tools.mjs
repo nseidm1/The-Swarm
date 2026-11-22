@@ -174,7 +174,7 @@ export function fitted(messages, most = 8000, each = 500) {
 // the turn itself: one proposal from each drafter, the same ones made one, the decider where they differ
 export async function answerTools(
   messages,
-  { tools = [], tool_choice, briefs: given, ask, decide, lead = 'a', answerReply = null } = {},
+  { tools = [], tool_choice, parallel_tool_calls, briefs: given, ask, decide, lead = 'a', answerReply = null } = {},
 ) {
   const t0 = Date.now();
   // the arrangement for a turn with tools: the tools class's own where one was kept, else the shared one (orchestrate.mjs classOf)
@@ -189,7 +189,11 @@ export async function answerTools(
     who.map(async (s) => {
       const t1 = Date.now();
       try {
-        const r = await ask(s, sent, { tools, ...(tool_choice !== undefined ? { tool_choice } : {}) });
+        const r = await ask(s, sent, {
+          tools,
+          ...(tool_choice !== undefined ? { tool_choice } : {}),
+          ...(parallel_tool_calls !== undefined ? { parallel_tool_calls } : {}),
+        });
         const action = actionOf({ content: r.content !== undefined ? r.content : r.text, tool_calls: r.calls }, tools);
         trace.push({
           slot: s.id,
