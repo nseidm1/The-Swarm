@@ -9673,6 +9673,22 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+// ---- an evaluation can measure the arrangement a swarm started from, and says which it measured
+{
+  const I = await import('../src/index.mjs');
+  const ev = fs.readFileSync(new URL('../training/evaluate.mjs', import.meta.url), 'utf8');
+  const start = I.startBriefs();
+  check(
+    'the arrangement a swarm starts from can be read whatever the configuration has learned since, and an evaluation asked for it (--default) measures that one and says "default"; otherwise it says which of the two the stored arrangement is',
+    start.plan.draftFirst === 2 &&
+      start.slots.every((x) => Object.keys(MEMBERS).includes(x.member)) &&
+      /B\.has\('default'\) \? startBriefs\(\) : storedBriefs\(\)/.test(ev) &&
+      /\? 'default'\s*: 'trained'/.test(ev) &&
+      (ev.match(/arrangementSha256,\n\s+arrangement,/g) || []).length === 2,
+    Object.keys(start.plan),
+  );
+}
+
 // ---- how long a side took over a task is kept with its answers
 {
   const E = await import('../training/evaluate.mjs');

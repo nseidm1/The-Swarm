@@ -6,6 +6,14 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Configuration asks first whether the swarm is one model or several** (2026-11-21). One model, the default, is a single
+  pill: the small model that fills every role of the module. Several models, a pill for each place, is marked experimental
+  and says what was measured of it: on this project's own questions a mix of two small models scored 173 of 216 where the
+  better of the two in every role scored 192.
+- **An evaluation says which arrangement it measured, and can measure the one a swarm started from** (2026-11-21). A result
+  is of the default arrangement or of the one training kept. Once training has kept something, the Evaluate card can ask
+  for the arrangement the swarm started from, and the three views of the results then show the lineup twice, trained and
+  default, so that what training bought is read off the same questions.
 - **Training keeps a change by one rule, and finds what is cheap to find first** (2026-11-21). The two stages of training
   each had their own rule and disagreed about the same change, and each judged on one draw, which cannot: the same change
   measured 1.9 points on one draw and 11.1 on another. Now a change to a class is kept where its held questions, each asked

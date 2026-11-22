@@ -320,6 +320,29 @@ with tempfile.TemporaryDirectory() as tmp:
           and c4 == 200 and cfg4.get("c") == third["id"] and cfg4.get("d") == fourth["id"] and with4.count('class="slot d"') == 2
           and cback == 200 and cfg_up.get("c") == fourth["id"] and "d" not in cfg_up and "c" not in cfg_two and "d" not in cfg_two and cfg_two["a"] == d["members"]["a"]["id"]
           and send("/config", {"d": fourth["id"]})[0] == 200 and json.loads((root / "src" / "config.json").read_text()).get("c") == fourth["id"] and send("/config", {"c": ""})[0] == 200, [c3, c4, cfg4, cfg_up, cfg_two])
+    # ONE MODEL OR SEVERAL, as the page sends it: one model fills both places and takes any other out; several models shows a
+    # pill for each place without changing them; and one model again is the first place's
+    _b_was = json.loads((root / "src" / "config.json").read_text())["b"]
+    send("/config", {"c": third["id"]})
+    c_one, _ = send("/config", {"one": third["id"]})
+    cfg_one = json.loads((root / "src" / "config.json").read_text())
+    picks_one = get(base + "/fragment/picks")[1]
+    c_mix, _ = send("/config", {"mix": True})
+    cfg_mix = json.loads((root / "src" / "config.json").read_text())
+    picks_mix = get(base + "/fragment/picks")[1]
+    send("/config", {"b": fourth["id"]})
+    c_back, _ = send("/config", {"mix": False})
+    cfg_back = json.loads((root / "src" / "config.json").read_text())
+    check("the page sets the swarm to one model (both places that model, any third taken out) or to several (a pill for each place, nothing else changed), and back to one, which is the first place's model; a model that is not listed and a choice that is not yes or no are refused",
+          c_one == 200 and cfg_one["a"] == cfg_one["b"] == third["id"] and "c" not in cfg_one and "mix" not in cfg_one and 'data-pick="one"' in picks_one
+          and c_mix == 200 and cfg_mix.get("mix") is True and cfg_mix["a"] == cfg_mix["b"] == third["id"] and 'data-pick="b"' in picks_mix
+          and c_back == 200 and cfg_back["a"] == cfg_back["b"] == third["id"] and "mix" not in cfg_back
+          and send("/config", {"one": "no-such-model"})[0] == 400 and send("/config", {"mix": "yes"})[0] == 400, [cfg_one, cfg_mix, cfg_back])
+    # (put back as it was for the checks after this one)
+    send("/config", {"mix": True}), send("/config", {"a": d["members"]["a"]["id"]}), send("/config", {"b": _b_was})
+    _put = json.loads((root / "src" / "config.json").read_text())
+    _put.pop("mix", None)
+    (root / "src" / "config.json").write_text(json.dumps(_put, indent=2) + "\n")
     # NOTHING CHOOSES WHAT THE SWARM IS TRAINED ON (console ruling 2026-11-18): the boxes to tick, "Equivalent on", are gone. Under
     # the pills are two rows: who takes a turn with tools, and a button for each body of work that opens a person's own questions
     cfg_html = swarm_ui.config_section(data.load(root))
@@ -1102,6 +1125,21 @@ with tempfile.TemporaryDirectory() as tmp:
     _row = json.loads(_full_hist)
     _hist.write_text(json.dumps(dict(_row, results=[r for r in _row["results"] if not str(r["task"]).startswith("bfcl_")])) + "\n")
     _part_need, _part_gap, _part_ctl = swarm_ui.needs_eval(_fd), swarm_ui.eval_gaps(_fd), swarm_ui.run_controls()
+    # ONE MODEL OR SEVERAL: one pill for the model in every role where both places hold the same model; a pill for each place,
+    # marked experimental with what was measured, where they differ or Several models was chosen
+    _rd = data.load(REPO)
+    _sm = _rd["registry"]["small"]
+    _same = swarm_ui.pills(dict(_rd, members={"a": _sm[0], "b": _sm[0]}, mix=False))
+    _chosen = swarm_ui.pills(dict(_rd, members={"a": _sm[0], "b": _sm[0]}, mix=True))
+    _diff = swarm_ui.pills(dict(_rd, members={"a": _sm[0], "b": _sm[1]}, mix=False))
+    _tg1 = swarm_ui.tools_toggle(dict(_rd, members={"a": _sm[0], "b": _sm[0]}, tools="swarm"))
+    check("Configuration asks first whether the swarm is made of one model or several: one model is a single pill for the model in every role; several models, a pill for each place, is marked experimental and says what was measured of a mix; a swarm whose places hold different models is shown as several",
+          'data-pick="one"' in _same and 'data-pick="a"' not in _same and 'data-pick="b"' not in _same and 'data-mix="0" aria-pressed="true"' in _same and "Small model, in every role" in _same
+          and 'data-pick="a"' in _chosen and 'data-pick="b"' in _chosen and 'data-pick="one"' not in _chosen and 'data-mix="1" aria-pressed="true"' in _chosen
+          and "<i>experimental</i>" in _chosen and "173 of 216" in _chosen and "192" in _chosen
+          and 'data-pick="b"' in _diff and 'data-mix="1" aria-pressed="true"' in _diff
+          and all('data-pick="%s"' % k in x for k in ("decider", "target") for x in (_same, _chosen, _diff))
+          and "body:JSON.stringify({mix:b.dataset.mix==='1'})" in swarm_ui.JS and _tg1.count(" alone</button>") == 1, [_same[:300]])
     # (how long each side took: said over a view where an evaluation timed both on a task, and not otherwise)
     _spd = swarm_ui.ev_speed({"results": [{"task": "t1", "secondsEach": {"target": 4.0, "swarm": 10.0}}, {"task": "t2", "secondsEach": {"target": 2.0, "swarm": 8.0}},
                                           {"task": "t3", "secondsEach": {"target": 3.0, "swarm": None}}, {"task": "t4"}]}, "Big <model>")
@@ -1986,6 +2024,19 @@ check("the three views of an evaluation can show any lineup evaluated against th
       _okz != _dz["key"] and 'data-evd-view="chart"' in _bz and "not evaluated yet" in _bz and 'id="evd-cfg"' in _tz and "This lineup: " in _tz and "(not evaluated yet)</option>" in _tz
       and ('<option value="%s" selected>' % _okz) in _tz and swarm_ui.lineup_name(_lz).endswith(", 2 of it") and swarm_ui.lineup_of(_dz, "nothing+none--x") is None
       and [k for k, _, _ in swarm_ui.evaluated_lineups(_dz)] == [_okz], [_tz[:400]])
+# (the arrangement a lineup started from, beside the one training kept: a line of its own in the views, each named for what it is)
+swarm_ui._eval_rows = lambda root: [dict(_full11, configuration=_okz, target=_dz["target"]["name"], arrangement="default", at="2026-11-21T10:00:00.000Z"),
+                                    dict(_full11, configuration=_okz, target=_dz["target"]["name"], arrangement="trained", at="2026-11-21T20:00:00.000Z")]
+_both = swarm_ui.evaluated_lineups(_dz)
+swarm_ui._eval_rows = lambda root: [dict(_full11, configuration=_okz, target=_dz["target"]["name"], arrangement="default", at="2026-11-21T10:00:00.000Z")]
+_only_default = swarm_ui.evaluated_lineups(_dz)
+_evb = swarm_ui.eval_block(_dz)
+check("where a lineup has an evaluation of the arrangement it started from and a later one of what training kept, the views hold both, named trained and default arrangement; one evaluation alone is named plainly; and the Evaluate card can ask for the arrangement it started from, which it says is the same until training has kept something",
+      [k for k, _, _ in _both] == [_okz, _okz + swarm_ui.DEFAULT_MARK] and swarm_ui.lineup_name(_both[0][1]).endswith(", trained") and swarm_ui.lineup_name(_both[1][1]).endswith(", default arrangement")
+      and _both[1][2]["arrangement"] == "default" and _both[0][2]["arrangement"] == "trained"
+      and [k for k, _, _ in _only_default] == [_okz] and not swarm_ui.lineup_name(_only_default[0][1]).endswith("arrangement")
+      and 'id="ev-default" disabled' in _evb and "training has kept nothing yet" in _evb
+      and "arrangement:'default'" in swarm_ui.JS and '["--default"]' in open(os.path.join(os.path.dirname(os.path.abspath(swarm_ui.__file__)), "swarm_ui.py")).read(), [[k for k, _, _ in _both]])
 swarm_ui._eval_rows = lambda root: [_full11]
 _pre_full = swarm_ui.pretrain_block(_d11)
 swarm_ui._eval_rows = lambda root: [_full11, _other11, _narrow11]

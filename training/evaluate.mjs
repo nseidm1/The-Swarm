@@ -426,7 +426,12 @@ export function scoreOf(resultsFile, b) {
 // ---- run, when started as a program -------------------------------------------------------------------------------------
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const B = await import('./support/bench.mjs');
-  const { readBriefs } = await import('../src/index.mjs');
+  // WHICH ARRANGEMENT IS MEASURED: the one the configuration runs, which is what training has kept for it; or, with --default,
+  // the one it started from (src/briefs.json), so that what training kept can be set beside what it began with, measured by the
+  // same code on the same questions. A result says which it is of ("arrangement": "default" or "trained"): the two are kept
+  // apart already, each under its own arrangement's hash.
+  const { readBriefs: storedBriefs, startBriefs } = await import('../src/index.mjs');
+  const readBriefs = () => (B.has('default') ? startBriefs() : storedBriefs());
   const { serve } = await import('../src/server.mjs');
   const { readConfig, CONFIG_KEY, TARGET } = await import('../src/catalog.mjs');
   const CONFIG = readConfig();
@@ -464,6 +469,10 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const arrangementSha256 = recipeSha256(
     Object.fromEntries(Object.entries(readBriefs()).filter(([k]) => k !== 'about')),
   );
+  const arrangement =
+    arrangementSha256 === recipeSha256(Object.fromEntries(Object.entries(startBriefs()).filter(([k]) => k !== 'about')))
+      ? 'default'
+      : 'trained';
   // (whether its small models are served with the adapters Pretrain trained: what an evaluation before and after compares)
   const { lorasFor } = await import('./adapters.mjs');
   const { MEMBERS } = await import('../src/catalog.mjs');
@@ -485,6 +494,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     configuration: CONFIG_KEY,
     briefs: briefsHash,
     arrangementSha256,
+    arrangement,
     adapters,
     target: TARGET.name,
     phase: 'starting',
@@ -1171,6 +1181,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     configuration: CONFIG_KEY,
     briefs: briefsHash,
     arrangementSha256,
+    arrangement,
     runtimeSha,
     adapters,
     target: TARGET.name,

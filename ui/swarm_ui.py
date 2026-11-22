@@ -76,6 +76,8 @@ header{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:flex-end;justify-co
 /* the choices, in one row where there is room and in even rows where there is not: each pill takes what it needs and the row is
    filled, so none is left ragged; a label is one line; the larger model, whose names are longest, has twice the room */
 .picks{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;align-items:stretch}
+.madeof{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}.madeof .cfgl{flex:0 0 auto}.madeof small{flex:1 1 320px;font-size:12.5px;color:var(--mist);line-height:1.4}
+.madeof .seg i{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mist);margin-left:6px}
 .recbadge{display:inline-flex;align-items:center;gap:7px;border:0;border-radius:var(--r);padding:4px 11px;background:#fdf0cf;color:#8a5a00;font:inherit;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 0 0 1px #f3dfb8}
 .recbadge i{width:7px;height:7px;border-radius:50%;background:#e8a317;box-shadow:0 0 0 3px #f9d98a;animation:p 1.6s infinite}.recbadge:hover{background:#fae6b5}.recbadge:focus-visible{outline:2px solid var(--teal2);outline-offset:2px}
 dialog#recd{border:0;border-radius:var(--r);padding:26px;max-width:min(760px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#recd::backdrop{background:rgba(11,40,38,.45)}
@@ -589,6 +591,10 @@ document.addEventListener('click',async(ev)=>{
 document.addEventListener('change',async(ev)=>{const s=ev.target.closest('[data-pick]');if(!s)return;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({[s.dataset.pick]:s.value})});
   if(r.ok){$('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/adapt','#adapt');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');liveTick();}else{alert(await r.text());await swap('/fragment/picks','#picks');}});
+// ONE MODEL OR SEVERAL: the choice above the pills, saved as a pill's choice is
+document.addEventListener('click',async(ev)=>{const b=ev.target.closest('[data-mix]');if(!b||b.classList.contains('on'))return;
+  const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({mix:b.dataset.mix==='1'})});
+  if(r.ok){$('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/adapt','#adapt');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');liveTick();}else alert(await r.text());});
 // TURNS WITH TOOLS: who takes an agent's turn, saved as a pill's choice is, and the row and the folded line drawn again in place
 document.addEventListener('click',async(ev)=>{const b=ev.target.closest('[data-tools]');if(!b||b.classList.contains('on'))return;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({tools:b.dataset.tools})});
@@ -844,7 +850,7 @@ document.addEventListener('click',async(ev)=>{
   const b=ev.target.closest('#ev-go,#ev-narrow,#ev-stop,#pre-go,#pre-stop');if(!b)return;b.disabled=true;
   if(b.id==='ev-go'){const its=[...document.querySelectorAll('[data-ev-item]')];
     const hs=[...document.querySelectorAll('[data-ev-harness]')];
-    await evPost('/eval/start','#evalwrap',{limit:Number(($('#ev-size')||{}).value||0),...(its.length?{items:its.filter(x=>x.checked&&!x.closest('label').classList.contains('none')).map(x=>x.dataset.evItem)}:{}),...(hs.length?{harnesses:hs.filter(x=>x.checked).map(x=>x.dataset.evHarness)}:{})});}
+    await evPost('/eval/start','#evalwrap',{limit:Number(($('#ev-size')||{}).value||0),...(its.length?{items:its.filter(x=>x.checked&&!x.closest('label').classList.contains('none')).map(x=>x.dataset.evItem)}:{}),...(hs.length?{harnesses:hs.filter(x=>x.checked).map(x=>x.dataset.evHarness)}:{}),...(($('#ev-default')||{}).checked?{arrangement:'default'}:{})});}
   else if(b.id==='ev-stop')await evPost('/eval/stop','#evalwrap');
   // A SECOND LOOK: only the bodies of work that fell short (the button carries them), at the size chosen
   else if(b.id==='ev-narrow')await evPost('/eval/start','#evalwrap',{limit:Number(($('#ev-size')||{}).value||0),items:b.dataset.items.split(',')});
@@ -2916,7 +2922,7 @@ def pills(d):
                 # (a small model TensorFold serves can be chosen on an Apple silicon Mac: where TensorFold is not there yet, making
                 # the models ready installs it (training/setup.mjs), and the list says so. On any other machine it cannot run)
                 tf_first = False
-                if key in ("a", "b", "c", "d") and m.get("engine") == "tensorfold" and not tensorfold_here():
+                if key in ("a", "b", "c", "d", "one") and m.get("engine") == "tensorfold" and not tensorfold_here():
                     here = "mac" in d.get("machine", [])
                     tf_first = here
                 opts += '<option value="%s"%s%s>%s%s%s%s</option>' % (
@@ -2941,14 +2947,38 @@ def pills(d):
             more += pill(k, "Small model %d" % (i + 3), reg["small"], None, "optional")
             break
     n_small = 2 + more.count('class="pick ')
+    one = one_model(d)
+    # ONE MODEL OR SEVERAL, above the pills. One model: a single pill, the model that fills every role. Several: a pill for each
+    # place, marked as the experiment it is, with what was measured of it (never more than was measured)
+    seg = lambda val, label, sel: '<button type="button" class="seg%s" data-mix="%s" aria-pressed="%s">%s</button>' % (" on" if sel else "", val, "true" if sel else "false", label)  # noqa: E731
+    made = ('<div class="madeof" id="madeof"><span class="cfgl">The swarm is made of</span><div class="tgl" role="group" aria-label="What the swarm is made of">%s%s</div><small>%s</small></div>'
+            % (seg("0", "One model", one), seg("1", "Several models <i>experimental</i>", not one),
+               "One small model fills every role of the module: drafts, checks and the reply. Training then arranges those roles." if one
+               else "Experimental. Measured on this project&#39;s own questions: a mix of two small models scored 173 of 216 where the better of the two in every role scored 192, and a mix of three scored 91 of 108 where its best scored 97."))
+    if one:
+        return (
+            '<div class="picks" id="picks">%s<div class="group small n1" style="flex-basis:185px">%s</div><div class="group against" style="flex-basis:740px">%s%s%s</div></div>'
+            % (made, pill("one", "Small model, in every role", reg["small"], d["members"]["a"]),
+               pill("decider", "Decides", sorted(reg["deciders"], key=lambda m: -(m.get("index") or {}).get("score", 0)), d["decider"]),
+               pill("judge", "Judges equivalence", sorted([m for m in reg["deciders"] if m["id"] != (d.get("decider") or {}).get("id") and (m.get("serve") or {}).get("kind") != "none"], key=lambda m: -(m.get("index") or {}).get("score", 0)), d.get("judge"), "judge"),
+               pill("target", "Larger model", sorted(reg["targets"], key=lambda t: -t.get("params", 0)), d["target"])))
     return (
-        '<div class="picks" id="picks"><div class="group small n%d" style="flex-basis:%dpx">%s%s%s</div><div class="group against" style="flex-basis:740px">%s%s%s</div></div>'
+        '<div class="picks" id="picks">' + made + '<div class="group small n%d" style="flex-basis:%dpx">%s%s%s</div><div class="group against" style="flex-basis:740px">%s%s%s</div></div>'
         # (each group asks for the room its pills need, so the two share a row exactly when both fit)
         % (n_small, 195 * n_small - 10, pill("a", "Small model 1", reg["small"], d["members"]["a"]), pill("b", "Small model 2", reg["small"], d["members"]["b"]), more,
            pill("decider", "Decides", sorted(reg["deciders"], key=lambda m: -(m.get("index") or {}).get("score", 0)), d["decider"]),
            pill("judge", "Judges equivalence", sorted([m for m in reg["deciders"] if m["id"] != (d.get("decider") or {}).get("id") and (m.get("serve") or {}).get("kind") != "none"], key=lambda m: -(m.get("index") or {}).get("score", 0)), d.get("judge"), "judge"),
            pill("target", "Larger model", sorted(reg["targets"], key=lambda t: -t.get("params", 0)), d["target"]))
     )
+
+
+def one_model(d):
+    """Whether the swarm is made of ONE MODEL: every place holds the same small model, and Several models was not chosen
+    ("mix" in src/config.json, which the choice above the pills writes)."""
+    ids = [m.get("id") for m in (d.get("members") or {}).values() if m]
+    # (d["mix"], where what is drawn says it; else the file)
+    mix = d["mix"] if "mix" in d else (data._json(Path(d.get("root", ARGS.root)) / "src" / "config.json", {}) or {}).get("mix")
+    return len(ids) >= 2 and len(set(ids)) == 1 and not mix
 
 
 def cfg_meta(d):
@@ -3539,6 +3569,8 @@ def tools_toggle(d, inner=False):
     cur = d.get("tools") or "a"
     on = cur == "swarm"
     mem = [(k, m) for k, m in (d.get("members") or {}).items() if m]
+    # (one model in several places is one choice, not one for each place: the first place it holds)
+    mem = [(k, m) for i, (k, m) in enumerate(mem) if m["id"] not in [x["id"] for _, x in mem[:i]]]
     # one choice for the swarm, and one for each small model in it, by its name: the list follows the pills
     seg = lambda val, label, sel: '<button type="button" class="seg%s" data-tools="%s" aria-pressed="%s">%s</button>' % (" on" if sel else "", e(val), "true" if sel else "false", label)  # noqa: E731
     segs = seg("swarm", "Decided by the swarm", on) + "".join(seg(m["id"], "%s alone" % e(m["name"]), cur == k) for k, m in mem)
@@ -4174,29 +4206,44 @@ def lineup_of(d, key):
     return dict(d, key=key, members=members, decider=dec, target=target, footprint=data.footprint(members, None if no_dec else dec, target))
 
 
+DEFAULT_MARK = "@default"  # (after a configuration's key: its evaluation of the arrangement it started from)
+
+
 def lineup_name(d2):
-    """A lineup in a few words: its small models, and its decision model where it has one."""
+    """A lineup in a few words: its small models, and its decision model where it has one; and which arrangement of it, where
+    the views hold both the one it started from and the one training kept."""
     ms = [m["name"] for m in (d2.get("members") or {}).values() if m]
     same = len(set(ms)) == 1 and len(ms) > 1
     dec = d2.get("decider") or {}
     return ((("%s, %d of it" % (ms[0], len(ms))) if same else " + ".join(ms))
-            + ("" if (dec.get("serve") or {}).get("kind") == "none" else ", decided by %s" % dec.get("name", "a decision model")))
+            + ("" if (dec.get("serve") or {}).get("kind") == "none" else ", decided by %s" % dec.get("name", "a decision model"))
+            + str(d2.get("arrLabel") or ""))
 
 
 def evaluated_lineups(d):
     """EVERY LINEUP THAT HAS AN EVALUATION AGAINST THIS LARGER MODEL, newest first: [(key, its `d`, its newest evaluation)]. The
     views of an evaluation can show any of them, and the chart sets them beside each other."""
     tgt = "--" + str((d.get("target") or {}).get("id", ""))
-    newest = {}
+    newest, started = {}, {}
     for r in _eval_rows(Path(ARGS.root)):
         k = str(r.get("configuration", ""))
-        if k.endswith(tgt) and (k not in newest or str(r.get("at", "")) > str(newest[k].get("at", ""))):
+        if not k.endswith(tgt):
+            continue
+        if k not in newest or str(r.get("at", "")) > str(newest[k].get("at", "")):
             newest[k] = r
+        # (and its newest evaluation of the arrangement it started from, to set beside what training kept)
+        if r.get("arrangement") == "default" and (k not in started or str(r.get("at", "")) > str(started[k].get("at", ""))):
+            started[k] = r
     out = []
     for k, r in sorted(newest.items(), key=lambda x: str(x[1].get("at", "")), reverse=True):
         d2 = d if k == d.get("key") else lineup_of(d, k)
-        if d2:
-            out.append((k, d2, r))
+        if not d2:
+            continue
+        both = r.get("arrangement") == "trained" and k in started
+        out.append((k, dict(d2, arrLabel=", trained") if both else d2, r))
+        if both:
+            # TRAINED BESIDE DEFAULT: the same lineup as it started, a line and a point of its own in every view
+            out.append((k + DEFAULT_MARK, dict(d2, arrLabel=", default arrangement", key=k + DEFAULT_MARK), started[k]))
     return out
 
 
@@ -4245,7 +4292,7 @@ def eval_table(d, only=None, cfg=None):
     done = [have(b["task"]) for t in listed for b in t["benchmarks"] if have(b["task"])]
     boxes = ('<div class="evask evharn evd-h" role="group" aria-label="Which harnesses the table shows"><span class="cfgl">Showing</span>%s</div>'
              % "".join('<label><input type="checkbox" data-evd-harness="%s"%s>%s</label>' % (e(k), " checked" if k in hs else "", e(harness_name(k))) for k in hs_all)) if len(hs_all) > 1 else ""
-    boxes = lineups + boxes
+    boxes = lineups + boxes + ev_speed(res, tname, hs)
     if not done:
         return head + boxes + '<p class="muted">%s</p>' % ("Nothing of %s has been evaluated yet for the swarm as it is now." % e(_and([harness_name(k) for k in hs])) if len(hs) < len(hs_all) else "The swarm as it is now has not been evaluated yet.")
     was = any(r.get("before") for r in done)
@@ -4929,6 +4976,12 @@ def eval_block(d):
                                  % (e(", ".join(b["name"] for t in listed for b in t["benchmarks"] if harness_key(b) == k)), e(k), " disabled" if held else "", e(harness_name(k)),
                                     n_, "" if n_ == 1 else "s")
                                  for k in hs for n_ in [sum(1 for t in listed for b in t["benchmarks"] if harness_key(b) == k)]))
+        # WHICH ARRANGEMENT: the one the swarm runs, which is what training has kept; or the one it started from, to set beside
+        # it. Only where training has kept something: until then they are the same arrangement, and the box says so
+        trained_ = int((d.get("briefs") or {}).get("version") or 1) > 1
+        out.append('<div class="evask evharn" role="group" aria-label="Which arrangement this evaluation measures"><span class="cfgl">Of</span>'
+                   '<label title="Measure the arrangement this configuration started from (the default), in place of what training has kept for it: the figure training is judged against, by the same code on the same questions"><input type="checkbox" id="ev-default"%s>The arrangement it started from<small>%s</small></label></div>'
+                   % (" disabled" if held or not trained_ else "", "in place of what training kept" if trained_ else "training has kept nothing yet: it is what an evaluation measures"))
     # WHAT IS HAPPENING NOW (painted again in place from /api/eval)
     if running or (shown and live.get("phase") in ("stopped", "failed")):
         cls = "on" if running else ("warn" if live.get("phase") == "failed" else "")
@@ -5548,8 +5601,11 @@ class Handler(BaseHTTPRequestHandler):
             if not any(harness_key(b) in hs for t in listed_ if t["id"] in items for b in t["benchmarks"]):
                 return self._send("Nothing is left to ask: no body of work that is ticked is measured by a harness that is ticked.", 400, "text/plain; charset=utf-8")
             why = start_job("eval", ["sh", "training/evaluate.sh"] + (["--proof"] if limit == PROOF_SIZE else ["--limit", str(limit)] if limit else []) + ["--items", ",".join(items)]
-                            + (["--harnesses", ",".join(hs)] if hs != known else []),
-                            keep={"limit": limit, "items": items, **({"harnesses": hs} if hs != known else {}), **({"proof": True} if limit == PROOF_SIZE else {})})
+                            + (["--harnesses", ",".join(hs)] if hs != known else [])
+                            # (the arrangement it started from, in place of what training has kept: evaluate.mjs --default)
+                            + (["--default"] if isinstance(asked, dict) and asked.get("arrangement") == "default" else []),
+                            keep={"limit": limit, "items": items, **({"harnesses": hs} if hs != known else {}), **({"proof": True} if limit == PROOF_SIZE else {}),
+                                  **({"arrangement": "default"} if isinstance(asked, dict) and asked.get("arrangement") == "default" else {})})
             if why:
                 return self._send(why, 409, "text/plain; charset=utf-8")
             time.sleep(0.3)
@@ -5710,6 +5766,24 @@ class Handler(BaseHTTPRequestHandler):
                 if want != "swarm" and want not in mine_ids:
                     return self._send("Turns with tools are decided by the swarm or given to one of its small models.", 400, "text/plain; charset=utf-8")
                 now["tools"] = want
+            # THE SWARM IS MADE OF ONE MODEL, OR OF SEVERAL (console 2026-11-21: one small model in every role is the subject, a
+            # mix of models the experiment). "one": that model fills both places and no other is in the swarm. "mix": true
+            # shows a pill for each place, to fill with different models; false is one model again, the first place's.
+            if "mix" in asked:
+                if not isinstance(asked["mix"], bool):
+                    return self._send("One model or several.", 400, "text/plain; charset=utf-8")
+                if asked["mix"]:
+                    now["mix"] = True
+                else:
+                    asked = dict(asked, one=now.get("a"))
+            if "one" in asked:
+                if not any(m.get("id") == asked["one"] for m in reg.get("small", [])):
+                    return self._send("There is no small model called that.", 400, "text/plain; charset=utf-8")
+                now["a"] = now["b"] = asked["one"]
+                for k in ("c", "d", "mix"):
+                    now.pop(k, None)
+                if now.get("tools") not in (None, "swarm", "lead"):
+                    now["tools"] = asked["one"]  # (the one model that took turns with tools alone is this one now)
             for key, lst in (("a", "small"), ("b", "small"), ("c", "small"), ("d", "small"), ("decider", "deciders"), ("judge", "deciders"), ("target", "targets")):
                 if key in asked:
                     if key in ("c", "d", "judge") and asked[key] in ("", None):

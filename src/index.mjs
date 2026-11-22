@@ -32,12 +32,13 @@ export { DECIDER, TARGET, REGISTRY, readConfig, writeConfig, CONFIG_ID } from '.
 export const BRIEFS_FILE = fileURLToPath(new URL('./briefs.json', import.meta.url));
 // THE ARRANGEMENT THE SWARM RUNS: what this configuration has learned against its larger model (learned.mjs), or, where it has
 // learned nothing yet, the arrangement every swarm starts from (briefs.json). A file named is read as it is.
+// THE ARRANGEMENT A SWARM STARTS FROM, for the places that are filled: briefs.json, whatever the configuration has learned since.
+// What training kept is measured against it (training/evaluate.mjs --default asks the swarm as it started)
+export const startBriefs = () => withPlaces(JSON.parse(fs.readFileSync(BRIEFS_FILE, 'utf8')), Object.keys(MEMBERS));
 export const readBriefs = (file) => {
   if (file) return JSON.parse(fs.readFileSync(file, 'utf8'));
   const learned = readLearned();
-  return learned
-    ? kindsAsSpecified(learned.briefs)
-    : withPlaces(JSON.parse(fs.readFileSync(BRIEFS_FILE, 'utf8')), Object.keys(MEMBERS));
+  return learned ? kindsAsSpecified(learned.briefs) : startBriefs();
 };
 // A CLASS'S OWN ARRANGEMENT HOLDS ITS SLOTS, PLAN AND FLOW, AND NOTHING ELSE (SwOA specification 4.3, `kinds`): anything else found
 // there (a mark a migration once left, a field a later version adds) is not part of what the module runs, and not part of its hash
