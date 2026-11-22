@@ -237,7 +237,7 @@ export const finished = () => checkpoints.splice(0).forEach((c) => c.done());
 
 export async function openSwarm(
   briefs = readBriefs(),
-  { seed = Number(arg('seed', 1)), reuse = false, adapters, lorasWith = null } = {},
+  { seed = Number(arg('seed', 1)), reuse = false, adapters, lorasWith = null, roleLorasWith = null, onAsk = null } = {},
 ) {
   const attach = {};
   if (arg('attach-a')) attach.a = arg('attach-a');
@@ -255,6 +255,23 @@ export async function openSwarm(
     targetOf().id,
     modelsDir(),
   );
+  // (and an adapter for each role, where a member has them: training/roles.mjs; served in place of its one adapter)
+  const roleLoras = (roleLorasWith || (lorasWith ? () => ({}) : (await import('../adapters.mjs')).roleLorasFor))(
+    adapters === undefined ? readConfig() : { ...readConfig(), adapters },
+    MEMBERS,
+    path.join(REPO_ROOT, '.work'),
+    targetOf().id,
+    modelsDir(),
+  );
+  for (const [k, by] of Object.entries(roleLoras))
+    console.log(
+      MEMBERS[k].name +
+        ' (place ' +
+        k +
+        ') is served with an adapter for each role: ' +
+        Object.keys(by).sort().join(', ') +
+        '.',
+    );
   if (Object.keys(loras).length)
     console.log(
       'Served with adapters: ' +
@@ -279,13 +296,15 @@ export async function openSwarm(
     modelsDir: modelsDir(),
     decider,
     loras,
+    roleLoras,
+    ...(onAsk ? { onAsk } : {}),
     onRecover: note,
     // (an agent's step is asked with tools, whichever way the configuration has it decided: the servers read and write calls in
     // each model's own template. Builds of llama.cpp that already do so by default are not changed by it)
     jinja: true,
   });
   // (which places are served with an adapter: written on every answer it gives, so that a measurement says how it was served)
-  swarm.adapters = Object.keys(loras).sort();
+  swarm.adapters = [...new Set([...Object.keys(loras), ...Object.keys(roleLoras)])].sort();
   // every slot, as it starts and as it ends
   const answer = swarm.answer.bind(swarm);
   swarm.answer = (messages, o = {}) =>

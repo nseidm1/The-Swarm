@@ -163,6 +163,7 @@ export const compareRow = (out) => ({
   arrangementSha256: out.arrangementSha256,
   adapters: out.adapters,
   ...(out.adaptersSha ? { adaptersSha: out.adaptersSha } : {}),
+  ...(out.adapterRoles ? { adapterRoles: out.adapterRoles } : {}),
   swarm: overallOf(out.results, 'swarm'),
   target: overallOf(out.results, 'target'),
   tasks: (out.results || []).map((r) => ({
@@ -570,26 +571,22 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       ? 'default'
       : 'trained';
   // (whether its small models are served with the adapters Pretrain trained: what an evaluation before and after compares)
-  const { lorasFor } = await import('./adapters.mjs');
+  const { servedWith } = await import('./adapters.mjs');
   const { MEMBERS } = await import('../src/catalog.mjs');
-  const adapters = process.env.SWARM_EVAL_SWARM_BASE
-    ? []
-    : Object.keys(lorasFor(CONFIG, MEMBERS, path.join(ROOT, '.work'), TARGET.id, B.modelsDir())).map(
-        (k) => MEMBERS[k].name,
-      );
+  // (the members served with adapters, each role's where a member has one for each role: training/roles.mjs)
+  const served = process.env.SWARM_EVAL_SWARM_BASE
+    ? { names: [], files: [], roles: [] }
+    : servedWith(CONFIG, MEMBERS, path.join(ROOT, '.work'), TARGET.id, B.modelsDir());
+  const adapters = served.names;
   // (WHICH adapters, by their bytes: answers given with one adapter are not another's. They were kept under "-adapters" alone,
   // so a swarm pretrained again would have been handed the answers it gave before)
-  const adaptersSha = process.env.SWARM_EVAL_SWARM_BASE
-    ? ''
-    : (() => {
-        const files = Object.values(
-          lorasFor(CONFIG, MEMBERS, path.join(ROOT, '.work'), TARGET.id, B.modelsDir()),
-        ).sort();
-        if (!files.length) return '';
+  const adaptersSha = served.files.length
+    ? (() => {
         const h = crypto.createHash('sha256');
-        for (const f of [...new Set(files)]) h.update(fs.readFileSync(f));
+        for (const f of served.files) h.update(fs.readFileSync(f));
         return h.digest('hex').slice(0, 12);
-      })();
+      })()
+    : '';
   // (the pretrained figure is of a swarm that has an adapter: with none it would be the first figure under another name)
   if (VARIANT === 'pretrained' && !adapters.length) {
     console.error('No adapter is trained for this configuration: Pretrain makes one. Nothing was asked.');
@@ -1299,6 +1296,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     runtimeSha,
     adapters,
     ...(adaptersSha ? { adaptersSha } : {}),
+    ...(served.roles.length ? { adapterRoles: served.roles } : {}),
     ...(VARIANT ? { variant: VARIANT } : {}),
     target: TARGET.name,
     // (the engine that served it, and its version: what its kept answers are named by)

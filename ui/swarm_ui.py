@@ -40,6 +40,22 @@ import cleanup  # noqa: E402
 import data  # noqa: E402
 
 ARGS = None
+# THE CARDS' OWN START BUTTONS ARE NOT DRAWN: the Run card starts and stops the whole of it, each step on the same questions
+# (training/run.sh). A step started by itself from its card measured another state of the swarm than the steps before it, which
+# is how stored results stopped being comparable. `--card-starts` draws them again, for a person who wants one step alone.
+CARD_STARTS = False
+
+
+def _starts(html, ids, also=()):
+    """A card's controls without its own Start and Stop (the buttons and choosers named by id, and any piece of text that only
+    explains one of them), unless the page was started to draw them."""
+    if CARD_STARTS:
+        return html
+    for i in ids:
+        html = re.sub(r'<(button|select)\b[^>]*\bid="%s"[^>]*>.*?</\1>' % re.escape(i), "", html, flags=re.S)
+    for pat in also:
+        html = re.sub(pat, "", html, flags=re.S)
+    return html
 
 
 def _build_id():
@@ -2445,11 +2461,12 @@ def _ours(pid, marker):
         cmd = subprocess.run(["ps", "-o", "command=", "-p", str(int(pid))], capture_output=True, text=True, timeout=5).stdout
     except (OSError, ValueError, subprocess.SubprocessError):
         return False
-    return marker in cmd
+    # (a kind of run that is one of several programs: pretraining is adapters.mjs, or roles.mjs where the whole run starts it)
+    return any(m in cmd for m in ((marker,) if isinstance(marker, str) else marker))
 
 
 # what each kind of run this page starts is started as (start_run, start_job): looked for in the command line of its process
-RUN_MARKS = {"train": "training/session.sh", "eval": "training/evaluate.sh", "pretrain": "training/adapters.mjs", "whole": "training/run.sh"}
+RUN_MARKS = {"train": "training/session.sh", "eval": "training/evaluate.sh", "pretrain": ("training/adapters.mjs", "training/roles.mjs"), "whole": "training/run.sh"}
 
 
 def run_state():
@@ -2726,6 +2743,10 @@ def decider_state(running=False):
 
 
 def run_controls():
+    return _starts(_run_controls(), ("run-go", "run-stop"))
+
+
+def _run_controls():
     """TRAIN, beside the Training progress card's headline, as Evaluate and Pretrain have theirs: Train and Clear training state when
     nothing runs; Stop training while a session does."""
     st = run_state()
@@ -5161,6 +5182,7 @@ def eval_block(d):
                     '<small class="evwhy">Asks only %s again: where the swarm scored under %s, or no answer was found in many of its replies, in the evaluation of %s. The rest keep their last figures, marked as from before. '
                     'Evaluate asks everything.</small>'
                     % (e(",".join(t["id"] for t in short)), " disabled" if held else "", e(names), e(tname), e(_day(view["base"].get("at")))))
+    ctl = _starts(ctl, ("ev-go", "ev-size", "ev-narrow", "ev-stop"), (r'<small class="evwhy">Asks only .*?</small>',))
     out = ['<div class="panel evalp" id="evalbox" data-phase="%s" data-run="%s"%s>' % (e(live.get("phase") or ""), e(live.get("runId") or ""), ' data-running="1"' if running else ""),
            '<div class="proghead">%s<span class="progline">Standard benchmarks (%s), asked of %s and of the swarm, '
            'and the two scores set side by side: the same questions, marked by the same checker. Kept apart from training: training never asks a benchmark&#39;s question.</span>'
@@ -5404,7 +5426,7 @@ def pretrain_block(d):
            # (while it runs, how many are adapted is not known until each model's run is checked: a bar that moves in place of the
            # number; stopped or failed, the adapters that were there are there still, and the number comes back as it was)
            % (' aria-busy="true"' if running else "", busy("0") if running else '<b class="pct">%d</b>' % good, len(rows),
-              e(tgt.get("name", "the larger model")), e(items or "this pass"), ctl)]
+              e(tgt.get("name", "the larger model")), e(items or "this pass"), _starts(ctl, ("pre-go", "pre-stop")))]
     # (why Pretrain waits for an evaluation: one quiet line under the head, across the card, as the Train card says it; it stood
     # in the head's narrow column under the button. Not said while something else has the models: that line says why it waits)
     if needs_eval(d) and not running and not held:
@@ -6121,9 +6143,11 @@ def main(argv=None):
     global ARGS
     ap = argparse.ArgumentParser(description="The Swarm, seen: the arrangement, the larger model alongside, input against output.")
     ap.add_argument("--port", type=int, default=8787)
+    ap.add_argument("--card-starts", action="store_true", help="draw each card's own Start button too (the Run card starts the whole of it)")
     ap.add_argument("--root", default=str(Path(__file__).resolve().parent.parent), help="the repository (default: the one this file is in)")
     ARGS = ap.parse_args(argv)
-    global ENGINE_LOOKUP, ENGINES_SEEN
+    global ENGINE_LOOKUP, ENGINES_SEEN, CARD_STARTS
+    CARD_STARTS = bool(ARGS.card_starts)
     ENGINES_SEEN = True
     ENGINE_LOOKUP = not os.environ.get("SWARM_NO_LOOKUP")
     srv = ThreadingHTTPServer(("127.0.0.1", ARGS.port), Handler)

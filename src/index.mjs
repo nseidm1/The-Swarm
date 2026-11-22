@@ -103,6 +103,21 @@ export const readTrained = () => {
 };
 
 const seedOf = (text) => createHash('sha256').update(text).digest().readUInt32BE(0) >>> 1;
+// WHICH ROLE'S ADAPTER A SLOT IS ASKED WITH, by its stage: a drafter asked again to revise is still drafting; a stage that has no
+// adapter of its own (a part, a probe, the small model that settles a tie) is asked of the model as it is.
+export const ROLE_OF_STAGE = { draft: 'draft', revise: 'draft', check: 'check', write: 'write' };
+// { role: file } -> [[role, file]] in a fixed order (the order the server loads them in, which is their ids)
+export const roleFilesOf = (map) =>
+  Object.entries(map || {})
+    .filter(([, f]) => f)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+// the `lora` field of one request: every loaded adapter named, the one of this stage's role at 1 and the rest at 0
+export const loraFor = (ids, stage) => {
+  const role = ROLE_OF_STAGE[stage];
+  return Object.entries(ids)
+    .sort(([, a], [, b]) => a - b)
+    .map(([r, id]) => ({ id, scale: r === role ? 1 : 0 }));
+};
 export async function createSwarm(opts = {}) {
   // FROM A SPEC (spec.mjs): its members, its arrangement and its serving, exactly; nothing from this machine's configuration
   const S = opts.spec ? fromSpec(opts.spec, { adaptersDir: opts.adaptersDir, anyAdapters: opts.anyAdapters }) : null;
@@ -119,6 +134,8 @@ export async function createSwarm(opts = {}) {
     setting === 'swarm' ? opts.lead || 'a' : toolsOf(setting === 'lead' ? opts.lead || 'a' : setting, MEM);
   const toolMode = setting === 'swarm' ? 'swarm' : 'lead';
   const members = {};
+  // (which loaded adapter is which role's, for each place served with one for each role: { key: { role: id } })
+  const roleIds = {};
   const started = [];
   const stop = async () => {
     for (const s of servers.splice(0)) await s.close();
@@ -134,6 +151,7 @@ export async function createSwarm(opts = {}) {
   const served = (key) => ({
     jinja: opts.jinja !== undefined ? opts.jinja : toolMode === 'swarm' || key === toolLead,
     lora: (opts.loras && opts.loras[key]) || '',
+    roles: JSON.stringify(roleFilesOf(opts.roleLoras && opts.roleLoras[key])),
     file: (opts.files && opts.files[key]) || '',
   });
   const share = sharedLoads(
@@ -150,18 +168,36 @@ export async function createSwarm(opts = {}) {
     // (a place whose model another place has loaded is that load)
     if (share[key].with !== key) {
       members[key] = members[share[key].with];
+      if (roleIds[share[key].with]) roleIds[key] = roleIds[share[key].with];
       continue;
     }
     // (a server that takes turns with tools reads and writes calls in its model's own template: --jinja)
     const jinja = opts.jinja !== undefined ? opts.jinja : toolMode === 'swarm' || key === toolLead;
     // (a member with a trained adapter, opts.loras: { key: its GGUF LoRA }, is served with it: training/adapters.mjs lorasFor)
-    const lora = opts.loras && opts.loras[key];
+    // AN ADAPTER FOR EACH ROLE, ON ONE LOAD (opts.roleLoras: { key: { draft: file, check: file, write: file } }; training/roles.mjs).
+    // Every one of them is loaded and none applied; each request then names the one its slot's role has (ask, below). Measured
+    // 2026-11-22 on llama.cpp build 12110: the chat endpoint takes an adapter per request and the base model comes back on the
+    // same slot after; a request that names none gets ALL of them at full strength, so every request names them; requests with
+    // different adapters do not share a batch (2.7 times slower mixed), and slots that run together are of one role.
+    const roleFiles = roleFilesOf(opts.roleLoras && opts.roleLoras[key]);
+    const lora = roleFiles.length ? null : opts.loras && opts.loras[key];
+    if (roleFiles.length) roleIds[key] = Object.fromEntries(roleFiles.map(([role], i) => [role, i]));
     const r = await startMember(MEM[key], {
       ...opts,
       jinja,
       slots: slots * share[key].places,
       file: opts.files && opts.files[key],
       ...(lora ? { flags: [...(opts.flags || []), '--lora', lora] } : {}),
+      ...(roleFiles.length
+        ? {
+            flags: [
+              ...(opts.flags || []),
+              '--lora',
+              roleFiles.map(([, f]) => f).join(','),
+              '--lora-init-without-apply',
+            ],
+          }
+        : {}),
     });
     if (!r.ok) {
       await stop();
@@ -225,6 +261,9 @@ export async function createSwarm(opts = {}) {
     if (!m) throw new Error('no member called ' + slot.member);
     const { maxTokens, temperature, top_p, top_k } = slot;
     const params = { maxTokens, timeoutMs: opts.timeoutMs, ...extra };
+    // (the adapter of this slot's role, where its model is served with one for each role: every adapter named, one at full strength)
+    const ids = roleIds[slot.member];
+    if (ids) params.lora = loraFor(ids, slot.stage);
     for (const [k, v] of Object.entries({ temperature, top_p, top_k })) if (v !== undefined) params[k] = v;
     // opts.seed: the same slot asked the same thing draws the same answer. A program that serves people leaves it off; the
     // trainers set it, because a measurement that changes by itself from one run to the next cannot say whether a change helped
@@ -232,7 +271,26 @@ export async function createSwarm(opts = {}) {
       const last = messages[messages.length - 1];
       params.seed = seedOf(opts.seed + '|' + slot.id + '|' + messages.length + '|' + textOf(last && last.content));
     }
-    if (!reuse) return m.ask(slot.id, messages, params);
+    // WHAT EACH SLOT WAS ASKED, AND WHAT IT SAID, for whoever asks to be told (opts.onAsk): the record a role's adapter is
+    // trained from (training/roles.mjs). Nothing kept what a slot was asked; only what it answered was on the trace
+    const told = (pr) =>
+      opts.onAsk
+        ? pr.then((r) => {
+            try {
+              opts.onAsk({
+                slot: slot.id,
+                stage: slot.stage,
+                member: slot.member,
+                messages,
+                text: (r && (r.text || r.content)) || '',
+              });
+            } catch {
+              /* a listener that fails does not fail the answer */
+            }
+            return r;
+          })
+        : pr;
+    if (!reuse) return told(m.ask(slot.id, messages, params));
     // REUSED WHERE NOTHING CHANGED (opts.reuse, the trainers only): with a seed, the same slot on the same model asked the same
     // thing with the same sampling draws the same answer, so a try that changes one slot need not ask the others again. Keyed by
     // all of that; only an answer that came back is kept; what it took is counted as saved
@@ -243,11 +301,11 @@ export async function createSwarm(opts = {}) {
       reuse.savedMs += had.ms;
       reuse.map.delete(key);
       reuse.map.set(key, had);
-      return Promise.resolve({ ...had.r });
+      return told(Promise.resolve({ ...had.r }));
     }
     reuse.misses++;
     const t0 = Date.now();
-    return m.ask(slot.id, messages, params).then((r) => {
+    return told(m.ask(slot.id, messages, params)).then((r) => {
       if (r && (r.text || r.content || r.calls)) {
         reuse.map.set(key, { r: { ...r }, ms: Date.now() - t0 });
         if (reuse.map.size > reuse.limit) reuse.map.delete(reuse.map.keys().next().value);

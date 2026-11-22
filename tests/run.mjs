@@ -9920,6 +9920,127 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+// ---- AN ADAPTER FOR EACH ROLE (training/roles.mjs; src/index.mjs roleLoras): what a role's examples are, and which adapter a
+// request names
+{
+  const R = await import('../training/roles.mjs');
+  const I = await import('../src/index.mjs');
+  const A = await import('../training/adapters.mjs');
+  const os8 = await import('node:os');
+  const row = {
+    id: 'q1',
+    kind: 'sum',
+    grade: 'right',
+    trace: [
+      { slot: 'a-direct', stage: 'draft', out: 'ANSWER: 4', same: true },
+      { slot: 'a-steps', stage: 'draft', out: 'ANSWER: 5', same: false },
+      { slot: 'a-critic', stage: 'check', out: 'B is wrong. ANSWER: 4', same: true },
+      { slot: 'a-steps', stage: 'revise', out: 'ANSWER: 4 after all', same: true },
+      { slot: 'probe', stage: 'probe', out: 'x', same: true },
+      { slot: 'a-writer', stage: 'write', out: 'It is 4.', same: true },
+    ],
+  };
+  const call = (slot, stage, text, ask = slot + ' asked') => ({
+    slot,
+    stage,
+    member: 'a',
+    messages: [
+      { role: 'system', content: 'brief of ' + slot },
+      { role: 'user', content: ask },
+    ],
+    text,
+  });
+  const calls = [
+    call('a-direct', 'draft', 'ANSWER: 4'),
+    call('a-steps', 'draft', 'ANSWER: 5'),
+    call('a-critic', 'check', 'B is wrong. ANSWER: 4'),
+    call('a-steps', 'revise', 'ANSWER: 4 after all', 'revise it'),
+    call('probe', 'probe', 'x'),
+    call('a-writer', 'write', 'It is 4.'),
+  ];
+  const ex = R.examplesOf(row, calls);
+  const wrongReply = R.examplesOf({ ...row, grade: 'wrong' }, calls);
+  const ids = { check: 0, draft: 1, write: 2 };
+  // roles.json on disk: the roles that are ok and whose file is there are served; the swarm is then said to be served with them
+  const work = fs.mkdtempSync(path.join(os8.tmpdir(), 'roles-'));
+  const m = { name: 'Small', file: 'small.gguf', engine: 'llama' };
+  const dir = A.adapterDir(work, 'big', { name: m.name, file: path.join('/models', m.file) });
+  fs.mkdirSync(dir, { recursive: true });
+  const f = (n) => {
+    const p = path.join(dir, n);
+    fs.writeFileSync(p, n);
+    return p;
+  };
+  fs.writeFileSync(
+    path.join(dir, 'roles.json'),
+    JSON.stringify({
+      roles: {
+        draft: { ok: true, gguf: f('draft.gguf') },
+        check: { ok: true, gguf: path.join(dir, 'gone.gguf') },
+        write: { ok: false, gguf: f('write.gguf') },
+      },
+    }),
+  );
+  // a tool call's arguments reach the template as the thing they are, not as text
+  const tc = (a) => ({
+    role: 'assistant',
+    content: '',
+    tool_calls: [{ id: '1', type: 'function', function: { name: 'f', arguments: a } }],
+  });
+  const toolEx = R.examplesOf(
+    { id: 'q2', kind: 'tools', grade: 'right', trace: [{ slot: 'a-steps', stage: 'draft', out: 'done', same: true }] },
+    [
+      {
+        slot: 'a-steps',
+        stage: 'draft',
+        member: 'a',
+        text: 'done',
+        messages: [{ role: 'user', content: 'do it' }, tc('{"n": 2}'), { role: 'tool', content: '4' }],
+      },
+    ],
+  );
+  const argsOf = (m) => m.tool_calls[0].function.arguments;
+  check(
+    "an example is one a chat template takes: a tool call's arguments are given as the thing they are and not as text (as text, the template refused every example with a tool call and the drafters' adapter was not trained); arguments that are no JSON are kept under one name; a message with no tool call is the same message",
+    toolEx.length === 1 &&
+      argsOf(toolEx[0].messages[1]).n === 2 &&
+      argsOf(R.forTemplate(tc('not json'))).text === 'not json' &&
+      argsOf(R.forTemplate(tc('[1]'))).text === '[1]' &&
+      argsOf(R.forTemplate(tc({ n: 3 }))).n === 3 &&
+      R.forTemplate(toolEx[0].messages[0]) === toolEx[0].messages[0],
+    { toolEx: JSON.stringify(toolEx).slice(0, 300) },
+  );
+  const on = A.roleLorasFor({ adapters: true }, { a: m, b: m }, work, 'big', '/models');
+  const off = A.roleLorasFor({}, { a: m, b: m }, work, 'big', '/models');
+  const served = A.servedWith({ adapters: true }, { a: m, b: m }, work, 'big', '/models');
+  check(
+    "pretraining knows the arrangement: a slot's request with the answer it gave is an example for its role where that answer was right (a drafter, also when it revises; a checker; a writer only where the reply itself was right), never a stage that has no role, and never a wrong answer; a request names every loaded adapter, its role's at full strength and the rest at none, and a stage with no role names them all at none; the adapters are loaded in one fixed order; a member is served with an adapter for each role that was trained and whose file is there, where the configuration serves adapters; and a measurement says which",
+    ex.map((e) => e.role).join() === 'draft,check,draft,write' &&
+      ex[0].messages.length === 3 &&
+      ex[0].messages[2].content === 'ANSWER: 4' &&
+      ex[2].messages[1].content === 'revise it' &&
+      wrongReply.map((e) => e.role).join() === 'draft,check,draft' &&
+      R.countByRole(ex).draft.examples === 2 &&
+      R.countByRole(ex).draft.questions === 1 &&
+      R.callOf(calls, { slot: 'a-steps', out: 'ANSWER: 5' }).stage === 'draft' &&
+      R.callOf(calls, { slot: 'a-steps', out: 'unknown' }) === null &&
+      JSON.stringify(I.loraFor(ids, 'draft')) === '[{"id":0,"scale":0},{"id":1,"scale":1},{"id":2,"scale":0}]' &&
+      JSON.stringify(I.loraFor(ids, 'revise')) === JSON.stringify(I.loraFor(ids, 'draft')) &&
+      I.loraFor(ids, 'probe').every((x) => x.scale === 0) &&
+      I.roleFilesOf({ write: 'w', draft: 'd', check: '' })
+        .map(([r]) => r)
+        .join() === 'draft,write' &&
+      I.roleFilesOf(null).length === 0 &&
+      Object.keys(on).join() === 'a,b' &&
+      Object.keys(on.a).join() === 'draft' &&
+      Object.keys(off).length === 0 &&
+      served.roles.join() === 'draft' &&
+      served.files.length === 1 &&
+      served.names.join() === 'Small,Small',
+    { ex: ex.map((e) => e.role), on, served },
+  );
+}
+
 // ---- THE WHOLE RUN (training/run.sh): one start, the steps in order, each written down where its card looks; a step that refuses
 // is said and the run goes on; a run stopped part way carries on from the step it stopped in
 {
@@ -9965,6 +10086,25 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const second = fs.readFileSync(log, 'utf8').trim().split('\n').slice(first.length);
   const evalJob = JSON.parse(fs.readFileSync(path.join(dir, 'work', 'eval', 'ui-run.json'), 'utf8'));
   const off = go(['--limit', '20', '--train', 'off']);
+  // the class stage's time ends the stage, not only the session that waits on it (a session waiting 30 s, given no minutes)
+  fs.writeFileSync(path.join(dir, 'slow.sh'), 'trap \'exit 143\' TERM INT\necho slow >> "$LOG"\nsleep 30\n');
+  const t0 = Date.now();
+  const late = go(['--limit', '20', '--train-minutes', '0'], {
+    RUN_WORK: path.join(dir, 'work-slow'),
+    LOG: path.join(dir, 'log-slow'),
+    RUN_SESSION: 'sh ' + path.join(dir, 'slow.sh'),
+  });
+  const took = (Date.now() - t0) / 1000;
+  const slowKey = fs.readdirSync(path.join(dir, 'work-slow', 'run'))[0];
+  const slowStatus = fs.readFileSync(path.join(dir, 'work-slow', 'run', slowKey, 'pass-1', 'status.txt'), 'utf8');
+  check(
+    'the time given to the class stage ends the stage: the session is told to stop and so is the step it waits on (a shell acts on a signal only when what it waits on ends, and the stage ran 17 minutes past its 20), and the trained module is still evaluated after it',
+    took < 15 &&
+      /END   4-train-classes exit 143/.test(slowStatus) &&
+      /END   5-evaluate-trained exit 0/.test(slowStatus) &&
+      /DONE\n$/.test(slowStatus),
+    { took, slowStatus, late: late.slice(-300) },
+  );
   const third = fs
     .readFileSync(log, 'utf8')
     .trim()

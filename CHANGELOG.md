@@ -6,6 +6,19 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The drafters' adapter is trained, and the class stage ends at its time** (2026-11-22). The first whole run on the
+  real models showed two faults. The drafters' examples carried a tool call's arguments as text, which the model's
+  chat template refuses, so the role with the most examples had no adapter; the arguments are now given as the
+  thing they are. And the time given to the class stage ended only the session, which waited for the stage to end by
+  itself (37 minutes for 20); its time now ends the stage as well.
+- **Pretraining that knows the arrangement: an adapter for each role** (2026-11-22). Pretrain taught a small model the
+  larger model's answers to plain questions, which is none of the jobs the swarm gives it. `training/roles.mjs` puts the
+  train questions to the swarm once, keeps what every slot is asked, marks each slot's answer, and trains one adapter
+  for each role (draft, check, write) from the requests that came out right. The swarm is served with all of them on one
+  load, each request naming its role's; measured on llama.cpp build 12110, where requests with different adapters do not
+  share a batch. The whole run pretrains this way.
+- **Only the Run card starts and stops** (2026-11-22). The Evaluate, Pretrain and Train cards are drawn without their own
+  buttons; `--card-starts` on the page draws them again.
 - **One run, one button** (2026-11-22). Run, the first card, starts the whole of it (`training/run.sh`): the module as
   configured is evaluated, it is pretrained and evaluated, its arrangement is trained (the class stage, two hours at
   most, where asked) and it is evaluated a third time, each on the same questions. Stop is safe at any step and Start

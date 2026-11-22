@@ -24,6 +24,9 @@ import data  # noqa: E402
 import sample  # noqa: E402
 import swarm_ui  # noqa: E402
 
+# (the cards' own Start buttons are drawn for these checks, which are of them: by default only the Run card has one)
+swarm_ui.CARD_STARTS = True
+
 # THE CHECKS ARE THE SAME ON ANY MACHINE: where one needs the repository itself, it is given REPO, a copy of the code with a
 # lineup of the checks' own and none of this machine's state (no chosen configuration, no learned record, no working folder).
 # One read the configuration chosen here, 2026-11-20, and failed when a person chose a lineup with no decision model. The
@@ -1797,6 +1800,13 @@ check("each dialog of the Evaluate card opens with the three evaluations, said i
       and "±" in _cd_p and "<b>70" in _cd_p and "±" not in _cd_t.split("<tbody>")[1].split("</tbody>")[0] and _cd_c.count("cmpbar") >= 4 and "not measured yet" in _cd_c and "Big" in _cd_c
       and "a gain of 8" in _cd_t and swarm_ui.compare_dialog({"compare": data.compare_of({})}, "table") == "", [_cd_t[:400], _cd_c[:400]])
 # ---- THE WHOLE RUN, ONE BUTTON
+swarm_ui.CARD_STARTS = False
+_bare = swarm_ui.main_body(_d)
+swarm_ui.CARD_STARTS = True
+_full = swarm_ui.main_body(_d)
+check("only the Run card starts and stops: the Evaluate, Pretrain and Train cards are drawn without their own Start buttons, the chooser of a size and the button that asked again what fell short, and with them where the page is started to draw them; what else the cards hold is as it was",
+      all('id="%s"' % i not in _bare for i in ("ev-go", "ev-size", "ev-narrow", "pre-go", "run-go", "ev-stop", "pre-stop", "run-stop")) and 'id="whole-go"' in _bare
+      and all('id="%s"' % i in _full for i in ("ev-go", "ev-size", "pre-go", "run-go")) and "<h2>Evaluate the swarm</h2>" in _bare and "<h2>Pretrain</h2>" in _bare, [len(_bare), len(_full)])
 import tempfile as _tf9
 _wr = Path(_tf9.mkdtemp())
 (_wr / ".work" / "run" / "k" / "pass-1").mkdir(parents=True)

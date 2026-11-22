@@ -9,6 +9,7 @@
 # unmeasured, and the third is then of the trained arrangement without an adapter, which the card says.
 # Each step is one of the programs the page's cards follow (evaluate.sh, adapters.mjs, session.sh), started as the page starts it
 # and written down where the page looks (.work/<job>/ui-run.json), so each card shows its step while it runs.
+# (Pretraining is roles.mjs, which the page follows where it follows adapters.mjs: the same live.json.)
 cd "$(dirname "$0")/.." || exit 1
 ROOT=$(pwd)
 LIMIT=20; PROOF=; TRAIN=classes; MINUTES=120; ITEMS=
@@ -39,7 +40,7 @@ ASK="$SIZE${ITEMS:+ --items $ITEMS}"
 LIMJ=$([ -n "$PROOF" ] && echo -1 || echo "$LIMIT")
 # (what each step runs, and where the run keeps its place: its own programs and .work, or a test's)
 EVALUATE=${RUN_EVALUATE:-sh training/evaluate.sh}
-PRETRAIN=${RUN_PRETRAIN:-$NODE training/adapters.mjs train}
+PRETRAIN=${RUN_PRETRAIN:-$NODE training/roles.mjs train}
 SESSION=${RUN_SESSION:-bash training/session.sh}
 WORK=${RUN_WORK:-.work}
 WHAT="$KEY | $ASK | train $TRAIN"
@@ -74,16 +75,18 @@ say "The whole run of $KEY: $ASK, training the arrangement: $TRAIN"
 step 1-evaluate-as-configured eval "\"limit\": $LIMJ" $EVALUATE --variant base $ASK
 [ $? = 0 ] || say "The module as configured was not evaluated (see $OUT/1-evaluate-as-configured.out): the other figures have nothing to stand beside."
 
-# 2  PRETRAINED
+# 2  PRETRAINED: an adapter for each role of slot, from what each slot is asked (training/roles.mjs)
 step 2-pretrain pretrain "" $PRETRAIN
 [ $? = 0 ] || say "Pretraining did not end well (see $OUT/2-pretrain.out): where no adapter was made, the second figure is not taken."
 step 3-evaluate-pretrained eval "\"limit\": $LIMJ" $EVALUATE --variant pretrained $ASK
 case $? in 0) ;; 3) say "No adapter is trained for this configuration: the pretrained figure is not taken." ;; *) say "The pretrained module was not evaluated (see $OUT/3-evaluate-pretrained.out)." ;; esac
 
 # 3  PRETRAINED AND TRAINED: the class stage, for so many minutes at most; what it kept by then is kept
+# (its time ends the session AND the step the session waits on: a shell acts on a signal only when what it waits on ends, so
+# the signal to the session alone left the stage running to its own end, 17 minutes past 20, 2026-11-22)
 if [ "$TRAIN" = classes ]; then
   if ! grep -qF "END   4-train-classes exit 0 " "$OUT/status.txt"; then
-    ( sleep $((MINUTES * 60)); P=$(cat "$WORK/train/ui-run.json" 2>/dev/null | "$NODE" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).pid)}catch{}})"); [ -n "$P" ] && kill -TERM "$P" 2>/dev/null ) > /dev/null 2>&1 &
+    ( sleep $((MINUTES * 60 + 1)); P=$(cat "$WORK/train/ui-run.json" 2>/dev/null | "$NODE" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).pid)}catch{}})"); [ -n "$P" ] && { kill -TERM "$P" 2>/dev/null; pkill -TERM -P "$P" 2>/dev/null; } ) > /dev/null 2>&1 &
     WATCH=$!
   fi
   PASSES=1 SESSION_STEPS=classes step 4-train-classes train "\"passes\": 1, \"first\": 1, \"classes\": []" $SESSION

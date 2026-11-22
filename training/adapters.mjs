@@ -305,6 +305,44 @@ export function adapterOf(work, targetId, m) {
     return null;
   }
 }
+// AN ADAPTER FOR EACH ROLE (training/roles.mjs writes roles.json beside result.json: { roles: { draft: { ok, gguf, examples },
+// check: {...}, write: {...} } }). Where the configuration serves adapters and a member has them, it is served with one for each
+// role on one load, chosen per request (src/index.mjs roleLoras), in place of its one adapter. -> { memberKey: { role: gguf } }
+export function roleLorasFor(config, members, work, targetId, modelsDir) {
+  if (!config || !config.adapters) return {};
+  const out = {};
+  for (const [key, m] of Object.entries(members)) {
+    if (m.engine && m.engine !== 'llama') continue;
+    let j = null;
+    try {
+      j = JSON.parse(
+        fs.readFileSync(
+          path.join(adapterDir(work, targetId, { name: m.name, file: path.join(modelsDir, m.file) }), 'roles.json'),
+          'utf8',
+        ),
+      );
+    } catch {
+      continue;
+    }
+    const roles = Object.fromEntries(
+      Object.entries((j && j.roles) || {})
+        .filter(([, r]) => r && r.ok && r.gguf && fs.existsSync(r.gguf))
+        .map(([k, r]) => [k, r.gguf]),
+    );
+    if (Object.keys(roles).length) out[key] = roles;
+  }
+  return out;
+}
+// WHAT A SWARM IS SERVED WITH, for a measurement to say and to keep its answers by: the members that have adapters, and the
+// files (each role's where it has them, else its one). -> { names: [member names], files: [paths, sorted], roles: [role names] }
+export function servedWith(config, members, work, targetId, modelsDir) {
+  const one = lorasFor(config, members, work, targetId, modelsDir);
+  const by = roleLorasFor(config, members, work, targetId, modelsDir);
+  const keys = [...new Set([...Object.keys(one), ...Object.keys(by)])].sort();
+  const files = [...new Set(keys.flatMap((k) => (by[k] ? Object.values(by[k]) : [one[k]])))].sort();
+  const roles = [...new Set(keys.flatMap((k) => Object.keys(by[k] || {})))].sort();
+  return { names: keys.map((k) => members[k].name), files, roles };
+}
 // THE ADAPTERS THE SWARM IS SERVED WITH: where the configuration says so ("adapters": true), each member that has one that
 // llama.cpp found good -> { memberKey: its GGUF LoRA } (src/index.mjs createSwarm serves that member with --lora)
 export function lorasFor(config, members, work, targetId, modelsDir) {
