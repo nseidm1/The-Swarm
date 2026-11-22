@@ -6,6 +6,11 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A model that fills several places is loaded once** (2026-11-21). A swarm of one model loaded its weights once for each
+  place it filled. The places now share one load, started with the slots of all of them. Measured with LFM3 1.7B in two
+  places on 24 benchmark prompts: 2.1 GB of memory in place of 3.3, 13 answers right of 18 where two loads had 14, and 7.9
+  seconds a question where two loads took 6.8. A third less memory for a sixth more time. The memory the page estimates
+  and measures counts the shared model once. `SWARM_SHARE_LOADS=0` loads each place apart.
 - **The page draws the shape that is run** (2026-11-21). The picture of training has the class stage as a lane of its own,
   first in a pass: as it stands, the sweep, the best two together, the held questions on two draws, the one rule that
   keeps. Inside one try it says how many slots draft first and that the answer most slots hold stands. The faces show a

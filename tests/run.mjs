@@ -9673,6 +9673,41 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+// ---- one model in several places is loaded once
+{
+  const I = await import('../src/index.mjs');
+  const C = await import('../src/catalog.mjs');
+  const M = await import('../training/support/measure-memory.mjs');
+  const as = { a: 'x', b: 'x', c: 'y', d: 'x' };
+  const on = I.sharedLoads(['a', 'b', 'c', 'd'], (k) => as[k]);
+  const off = I.sharedLoads(['a', 'b'], (k) => as[k], false);
+  const m1 = { id: 'm1', bytes: 2 ** 30 };
+  const target = { memGb: 20 };
+  const two = C.footprintOf({ a: m1, b: m1 }, null, target);
+  const mixed = C.footprintOf({ a: m1, b: { id: 'm2', bytes: 2 ** 30 } }, null, target);
+  const measured = M.measureSwarm(
+    { members: { a: 11, b: 11, c: 12 } },
+    { platform: 'linux', exec: (cmd, args) => (cmd === 'ps' ? String((args[3] === '11' ? 2 : 1) * 1024 * 1024) : '') },
+  );
+  check(
+    'places that hold the same model, served the same way, share one load: the first of them starts it with the slots of all, the others are that load; places served differently, or with sharing off, each have their own; the memory a swarm is estimated at counts a shared model once, and its measured memory counts a shared process once',
+    on.a.with === 'a' &&
+      on.a.places === 3 &&
+      on.b.with === 'a' &&
+      on.d.with === 'a' &&
+      on.c.with === 'c' &&
+      on.c.places === 1 &&
+      off.b.with === 'b' &&
+      off.a.places === 1 &&
+      two.swarm === 2.3 &&
+      mixed.swarm === 3.5 &&
+      measured.swarm === 3 &&
+      measured.members.b === 0 &&
+      measured.shared.b === 'a',
+    { on, two, mixed, measured },
+  );
+}
+
 // ---- an evaluation can measure the arrangement a swarm started from, and says which it measured
 {
   const I = await import('../src/index.mjs');

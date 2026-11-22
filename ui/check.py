@@ -1151,7 +1151,7 @@ with tempfile.TemporaryDirectory() as tmp:
           all(">%s</span>" % c in _vz2 for c in ("S1", "S2", "S3", "S4", "S5", "B1", "B5", "C1", "C4")) and _vz2.index(">S1</span>") < _vz2.index(">B1</span>") and _vz2.index(">A1</span>") < _vz2.index(">S1</span>")
           and 'data-part="classes"' in _vz2 and "2 draws" in _vz2 and "2 slots first, each its own way; the other 2 only where those differ." in _vz2 and "The answer most slots hold stands." in _vz2
           and "n.trainer==='classes'?'classes'" in swarm_ui.JS
-          and _av2.count('class="mav a"') == 1 and 'class="mav b"' not in _av2 and "in every role · 7 slots · loaded 2 times" in _av2
+          and _av2.count('class="mav a"') == 1 and 'class="mav b"' not in _av2 and "in every role · 7 slots · loaded once" in _av2
           and "No decision model" in _av2 and "the answer most slots hold stands" in _av2 and ">most hold<" in _av2
           and len(re.findall(r'class="av \w+ later', _av2)) == 2 and "<span>2 first; 2 only if those differ</span>" in _av2 and "Two slots draft first, and the others only where those two differ." in _av2
           and re.findall(r'data-av="((?:a|b)-[a-z-]+)"', _av2)[:4] == ["a-direct", "b-direct", "a-steps", "b-other-way"]

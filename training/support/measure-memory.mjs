@@ -57,9 +57,19 @@ const localPort = (url) => {
 };
 export function measureSwarm({ members = {}, decider = '', target = 0 } = {}, tools = {}) {
   const out = { members: {} };
+  // (places that share a load are one process: its memory is the first place's, and the others say whose it is)
+  const first = new Map();
   for (const [key, pid] of Object.entries(members)) {
+    if (first.has(Number(pid))) {
+      out.members[key] = 0;
+      out.shared = { ...(out.shared || {}), [key]: first.get(Number(pid)) };
+      continue;
+    }
     const gb = gbOfPid(Number(pid), tools);
-    if (gb) out.members[key] = gb;
+    if (gb) {
+      out.members[key] = gb;
+      first.set(Number(pid), key);
+    }
   }
   if (!Object.keys(out.members).length || Object.keys(out.members).length < Object.keys(members).length) return null;
   const dp = localPort(decider) ? pidOnPort(localPort(decider), tools) : null;

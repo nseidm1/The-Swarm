@@ -309,6 +309,8 @@ await swarm.stop();
 
 `answer()` also returns `decided` (the answer settled on), `path` (how it was settled) and `trace` (what every slot wrote).
 
+**One model in several places is loaded once.** Places that hold the same model, served the same way, share one server, started with the slots of all of them (`shareLoads: false`, or `SWARM_SHARE_LOADS=0`, gives each place its own). Measured with LFM3 1.7B in two places: 2.1 GB in place of 3.3, for about a sixth more time a question.
+
 **As a server.** `swarm.serve()`, or `swarm serve` from a terminal, answers what llama.cpp's own server answers, so a program
 that talks to one model at an address needs no change:
 

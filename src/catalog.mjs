@@ -135,7 +135,15 @@ export const TARGET = REGISTRY.targets.find((m) => m.id === CONFIG.target);
 // gigabyte of context; the decider's listed size; the larger model's listed size. -> { swarm, target, saved, savedGb }, or null
 export function footprintOf(members = MEMBERS, decider = DECIDER, target = TARGET) {
   const r1 = (x) => Math.round(x * 10) / 10;
-  const files = Object.values(members || {}).reduce((n, m) => n + ((m && m.bytes) || 0), 0) / 2 ** 30;
+  // (a model that fills several places is loaded once, src/index.mjs sharedLoads: its file counts once)
+  const once = [
+    ...new Map(
+      Object.values(members || {})
+        .filter(Boolean)
+        .map((m, i) => [m.id || m.file || i, m]),
+    ).values(),
+  ];
+  const files = once.reduce((n, m) => n + (m.bytes || 0), 0) / 2 ** 30;
   const tbytes =
     ((target && target.bytes) || 0) + ((target && target.parts) || []).reduce((n, p) => n + ((p && p.bytes) || 0), 0);
   const tgt = (target && target.memGb) || (tbytes ? r1((tbytes / 2 ** 30) * 1.1) : 0);

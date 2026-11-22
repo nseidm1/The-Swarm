@@ -34,6 +34,17 @@ export const BRIEFS_FILE = fileURLToPath(new URL('./briefs.json', import.meta.ur
 // learned nothing yet, the arrangement every swarm starts from (briefs.json). A file named is read as it is.
 // THE ARRANGEMENT A SWARM STARTS FROM, for the places that are filled: briefs.json, whatever the configuration has learned since.
 // What training kept is measured against it (training/evaluate.mjs --default asks the swarm as it started)
+// WHICH PLACES SHARE A LOAD: { place: { with: the first place served the same way, places: how many share it (on that first
+// place; 1 on the others) } }. sameAs(place) says how a place is served; off, every place has its own.
+export function sharedLoads(keys, sameAs, on = true) {
+  const out = {};
+  for (const k of keys) {
+    const first = on ? keys.find((j) => j in out && out[j].with === j && sameAs(j) === sameAs(k)) : undefined;
+    out[k] = { with: first || k, places: 1 };
+    if (first) out[first].places += 1;
+  }
+  return out;
+}
 export const startBriefs = () => withPlaces(JSON.parse(fs.readFileSync(BRIEFS_FILE, 'utf8')), Object.keys(MEMBERS));
 export const readBriefs = (file) => {
   if (file) return JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -114,10 +125,31 @@ export async function createSwarm(opts = {}) {
     for (const m of started.splice(0)) m.stop();
   };
   const servers = [];
+  // ONE MODEL IN SEVERAL PLACES IS LOADED ONCE (sharedLoads): its places share one server, started with as many slots as they
+  // have between them, so each slot of the arrangement still keeps to a server slot of its own. Two loads of one model answer
+  // as one does, so the second bought nothing but its memory (measured 2026-11-21, LFM3 1.7B in two places on 24 kept benchmark
+  // prompts: 2.07 GB resident in place of 3.29, 13 right of 18 where two loads had 14, and 7.9 s a question where they took
+  // 6.8: a third less memory for a sixth more time). opts.shareLoads false, or SWARM_SHARE_LOADS=0, loads each place apart.
+  // Places share a load where they would be served alike in every way: the same model, file, adapter and template.
+  const served = (key) => ({
+    jinja: opts.jinja !== undefined ? opts.jinja : toolMode === 'swarm' || key === toolLead,
+    lora: (opts.loras && opts.loras[key]) || '',
+    file: (opts.files && opts.files[key]) || '',
+  });
+  const share = sharedLoads(
+    Object.keys(MEM).filter((k) => !(opts.attach && opts.attach[k])),
+    (k) => JSON.stringify([MEM[k].id, MEM[k].file, served(k)]),
+    opts.shareLoads !== undefined ? opts.shareLoads : process.env.SWARM_SHARE_LOADS !== '0',
+  );
   for (const key of Object.keys(MEM)) {
     const at = opts.attach && opts.attach[key];
     if (at) {
       members[key] = attachMember(MEM[key], at, slots);
+      continue;
+    }
+    // (a place whose model another place has loaded is that load)
+    if (share[key].with !== key) {
+      members[key] = members[share[key].with];
       continue;
     }
     // (a server that takes turns with tools reads and writes calls in its model's own template: --jinja)
@@ -127,7 +159,7 @@ export async function createSwarm(opts = {}) {
     const r = await startMember(MEM[key], {
       ...opts,
       jinja,
-      slots,
+      slots: slots * share[key].places,
       file: opts.files && opts.files[key],
       ...(lora ? { flags: [...(opts.flags || []), '--lora', lora] } : {}),
     });
@@ -359,9 +391,8 @@ export async function serveSwarm(entry = ENTRY, engine = {}, opts = {}) {
       port: s.port,
       base: s.base,
       pid: process.pid,
-      pids: Object.values(swarm.members)
-        .map((m) => m.pid)
-        .filter(Boolean),
+      // (each process once: places that share a load are one)
+      pids: [...new Set(Object.values(swarm.members).map((m) => m.pid))].filter(Boolean),
       args:
         'swarm ' +
         entry.id +

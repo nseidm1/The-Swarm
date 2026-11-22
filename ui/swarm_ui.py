@@ -1946,13 +1946,13 @@ def avatars(d, changed=None):
     trying = set(changed) if changed is not None else {m["slot"] for m in trying_moves((p or {}).get("moves")) if m.get("slot")}
     # the roster: each model once, with what it brings
     roster = []
-    # ONE MODEL IN EVERY PLACE IS ONE FACE: its slots and its memory over the places it holds (it is loaded once for each)
+    # ONE MODEL IN EVERY PLACE IS ONE FACE: every slot is its, and it is loaded once (src/index.mjs sharedLoads)
     filled = [k for k in ("a", "b", "c", "d") if k in members]
     same_model = len(filled) > 1 and len({(members[k] or {}).get("id") for k in filled}) == 1
     if same_model:
-        gb = sum(((members.get(k) or {}).get("bytes") or 0) for k in filled) / 2**30
-        roster.append('<div class="mav %s"><span class="face">%s</span><div><b>%s</b><small>in every role · %d slots · loaded %d times%s</small></div></div>'
-                      % (filled[0], e(fc[filled[0]]), e(name(filled[0])), len(slots), len(filled), (" · %.1f GB" % gb) if gb else ""))
+        gb = ((members.get(filled[0]) or {}).get("bytes") or 0) / 2**30
+        roster.append('<div class="mav %s"><span class="face">%s</span><div><b>%s</b><small>in every role · %d slots · loaded once%s</small></div></div>'
+                      % (filled[0], e(fc[filled[0]]), e(name(filled[0])), len(slots), (" · %.1f GB" % gb) if gb else ""))
     for place in ([] if same_model else filled):
         n_ = sum(1 for s in slots if s["member"] == place)
         gb = ((members.get(place) or {}).get("bytes") or 0) / 2**30

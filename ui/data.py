@@ -170,7 +170,12 @@ def footprint(members, decider, target):
     """THE POINT OF THE SWARM, IN ONE NUMBER: the memory the swarm takes against the memory the larger model takes. Estimates, from
     what is on record: each small model's file with its contexts (the same estimate as src/catalog.mjs's entry: the files, a
     quarter more, and a gigabyte of context), the decider's listed size, and the larger model's listed size. None of it measured."""
-    files = sum(((m or {}).get("bytes") or 0) for m in (members or {}).values()) / 2**30
+    # (a model that fills several places is loaded once, src/index.mjs sharedLoads: its file counts once, at its first place)
+    once = {}
+    for k, m in (members or {}).items():
+        if m:
+            once.setdefault(m.get("id") or m.get("file") or k, (k, m, []))[2].append(k)
+    files = sum((m.get("bytes") or 0) for _, m, _ in once.values()) / 2**30
     small = round(files * 1.25 + 1, 1) if files else None
     dec = (decider or {}).get("memGb")
     # (a larger model in parts is all of its parts)
@@ -180,7 +185,7 @@ def footprint(members, decider, target):
         return None
     swarm = round(small + (dec or 0), 1)
     # its parts, for a picture of it: each small model's file, the room for their contexts, and the decider
-    parts = [{"name": (m or {}).get("name", k), "gb": round(((m or {}).get("bytes") or 0) / 2**30, 2), "kind": "model", "place": k} for k, m in (members or {}).items()]
+    parts = [{"name": m.get("name", k) + (", in %d places" % len(ks) if len(ks) > 1 else ""), "gb": round((m.get("bytes") or 0) / 2**30, 2), "kind": "model", "place": k} for k, m, ks in once.values()]
     parts.append({"name": "Their contexts", "gb": round(small - sum(x["gb"] for x in parts), 2), "kind": "contexts"})
     if dec:
         parts.append({"name": (decider or {}).get("name", "The decider"), "gb": dec, "kind": "decider"})
