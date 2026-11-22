@@ -2243,5 +2243,31 @@ check("the Pretrain card says what pretraining is now: where a model has an adap
       and "<b>draft</b> (drafts): not adapted on its 189 examples" in _pre_roles and "Tool call arguments must be a mapping" in _pre_roles
       and "Pretraining knows the arrangement" in _pre_roles and "<b>Judged</b>" not in _pre_roles, [_pre_roles[:300]])
 
+# THE RUN CARD IS A CARD LIKE THE OTHERS, AND STOPS A RUN IT DID NOT START; THE EVALUATION DIALOGS HAVE ONE SHAPE
+_wb = swarm_ui.whole_block(_dr)
+_ps = ("  501 /bin/bash -c source x.sh && bash training/run.sh --limit 20 --train classes\n"
+       " 4242 bash training/run.sh --limit 50 --items code,math --train off\n"
+       " 4300 sh training/evaluate.sh --variant base\n")
+_found = swarm_ui._run_in(_ps)
+_detail = ('<div class="spec-head"><div><div class="kicker">Evaluate the swarm</div><h3>The swarm against X</h3></div>'
+           '<button class="btn stop top" id="evd-close" type="button">Close</button></div><table id="detail"></table>')
+_shaped = swarm_ui.evd_shape(_dr, "paper", '<h3 class="cmph">The three evaluations, side by side</h3><table id="three"></table>', _detail)
+_alone = swarm_ui.evd_shape(_dr, "chart", "", _detail)
+check("the Run card has the head every card has (the figure and what it is, what the card does, its controls, in the same three columns: its figure had fallen to the right and its label ran into the description), "
+      "and where it waits for something else it says so in a line of its own; a whole run started from a shell is found by its process (the shell whose script is training/run.sh, not a shell that only launched it), "
+      "with the size and the training it was started with, so the card shows Stop for it; each evaluation dialog has ONE header, which names the view, then the three evaluations side by side, then the last evaluation "
+      "in detail under a heading that says which it is, and with no comparison to show it is the view as it was; and a percentage is said one way (55, not 55.0 beside 60)",
+      'class="panel prep wholep"' in _wb and '<span class="memnum"><b class="pct">' in _wb and "of 5 steps<small>" in _wb and 'id="whole-go"' in _wb
+      and ".prep>.proghead" in swarm_ui.CSS
+      and _found == {"pid": 4242, "limit": 50, "train": "off", "adopted": True, "running": True}
+      and swarm_ui._run_in(" 501 /bin/bash -c bash training/run.sh --limit 20\n") is None and swarm_ui._run_in("") is None
+      and swarm_ui._run_in(" 7 bash training/run.sh --proof\n")["limit"] == -1
+      and _shaped.index("Evaluate the swarm · Paper table") < _shaped.index('id="evd-close"') < _shaped.index("The three evaluations, side by side") < _shaped.index('id="three"')
+          < _shaped.index("The last evaluation in detail:") < _shaped.index('id="detail"')
+      and _shaped.count('id="evd-close"') == 1 and _shaped.count('class="evdsec"') == 2
+      and "Evaluate the swarm · Chart" in _alone and "evdsec" not in _alone and "The last evaluation in detail" not in _alone
+      and swarm_ui.fmt_pct(100.0 * 0.55) == "55" and swarm_ui.fmt_pct(62.5) == "62.5" and swarm_ui.fmt_pct(100.0) == "100" and swarm_ui.fmt_pct(54.14) == "54.1",
+      [_found, _shaped[:200]])
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

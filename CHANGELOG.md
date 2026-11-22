@@ -6,6 +6,14 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The Run card is a card like the others, and stops a run it did not start** (2026-11-22). Its head had none of the
+  classes the cards' shared head is styled by, so its figure fell to the right and its label ran into the description.
+  And a run started from a shell was not the page's own: the card showed a dimmed "Carry on" where Stop belonged. The
+  page now finds such a run by its process and stops it and everything it started.
+- **The three evaluation dialogs have one shape** (2026-11-22). Each has one header, which names the view; then the three
+  evaluations side by side; then the last evaluation in detail, under a heading that says which of the three it is. The
+  comparison had stood above each dialog's own header. A percentage is said one way (55, not 55.0 beside 60), and the
+  paper view writes every score to one decimal.
 - **The larger model writes how training's operation questions are asked, in the pass** (2026-11-22). A new step of a
   pass (`training/wordings.mjs`, `06-wordings`) asks the larger model for other ways of asking each kind, as a different
   kind of person each time, checks each by its own answer to a small example (a wording that changed the task is refused

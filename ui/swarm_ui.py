@@ -369,7 +369,7 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 dialog#evd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#evd::backdrop{background:rgba(11,40,38,.45)}
 /* THE EVALUATE CARD'S HEADLINE IS A BUTTON (it opens the table, score beside score): it keeps the look of a headline, and says it can be pressed */
 .wsl{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.ws{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--line,#d9e4e1);border-radius:10px;font-size:13px;min-width:0}.ws i{width:10px;height:10px;border-radius:50%;background:#c8d4d0}.ws.done i{background:#0f6b5a}.ws.running i{background:#c98a0b}.ws.failed i{background:#a23b2a}.ws.not-taken i,.ws.stopped i{background:#7a8a86}.ws small{opacity:.75}.wholet{display:flex;gap:6px;align-items:center;font-size:13px}@media(max-width:760px){.wsl{grid-template-columns:1fr}}
-.cmph{margin:0 0 8px;font-size:15px}.cmpt{margin:0 0 6px}.cmpt tr.sum td{font-weight:700;border-top:2px solid var(--line,#d9e4e1)}.cmpbars{display:flex;flex-direction:column;gap:8px;margin:0 0 6px}.cmpbar{display:grid;grid-template-columns:minmax(120px,190px) 1fr minmax(110px,auto);gap:10px;align-items:center;font-size:13px}.cmpbar .mbar{position:relative;height:14px;background:#e4eeeb;border-radius:7px}.cmpbar .mbar i{position:absolute;left:0;top:0;bottom:0;background:#0f6b5a;border-radius:7px}.cmpbar .mbar u{position:absolute;top:-3px;bottom:-3px;border-left:2px solid #1d2b27;border-right:2px solid #1d2b27;background:rgba(29,43,39,.18)}.cmpbar .mbar s{position:absolute;top:-6px;bottom:-6px;border-left:2px dashed #3d4a8f}.cmpbar.none{opacity:.5}
+.cmph{margin:0 0 8px;font-size:15px}#evd{overflow-x:hidden}.evdsec{margin:14px 0 0}.evdsec+.evdsec{margin-top:22px;padding-top:16px;border-top:1px solid var(--line,#d9e4e1)}.cmpt{margin:0 0 6px}.cmpt tr.sum td{font-weight:700;border-top:2px solid var(--line,#d9e4e1)}.cmpbars{display:flex;flex-direction:column;gap:8px;margin:0 0 6px}.cmpbar{display:grid;grid-template-columns:minmax(120px,190px) 1fr minmax(110px,auto);gap:10px;align-items:center;font-size:13px}.cmpbar .mbar{position:relative;height:14px;background:#e4eeeb;border-radius:7px}.cmpbar .mbar i{position:absolute;left:0;top:0;bottom:0;background:#0f6b5a;border-radius:7px}.cmpbar .mbar u{position:absolute;top:-3px;bottom:-3px;border-left:2px solid #1d2b27;border-right:2px solid #1d2b27;background:rgba(29,43,39,.18)}.cmpbar .mbar s{position:absolute;top:-6px;bottom:-6px;border-left:2px dashed #3d4a8f}.cmpbar.none{opacity:.5}
 .cmp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 4px}.cmpc{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid var(--line,#d9e4e1);border-radius:10px;min-width:0}.cmpc b{font-size:13px}.cmpv{font-size:22px;font-weight:700}.cmpv i{font-style:normal;font-size:12px;font-weight:400;margin-left:6px;opacity:.7}.cmpc small{font-size:12px;opacity:.8}.cmpc.none .cmpv{opacity:.4}.cmpc small b.up{color:#0b6b57}.cmpc small b.down{color:#a23b2a}@media(max-width:640px){.cmp{grid-template-columns:1fr}}
 .evhead{display:flex;flex-direction:column;gap:10px;align-items:flex-start;min-width:0}.evviews{display:flex;gap:8px;flex-wrap:wrap}.evviews .btn{padding:8px 14px;font-size:13px;white-space:nowrap}.ptab{font-family:Georgia,'Times New Roman',serif;color:var(--fog)}.ptab caption{caption-side:top;text-align:left;font-size:13.5px;line-height:1.5;padding:0 0 10px}.ptab caption b{font-weight:700}.ptab table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums;border-top:2px solid var(--fog);border-bottom:2px solid var(--fog)}.ptab th,.ptab td{padding:5px 10px;text-align:right;border:0;white-space:nowrap}.ptab th:first-child,.ptab td:first-child{text-align:left;white-space:normal}.ptab thead th{font-weight:400;border-bottom:1px solid var(--fog)}.ptab tr.pg td{font-style:italic;padding-top:10px;text-align:left}.ptab tr.pall td{border-top:1px solid var(--fog);padding-top:7px}.ptab td small{color:var(--mist);font-size:.82em}.ptab-wrap{overflow-x:auto;margin-top:12px}.ptab-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}#evd-latex{width:100%;min-height:160px;margin-top:10px;font:12px ui-monospace,Menlo,monospace}dialog#tqd{border:0;border-radius:var(--r);padding:26px;max-width:min(900px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#tqd::backdrop{background:rgba(11,40,38,.45)}.tqctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}.tqctl select,.tqctl input{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel)}.tqctl input{flex:1 1 160px;min-width:0}.tql{list-style:none;margin:0;padding:0;display:grid;gap:10px}.tql li{border:1px solid var(--line2);border-radius:var(--r);padding:12px 14px}.tqh{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}.tqh small{color:var(--mist);font-size:12px;font-weight:600}.tqa{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.5}.tqb{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.45;color:var(--mist)}.tqb b{color:var(--fog)}.tqw{display:block;margin-top:6px;color:var(--mist);overflow-wrap:anywhere}@media (max-width:760px){dialog#tqd{padding:18px 12px}}.evbench select{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel);max-width:100%}.evbench{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}.evbench .seg small{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#9a5b00;margin-left:4px}.evbench .seg:disabled{opacity:.45;cursor:default}.evchart{margin-top:12px}.evchart svg{display:block;width:100%;height:auto;max-width:720px}.evchart .ax{stroke:var(--line);stroke-width:1}.evchart .tk{fill:var(--mist);font-size:11px}.evchart .lb{fill:var(--fog);font-size:12.5px;font-weight:700}.evchart .sb{fill:var(--mist);font-size:11.5px}.evchart .at{fill:var(--mist);font-size:11.5px;font-weight:700;letter-spacing:.04em}.evchart .pn{fill:#fff;font-size:11px;font-weight:800}.evchart .lgl{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px;font-size:13px;color:var(--fog)}.evchart .lgl li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.evchart .lgl i{flex:none;display:inline-block;min-width:20px;height:20px;line-height:20px;border-radius:50%;text-align:center;color:#fff;font-style:normal;font-size:11px;font-weight:800}.evchart .lgl span{color:var(--mist);font-variant-numeric:tabular-nums}.evchart .lgl i.hollow{background:var(--panel)}.evchart .lgl em{font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mist)}.evchart .lgl li.mine{background:var(--soft);border-radius:var(--r);padding:6px 8px;margin:0 -8px}.evchart .lgl li.mine em{color:var(--teal)}.lgl li.mine.tgt em{color:var(--tgt)}.evchart .pn.hollow{font-weight:800}.evopen{appearance:none;border:0;background:none;padding:6px 10px;margin:-6px -10px;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:12px;max-width:100%}
 .evopen:hover{background:rgba(11,93,87,.07)}.evopen:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
@@ -1085,8 +1085,10 @@ def how_far(equivalent, compared):
 
 
 def fmt_pct(x):
-    """A percentage as it is said: 63, 62.5, and 100 only when it is 100."""
-    return ("%d" % x) if float(x) == int(x) else ("%.1f" % x)
+    """A percentage as it is said: 63, 62.5, and 100 only when it is 100. (To one decimal first: 55.00000000000001, which is what
+    0.55 times a hundred comes to, was said "55.0" beside a "60".)"""
+    x = round(float(x), 1)
+    return ("%d" % x) if x == int(x) else ("%.1f" % x)
 
 
 
@@ -4094,8 +4096,60 @@ def _job_file(name):
     return Path(ARGS.root) / ".work" / name / "ui-run.json"
 
 
+def _run_in(ps_text):
+    """THE WHOLE RUN, FOUND BY ITS PROCESS, in what `ps -axo pid=,command=` printed: the one whose program is the shell and whose
+    script is training/run.sh (a shell that only launched it carries the same words further along its line, and is not it).
+    -> {pid, limit, train, adopted} or None."""
+    for line in str(ps_text or "").splitlines():
+        parts = line.split()
+        if len(parts) < 3 or not parts[0].isdigit() or parts[1].rsplit("/", 1)[-1] not in ("bash", "sh") or parts[2] != "training/run.sh":
+            continue
+        args = parts[3:]
+        opt = lambda k, d: args[args.index(k) + 1] if k in args and args.index(k) + 1 < len(args) else d  # noqa: E731
+        try:
+            limit = -1 if "--proof" in args else int(opt("--limit", 20))
+        except ValueError:
+            limit = 20
+        return {"pid": int(parts[0]), "limit": limit, "train": opt("--train", "classes"), "adopted": True, "running": True}
+    return None
+
+
+def _run_elsewhere():
+    """A whole run this page did not start (from a shell): it has the models all the same, and the page can stop it."""
+    try:
+        return _run_in(subprocess.run(["ps", "-axo", "pid=,command="], capture_output=True, text=True, timeout=5).stdout)
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def _descendants(pid):
+    """Every process a process started, and what those started: read before it is signalled, while they still name it."""
+    try:
+        rows = [x.split() for x in subprocess.run(["ps", "-axo", "pid=,ppid="], capture_output=True, text=True, timeout=5).stdout.splitlines()]
+    except (OSError, subprocess.SubprocessError):
+        return []
+    kids = {}
+    for r in rows:
+        if len(r) == 2 and r[0].isdigit() and r[1].isdigit():
+            kids.setdefault(int(r[1]), []).append(int(r[0]))
+    out, todo = [], [int(pid)]
+    while todo:
+        for k in kids.get(todo.pop(), []):
+            out.append(k)
+            todo.append(k)
+    return out
+
+
 def job_state(name):
-    """{pid, at, ...} of the evaluation or pretraining this page started, and whether it is still alive."""
+    """{pid, at, ...} of the evaluation or pretraining this page started, and whether it is still alive. (The whole run is also
+    found where the page did not start it: _run_elsewhere.)"""
+    st = _job_state(name)
+    if name == "whole" and not (st or {}).get("running"):
+        return _run_elsewhere() or st
+    return st
+
+
+def _job_state(name):
     try:
         st = json.loads(_job_file(name).read_text())
     except (OSError, ValueError):
@@ -4124,6 +4178,9 @@ def busy_with():
     """Which of training, evaluation and pretraining is running now ('' when none): the other two wait for it."""
     if (run_state() or {}).get("running"):
         return "training"
+    # (the whole run first, where it was started from a shell: its steps are not this page's jobs, and it has the models)
+    if (_run_elsewhere() or {}).get("running"):
+        return "the run"
     for name, what in (("eval", "an evaluation"), ("pretrain", "pretraining")):
         if (job_state(name) or {}).get("running"):
             return what
@@ -4161,10 +4218,20 @@ def stop_job(name):
     st = job_state(name)
     if not (st and st["running"]):
         return
-    try:
-        os.killpg(st["pid"], signal.SIGTERM)
-    except OSError:
-        pass
+    if st.get("adopted"):
+        # (a run started from a shell is in that shell's group, not one of its own: it is told to stop, and so is everything it
+        # started, which a group would have told for us. Found before the first signal, while each still names its parent)
+        below = _descendants(st["pid"])
+        for pid in [st["pid"]] + below:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except OSError:
+                pass
+    else:
+        try:
+            os.killpg(st["pid"], signal.SIGTERM)
+        except OSError:
+            pass
     for _ in range(50):
         time.sleep(0.1)
         if not (job_state(name) or {}).get("running"):
@@ -5047,6 +5114,31 @@ def eval_compare(d):
     return '<div class="cmp" role="group" aria-label="The three evaluations side by side">%s</div>' % "".join(cells)
 
 
+EVD_NAMES = {"table": "Each task", "paper": "Paper table", "chart": "Chart"}
+
+
+def evd_shape(d, view, three, detail, cfg=None):
+    """ONE SHAPE FOR THE THREE EVALUATION DIALOGS. Each is the same thing said another way (a line for every task; as a paper sets
+    results out; drawn), so each has the same parts in the same order: ONE header, which names the view; then the three
+    evaluations side by side; then the last evaluation in detail, under a heading that says which of the three it is. The
+    comparison stood above the view's own header, and the detail did not say what it was the detail of. `detail` is the view
+    as it draws itself (its header first); `three` the comparison, '' where none of the three is measured or another lineup's
+    evaluations are being looked at."""
+    mark = '<button class="btn stop top" id="evd-close" type="button">Close</button></div>'
+    at = detail.find(mark)
+    if at < 0:
+        return three + detail
+    head, rest = detail[:at + len(mark)], detail[at + len(mark):]
+    # (the header names the view, so the three dialogs are told apart by their headers and are otherwise alike)
+    head = head.replace('<div class="kicker">Evaluate the swarm</div>', '<div class="kicker">Evaluate the swarm · %s</div>' % e(EVD_NAMES.get(view, "Each task")), 1)
+    if not three:
+        return head + rest
+    last = data._json(Path(d.get("root", ARGS.root)) / ".work" / "eval" / "results.json", None) or {}
+    which = dict(data.COMPARE_VARIANTS).get(last.get("variant") or "base", "As configured")
+    return (head + '<section class="evdsec">' + three + '</section>'
+            + '<section class="evdsec"><h3 class="cmph">The last evaluation in detail: %s</h3>' % e(which[0].lower() + which[1:]) + rest + '</section>')
+
+
 def compare_dialog(d, view="table"):
     """THE THREE EVALUATIONS, AT THE HEAD OF EACH DIALOG, each said the way that dialog says things. EACH TASK (and any other
     view): a line for every task, the larger model's score and then the three in their order, each with its questions.
@@ -5059,7 +5151,7 @@ def compare_dialog(d, view="table"):
         return ""
     pts = lambda x: fmt_pct(100.0 * x)  # noqa: E731
     tname = e((d.get("target") or {}).get("name", "the larger model"))
-    said = '<h3 class="cmph">The three evaluations</h3>'
+    said = '<h3 class="cmph">The three evaluations, side by side</h3>'
     if view == "chart":
         top = max([r["value"] + 2 * r["stderr"] for r in got] + [r.get("target") or 0 for r in got] + [0.01])
         scale = min(1.0, top * 1.1)
@@ -5089,7 +5181,8 @@ def compare_dialog(d, view="table"):
             return '<td class="num muted">–</td>'
         v = "%s%%" % pts(x["value"])
         if paper:
-            v = "%s <span class=\"muted\">± %s</span>" % (pts(x["value"]), pts(x.get("stderr") or 0))
+            # (as a paper sets a score out, and as the table under this one does: one decimal, always)
+            v = "%.1f <span class=\"muted\">± %.1f</span>" % (100.0 * x["value"], 100.0 * (x.get("stderr") or 0))
         return '<td class="num">%s</td>' % (("<b>%s</b>" % v) if best else v)
     lines = []
     for k in order:
@@ -5568,18 +5661,21 @@ def whole_block(d):
     else:
         blocked = held and held != "the run"
         ctl = ('<select id="whole-size" aria-label="How many questions of each task, in each of the three evaluations"%s>%s</select>'
-               '<label class="wholet"><input type="checkbox" id="whole-train"%s%s>Train the arrangement too (the class stage, two hours at most)</label>'
+               '<label class="wholet" title="The class stage of training, two hours at most. Unticked, the run ends after the pretrained evaluation."><input type="checkbox" id="whole-train"%s%s>Train the arrangement too</label>'
                '<button class="btn top" id="whole-go" type="button"%s>%s</button>'
                % (" disabled" if blocked else "", opts, "" if st.get("train") == "off" else " checked", " disabled" if blocked else "", " disabled" if blocked else "",
                   "Carry on" if any(x["state"] in ("done", "stopped") for x in steps) and not done else "Start"))
     word = {"done": "done", "running": "running", "stopped": "stopped here", "not taken": "not taken", "failed": "failed", "waiting": "waiting"}
     rows = "".join('<li class="ws %s"><i></i><span>%s</span><small>%s%s</small></li>'
                    % (x["state"].replace(" ", "-"), e(x["name"]), word[x["state"]], (" · %d min" % x["minutes"]) if x.get("minutes") else "") for x in steps)
-    return ('<div class="panel wholep" id="wholebox"%s><div class="proghead"><span class="memnum"><b class="pct">%d</b><span>of 5 steps<small>%s</small></span></span>'
+    # (the head every card has: the figure and what it is, what the card does, its controls. A run that waits for something
+    # else says so in a line of its own under the head, as Pretrain and Train do)
+    waits = ('<div class="state warn"><i></i><span>%s is running: the run waits for it.</span></div>' % e(held[0].upper() + held[1:])) if held and held != "the run" and not running else ""
+    return ('<div class="panel prep wholep" id="wholebox"%s><div class="proghead"><span class="memnum"><b class="pct">%d</b><span>of 5 steps<small>%s</small></span></span>'
             '<span class="progline">One run, three figures: the module as configured is evaluated, then pretrained and evaluated, then its arrangement trained and evaluated, '
-            'each on the same questions. Stop is safe at any step; Start carries on from the step it stopped in.</span><span class="evctl">%s</span></div><ol class="wsl">%s</ol></div>'
+            'each on the same questions. Stop is safe at any step; Start carries on from the step it stopped in.</span><span class="evctl">%s</span></div>%s<ol class="wsl">%s</ol></div>'
             % (' data-running="1"' if running else "", sum(1 for x in steps if x["state"] == "done"),
-               "running" if running else ("done" if done else ("%s is running" % e(held) if held else "not started" if not any(x["state"] != "waiting" for x in steps) else "stopped")), ctl, rows))
+               "running" if running else ("done" if done else ("waiting" if held and held != "the run" else "not started" if not any(x["state"] != "waiting" for x in steps) else "stopped")), ctl, waits, rows))
 
 
 def main_body(d):
@@ -5834,11 +5930,11 @@ class Handler(BaseHTTPRequestHandler):
             only = [h for h in (parse_qs(u.query).get("h") or [""])[0].split(",") if h]
             which = (parse_qs(u.query).get("view") or [""])[0]
             cfg = (parse_qs(u.query).get("cfg") or [""])[0] or None
-            # (each dialog opens with the three evaluations of the lineup configured now, said its own way: compare_dialog)
+            # (each dialog: its header, then the three evaluations of the lineup configured now, then the last one in detail)
             three = compare_dialog(d, which) if not cfg else ""
             if which == "chart":
-                return self._send(three + eval_chart(d, only or None, (parse_qs(u.query).get("b") or [""])[0] or None, cfg))
-            return self._send(three + {"paper": eval_paper}.get(which, eval_table)(d, only or None, cfg))
+                return self._send(evd_shape(d, which, three, eval_chart(d, only or None, (parse_qs(u.query).get("b") or [""])[0] or None, cfg), cfg))
+            return self._send(evd_shape(d, which, three, {"paper": eval_paper}.get(which, eval_table)(d, only or None, cfg), cfg))
         if u.path == "/fragment/pretrain":
             return self._send(pretrain_block(d))
         if u.path == "/fragment/spec":
