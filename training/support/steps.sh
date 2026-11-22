@@ -3,10 +3,16 @@
 # trainer writes every answer down as it comes, and carries on from them. A step that says it has nothing to do (exit 2) is not
 # a fault. A step that still fails is written down and the pass goes on: the steps after it say plainly what they lack.
 run() { # run <name> <script> [args...]
-  local name=$1; shift
+  local name=$1
   if grep -qF "END   $name exit 0 " "$OUT/status.txt"; then
     echo "$(date +%H:%M:%S) SKIP  $name" >> "$OUT/status.txt"; return 0
   fi
+  run_each "$@"
+}
+# A STEP THAT IS RUN AT EVERY START, also in a pass that is carried on: what it finds can be another thing since the pass
+# stopped (the reader of answers in words: a judge may have been named, or may be up now where it was not).
+run_each() { # run_each <name> <script> [args...]
+  local name=$1; shift
   local attempt code t0
   for attempt in 1 2 3; do
     t0=$(date +%s)

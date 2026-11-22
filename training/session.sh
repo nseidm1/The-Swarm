@@ -132,8 +132,9 @@ while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
   run 00-begin        training/pass.mjs begin
   # THE PLAN, before anything is measured: from what the last pass left
   run 00-plan         training/plan.mjs make ${TRIES:+--tries "$TRIES"}
-  # the reader of answers in words is checked on pairs anyone can judge, before its grades are believed (training/readers.mjs)
-  run 00-reader       training/readers.mjs
+  # the reader of answers in words is checked on pairs anyone can judge, before its grades are believed (training/readers.mjs),
+  # at every start: a pass that stopped for want of a reader is carried on with the reader there is now
+  run_each 00-reader  training/readers.mjs
   # EACH CLASS OF INPUT, TRAINED AS A CLASS (training/classes.mjs), FIRST IN A PASS, before anything of the larger model is asked
   # (it marks by each question's own standard, so it needs none of that; and what it keeps is kept in its first minutes, so a
   # session that is stopped early has still trained: it stood after an hour of the larger model answering). For each class the

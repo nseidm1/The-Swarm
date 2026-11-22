@@ -298,22 +298,28 @@ export async function checkReader({ reader, pairs = knownPairs(), need = 0.8, ju
   };
 }
 export { READER_FILE, readerOk };
+// WHO READS: the judge the session started apart from the decider, where there is one; else the decider. A swarm with no
+// decision model has no decider, and its judge still reads (found 2026-11-22: the check gave up at "no decider" before it
+// looked at the judge, so a pass whose judge was up compared no answer in words and stopped at the question loop).
+export const readerAddressOf = ({ decider = '', judge = '' } = {}) => judge || decider || '';
 
 if (import.meta.url === 'file://' + process.argv[1]) {
-  // (the reader is this configuration's decider: whether it is believed is kept with this configuration)
+  // (the reader is this configuration's judge, or its decider: whether it is believed is kept with this configuration)
   const { WORKC: WORK, deciderAddress } = await import('./support/bench.mjs');
   const decider = await deciderAddress();
+  // (the reader checked is the one that will read: the judge apart from the decider where the session started one)
+  const reader = readerAddressOf({ decider, judge: process.env.SWARM_JUDGE });
   fs.mkdirSync(WORK, { recursive: true });
-  if (!decider) {
+  if (!reader) {
     fs.writeFileSync(
       READER_FILE(WORK),
       JSON.stringify({
         at: new Date().toISOString(),
         ok: false,
-        why: 'no decider is running to read answers in words',
+        why: 'no decider or judge is running to read answers in words',
       }),
     );
-    console.log('No decider is running: answers in words will not be compared this pass.');
+    console.log('No decider or judge is running: answers in words will not be compared this pass.');
     process.exit(0);
   }
   // near-misses made from the larger model's own replies in conversations on record: its reply, and the same with one number
@@ -337,8 +343,6 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   } catch {
     own = [];
   }
-  // (the reader checked is the one that will read: the judge apart from the decider where the session started one)
-  const reader = process.env.SWARM_JUDGE || decider;
   const r = await checkReader({ reader });
   const talk = await checkReader({ reader, pairs: [...talkPairs(), ...own], judge: talkEquivalent });
   const { JUDGE: J, DECIDER: DD } = await import('../src/catalog.mjs');

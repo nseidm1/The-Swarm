@@ -1943,6 +1943,25 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       /START 01-one/.test(statusA),
     { did },
   );
+  // a step that is run at every start (run_each): the reader of answers in words may be another one since the pass stopped
+  const C = JSON.stringify(path.join(top, 'config-c'));
+  const each = (name, tag) => 'run_each ' + name + ' ' + JSON.stringify(ok) + ' ' + JSON.stringify(ran) + ' ' + tag;
+  sh('open_pass ' + C + ' 1 "c vs t" && ' + each('00-reader', 'R1') + ' && ' + step('01-one', 'C1'));
+  sh('open_pass ' + C + ' 1 "c vs t" && ' + each('00-reader', 'R2') + ' && ' + step('01-one', 'C1again'));
+  const didC = fs.readFileSync(ran, 'utf8').trim().split('\n').slice(did.length);
+  const { readerAddressOf } = await import('../training/readers.mjs');
+  check(
+    'the reader of answers in words is checked at every start of a pass, also one carried on (a judge may have been named since it stopped), while a step that ended well is still passed over; and the reader is the judge where the swarm has no decision model',
+    didC.join() === 'R1,C1,R2' &&
+      readerAddressOf({ decider: '', judge: 'http://j' }) === 'http://j' &&
+      readerAddressOf({ decider: 'http://d', judge: 'http://j' }) === 'http://j' &&
+      readerAddressOf({ decider: 'http://d' }) === 'http://d' &&
+      readerAddressOf({}) === '' &&
+      /run_each 00-reader\s+training\/readers\.mjs/.test(
+        fs.readFileSync(new URL('../training/session.sh', import.meta.url), 'utf8'),
+      ),
+    { didC },
+  );
 }
 // ---- 6n: PROGRESS TOWARD PARITY IS A PERCENTAGE, parity is 100 and nothing less, and a pass plans from the gap
 {

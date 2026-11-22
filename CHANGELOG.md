@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A swarm with no decision model has its answers in words compared** (2026-11-22). The check of the reader of answers
+  in words gave up where there was no decision model, before it looked at the judge named apart from it, so a pass
+  compared none of those answers and stopped at its first question. The judge is now the reader where there is no
+  decision model, and the check is made at every start of a pass, also one carried on after it stopped.
 - **The chart rings the larger model too** (2026-11-21). The larger model configured now has a ring round its point, in its
   own colour, and is marked in the list under the chart, as the lineup configured now is.
 - **Less standing text on the Train and Pretrain cards** (2026-11-21). The Train card no longer says "question by question,
