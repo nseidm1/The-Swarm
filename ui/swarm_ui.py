@@ -2215,7 +2215,7 @@ def question_track(d):
     # (a question set aside until the others are done, or back in hand after a swap, has a pip and is not finished)
     fin = sum(1 for x in tr if x["s"] not in ("ro", "sa"))
     now = ("Pass %s stopped with %d of %d questions finished%s." % (e(str(lp.get("pass", ""))), fin, of, (" and %d to come back to" % (len(tr) - fin)) if len(tr) > fin else "")) if tr and fin < of else ("Pass %s: every question finished." % e(str(lp.get("pass", ""))) if tr
-           else "" if begun else "Each question stays in hand until the swarm&#39;s answer to it is good.")
+           else "")
     pips = "".join('<i class="%s" title="%s · %s · %s%s"></i>' % (x["s"], e(x["id"]), e(x["w"]), e(x["kind"]), (" · %d change%s tried" % (x["tried"], "" if x["tried"] == 1 else "s")) if x["tried"] else "") for x in tr)
     # EVERY QUESTION OF THE PASS HAS A PIP, the ones not asked yet among them: a row that only grew as questions finished did
     # not show how much of the pass was still to come (the script paints the same, with the one in hand)
@@ -2786,10 +2786,12 @@ def run_lines(cleared=""):
             no_dec = ((data.load(ARGS.root).get("decider") or {}).get("serve") or {}).get("kind") == "none"
         except Exception:  # noqa: BLE001
             no_dec = False
-        out.append('<div class="state on running" data-running="1"><i></i><span data-since="%d"><b>Running %s</b><small>since %s</small></span>'
-                   '<span class="runx">question by question, until stopped · %s <b>%s</b></span></div>'
+        # (how long it has run, and where there is a decision model, its state now. The words after it that never changed,
+        # "question by question, until stopped" and how a swarm with no decision model settles an answer, are taken out:
+        # console 2026-11-21, no static text here)
+        out.append('<div class="state on running" data-running="1"><i></i><span data-since="%d"><b>Running %s</b><small>since %s</small></span>%s</div>'
                    % (int(began * 1000), e(_span(time.time() - began)), e(time.strftime("%H:%M %Z", time.localtime(began))),
-                      "no decision model:" if no_dec else e(dname), ("the answer most slots hold stands" if str(((data.load(ARGS.root).get("briefs") or {}).get("plan") or {}).get("decideBy") or "") == "most" else "a small model decides") if no_dec else e(decider_state(True))))
+                      "" if no_dec else '<span class="runx">%s <b>%s</b></span>' % (e(dname), e(decider_state(True)))))
         out.append(_making_ready(st))
         return "".join(out)
     if cleared:
@@ -4019,7 +4021,7 @@ def progress_strip(d, cleared=""):
                else "This is the record of a pass graded by an earlier rule: when training starts, its questions are asked again from the first." if stale
                else ("Stopped; it carries on from question %d." % (len(qs) - back + 1)) if len(qs) - back < of else "Every question of this pass is finished.")
     else:
-        line = "Training starts at question 1 of the pass: each question stays in hand until the swarm&#39;s answer to it is good."
+        line = ""  # (nothing to say of a pass before it has a question: the sentence that stood here never changed)
         now = ""
     # (while a session runs, a bar that moves in place of the share: the line beside it, the bar and the counts below go on saying
     # where the pass is; stopped, the share comes back, as far as the pass got)
@@ -5294,8 +5296,7 @@ def pretrain_block(d):
     items = "every body of work" if asked and len(asked) == len(eqv.get("targets", [])) else ", ".join(asked)
     out = ['<div class="panel prep" id="prebox"%s>' % (' data-running="1"' if running else ""),
            '<div class="proghead"><span class="memnum"%s>%s<span>of %d adapted<small>LoRA, with MLX</small></span></span>'
-           '<span class="progline">Each small model learns %s&#39;s answers to the train questions of %s: never a benchmark&#39;s, never a held one. '
-           'Only answers that are right by the question&#39;s own standard are taught. An adapter is kept where llama.cpp finds those answers likelier with it, and served only where the swarm is then better on held questions.</span><span class="evctl">%s</span></div>'
+           '<span class="progline">Each small model is taught %s&#39;s right answers to the train questions of %s. An adapter is served only where it makes the swarm better on held questions.</span><span class="evctl">%s</span></div>'
            # (while it runs, how many are adapted is not known until each model's run is checked: a bar that moves in place of the
            # number; stopped or failed, the adapters that were there are there still, and the number comes back as it was)
            % (' aria-busy="true"' if running else "", busy("0") if running else '<b class="pct">%d</b>' % good, len(rows),

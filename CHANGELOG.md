@@ -6,6 +6,9 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Less standing text on the Train and Pretrain cards** (2026-11-21). The Train card no longer says "question by question,
+  until stopped" beside how long a session has run, nor a sentence about question 1 before a pass has begun; and the
+  Pretrain card says what it does in two sentences.
 - **The stage that trains each class as a class no longer stops at its held questions** (2026-11-21). It stopped with an
   error the first time a change did well enough to be asked the held questions on a second draw, and the session began
   the stage again. And while that stage runs, the page says which class and question it is on, where it said the models

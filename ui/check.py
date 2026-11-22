@@ -161,8 +161,8 @@ with tempfile.TemporaryDirectory() as tmp:
     # TRAINING COMPLETE, AS IT GOES: nothing yet; questions at parity as the swarm stood and brought there; one back in hand after a swap
     p_none = swarm_ui.progress_strip(dict(d, loop=None))
     p_some = swarm_ui.progress_strip(dict(d, loop={"of": 10, "changes": [{"what": "x"}], "list": [{"id": "a", "state": "at parity"}, {"id": "b", "state": "reached"}, {"id": "c", "state": "at parity"}, {"id": "d", "state": "reopened"}]}))
-    check("answers good says how far the pass has come and never more: before anything, that training starts at question 1; then the share of the pass's questions answered well (as the swarm stood, made good by a change), with any back in hand after a swap, the found arrangements and what the spec kept",
-          "0%</b><span>answers good" in p_none and "Training starts at question 1" in p_none and "until the swarm&#39;s answer to it is good" in p_none
+    check("answers good says how far the pass has come and never more: before anything, nothing; then the share of the pass's questions answered well (as the swarm stood, made good by a change), with any back in hand after a swap, the found arrangements and what the spec kept",
+          "0%</b><span>answers good" in p_none and "Training starts at question 1" not in p_none and '<span class="progline"> </span>' in p_none
           and "30%</b><span>answers good" in p_some and "<b>3</b> of 10 train answers good" in p_some and "<b>2</b> as the swarm stood, <b>1</b> made good by a change it kept" in p_some and "at parity" not in p_some
           and "1 back in hand after a swap" in p_some and "kept this pass" not in p_some and "from every run" not in p_some and "found arrangement" not in p_some and "<small>pass " in p_some, p_some[:400])
     ckd = root / ".work" / "train" / "checkpoints"
@@ -983,7 +983,7 @@ with tempfile.TemporaryDirectory() as tmp:
     empty.mkdir()
     srv, base = serve(empty)
     code, html = get(base + "/")
-    check("with nothing measured and nothing configured the page still opens, and says training starts at question 1", code == 200 and "Training starts at question 1" in html and "No larger model is named" in html)
+    check("with nothing measured and nothing configured the page still opens, and says nothing of a pass that has not begun", code == 200 and "Training starts at question 1" not in html and "No larger model is named" in html)
     srv.shutdown()
     # ---- the Train button, with a stand-in for the session (it writes its steps and waits): no model is started
     srv, base = serve(empty)
@@ -1279,9 +1279,9 @@ with tempfile.TemporaryDirectory() as tmp:
     time.sleep(1.0)
     panel = get(base + "/fragment/run")[1]
     st = json.loads((fake / ".work" / "train" / "ui-run.json").read_text())
-    check("pressed, it starts a session that goes on until it is stopped (no number of passes is given it, and no number of questions: that is the trainer's policy), and the Train card shows it running: Stop training in place of Train, how long and since when, that it goes on until stopped, and a moving bar in place of the share",
+    check("pressed, it starts a session that goes on until it is stopped (no number of passes is given it, and no number of questions: that is the trainer's policy), and the Train card shows it running: Stop training in place of Train, how long and since when, and a moving bar in place of the share",
           code == 200 and 'data-running="1"' in panel and "Stop training" in panel and 'id="run-go"' not in panel and 'data-since="' in panel and "<b>Running " in panel and "<small>since " in panel and swarm_ui._span(45) == "45 s" and swarm_ui._span(750) == "12 min 30 s" and swarm_ui._span(7500) == "2 h 5 min" and "timeZoneName" in html
-          and "until stopped" in panel and panel.startswith('<div class="trainprog trainhead">') and 'class="pct busy"' in panel and 'class="facts"' not in panel and 'id="run-each"' not in page0 and "asked 0 " in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text(), panel[:400])
+          and "until stopped" not in panel and panel.startswith('<div class="trainprog trainhead">') and 'class="pct busy"' in panel and 'class="facts"' not in panel and 'id="run-each"' not in page0 and "asked 0 " in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text(), panel[:400])
     check("a teacher is never started from the button, whatever the page was started with", "teacher=[]" in (fake / ".work" / "train" / "pass-3" / "02-target.out").read_text())
     # what every slot is doing now: written by a trainer, shown only while a session runs and only while it is fresh
     (fake / ".work" / "train" / "live.json").write_text(json.dumps({"at": time.time() * 1000, "trainer": "measure", "who": "swarm", "split": "train", "n": 3, "of": 42,
