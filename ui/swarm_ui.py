@@ -282,6 +282,7 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .evask label{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);font-size:13px;font-weight:700;color:var(--fog);padding:6px 10px;cursor:pointer}
 .evask label small{font-weight:600;color:var(--mist);font-size:11.5px}.evask label.none{opacity:.45;border-style:dashed;background:var(--panel)!important}.evask.evharn{margin-top:8px}
 .evspeed{margin:10px 0 0;font-size:13.5px;color:var(--fog);display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}.evspeed .cfgl{flex:0 0 auto;margin-right:6px}
+.passprog{margin-top:14px;display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--fog)}.passprog .evbar{flex:1 1 160px;max-width:420px;height:8px}.passprog b{font-size:15px;color:var(--teal)}
 .trainbelow{margin-top:14px;display:grid;gap:10px}.trainbelow .evwhy{font-size:12.5px;font-weight:600;color:var(--mist);line-height:1.45}
 .trainopts{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 14px}
 .trainopts .trainask{margin:0;flex:1 1 320px;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,190px));gap:6px 8px}
@@ -728,10 +729,11 @@ async function liveTick(){
   const now=$('#now');
   if(now){const q=n.question;now.className='now'+(q?' on':'');now.style.display=(q&&n.trainer==='loop'&&$('#qtrack'))?'none':'';
     const nowText=q?(STEP[n.trainer]||'Working')+' · '+(n.who==='swarm'?'the swarm':n.whoName+' alone')+' · '+n.split+' question '+n.n+' of '+n.of+' · '+q.ask.replace(/\\s+/g,' ').slice(0,150)
-      :n.running?'A session is running. Between steps: models are loading or unloading.':n.busy?n.busy[0].toUpperCase()+n.busy.slice(1)+' is running: the models are loaded for it.':'Nothing is running. No model is loaded.';
+      :(n.running&&n.step&&n.trainer&&n.trainer!=='loop')?(STEP[n.trainer]||'Working')+' · '+n.step:n.running?'A session is running. Between steps: models are loading or unloading.':n.busy?n.busy[0].toUpperCase()+n.busy.slice(1)+' is running: the models are loaded for it.':'Nothing is running. No model is loaded.';
     now.querySelector('span').textContent=nowText;now.title=nowText;}
   // THE SWARM AGAINST EACH QUESTION: the question in hand, its iteration, and a pip for each question so far
   const qn=$('#qnow'),pp=$('#pips'),qh=$('#qhead');
+  if(qn)qn.hidden=!!(n.running&&n.trainer!=='loop');
   if(qn&&n.track){const lp=n.loop,q=n.question,tk=n.track,done=tk.done||[],of=(lp&&lp.of)||tk.of||0;
     // (painted again only when what it shows changes: rebuilt on every poll, the block reflowed the page under a reader's thumb)
     const qkey=lp&&q&&n.trainer==='loop'?JSON.stringify([lp.n,lp.attempt,lp.guard||'',lp.guarded||'',lp.move,lp.round,lp.method||'',lp.tried||'',lp.pace||'',lp.trial||'',lp.unstable||'',q.ask]):'';
@@ -771,9 +773,10 @@ async function liveTick(){
         qn.append(fold);}}
     // THE FIRST STAGE OF TRAINING, a class at a time: what it is asking now is said where the question in hand is said, and its
     // table (how each class stands, what was tried and kept) is drawn again in place every few ticks while it runs
-    else if(n.running&&n.trainer==='classes'){qn.dataset.k='';qn.textContent=(n.step||'Training each class of input as a class')+'. Question by question begins after it.';
-      window.__cl=(window.__cl||0)+1;if(window.__cl%6===1&&$('#classes-wrap'))swap('/fragment/classes','#classes-wrap');}
-    else if(n.running&&n.trainer!=='loop'){qn.dataset.k='';qn.textContent='A pass trains each class of input as a class first; then the larger model answers, the plan is written, and training goes question by question.';}
+    // (while an earlier step of the pass runs, the line above the track says what it is doing: this one says nothing twice)
+    else if(n.running&&n.trainer==='classes'){qn.dataset.k='';qn.textContent='';
+}
+    else if(n.running&&n.trainer!=='loop'){qn.dataset.k='';qn.textContent='';}
     // THE BOX THE LOOP IS IN NOW, on the system's picture and in the plan's list of steps (the same reading of the live note as the server's loop_phase)
     {const ph=n.trainer==='classes'?'classes':!(lp&&n.trainer==='loop')?'':lp.guard?'guard':!lp.attempt?'ask':(lp.method&&lp.method.area==='library')?'library':(lp.method&&lp.method.area==='suggested')?'suggest':'search';
       document.querySelectorAll('#viz [data-part]').forEach(b=>b.classList.toggle('on',b.dataset.part===ph));}
@@ -2182,53 +2185,6 @@ def trying_moves(moves):
 CLASS_NAMES = {"tools": "With tools", "talk": "A conversation", "code": "Asking for code", "words": "A plain question"}
 
 
-def classes_block(d):
-    """EACH CLASS OF INPUT, TRAINED AS A CLASS (training/classes.mjs, the stage of a pass before it goes question by question):
-    for each class, how the swarm stood on its questions in three figures (some slot had a good answer; the swarm settled on
-    one; the reply is good as it is read, and how many replies a reader found no answer in), which arrangements were tried on
-    the same questions, and what was kept after the held questions. '' before a pass has reached the stage."""
-    rec = data._json(Path(d.get("root", ARGS.root)) / "training" / "results" / str(d.get("key", "")) / "classes.json", None)
-    if not rec or not rec.get("classes"):
-        return ""
-    rows, notes = [], []
-    for k, c in rec["classes"].items():
-        name = e(CLASS_NAMES.get(k, k))
-        if c.get("skipped"):
-            rows.append("<tr><td>%s</td><td class='muted' colspan='5'>Not trained as a class: %s (%d train, %d held)</td></tr>" % (name, e(c["skipped"]), c.get("train", 0), c.get("held", 0)))
-            continue
-        a, after = c.get("asItStands") or {}, c.get("after")
-        if not a:
-            rows.append("<tr><td>%s</td><td class='muted' colspan='5'>Being asked as it stands: %d train questions</td></tr>" % (name, c.get("train", 0)))
-            continue
-        of = a.get("n") or 0
-        read = (" <span class='muted'>(%d with no answer found)</span>" % a["unread"]) if a.get("unread") else ""
-        tried = sum(len(r.get("candidates") or []) for r in c.get("rounds") or [])
-        kept = c.get("kept") or []
-        rows.append("<tr><td>%s<br><span class='muted small'>%d questions of %d kinds</span></td><td>%d of %d</td><td>%d of %d</td><td>%d of %d%s</td><td>%d</td><td>%s</td></tr>"
-                    % (name, of, len(c.get("kinds") or []), a.get("anySlot", 0), of, a.get("settled", 0), of, a.get("counted", 0), of, read, tried,
-                       ("<b>%s</b><br><span class='muted small'>now %d of %d</span>" % ("; ".join(e(x.replace("plan: ", "")) for x in kept), after["counted"], after["n"])) if kept and after
-                       # (a round still open: arrangements being scored, or the best of them being asked the held questions)
-                       else "<span class='muted'>being tried</span>" if not rec.get("done") and (not c.get("rounds") or "kept" not in c["rounds"][-1]) else "nothing"))
-        # (what a round found and why it was or was not kept: the held questions decide)
-        for r in c.get("rounds") or []:
-            h = r.get("held")
-            if h:
-                # (kept or not by the one rule, over the draws it was asked on; where it was not kept, the rule's own reason)
-                notes.append("%s: <b>%s</b> %s on the held questions (%d of %d, where it stood at %d; %+.1f points, paired error %.1f%s).%s"
-                             % (name, e(str(r.get("best", "")).replace("plan: ", "")), "was kept: better" if r.get("kept") else "was not kept",
-                                h["with"]["counted"], h["with"]["n"], h["asItStood"]["counted"], 100 * h["gain"], 100 * h["error"],
-                                (", over %d draws" % h["draws"]) if h.get("draws") else "",
-                                (" " + e(h["why"][0].upper() + h["why"][1:]) + ".") if h.get("why") and not r.get("kept") else ""))
-    when = (" %s UTC" % e(_day(rec.get("done") or rec.get("at")))) if rec.get("at") else ""
-    return ("<details class='fams' id='classes' open><summary>First, each class of input as a class (%d)%s</summary>"
-            "<p class='muted small' style='margin:6px 0 0'>First in a pass, every change that leaves the drafts as they are is scored on every question of a class at once, and the best is kept only where the held questions bear it out on two draws. "
-            "The three figures say where answers are lost: no slot has it (drafting), a slot has it and the swarm does not settle on it (choosing), or it is settled and the reply is not read as saying it (writing out). "
-            "Only questions with an answer of their own are asked, and no benchmark&#39;s.%s</p>"
-            "<table class='spec'><tr><th>Class</th><th>Some slot had it</th><th>Settled on it</th><th>Reply good as read</th><th>Tried</th><th>Kept</th></tr>%s</table>%s</details>"
-            % (len(rec["classes"]), when, " This was a trial that kept nothing." if rec.get("dry") else "", "".join(rows),
-               "".join("<p class='muted small' style='margin:6px 0 0'>%s</p>" % n for n in notes)))
-
-
 def families_block(lp):
     """THE MODULE BESIDE ITS TARGET, FAMILY BY FAMILY (training/loop.mjs familiesOf; docs/swoa-parity.md): for each kind of question, how
     many the module has right of those asked so far, and, where the questions carry a standard of their own, how many the larger
@@ -2264,16 +2220,16 @@ def question_track(d):
     # EVERY QUESTION OF THE PASS HAS A PIP, the ones not asked yet among them: a row that only grew as questions finished did
     # not show how much of the pass was still to come (the script paints the same, with the one in hand)
     pips += '<i class="pe" title="not asked yet"></i>' * max(0, of - len(tr))
-    head = ("<span>%d of %d finished</span><span>%d good as it stood</span><span>%d made good by a change</span><span>%d not good yet</span>" % (fin if tr else 0, of, n("at"), n("re"), n("nr"))) if begun else "<span>not begun</span>"
-    # A PASS TRAINS IN TWO STAGES, and the card says them in that order: first each class of input as a class (classes_block, drawn
-    # again in place while that stage runs), then question by question
-    first = classes_block(d)
-    return ('<div id="classes-wrap">%s</div>'
-            '<div class="qtrack" id="qtrack"><div class="qhead" id="qhead"><b>%s</b>%s</div>'
+    # (a session that has not reached this stage yet has no question to count: it waits, and says so, where it read "0 of 0 finished")
+    head = ("<span>not begun</span>" if not begun else "<span>waiting for the steps of the pass before it</span>" if not tr and not of
+            else "<span>%d of %d finished</span><span>%d good as it stood</span><span>%d made good by a change</span><span>%d not good yet</span>" % (fin if tr else 0, of, n("at"), n("re"), n("nr")))
+    # (the table of each class trained as a class stood above this: taken out, console 2026-11-21. How far the pass has come,
+    # that stage included, is a share at the head of the card: pass_progress)
+    return ('<div class="qtrack" id="qtrack"><div class="qhead" id="qhead"><b>%s</b>%s</div>'
             '<p class="qnow" id="qnow">%s</p><div class="pips" id="pips">%s</div>'
             # (one line for every look a pip can have, each look drawn by the pip's own class: the key cannot drift from the pips)
             '<div class="qkey">%s</div>%s%s</div>'
-            % (first, "Then, question by question" if first else "Question by question", head, now, pips,
+            % ("Question by question", head, now, pips,
                "".join('<span><i class="pk %s"></i>%s</span>' % (k, e(w)) for k, w in PIP_WORDS.items()), families_block(lp), tries_list(lp)))
 
 
@@ -2344,7 +2300,7 @@ def arrangement(d):
     # the swarm as it stands, in a line of chips; then what is running; then what the plan is trying now
     models = len({s["member"] for s in b["slots"]})
     kept = len(d["learned"]["ledger"])
-    head = ('<div class="arrh"><div><h3>The swarm as it stands</h3><p class="muted small" style="margin:2px 0 0">What each slot is told, which model fills it, the order of steps, and the larger model it is measured against</p></div>'
+    head = ('<div class="arrh"><div><h3>The swarm as it stands</h3></div>'
             '<div class="achips"><span>briefs <b>v%s</b></span><span><b>%d</b> slots on <b>%d</b> models</span><span><b>%d</b> kept change%s</span>%s</div></div>'
             % (e(str(b.get("version", 1))), len(b["slots"]), models, kept, "" if kept == 1 else "s",
                # a kind with its own arrangement (a change kept for questions asking for code, or in words, only): the chips above are
@@ -2833,7 +2789,7 @@ def run_lines(cleared=""):
         out.append('<div class="state on running" data-running="1"><i></i><span data-since="%d"><b>Running %s</b><small>since %s</small></span>'
                    '<span class="runx">question by question, until stopped · %s <b>%s</b></span></div>'
                    % (int(began * 1000), e(_span(time.time() - began)), e(time.strftime("%H:%M %Z", time.localtime(began))),
-                      "no decision model:" if no_dec else e(dname), "a small model decides" if no_dec else e(decider_state(True))))
+                      "no decision model:" if no_dec else e(dname), ("the answer most slots hold stands" if str(((data.load(ARGS.root).get("briefs") or {}).get("plan") or {}).get("decideBy") or "") == "most" else "a small model decides") if no_dec else e(decider_state(True))))
         out.append(_making_ready(st))
         return "".join(out)
     if cleared:
@@ -3926,6 +3882,96 @@ def memory_chart(d, compact=False, headless=False):
 
 
 
+# WHAT EACH STEP OF A PASS IS OF THE WHOLE, in hundredths (training/session.sh, in its order): the two that train are most of it,
+# the larger model's answers and the checks at the end the rest. A share to read how far a pass has come by, not a measurement
+# of time: a step's own length depends on the models.
+PASS_SHARES = [("00-begin", 1), ("00-plan", 1), ("00-reader", 1), ("08-classes", 30), ("02-target", 2), ("02-target-train", 2), ("02-target-self", 2), ("02-target-self-train", 2),
+               ("02-target-third", 2), ("02-target-third-train", 2), ("03-alone", 3), ("07-write-briefs", 1), ("07-plan", 1), ("10-questions", 40), ("12-members", 2),
+               ("12-deciders", 2), ("21-swarm-held", 3), ("21-swarm-reworded", 2), ("22-end", 0.5), ("23-publish", 0.5)]
+
+
+def classes_share(rec, asked=4, step=""):
+    """How much of the stage that trains each class as a class is done, from its record (training/classes.mjs, classes.json) and
+    the line it says of what it is doing now (step: "... question 4 of 34", "... draw 2 of 2 ..."), 0 to 1. Each class asked
+    is an equal part; one finished is whole. The one in hand: asked as it stands (15 hundredths of it, by the question it is
+    on), then each round by the changes tried of those it has to try, the one being tried counted by the question it is on,
+    and the held questions by the draw and the question. Where a record does not say how many changes a round has (one
+    written before it did), the round before it, or the class before it, is taken to say; else thirty."""
+    if not rec:
+        return 0.0
+    if rec.get("done"):
+        return 1.0
+    q = re.search(r"question (\d+) of (\d+)", step or "")
+    qfrac = (max(0, int(q.group(1)) - 1) / int(q.group(2))) if q and int(q.group(2)) else 0.0
+    dr = re.search(r"draw (\d+) of (\d+)", step or "")
+    held_now = "held question" in (step or "")
+    cs = list((rec.get("classes") or {}).values())
+    seen = [len(r.get("candidates") or []) for c in cs for r in c.get("rounds") or [] if "kept" in r or c is not cs[-1]]
+    total = 0.0
+    for i, c in enumerate(cs):
+        if i < len(cs) - 1 or c.get("skipped"):
+            total += 1
+            continue
+        rounds, of_rounds = c.get("rounds") or [], max(1, int(rec.get("rounds") or 2))
+        if c.get("asItStands") is None:
+            total += 0.15 * qfrac
+            continue
+        part = 0.15
+        for k, r in enumerate(rounds):
+            tried = len(r.get("candidates") or [])
+            of = r.get("of") or max([tried + 1] + (seen[-1:] or [30]))
+            if "kept" in r or k < len(rounds) - 1:
+                done_r = 1.0
+            elif held_now or r.get("held"):
+                # (the held questions: as it stands and with the best, each on every draw: four askings of them, or 2 x draws)
+                n_dr = int(dr.group(2)) if dr else 2
+                at = ((int(dr.group(1)) - 1 + qfrac) / n_dr) if dr else qfrac
+                done_r = 0.8 + 0.2 * min(1.0, ((0 if "as it stands" in step else 1) + at) / 2)
+            else:
+                done_r = 0.8 * min(1.0, (tried + qfrac) / of)
+            part += 0.85 * done_r / of_rounds
+        total += min(1.0, part)
+    return max(0.0, min(1.0, total / max(asked, len(cs), 1)))
+
+
+def pass_progress(d):
+    """HOW FAR THE PASS IN HAND HAS COME, as a share of it: {"pct", "pass", "step", "done"}, or None where no pass of this
+    configuration has begun. From the pass's own record of its steps (status.txt: each step that ended well counts whole,
+    PASS_SHARES), and inside the two steps that train, from their own records: the classes done of those asked, and the
+    questions finished of the pass's. A pass that ended is 100."""
+    try:
+        work = Path(d.get("root", ARGS.root)) / ".work" / "train" / str(d.get("key", ""))
+        passes = sorted((p for p in work.glob("pass-*") if (p / "status.txt").exists()), key=lambda p: int(p.name.split("-")[1]))
+        if not passes:
+            return None
+        lines = [x.split() for x in (passes[-1] / "status.txt").read_text().splitlines() if x.strip()]
+    except (OSError, ValueError):
+        return None
+    n = int(passes[-1].name.split("-")[1])
+    ended = {x[2] for x in lines if len(x) > 4 and x[1] == "END" and x[3] == "exit" and x[4] == "0"} | {x[2] for x in lines if len(x) > 2 and x[1] == "SKIP"}
+    started = [x[2] for x in lines if len(x) > 2 and x[1] == "START"]
+    now = started[-1] if started and started[-1] not in ended else ""
+    if any(x and x[-1] == "DONE" for x in lines):
+        return {"pct": 100.0, "pass": n, "step": "", "done": True}
+    share_of = lambda name: next((w for k, w in PASS_SHARES if k == name), None)  # noqa: E731
+    alone = [x for x in set(started) | ended if re.match(r"03-\w+-alone$", x)]
+    total = 0.0
+    for name, w in PASS_SHARES:
+        if name == "03-alone":
+            total += w * (len([x for x in alone if x in ended]) / max(1, len(alone))) if alone else (w if "07-write-briefs" in ended or "07-plan" in started[-1:] else 0)
+        elif name in ended:
+            total += w
+        elif name == now and name == "08-classes":
+            rec = data._json(Path(d.get("root", ARGS.root)) / "training" / "results" / str(d.get("key", "")) / "classes.json", None)
+            live = data._json(Path(d.get("root", ARGS.root)) / ".work" / "train" / "live.json", {}) or {}
+            total += w * classes_share(rec, len((run_state() or {}).get("classes") or []) or 4, str(live.get("step") or "") if live.get("trainer") == "classes" else "")
+        elif name == now and name == "10-questions":
+            lp = d.get("loop") or {}
+            fin = sum(1 for q in lp.get("list") or [] if q.get("state") not in ("reopened", "set aside"))
+            total += w * (min(1.0, fin / lp["of"]) if lp.get("of") else 0)
+    return {"pct": max(0.0, min(99.0, total)), "pass": n, "step": now, "done": False}
+
+
 def progress_strip(d, cleared=""):
     """ANSWERS GOOD, as a share: training goes question by question, so how far the pass has come is how many of its train questions
     the swarm answers well (as it stood, or after a change it kept), of all that can be graded. Good: right by the question's own
@@ -3979,9 +4025,17 @@ def progress_strip(d, cleared=""):
     # where the pass is; stopped, the share comes back, as far as the pass got)
     running_now = bool((run_state() or {}).get("running"))
     _ctl = run_controls().partition(TRAIN_BELOW)
+    # HOW FAR THE PASS HAS COME, under the head: a bar and its share, with the step it is in while a session runs
+    pp = pass_progress(d)
+    passbar = ""
+    if pp:
+        passbar = ('<div class="passprog" id="passprog"><span class="evbar%s"><i style="width:%.1f%%"></i></span><b>%s%%</b><span>of pass %d complete%s</span></div>'
+                   # (to a tenth: a pass is long, and a whole point can take minutes)
+                   % (" on" if running_now else "", pp["pct"], ("%.1f" % pp["pct"]) if 0 < pp["pct"] < 100 else "%d" % pp["pct"], pp["pass"],
+                      (" · " + e(step_label(pp["step"]).lower())) if running_now and pp["step"] else "" if pp["done"] or running_now else " · stopped here"))
     return ('<div class="trainprog trainhead"><div class="proghead"><span class="memnum"' + (' aria-busy="true">' + busy() if running_now else '><b class="pct">%s%%</b>' % fmt_pct(pct)) + '<span>answers good<small>pass %s</small></span></span>'
-            '<span class="progline">%s %s</span><span class="evctl">%s</span></div>%s%s</div>'
-            % (e(str(lp.get("pass") or (d.get("state") or {}).get("pass", 0) + 1)), line, now, _ctl[0], ('<div class="trainbelow">%s</div>' % _ctl[2]) if _ctl[2] else "", run_lines(cleared)))
+            '<span class="progline">%s %s</span><span class="evctl">%s</span></div>%s%s%s</div>'
+            % (e(str(lp.get("pass") or (d.get("state") or {}).get("pass", 0) + 1)), line, now, _ctl[0], passbar, ('<div class="trainbelow">%s</div>' % _ctl[2]) if _ctl[2] else "", run_lines(cleared)))
 
 
 def memory_card(d):
@@ -5549,8 +5603,6 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(faces_block(d))
         if u.path == "/fragment/eval":
             return self._send(eval_block(d))
-        if u.path == "/fragment/classes":
-            return self._send(classes_block(d))
         if u.path == "/fragment/trainq":
             g = lambda k: (parse_qs(u.query).get(k) or [""])[0]  # noqa: E731
             return self._send(train_questions(d, g("split"), g("cls"), g("kind"), g("q")))

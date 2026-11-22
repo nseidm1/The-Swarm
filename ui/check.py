@@ -2109,27 +2109,46 @@ check("every question of a pass has a pip, the ones not asked yet among them, an
       [_qt13.count('class="pe"'), [k for k in swarm_ui.PIP_WORDS if ".qkey i.%s" % k not in swarm_ui.CSS]])
 
 # ---- EACH CLASS OF INPUT, TRAINED AS A CLASS: the Train card says how each class stood, what was tried and what was kept
+# HOW FAR A PASS HAS COME, on the Train card (console 2026-11-21: in place of the table of each class trained as a class): a share
+# of the pass, from the pass's own record of its steps, and inside the two steps that train, from theirs
 _r12 = Path(tempfile.mkdtemp())
 (_r12 / "training" / "results" / "k12").mkdir(parents=True)
-_none12 = swarm_ui.classes_block({"root": str(_r12), "key": "k12"})
-(_r12 / "training" / "results" / "k12" / "classes.json").write_text(json.dumps({"at": "2026-11-20T03:00:00Z", "done": "2026-11-20T03:40:00Z", "classes": {
-    "talk": {"train": 24, "held": 24, "kinds": ["chain", "lies"], "asItStands": {"n": 24, "anySlot": 23, "settled": 20, "counted": 1, "unread": 19},
-             "rounds": [{"candidates": [{"name": "plan: the reply closes as the earlier replies do", "counted": 20, "n": 24, "gain": 0.79, "error": 0.08}, {"name": "plan: decide by most", "counted": 1, "n": 24, "gain": 0, "error": 0}],
-                         "best": "plan: the reply closes as the earlier replies do", "kept": True,
-                         "held": {"asItStood": {"n": 24, "counted": 0}, "with": {"n": 24, "counted": 19}, "gain": 0.792, "error": 0.085}}],
-             "kept": ["plan: the reply closes as the earlier replies do"], "after": {"n": 24, "counted": 20}},
-    "tools": {"skipped": "fewer than four questions of this class carry a standard of their own", "train": 2, "held": 2},
-    "code": {"train": 24, "held": 24, "kinds": ["fix"]}}}))
-_cls12 = swarm_ui.classes_block({"root": str(_r12), "key": "k12"})
+_p12 = _r12 / ".work" / "train" / "k12" / "pass-3"
+_p12.mkdir(parents=True)
+_dd12 = {"root": str(_r12), "key": "k12"}
+_rs12, swarm_ui.run_state = swarm_ui.run_state, (lambda: {"running": True})
+_none12 = swarm_ui.pass_progress({"root": str(_r12), "key": "nothing"})
+(_p12 / "status.txt").write_text("10:00:00 START 00-begin\n10:00:01 END   00-begin exit 0 0 min\n10:00:01 START 00-plan\n10:00:02 END   00-plan exit 0 0 min\n10:00:02 START 00-reader\n10:00:03 END   00-reader exit 0 0 min\n10:00:03 START 08-classes\n")
+_at_start12 = swarm_ui.pass_progress(_dd12)
+(_r12 / "training" / "results" / "k12" / "classes.json").write_text(json.dumps({"at": "2026-11-20T03:00:00Z", "rounds": 2, "classes": {
+    "tools": {"train": 18, "held": 18, "asItStands": {"n": 18}, "rounds": [{"of": 10, "candidates": [{}] * 10}], "kept": []},
+    "talk": {"train": 34, "held": 34, "asItStands": {"n": 34}, "rounds": [{"of": 10, "candidates": [{}] * 5}], "kept": []}}}))
+_mid12 = swarm_ui.pass_progress(_dd12)
+_rec12 = json.loads((_r12 / "training" / "results" / "k12" / "classes.json").read_text())
+(_p12 / "status.txt").write_text((_p12 / "status.txt").read_text() + "10:20:00 END   08-classes exit 0 20 min\n10:20:00 START 02-target\n10:21:00 END   02-target exit 0 1 min\n10:21:00 START 10-questions\n")
+_q12 = swarm_ui.pass_progress(dict(_dd12, loop={"of": 10, "list": [{"state": "at parity"}] * 5}))
+(_p12 / "status.txt").write_text((_p12 / "status.txt").read_text() + "10:40:00 END   10-questions exit 0 20 min\n10:50:00 DONE\n")
+_done12 = swarm_ui.pass_progress(_dd12)
+swarm_ui.run_state = _rs12
 shutil.rmtree(_r12, ignore_errors=True)
-check("the Train card says, for each class of input a pass trained as a class, how it stood in three figures (some slot had it, settled on it, reply good as read, with the replies no answer was read in), "
-      "how many arrangements were tried and what was kept, and why by the held questions; a class with too few questions says so, one still being asked says so, and before the stage there is nothing",
-      _none12 == "" and "First, each class of input as a class (3) 2026-11-20 03:40 UTC" in _cls12 and "n.trainer==='classes'" in swarm_ui.JS and "swap('/fragment/classes','#classes-wrap')" in swarm_ui.JS
-      and "<td>23 of 24</td><td>20 of 24</td><td>1 of 24 <span class='muted'>(19 with no answer found)</span></td><td>2</td><td><b>the reply closes as the earlier replies do</b>" in _cls12
-      and "now 20 of 24" in _cls12 and "was kept: better on the held questions (19 of 24, where it stood at 0; +79.2 points, paired error 8.5)" in _cls12
-      and "Not trained as a class: fewer than four questions" in _cls12 and "Being asked as it stands: 24 train questions" in _cls12
+_share12 = swarm_ui.classes_share
+check("the Train card says how far the pass in hand has come, as a share of it: nothing before a pass has begun; then each step that ended counts for its part, the stage that trains each class as a class by the classes done of those asked and the changes tried in the one in hand, the questions by how many are finished; a pass that ended is 100; "
+      "and the table of each class trained as a class is no longer on the card",
+      _none12 is None and _at_start12["pct"] == 3.0 and _at_start12["pass"] == 3 and _at_start12["step"] == "08-classes"
+      and 3.0 < _mid12["pct"] < 33.0 and abs(_mid12["pct"] - (3 + 30 * (1 + 0.15 + 0.85 * 0.4 / 2) / 4)) < 0.01
+      # (and it moves with the question in hand: within a change being tried, within the first asking, and through the held draws)
+      and abs(_share12(_rec12, 4, "Class 2 of 4, a conversation: trying \"x\" · question 6 of 11") - (1 + 0.15 + 0.85 * 0.8 * (5 + 5 / 11) / 10 / 2) / 4) < 1e-9
+      and _share12({"classes": {"tools": {}}}, 4, "Class 1 of 4, with tools: how the swarm stands · question 10 of 19") == 0.15 * 9 / 19 / 4
+      and _share12(_rec12, 4, "x: confirming \"y\" on the held questions, draw 2 of 2 · question 1 of 34") > _share12(_rec12, 4, "x: the swarm as it stands, on the held questions, draw 1 of 2 · question 1 of 34") > _share12(_rec12, 4, "")
+      and _share12({"rounds": 2, "classes": {"a": {"asItStands": {}, "rounds": [{"candidates": [{}] * 20, "kept": False}]}, "b": {"asItStands": {}, "rounds": [{"candidates": [{}] * 5}]}}}, 2) == (1 + 0.15 + 0.85 * 0.8 * 5 / 20 / 2) / 2
+      and abs(_q12["pct"] - (3 + 30 + 2 + 40 * 0.5)) < 0.01 and _q12["step"] == "10-questions" and _done12["pct"] == 100.0 and _done12["done"] is True
+      and _share12(None) == 0.0 and _share12({"done": "x", "classes": {}}) == 1.0 and _share12({"classes": {"a": {"skipped": "x"}, "b": {"skipped": "y"}}}, 2) == 1.0
+      and "(n.running&&n.step&&n.trainer&&n.trainer!=='loop')?(STEP[n.trainer]||'Working')+' · '+n.step" in swarm_ui.JS
+      and "Now, before it" not in swarm_ui.JS and "qn.hidden=!!(n.running&&n.trainer!=='loop')" in swarm_ui.JS and "waiting for the steps of the pass before it" in open(swarm_ui.__file__).read()
+      and not hasattr(swarm_ui, "classes_block") and "classes-wrap" not in swarm_ui.JS and 'id="passprog"' in open(swarm_ui.__file__).read()
+      and sum(w for _, w in swarm_ui.PASS_SHARES) == 100
       and swarm_ui.step_label("08-classes") == "Each class of input, trained as a class" and "Logic: who tells the truth" in swarm_ui.KIND_WORDS["lies"],
-      [_none12, _cls12[:400]])
+      [_at_start12, _mid12, _q12, _done12])
 
 # ---- A CARD'S CONTROLS STAY IN THEIR COLUMN: a chooser is no wider than the column, whatever its longest choice
 check("the controls of a card's head stay inside the third column (a chooser as wide as its longest choice lay over the description beside it): they take the column's width and no more, a choice that does not fit cut short with an ellipsis; and the four cards keep the same three columns",

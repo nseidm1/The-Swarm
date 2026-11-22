@@ -9582,6 +9582,34 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
+// ---- the class stage changes the draw the way a swarm lets it be changed (it assigned to `seed`, which a swarm only reads:
+// the stage stopped with a TypeError the first time a change reached the held questions, 2026-11-21)
+{
+  const src = fs.readFileSync(new URL('../training/classes.mjs', import.meta.url), 'utf8');
+  reset();
+  const s2 = await createSwarm({ attach: { a: lfm.base, b: bonsai.base }, seed: 1 });
+  let threw = false;
+  try {
+    s2.seed = 2;
+  } catch {
+    threw = true;
+  }
+  s2.setSeed('1|draw2');
+  const drawn = s2.seed;
+  s2.setSeed(1);
+  await s2.stop();
+  check(
+    "a swarm's draw is changed with setSeed and read with seed, which cannot be assigned; the class stage asks its further draws with setSeed and puts the first back",
+    threw &&
+      drawn === '1|draw2' &&
+      s2.seed === 1 &&
+      !/swarm\.seed\s*=[^=]/.test(src) &&
+      /swarm\.setSeed\(k \? seed0 \+ '\|draw'/.test(src) &&
+      /swarm\.setSeed\(seed0\);/.test(src),
+    { threw, drawn },
+  );
+}
+
 // ---- ONE RULE FOR KEEPING A CHANGE, over two draws of the held questions; and the class stage's sweep
 {
   const K = await import('../training/keep.mjs');

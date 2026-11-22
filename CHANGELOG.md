@@ -6,6 +6,15 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The stage that trains each class as a class no longer stops at its held questions** (2026-11-21). It stopped with an
+  error the first time a change did well enough to be asked the held questions on a second draw, and the session began
+  the stage again. And while that stage runs, the page says which class and question it is on, where it said the models
+  were loading. The question-by-question track says it is waiting, and what runs before it, where it read "0 of 0
+  finished"; and the stage's own line names the class as the page does ("Class 2 of 4, a conversation: trying ...").
+- **The Train card says how far the pass has come** (2026-11-21). A bar and a share under the card's head: what part of the
+  pass in hand is done, and the step it is in while a session runs. Each step that ended counts for its part; the stage
+  that trains each class as a class counts by the classes done and the changes tried, the questions by how many are
+  finished. The table of each class trained as a class is taken off the card.
 - **A model that fills several places is loaded once** (2026-11-21). A swarm of one model loaded its weights once for each
   place it filled. The places now share one load, started with the slots of all of them. Measured with LFM3 1.7B in two
   places on 24 benchmark prompts: 2.1 GB of memory in place of 3.3, 13 answers right of 18 where two loads had 14, and 7.9

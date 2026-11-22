@@ -193,25 +193,32 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       ms: got.ms,
     };
   };
-  const all = async (list, briefs, said) => {
+  const all = async (list, briefs, what) => {
     const out = [];
     for (const [i, t] of list.entries()) {
+      B.live({ trainer: 'classes', step: what + ' · question ' + (i + 1) + ' of ' + list.length });
       out.push(await ask(t, briefs));
-      B.live({ trainer: 'classes', step: said + ', question ' + (i + 1) + ' of ' + list.length });
     }
     return out;
   };
 
+  // WHAT IT IS DOING, IN A PERSON'S WORDS, for the page's line of what is happening: which class of the ones asked (as the page
+  // names them), and what is being asked of it. It said "The class talk: plan: the writer writes the reply in full".
+  const NAMES = { tools: 'with tools', talk: 'a conversation', code: 'asking for code', words: 'a plain question' };
+  const asked = CLASSES.filter((c) => !only || only.includes(c));
+  const said = (K) => 'Class ' + (asked.indexOf(K) + 1) + ' of ' + asked.length + ', ' + (NAMES[K] || K);
+  const plainMove = (name) => String(name).replace(/^plan: /, '');
   // the held questions on each draw (another seed for each, the first the one everything else is asked with; then put back)
-  const onDraws = async (list, briefs, said) => {
+  const onDraws = async (list, briefs, what) => {
     const out = [];
     try {
       for (let k = 0; k < draws; k++) {
-        swarm.seed = seed0 + k;
-        out.push(await all(list, briefs, said + ', draw ' + (k + 1) + ' of ' + draws));
+        // (another draw is another seed: setSeed, as loop.mjs asks its second draw; the first is the seed all else is asked with)
+        swarm.setSeed(k ? seed0 + '|draw' + (k + 1) : seed0);
+        out.push(await all(list, briefs, what + ', draw ' + (k + 1) + ' of ' + draws));
       }
     } finally {
-      swarm.seed = seed0;
+      swarm.setSeed(seed0);
     }
     return out;
   };
@@ -246,7 +253,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         'class ' + K + ': ' + tr.length + ' train questions, ' + he.length + ' held, of ' + C.kinds.length + ' kinds',
       );
       let base = briefsFor(stored, '', K);
-      let baseRows = await all(tr, asClass(K, base), 'The class ' + K + ' as it stands');
+      let baseRows = await all(tr, asClass(K, base), said(K) + ': how the swarm stands');
       C.asItStands = figuresOf(baseRows);
       save();
       console.log('  as it stands: ' + JSON.stringify(C.asItStands));
@@ -256,7 +263,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         let best = null;
         const scored = [];
         const tryOne = async (m) => {
-          const rows = await all(tr, asClass(K, m.briefs), 'The class ' + K + ': ' + m.name);
+          const rows = await all(tr, asClass(K, m.briefs), said(K) + ': trying "' + plainMove(m.name) + '"');
           const g = pairedGain(rows, baseRows);
           R.candidates.push({
             name: m.name,
@@ -280,17 +287,24 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
           );
           if (g.gain > 0 && (!best || g.gain > best.g.gain)) best = { m, rows, g };
         };
-        for (const m of roundOf(steps(base), base, P.moves, tries, sweep)) await tryOne(m);
+        // (how many it has to try, for the page to say how far the stage has come: the round's, and one more for the two together)
+        const toTry = roundOf(steps(base), base, P.moves, tries, sweep);
+        R.of = toTry.length + 1;
+        for (const m of toTry) await tryOne(m);
         // (and the best two of the sweep together: two changes that each help may help more as one)
         const both = togetherOf(scored, steps);
         if (both) await tryOne(both);
         if (!best) break;
         // ON THE HELD QUESTIONS, which it was not chosen on: the swarm as it stands and the best, the same questions for both
-        const heldBase = await onDraws(he, asClass(K, base), 'The class ' + K + ' as it stands, held questions');
+        const heldBase = await onDraws(
+          he,
+          asClass(K, base),
+          said(K) + ': the swarm as it stands, on the held questions',
+        );
         const heldBest = await onDraws(
           he,
           asClass(K, best.m.briefs),
-          'The class ' + K + ': ' + best.m.name + ', held questions',
+          said(K) + ': confirming "' + plainMove(best.m.name) + '" on the held questions',
         );
         const verdict = keepOf(
           he.map((t, i) => ({
