@@ -6,6 +6,13 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The specification says what a module is to its consumer, and what training achieves** (2026-11-22). Its head now
+  says outright that a consumer relies on the interface of a standard chat model and on nothing inside it: the wiring
+  is what training found, carried by the SwOA. A short section says what training looks for (the arrangement, adapters
+  by role, instruments), how a change is kept, and that a harness proves the result apart from training.
+- **The instruments were put to every benchmark question on the machine** (2026-11-22, `no model`). On the four tasks
+  that are the operations they read 1000 of 1000 and were right on each (920 of them never read when the instruments
+  were written); on 14,957 other questions of 19 sets they fired on none.
 - **Training chooses the instruments** (2026-11-22). No instrument is on in a module as it starts: it asks its models.
   Training asks questions of its own that are an operation (`training/tasks-exact.mjs`: a sum, an expression of true and
   false, words to sort, brackets to close; made from a seed in wordings of its own, each with the answer its maker worked

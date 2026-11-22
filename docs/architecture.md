@@ -29,6 +29,9 @@ answer is to be reached. That is the whole public surface, in three forms:
 | [`src/read.mjs`](../src/read.mjs) | Reading the answer out of what a slot wrote, and telling when two answers are the same |
 | [`src/behave.mjs`](../src/behave.mjs) | Which drafts of a function do the same: the calls to try, the drafts run on them, the drafts grouped by what they returned |
 | [`src/sandbox.mjs`](../src/sandbox.mjs), [`src/sandbox-runner.mjs`](../src/sandbox-runner.mjs) | Running a function a model wrote where it can reach nothing. The only place anything a model wrote is run |
+| [`src/langs.mjs`](../src/langs.mjs) | A function a model wrote, run in the language it is written in (TypeScript, Python, Go, Swift, Dart, Flutter, Kotlin), under the system's own sandbox; which language a set of drafts is in; calls built from a function's own parameters |
+| [`src/instruments.mjs`](../src/instruments.mjs) | What code does exactly: a question that IS an operation, read from its own text and done with no model asked. On only where the arrangement's plan names it |
+| [`src/piece.mjs`](../src/piece.mjs) | A reply the request sets countable rules on: the rules read from the request, each whole reply counted against them, the one that keeps the most sent |
 | [`src/briefs.json`](../src/briefs.json) | What each slot is told, the plan and the flow, as every swarm starts |
 | [`src/learned.mjs`](../src/learned.mjs), `src/learned/` (on the machine that trained, not committed) | What one configuration has learned against one larger model: the arrangement it now runs, and the ledger of every kept change with its evidence |
 | [`src/catalog.mjs`](../src/catalog.mjs) | The models that can be chosen and the ones that are: two to four small models (places `a` to `d`), the decider and the larger model, and the entry for a list of models |

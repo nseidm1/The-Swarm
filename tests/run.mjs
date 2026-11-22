@@ -10565,6 +10565,18 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       ) === 'closed:) } ]' &&
       of('Complete the sequence, making sure the parentheses are closed properly. Input: ( ]') === null &&
       of('Complete the sequence, making sure the parentheses are closed properly. Input: ( )') === null &&
+      // (as another author lays the same operation out: a label at the end that only says where the answer goes, and operators
+      // said in words; read on none of 2,900 and 18,000 such questions before, and on all of them after)
+      of('Sort the following words alphabetically:\nList: stick gelatine\nSorted:') === 'sorted:gelatine stick' &&
+      of(
+        'Complete the rest of the sequence, making sure that the parentheses are closed properly.\n\nInput: { [ [\nOutput:',
+      ) === 'closed:] ] }' &&
+      of('\n\nQ: What is 98 plus 45?\n\nA:') === 'sum:143' &&
+      of('What is 95 times 45?') === 'sum:4275' &&
+      of('What is 17 minus 14?') === 'sum:3' &&
+      of('What is 12 divided by 4?') === 'sum:3' &&
+      of('Tom has 3 apples plus a pear. How many?') === null &&
+      of('Q: What is 0 plus 0?\n  choice: 0\n  choice: 1\nA:') === null &&
       of('What is the capital of France?') === null &&
       of('I have 3 apples and 2 pears. How many fruits do I have?') === null &&
       done.ok &&

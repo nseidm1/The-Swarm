@@ -1,5 +1,34 @@
 # Training the Swarm
 
+## What training finds: the wiring
+
+A module is used as one chat model. What is inside it is its wiring, and training is what finds it. Three things,
+each kept only where held questions say it helped (`training/keep.mjs`):
+
+| What | Found by | Kept in |
+|---|---|---|
+| The arrangement, for each class of input | the class stage, then question by question (this document) | `src/learned/`, and a SwOA's `arrangement` |
+| An adapter for each role (draft, check, write) | `training/roles.mjs`: each slot's own requests on the train questions, with the answers it gave that were right | `.work/library/adapters/`, and a SwOA's adapters |
+| The instruments that are on, for each class of input | the class stage: each instrument is a candidate, tried first of all | the arrangement's `plan.instruments` |
+
+**Instruments are earned, not assumed.** An instrument (`src/instruments.mjs`) does an operation by code where a
+question IS that operation. None is on in a module as it starts. Training asks such operations in questions of its
+own (`training/tasks-exact.mjs`: `sum`, `truth`, `sorted`, `closed`; made from a seed, in several wordings of this
+repository's own, each with the answer its maker worked out by code that is not the instrument's), some of them put
+with worked examples so that the conversation class has them too. The class stage tries each instrument as a change
+like any other and keeps it for a class where the class got better on held questions. When the class stage ends it
+names the kinds of question on which no slot had a good answer a quarter of the time or more: no rearranging mends
+those, and they are where the next instrument, or an adapter, has something to add.
+
+**The whole of it is one run:** `bash training/run.sh [--limit N | --proof] [--train classes|off] [--train-minutes M]
+[--items a,b]`. It evaluates the module as configured, pretrains it by role and evaluates it, trains its arrangement
+(the class stage) and evaluates it again, each on the same questions, and writes the three figures side by side
+(`.work/eval/compare.json`). A run that stopped carries on from the step it stopped in.
+
+**Training never asks a benchmark's question, and the evaluation is not ours.** The harnesses are used unchanged
+and ask the module as they ask any model. What a harness measures is whether what training found on its own
+questions holds on questions it never saw.
+
 ## First, each class of input as a class
 
 An arrangement belongs to a class of input: a turn with tools, a conversation, a request for code, a plain question

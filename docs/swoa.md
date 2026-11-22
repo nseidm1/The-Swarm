@@ -5,11 +5,18 @@ gives: messages in, one reply out. A LoRA is the spec applied to a model to tune
 swarm module to tune it. It holds everything training found and the proof of what that tuning does, measured by an established
 LLM evaluation harness.
 
+**What a consumer relies on is the interface of a standard chat model, and nothing else.** Everything inside the module
+(which slot is asked what, in what order, with which adapter, and what is done by code and not by a model) is the
+**wiring**: it is what training found for this module, it is carried whole by the SwOA spec so that a runtime can serve
+it, and a consumer neither sees it nor depends on it. Two SwOAs of the same base module differ in their wiring and are
+used alike.
+
 This document defines the format. It is normative and independent of any implementation: the key words MUST, MUST NOT, SHOULD
 and MAY are used as in RFC 2119. It is self-contained: a runtime built
 from this document alone, with no other source, can make a swarm module from a SwOA spec and serve it as a standard chat model.
 
-The document has five parts. **Part I** is the format of a SwOA spec and its card. **Part II** is making the module ready and
+The document has five parts. Part I is all a consumer of a published SwOA needs to read; Parts II to V are what a
+runtime implements in order to serve the wiring a SwOA carries, and a consumer never needs them. **Part I** is the format of a SwOA spec and its card. **Part II** is making the module ready and
 serving it: the members, the requests sent to them, and the chat-model interface a consumer uses. **Part III** is how the module
 answers one request. **Part IV** is the decision model. **Part V** is turns with tools. An annex gives the default arrangement.
 
@@ -22,6 +29,8 @@ answers one request. **Part IV** is the decision model. **Part V** is turns with
 - **Base module**: the members, the decision model and the engine, each pinned. What a SwOA is applied to.
 - **Arrangement**: how the base module answers: its **slots** (a member, a stage, and what the slot is told), its **plan**, its
   **flow** (the order of stages), and an arrangement of its own for each **class of input** that has one. What a SwOA tunes.
+- **Instrument**: an operation done exactly by code inside the module, with no model asked, where a request IS that
+  operation (R.6). Part of the wiring: on for a class of input where training turned it on.
 - **Target model**: the model the SwOA was trained toward. **Parity** with it, as an established harness measures it, is the
   goal of SwOA training; it is never assumed.
 - **Harness**: an established LLM evaluation harness (for example EleutherAI's lm-evaluation-harness, or, for the use of
@@ -34,11 +43,33 @@ answers one request. **Part IV** is the decision model. **Part V** is turns with
 |---|---|---|
 | Tunes | one model | one swarm module |
 | Applied to | a base model | a base module, each part pinned by file and SHA-256 |
-| Holds | low-rank weight updates | the arrangement, and the adapters its members are served with |
+| Holds | low-rank weight updates | the wiring: the arrangement, the adapters its members are served with, and the instruments that are on |
 | Trained toward | a task's data | parity with a target model, as a harness measures it |
 | Shipped as | adapter config, weights, a model card | a SwOA spec (`.swoa.json`) and a SwOA card (`.swoa.md`) |
 | Proof | evaluation results on its card | `proof`: harness results measured on exactly this SwOA |
 | On another base | possible; effects unknown | possible; effects unknown, and the hashes no longer match |
+
+### 2a. Training, and what it achieves (informative)
+
+A SwOA is the record of a training, as a LoRA is. Training starts from a base module and an arrangement anyone could
+write down, and looks for the wiring with which the module, used as a standard chat model, answers as its target model
+does. It has three things to find, and each is kept only where it was measured to help:
+
+- **The arrangement, for each class of input.** Which slots there are, what each is told, in what order they are
+  asked, how differing answers are settled and how the reply is written.
+- **Adapters, for each role.** A member is taught the requests of a role (drafting, checking, writing the reply) as
+  the arrangement makes them, from the answers it gave that were right, and a request is served with its role's
+  adapter.
+- **Instruments, for each class of input.** Where requests of a class are operations that code does exactly (a sum,
+  words to put in order), the operation is done by code and no model is asked.
+
+Training asks questions of its own making, each with a standard of its own, and never a harness's question. A change
+is tried on some of them and kept only where the class of input got better on others held back for the purpose, by
+more than the measurement itself wanders. What training achieves is then **proved apart from it**: an established
+harness, unchanged, asks the module its own questions through the chat-model interface, exactly as it would ask any
+model, and the SwOA carries that result as its `proof`. A harness's questions say whether what training found on its
+own questions holds on questions it never saw. A module MAY come out ahead of its target model on a harness: what
+is done by code is done exactly.
 
 ### 3. Files
 
@@ -2629,8 +2660,10 @@ of Part II is not run. Instead:
 
 `plan.instruments` is a list of the ids of the instruments that are on (or `true`: every one). It is absent from an
 arrangement as it starts: an instrument is on where training kept it for the class of input. Where the question does
-not want code and at least one is on, the question is first read by the instruments that are on, in the order below. The question is taken trimmed, without a leading `Q:` or `Question:` and without a
-closing line `A:` (with or without `Let's think step by step.`). Where an instrument applies, the answer procedure of
+not want code and at least one is on, the question is first read by the instruments that are on, in the order below. The question is taken trimmed, without a leading `Q:` or `Question:` and without the lines at
+its end that only say where the answer goes: a line that is one letter and at most nineteen more letters or spaces,
+then a colon, with nothing after it or `Let's think step by step.` (`A:`, `Answer:`, `Sorted:`, `Output:`), removed
+while the last line is such a line. Where an instrument applies, the answer procedure of
 Part II is not run and no model is called: the decided answer is what the instrument gives, the reply is that answer
 (closed in the form the earlier replies show, O.8.7, where `plan.closeAs` is `shown` and a form is shown), the path is
 `instrument`, and one row is recorded with slot `instrument`, member `code`, stage `run`. An instrument applies only
@@ -2638,13 +2671,14 @@ where it can read the WHOLE of what it needs; otherwise it does not apply and th
 
 | Instrument | Applies when | Gives |
 |---|---|---|
-| sum | the question, less an optional label ending in a colon, an optional `what is`, `compute`, `calculate` or `evaluate`, and an optional closing `=`, `= ?` or `?`, is an expression of numbers, `+ - * /` and round brackets with at least one operator | its value, by the usual precedence; an integer written without a decimal point; division by zero does not apply |
+| sum | (where a number is followed by `plus`, `minus`, `times`, `multiplied by` or `divided by` and a number, those words are first read as `+`, `-`, `*`, `*`, `/`) the question, less an optional label ending in a colon, an optional `what is`, `compute`, `calculate` or `evaluate`, and an optional closing `=`, `= ?` or `?`, is an expression of numbers, `+ - * /` and round brackets with at least one operator | its value, by the usual precedence; an integer written without a decimal point; division by zero does not apply |
 | truth | the question, less an optional label, is `True`, `False`, `not`, `and`, `or` and round brackets with at least one operator, followed by `is` or `=` | `True` or `False`, with `not` binding tighter than `and`, and `and` tighter than `or` |
 | sorted | it says to sort, order, arrange or put in alphabetical (or dictionary) order, does not say reverse or descending, and after its last colon is one line of two or more words parted by white space, or by commas | the words in order by character in lower case, joined as they were parted |
 | closed | it speaks of closing or completing parentheses, brackets or a sequence, and after its last colon is a run of `( ) [ ] { } < >` and white space that closes nothing it did not open and leaves at least one open | the closing bracket of each one left open, the last opened first, with one space between |
 
-A result MUST say which instruments were on: a task that IS one of these operations is then answered by code, not by a
-model.
+A result is of the arrangement its `arrangementSha256` names (section 4), and so of the instruments that were on in it: a
+task that IS one of these operations is then answered by code, not by a model, and a card (section 7) SHOULD say which
+instruments its SwOA has on.
 
 ---
 

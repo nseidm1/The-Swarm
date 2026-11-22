@@ -63,7 +63,15 @@ function sumOf(text) {
   }
 }
 // the question is a sum and nothing else: its text, less a label before it and "=" (or "= ?", "is") after it
-function sumIn(q) {
+function sumIn(q0) {
+  // (operators said in words: "98 plus 45", "95 times 45", "6 divided by 3")
+  const q = /\d\s+(?:plus|minus|times|multiplied by|divided by)\s+-?\d/i.test(q0)
+    ? q0
+        .replace(/\bplus\b/gi, '+')
+        .replace(/\bminus\b/gi, '-')
+        .replace(/\b(?:times|multiplied by)\b/gi, '*')
+        .replace(/\bdivided by\b/gi, '/')
+    : q0;
   const m =
     /^(?:[A-Za-z ]{0,40}:\s*)?(?:what is\s+|compute\s+|calculate\s+|evaluate\s+)?([-+*/().\d\s]{3,400}?)\s*(?:=\s*\??|\?)?\s*$/i.exec(
       q,
@@ -182,13 +190,25 @@ const INSTRUMENTS = [
   { id: 'sorted', name: 'put in order by the alphabet', of: sortedIn },
   { id: 'closed', name: 'each bracket left open closed, the last opened first', of: closedIn },
 ];
-// the question as an instrument reads it: the labels a worked example puts round it are taken off ("Q: ... A: Let's think step by step.")
-export const bare = (question) =>
-  String(question || '')
+// THE QUESTION AS AN INSTRUMENT READS IT: what was asked, without what a form puts round it. A label before it ("Q:",
+// "Question:") is taken off, and so are the lines at its end that only say where the answer goes: a short label and a colon
+// with nothing after ("A:", "Answer:", "Sorted:", "Output:"), or "A: Let's think step by step." (Measured 2026-11-22 on a
+// benchmark by other contributors: the same sorting and bracket tasks, laid out with such a line at the end, were read on
+// none of 2,900 questions.)
+export const bare = (question) => {
+  let q = String(question || '')
+    .replace(/\r/g, '')
     .trim()
-    .replace(/\n+A:\s*(?:Let'?s think step by step\.?)?\s*$/i, '')
-    .replace(/^Q(?:uestion)?:\s*/i, '')
-    .trim();
+    .replace(/^Q(?:uestion)?:\s*/i, '');
+  for (;;) {
+    const cut = q
+      .replace(/\n+[ \t]*[A-Za-z][A-Za-z ]{0,19}:[ \t]*(?:Let'?s think step by step\.?)?[ \t]*$/i, '')
+      .trimEnd();
+    if (cut === q) break;
+    q = cut;
+  }
+  return q.trim();
+};
 // which are on: true (every one), or a list of their ids (plan.instruments, as training kept them); nothing, and none is
 export const INSTRUMENT_IDS = INSTRUMENTS.map((it) => it.id);
 export const INSTRUMENT_NAMES = Object.fromEntries(INSTRUMENTS.map((it) => [it.id, it.name]));

@@ -195,6 +195,21 @@ task in either harness. Code, Math, Logic, Reasoning, Instructions, Tools and Se
 | Decide                              | The decider                                      | Picks which answer stands. The decider is whichever decision model the configuration names (Kev, Jeffan, StartLux Decision, and the others below): a model that writes nothing: it is given the question, each different answer and what the checkers said, and returns a probability for each answer. A plan can put one of the small models beside it (below)                               |
 | Write                               | `a-writer`                                       | Writes the reply a person reads, from what was settled and the draft it came from. Code goes out exactly as it was settled, and is not written out again. A closing paragraph about how the reply was made ("settled based on the provided draft") is cut. A reply that describes the answer instead of giving it is not sent: the largest other small model writes it, or the draft goes out |
 
+**Some requests are not put to the stages at all.** The module is used as one chat model; what happens inside is its
+wiring, and part of the wiring is code that decides, with no model, how a request is taken:
+
+| What the request is | What is done | Where |
+| --- | --- | --- |
+| An operation code does exactly (a sum, an expression of true and false, words to put in alphabetical order, brackets to close) | Done by code; no model is asked. **Only where training turned that instrument on** for the class of input | `src/instruments.mjs` |
+| A request that sets rules that can be counted (so many words, no comma, every letter a capital, labelled parts, placeholders) | The first drafters each write the whole reply, each is counted against the rules, the one that keeps the most goes out, and its writer is told once what it broke | `src/piece.mjs` |
+| A conversation that ends with the start of the reply | The conversation before it is answered and the reply follows the start (for a Python function, its body) | `src/read.mjs` |
+| A function, in JavaScript, TypeScript, Python, Go, Swift, Dart, Flutter or Kotlin | The drafts are run on the same calls, boxed, and drafts that do the same are one answer | `src/behave.mjs`, `src/langs.mjs` |
+| A question that lists lettered options | An answer that is none of them is not counted beside one that is | `src/orchestrate.mjs` |
+| A turn with a search tool offered and nothing looked up yet | It does not end without a search: the first drafters are asked once more for a call | `src/tools.mjs` |
+
+Each is a switch of the arrangement's plan, so training can turn it off for a class of input, and an evaluation can be
+run either way.
+
 **The order of these steps is not fixed.** It is the arrangement's _flow_, and training changes it the way it changes
 everything else, one step at a time and only on evidence. A flow can send the answers back to the slots that wrote them
 (with the other answers, where they part, and what the checkers said), loop checking and revising while the answers still
@@ -499,7 +514,22 @@ this page can start or stop one: a request from another site is refused. To see 
 
 ## Training
 
-Nothing here changes the small models' weights. What is trained is what each slot is told, and how the slots are arranged:
+A module is trained toward a larger model, and what training finds is the module's wiring. It has three things to find,
+and keeps each only where held questions say it helped:
+
+- **the arrangement**, for each class of input: what each slot is told and how the slots are arranged (below);
+- **adapters, one for each role** (drafting, checking, writing the reply), taught from the slots' own requests and
+  the answers they gave that were right (`training/roles.mjs`; the dashboard's Pretrain);
+- **instruments**: where a class of input holds operations code does exactly, the class stage turns that instrument
+  on (`src/instruments.mjs`). None is on in a module as it starts. Training asks such operations in questions of its
+  own (`training/tasks-exact.mjs`), so what an instrument is worth is measured before a benchmark sees it.
+
+`bash training/run.sh` is the whole of it in one run, with the three figures it is judged by: the module as
+configured is evaluated, it is pretrained and evaluated, its arrangement is trained and it is evaluated again, on the
+same questions (the dashboard's **Run**). The evaluation is a third party's, unchanged: the harness asks the module
+through the chat-model interface as it asks any model, and training never asks a harness's question.
+
+What follows is the training of the arrangement. Nothing here changes the small models' weights. What is trained is what each slot is told, and how the slots are arranged:
 which model drafts and which checks, how many of each, what a checker is shown. There are countless arrangements, and every
 pass tries ones no pass has tried.
 
@@ -964,6 +994,15 @@ published. From now on a measured number is published with its spec, in [`specs/
 ## Status and limits
 
 What has been run:
+
+- **The instruments, against every benchmark question at hand, with no model (2026-11-22).** On the four tasks of a
+  standard suite that ARE the operations, 1,000 of 1,000 read and right (920 never read when the instruments were
+  written). On 14,957 questions of 19 other sets (other tasks of that suite, arithmetic in words, science questions,
+  instructions, code): fired on none. On 104,520 questions by other contributors (14 BIG-bench tasks, the EleutherAI
+  arithmetic suite): 22,959 read, every one answered as its set says. **A limit, said plainly:** the instruments were
+  written after four tasks of a benchmark were read, and their reading was widened after the other contributors'
+  sets were read (an answer label at the end; operators in words); before that widening they read 2,060 of the
+  104,520. What they read they answered rightly throughout. A source read by nobody beforehand has not been tried.
 
 - **Checks:** all of them, against stand-ins.
 - **Training question by question, on real models:** a night and a morning with LFM2.5 1.2B, Qwen3.5 2B, Bonsai 2 4B,
