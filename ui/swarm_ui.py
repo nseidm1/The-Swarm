@@ -343,7 +343,7 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .moves li.skipped{opacity:.55}.moves li.pinned{background:linear-gradient(90deg,#e8f6f1,transparent)}
 dialog#evd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#evd::backdrop{background:rgba(11,40,38,.45)}
 /* THE EVALUATE CARD'S HEADLINE IS A BUTTON (it opens the table, score beside score): it keeps the look of a headline, and says it can be pressed */
-.evhead{display:flex;flex-direction:column;gap:10px;align-items:flex-start;min-width:0}.evviews{display:flex;gap:8px;flex-wrap:wrap}.evviews .btn{padding:8px 14px;font-size:13px;white-space:nowrap}.ptab{font-family:Georgia,'Times New Roman',serif;color:var(--fog)}.ptab caption{caption-side:top;text-align:left;font-size:13.5px;line-height:1.5;padding:0 0 10px}.ptab caption b{font-weight:700}.ptab table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums;border-top:2px solid var(--fog);border-bottom:2px solid var(--fog)}.ptab th,.ptab td{padding:5px 10px;text-align:right;border:0;white-space:nowrap}.ptab th:first-child,.ptab td:first-child{text-align:left;white-space:normal}.ptab thead th{font-weight:400;border-bottom:1px solid var(--fog)}.ptab tr.pg td{font-style:italic;padding-top:10px;text-align:left}.ptab tr.pall td{border-top:1px solid var(--fog);padding-top:7px}.ptab td small{color:var(--mist);font-size:.82em}.ptab-wrap{overflow-x:auto;margin-top:12px}.ptab-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}#evd-latex{width:100%;min-height:160px;margin-top:10px;font:12px ui-monospace,Menlo,monospace}dialog#tqd{border:0;border-radius:var(--r);padding:26px;max-width:min(900px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#tqd::backdrop{background:rgba(11,40,38,.45)}.tqctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}.tqctl select,.tqctl input{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel)}.tqctl input{flex:1 1 160px;min-width:0}.tql{list-style:none;margin:0;padding:0;display:grid;gap:10px}.tql li{border:1px solid var(--line2);border-radius:var(--r);padding:12px 14px}.tqh{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}.tqh small{color:var(--mist);font-size:12px;font-weight:600}.tqa{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.5}.tqb{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.45;color:var(--mist)}.tqb b{color:var(--fog)}.tqw{display:block;margin-top:6px;color:var(--mist);overflow-wrap:anywhere}@media (max-width:760px){dialog#tqd{padding:18px 12px}}.evbench{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}.evbench .seg small{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#9a5b00;margin-left:4px}.evbench .seg:disabled{opacity:.45;cursor:default}.evchart{margin-top:12px}.evchart svg{display:block;width:100%;height:auto;max-width:720px}.evchart .ax{stroke:var(--line);stroke-width:1}.evchart .tk{fill:var(--mist);font-size:11px}.evchart .lb{fill:var(--fog);font-size:12.5px;font-weight:700}.evchart .sb{fill:var(--mist);font-size:11.5px}.evchart .at{fill:var(--mist);font-size:11.5px;font-weight:700;letter-spacing:.04em}.evchart .lg{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--fog);margin:0 0 6px}.evchart .lg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}.evopen{appearance:none;border:0;background:none;padding:6px 10px;margin:-6px -10px;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:12px;max-width:100%}
+.evhead{display:flex;flex-direction:column;gap:10px;align-items:flex-start;min-width:0}.evviews{display:flex;gap:8px;flex-wrap:wrap}.evviews .btn{padding:8px 14px;font-size:13px;white-space:nowrap}.ptab{font-family:Georgia,'Times New Roman',serif;color:var(--fog)}.ptab caption{caption-side:top;text-align:left;font-size:13.5px;line-height:1.5;padding:0 0 10px}.ptab caption b{font-weight:700}.ptab table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums;border-top:2px solid var(--fog);border-bottom:2px solid var(--fog)}.ptab th,.ptab td{padding:5px 10px;text-align:right;border:0;white-space:nowrap}.ptab th:first-child,.ptab td:first-child{text-align:left;white-space:normal}.ptab thead th{font-weight:400;border-bottom:1px solid var(--fog)}.ptab tr.pg td{font-style:italic;padding-top:10px;text-align:left}.ptab tr.pall td{border-top:1px solid var(--fog);padding-top:7px}.ptab td small{color:var(--mist);font-size:.82em}.ptab-wrap{overflow-x:auto;margin-top:12px}.ptab-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}#evd-latex{width:100%;min-height:160px;margin-top:10px;font:12px ui-monospace,Menlo,monospace}dialog#tqd{border:0;border-radius:var(--r);padding:26px;max-width:min(900px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#tqd::backdrop{background:rgba(11,40,38,.45)}.tqctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}.tqctl select,.tqctl input{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel)}.tqctl input{flex:1 1 160px;min-width:0}.tql{list-style:none;margin:0;padding:0;display:grid;gap:10px}.tql li{border:1px solid var(--line2);border-radius:var(--r);padding:12px 14px}.tqh{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}.tqh small{color:var(--mist);font-size:12px;font-weight:600}.tqa{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.5}.tqb{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.45;color:var(--mist)}.tqb b{color:var(--fog)}.tqw{display:block;margin-top:6px;color:var(--mist);overflow-wrap:anywhere}@media (max-width:760px){dialog#tqd{padding:18px 12px}}.evbench select{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel);max-width:100%}.evbench{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}.evbench .seg small{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#9a5b00;margin-left:4px}.evbench .seg:disabled{opacity:.45;cursor:default}.evchart{margin-top:12px}.evchart svg{display:block;width:100%;height:auto;max-width:720px}.evchart .ax{stroke:var(--line);stroke-width:1}.evchart .tk{fill:var(--mist);font-size:11px}.evchart .lb{fill:var(--fog);font-size:12.5px;font-weight:700}.evchart .sb{fill:var(--mist);font-size:11.5px}.evchart .at{fill:var(--mist);font-size:11.5px;font-weight:700;letter-spacing:.04em}.evchart .pn{fill:#fff;font-size:11px;font-weight:800}.evchart .lgl{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px;font-size:13px;color:var(--fog)}.evchart .lgl li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.evchart .lgl i{flex:none;display:inline-block;min-width:20px;height:20px;line-height:20px;border-radius:50%;text-align:center;color:#fff;font-style:normal;font-size:11px;font-weight:800}.evchart .lgl span{color:var(--mist);font-variant-numeric:tabular-nums}.evchart .lgl i.hollow{background:var(--panel)}.evchart .lgl em{font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mist)}.evchart .lgl li.mine{background:var(--soft);border-radius:var(--r);padding:6px 8px;margin:0 -8px}.evchart .lgl li.mine em{color:var(--teal)}.evchart .pn.hollow{font-weight:800}.evopen{appearance:none;border:0;background:none;padding:6px 10px;margin:-6px -10px;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:12px;max-width:100%}
 .evopen:hover{background:rgba(11,93,87,.07)}.evopen:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 /* THE TABLE FITS ITS DIALOG, at any width, with no sideways scroll: a column's heading may wrap (the larger model's name is long), a figure never does; on a phone the cells are tighter and the count of questions, the one column that is not a score, is left out */
 .evt-wrap{margin-top:12px;max-width:100%}table.spec.evt{table-layout:fixed}table.evt thead th.num{width:13%}table.evt thead th.evtg{width:22%}table.evt-m thead th.num{width:11%}table.evt-m thead th.evtg{width:15%}table.evt-m thead th.evm{width:12%}table.evt td.evm{color:var(--mist)}table.spec.evt th,table.spec.evt td{padding:7px 8px;overflow-wrap:normal}table.evt td.num,table.evt th.num{text-align:right;font-variant-numeric:tabular-nums}table.evt td.num{white-space:nowrap}dialog#evd table.spec.evt thead th{white-space:normal}
@@ -645,9 +645,9 @@ document.addEventListener('click',async(ev)=>{
   if(ev.target.closest('#steer-open')){await swap('/fragment/steer','#steerd-body');$('#steerd').showModal();return;}
   if(ev.target.id==='steer-close'||ev.target.id==='steerd'){$('#steerd').close();return;}
   // THE EVALUATION, BENCHMARK BY BENCHMARK: the Evaluate card's headline opens the table of every body of work and task
-  {const vb=ev.target.closest('[data-evd-view]');if(vb){const dg=$('#evd');dg.dataset.view=vb.dataset.evdView;await swap('/fragment/evtable?view='+dg.dataset.view,'#evd-body');$('#evd').showModal();return;}}
+  {const vb=ev.target.closest('[data-evd-view]');if(vb){const dg=$('#evd');dg.dataset.view=vb.dataset.evdView;dg.dataset.cfg='';dg.dataset.bench='';await swap('/fragment/evtable?view='+dg.dataset.view,'#evd-body');$('#evd').showModal();return;}}
   {const bb=ev.target.closest('[data-evd-bench]');if(bb){const dg=$('#evd');dg.dataset.bench=bb.dataset.evdBench;const on=[...document.querySelectorAll('[data-evd-harness]')].filter(x=>x.checked).map(x=>x.dataset.evdHarness);
-    await swap('/fragment/evtable?view=chart&b='+encodeURIComponent(dg.dataset.bench)+'&h='+encodeURIComponent(on.join(',')),'#evd-body');return;}}
+    await evdShow();return;}}
   // THE QUESTIONS TRAINING ASKS (the Train card): opened, and narrowed by split, class, kind and words to find
   if(ev.target.id==='tq-open'){await swap('/fragment/trainq','#tqd-body');$('#tqd').showModal();return;}
   if(ev.target.id==='tq-close'||ev.target.id==='tqd'){$('#tqd').close();return;}
@@ -807,6 +807,9 @@ function evHOff(){try{const v=JSON.parse(localStorage.getItem('swarm.eval.hoff')
 function trainAsk(){const bs=[...document.querySelectorAll('[data-train-class]')];if(!bs.length)return;let off=[];try{off=JSON.parse(localStorage.getItem('swarm.train.off')||'[]');}catch(e){}
   bs.forEach(x=>{x.checked=!off.includes(x.dataset.trainClass);});if(!bs.some(x=>x.checked))bs.forEach(x=>{x.checked=true;});trainLeft();}
 function trainLeft(){const bs=[...document.querySelectorAll('[data-train-class]')],g=$('#run-go');if(g&&bs.length&&!bs[0].disabled)g.disabled=!bs.some(x=>x.checked);}
+async function evdShow(){const dg=$('#evd'),on=[...document.querySelectorAll('[data-evd-harness]')].filter(x=>x.checked).map(x=>x.dataset.evdHarness);
+  await swap('/fragment/evtable?view='+(dg.dataset.view||'table')+'&b='+encodeURIComponent(dg.dataset.bench||'')+'&cfg='+encodeURIComponent(dg.dataset.cfg||'')+'&h='+encodeURIComponent(on.join(',')),'#evd-body');}
+document.addEventListener('change',async(ev)=>{if(ev.target.id==='evd-cfg'){const dg=$('#evd');dg.dataset.cfg=ev.target.value;dg.dataset.bench='';await evdShow();}});
 async function tqShow(){const c=$('.tqctl');if(!c)return;const f=$('#tq-find');
   await swap('/fragment/trainq?split='+encodeURIComponent(c.dataset.split||'')+'&cls='+encodeURIComponent(c.dataset.cls||'')+'&kind='+encodeURIComponent(c.dataset.kind||'')+'&q='+encodeURIComponent(f?f.value:''),'#tqd-body');}
 document.addEventListener('change',async(ev)=>{if(ev.target.id==='tq-kind'){$('.tqctl').dataset.kind=ev.target.value;await tqShow();}});
@@ -824,7 +827,7 @@ document.addEventListener('change',async(ev)=>{
   const d=ev.target.closest('[data-evd-harness]');
   if(d){const on=[...document.querySelectorAll('[data-evd-harness]')].filter(x=>x.checked).map(x=>x.dataset.evdHarness);
     if(!on.length){d.checked=true;return;}
-    await swap('/fragment/evtable?view='+($('#evd').dataset.view||'table')+'&b='+encodeURIComponent($('#evd').dataset.bench||'')+'&h='+encodeURIComponent(on.join(',')),'#evd-body');return;}
+    await evdShow();return;}
   if(ev.target.closest('[data-train-class]')){try{localStorage.setItem('swarm.train.off',JSON.stringify([...document.querySelectorAll('[data-train-class]')].filter(x=>!x.checked).map(x=>x.dataset.trainClass)));}catch(e){}trainLeft();return;}
   const b=ev.target.closest('[data-ev-item],[data-ev-harness]');if(!b)return;const bs=[...document.querySelectorAll('[data-ev-item]')];
   try{localStorage.setItem('swarm.eval.off',JSON.stringify(bs.filter(x=>!x.checked).map(x=>x.dataset.evItem)));
@@ -4101,12 +4104,83 @@ def _ev_share(sw, tg):
     return ("%s%%" % fmt_pct(data.percent(sw, tg))) if tg else "–"
 
 
-def eval_table(d, only=None):
+# (the three views, opened where the lineup configured now has no evaluation of its own: they show another lineup's, chosen there)
+EV_VIEWS = ('<span class="evviews" role="group" aria-label="See the evaluations of other lineups"><button type="button" class="btn top ghost" data-evd-view="table" title="The evaluations of other lineups: every body of work and task">Each task</button>'
+            '<button type="button" class="btn top ghost" data-evd-view="paper" title="The evaluations of other lineups, as a paper sets results out">Paper table</button>'
+            '<button type="button" class="btn top ghost" data-evd-view="chart" title="The evaluated lineups, score against memory">Chart</button></span>')
+
+
+def lineup_of(d, key):
+    """ANOTHER LINEUP, AS THE VIEWS OF AN EVALUATION NEED IT: from a configuration's key (its small models in their places, its
+    decider, and the larger model), the same as `d` with that lineup's models, key and memory. None where a model it names is
+    no longer in the catalog."""
+    reg = d.get("registry") or {}
+    left, _, tgt = str(key).rpartition("--")
+    ids = left.split("+")
+    small = {m["id"]: m for m in reg.get("small", [])}
+    dec = next((m for m in reg.get("deciders", []) if m["id"] == ids[-1]), None)
+    target = next((m for m in reg.get("targets", []) if m["id"] == tgt), None)
+    if not ids[:-1] or not all(i in small for i in ids[:-1]) or not dec or not target:
+        return None
+    members = {k: dict(small[i], key=k) for k, i in zip("abcd", ids[:-1])}
+    no_dec = (dec.get("serve") or {}).get("kind") == "none"
+    return dict(d, key=key, members=members, decider=dec, target=target, footprint=data.footprint(members, None if no_dec else dec, target))
+
+
+def lineup_name(d2):
+    """A lineup in a few words: its small models, and its decision model where it has one."""
+    ms = [m["name"] for m in (d2.get("members") or {}).values() if m]
+    same = len(set(ms)) == 1 and len(ms) > 1
+    dec = d2.get("decider") or {}
+    return ((("%s, %d of it" % (ms[0], len(ms))) if same else " + ".join(ms))
+            + ("" if (dec.get("serve") or {}).get("kind") == "none" else ", decided by %s" % dec.get("name", "a decision model")))
+
+
+def evaluated_lineups(d):
+    """EVERY LINEUP THAT HAS AN EVALUATION AGAINST THIS LARGER MODEL, newest first: [(key, its `d`, its newest evaluation)]. The
+    views of an evaluation can show any of them, and the chart sets them beside each other."""
+    tgt = "--" + str((d.get("target") or {}).get("id", ""))
+    newest = {}
+    for r in _eval_rows(Path(ARGS.root)):
+        k = str(r.get("configuration", ""))
+        if k.endswith(tgt) and (k not in newest or str(r.get("at", "")) > str(newest[k].get("at", ""))):
+            newest[k] = r
+    out = []
+    for k, r in sorted(newest.items(), key=lambda x: str(x[1].get("at", "")), reverse=True):
+        d2 = d if k == d.get("key") else lineup_of(d, k)
+        if d2:
+            out.append((k, d2, r))
+    return out
+
+
+def view_of(d, cfg=None):
+    """WHICH LINEUP'S EVALUATION A VIEW SHOWS: the one asked for (cfg, a configuration's key), or the lineup configured now, or,
+    where that has not been evaluated, the one evaluated most lately. -> (its `d`, its view as eval_view gives one, the box
+    that chooses between them: '' where there is one or none)"""
+    every = evaluated_lineups(d)
+    mine = eval_view(Path(ARGS.root), d)
+    pick = next((x for x in every if x[0] == cfg), None) if cfg else None
+    if not pick and not mine["res"] and every:
+        pick = every[0]
+    if pick and pick[0] != d.get("key"):
+        res = pick[2]
+        view = {"res": res, "any": res, "by_task": {x["task"]: dict(x) for x in res.get("results", [])}, "short": [], "base": res, "carried": 0}
+        d_ = pick[1]
+    else:
+        view, d_ = mine, d
+    opts = [(d.get("key"), "This lineup: %s%s" % (lineup_name(d), "" if mine["res"] else " (not evaluated yet)"))] + [
+        (k, "%s · evaluated %s" % (lineup_name(d2), _day(r.get("at")))) for k, d2, r in every if k != d.get("key")]
+    box = ('<div class="evbench"><span class="cfgl">Evaluation of</span><select id="evd-cfg" aria-label="Which lineup&#39;s evaluation the table shows">%s</select></div>'
+           % "".join('<option value="%s"%s>%s</option>' % (e(k), " selected" if k == d_.get("key") else "", e(n)) for k, n in opts)) if len(opts) > 1 else ""
+    return d_, view, box
+
+
+def eval_table(d, only=None, cfg=None):
     """EVERY BODY OF WORK AND TASK, SCORE BESIDE SCORE (opened from the Evaluate card's headline): the swarm's score, the larger
     model's on the same questions, the swarm's as a share of it, and how many questions. A body of work's line sums its tasks;
     the last line is the headline's own figures. Where there is an evaluation before this one (eval_view), SHARE BEFORE: what
     Pretrain or training bought, line by line. A task this evaluation did not ask again shows the earlier figures, marked."""
-    view = eval_view(Path(ARGS.root), d)
+    d, view, lineups = view_of(d, cfg)
     res = view["res"]
     tname = res.get("target") or (d.get("target") or {}).get("name", "the larger model")
     by_task = view["by_task"]
@@ -4124,6 +4198,7 @@ def eval_table(d, only=None):
     done = [have(b["task"]) for t in listed for b in t["benchmarks"] if have(b["task"])]
     boxes = ('<div class="evask evharn evd-h" role="group" aria-label="Which harnesses the table shows"><span class="cfgl">Showing</span>%s</div>'
              % "".join('<label><input type="checkbox" data-evd-harness="%s"%s>%s</label>' % (e(k), " checked" if k in hs else "", e(harness_name(k))) for k in hs_all)) if len(hs_all) > 1 else ""
+    boxes = lineups + boxes
     if not done:
         return head + boxes + '<p class="muted">%s</p>' % ("Nothing of %s has been evaluated yet for the swarm as it is now." % e(_and([harness_name(k) for k in hs])) if len(hs) < len(hs_all) else "The swarm as it is now has not been evaluated yet.")
     was = any(r.get("before") for r in done)
@@ -4187,10 +4262,10 @@ def eval_table(d, only=None):
             '<tbody>%s</tbody></table></div>' % (" evt-m" if alone else "", "".join('<th class="num evm">%s alone</th>' % e(n_) for _, n_ in alone), e(tname), '<th class="num">Before</th>' if was else "", "".join(rows)))
 
 
-def _eval_scope(d, only=None):
+def _eval_scope(d, only=None, cfg=None):
     """What a view of the evaluation's results is drawn from (as eval_table reads it): the bodies of work shown, each task's
     result or None, the larger model's name, the dialog's heading and the harness boxes."""
-    view = eval_view(Path(ARGS.root), d)
+    d, view, lineups = view_of(d, cfg)
     res = view["res"]
     tname = res.get("target") or (d.get("target") or {}).get("name", "the larger model")
     every = [t for t in (d.get("equivalence") or {}).get("targets", []) if t.get("benchmarks")]
@@ -4204,7 +4279,7 @@ def _eval_scope(d, only=None):
             '<button class="btn stop top" id="evd-close" type="button">Close</button></div>' % e(tname))
     boxes = ('<div class="evask evharn evd-h" role="group" aria-label="Which harnesses are shown"><span class="cfgl">Showing</span>%s</div>'
              % "".join('<label><input type="checkbox" data-evd-harness="%s"%s>%s</label>' % (e(k), " checked" if k in hs else "", e(harness_name(k))) for k in hs_all)) if len(hs_all) > 1 else ""
-    return {"res": res, "tname": tname, "listed": listed, "have": have, "head": head, "boxes": boxes, "hs": hs, "hs_all": hs_all}
+    return {"res": res, "tname": tname, "listed": listed, "have": have, "head": head, "boxes": lineups + boxes, "harness": boxes, "hs": hs, "hs_all": hs_all, "d": d}
 
 
 def bench_groups(listed):
@@ -4278,13 +4353,14 @@ def _ev_figure(side, a, counted):
     return 100 * p, 100 * se, n
 
 
-def eval_paper(d, only=None):
+def eval_paper(d, only=None, cfg=None):
     """THE RESULTS AS A PAPER SETS THEM OUT: each benchmark by its own name, grouped by body of work, the models side by side
     (each small model of the swarm by itself where it was evaluated so, then the swarm, then the larger model), each score
     with its standard error, the highest in bold, the questions asked, each benchmark of several tasks as the mean of its
     tasks, and a last line over every question. The caption says what is compared, how it was marked and when. The same
     table as LaTeX is copied by a button."""
-    sc = _eval_scope(d, only)
+    sc = _eval_scope(d, only, cfg)
+    home, d = d, sc["d"]
     res, tname, have = sc["res"], sc["tname"], sc["have"]
     rows = [(t, [(b, have(b["task"])) for b in t["benchmarks"] if have(b["task"])]) for t in sc["listed"]]
     rows = [(t, bs) for t, bs in rows if bs]
@@ -4366,49 +4442,82 @@ def eval_paper(d, only=None):
             + '<textarea id="evd-latex" hidden readonly>%s</textarea>' % e(latex))
 
 
-def eval_chart(d, only=None, bench=None):
-    """SCORE AGAINST MEMORY: the swarm and the larger model as two points, what each scored over the questions shown against
-    the memory it holds while it serves (the page's one source for memory, d["footprint"]). Memory is on a scale of doublings.
-    Each point is named beside it, with its figures; the same in a line under the chart."""
-    sc = _eval_scope(d, only)
-    tname, have = sc["tname"], sc["have"]
-    # WHAT THE SCORES ARE OF, one at a time: every question shown (this project's own mix: no one else reports it), or one
-    # benchmark by the name it is known by outside, the mean of its tasks where it has several. A choice says where what it
-    # shows is a quick look and not a result to cite, and where it has not been evaluated
-    groups = bench_groups(sc["listed"])
+def eval_chart(d, only=None, bench=None, cfg=None):
+    """SCORE AGAINST MEMORY, EVERY LINEUP AT ONCE: each lineup evaluated against this larger model is a point, what it scored
+    against the memory it holds while it serves; the larger model is one; and each small model of the lineup configured now
+    by itself, where an evaluation asked it so. The lineup configured now is marked out. Every point is a number, and the
+    list under the chart says which is which, with its figures and how many questions they rest on (console instruction
+    2026-11-21: all the data, a full list, the configured lineup marked; a box to choose one lineup was not understood).
+    A lineup asked fewer or other tasks than the fullest is drawn hollow: its score is of other questions."""
+    import math
+    sc = _eval_scope(d, only, None)
+    every_t = [t for t in (d.get("equivalence") or {}).get("targets", []) if t.get("benchmarks")]
+    listed = sc["listed"]
+    tname = (d.get("target") or {}).get("name", "the larger model")
+    lineups = evaluated_lineups(d)
+    got_of = {k: {x["task"]: x for x in r.get("results", []) if x.get("agree")} for k, _, r in lineups}
+    groups = bench_groups(listed)
     cur = next((g for g in groups if g[0] == bench), None)
-    tasks_of = lambda g: [have(tk) for tk in g[2] if have(tk)]  # noqa: E731
+    wanted = cur[2] if cur else [b["task"] for t in listed for b in t["benchmarks"]]
+    rows_of = lambda k, tasks=None: [got_of[k][t] for t in (tasks if tasks is not None else wanted) if t in got_of[k]]  # noqa: E731
+    anyone = lambda tasks: [r for k in got_of for r in rows_of(k, tasks)]  # noqa: E731
+    # WHAT THE SCORES ARE OF, one at a time: every question shown (this project's own mix: no one else reports it), or one
+    # benchmark by the name it is known by outside, the mean of its tasks where it has several
     seg = lambda key, label, sel, rs: ('<button type="button" class="seg%s" data-evd-bench="%s" aria-pressed="%s"%s>%s%s</button>'  # noqa: E731
                                        % (" on" if sel else "", e(key), "true" if sel else "false", "" if rs else ' disabled title="Not evaluated yet"', e(label),
                                           "" if not rs or all(proof_sized(r) for r in rs) else ' <small title="Fewer than 100 questions of a task: a quick look">quick</small>'))
-    every = [have(b["task"]) for t in sc["listed"] for b in t["benchmarks"] if have(b["task"])]
     pick = ('<div class="evbench"><span class="cfgl">Scores of</span><div class="tgl" role="group" aria-label="What the scores are of">%s%s</div></div>'
-            % (seg("", "All questions", not cur, every), "".join(seg(g[0], g[1], cur is g, tasks_of(g)) for g in groups))) if groups else ""
-    done = tasks_of(cur) if cur else every
-    fp = d.get("footprint") or {}
-    sw_r, tg_r, of = _ev_right(done)
-    if not of or not fp.get("swarm") or not fp.get("target"):
-        return sc["head"] + sc["boxes"] + pick + '<p class="muted">%s</p>' % ("The swarm as it is now has not been evaluated %s." % (("on %s yet" % e(cur[1])) if cur else "yet") if not of else "What each holds in memory is not known here, so there is nothing to set the scores against.")
-    sw_pc, tg_pc = 100.0 * sw_r / of, 100.0 * tg_r / of
-    if cur and len(done) > 1:
-        sw_pc, tg_pc, of = _ev_mean(done)  # (a benchmark of several tasks: the mean of its tasks, as it is reported)
-    pts = [("The swarm", float(fp["swarm"]), sw_pc, "var(--teal2)"), (tname, float(fp["target"]), tg_pc, "var(--tgt)")]
-    # EACH SMALL MODEL BY ITSELF, where it answered every task shown: what it scored against what it alone holds in memory (its
-    # weights and its share of the contexts). Beside the swarm's point, this is what the orchestration adds, or does not
-    alone = alone_keys(done)
+            % (seg("", "All questions", not cur, anyone([b["task"] for t in listed for b in t["benchmarks"]])), "".join(seg(g[0], g[1], cur is g, anyone(g[2])) for g in groups))) if groups else ""
+    head = sc["head"] + sc["harness"] + pick
+    mean = bool(cur and len(cur[2]) > 1)
+
+    def figure(rs, who):
+        # (a benchmark of several tasks: the mean of its tasks, as it is reported; otherwise every question counting alike)
+        sw, tg, of = _ev_right(rs)
+        if mean and len(rs) > 1:
+            m = _ev_mean(rs)
+            return (m[0] if who == "swarm" else m[1]), m[2]
+        return (100.0 * (sw if who == "swarm" else tg) / of if of else 0.0), of
+
+    mine = d.get("key")
+    shown = [(k, d2, rows_of(k)) for k, d2, _ in lineups if rows_of(k) and (d2.get("footprint") or {}).get("swarm")]
+    if not shown:
+        return head + '<p class="muted">%s</p>' % ("No lineup has been evaluated %s." % (("on %s yet" % e(cur[1])) if cur else "yet"))
+    # THE FULLEST: the lineup asked the most questions of what is shown (the configured one where it is among them). The larger
+    # model's point is its score on those questions, and a lineup asked the same tasks at the same sizes is the same measure
+    sig = lambda rs: tuple(sorted((r["task"], r["agree"]["of"]) for r in rs))  # noqa: E731
+    most_q = max(sum(r["agree"]["of"] for r in rs) for _, _, rs in shown)
+    full = next((x for x in shown if x[0] == mine and sum(r["agree"]["of"] for r in x[2]) == most_q), None) or next(x for x in shown if sum(r["agree"]["of"] for r in x[2]) == most_q)
+    palette = ["#8a9a97", "#a98467", "#6d8fb3", "#9a7fb5", "#7fa37a", "#b58a8a", "#b0a15c", "#5f9ea0"]
+    pts = []
+    tg_pc, tg_of = figure(full[2], "target")
+    tgb = float((full[1].get("footprint") or {}).get("target") or 0)
+    if tgb:
+        pts.append({"name": tname, "gb": tgb, "pc": tg_pc, "col": "var(--tgt)", "of": tg_of, "tasks": len(full[2]), "same": True, "note": "the larger model"})
+    n_other = 0
+    for k, d2, rs in shown:
+        pc, of = figure(rs, "swarm")
+        here = k == mine
+        if not here:
+            n_other += 1
+        pts.append({"name": lineup_name(d2), "gb": float(d2["footprint"]["swarm"]), "pc": pc, "col": "var(--teal2)" if here else palette[(n_other - 1) % len(palette)],
+                    "of": of, "tasks": len(rs), "same": sig(rs) == sig(full[2]), "mine": here, "note": "configured now" if here else ""})
+    # EACH SMALL MODEL BY ITSELF, of the lineup configured now (or, where that has no evaluation, of the fullest): where an
+    # evaluation asked it every task shown. Beside its lineup's point, this is what the orchestration adds, or does not
+    solo_of = next((x for x in shown if x[0] == mine), full)
+    fp = solo_of[1].get("footprint") or {}
     parts = {x.get("place"): x for x in fp.get("parts") or [] if x.get("kind") == "model"}
     ctx = sum(float(x.get("gb") or 0) for x in fp.get("parts") or [] if x.get("kind") == "contexts")
     shades = ["#0e6b62", "#c98a06", "#7b5ea7", "#b5533c"]
     alone_pts = []
-    for i, (k, name) in enumerate(alone):
-        if k not in parts:
-            continue
-        gb = float(parts[k]["gb"]) + (ctx / max(1, len(parts)))
-        alone_pts.append((name + " alone", gb, alone_score(done, k, mean=bool(cur and len(done) > 1))[0], shades[i % len(shades)]))
-    pts = alone_pts + pts
-    import math
-    lo = 2 ** math.floor(math.log2(min(p[1] for p in pts) / 1.4))
-    hi = 2 ** math.ceil(math.log2(max(p[1] for p in pts) * 1.4))
+    for i, (k, name) in enumerate(alone_keys(solo_of[2])):
+        if k in parts:
+            sc_ = alone_score(solo_of[2], k, mean=mean and len(solo_of[2]) > 1)
+            alone_pts.append({"name": name + " by itself", "gb": float(parts[k]["gb"]) + ctx / max(1, len(parts)), "pc": sc_[0], "col": shades[i % len(shades)],
+                              "of": sc_[2], "tasks": len(solo_of[2]), "same": sig(solo_of[2]) == sig(full[2]), "note": "one model of %s, with no orchestration" % lineup_name(solo_of[1])})
+    pts += alone_pts
+    lo = 2 ** math.floor(math.log2(min(p["gb"] for p in pts) / 1.4))
+    hi = 2 ** math.ceil(math.log2(max(p["gb"] for p in pts) * 1.4))
     W, H, L, R, T, B = 680, 380, 56, 28, 18, 50
     X = lambda gb: L + (W - L - R) * (math.log2(gb) - math.log2(lo)) / (math.log2(hi) - math.log2(lo))  # noqa: E731
     Y = lambda pc: T + (H - T - B) * (1 - pc / 100.0)  # noqa: E731
@@ -4420,44 +4529,52 @@ def eval_chart(d, only=None, bench=None):
         g.append('<text class="tk" x="%.1f" y="%d" text-anchor="middle">%s GB</text>' % (X(gb), H - B + 18, ("%g" % gb)))
         gb *= 2
     g.append('<text class="at" x="%.1f" y="%d" text-anchor="middle">MEMORY HELD WHILE SERVING (EACH STEP DOUBLES)</text>' % ((L + W - R) / 2.0, H - 8))
-    # WHERE EACH POINT'S NAME GOES: on the side with room, and where two names on one side would sit on each other the lower is
-    # moved down, so that every name is read (two small models close in score and memory are the usual case)
-    mid = (L + W - R) / 2.0
-    place = {}
-    for side in (False, True):
-        last = None
-        for i in sorted((i for i, p in enumerate(pts) if (X(p[1]) > mid) == side), key=lambda i: Y(pts[i][2])):
-            y_t = Y(pts[i][2]) - 2
-            if last is not None and y_t < last + 32:
-                y_t = last + 32
-            place[i] = y_t
-            last = y_t
-    for i, (name, mem, pc, col) in enumerate(pts):
-        x, y = X(mem), Y(pc)
-        left = x > mid  # (the name sits on the side with room)
-        tx, anchor = (x - 12, "end") if left else (x + 12, "start")
-        y_t = place[i]
-        g.append('<g><title>%s: %s%% of %d questions, %s GB</title><circle cx="%.1f" cy="%.1f" r="7" fill="%s" stroke="var(--panel)" stroke-width="2"/>'
-                 '<text class="lb" x="%.1f" y="%.1f" text-anchor="%s">%s</text><text class="sb" x="%.1f" y="%.1f" text-anchor="%s">%s%% · %s GB</text></g>'
-                 % (e(name), fmt_pct(pc), of, fmt_pct(mem), x, y, col, tx, y_t, anchor, e(name), tx, y_t + 15, anchor, fmt_pct(pc), fmt_pct(mem)))
-    share, memshare = data.percent(sw_pc, tg_pc), fp.get("share") or data.percent(fp["swarm"], fp["target"])
-    what = ("On %s%s" % (e(cur[1]), (", the mean of %d of its tasks," % len(done)) if len(done) > 1 else "")) if cur else "Over every question shown (this project&#39;s own mix of tasks)"
-    line = ("%s the swarm scored %s%% of what %s scored (%s%% against %s%%, on the same %d questions) while holding %s%% of its memory (%s GB against %s GB). Higher is better; further left is lighter.%s"
-            % (what, fmt_pct(share), e(tname), fmt_pct(sw_pc), fmt_pct(tg_pc), of, fmt_pct(memshare), fmt_pct(fp["swarm"]), fmt_pct(fp["target"]),
-               "" if all(proof_sized(r) for r in done) else " A quick look: fewer than 100 questions of a task. A proof run asks more, and is the one to cite."))
-    # WHAT THE ORCHESTRATION ADDS, in a sentence: the swarm against the best of its own models by itself, with the error of each,
-    # or that the models have not been asked by themselves yet
-    if alone_pts:
-        best = max(alone_pts, key=lambda p: p[2])
-        er = lambda pc: (pc * (100 - pc) / of) ** 0.5  # noqa: E731
-        line += (" By itself, the best of the swarm&#39;s models (%s) scored %s%%; the swarm scored %s%%, %s%s points (each is ± %s and ± %s)."
-                 % (e(best[0].replace(" alone", "")), fmt_pct(best[2]), fmt_pct(sw_pc), "+" if sw_pc >= best[2] else "", fmt_pct(sw_pc - best[2]), fmt_pct(er(best[2])), fmt_pct(er(sw_pc))))
+    # EACH POINT IS A NUMBER, AND THE LIST UNDER THE CHART SAYS WHICH IS WHICH, the highest score first. The lineup configured
+    # now has a ring round it and is said so in the list; a point whose score is of other questions than the fullest is hollow
+    order = sorted(range(len(pts)), key=lambda i: -pts[i]["pc"])
+    num = {i: k + 1 for k, i in enumerate(order)}
+    for i, p in enumerate(pts):
+        x, y = X(p["gb"]), Y(p["pc"])
+        ring = '<circle cx="%.1f" cy="%.1f" r="15" fill="none" stroke="var(--teal)" stroke-width="2"/>' % (x, y) if p.get("mine") else ""
+        dot = ('<circle cx="%.1f" cy="%.1f" r="10" fill="%s" stroke="var(--panel)" stroke-width="2"/><text class="pn" x="%.1f" y="%.1f" text-anchor="middle">%d</text>' % (x, y, p["col"], x, y + 4, num[i])
+               if p["same"] else
+               '<circle cx="%.1f" cy="%.1f" r="9" fill="var(--panel)" stroke="%s" stroke-width="2.5"/><text class="pn hollow" x="%.1f" y="%.1f" text-anchor="middle" style="fill:%s">%d</text>' % (x, y, p["col"], x, y + 4, p["col"], num[i]))
+        g.append('<g><title>%s: %s%% of %d questions, %s GB</title>%s%s</g>' % (e(p["name"]), fmt_pct(p["pc"]), p["of"], fmt_pct(p["gb"]), ring, dot))
+    rows = []
+    for i in order:
+        p = pts[i]
+        mark = ('<i style="background:%s">%d</i>' % (p["col"], num[i])) if p["same"] else ('<i class="hollow" style="color:%s;box-shadow:inset 0 0 0 2px %s">%d</i>' % (p["col"], p["col"], num[i]))
+        rows.append('<li%s>%s<b>%s</b><span>%s%% · %s GB · %d question%s of %d task%s%s</span>%s</li>'
+                    % (' class="mine"' if p.get("mine") else "", mark, e(p["name"]), fmt_pct(p["pc"]), fmt_pct(p["gb"]), p["of"], "" if p["of"] == 1 else "s", p["tasks"], "" if p["tasks"] == 1 else "s",
+                       "", ('<em>%s</em>' % e(" · ".join(x for x in [p.get("note", ""), "" if p["same"] else "other questions"] if x))) if (p.get("note") or not p["same"]) else ""))
+    # (the lineup configured now, where nothing of it is shown: said, with no point)
+    if not any(p.get("mine") for p in pts):
+        rows.append('<li class="mine"><i class="hollow" style="color:var(--teal2);box-shadow:inset 0 0 0 2px var(--teal2)">–</i><b>%s</b><span>not evaluated %s</span><em>configured now</em></li>'
+                    % (e(lineup_name(d)), ("on %s yet" % e(cur[1])) if cur else "yet"))
+    legend = '<ol class="lgl">%s</ol>' % "".join(rows)
+    what = ("On %s%s," % (e(cur[1]), (", the mean of its tasks" if mean else ""))) if cur else "Over every question shown (this project&#39;s own mix of tasks),"
+    me = next((p for p in pts if p.get("mine")), None)
+    line = "Higher is better; further left is lighter. "
+    if me and tgb:
+        t_pc = figure(next(x[2] for x in shown if x[0] == mine), "target")[0]
+        line += ("%s the lineup configured now scored %s%% of what %s scored on the same questions (%s%% against %s%%, %d questions) while holding %s%% of its memory (%s GB against %s GB)."
+                 % (what, fmt_pct(data.percent(me["pc"], t_pc)), e(tname), fmt_pct(me["pc"]), fmt_pct(t_pc), me["of"], fmt_pct(data.percent(me["gb"], tgb)), fmt_pct(me["gb"]), fmt_pct(tgb)))
     else:
-        line += " Each small model by itself has not been evaluated yet on these tasks: the next Evaluate asks them, and they are then shown here."
-    return (sc["head"] + sc["boxes"] + pick
-            + '<div class="evchart"><p class="lg">' + "".join('<span><i style="background:%s"></i>%s</span>' % (c_, e(n_)) for n_, _, _, c_ in alone_pts) + '<span><i style="background:var(--teal2)"></i>The swarm</span><span><i style="background:var(--tgt)"></i>%s</span></p>'
-              '<svg viewBox="0 0 %d %d" role="img" aria-label="Score against memory: %s">%s</svg></div><p class="small muted" style="margin:10px 0 0">%s</p>'
-            % (e(tname), W, H, e(re.sub(r"<[^>]+>", "", line)), "".join(g), line))
+        line += "The lineup configured now (%s) has not been evaluated %s: Evaluate puts it on the chart." % (e(lineup_name(d)), ("on %s" % e(cur[1])) if cur else "yet")
+    if alone_pts:
+        base = next((p for p in pts if p.get("mine")), None) or next(p for p in pts if p["name"] == lineup_name(solo_of[1]))
+        best = max(alone_pts, key=lambda p: p["pc"])
+        er = lambda pc, n: (pc * (100 - pc) / n) ** 0.5 if n else 0.0  # noqa: E731
+        line += (" By itself, the best of its models (%s) scored %s%%; the lineup scored %s%%, %s%s points (each is ± %s and ± %s)."
+                 % (e(best["name"].replace(" by itself", "")), fmt_pct(best["pc"]), fmt_pct(base["pc"]), "+" if base["pc"] >= best["pc"] else "", fmt_pct(base["pc"] - best["pc"]), fmt_pct(er(best["pc"], best["of"])), fmt_pct(er(base["pc"], base["of"]))))
+    else:
+        line += " No small model has been evaluated by itself on these tasks yet: the next Evaluate asks them, and they are then shown here."
+    if not all(p["same"] for p in pts):
+        line += " A hollow point was asked other questions than the fullest evaluation shown (fewer tasks, or another number of each), so its score is not the same measure."
+    if not all(proof_sized(r) for _, _, rs in shown for r in rs):
+        line += " Fewer than 100 questions of a task is a quick look: a proof run asks more, and is the one to cite."
+    return (head + '<div class="evchart"><svg viewBox="0 0 %d %d" role="img" aria-label="Score against memory, every lineup evaluated against %s">%s</svg>%s</div><p class="small muted" style="margin:10px 0 0">%s</p>'
+            % (W, H, e(tname), "".join(g), legend, line))
 
 
 def _ev_meta_done(bms, by_task):
@@ -4670,7 +4787,8 @@ def eval_block(d):
              % (_ev_share(sw_right, tg_right), fmt_pct(data.percent(sw_right, of)), fmt_pct(data.percent(tg_right, of)), of,
                 # (questions this evaluation did not ask again: their figures are an earlier evaluation's, and the headline says so)
                 (" · %d from before" % view["carried"]) if view["carried"] else "", e(tn_res)))
-            if of else '<span class="memnum"><b class="pct none">–</b><span>of the larger model&#39;s score<small>not evaluated yet</small></span></span>')
+            if of else ('<span class="evhead"><span class="memnum"><b class="pct none">–</b><span>of the larger model&#39;s score<small>not evaluated yet</small></span></span>'
+                        + (EV_VIEWS if evaluated_lineups(d) else "") + '</span>'))
     # WHILE AN EVALUATION RUNS the headline is not the last one's: where the swarm's score and the larger model's will be, a
     # bar that moves (nothing is known until the answers are compared), and the questions it was asked to put, as chosen. Stopped
     # or failed, a run writes no result, and the last one that finished is shown again as it was
@@ -5255,9 +5373,10 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/fragment/evtable":
             only = [h for h in (parse_qs(u.query).get("h") or [""])[0].split(",") if h]
             which = (parse_qs(u.query).get("view") or [""])[0]
+            cfg = (parse_qs(u.query).get("cfg") or [""])[0] or None
             if which == "chart":
-                return self._send(eval_chart(d, only or None, (parse_qs(u.query).get("b") or [""])[0] or None))
-            return self._send({"paper": eval_paper}.get(which, eval_table)(d, only or None))
+                return self._send(eval_chart(d, only or None, (parse_qs(u.query).get("b") or [""])[0] or None, cfg))
+            return self._send({"paper": eval_paper}.get(which, eval_table)(d, only or None, cfg))
         if u.path == "/fragment/pretrain":
             return self._send(pretrain_block(d))
         if u.path == "/fragment/spec":

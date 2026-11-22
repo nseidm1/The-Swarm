@@ -6,6 +6,13 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The chart shows every lineup at once, and the tables can show any lineup's** (2026-11-21). The chart plots each lineup
+  evaluated against the larger model, the larger model, and each small model of the configured lineup by itself. Every
+  point is a number, and a list under the chart says which is which: its score, its memory and how many questions it rests
+  on. The lineup configured now is ringed and marked in the list, and is listed even before it has been evaluated. A point
+  asked other questions than the fullest evaluation is drawn hollow, since its score is not the same measure. The two
+  tables show one lineup's evaluation at a time, chosen in a box; where the lineup configured now has none, its card still
+  has the three buttons.
 - **A model is named the same whatever serves it** (2026-11-21). The two models TensorFold serves are "Qwen3.5 2B" and
   "LFM3 1.7B", as the ones llama.cpp serves are, and what serves each is said after its size, as for every other model.
   They were "… MLX", which read as adapted with MLX: that is what Pretrain does, and these are not adapted. Their ids are

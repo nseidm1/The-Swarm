@@ -1904,22 +1904,27 @@ _tab_full = swarm_ui.eval_table(_d11)
 # (the same evaluation as a paper's table and as two points: each benchmark by name with its error, a last line over every
 # question, the table as LaTeX; and a point for each model where what each holds in memory is known, none where it is not)
 _pap11 = swarm_ui.eval_paper(_d11)
-_cht11 = swarm_ui.eval_chart(dict(_d11, footprint={"swarm": 4.0, "target": 16.0, "share": 25.0}))
+# (the chart shows every lineup evaluated against the larger model: this fixture's one, under a key that names that model)
+_dc11 = dict(_d11, key="k--t", target={"id": "t", "name": "Big"}, footprint={"swarm": 4.0, "target": 16.0, "share": 25.0})
+swarm_ui._eval_rows = lambda root: [dict(_full11, configuration="k--t")]
+_cht11 = swarm_ui.eval_chart(_dc11)
+_cht_none11 = swarm_ui.eval_chart(dict(_dc11, footprint={}))
+swarm_ui._eval_rows = lambda root: [_full11]
 check("the evaluation's results as a paper sets them out, and as score against memory: a caption, each benchmark with both scores and their standard errors, the higher in bold, a line over every question and the table as LaTeX; and a point for each of the two, named, where their memory is known",
       "<b>Table 1.</b>" in _pap11 and "± is one standard error" in _pap11 and 'class="pall"><td>All questions</td><td>40</td>' in _pap11 and "<small>± " in _pap11 and "\\begin{tabular}{lrrrr}" in _pap11 and "\\toprule" in _pap11 and 'id="evd-copy"' in _pap11
-      and _cht11.count("<circle ") == 2 and "while holding 25% of its memory (4 GB against 16 GB)" in _cht11 and "<title>The swarm: " in _cht11 and 'role="img"' in _cht11
-      and "nothing to set the scores against" in swarm_ui.eval_chart(dict(_d11, footprint={}))
+      and _cht11.count('<text class="pn"') == 2 and "while holding 25% of its memory (4 GB against 16 GB)" in _cht11 and "<em>configured now</em>" in _cht11 and '<li class="mine">' in _cht11 and 'role="img"' in _cht11
+      and 'r="15" fill="none"' in _cht11 and "<em>the larger model</em>" in _cht11 and "No lineup has been evaluated yet." in _cht_none11 and 'id="evd-cfg"' not in _cht11
       # (the chart's scores are of one thing at a time: every question, or one benchmark by the name it is known by; a benchmark
       # of several tasks is the mean of its tasks; a result of fewer than a hundred questions of a task says it is a quick look)
       and swarm_ui.bench_groups([{"benchmarks": [{"task": "a", "name": "BBH one"}, {"task": "b", "name": "HumanEval"}]}, {"benchmarks": [{"task": "c", "name": "BBH two"}]}]) == [("bbh", "BBH", ["a", "c"]), ("humaneval", "HumanEval", ["b"])]
       and swarm_ui.proof_sized({"agree": {"of": 100}}) and swarm_ui.proof_sized({"agree": {"of": 20}, "swarm": {"of": 20}}) and not swarm_ui.proof_sized({"agree": {"of": 20}, "swarm": {"of": 164}})
       and [round(x, 1) for x in swarm_ui._ev_mean([{"agree": {"of": 10, "bothRight": 5, "onlySwarm": 0, "onlyTarget": 5}}, {"agree": {"of": 30, "bothRight": 30, "onlySwarm": 0, "onlyTarget": 0}}])] == [75.0, 100.0, 40]
-      and 'data-evd-bench="" aria-pressed="true"' in _cht11 and "Over every question shown (this project&#39;s own mix of tasks)" in _cht11 and "A quick look" in _cht11
-      and "closest('[data-evd-bench]')" in swarm_ui.JS and "'/fragment/evtable?view=chart&b='" in swarm_ui.JS
+      and 'data-evd-bench="" aria-pressed="true"' in _cht11 and "Over every question shown (this project&#39;s own mix of tasks)" in _cht11 and "is a quick look" in _cht11
+      and "closest('[data-evd-bench]')" in swarm_ui.JS and "async function evdShow()" in swarm_ui.JS and "ev.target.id==='evd-cfg'" in swarm_ui.JS and "'&cfg='+encodeURIComponent(dg.dataset.cfg||'')" in swarm_ui.JS
       # (each small model by itself, where an evaluation asked it so: a point of its own on the chart at its own memory, a
       # column of its own in the paper's table, and a sentence setting the swarm beside the best of them; where none was
       # asked the chart says so; a model that answered some of the tasks and not others is not shown)
-      and "Each small model by itself has not been evaluated yet" in _cht11 and "alone</th>" not in _pap11
+      and "No small model has been evaluated by itself on these tasks yet" in _cht11 and "alone</th>" not in _pap11
       and swarm_ui.alone_keys([{"alone": {"a": {"name": "A", "value": 0.5}, "b": {"name": "B", "value": 0.2}}}, {"alone": {"a": {"name": "A", "value": 0.7}}}]) == [("a", "A")]
       and swarm_ui.alone_keys([{"alone": {"a": {"name": "A", "value": 0.5}}}, {}]) == []
       and [round(x, 1) for x in swarm_ui.alone_score([{"alone": {"a": {"value": 0.5, "stderr": 0.1}}, "agree": {"of": 10}}, {"alone": {"a": {"value": 1.0, "stderr": 0}}, "agree": {"of": 30}}], "a")] == [87.5, 5.2, 40]
@@ -1929,14 +1934,29 @@ import copy as _copy
 _al11 = _copy.deepcopy(_full11)
 for _i, _r in enumerate(_al11["results"]):
     _r["alone"] = {"a": {"id": "ma", "name": "Mini A", "value": 0.25, "stderr": 0.1, "n": 20}, "b": {"id": "mb", "name": "Mini B", "value": 0.5, "stderr": 0.1, "n": 20}}
+_al11["configuration"] = "k--t"
 swarm_ui._eval_rows = lambda root: [_al11]
-_dal11 = dict(_d11, footprint={"swarm": 4.0, "target": 16.0, "share": 25.0, "parts": [{"name": "Mini A", "gb": 1.0, "kind": "model", "place": "a"}, {"name": "Mini B", "gb": 2.0, "kind": "model", "place": "b"}, {"name": "Their contexts", "gb": 1.0, "kind": "contexts"}]})
+_dal11 = dict(_d11, key="k--t", target={"id": "t", "name": "Big"}, footprint={"swarm": 4.0, "target": 16.0, "share": 25.0, "parts": [{"name": "Mini A", "gb": 1.0, "kind": "model", "place": "a"}, {"name": "Mini B", "gb": 2.0, "kind": "model", "place": "b"}, {"name": "Their contexts", "gb": 1.0, "kind": "contexts"}]})
 _chal11, _paal11 = swarm_ui.eval_chart(_dal11), swarm_ui.eval_paper(_dal11)
 check("where an evaluation asked each small model by itself, the chart has a point for each at its own memory beside the swarm and the larger model, and says the swarm's score beside the best of them; and the paper's table has a column for each",
-      _chal11.count("<circle ") == 4 and "<title>Mini A alone: 25% of 40 questions, 1.5 GB</title>" in _chal11 and "<title>Mini B alone: 50% of 40 questions, 2.5 GB</title>" in _chal11
+      _chal11.count('<text class="pn"') == 4 and '<ol class="lgl">' in _chal11 and _chal11.count("</li>") == 4 and 'class="lb"' not in _chal11
+      and re.search(r'<li><i style="background:[^"]+">\d</i><b>Mini B by itself</b><span>50% · 2\.5 GB · 40 questions of 2 tasks</span>', _chal11) is not None and "<title>Mini A by itself: 25% of 40 questions, 1.5 GB</title>" in _chal11 and "<title>Mini B by itself: 50% of 40 questions, 2.5 GB</title>" in _chal11
       and '<th class="num evm">Mini A alone</th><th class="num evm">Mini B alone</th><th class="num">The swarm</th>' in swarm_ui.eval_table(_dal11) and '<td class="num evm">25%</td><td class="num evm">50%</td>' in swarm_ui.eval_table(_dal11) and "evt-m" not in _tab_full
-      and "By itself, the best of the swarm&#39;s models (Mini B) scored 50%" in _chal11 and "<th>Mini A alone</th><th>Mini B alone</th><th>The swarm</th>" in _paal11 and "lrrrrrr" in _paal11 and "Each small model is also shown by itself" in _paal11,
+      and "By itself, the best of its models (Mini B) scored 50%" in _chal11 and "<th>Mini A alone</th><th>Mini B alone</th><th>The swarm</th>" in _paal11 and "lrrrrrr" in _paal11 and "Each small model is also shown by itself" in _paal11,
       [_chal11[-500:], _paal11[:300]])
+swarm_ui._eval_rows = lambda root: [_full11]
+# (a lineup with no evaluation of its own can still open the three views: they show another lineup's, chosen in the dialog)
+_regz = json.loads((REPO / "src" / "models.json").read_text())
+_dz = dict(_d11, registry=_regz, target=_regz["targets"][0], key="%s+%s+none--%s" % (_regz["small"][0]["id"], _regz["small"][1]["id"], _regz["targets"][0]["id"]))
+_smz = [m["id"] for m in _regz["small"]]
+_okz = "%s+%s+none--%s" % (_smz[-1], _smz[-1], _dz["target"]["id"])
+swarm_ui._eval_rows = lambda root: [dict(_full11, configuration=_okz, target=_dz["target"]["name"])]
+_tz, _bz = swarm_ui.eval_table(_dz), swarm_ui.eval_block(_dz)
+_lz = swarm_ui.lineup_of(_dz, _okz)
+check("the three views of an evaluation can show any lineup evaluated against this larger model: where the lineup configured now has none, its card still has the three buttons, the dialog has a box to choose the lineup with this one marked not evaluated and the other chosen, and a lineup of one model in two places is named so",
+      _okz != _dz["key"] and 'data-evd-view="chart"' in _bz and "not evaluated yet" in _bz and 'id="evd-cfg"' in _tz and "This lineup: " in _tz and "(not evaluated yet)</option>" in _tz
+      and ('<option value="%s" selected>' % _okz) in _tz and swarm_ui.lineup_name(_lz).endswith(", 2 of it") and swarm_ui.lineup_of(_dz, "nothing+none--x") is None
+      and [k for k, _, _ in swarm_ui.evaluated_lineups(_dz)] == [_okz], [_tz[:400]])
 swarm_ui._eval_rows = lambda root: [_full11]
 _pre_full = swarm_ui.pretrain_block(_d11)
 swarm_ui._eval_rows = lambda root: [_full11, _other11, _narrow11]
