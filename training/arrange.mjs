@@ -16,6 +16,7 @@
 import { INSTRUMENT_IDS, INSTRUMENT_NAMES, instrumentsOn } from '../src/instruments.mjs';
 import { briefHash } from './state.mjs';
 import { SERVING } from '../src/index.mjs';
+import { MANNER_FIXES, MANNER_NAMES, mannersOn } from '../src/manners.mjs';
 import { flowOf, decideByOf, COMPUTE_BRIEF } from '../src/orchestrate.mjs';
 
 // an arrangement is known by its shape, not its words: who is where, at what stage, seeing what, how hot; and the plan
@@ -431,6 +432,16 @@ export function steps(
   }
   // an arrangement must still be able to answer: two drafters at least, and no model asked for more slots than it has
   out.push(
+    // A REPLY IN A CONVERSATION TIDIED BY CODE (src/manners.mjs): each fix turned on by itself, one that is on turned off
+    ...MANNER_FIXES.map((f) => {
+      const on = mannersOn((b.plan || {}).manners);
+      return on.includes(f)
+        ? {
+            name: 'manners: ' + MANNER_NAMES[f] + ' (off)',
+            briefs: { ...b, plan: { ...b.plan, manners: on.filter((x) => x !== f) } },
+          }
+        : { name: 'manners: ' + MANNER_NAMES[f], briefs: { ...b, plan: { ...b.plan, manners: [...on, f] } } };
+    }),
     // THE QUESTION TAKEN APART BY CODE (src/breakdown.mjs): put to the drafters in numbered lines, or as it came
     (b.plan || {}).prepare === 'lines'
       ? {

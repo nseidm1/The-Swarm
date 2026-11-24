@@ -1681,6 +1681,24 @@ If the reply is still empty:
 3. path becomes: `fallback` if it was empty; unchanged if it contains `code-restored`; otherwise
    path + `+unwritten`.
 
+#### O.8.9 The reply is tidied by code
+
+`plan.manners`, where present, is an array of fix names; the fixes are `praise`, `offer`, `echo` and `greet`, and any
+other entry is ignored. Where at least one is named, the reply is not a tool call, not a reply the caller began, and
+neither it nor what was settled is code, the fixes named are made in this order, by code, with no member called:
+
+1. `praise`: text at the start of the reply that is only praise of the question (such as "Great question!") or a
+   lone word of agreement ("Certainly!", "Sure.") is removed.
+2. `greet`: where an earlier assistant turn of the conversation began with a greeting, a greeting at the start of the
+   reply is removed.
+3. `echo`: of sentences of four words or more that are the same once case and punctuation are set aside, each after
+   the first is removed.
+4. `offer`: while the reply has more than one sentence and its last is only an offer of more help ("Let me know if
+   ...", "I hope this helps"), that sentence is removed.
+
+A fix that would leave an empty reply is not made. The result is trimmed and its first letter capitalised. Where the
+reply changed, `+manners` is appended to the path, after every other suffix.
+
 ### O.9 What the answer procedure uses from sections R, D and S
 
 #### O.9.1 The decider
@@ -1808,6 +1826,7 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `partChars` | integer | 6000 | the most characters of the text a part holds (O.13; falsy means 6000) |
 | `byBehaviour` | boolean | true | `false` turns off probe, try and everything that depends on tried |
 | `agreeSkipsChecks` | boolean | true | `false` stops dispute steps being passed over when settled |
+| `manners` | array | none | fixes made to a conversational reply by code: `praise`, `offer`, `echo`, `greet` (O.8.9) |
 | `prepare` | string | none | `lines`: every drafter is sent the question with each thing it states on a numbered line under it (O.6.1b) |
 | `draftsStand` | boolean | false | `true`: where more than half of the drafting slots hold one answer, the answer most slots hold is counted over the drafts alone, and the checking slots' answers are counted only where the drafts have no such majority (O.6.6) |
 | `draftFirst` | integer | none | drafting slots called first; the rest are called only if those do not settle the matter (O.6.1 step 1a; ignored unless at least 2 and fewer than the drafting slots) |

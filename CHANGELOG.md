@@ -6,6 +6,22 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The conversation run is a run of its own** (2026-11-24). Under Run the dashboard has two cards: the intelligence
+  run, judged by outside benchmarks, and the conversation run, where one press is one pass and the figures are the
+  held conversations before and after it, pass beside pass (`conversation.json`, `conversation-gaps.json` and
+  `conversation-history.jsonl` in the configuration's results). Two more people keep a conversation intelligent: one
+  asks something to reason out, one asks for a function and then a change to it, which is run by code. The class
+  stage takes `--figures`, and each record now has gaps of its own (`classes-gaps.json`).
+- **Training reaches the conversation, and each pass learns from the last** (2026-11-24). A request that is a
+  conversation had no standard of its own, so that class of input was trained on nothing. Made-up people now write
+  over several turns (`training/tasks-chat.mjs`; thirteen kinds, `chat-*`), and a reply is read by code against the
+  conventions of that conversation, the answer asked for among them; the readers are checked against replies whose
+  verdict is known (`node training/tasks-chat.mjs --check`). A reply can be tidied by code where training turns a fix
+  on (`plan.manners`: `praise`, `offer`, `echo`, `greet`; `src/manners.mjs`; SwOA O.8.9); none is on by default. The
+  class stage ends by writing which kinds it was still wrong on and which conventions were still missed
+  (`gaps.json`), and the next pass asks more train questions of those; `--no-carry` leaves that out. After The
+  Crew's trainers. A bar that every reply held (how short, how brief) is a step tighter in the next pass. A pass now asks 55 kinds of
+  question.
 - **The dashboard serves the module** (2026-11-24). A button left of the SwOA spec starts the module as one chat model
   at an address on this machine (`node bin/swarm.mjs serve`, port 8090). While its models load it says so; once it
   answers, the address to connect a program or a harness to is shown beside it (press to copy) and the button stops

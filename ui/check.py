@@ -373,7 +373,7 @@ with tempfile.TemporaryDirectory() as tmp:
         "refused": e_no == 400 and "every body of work" in e_why and "equivalence" not in json.loads(cfg_was) and get(base + "/fragment/equiv")[0] == 404,
         "leftover": asked_old == eq_all["asked"] and t_ok == 200 and "equivalence" not in cfg_after and cfg_after["tools"] == "swarm",
         "asked": "chosen" not in eq_all and eq_all["asked"] == data.bodies_asked(tg, data.load(root)["state"]) == [t["id"] for t in tg] and len(tg) == 8
-                 and "A pass asks every body of work: <b>42</b> kinds of question" in swarm_ui.main_body(data.load(root)),
+                 and "A pass asks every body of work: <b>55</b> kinds of question" in swarm_ui.main_body(data.load(root)),
         "record": data.bodies_asked(tg, {"kinds": next(t["kinds"] for t in tg if t["id"] == "crew"), "history": [{"pass": 1}]}) == ["crew", "code"]
                   and data.bodies_asked(tg, {"history": [{"pass": 1}]}) == ["code"] and data.bodies_asked(tg, {"kinds": ["chain"]}) == [] and data.bodies_asked(tg, {}) == [t["id"] for t in tg],
         # (and a SwOA says what its training asked from the questions of the pass in hand, where it has asked any)
@@ -2232,7 +2232,7 @@ _cpwas = _cpf.read_text() if _cpf.exists() else None
 _cpmade = not _cpf.parent.exists()
 _cpf.parent.mkdir(parents=True, exist_ok=True)
 _cp0 = swarm_ui.class_plan({**_cpd, "key": "no-such-configuration"})
-_cpf.write_text(json.dumps({"classes": {"words": {"train": 12, "held": 12, "kinds": ["a", "b"], "kept": [], "rounds": [
+_cpf.write_text(json.dumps({"pass": 2, "carried": {"from": "x", "focus": {"chat-terse": 4}, "more": 4, "conventions": {"no-offer": {"asked": 3, "missed": 2}, "answers": {"asked": 3, "missed": 0}}}, "gaps": {"kinds": {}, "conventions": {"no-praise": {"asked": 4, "missed": 1}}, "next": {"chat-hurry": 2}}, "classes": {"words": {"train": 12, "held": 12, "kinds": ["a", "b"], "kept": [], "rounds": [
     {"gap": {"wrong": 5, "none": 3, "lost": 1, "spoiled": 1, "first": "none"}, "of": 9,
      "candidates": [{"name": "cascade: a-steps works the question one fact at a time", "n": 12, "counted": 9, "gain": 0.167},
                     {"name": "plan: decide by most", "n": 12, "counted": 7, "gain": 0.0}],
@@ -2247,13 +2247,50 @@ if _cpwas is None:
         _cpf.parent.rmdir()
 else:
     _cpf.write_text(_cpwas)
-check("the plan section says in real time what training is trying: what it can change (pure code, adapters, breakdown, cascade, slots and models, settling, the reply), and for each class its train and held questions, what is kept, and round by round how many changes were tried of how many, where the class fell short as it stood (no slot had it, had it and lost it, reply spoiled) with what that puts first, the changes that gained most, the best and what the held questions said; a class not trained says why; with nothing recorded it says training is not running; and it stands above the question-by-question plan",
+check("the plan section says in real time what training is trying: what it can change (pure code, adapters, breakdown, cascade, slots and models, settling, the reply, conversation), which pass of the stage it is with what it carries from the last and what it leaves for the next, and for each class its train and held questions, what is kept, and round by round how many changes were tried of how many, where the class fell short as it stood (no slot had it, had it and lost it, reply spoiled) with what that puts first, the changes that gained most, the best and what the held questions said; a class not trained says why; with nothing recorded it says training is not running; and it stands above the question-by-question plan",
       all(w in _cp1 for w in ("What training is trying", "<b>Pure code</b>", "<b>Breakdown</b>", "<b>Cascade</b>", "<b>Slots and models</b>", "Requests in words", "12 train questions and 12 held, of 2 kinds",
-                              "2 of 9 changes tried", "Wrong as it stood: 5 (no slot had it 3, had it and lost it 1, reply spoiled 1)", "so what is drafted is tried first",
+                              "2 of 9 changes tried", "<b>Conversation</b>", "<b>Pass 2 of this stage.</b> Carried from the last pass: 4 more train questions of what it was short on (chat-terse +4); in conversation it had missed no-offer (2 of 3)", "<b>Left for the next pass.</b> Asked more of: chat-hurry +2. In conversation, still missed: no-praise (1 of 4).", "Wrong as it stood: 5 (no slot had it 3, had it and lost it 1, reply spoiled 1)", "so what is drafted is tried first",
                               "cascade: a-steps works the question one fact at a time: counted 9 of 12 (+16.7 points)", "+12.5 points with an error of 3.0: <b>kept</b>", "Not trained: fewer than four questions"))
       and "Training is not running" in _cp0 and "Requests in words" not in _cp0
       and _cpb.startswith('<div class="panel plan" id="classplan">') and _cpb.count('class="panel plan"') == 2,
       [_cp1[:300]])
+
+# THE CONVERSATION RUN, APART FROM THE INTELLIGENCE RUN
+_cvd = data.load(swarm_ui.ARGS.root)
+_cvdir = Path(_cvd["root"]) / "training" / "results" / str(_cvd.get("key", ""))
+_cvmade = not _cvdir.exists()
+_cvdir.mkdir(parents=True, exist_ok=True)
+_cvh = _cvdir / "conversation-history.jsonl"
+_cvwas = _cvh.read_text() if _cvh.exists() else None
+_cv_js, _cv_bw = swarm_ui._job_state, swarm_ui.busy_with
+swarm_ui._job_state = lambda name: None
+swarm_ui.busy_with = lambda: ""
+if _cvh.exists():
+    _cvh.unlink()
+_cv0 = swarm_ui.converse_block(_cvd)
+_cvh.write_text(json.dumps({"pass": 1, "heldBefore": {"counted": 60, "n": 78}, "heldAfter": {"counted": 66, "n": 78}, "kept": ["manners: a closing that only offers more help is taken off"], "next": {"chat-thanks": 2}}) + "\n"
+                + json.dumps({"pass": 2, "heldBefore": {"counted": 66, "n": 78}, "heldAfter": {"counted": 66, "n": 78}, "kept": [], "next": {}}) + "\n")
+_cv1 = swarm_ui.converse_block(_cvd)
+swarm_ui.busy_with = lambda: "the module being served"
+_cv2 = swarm_ui.converse_block(_cvd)
+swarm_ui._job_state, swarm_ui.busy_with = _cv_js, _cv_bw
+if _cvwas is None:
+    _cvh.unlink()
+    if _cvmade:
+        _cvdir.rmdir()
+else:
+    _cvh.write_text(_cvwas)
+_cvsrc = Path(swarm_ui.__file__).read_text()
+check("the conversation run is a card of its own under Run, apart from the intelligence run: one press is one pass, and its figures are its own (the held conversations before a pass and after it, the passes side by side, what each kept and what it left for the next); before any pass it says so and offers one; it cannot be started while something else has the models, saying what; no benchmark is asked; and a pass is what the class stage does for the class that is a conversation, on the made-up people's kinds, with a record, gaps and history of its own",
+      "no pass yet" in _cv0 and ">Run a pass<" in _cv0 and "No benchmark is asked" in _cv0 and 'id="conversebox"' in _cv0
+      and "after pass 2" in _cv1 and '<b class="pct">85%</b>' in _cv1 and ">Run the next pass<" in _cv1
+      and "held 77% &rarr; 85% · kept: manners: a closing that only offers more help is taken off · left for the next: chat-thanks +2" in _cv1
+      and "held 85% &rarr; 85% · nothing kept" in _cv1
+      and "disabled" in _cv2 and "The module being served is running: a pass waits for it." in _cv2
+      and '"/converse/start", "/converse/stop"' in _cvsrc and '("converse", "a conversation pass")' in _cvsrc and '"--only", "talk"' in _cvsrc and '"--figures"' in _cvsrc
+      and "conversation.json" in _cvsrc and 'id="conversewrap"' in swarm_ui.main_body(_cvd) and "/converse/start" in swarm_ui.JS
+      and all(k in swarm_ui.CHAT_KINDS.split(",") for k in ("chat-terse", "chat-doubt", "chat-reason", "chat-code")) and len(swarm_ui.CHAT_KINDS.split(",")) == 13,
+      [_cv0[:200], _cv1[-400:]])
 
 # THE SYSTEM PICTURE DRAWS THE WHOLE: the run, a request inside the module, what training keeps, and the judge, round the lanes
 # of the arrangement's training
@@ -2261,7 +2298,7 @@ _vzw = swarm_ui.viz_block(data.load(swarm_ui.ARGS.root))
 check("the System picture draws the run in order (R1 to R4: pretraining is no stage of it), a request inside the module (M1 to M4), what training keeps with how far each reaches (K1 to K4: the arrangement with how many slots and models, adapters by slot, instruments saying which are on, the breakdown and the cascade), what is tried first following where the class falls short, the arrangement's lanes after them, and the judge last (J1 to J4)",
       all(">%s</span>" % c in _vzw for c in ("R1", "R4", "M1", "M2", "M4", "K1", "K2", "K3", "A1", "S5", "E1", "J1", "J4")) and ">R5</span>" not in _vzw and "Adapters, by slot" in _vzw
       and _vzw.index(">R1</span>") < _vzw.index(">M1</span>") < _vzw.index(">K1</span>") < _vzw.index(">A1</span>") < _vzw.index(">J1</span>")
-      and "None is on yet." in _vzw and "__VIZ_" not in _vzw and "async function swap(url,into,opts){if(!$(into))return;" in swarm_ui.JS and "R3 in detail" in _vzw and "each request is served with the one its slot carries" in _vzw and "those for the widest of the three gaps first" in _vzw and ">K4</span>" in _vzw and "Breakdown, cascade" in _vzw and "is not shaped to how they ask" in _vzw and "bash training/session.sh" in _vzw,
+      and "None is on yet." in _vzw and "__VIZ_" not in _vzw and "async function swap(url,into,opts){if(!$(into))return;" in swarm_ui.JS and "R3 in detail" in _vzw and "each request is served with the one its slot carries" in _vzw and "those for the widest of the three gaps first" in _vzw and ">K4</span>" in _vzw and "Breakdown, cascade" in _vzw and _vzw.index(">K4</span>") < _vzw.index(">K5</span>") and "Made-up people write over several turns" in _vzw and "is not shaped to how they ask" in _vzw and "bash training/session.sh" in _vzw,
       [c for c in ("R1", "M1", "K3", "J4") if ">%s</span>" % c not in _vzw])
 # THE SECOND BASELINE ON THE PAGE: beside a small model by itself, the same model with its reply laid out, as one more column
 _lo = [{"alone": {"a": {"name": "A", "value": 0.0}}, "aloneForm": {"a": {"name": "A", "value": 0.5, "unread": 1}}, "agree": {"of": 10}},

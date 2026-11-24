@@ -23,6 +23,7 @@
 // carry on; if the decider is not there or decides nothing, the answer most slots hold stands; if nothing can be written, the best draft
 // is the reply). It knows nothing of servers: `ask(slot, messages)` is handed in, and returns { text } or throws.
 //   const { reply, path, trace } = await answer(messages, { briefs, ask });
+import { tidy, mannersOn } from './manners.mjs';
 import {
   statedOf,
   linesOf,
@@ -288,10 +289,20 @@ export function partsOf(text, most = PART_CHARS) {
 // as the start of the reply and reads what follows as its body; the start was taken for the question and answered in words.
 export async function answer(messages, opts) {
   const begun = begunOf(messages);
-  if (!begun) return inFormSet(await answerAsked(messages, opts), messages, opts);
+  if (!begun) return tidied(inFormSet(await answerAsked(messages, opts), messages, opts), messages, opts);
   const got = await answerAsked(messages.slice(0, -1), opts);
   const reply = continuedFrom(begun, got.reply, got.decided);
   return { ...got, reply, begun: true, path: reply !== got.reply ? got.path + '+continued' : got.path };
+}
+// THE REPLY IS TIDIED BY CODE (manners.mjs; plan.manners: the fixes turned on; O.8.9): an opening that only praises, a closing
+// that only offers more help, a sentence said again, a greeting given twice. Never code, never a reply begun by the caller,
+// never a turn that calls a tool.
+function tidied(got, messages, opts) {
+  const plan = (briefsFor(opts.briefs, '', classOf(messages)) || {}).plan || {};
+  if (!mannersOn(plan.manners).length || !got || !got.ok || !got.reply || got.tool_calls) return got;
+  if (isCode(got.decided || got.reply)) return got;
+  const reply = tidy(got.reply, plan.manners, { messages });
+  return reply === got.reply ? got : { ...got, reply, path: got.path + '+manners' };
 }
 // THE REPLY IS WRITTEN IN THE FORM THE SYSTEM TEXT SETS (read.mjs setFormOf; plan.setForm: false leaves it; O.8.8): where the
 // conversation's system text gives the reply's form as a template of two keys, what was settled is written into it by code.

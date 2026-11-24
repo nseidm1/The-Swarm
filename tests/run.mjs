@@ -1841,8 +1841,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
             t.turns.slice(1).every((m, i) => m === firstOf(t).turns[i + 1]),
         ) &&
       others2.filter((t) => t.kind === 'search' && t.turns.length === 3).length >= 3 &&
-      everyKind.length === 252 &&
-      everyKind2.length === 248 &&
+      everyKind.length === 330 &&
+      everyKind2.length === 326 &&
       without.sort().join() === 'agent,agent,agent,answer' &&
       second.every(
         (t, i) =>
@@ -2099,7 +2099,29 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   } = await import('../training/tasks.mjs');
   // (the kinds asked for in Python stand last of all: a new kind goes last, so that no earlier kind's questions change)
   const PY_LAST = CODE_KIND_NAMES.filter((k) => k.startsWith('py-'));
-  const CREW_NAMES = [...CODE_KIND_NAMES.filter((k) => !PY_LAST.includes(k)), ...CREW_KIND_NAMES, 'agent', ...PY_LAST];
+  // (and, after every other, the made-up people in conversation: tasks-chat.mjs)
+  const CHAT_LAST = [
+    'chat-terse',
+    'chat-formal',
+    'chat-hurry',
+    'chat-heavy',
+    'chat-thanks',
+    'chat-back',
+    'chat-refer',
+    'chat-correct',
+    'chat-two',
+    'chat-doubt',
+    'chat-remember',
+    'chat-reason',
+    'chat-code',
+  ];
+  const CREW_NAMES = [
+    ...CODE_KIND_NAMES.filter((k) => !PY_LAST.includes(k)),
+    ...CREW_KIND_NAMES,
+    'agent',
+    ...PY_LAST,
+    ...CHAT_LAST,
+  ];
   const { talkEquivalent, faultsOf } = await import('../training/support/equivalent.mjs');
   const { talkPairs, checkReader } = await import('../training/readers.mjs');
   const tr = make({ split: 'train', each: 6, kinds: CREW_KIND_NAMES });
@@ -2144,8 +2166,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     "what the swarm is trained on is every body of work of a list kept as data (The Crew, Code, Math, Logic, Reasoning, Instructions, Tools, Search), and nothing is chosen: a pass asks the kinds of them all, each once (Code's are among The Crew's); the list has no default, since there is nothing to fall back to; the kinds of some can still be named (a record, a check), a name that is not one is passed over, and with none left it is every one; what a list of kinds covers is said from the kinds (a pass that asked The Crew's covered Code too); and every kind of every body makes a question",
     BODIES.join() === 'crew,code,math,logic,reasoning,instructions,tools,search' &&
       EQUIVALENCE.default === undefined &&
-      NAMES.length === 42 &&
-      new Set(NAMES).size === 42 &&
+      NAMES.length === 55 &&
+      new Set(NAMES).size === 55 &&
       NAMES.join() === kindsFor(BODIES).join() &&
       kindsFor().join() === NAMES.join() &&
       kindsFor([]).join() === NAMES.join() &&
@@ -2157,8 +2179,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       kindsFor(['math', 'crew']).length === CREW_NAMES.length + 6 &&
       kindsFor(['logic', 'reasoning']).length === 14 &&
       make({ split: 'held', each: 2, kinds: kindsFor(['math', 'logic', 'reasoning']) }).length === 40 &&
-      make({ split: 'train', each: 6 }).length === 252 &&
-      make({ split: 'held', each: 6 }).length === 252 &&
+      make({ split: 'train', each: 6 }).length === 330 &&
+      make({ split: 'held', each: 6 }).length === 330 &&
       bodiesOf(NAMES).join() === BODIES.join() &&
       bodiesOf(CREW_NAMES).join() === 'crew,code' &&
       bodiesOf(CODE_KIND_NAMES).join() === 'code' &&
@@ -2388,7 +2410,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     byRecord === 'chain,order' &&
       before === CODE_KIND_NAMES.join() &&
       first === NAMES.join() &&
-      NAMES.length === 42 &&
+      NAMES.length === 55 &&
       withOldChoice === first &&
       readOld === undefined &&
       writtenOld === undefined,
@@ -5380,6 +5402,156 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       split: [split.decided, split.path],
     },
   );
+  // CONVERSATION: made-up people, conventions read by code, a reply tidied by code, and what a pass leaves for the next
+  {
+    const MN = await import('../src/manners.mjs');
+    const CH = await import('../training/tasks-chat.mjs');
+    const TKc = await import('../training/tasks.mjs');
+    const CLc = await import('../training/classes.mjs');
+    const ARc = await import('../training/arrange.mjs');
+    const { classOf: classOfC } = await import('../src/orchestrate.mjs');
+    const fixtures = JSON.parse(
+      fs.readFileSync(new URL('../training/manners-fixtures.json', import.meta.url), 'utf8'),
+    ).replies;
+    const people = TKc.tasks({ split: 'train', each: 3, kinds: TKc.CHAT_KIND_NAMES });
+    const heldPeople = TKc.tasks({ split: 'held', each: 3, kinds: TKc.CHAT_KIND_NAMES });
+    const terse = people.find((t) => t.kind === 'chat-terse');
+    const thanks = people.find((t) => t.kind === 'chat-thanks');
+    const want = CH.CHAT_KINDS['chat-terse']({ pick: (l) => l[0], int: (a) => a, mix: (l) => l }, 0).answer[0];
+    const gTerse = [await terse.good('Great question! I am not sure.'), await terse.good(' ')];
+    const mHeld = people.map((t) => TKc.messagesOf(t));
+    const said = [];
+    const tidyRun = (plan) =>
+      orchestrate(
+        [
+          { role: 'user', content: 'Hello!' },
+          { role: 'assistant', content: 'Hello! What can I do?' },
+          { role: 'user', content: 'what is 2 plus 2' },
+        ],
+        {
+          briefs: { ...base, plan: { ...plan } },
+          ask: async (sl) => {
+            said.push(sl.stage);
+            return { text: 'ANSWER: Great question! It is 4. Let me know if you need anything else!' };
+          },
+          decide: async () => ({ ok: false, why: 'none' }),
+        },
+      );
+    const untidied = await tidyRun({});
+    const tidied = await tidyRun({ manners: ['praise', 'offer'] });
+    const rows = [
+      { kind: 'chat-terse', counted: false, conventions: ['answers', 'no-offer'], missed: ['no-offer'] },
+      { kind: 'chat-terse', counted: false, conventions: ['answers', 'no-offer'], missed: ['no-offer', 'answers'] },
+      { kind: 'chat-terse', counted: true, conventions: ['answers', 'no-offer'], missed: [] },
+      { kind: 'chat-formal', counted: true, conventions: ['answers'], missed: [] },
+      { kind: 'order', counted: false },
+      { kind: 'order', counted: false },
+      { kind: 'order', counted: true },
+      { kind: 'sum', counted: false },
+      { kind: 'sum', counted: true },
+      { kind: 'sum', counted: true },
+      { kind: 'sum', counted: true },
+    ];
+    const gaps = CLc.gapsOf(rows);
+    const mv = ARc.steps({ marker: 'ANSWER:', plan: {}, slots: base.slots });
+    const offerOn = mv.find((m) => m.name === 'manners: ' + MN.MANNER_NAMES.offer);
+    check(
+      'a conversation has a standard of its own, read by code, and what a pass finds short is carried into the next: made-up people (terse, formal, in a hurry, with something heavy on their mind, saying thanks, greeting a second time) write over several turns, each asking something code knows the answer to; a reply is good where it gives that answer and keeps every convention of that conversation (no praise to open, no offer of help to close, no sentence twice, a greeting once, short for short, no slang for formal, the answer first for someone in a hurry, no question for a question, steady for something heavy, a few words for thanks), and says which it missed; the readers are right on every reply whose verdict is known; such a question is of the class that is a conversation and has a second wording; a reply is tidied by code where the plan turns a fix on (an opening that only praises, a closing that only offers help, a sentence said again, a greeting given twice; never code, never down to nothing), which is a move of the arrangement that leaves the drafts as they are and is tried for a reply that was spoiled; and from the swarm as a pass left it on its train questions, each kind still wrong and each convention still missed is written down, a kind a third wrong asked two more of next time and one two thirds wrong four more',
+      CH.checkReaders(fixtures).length === 0 &&
+        fixtures.length >= 25 &&
+        people.length === 39 &&
+        people.every(
+          (t) =>
+            t.type === 'chat' &&
+            typeof t.good === 'function' &&
+            t.turns.length >= 3 &&
+            t.turns.at(-1).role === 'user' &&
+            t.again,
+        ) &&
+        mHeld.every((m) => classOfC(m) === 'talk' && m[0].role === 'system') &&
+        !heldPeople.some((t) => people.some((x) => x.id === t.id)) &&
+        TKc.reworded(heldPeople).length === heldPeople.length &&
+        gTerse[0].grade === 'wrong' &&
+        gTerse[0].missed.join() === 'answers,no-praise' &&
+        gTerse[1].grade === 'unsure' &&
+        (await thanks.good("You're welcome.")).grade === 'right' &&
+        (await thanks.good("You're welcome! Is there anything else I can help with?")).missed.join() ===
+          'thanks-brief,no-offer' &&
+        typeof want === 'string' &&
+        MN.tidy('Great question! Paris. Let me know if you need anything else!', ['praise', 'offer']) === 'Paris.' &&
+        MN.tidy('Sure! The total for the group is 12. The total for the group is 12.', ['praise', 'echo']) ===
+          'The total for the group is 12.' &&
+        MN.tidy('Hello again! It is nine.', ['greet'], { messages: [{ role: 'assistant', content: 'Hi there!' }] }) ===
+          'It is nine.' &&
+        MN.tidy('Hello! It is nine.', ['greet'], { messages: [] }) === 'Hello! It is nine.' &&
+        MN.tidy('Let me know if you need anything else.', ['offer']) === 'Let me know if you need anything else.' &&
+        MN.tidy('```js\nf()\n``` Let me know if you need more.', ['offer']).includes('Let me know') &&
+        MN.tidy('Paris. I hope this helps!', []) === 'Paris. I hope this helps!' &&
+        MN.mannersOn(['offer', 'nothing', 'praise']).join() === 'praise,offer' &&
+        untidied.reply === 'Great question! It is 4. Let me know if you need anything else!' &&
+        tidied.reply === 'It is 4.' &&
+        /\+manners$/.test(tidied.path) &&
+        !/manners/.test(untidied.path) &&
+        !!offerOn &&
+        offerOn.briefs.plan.manners.join() === 'offer' &&
+        CLc.keepsDrafts({ marker: 'ANSWER:', plan: {}, slots: base.slots }, offerOn.briefs) &&
+        ARc.steps(offerOn.briefs).some((m) => m.name === 'manners: ' + MN.MANNER_NAMES.offer + ' (off)') &&
+        CLc.gapOfMove(offerOn.name) === 'spoiled' &&
+        gaps.kinds['chat-terse'].n === 3 &&
+        gaps.kinds['chat-terse'].wrong === 2 &&
+        gaps.conventions['no-offer'].asked === 3 &&
+        gaps.conventions['no-offer'].missed === 2 &&
+        gaps.conventions.answers.missed === 1 &&
+        JSON.stringify(CLc.focusOf(gaps)) === JSON.stringify({ 'chat-terse': 4, order: 4 }) &&
+        JSON.stringify(CLc.focusOf({ kinds: { a: { n: 6, wrong: 2 }, b: { n: 6, wrong: 1 } } })) ===
+          JSON.stringify({ a: 2 }) &&
+        JSON.stringify(CLc.focusOf(null)) === '{}' &&
+        // (a bar that is held tightens, one that a third of replies missed goes back, one not asked stays; and the readers follow it)
+        JSON.stringify(
+          CLc.barsOf(
+            {
+              bars: { short: 1 },
+              conventions: { short: { asked: 6, missed: 0 }, 'thanks-brief': { asked: 6, missed: 2 } },
+            },
+            CH.BAR_IDS,
+          ),
+        ) === JSON.stringify({ short: 2, 'thanks-brief': 0 }) &&
+        JSON.stringify(
+          CLc.barsOf({ bars: { short: 2 }, conventions: { short: { asked: 6, missed: 0 } } }, CH.BAR_IDS),
+        ) === JSON.stringify({ short: 2, 'thanks-brief': 0 }) &&
+        JSON.stringify(CLc.barsOf(null, CH.BAR_IDS)) === JSON.stringify({ short: 0, 'thanks-brief': 0 }) &&
+        CH.barOf('short') === 40 &&
+        (CH.setBars({ short: 2 }),
+        CH.barOf('short') === 20 &&
+          !CH.CONVENTIONS.short.holds(
+            'one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twenty-one',
+            {},
+          )) &&
+        (CH.setBars({}),
+        CH.CONVENTIONS.short.holds(
+          'one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twenty-one',
+          {},
+        )) &&
+        // (the harder people need the turns before the last: a reply right for the last message alone is wrong)
+        (await people.find((t) => t.kind === 'chat-doubt').good("You're right, my mistake.")).missed.includes('firm') &&
+        (await people.find((t) => t.kind === 'chat-remember').good('That comes to 12 pounds.')).missed.includes(
+          'as-asked',
+        ) &&
+        // (and a conversation stays intelligent: something to reason out and a function to change, part way through one)
+        CH.jsWorks('```js\nfunction times4(n) { return n * 4; }\n```', 'times4', (x) => x * 4, [0, 1, 7]) &&
+        !CH.jsWorks('```js\nfunction times4(n) { return n * 2; }\n```', 'times4', (x) => x * 4, [0, 1, 7]) &&
+        !CH.jsWorks('function times4(n) { while (true) {} }', 'times4', (x) => x * 4, [1]) &&
+        !CH.jsWorks('It multiplies by four.', 'times4', (x) => x * 4, [1]) &&
+        (await people.find((t) => t.kind === 'chat-code').good('It multiplies the number.')).missed.includes('works') &&
+        people.filter((t) => t.kind === 'chat-reason').length === 3,
+      {
+        misread: CH.checkReaders(fixtures),
+        terse: gTerse,
+        tidied: [untidied.reply, tidied.reply, tidied.path],
+        focus: CLc.focusOf(gaps),
+      },
+    );
+  }
   // WHAT TRAINING TRIES FIRST FOLLOWS WHERE THE CLASS FALLS SHORT (training/classes.mjs gapOf, orderedFor)
   {
     const CL = await import('../training/classes.mjs');
@@ -11733,7 +11905,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
         ) &&
         again.length === py.length &&
         again.every((t) => /^I need a function in Python, `/.test(t.ask)) &&
-        TK.KIND_NAMES.slice(-5).join() === 'py-arrays,py-strings,py-numbers,py-parsing,py-wide' &&
+        TK.KIND_NAMES.slice(-18, -13).join() === 'py-arrays,py-strings,py-numbers,py-parsing,py-wide' &&
+        TK.KIND_NAMES.slice(-13, -7).join() === 'chat-terse,chat-formal,chat-hurry,chat-heavy,chat-thanks,chat-back' &&
         before.ask === 'Today is Tuesday. What day of the week will it be 158 days from now?' &&
         (!marks || marks.join() === 'right,wrong,unsure'),
       { forms: forms.map((f) => f.slice(0, 80)), marks, canRun },

@@ -172,6 +172,17 @@ of these is tried as a change and kept only where held questions, never trained 
 - **Breakdown and cascade**: code takes the question apart, with no model asked. Every drafter is sent it with each
   thing it states on a numbered line, or one slot works it a fact at a time while code carries what was worked out.
 
+- **Conversation**: made-up people write over several turns, and each reply is read by code against the conventions of
+  that conversation (no praise to open, no offer of help to close, a short reply to a short message, the answer first
+  for someone in a hurry). Code can tidy a reply, and that too is a change training keeps or not.
+
+**Two runs, apart.** The run above is the intelligence run, judged by outside benchmarks. The conversation run is a
+card of its own under it: one press is one pass over the class of input that is a conversation, judged on held
+conversations read by code, with the passes side by side. No benchmark is asked.
+
+**Each pass learns from the last.** A pass writes down every kind of question it was still wrong on and every
+convention a reply still missed; the next pass asks more train questions of those.
+
 What is tried first follows where the class falls short: no slot had the answer, a slot had it and settling lost it, or
 the reply spoiled it.
 
@@ -252,7 +263,7 @@ npm test
 python3 ui/check.py
 ```
 
-252 checks of the module and the trainers and 166 of the dashboard, against stand-in servers: nothing is fetched,
+253 checks of the module and the trainers and 167 of the dashboard, against stand-in servers: nothing is fetched,
 started or installed. `npm test` deals its blocks of checks out to every core (27 seconds on a 24-core Mac, 88 one
 after another); `npm run test:serial` runs them in one process, `npm run test:all` adds the dashboard's, and
 `npm run test:python` checks the Python client. How well the

@@ -28,6 +28,7 @@ import {
 } from './support/equivalent.mjs';
 import { TOOL_KINDS, sameStep, stepGood } from './tasks-tools.mjs';
 import { RULE_KINDS, rulesHeld } from './tasks-rules.mjs';
+import { CHAT_KINDS, CHAT_KIND_NAMES, CONVENTIONS, conventionsHeld } from './tasks-chat.mjs';
 import { CALL_KINDS } from './tasks-calls.mjs';
 import { SEARCH_KINDS } from './tasks-search.mjs';
 import { LOGIC_KINDS, logicTask, asShown } from './tasks-logic.mjs';
@@ -481,6 +482,9 @@ const ALL = {
   // (functions asked for in Python: tasks-code.mjs PY_KINDS. LAST, so that no earlier kind's questions change: a kind's
   // questions are seeded by where it stands here)
   ...PY_KINDS,
+  // (made-up people in conversation, each reply read against conventions: tasks-chat.mjs. After every other, for the same
+  // reason: no earlier kind's questions change)
+  ...CHAT_KINDS,
 };
 // the programming kinds, and with them the conversation a seat on a team carries: what a pass asks, unless its record says otherwise
 export const CODE_KIND_NAMES = [...Object.keys(CODE_KINDS), 'trace', ...Object.keys(PY_KINDS)];
@@ -529,7 +533,7 @@ export function readOwn(ids = BODIES) {
   }
   return out;
 }
-export { CREW_KIND_NAMES };
+export { CREW_KIND_NAMES, CHAT_KIND_NAMES };
 // what is sent for a question: the question alone, or (a conversation) the system line a seat is given and the turns so far
 // DOES A QUESTION CARRY A STANDARD OF ITS OWN? Then an answer to it is graded against the question (good), and the larger model's
 // answer is one more answer graded the same way: not the mark (docs/swoa-parity.md, 4)
@@ -594,7 +598,7 @@ export const reworded = (list) =>
       // a search and what it returned gives its turns whole, the question put another way and the rest as they were: againTurns).
       // A kind whose answer is a value or a piece kept to rules says its own second wording too (again); a programming question
       // is put another way by its form (reword)
-      const ask = t.type === 'talk' || t.type === 'tool' ? t.again : t.again || reword(t.ask);
+      const ask = t.type === 'talk' || t.type === 'tool' || t.type === 'chat' ? t.again : t.again || reword(t.ask);
       const turns = t.againTurns || (t.turns && ask ? [...t.turns.slice(0, -1), { role: 'user', content: ask }] : null);
       return {
         ...t,
@@ -757,6 +761,48 @@ export function tasks({
                       : 'wrong',
                 },
           toSpec: async (reply) => rulesHeld(made.rules, reply).every(Boolean),
+          usable: (reply) => String(reply || '').trim().length > 1,
+          show: (reply) =>
+            String(reply || '')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .slice(0, 160),
+          wrap: (final) => final,
+        });
+      else if (made.type === 'chat')
+        // A MADE-UP PERSON IN CONVERSATION (tasks-chat.mjs): good when every convention of that conversation holds, the answer
+        // asked for among them; its score is the share that do, and what it missed is said (missed: the conventions' ids), so
+        // that a pass can carry what was short into the next. Two replies are equivalent when they keep and miss the same
+        out.push({
+          ...base,
+          ask: made.turns[made.turns.length - 1].content,
+          type: 'chat',
+          system: made.system,
+          turns: made.turns,
+          person: made.person,
+          again: made.again || null,
+          conventions: made.conventions.map((id) => ({ id, says: CONVENTIONS[id].says })),
+          good: async (reply) => {
+            if (!String(reply || '').trim()) return { grade: 'unsure', score: 0, missed: [...made.conventions] };
+            const held = conventionsHeld(made, reply);
+            const missed = made.conventions.filter((id, k) => !held[k]);
+            return {
+              grade: missed.length ? 'wrong' : 'right',
+              score: held.filter(Boolean).length / held.length,
+              missed,
+              ...(missed.length ? { why: 'it missed: ' + missed.join(', ') } : {}),
+            };
+          },
+          equivalent: async (refReply, reply) =>
+            !String(refReply || '').trim()
+              ? { grade: 'noref' }
+              : {
+                  grade:
+                    JSON.stringify(conventionsHeld(made, refReply)) === JSON.stringify(conventionsHeld(made, reply))
+                      ? 'right'
+                      : 'wrong',
+                },
+          toSpec: async (reply) => conventionsHeld(made, reply).every(Boolean),
           usable: (reply) => String(reply || '').trim().length > 1,
           show: (reply) =>
             String(reply || '')

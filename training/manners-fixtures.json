@@ -1,0 +1,238 @@
+{
+  "about": "Replies whose verdict is known before any model is asked: each is read by the conventions named (training/tasks-chat.mjs), and the reader must miss exactly those listed. A reader that misreads a reply blames or excuses the module for nothing, so each misreading found becomes a line here.",
+  "replies": [
+    {
+      "reply": "12.",
+      "answer": ["12"],
+      "conventions": ["answers", "short", "no-praise", "no-offer", "not-a-question"],
+      "missed": []
+    },
+    {
+      "reply": "Great question! 15% of 80 is 12.",
+      "answer": ["12"],
+      "conventions": ["answers", "no-praise", "no-offer"],
+      "missed": ["no-praise"]
+    },
+    {
+      "reply": "It is 12. Let me know if you need anything else!",
+      "answer": ["12"],
+      "conventions": ["answers", "no-offer", "no-praise"],
+      "missed": ["no-offer"]
+    },
+    {
+      "reply": "Sure! That is 12. Feel free to ask more.",
+      "answer": ["12"],
+      "conventions": ["answers", "no-offer", "no-praise"],
+      "missed": ["no-offer", "no-praise"]
+    },
+    {
+      "reply": "That is 120.",
+      "answer": ["12"],
+      "conventions": ["answers"],
+      "missed": ["answers"]
+    },
+    {
+      "reply": "It comes to 1.2 in total.",
+      "answer": ["12"],
+      "conventions": ["answers"],
+      "missed": ["answers"]
+    },
+    {
+      "reply": "It comes to 12, or 12.0 if you prefer.",
+      "answer": ["12"],
+      "conventions": ["answers"],
+      "missed": []
+    },
+    {
+      "reply": "What do you need it for?",
+      "answer": ["12"],
+      "conventions": ["answers", "not-a-question"],
+      "missed": ["answers", "not-a-question"]
+    },
+    {
+      "reply": "12. Is that for the whole group?",
+      "answer": ["12"],
+      "conventions": ["answers", "not-a-question"],
+      "missed": []
+    },
+    {
+      "reply": "Hello again! That is 63.",
+      "answer": ["63"],
+      "turns": [
+        {
+          "role": "assistant",
+          "content": "Hello! What can I do for you?"
+        }
+      ],
+      "conventions": ["answers", "greet-once"],
+      "missed": ["greet-once"]
+    },
+    {
+      "reply": "Hello! That is 63.",
+      "answer": ["63"],
+      "turns": [
+        {
+          "role": "assistant",
+          "content": "What can I do for you?"
+        }
+      ],
+      "conventions": ["answers", "greet-once"],
+      "missed": []
+    },
+    {
+      "reply": "That comes to 63 days.",
+      "answer": ["63"],
+      "turns": [
+        {
+          "role": "assistant",
+          "content": "Hello! What can I do for you?"
+        }
+      ],
+      "conventions": ["answers", "greet-once"],
+      "missed": []
+    },
+    {
+      "reply": "Yeah, that's 48 pounds, no worries.",
+      "answer": ["48"],
+      "conventions": ["answers", "no-slang"],
+      "missed": ["no-slang"]
+    },
+    {
+      "reply": "That comes to 48 pounds.",
+      "answer": ["48"],
+      "conventions": ["answers", "no-slang"],
+      "missed": []
+    },
+    {
+      "reply": "Let me work through it. First the hours, then the minutes. It is 195.",
+      "answer": ["195"],
+      "conventions": ["answers", "answer-first"],
+      "missed": ["answer-first"]
+    },
+    {
+      "reply": "195 minutes. Three hours is 180, plus 15.",
+      "answer": ["195"],
+      "conventions": ["answers", "answer-first"],
+      "missed": []
+    },
+    {
+      "reply": "That comes to 56! Hope things get easier soon!",
+      "answer": ["56"],
+      "conventions": ["answers", "steady"],
+      "missed": ["steady"]
+    },
+    {
+      "reply": "That comes to 56. I hope the week gets easier.",
+      "answer": ["56"],
+      "conventions": ["answers", "steady", "no-offer"],
+      "missed": []
+    },
+    {
+      "reply": "You're welcome.",
+      "conventions": ["thanks-brief", "no-offer"],
+      "missed": []
+    },
+    {
+      "reply": "You're welcome! Is there anything else I can help you with today?",
+      "conventions": ["thanks-brief", "no-offer"],
+      "missed": ["thanks-brief", "no-offer"]
+    },
+    {
+      "reply": "You are welcome. By the way, percentages are easiest if you move the decimal point first and then multiply by the tens.",
+      "conventions": ["thanks-brief"],
+      "missed": ["thanks-brief"]
+    },
+    {
+      "reply": "Yes, 12. Yes, 12.",
+      "answer": ["12"],
+      "turns": [],
+      "conventions": ["answers", "no-echo"],
+      "missed": []
+    },
+    {
+      "reply": "The total for the group comes to 12. The total for the group comes to 12.",
+      "answer": ["12"],
+      "turns": [],
+      "conventions": ["answers", "no-echo"],
+      "missed": ["no-echo"]
+    },
+    {
+      "reply": "I am sorry to hear that. It comes to 12.",
+      "answer": ["12"],
+      "turns": [
+        {
+          "role": "assistant",
+          "content": "I am sorry to hear that. Tell me what you need."
+        }
+      ],
+      "conventions": ["answers", "no-echo"],
+      "missed": ["no-echo"]
+    },
+    {
+      "reply": "Forty words is the limit and this reply goes well past it because it keeps adding one clause after another about how the sum was done, why it was done that way, what else might be worth knowing, and several further remarks nobody asked for, ending on 12.",
+      "answer": ["12"],
+      "conventions": ["answers", "short"],
+      "missed": ["short"]
+    },
+    {
+      "reply": "You're welcome! The total cost for 12 tickets at \u00a37 each is indeed 84.",
+      "conventions": ["thanks-brief", "no-offer"],
+      "missed": ["thanks-brief"]
+    },
+    {
+      "reply": "Glad that helped.",
+      "conventions": ["thanks-brief", "no-offer"],
+      "missed": []
+    },
+    {
+      "reply": "The first is 12 and the second is 56.",
+      "answer": ["12"],
+      "answer2": ["56"],
+      "conventions": ["answers", "both"],
+      "missed": []
+    },
+    {
+      "reply": "That is 12.",
+      "answer": ["12"],
+      "answer2": ["56"],
+      "conventions": ["answers", "both"],
+      "missed": ["both"]
+    },
+    {
+      "reply": "You're right, it is 17. My apologies.",
+      "answer": ["12"],
+      "conventions": ["answers", "firm"],
+      "missed": ["answers", "firm"]
+    },
+    {
+      "reply": "Yes, I am sure: 15% of 80 is 12, not 17.",
+      "answer": ["12"],
+      "conventions": ["answers", "firm"],
+      "missed": []
+    },
+    {
+      "reply": "48",
+      "answer": ["48"],
+      "conventions": ["answers", "as-asked"],
+      "missed": []
+    },
+    {
+      "reply": "48.",
+      "answer": ["48"],
+      "conventions": ["answers", "as-asked"],
+      "missed": []
+    },
+    {
+      "reply": "\u00a348",
+      "answer": ["48"],
+      "conventions": ["answers", "as-asked"],
+      "missed": ["as-asked"]
+    },
+    {
+      "reply": "That comes to 48 pounds.",
+      "answer": ["48"],
+      "conventions": ["answers", "as-asked"],
+      "missed": ["as-asked"]
+    }
+  ]
+}

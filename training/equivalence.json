@@ -26,7 +26,20 @@
         "talk",
         "practice",
         "shown",
-        "agent"
+        "agent",
+        "chat-terse",
+        "chat-formal",
+        "chat-hurry",
+        "chat-heavy",
+        "chat-thanks",
+        "chat-back",
+        "chat-refer",
+        "chat-correct",
+        "chat-two",
+        "chat-doubt",
+        "chat-remember",
+        "chat-reason",
+        "chat-code"
       ],
       "benchmarks": [],
       "benchmarksNote": "Programming is measured under Code, an agent's steps with tools under Tools, and following instructions under Instructions (IFEval); the conversation itself has no standard task in either harness"

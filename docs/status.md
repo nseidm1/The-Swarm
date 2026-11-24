@@ -70,6 +70,14 @@ What has not:
   were taught, they read 92 of 200, and 247 of 460 on all 23 tasks against 254: no harm and no gain. Training's own
   questions (eleven families of function) are not what the module is judged on, and its keep rule cannot see that:
   its held questions come from the same maker.
+- **A conversation pass that betters the module.** Two passes have run on real models (LFM2.5 2.6B in both places,
+  eleven people, 2026-11-24): the module had 62 of 66 train conversations right before anything was tried, the first
+  pass found nothing to keep, the second carried two more questions of the kind it was short on (replies to thanks)
+  and its best change, an offer of help taken off, gained 1.5 points on held conversations with an error of 1.1 and
+  was not kept. The carrying from pass to pass works; the set is too easy for this model to show a pass bettering it.
+  The two people who ask for reasoning and code, and the run's own card, have not been run on a model yet.
+  There are thirteen people and fifteen conventions: a start, not a measure of conversation. The first six were too
+  easy to tell anything (a module of LFM2.5 2.6B had all of twelve right), which is why five harder ones were added.
 - **A breakdown or a cascade that helps.** Code that puts the question in numbered lines for the drafters, and a slot
   that works it one fact at a time, are built and are changes training can try. Tried by hand on four small models
   (LFM2.5 1.2B and 2.6B, Ministral 3 3B, Bonsai 2 9B; 10 to 30 questions each, 2026-11-24), neither gained: the

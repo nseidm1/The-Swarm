@@ -138,7 +138,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     (t) =>
       typeof t.good === 'function' &&
       !t.tools &&
-      !['open', 'talk'].includes(t.type) &&
+      // (a made-up person's conversation is read for its conventions, which no answer of the larger model's teaches)
+      !['open', 'talk', 'chat'].includes(t.type) &&
       (!kinds.length || kinds.includes(t.kind)),
   );
   const marker = readBriefs().marker;

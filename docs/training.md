@@ -21,6 +21,42 @@ and keeps each only where held questions say it helped:
   one line; then it drafts. Tried on four small models (2026-11-24), neither has gained yet
   ([Measured](measured.md)), so neither is on anywhere: they are there for training to try.
 
+**A conversation has a standard of its own.** Requests that are a conversation (an earlier reply stands in them) had
+none: they were marked against the larger model's reply, so the class stage, which asks only questions that carry
+their own standard, trained that class on nothing. Now made-up people write over several turns (`training/tasks-chat.mjs`:
+one terse, one formal, one in a hurry, one with something heavy on their mind, one saying thanks, one greeting a second
+time; and five that need the turns before the last: one asking about "that", one correcting what they asked, one asking
+two things at once, one doubting a right answer, one who said earlier how they want figures given; and two that keep a conversation intelligent: one with something to
+reason out, one asking for a function and then a change to it), each asking something code knows the answer to. A reply is good where it gives that answer and keeps every
+convention of that conversation: no praise to open, no offer of help to close, no sentence twice, a greeting once, a
+short reply to a short message, no slang to a formal one, the answer first for someone in a hurry, no question for a
+question, nothing bright for something heavy, a few words for thanks. Every reading is of the words themselves; no
+model grades another. The readers are checked before they are believed, against replies whose verdict is known
+(`training/manners-fixtures.json`; `node training/tasks-chat.mjs --check`). The conventions are how people talk, after
+[The Crew](https://github.com/nseidm1/TheCrew)'s trainers; none is taken from a benchmark.
+
+What training can change for a conversation is everything it can change for any class, and one thing more: **a reply
+tidied by code** (`src/manners.mjs`; `plan.manners`). An opening that only praises, a closing that only offers more
+help, a sentence said again and a greeting given twice are each put right by code, with no model asked, where
+training turned that fix on. None is on as a module starts. Manners do not fix what a model knows: a reply without
+the answer is wrong whatever its manners.
+
+**The conversation run stands apart from the intelligence run** (the dashboard's two cards under Run). One press is
+one pass: `node training/classes.mjs --only talk --kinds <the made-up people> --figures --out
+training/results/<configuration>/conversation.json`. Its figures are its own: the held conversations before the pass
+and after it, and a line a pass in `conversation-history.jsonl`, so the passes can be set side by side. Any request
+with an earlier reply in it is of this class, a coding or reasoning exchange among them, so two of the people ask
+for exactly that part way through (something to reason out; a function to change, run by code on inputs it was not
+shown): an arrangement kept for its manners must not be one that reasons or codes worse.
+
+**Each pass learns from the last.** The class stage ends by writing down, from the swarm as it left it on its train
+questions, every kind it was still wrong on and every convention a reply still missed (`gaps.json` beside its
+record). The next pass reads that first: a kind a third wrong is asked two more train questions, one two thirds wrong
+four more, added after the ones it already had. A bar that every reply held is a step
+tighter in the next pass (a short reply is forty words, then thirty, then twenty), and goes back a step where a third
+of replies miss it. The held questions never change, so two passes can be compared. The
+dashboard's plan section says which pass it is, what it carried and what it leaves.
+
 **What is tried first follows where the class falls short.** The class stage asks the class as it stands and sorts
 every wrong answer: no drafting slot had it, a slot had it and settling lost it, or it was settled rightly and the
 reply spoiled it. The changes for the widest of the three are tried first (what is drafted; how drafts are settled; how

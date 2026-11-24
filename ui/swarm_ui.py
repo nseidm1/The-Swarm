@@ -848,6 +848,10 @@ setInterval(liveTick,1500);liveTick();
 document.addEventListener('click',async ev=>{const b=ev.target;if(b.id!=='whole-go'&&b.id!=='whole-stop')return;b.disabled=true;
   await evPost(b.id==='whole-go'?'/whole/start':'/whole/stop','#wholewrap',b.id==='whole-go'?{limit:Number(($('#whole-size')||{}).value||20)}:{});});
 setInterval(async()=>{if($('#wholebox[data-running]')||$('#busy[data-busy="the run"]'))await swap('/fragment/whole','#wholewrap');},3000);
+// THE CONVERSATION RUN'S BUTTON (converse_block): one press is one pass; drawn again while a pass runs, and the plan with it
+document.addEventListener('click',async ev=>{const b=ev.target;if(b.id!=='converse-go'&&b.id!=='converse-stop')return;b.disabled=true;
+  await evPost(b.id==='converse-go'?'/converse/start':'/converse/stop','#conversewrap',{});});
+setInterval(async()=>{if($('#conversebox[data-running]')){await swap('/fragment/converse','#conversewrap');if($('#plan'))await swap('/fragment/plan','#plan');}},4000);
 async function evPost(url,into,body){const r=await fetch(url,{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify(body||{})});
   if(!r.ok){alert(await r.text());evAsk();return;}$(into).innerHTML=await r.text();keepOpen($(into));evAsk();}
 // WHICH BODIES OF WORK AN EVALUATION ASKS: every one to begin with; a person unticks some for a quicker look, and the device keeps
@@ -1378,7 +1382,8 @@ def viz_block(d):
                  box("K1", "", "Arrangement", "What each slot is told, how many slots there are and on which model, how they are arranged and how their answers are settled, class by class; one slot alone is an arrangement too. It reaches the best answer any slot drafted, and cannot make one no slot had."),
                  box("K2", "", "Adapters, by slot", "A mixture: each drafting slot may carry its own, and the steps after them settle between them. They reach what the small model can learn."),
                  box("K3", "", "Instruments", "Operations done exactly. They can pass %s, but only where a question is that operation. %s" % (tname, inst_words)),
-                 box("K4", "", "Breakdown, cascade", "The question taken apart by code: numbered lines for every drafter, or one slot working a fact at a time while code carries what was worked out. Tried like any change; on four small models neither has gained yet (2026-11-24).")],
+                 box("K4", "", "Breakdown, cascade", "The question taken apart by code: numbered lines for every drafter, or one slot working a fact at a time while code carries what was worked out. Tried like any change; on four small models neither has gained yet (2026-11-24)."),
+                 box("K5", "", "Conversation", "Made-up people write over several turns, and each reply is read by code against the conventions of that conversation. Code can tidy a reply (praise, an offer of help, a sentence said again, a second greeting), and what a pass still misses is asked more of in the next.")],
                  "Each is kept only where held questions gained, by the one rule at S5. As a module starts, nothing is kept and no instrument is on. The held questions are training&#39;s own: what is kept here is still to be shown by the judge, J.")
              + '<p class="vintro vsub"><b>R3 in detail.</b> The run takes lanes A, S and C: each class of input, as a class. A whole pass (from a terminal: <code>bash training/session.sh</code>) goes on through B, D and E.</p>')
     tail_ = lane("J", "The judge, apart from training", [
@@ -1428,7 +1433,7 @@ def viz_block(d):
 def plan_block(d):
     """What the plan part of the page holds: what training is trying now, class by class (class_plan), then the plan the
     question-by-question loop tries from (the questions themselves are on the swarm's card)."""
-    return class_plan(d) + plan_panel(d)
+    return class_plan(d) + class_plan(d, "conversation") + plan_panel(d)
 
 
 # WHAT TRAINING CAN CHANGE, in the words the page uses: every one is tried as a change to the arrangement and kept only where
@@ -1439,18 +1444,21 @@ TRAINS = [("Pure code", "a kind of question that is an operation is done by code
           ("Cascade", "a drafting slot works the question one fact at a time, code carrying what was worked out"),
           ("Slots and models", "a slot added, dropped or moved; every slot on one model; one slot asked as the request came"),
           ("Settling", "how the drafts are settled: by most, by the drafters alone, by a model"),
-          ("The reply", "how the reply is written and closed")]
+          ("The reply", "how the reply is written and closed"),
+          ("Conversation", "a reply tidied by code: an opening that only praises, a closing that only offers help, a sentence said again, a greeting given twice")]
 GAP_WORDS = {"none": "no slot had the answer, so what is drafted is tried first", "lost": "a slot had the answer and settling lost it, so settling is tried first",
              "spoiled": "the answer was settled and the reply spoiled it, so the reply is tried first"}
 
 
-def class_plan(d):
+def class_plan(d, which="classes"):
     """WHAT TRAINING IS TRYING NOW, CLASS BY CLASS (console 2026-11-24: this part of the page says in real time what is being
     trained). From the stage's own record as it writes it (training/results/<configuration>/classes.json: each class's train
     and held questions, where it falls short, every change tried with what it counted, the best and what the held questions
     said) and the line it says of what it is asking this moment (.work/train/live.json). Nothing here is a setting."""
     root = Path(d.get("root", ARGS.root))
-    rec = data._json(root / "training" / "results" / str(d.get("key", "")) / "classes.json", None) or {}
+    rec = data._json(root / "training" / "results" / str(d.get("key", "")) / (which + ".json"), None) or {}
+    if which != "classes" and not rec:
+        return ""
     live = data._json(root / ".work" / "train" / "live.json", {}) or {}
     try:
         fresh = time.time() - (root / ".work" / "train" / "live.json").stat().st_mtime < 300
@@ -1459,10 +1467,24 @@ def class_plan(d):
     now = str(live.get("step") or "") if live.get("trainer") == "classes" and fresh and not rec.get("done") else ""
     pts = lambda x: ("%+.1f" % (100.0 * (x or 0)))  # noqa: E731
     can = "".join("<li><b>%s</b>: %s</li>" % (e(a), e(b)) for a, b in TRAINS)
-    head = ('<div class="panel plan" id="classplan"><div class="plan-head"><h3>What training is trying</h3><span class="muted small">%s</span></div>'
-            % (e("Now: " + now) if now else "Finished %s" % e(str(rec.get("done"))[:16].replace("T", " ")) if rec.get("done") else "Training is not running" if not rec else "Stopped before it finished"))
+    head = ('<div class="panel plan" id="%s"><div class="plan-head"><h3>%s</h3><span class="muted small">%s</span></div>'
+            % ("classplan" if which == "classes" else "converseplan", "What training is trying" if which == "classes" else "What the conversation run is trying",e("Now: " + now) if now else "Finished %s" % e(str(rec.get("done"))[:16].replace("T", " ")) if rec.get("done") else "Training is not running" if not rec else "Stopped before it finished"))
     out = [head, '<p class="muted small" style="margin:8px 0 0">Each class of input is trained as a class. Training asks the class as it stands, sees where it falls short, tries the changes for that first, '
                  'and keeps the best only where held questions it was not chosen on gain by more than twice their error. What it can change:</p><ul class="small" style="margin:6px 0 0;padding-left:18px">%s</ul>' % can]
+    # WHAT THIS PASS CARRIES FROM THE LAST, AND WHAT IT LEAVES FOR THE NEXT (training/classes.mjs gapsOf, focusOf)
+    cw = lambda cv: ", ".join("%s (%d of %d)" % (e(k), v.get("missed") or 0, v.get("asked") or 0) for k, v in sorted((cv or {}).items(), key=lambda kv: -((kv[1].get("missed") or 0) / max(1, kv[1].get("asked") or 1))) if v.get("missed"))  # noqa: E731
+    car = rec.get("carried") or {}
+    if rec.get("pass"):
+        fo = car.get("focus") or {}
+        out.append('<p class="small" style="margin:10px 0 0"><b>Pass %d of this stage.</b> %s</p>'
+                   % (rec["pass"], ("Carried from the last pass: %d more train questions of what it was short on (%s)%s." % (car.get("more") or 0, ", ".join("%s +%s" % (e(k), v) for k, v in fo.items()), ("; in conversation it had missed %s" % cw(car.get("conventions"))) if cw(car.get("conventions")) else ""))
+                      if fo else "Nothing is carried from a pass before it: the last one left no kind a third wrong, or there was none."))
+    gp = rec.get("gaps") or {}
+    if gp:
+        nx = gp.get("next") or {}
+        out.append('<p class="small" style="margin:6px 0 0"><b>Left for the next pass.</b> %s%s</p>'
+                   % (("Asked more of: %s." % ", ".join("%s +%s" % (e(k), v) for k, v in nx.items())) if nx else "No kind was left a third wrong.",
+                      (" In conversation, still missed: %s." % cw(gp.get("conventions"))) if cw(gp.get("conventions")) else ""))
     for K, C in (rec.get("classes") or {}).items():
         name = "Requests %s" % CLASS_WORDS.get(K, K)
         if C.get("skipped"):
@@ -4308,7 +4330,7 @@ def busy_with():
     if (_run_elsewhere() or {}).get("running"):
         return "the run"
     # (the job called pretrain is what makes adapters: the whole run starts it as its second step)
-    for name, what in (("eval", "an evaluation"), ("pretrain", "making adapters"), ("serve", "the module being served")):
+    for name, what in (("eval", "an evaluation"), ("pretrain", "making adapters"), ("serve", "the module being served"), ("converse", "a conversation pass")):
         if (job_state(name) or {}).get("running"):
             return what
     # (the whole run, between two of its steps: nothing of the three is running for a moment, and it still has the models)
@@ -5672,6 +5694,54 @@ def whole_block(d):
                "running" if running else ("done" if done else ("waiting" if held and held != "the run" else "not started" if not any(x["state"] != "waiting" for x in steps) else "stopped")), ctl, waits, rows))
 
 
+CHAT_KINDS = "chat-terse,chat-formal,chat-hurry,chat-heavy,chat-thanks,chat-back,chat-refer,chat-correct,chat-two,chat-doubt,chat-remember,chat-reason,chat-code"
+
+
+def converse_history(d):
+    """The conversation run's passes, oldest first (training/results/<configuration>/conversation-history.jsonl: one line a
+    pass, the held conversations before and after it, what it kept, what it carried and what it left)."""
+    out = []
+    try:
+        for line in (Path(d.get("root", ARGS.root)) / "training" / "results" / str(d.get("key", "")) / "conversation-history.jsonl").read_text().splitlines():
+            if line.strip():
+                out.append(json.loads(line))
+    except (OSError, ValueError):
+        pass
+    return out
+
+
+def converse_block(d):
+    """THE CONVERSATION RUN, APART FROM THE INTELLIGENCE RUN (console 2026-11-24). One press is one pass: the class of input
+    that is a conversation is trained on made-up people, judged on held conversations read by code, and the pass leaves what
+    it was short on for the next. Its two figures are its own: the held conversations before the pass and after it, and the
+    passes side by side. No benchmark is asked."""
+    st = job_state("converse") or {}
+    running = bool(st.get("running"))
+    held = busy_with()
+    hist = converse_history(d)
+    last = hist[-1] if hist else None
+    pc = lambda x: ("%.0f%%" % (100.0 * x["counted"] / x["n"])) if x and x.get("n") else "?"  # noqa: E731
+    if running:
+        ctl = '<button class="btn stop top" id="converse-stop" type="button">Stop</button>'
+    else:
+        blocked = bool(held) and held != "a conversation pass"
+        ctl = '<button class="btn top" id="converse-go" type="button"%s>%s</button>' % (" disabled" if blocked else "", "Run the next pass" if hist else "Run a pass")
+    live = data._json(Path(d.get("root", ARGS.root)) / ".work" / "train" / "live.json", {}) or {}
+    now = (' <b>Now:</b> %s' % e(str(live.get("step") or ""))) if running and live.get("trainer") == "classes" else ""
+    rows = "".join('<li class="ws done"><i></i><span>Pass %d</span><small>held %s &rarr; %s%s%s</small></li>'
+                   % (h.get("pass") or (i + 1), pc(h.get("heldBefore")), pc(h.get("heldAfter")),
+                      (" · kept: %s" % e("; ".join(re.sub(r"^plan: ", "", k) for k in h["kept"]))) if h.get("kept") else " · nothing kept",
+                      (" · left for the next: %s" % e(", ".join("%s +%s" % kv for kv in (h.get("next") or {}).items()))) if h.get("next") else "")
+                   for i, h in enumerate(hist[-6:]))
+    waits = ('<div class="state warn"><i></i><span>%s is running: a pass waits for it.</span></div>' % e(held[0].upper() + held[1:])) if held and held != "a conversation pass" and not running else ""
+    return ('<div class="panel prep wholep" id="conversebox"%s><div class="proghead"><span class="memnum"><b class="pct">%s</b><span>held conversations<small>%s</small></span></span>'
+            '<span class="progline"><b>Conversation.</b> One press is one pass: made-up people write over several turns, each reply is read by code against the conventions of that conversation, '
+            'and a change is kept only where held conversations gain. Each pass asks more of what the last was short on. No benchmark is asked.%s</span><span class="evctl">%s</span></div>%s%s</div>'
+            % (' data-running="1"' if running else "", pc((last or {}).get("heldAfter")) if last else "–",
+               ("pass %d running" % (len(hist) + 1)) if running else ("after pass %d" % (last.get("pass") or len(hist))) if last else "no pass yet", now, ctl, waits,
+               ('<ol class="wsl">%s</ol>' % rows) if rows else ""))
+
+
 def adapters_line(d):
     """THE ADAPTERS, WITH THE ARRANGEMENT (they had a card of their own, Pretrain, when they were made in a stage of their own and
     served or not by a box a person ticked). An adapter is made for a slot and is on nowhere; training puts it on a slot, for a
@@ -5696,12 +5766,12 @@ def main_body(d):
     """Everything that depends on which models are chosen: drawn again, in place, when one is changed."""
     return (
         '<i id="busy" data-busy="%s" hidden></i>'
-        '<h2>Run</h2><div id="wholewrap">%s</div>'
+        '<h2>Run</h2><div id="wholewrap">%s</div><div id="conversewrap">%s</div>'
         '%s'
         '<h2>Evaluate the swarm</h2><div id="evalwrap">%s</div>'
         # (no Pretrain card: an adapter is made for a slot and tried by training, and is shown with the arrangement, below)
         '<h2 id="arrangement">Train</h2>%s'
-        % (e(busy_with()), whole_block(d), '<div id="memwrap">%s</div>' % memory_card(d), eval_block(d), arrangement(d))
+        % (e(busy_with()), whole_block(d), converse_block(d), '<div id="memwrap">%s</div>' % memory_card(d), eval_block(d), arrangement(d))
     )
 
 
@@ -5980,6 +6050,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(eval_block(d))
         if u.path == "/fragment/whole":
             return self._send(whole_block(d))
+        if u.path == "/fragment/converse":
+            return self._send(converse_block(d))
         if u.path == "/fragment/trainq":
             g = lambda k: (parse_qs(u.query).get(k) or [""])[0]  # noqa: E731
             return self._send(train_questions(d, g("split"), g("cls"), g("kind"), g("q")))
@@ -6038,7 +6110,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         path = urlparse(self.path).path
         if path not in ("/run/start", "/run/stop", "/run/clear", "/config", "/questions", "/uninstall", "/steer", "/spec/publish",
-                        "/eval/start", "/eval/stop", "/engine/update", "/whole/start", "/whole/stop", "/serve/start", "/serve/stop"):
+                        "/eval/start", "/eval/stop", "/engine/update", "/whole/start", "/whole/stop", "/serve/start", "/serve/stop", "/converse/start", "/converse/stop"):
             return self._send("Not here.", 404, "text/plain; charset=utf-8")
         # only this page may start or stop a pass: another website can send a plain form to this address, but it cannot
         # send this header, and a request that names another origin is refused
@@ -6052,6 +6124,18 @@ class Handler(BaseHTTPRequestHandler):
                 asked = {}
             why = engine_update_start(ARGS.root, asked.get("id") if isinstance(asked, dict) else None)
             return self._send(why, 409, "text/plain; charset=utf-8") if why else self._send("started", 200, "text/plain; charset=utf-8")
+        if path in ("/converse/start", "/converse/stop"):
+            # THE CONVERSATION RUN (training/classes.mjs --only talk, with the made-up people's kinds): one press, one pass
+            if path == "/converse/stop":
+                stop_job("converse")
+                time.sleep(0.3)
+                return self._send(converse_block(data.load(ARGS.root)))
+            key = str(data.load(ARGS.root).get("key", ""))
+            why = start_job("converse", [node_for_training(), "training/classes.mjs", "--only", "talk", "--kinds", CHAT_KINDS, "--figures",
+                                         "--out", str(Path("training") / "results" / key / "conversation.json")])
+            if why:
+                return self._send(why, 409, "text/plain; charset=utf-8")
+            return self._send(converse_block(data.load(ARGS.root)))
         if path in ("/serve/start", "/serve/stop"):
             # THE MODULE SERVED AT AN ADDRESS (bin/swarm.mjs serve): started and stopped from the button beside the SwOA spec
             if path == "/serve/stop":

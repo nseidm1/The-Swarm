@@ -89,6 +89,8 @@ const AFTER_DRAFTS = [
   'writeCode',
   'agreeSkipsChecks',
   'draftsStand',
+  // (a reply tidied by code after it is written: the drafts are the ones it had)
+  'manners',
   'onePerAnswer',
   'toolDecide',
   // (done by code where it applies, or one slot asked as the request came: the arranged drafts of every other question are
@@ -142,7 +144,7 @@ export function gapOf(rows) {
 }
 // which of the three a change is for, by its name (or a pattern of the policy that names it)
 export const GAP_OF_MOVE = [
-  ['spoiled', /reply closes|writeAs|writeCode|written by one model|closeAs/],
+  ['spoiled', /reply closes|writeAs|writeCode|written by one model|closeAs|^\^?manners: /],
   [
     'lost',
     /decide by|draftsStand|onePerAnswer|agreeSkipsChecks|every draft at once|two drafts first|most drafters|would reply|a model decides|decider|checks instead|sees /,
@@ -155,6 +157,55 @@ export function orderedFor(patterns, gap) {
   if (!gap || !gap.first) return [...(patterns || [])];
   const order = ['none', 'lost', 'spoiled'].sort((a, b) => (gap[b] || 0) - (gap[a] || 0));
   return [...(patterns || [])].sort((a, b) => order.indexOf(gapOfMove(a)) - order.indexOf(gapOfMove(b)));
+}
+// WHAT A PASS LEAVES FOR THE NEXT (console 2026-11-24: training is incremental; each pass learns from the gaps the last one
+// found). From the swarm as the pass left it, on its TRAIN questions (the held ones never steer anything):
+//   kinds        { kind: { n, wrong } }          every kind asked, and how many of its questions were still wrong
+//   conventions  { id: { asked, missed } }       in conversation, each convention and how often a reply missed it
+// focusOf(gaps) -> { kind: so many more train questions of it }: a kind a third wrong gets two more, two thirds wrong four
+// (tasks.mjs focus: train only, added after the questions it already had, so none it was right on is lost).
+export function gapsOf(rows) {
+  const kinds = {};
+  const conventions = {};
+  for (const r of rows || []) {
+    const k = (kinds[r.kind] ||= { n: 0, wrong: 0 });
+    k.n++;
+    if (!r.counted) k.wrong++;
+    for (const id of r.conventions || []) {
+      const c = (conventions[id] ||= { asked: 0, missed: 0 });
+      c.asked++;
+      if ((r.missed || []).includes(id)) c.missed++;
+    }
+  }
+  return { kinds, conventions };
+}
+export function focusOf(gaps) {
+  const out = {};
+  for (const [kind, g] of Object.entries((gaps && gaps.kinds) || {})) {
+    const share = g.n ? g.wrong / g.n : 0;
+    if (share >= 2 / 3) out[kind] = 4;
+    else if (share >= 1 / 3) out[kind] = 2;
+  }
+  return out;
+}
+// A BAR THAT IS HELD TIGHTENS: a convention with a bar (tasks-chat.mjs STEPS: how short a short reply is, how brief a reply to
+// thanks) that no reply missed in the last pass is asked one step more of in this one, two at most; one a third of replies
+// missed goes back a step. barsOf(gaps, ids) -> { id: step }
+export function barsOf(gaps, ids) {
+  const out = {};
+  for (const id of ids || []) {
+    const was = Number(((gaps && gaps.bars) || {})[id]) || 0;
+    const c = ((gaps && gaps.conventions) || {})[id];
+    out[id] =
+      !c || !c.asked
+        ? was
+        : c.missed === 0
+          ? Math.min(2, was + 1)
+          : c.missed * 3 >= c.asked
+            ? Math.max(0, was - 1)
+            : was;
+  }
+  return out;
 }
 // THE BEST TWO OF THE SWEEP TOGETHER: the second's change made to the first's arrangement (the move of the same name from
 // there), or null where there are not two that gained or the second cannot be made from the first
@@ -194,11 +245,69 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const classIs = (t) => classOf(messagesOf(t), { tools: t.tools });
   // (a standard a program holds: one that needs a reader of answers in words is the larger model's or the decider's to give)
   const mine = (split) => B.questions(split).filter((t) => ownStandard(t) && !['open', 'talk'].includes(t.type));
-  const train = mine('train');
+  // WHAT THE LAST PASS LEFT (gaps.json beside this stage's record: gapsOf, focusOf): a kind it was still wrong on is asked
+  // more of in this one, on train questions only, added after the ones it already had. The held questions never change.
+  // (each record has its own: classes-gaps.json beside classes.json, conversation-gaps.json beside the conversation run's)
+  const OUT0 = B.arg('out') || path.join(B.RESULTS, 'classes.json');
+  const GAPS = OUT0.replace(/\.json$/, '') + '-gaps.json';
+  const HISTORY = OUT0.replace(/\.json$/, '') + '-history.jsonl';
+  let lastGaps = null;
+  try {
+    lastGaps = JSON.parse(fs.readFileSync(GAPS, 'utf8'));
+  } catch {
+    lastGaps = null;
+  }
+  const carriedFocus = lastGaps && !B.has('no-carry') ? focusOf(lastGaps) : {};
+  // (and the bars the last pass held are a step tighter in this one, on train and held alike: said in the record)
+  const { setBars, BAR_IDS } = await import('./tasks-chat.mjs');
+  const bars = lastGaps && !B.has('no-carry') ? barsOf(lastGaps, BAR_IDS) : {};
+  setBars(bars);
+  const { tasks: makeTasks } = await import('./tasks.mjs');
+  const train0 = mine('train');
+  const moreOf = Object.entries(carriedFocus).flatMap(([kind, extra]) => {
+    const had = train0.filter((t) => t.kind === kind);
+    if (!had.length) return [];
+    return makeTasks({ split: 'train', each: had.length + extra, kinds: [kind], seed: had[0].seed })
+      .filter((t) => ownStandard(t) && !['open', 'talk'].includes(t.type) && !had.some((x) => x.id === t.id))
+      .slice(0, extra);
+  });
+  const train = [...train0, ...moreOf];
   const held = mine('held');
+  const lastRows = {};
 
   let stored = readBriefs();
-  const record = { at: new Date().toISOString(), sample, tries, rounds, draws, dry: B.has('dry'), classes: {} };
+  const record = {
+    at: new Date().toISOString(),
+    sample,
+    tries,
+    rounds,
+    draws,
+    dry: B.has('dry'),
+    // (which pass of this stage this is, and what it carries from the one before: said on the page)
+    pass: ((lastGaps && lastGaps.pass) || 0) + 1,
+    ...(lastGaps
+      ? {
+          carried: {
+            from: lastGaps.at,
+            focus: carriedFocus,
+            more: moreOf.length,
+            conventions: lastGaps.conventions || {},
+            bars,
+          },
+        }
+      : {}),
+    classes: {},
+  };
+  if (moreOf.length)
+    console.log(
+      'carried from the last pass: ' +
+        moreOf.length +
+        ' more train questions of what it was short on (' +
+        Object.entries(carriedFocus)
+          .map(([k, n]) => k + ' +' + n)
+          .join(', ') +
+        ')',
+    );
   const save = () => {
     fs.mkdirSync(path.dirname(OUT), { recursive: true });
     fs.writeFileSync(OUT + '.tmp', JSON.stringify(record, null, 1));
@@ -248,6 +357,10 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       any,
       settled: await right(got.decided),
       counted: (await t.good(got.reply)).grade === 'right',
+      // (a conversation says which of its conventions the reply missed: tasks-chat.mjs; carried to the next pass by gapsOf)
+      ...(t.type === 'chat'
+        ? { missed: (await t.good(got.reply)).missed || [], conventions: t.conventions.map((c) => c.id) }
+        : {}),
       unread: typeof t.readable === 'function' ? !t.readable(got.reply) : null,
       path: got.path,
       ms: got.ms,
@@ -315,6 +428,13 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       let base = briefsFor(stored, '', K);
       let baseRows = await all(tr, asClass(K, base), said(K) + ': how the swarm stands');
       C.asItStands = figuresOf(baseRows);
+      lastRows[K] = baseRows;
+      // (--figures: the held questions before anything is tried, so a pass has a figure of its own to set beside the one
+      // it ends with: the conversation run's two figures)
+      if (B.has('figures')) {
+        C.heldBefore = figuresOf(await all(he, asClass(K, base), said(K) + ': the held questions, before the pass'));
+        save();
+      }
       save();
       console.log('  as it stands: ' + JSON.stringify(C.asItStands));
       for (let round = 0; round < rounds; round++) {
@@ -428,6 +548,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         }
         base = best.m.briefs;
         baseRows = best.rows;
+        lastRows[K] = baseRows;
         C.kept.push(best.m.name);
         C.after = figuresOf(baseRows);
         if (!B.has('dry')) {
@@ -469,6 +590,55 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         'No slot had a good answer on a quarter or more of: ' +
           record.wanted.map((x) => x.kind + ' (' + x.anySlot + ' of ' + x.n + ')').join(', ') +
           '. These are where an instrument or an adapter has something to add.',
+      );
+  }
+  // (--figures: and the held questions as the pass leaves the class: asked again only where something was kept)
+  if (B.has('figures'))
+    for (const [K, C] of Object.entries(record.classes)) {
+      if (!C || C.skipped || !C.heldBefore) continue;
+      const he = sampleOf(
+        held.filter((t) => classIs(t) === K),
+        sample,
+      );
+      C.heldAfter = (C.kept || []).length
+        ? figuresOf(
+            await all(he, asClass(K, briefsFor(stored, '', K)), said(K) + ': the held questions, after the pass'),
+          )
+        : C.heldBefore;
+    }
+  // WHAT THIS PASS LEAVES FOR THE NEXT: every class as the pass left it, on its train questions (gapsOf)
+  {
+    const g = gapsOf(Object.values(lastRows).flat());
+    record.gaps = { ...g, next: focusOf(g) };
+    if (!B.has('dry')) {
+      fs.mkdirSync(path.dirname(GAPS), { recursive: true });
+      fs.writeFileSync(GAPS, JSON.stringify({ at: record.at, pass: record.pass, bars, ...g }, null, 1));
+      // (one line a pass, for the passes to be set side by side: the held figures before and after, what was kept, what is left)
+      if (B.has('figures')) {
+        const sum = (f) => Object.values(record.classes).reduce((a, C) => a + ((C && C[f] && C[f].counted) || 0), 0);
+        const n = (f) => Object.values(record.classes).reduce((a, C) => a + ((C && C[f] && C[f].n) || 0), 0);
+        fs.appendFileSync(
+          HISTORY,
+          JSON.stringify({
+            pass: record.pass,
+            at: record.at,
+            heldBefore: { counted: sum('heldBefore'), n: n('heldBefore') },
+            heldAfter: { counted: sum('heldAfter'), n: n('heldAfter') },
+            kept: Object.values(record.classes).flatMap((C) => (C && C.kept) || []),
+            carried: carriedFocus,
+            bars,
+            next: focusOf(g),
+            conventions: g.conventions,
+          }) + '\n',
+        );
+      }
+    }
+    const short = Object.entries(g.conventions)
+      .filter(([, c]) => c.missed)
+      .sort((a, b) => b[1].missed / b[1].asked - a[1].missed / a[1].asked);
+    if (short.length)
+      console.log(
+        'in conversation, still missed: ' + short.map(([id, c]) => id + ' ' + c.missed + ' of ' + c.asked).join(', '),
       );
   }
   record.done = new Date().toISOString();
