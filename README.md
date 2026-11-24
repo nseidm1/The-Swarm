@@ -130,7 +130,8 @@ const { reply, ok } = await swarm.answer([{ role: 'user', content: 'Write a func
 await swarm.stop();
 ```
 
-As a server (`swarm.serve()`, or `node bin/swarm.mjs serve`) it answers what llama.cpp's own server answers, on
+As a server (`swarm.serve()`, `node bin/swarm.mjs serve`, or the dashboard's **Serve the module** button, which shows
+the address once it answers) it answers what llama.cpp's own server answers, on
 `127.0.0.1` only, so a program that talks to one model at an address needs no change:
 
 | Endpoint | Answers |
@@ -251,7 +252,7 @@ npm test
 python3 ui/check.py
 ```
 
-252 checks of the module and the trainers and 165 of the dashboard, against stand-in servers: nothing is fetched,
+252 checks of the module and the trainers and 166 of the dashboard, against stand-in servers: nothing is fetched,
 started or installed. `npm test` deals its blocks of checks out to every core (27 seconds on a 24-core Mac, 88 one
 after another); `npm run test:serial` runs them in one process, `npm run test:all` adds the dashboard's, and
 `npm run test:python` checks the Python client. How well the

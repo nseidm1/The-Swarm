@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The dashboard serves the module** (2026-11-24). A button left of the SwOA spec starts the module as one chat model
+  at an address on this machine (`node bin/swarm.mjs serve`, port 8090). While its models load it says so; once it
+  answers, the address to connect a program or a harness to is shown beside it (press to copy) and the button stops
+  it. It cannot be started while training or an evaluation has the models, and they wait while it is served.
 - **Training can take the question apart, vary how many slots and models there are, and tries first what the class
   is short of** (2026-11-24). Two new changes to an arrangement, both by code with no model asked (`src/breakdown.mjs`;
   SwOA O.6.1b, O.6.1c): `plan.prepare: "lines"` sends every drafter the question with each thing it states on a

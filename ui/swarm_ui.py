@@ -149,6 +149,8 @@ dialog#qedit::backdrop{background:rgba(11,40,38,.45)}dialog#qedit h4{margin:22px
 .picks .pick{flex:1 1 185px}.picks .pick.target{flex:1.6 1 300px}
 .specbtn{font:inherit;font-size:12.5px;font-weight:800;color:var(--fog);background:var(--panel);border:0;border-left:4px solid var(--sun);border-radius:var(--r);padding:7px 14px;box-shadow:var(--shadow);cursor:pointer;white-space:nowrap}
 .specbtn span{font-weight:700;color:var(--mist);margin-left:6px}.specbtn.tidy{border-left-color:var(--coral)}
+.specbtn.serve{border-left-color:var(--teal2)}.specbtn.serve[disabled]{opacity:.55;cursor:not-allowed}.specbtn.serve.on i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--right);margin-right:7px}
+.specbtn.serve.starting{color:var(--mist)}.serveurl{font:600 12.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--fog);background:var(--panel);border-radius:var(--r);padding:7px 12px;box-shadow:var(--shadow);cursor:copy;user-select:all;white-space:nowrap}
 dialog#tidy{border:0;border-radius:var(--r);padding:26px;max-width:min(820px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}
 dialog#tidy::backdrop{background:rgba(11,40,38,.45)}.tlist{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}
 .tgroup{font-size:10.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--teal2);margin:12px 0 0}
@@ -735,6 +737,15 @@ function watch(){if(timer)return;timer=setInterval(async()=>{const was=!!$('#sco
     await swap('/fragment/chips','#chips');
     if($('#spec').open){const y=$('#spec').scrollTop;await swap('/fragment/spec','#spec-body');$('#spec').scrollTop=y;}}},4000);}
 if($('#score [data-running]'))watch();
+// THE MODULE SERVED AT AN ADDRESS: the button starts or stops it; while its models load the chips are read again until it answers
+let serveTimer=null;
+function serveWatch(){if(serveTimer)return;serveTimer=setInterval(async()=>{await swap('/fragment/chips','#chips');if(!$('#serve-toggle.starting')){clearInterval(serveTimer);serveTimer=null;}},2000);}
+document.addEventListener('click',async ev=>{
+  const u=ev.target.closest('#serve-url');if(u){try{await navigator.clipboard.writeText(u.textContent);const t=u.textContent;u.textContent='Copied';setTimeout(()=>{u.textContent=t;},900);}catch(e){}return;}
+  const b=ev.target.closest('#serve-toggle');if(!b||b.disabled)return;b.disabled=true;
+  const r=await fetch(b.dataset.on==='1'?'/serve/stop':'/serve/start',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:'{}'});
+  if(r.ok){$('#chips').innerHTML=await r.text();if($('#serve-toggle.starting'))serveWatch();}else{alert(await r.text());await swap('/fragment/chips','#chips');}});
+if($('#serve-toggle.starting'))serveWatch();
 // WHAT EVERY SLOT IS DOING NOW: asked for every second and a half while a session runs, and written onto the cards in place
 const STEP={classes:'Training each class of input as a class',loop:'Training question by question',measure:'Measuring the swarm',improve:'Trying a brief',arrange:'Trying an arrangement',baseline:'One model alone'};
 function paint(el,cls,text){el.className='live '+cls;const sp=el.querySelector('span');if(sp.textContent!==text){sp.textContent=text;el.title=text;}}
@@ -4297,7 +4308,7 @@ def busy_with():
     if (_run_elsewhere() or {}).get("running"):
         return "the run"
     # (the job called pretrain is what makes adapters: the whole run starts it as its second step)
-    for name, what in (("eval", "an evaluation"), ("pretrain", "making adapters")):
+    for name, what in (("eval", "an evaluation"), ("pretrain", "making adapters"), ("serve", "the module being served")):
         if (job_state(name) or {}).get("running"):
             return what
     # (the whole run, between two of its steps: nothing of the three is running for a moment, and it still has the models)
@@ -5809,10 +5820,55 @@ def proof_block(sp):
         e(rule[:1].upper() + rule[1:]), body, ("<p class='muted small' style='margin:10px 0 0'>%s</p>" % e(read)) if read else "")
 
 
+SERVE_PORT = 8090
+
+
+def serve_state():
+    """THE MODULE SERVED AS ONE MODEL AT AN ADDRESS (node bin/swarm.mjs serve), started from this page: 'off', 'starting'
+    (its process is up and its small models are still loading) or 'on' (its /health answers 200), with the address a program
+    connects to. {state, url, port}."""
+    st = _job_state("serve") or {}
+    port = int(st.get("port") or SERVE_PORT)
+    url = "http://127.0.0.1:%d/v1" % port
+    if not st.get("running"):
+        return {"state": "off", "url": url, "port": port}
+    up = False
+    try:
+        import urllib.request
+        with urllib.request.urlopen("http://127.0.0.1:%d/health" % port, timeout=0.4) as r:
+            up = r.status == 200
+    except Exception:  # noqa: BLE001 (not answering yet is the ordinary case while it loads)
+        up = False
+    return {"state": "on" if up else "starting", "url": url, "port": port}
+
+
+def serve_chip():
+    """The button that serves the module, left of the SwOA spec: off, it starts it; on, it shows the address to connect to
+    and stops it. While the models load it says so and cannot be pressed."""
+    sv = serve_state()
+    if sv["state"] == "off":
+        held = busy_with()
+        return ('<button class="specbtn serve" id="serve-toggle" type="button" data-on="0"%s>Serve the module</button>'
+                % ((' disabled title="Wait for %s to end, or stop it: each needs the models to itself"' % e(held)) if held
+                   else ' title="Start the module as one chat model at an address on this machine, for a program or a harness to connect to"'))
+    if sv["state"] == "starting":
+        return '<button class="specbtn serve starting" id="serve-toggle" type="button" data-on="1" title="Its small models are loading. Press to stop">Starting the module<span>stop</span></button>'
+    return ('<span class="serveurl" id="serve-url" title="Connect a program or a harness here: an OpenAI-style chat endpoint, one model, the-swarm. Press to copy">%s</span>'
+            '<button class="specbtn serve on" id="serve-toggle" type="button" data-on="1" title="The module is being served on this machine only. Press to stop it"><i></i>Serving<span>stop</span></button>'
+            % e(sv["url"]))
+
+
+def serve_start():
+    """Start the module's own server; '' when it started, else why not."""
+    if (_job_state("serve") or {}).get("running"):
+        return ""
+    return start_job("serve", [node_for_training(), "bin/swarm.mjs", "serve", "--port", str(SERVE_PORT)], {"port": SERVE_PORT})
+
+
 def chips(d):
     """Beside the title: which pass it is, how far toward parity, and the way in to the SwOA spec (with how many kept changes its
     arrangement carries now: data.learned_live). Read again while a pass runs."""
-    out = []
+    out = [serve_chip()]
     live = data.learned_live(d["learned"])
     out.append('<button class="specbtn" id="spec-open" type="button" title="The SwOA spec: the swarm module as it stands, what tunes it, and the proof">SwOA spec%s</button>'
                % (("<span>%d learned</span>" % live) if live else ""))
@@ -5982,7 +6038,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         path = urlparse(self.path).path
         if path not in ("/run/start", "/run/stop", "/run/clear", "/config", "/questions", "/uninstall", "/steer", "/spec/publish",
-                        "/eval/start", "/eval/stop", "/engine/update", "/whole/start", "/whole/stop"):
+                        "/eval/start", "/eval/stop", "/engine/update", "/whole/start", "/whole/stop", "/serve/start", "/serve/stop"):
             return self._send("Not here.", 404, "text/plain; charset=utf-8")
         # only this page may start or stop a pass: another website can send a plain form to this address, but it cannot
         # send this header, and a request that names another origin is refused
@@ -5996,6 +6052,16 @@ class Handler(BaseHTTPRequestHandler):
                 asked = {}
             why = engine_update_start(ARGS.root, asked.get("id") if isinstance(asked, dict) else None)
             return self._send(why, 409, "text/plain; charset=utf-8") if why else self._send("started", 200, "text/plain; charset=utf-8")
+        if path in ("/serve/start", "/serve/stop"):
+            # THE MODULE SERVED AT AN ADDRESS (bin/swarm.mjs serve): started and stopped from the button beside the SwOA spec
+            if path == "/serve/stop":
+                stop_job("serve")
+                time.sleep(0.3)
+                return self._send(chips(data.load(ARGS.root)))
+            why = serve_start()
+            if why:
+                return self._send(why, 409, "text/plain; charset=utf-8")
+            return self._send(chips(data.load(ARGS.root)))
         if path in ("/whole/start", "/whole/stop"):
             # THE WHOLE RUN (training/run.sh): the size of its evaluations, one of the sizes the Evaluate card offers. Stop ends
             # the step it is in, and the models that step started
