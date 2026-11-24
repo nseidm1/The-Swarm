@@ -8769,6 +8769,41 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const none = E.continuation('The best answer is', 'C');
   const cut = E.cutAt('42\n\nQuestion: next', ['Question:', '\n\n']);
   const prog = E.progressOf('Requesting API:   0%|  | 0/20\rRequesting API:  35%|###  | 7/20 [00:30<');
+  // a module of one slot: the first drafter alone, asked once, its stated answer the reply; no check, no choice, no writer
+  {
+    reset();
+    const one = E.oneSlot(briefs);
+    const got1 = await swarm.answer(Q, { briefs: one });
+    const shown1 = [
+      { role: 'user', content: 'Q: one and one?' },
+      { role: 'assistant', content: 'One and one.\nSo the answer is 2.' },
+      { role: 'user', content: 'Q: two and two?' },
+      { role: 'assistant', content: 'Two and two.\nSo the answer is 4.' },
+      { role: 'user', content: 'Q: six times seven?' },
+    ];
+    reset();
+    lfm.s.script = () => 'six sevens\nANSWER: 42';
+    const closed1 = await swarm.answer(shown1, { briefs: { ...one, plan: { ...one.plan, closeAs: 'shown' } } });
+    check(
+      'evaluate: a module of one slot is the first drafter alone and a flow that drafts and stops; it answers with one call, and its reply closes in the form the earlier replies show',
+      one.slots.length === 1 &&
+        one.slots[0].stage === 'draft' &&
+        one.flow.length === 1 &&
+        !one.kinds &&
+        got1.ok &&
+        got1.decided === '42' &&
+        got1.trace.length === 1 &&
+        lfm.s.calls.length + bonsai.s.calls.length === 1 &&
+        /So the answer is 42\.$/.test(closed1.reply),
+      {
+        reply: got1.reply,
+        path: got1.path,
+        slots: got1.trace.map((r) => r.slot),
+        closed: closed1.reply,
+        calls: lfm.s.calls.length + bonsai.s.calls.length,
+      },
+    );
+  }
   // the second baseline: a model's own reply laid out as the earlier replies are, and nothing else changed
   {
     const shown = [
@@ -9904,8 +9939,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     'the arrangement a swarm starts from can be read whatever the configuration has learned since, and an evaluation asked for it (--default) measures that one and says "default"; otherwise it says which of the two the stored arrangement is',
     start.plan.draftFirst === 2 &&
       start.slots.every((x) => Object.keys(MEMBERS).includes(x.member)) &&
-      /B\.has\('default'\) \|\| \(variant && variant\.default\) \? startBriefs\(\) : storedBriefs\(\)/.test(ev) &&
-      /\? 'default'\s*: 'trained'/.test(ev) &&
+      /B\.has\('default'\) \|\| \(variant && variant\.default\)\s*\? startBriefs\(\)\s*: storedBriefs\(\)/.test(ev) &&
+      /\? 'default'\s*: B\.has\('one-slot'\)\s*\? 'one slot'\s*: 'trained'/.test(ev) &&
       (ev.match(/arrangementSha256,\n\s+arrangement,/g) || []).length === 2,
     Object.keys(start.plan),
   );

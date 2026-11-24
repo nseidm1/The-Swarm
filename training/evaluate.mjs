@@ -103,6 +103,21 @@ export const VARIANTS = {
   trained: { default: false, adapters: 'on', name: 'Pretrained and trained' },
 };
 export const variantOf = (name) => VARIANTS[String(name || '')] || null;
+// A MODULE OF ONE SLOT (--one-slot): the arrangement the swarm starts from with every slot but its first drafter taken out, and
+// a flow that drafts and stops. All of the module's code is still round that one slot (how a request is read, the answer it is
+// told to state, the form a reply closes with), and nothing of the arrangement is: no second draft, no check, no choice, no
+// writer. Between the small model asked plainly and the module there are two things, the code and the arrangement; this
+// measures the first without the second. Kept apart from every other evaluation by its arrangement's hash.
+export function oneSlot(briefs) {
+  const first = (briefs.slots || []).find((s) => s.stage === 'draft');
+  const { kinds, ...rest } = briefs;
+  return {
+    ...rest,
+    slots: first ? [first] : [],
+    flow: [{ do: 'draft' }],
+    plan: { ...(briefs.plan || {}), draftFirst: 1 },
+  };
+}
 // ONE SCORE FOR A WHOLE EVALUATION, WITH ITS ERROR: of every question asked, the share right, each task counted by its
 // questions; the error is the tasks' own standard errors put together the same way. who: 'swarm' or 'target'.
 // results: [{ swarm: { value, stderr, n }, target: {...} }] -> { value, stderr, n } (n 0 where nothing was scored)
@@ -539,7 +554,12 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   // same code on the same questions. A result says which it is of ("arrangement": "default" or "trained"): the two are kept
   // apart already, each under its own arrangement's hash.
   const { readBriefs: storedBriefs, startBriefs } = await import('../src/index.mjs');
-  const readBriefs = () => (B.has('default') || (variant && variant.default) ? startBriefs() : storedBriefs());
+  const readBriefs = () =>
+    B.has('one-slot')
+      ? oneSlot(startBriefs())
+      : B.has('default') || (variant && variant.default)
+        ? startBriefs()
+        : storedBriefs();
   const { serve } = await import('../src/server.mjs');
   const { readConfig, CONFIG_KEY, TARGET } = await import('../src/catalog.mjs');
   const CONFIG = readConfig();
@@ -580,7 +600,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const arrangement =
     arrangementSha256 === recipeSha256(Object.fromEntries(Object.entries(startBriefs()).filter(([k]) => k !== 'about')))
       ? 'default'
-      : 'trained';
+      : B.has('one-slot')
+        ? 'one slot'
+        : 'trained';
   // (whether its small models are served with the adapters Pretrain trained: what an evaluation before and after compares)
   const { servedWith } = await import('./adapters.mjs');
   const { MEMBERS } = await import('../src/catalog.mjs');
