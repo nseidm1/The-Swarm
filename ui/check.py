@@ -2257,7 +2257,7 @@ _vzw = swarm_ui.viz_block(data.load(swarm_ui.ARGS.root))
 check("the System picture draws the run in order (R1 to R4: pretraining is no stage of it), a request inside the module (M1 to M4), what training keeps with how far each reaches (K1 to K3, instruments saying which are on), the arrangement's lanes after them, and the judge last (J1 to J4)",
       all(">%s</span>" % c in _vzw for c in ("R1", "R4", "M1", "M2", "M4", "K1", "K2", "K3", "A1", "S5", "E1", "J1", "J4")) and ">R5</span>" not in _vzw and "Adapters, by slot" in _vzw
       and _vzw.index(">R1</span>") < _vzw.index(">M1</span>") < _vzw.index(">K1</span>") < _vzw.index(">A1</span>") < _vzw.index(">J1</span>")
-      and "None is on yet." in _vzw and "__VIZ_" not in _vzw and "R3 in detail" in _vzw,
+      and "None is on yet." in _vzw and "__VIZ_" not in _vzw and "async function swap(url,into,opts){if(!$(into))return;" in swarm_ui.JS and "R3 in detail" in _vzw and "each request is served with the one its slot carries" in _vzw and "a slot given its adapter first" in _vzw and "bash training/session.sh" in _vzw,
       [c for c in ("R1", "M1", "K3", "J4") if ">%s</span>" % c not in _vzw])
 # THE SECOND BASELINE ON THE PAGE: beside a small model by itself, the same model with its reply laid out, as one more column
 _lo = [{"alone": {"a": {"name": "A", "value": 0.0}}, "aloneForm": {"a": {"name": "A", "value": 0.5, "unread": 1}}, "agree": {"of": 10}},

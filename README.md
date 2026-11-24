@@ -18,10 +18,10 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/dashboard.png" alt="The top of the training dashboard: the SwOA spec and Uninstall Helper buttons; Configuration, with one small model in every role (LFM2.5 1.2B), a small model of the swarm deciding, Jeffan 4B judging equivalence, against Nemotron 3.5 Lightning 30B; who takes turns with tools; whether the swarm is served with its adapters; Your own questions, a button for each body of work; and the Run card: 2 of 5 steps, stopped, the size of each evaluation, whether the arrangement is trained too, Carry on, and the five steps (evaluate the module as configured, pretrain, evaluate it pretrained, train the arrangement, evaluate it pretrained and trained)" width="860">
+  <img src="docs/images/dashboard.png" alt="The top of the training dashboard: the SwOA spec and Uninstall Helper buttons; Configuration, with one small model in every role (LFM2.5 1.2B), a small model of the swarm deciding, Jeffan 4B judging equivalence, against Nemotron 3.5 Lightning 30B; who takes turns with tools; Your own questions, a button for each body of work; and the Run card: the size of each evaluation, Start, and its four steps (evaluate the module as configured, make an adapter for each drafting slot, train, evaluate it trained)" width="860">
 </p>
 
-<p align="center"><em>The top of the training dashboard on 2026-11-22: a swarm of LFM2.5 1.2B in every role against Nemotron 3.5 Lightning 30B, and Run, the one button that takes it through its five steps. Below it on the page: Memory saved, Evaluate the swarm, Pretrain, Train, the plan and the system, pictured under <a href="docs/dashboard.md">The dashboard</a>.</em></p>
+<p align="center"><em>The top of the training dashboard on 2026-11-24: a swarm of LFM2.5 1.2B in every role against Nemotron 3.5 Lightning 30B, and Run, the one button that takes it through its four steps. Below it on the page: Memory saved, Evaluate the swarm, Train, the plan and the system, pictured under <a href="docs/dashboard.md">The dashboard</a>.</em></p>
 
 
 The Swarm is a module from Family Office. To the program that uses it, it is one chat model: messages go in and one reply
@@ -38,11 +38,11 @@ harness, unchanged ([docs/swoa-parity.md](docs/swoa-parity.md)).
 as one model, with the proof of what it does. The Swarm is not tied to one project;
 [The Crew](docs/training.md#the-crew-the-first-project-that-uses-it) is the first to use it.
 
-> **Status: pre-release; nothing proven yet.** The swarm configured now (2026-11-22) is LFM2.5 1.2B in both places against
+> **Status: pre-release; nothing proven yet.** The swarm configured now (2026-11-24) is LFM2.5 1.2B in both places against
 > Nemotron 3.5 Lightning 30B. As configured, before any training, it scored 55.2% on 460 questions of 23 standard tasks
 > where the larger model scored 77.6% and the small model by itself 30.0%. Twenty questions a task is a check, not a
-> proof. Pretrained by role it read 50.7% and trained after that 49.6%, both lower; each stage is now held to the one
-> before, and no whole run has been made since.
+> proof. **Training has not yet bettered it on any benchmark**: what training kept so far read lower each time it was
+> judged from outside, most recently 75 of 200 on two code benchmarks against 95 as configured, and was taken off.
 > [Results](#results) · [Status and limits](docs/status.md)
 
 ## Requirements
@@ -53,7 +53,7 @@ as one model, with the proof of what it does. The Swarm is not tied to one proje
 | `llama-server` (llama.cpp 1.0.0 or later) | Serving the small models. A pinned build is fetched if none is on the machine |
 | Python 3.9 or later | The dashboard (standard library only) |
 | Python 3.10 or later, or `uv` | Evaluating: the harnesses are installed into `.work` the first time |
-| An Apple silicon Mac | Pretraining (MLX). Everything else runs without it |
+| An Apple silicon Mac | Making adapters (MLX). Everything else runs without it |
 | Memory and disk | About 3.5 to 13 GB of memory for the small models; 0.5 to 5 GB of disk for each, 2.5 GB and up for a larger model |
 
 Everything it fetches goes into `.work`, and the dashboard's Uninstall Helper takes it out again piece by piece.
@@ -115,8 +115,9 @@ is taken:
 | A system text that sets the reply's form as a template | The settled answer is written into that form by code |
 
 The arrangement (which slots, what each is told, the order of the stages) is chosen by the class of the request: with
-tools, a conversation, asking for code, or a plain question. Finding the arrangement that does what the larger model does
-is what training is for. [How it works, in full](docs/how-it-works.md) · [Architecture](docs/architecture.md)
+tools, a conversation, asking for code, or a plain question. A slot may carry an adapter of its own: one small model
+holds several at once, and each request is served with the one its slot carries, so drafters can differ and the stages
+after them settle between them. Finding the arrangement that does what the larger model does is what training is for. [How it works, in full](docs/how-it-works.md) · [Architecture](docs/architecture.md)
 
 ## Use it in a program
 
@@ -150,20 +151,24 @@ with Swarm(spec="specs/<name>.swoa.json") as swarm:  # or Swarm() for the swarm 
 ```
 
 **From its spec.** `node bin/swarm.mjs serve --spec specs/<name>.swoa.json` makes a trained swarm again from its SwOA
-spec: the pinned model files, the arrangement, the adapters by role and the instruments that are on, each checked
+spec: the pinned model files, the arrangement, the adapters its slots carry and the instruments that are on, each checked
 against its hash. [The API and the spec's parts](docs/api.md) · [The SwOA specification](docs/swoa.md)
 
 ## Training
 
-A module is trained toward a larger model, and what training finds is the module's wiring. It keeps each of three things
-only where held questions, never trained on, say it helped:
+A module is trained toward a larger model, and what training finds is the module's wiring. Nothing is a setting: each
+of these is tried as a change and kept only where held questions, never trained on, gain beyond their error:
 
-- **The arrangement**, for each class of input: what each slot is told and how the slots are arranged.
-- **Adapters, one for each role** (drafting, checking, writing the reply): LoRA adapters taught from the slots' own
-  requests, the answers they gave that were right and the larger model's answers where they were not, each served
-  only where held questions are better with it.
+- **The arrangement**, for each class of input: what each slot is told, how the slots are arranged and how their
+  answers are settled. One slot asked plainly is an arrangement too, where that is enough.
+- **A mixture of adapters.** A LoRA adapter is made for each drafting slot from that slot's own requests on many
+  questions: its own answer where it was right, the larger model's where it was not. It is on no slot until training
+  puts it there.
 - **Instruments**: where a class of input holds operations code does exactly, that instrument is turned on. None is on
   as a module starts.
+
+Training's held questions are its own, so what it keeps is still to be shown by the benchmarks; so far it has not been
+([Results](#results)).
 
 ```bash
 bash training/run.sh
@@ -180,7 +185,7 @@ chat-model interface as they ask any model. Training makes its own questions fro
 ## The dashboard
 
 <p align="center">
-  <img src="docs/images/dashboard-evaluate.png" alt="Evaluate the swarm: 71.1% of the larger model&#39;s score (55.2% against 77.6% on 460 questions), with Each task, Paper table and Chart; the three evaluations side by side (as configured 55.2%, pretrained and pretrained and trained not measured yet); the bodies of work asked, the harnesses used, and every task folded to one line" width="860">
+  <img src="docs/images/dashboard-evaluate.png" alt="Evaluate the swarm: 71.1% of the larger model&#39;s score (55.2% against 77.6% on 460 questions), with Each task, Paper table and Chart; the two evaluations side by side (as configured 55.2%, which is the baseline, and trained 49.6%, a loss of 5.7 points); the bodies of work asked, the harnesses used, and every task folded to one line" width="860">
 </p>
 
 `python3 ui/swarm_ui.py` opens at `http://127.0.0.1:8787/` and needs nothing installed. It chooses the models, runs and
@@ -205,7 +210,8 @@ instrument on) against Nemotron 3.5 Lightning 30B, 20 questions of each of 23 st
 
 Read it with care:
 
-- Twenty a task is a check. A verdict needs at least a hundred, and no run of that size has finished.
+- Twenty a task is a check. A verdict needs at least a hundred; only the two code benchmarks have been run at that
+  size (95 of 200 as configured).
 - Most of the module's lead over its own small model is its code, not its arrangement. On the 320 questions that are
   not tools or search: the small model asked plainly 15.6%, with the module's reply layout only 19.1%, a module of one
   slot (all of the module's code round one call) 41.9%, the whole module 51.2%, the larger model 82.5%. So the code is
@@ -237,7 +243,7 @@ python3 ui/check.py
 ```
 
 250 checks of the module and the trainers and 166 of the dashboard, against stand-in servers: nothing is fetched,
-started or installed. `npm test` deals its 115 blocks of checks out to every core (26 seconds on a 24-core Mac, 91 one
+started or installed. `npm test` deals its blocks of checks out to every core (27 seconds on a 24-core Mac, 88 one
 after another); `npm run test:serial` runs them in one process, `npm run test:all` adds the dashboard's, and
 `npm run test:python` checks the Python client. How well the
 models do is not a check. It is a measurement.
@@ -248,7 +254,7 @@ models do is not a check. It is a measurement.
 | --- | --- |
 | `src/` | The module: the server, the order of things, the models that can be chosen, the configuration, the briefs |
 | `bin/`, `python/` | `swarm serve` and `swarm ask`; the Python client |
-| `training/` | The questions, the trainers, the policy they train by, the evaluator and pretraining |
+| `training/` | The questions, the trainers, the policy they train by, the evaluator, and what makes and proves adapters |
 | `specs/` | Published SwOA specs, each with its card and its proof: the only thing training leaves that is committed |
 | `tests/`, `ui/` | The checks; the dashboard (Python, standard library only) with its sample data and checks |
 | `docs/` | The documents below, and the pictures |

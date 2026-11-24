@@ -586,7 +586,9 @@ document.addEventListener('click',(ev)=>{
 // (saved on a click of its heading, and not on every toggle: a section that loads open fires one too, which would put "open" back)
 document.addEventListener('click',(ev)=>{const sm=ev.target.closest('details[data-keep]>summary');if(!sm)return;const d=sm.parentElement;setTimeout(()=>{try{localStorage.setItem('swarm.open.'+d.dataset.keep,d.open?'1':'0');}catch(e){}},0);});
 document.addEventListener('DOMContentLoaded',()=>keepOpen());
-async function swap(url,into,opts){const r=await fetch(url,opts);$(into).innerHTML=await r.text();keepOpen($(into));if(typeof sinceTick==='function')sinceTick();if(typeof evAsk==='function')evAsk();if(typeof trainAsk==='function')trainAsk();}
+// (a part that is no longer on the page is not fetched: the adapters row and the Pretrain card went, 2026-11-24, and a
+// change of model drew them again in place and stopped there)
+async function swap(url,into,opts){if(!$(into))return;const r=await fetch(url,opts);$(into).innerHTML=await r.text();keepOpen($(into));if(typeof sinceTick==='function')sinceTick();if(typeof evAsk==='function')evAsk();if(typeof trainAsk==='function')trainAsk();}
 document.addEventListener('click',async(ev)=>{
   const q=ev.target.closest('.q');
   if(q){document.querySelectorAll('.q[aria-current]').forEach(x=>x.removeAttribute('aria-current'));q.setAttribute('aria-current','true');
@@ -1374,16 +1376,16 @@ def viz_block(d):
              + lane("R", "The run, in order", [rbox(i, x) for i, x in enumerate(steps_)])
              + lane("M", "A request, inside the module", [
                  box("M1", "", "Read · code", "Its class, from the request alone: with tools, a conversation, asking for code, a plain question."),
-                 box("M2", "", "Instrument · code", "Where the question is an operation code does exactly and training turned it on for the class: done by code, no model asked."),
-                 box("M3", "", "Arrangement · models", "Otherwise the class's slots and flow: lane C."),
+                 box("M2", "", "Code first", "An operation code does exactly, where training turned that instrument on: done by code, no model asked. A search: a program of code that asks the module only to read."),
+                 box("M3", "", "Arrangement · models", "Otherwise the class's slots and flow: lane C. One small model holds several adapters at once, and each request is served with the one its slot carries, where training put one there. Or one slot alone, where training found that enough."),
                  box("M4", "", "Form · code", "The reply laid out and closed as the conversation shows; code goes out as it was settled.")],
                  "To the program that uses it this is one chat model. M1 to M4 are its wiring, and the wiring is what training finds.")
              + lane("K", "What training keeps, and how far each can reach", [
-                 box("K1", "", "Arrangement", "What each slot is told and how the slots are arranged, class by class. It reaches the best answer any slot drafted, and cannot make one no slot had."),
+                 box("K1", "", "Arrangement", "What each slot is told, how the slots are arranged and how their answers are settled, class by class; one slot alone is an arrangement too. It reaches the best answer any slot drafted, and cannot make one no slot had."),
                  box("K2", "", "Adapters, by slot", "A mixture: each drafting slot may carry its own, and the steps after them settle between them. They reach what the small model can learn."),
                  box("K3", "", "Instruments", "Operations done exactly. They can pass %s, but only where a question is that operation. %s" % (tname, inst_words))],
-                 "Each is kept only where held questions gained, by the one rule at S5. As a module starts, nothing is kept and no instrument is on.")
-             + '<p class="vintro vsub"><b>R3 in detail:</b> training the arrangement.</p>')
+                 "Each is kept only where held questions gained, by the one rule at S5. As a module starts, nothing is kept and no instrument is on. The held questions are training&#39;s own: what is kept here is still to be shown by the judge, J.")
+             + '<p class="vintro vsub"><b>R3 in detail.</b> The run takes lanes A, S and C: each class of input, as a class. A whole pass (from a terminal: <code>bash training/session.sh</code>) goes on through B, D and E.</p>')
     tail_ = lane("J", "The judge, apart from training", [
         box("J1", "", "The harness", "A third party's benchmarks, unchanged, ask through the chat interface as they ask any model. Training never asks one of their questions."),
         box("J2", "", "Two figures", "As configured, which is the baseline, and trained, on the same questions: R1, R4."),
@@ -1397,10 +1399,10 @@ def viz_block(d):
                 # FIRST IN A PASS: each class of input as a class (training/classes.mjs), before the larger model is asked anything
                 lane("S", "First in a pass: each class of input, as a class", [
                     box("S1", "classes", "As it stands", "Every question of the class: did a slot have it, was it settled on, is the reply good."),
-                    box("S2", "", "Sweep", "Every change that leaves the drafts as they are, on the same questions; the drafts are reused."),
+                    box("S2", "", "Sweep, then the rest", "Every change that leaves the drafts as they are (an instrument on, one slot alone, how answers are settled), the drafts reused. Then the others: a slot given its adapter first, then the moves the policy names."),
                     box("S3", "", "Together", "The best two of the sweep as one change."),
                     box("S4", "", "Held, twice", "The best against the swarm as it stands: every held question of the class, %s draws." % cpol.get("draws", 2)),
-                    box("S5", "", "Keep", "Gain over twice its error, losses outweighed by twice as many made good, no kind fallen.")],
+                    box("S5", "", "Keep", "Gain over twice its error, losses outweighed by twice as many made good, no kind fallen beyond chance for as many kinds as there are.")],
                      "The same rule keeps a change at B5. Then again from what was kept, up to %s rounds a class." % cpol.get("rounds", 2)),
                 lane("B", "Each question, until its answer is good", [
                     box("B1", "ask", "Ask", "The swarm as it stands."),
