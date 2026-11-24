@@ -263,7 +263,7 @@ npm test
 python3 ui/check.py
 ```
 
-253 checks of the module and the trainers and 167 of the dashboard, against stand-in servers: nothing is fetched,
+254 checks of the module and the trainers and 167 of the dashboard, against stand-in servers: nothing is fetched,
 started or installed. `npm test` deals its blocks of checks out to every core (27 seconds on a 24-core Mac, 88 one
 after another); `npm run test:serial` runs them in one process, `npm run test:all` adds the dashboard's, and
 `npm run test:python` checks the Python client. How well the

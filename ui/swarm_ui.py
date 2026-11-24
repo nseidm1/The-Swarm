@@ -3086,6 +3086,10 @@ def pills(d):
                 # (a small model TensorFold serves can be chosen on an Apple silicon Mac: where TensorFold is not there yet, making
                 # the models ready installs it (training/setup.mjs), and the list says so. On any other machine it cannot run)
                 tf_first = False
+                # (a small model of an architecture no llama.cpp build on this machine knows is listed, and cannot be chosen:
+                # asked to load it, the server stops. Inkling 2's looped transformer needs a build that has it)
+                if key in ("a", "b", "c", "d", "one") and m.get("architecture") and not data.engine_knows(m["architecture"], d.get("root", ARGS.root)):
+                    here = False
                 if key in ("a", "b", "c", "d", "one") and m.get("engine") == "tensorfold" and not tensorfold_here():
                     here = "mac" in d.get("machine", [])
                     tf_first = here

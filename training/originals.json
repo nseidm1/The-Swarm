@@ -123,6 +123,42 @@
       "repo": "janhq/Jan-code-4b",
       "revision": "2015c72c36d7f1ce09398d1ea7eb94401a3c4e2f",
       "dir": "Jan-code-4b"
+    },
+    "Inkling-2-Mini-UD-Q4_K_XL.gguf": {
+      "repo": "thinkingmachines/Inkling-2-Mini",
+      "revision": "c9d028302cd0f035fdf8e7e91f089a4ce94d2195",
+      "dir": "Inkling-2-Mini",
+      "cannot": "its looped architecture (inkling2_loop) has no adapter trainer that has been tried here: neither MLX nor llama.cpp's has been run on it"
+    },
+    "Inkling-2-Mini-UD-Q4_K_M.gguf": {
+      "repo": "thinkingmachines/Inkling-2-Mini",
+      "revision": "c9d028302cd0f035fdf8e7e91f089a4ce94d2195",
+      "dir": "Inkling-2-Mini",
+      "cannot": "its looped architecture (inkling2_loop) has no adapter trainer that has been tried here: neither MLX nor llama.cpp's has been run on it"
+    },
+    "Inkling-2-Mini-UD-Q8_K_XL.gguf": {
+      "repo": "thinkingmachines/Inkling-2-Mini",
+      "revision": "c9d028302cd0f035fdf8e7e91f089a4ce94d2195",
+      "dir": "Inkling-2-Mini",
+      "cannot": "its looped architecture (inkling2_loop) has no adapter trainer that has been tried here: neither MLX nor llama.cpp's has been run on it"
+    },
+    "Inkling-2-Mini-UD-Q3_K_XL.gguf": {
+      "repo": "thinkingmachines/Inkling-2-Mini",
+      "revision": "c9d028302cd0f035fdf8e7e91f089a4ce94d2195",
+      "dir": "Inkling-2-Mini",
+      "cannot": "its looped architecture (inkling2_loop) has no adapter trainer that has been tried here: neither MLX nor llama.cpp's has been run on it"
+    },
+    "Inkling-2-Mini-UD-IQ3_XXS.gguf": {
+      "repo": "thinkingmachines/Inkling-2-Mini",
+      "revision": "c9d028302cd0f035fdf8e7e91f089a4ce94d2195",
+      "dir": "Inkling-2-Mini",
+      "cannot": "its looped architecture (inkling2_loop) has no adapter trainer that has been tried here: neither MLX nor llama.cpp's has been run on it"
+    },
+    "Inkling-2-Mini-UD-Q2_K_XL.gguf": {
+      "repo": "thinkingmachines/Inkling-2-Mini",
+      "revision": "c9d028302cd0f035fdf8e7e91f089a4ce94d2195",
+      "dir": "Inkling-2-Mini",
+      "cannot": "its looped architecture (inkling2_loop) has no adapter trainer that has been tried here: neither MLX nor llama.cpp's has been run on it"
     }
   }
 }

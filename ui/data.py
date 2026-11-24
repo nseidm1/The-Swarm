@@ -132,6 +132,34 @@ def _with_places(briefs, places):
     return dict(briefs, slots=slots)
 
 
+
+def engine_knows(arch, root=None):
+    """Whether a llama.cpp build on this machine names an architecture a model needs (training/support/engine-knows.mjs: the
+    program itself, or the libllama beside it or in ../lib): the one on the PATH, the one a person updated to, the one setup
+    fetched, or Unsloth's. A model that needs one no build here knows is listed and cannot be chosen."""
+    import shutil
+    cands = [shutil.which("llama-server") or ""]
+    if root:
+        for f in ("chosen", "path"):
+            try:
+                cands.append((Path(root) / ".work" / "engine" / f).read_text().strip())
+            except OSError:
+                pass
+    cands.append(str(Path.home() / ".unsloth" / "llama.cpp" / "build" / "bin" / "llama-server"))
+    needle = str(arch).encode()
+    for c in cands:
+        if not c:
+            continue
+        try:
+            real = Path(c).resolve()
+            files = [real] + [f for d in (real.parent, real.parent.parent / "lib") if d.is_dir() for f in d.iterdir() if re.match(r"libllama(\.[\d.]+)?\.(dylib|so)(\.[\d.]+)?$", f.name)]
+            if any(needle in f.read_bytes() for f in files if f.is_file()):
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def machine():
     """What this machine can run a decider on, as the decider entries say it (runsOn): 'mac' (Apple silicon), 'cuda' (an NVIDIA GPU)."""
     out = []

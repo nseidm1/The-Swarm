@@ -5552,6 +5552,49 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       },
     );
   }
+  // A MODEL OF AN ARCHITECTURE NOT EVERY ENGINE BUILD KNOWS (Inkling 2 Mini): pinned like any other, and its engine chosen to match
+  {
+    const EK = await import('../training/support/engine-knows.mjs');
+    const { REGISTRY: REGk } = await import('../src/catalog.mjs');
+    const ink = REGk.small.filter((m) => /^inkling2-mini-/.test(m.id));
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'engine-knows-'));
+    fs.mkdirSync(path.join(tmp, 'a', 'bin'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, 'b', 'bin'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, 'b', 'lib'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, 'a', 'bin', 'llama-server'), 'llama gemma qwen');
+    fs.writeFileSync(path.join(tmp, 'b', 'bin', 'llama-server'), 'a program');
+    fs.writeFileSync(path.join(tmp, 'b', 'lib', 'libllama.1.dylib'), 'llama gemma inkling2_loop qwen');
+    const A = path.join(tmp, 'a', 'bin', 'llama-server');
+    const Bb = path.join(tmp, 'b', 'bin', 'llama-server');
+    check(
+      'a model of an architecture not every engine build knows is in the catalog like any other, pinned (a repository, a revision, a size, a SHA-256, a licence), and says which architecture it needs; a build knows an architecture where the program names it, or the libllama beside it or in ../lib does; the engine for a swarm that has such a model is the first build found that knows every architecture it needs, and none where no build does; a model that names no architecture runs on any build',
+      ink.length === 6 &&
+        ink.every(
+          (m) =>
+            m.architecture === 'inkling2_loop' &&
+            m.params === 26 &&
+            m.by === 'Thinking Machines' &&
+            /^[0-9a-f]{64}$/.test(m.sha256) &&
+            /^[0-9a-f]{40}$/.test(m.rev) &&
+            m.bytes > 8e9 &&
+            m.license &&
+            m.needs &&
+            m.repo === 'unsloth/Inkling-2-Mini-GGUF',
+        ) &&
+        new Set(ink.map((m) => m.file)).size === 6 &&
+        EK.knows(A, 'inkling2_loop') === false &&
+        EK.knows(Bb, 'inkling2_loop') === true &&
+        EK.knows(A, 'gemma') === true &&
+        EK.knows(A, '') === true &&
+        EK.knows(path.join(tmp, 'none'), 'gemma') === false &&
+        EK.engineFor(['inkling2_loop'], [A, Bb]) === Bb &&
+        EK.engineFor(['gemma'], [A, Bb]) === A &&
+        EK.engineFor(['inkling2_loop', 'no_such'], [A, Bb]) === '' &&
+        EK.engineFor([], [A, Bb]) === A,
+      { ink: ink.map((m) => m.id) },
+    );
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
   // WHAT TRAINING TRIES FIRST FOLLOWS WHERE THE CLASS FALLS SHORT (training/classes.mjs gapOf, orderedFor)
   {
     const CL = await import('../training/classes.mjs');

@@ -87,6 +87,10 @@ What has not:
   where LFM2.5 1.2B read 84 (103 with its adapters). No whole run has been made on it, and no adapter for it.
 - **Three figures on one code.** The run above was measured across two days of changes. No whole run has been made
   since each stage was held to the one before.
+- **Inkling 2 Mini, beyond a first try.** Six quantizations are in the catalog. One (Q2_K_XL) has answered through
+  the module, six questions, five right, about 96 seconds a question on this machine; it needs a llama.cpp build that
+  knows its architecture (Unsloth's was used). No evaluation, no training, and none of the other five has been loaded.
+  At 9 to 23 GB it is not small beside an 18 GB larger model: it is in the list to be tried, not because it fits the aim.
 - **Ten of the nineteen small models in a swarm, two of the four Kev sizes, and fourteen of the fifteen larger models.**
   Pinned. Every small model has answered alone; four small models at once have not been run.
 - **Adapters that help.** Pretrain has run on the real models (2026-11-17, 100 steps each, on 72 of the larger model's

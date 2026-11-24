@@ -5,6 +5,7 @@
 //   --attach-a <url>  --attach-b <url>     servers already running, in place of starting them
 //   --decider <url>         a decider already running, for the decide step; SWARM_DECIDER does the same (--kev, SWARM_KEV still work)
 //   --split train|held   --each 6   --kinds chain,trap   --limit 20   --label name
+import { engineFor, OTHER_BUILDS } from './engine-knows.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -39,9 +40,24 @@ export const modelsDir = () =>
 // the llama-server program: the one named (--llama, SWARM_LLAMA_SERVER); the build a person updated to from the page, which was
 // made the swarm's only once every model of it answered with it (engine-update.mjs); the one on the PATH; or the one setup.mjs
 // fetched
+// A MODEL OF AN ARCHITECTURE THE USUAL BUILD DOES NOT KNOW (its catalog entry says `architecture`: engine-knows.mjs) is
+// served by the first build found that knows it, the ones above and then another build on this machine (Unsloth's).
+// Where none does, the usual one is returned and its server says which architecture it could not load.
 export function llamaServer() {
   const named = arg('llama', process.env.SWARM_LLAMA_SERVER || '');
   if (named) return named;
+  const usual = usualLlamaServer();
+  const archs = [
+    ...new Set(
+      Object.values(MEMBERS || {})
+        .map((m) => m && m.architecture)
+        .filter(Boolean),
+    ),
+  ];
+  if (!archs.length) return usual;
+  return engineFor(archs, [usual, ...OTHER_BUILDS]) || usual;
+}
+function usualLlamaServer() {
   try {
     const chosen = fs.readFileSync(path.join(REPO_ROOT, '.work', 'engine', 'chosen'), 'utf8').trim();
     if (chosen && fs.existsSync(chosen)) return chosen;

@@ -6,6 +6,13 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Inkling 2 Mini is in the small-model list** (2026-11-24). Six of Unsloth's quantizations of Thinking Machines'
+  Inkling 2 Mini (26B; Q4_K_XL, Q4_K_M, Q8_K_XL, Q3_K_XL, IQ3_XXS, Q2_K_XL; 9 to 23 GB), each pinned. It is a looped
+  transformer (`inkling2_loop`), which loads only in a llama.cpp build that knows that architecture: a catalog entry
+  can now say which architecture it needs, the engine for a swarm is the first build found that knows it (Unsloth's
+  among those looked for), and the page lists such a model greyed out where no build here does. Tried once through
+  the module at Q2_K_XL: five of six questions right, at about a minute and a half a question. It cannot be adapted
+  here, and at these sizes the swarm saves little or no memory against a 30B larger model.
 - **Stopping the served module frees the run cards at once** (2026-11-24). Their buttons were greyed until the page
   was next drawn; both cards are now drawn again when serving starts or stops.
 - **The conversation run is a run of its own** (2026-11-24). Under Run the dashboard has two cards: the intelligence
