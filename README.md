@@ -160,7 +160,8 @@ only where held questions, never trained on, say it helped:
 
 - **The arrangement**, for each class of input: what each slot is told and how the slots are arranged.
 - **Adapters, one for each role** (drafting, checking, writing the reply): LoRA adapters taught from the slots' own
-  requests and the answers they gave that were right, each served only where held questions are better with it.
+  requests, the answers they gave that were right and the larger model's answers where they were not, each served
+  only where held questions are better with it.
 - **Instruments**: where a class of input holds operations code does exactly, that instrument is turned on. None is on
   as a module starts.
 
@@ -232,7 +233,7 @@ npm test
 python3 ui/check.py
 ```
 
-242 checks of the module and the trainers and 164 of the dashboard, against stand-in servers: nothing is fetched,
+243 checks of the module and the trainers and 164 of the dashboard, against stand-in servers: nothing is fetched,
 started or installed. `npm test` deals its 115 blocks of checks out to every core (26 seconds on a 24-core Mac, 91 one
 after another); `npm run test:serial` runs them in one process, `npm run test:all` adds the dashboard's, and
 `npm run test:python` checks the Python client. How well the

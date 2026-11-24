@@ -58,8 +58,8 @@ does. It has three things to find, and each is kept only where it was measured t
 - **The arrangement, for each class of input.** Which slots there are, what each is told, in what order they are
   asked, how differing answers are settled and how the reply is written.
 - **Adapters, for each role.** A member is taught the requests of a role (drafting, checking, writing the reply) as
-  the arrangement makes them, from the answers it gave that were right, and a request is served with its role's
-  adapter. An adapter is part of a module only where the module answers held questions better with it than without
+  the arrangement makes them, from the answers it gave that were right and, where it was not right, from the larger
+  model's answer to the same request; and a request is served with its role's adapter. An adapter is part of a module only where the module answers held questions better with it than without
   it; one that does not is not served and not pinned.
 - **Instruments, for each class of input.** Where requests of a class are operations that code does exactly (a sum,
   words to put in order), the operation is done by code and no model is asked.

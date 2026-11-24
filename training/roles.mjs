@@ -6,8 +6,10 @@
 //   2  MARK. Each slot's answer is marked right or wrong as the reply is (measure.mjs slotReport: `same` on the trace)
 //   3  EXAMPLES, BY ROLE (roleOf a stage: src/index.mjs ROLE_OF_STAGE). A slot's request with the answer it gave is an example
 //      for its role where that answer was right: a draft or a check that had the answer; a reply written without changing a
-//      right answer. What a role did when it worked, on exactly what it is asked. (Not yet: what it should have said where it
-//      failed; the larger model answers the question, not the slot's request, so it has no label for that.)
+//      right answer. What a role did when it worked, on exactly what it is asked. (What it should have said where it
+//      failed is 3b.)
+//   3b TAUGHT WHERE IT FAILED. The larger model is asked the very request of each slot whose answer was not right, and where
+//      its answer is right it is an example for that role too (lessonsOf): what the role lacks, from the model it is trained toward
 //   4  TRAIN. One adapter for each role that has enough examples (--min, 8), with MLX as adapters.mjs trains its one
 //      (trainAdapter), kept beside the model's own adapter: <adapters>/<larger model>/<model>/roles/<role>/ and roles.json
 // The swarm is then served with all of them on one load, each request naming its role's (src/index.mjs roleLoras), where the
@@ -35,6 +37,14 @@ export async function rolesServed(roles, ask, gainOf, worth) {
   for (const role of roles) {
     const rows = await ask([role]);
     const g = gainOf(rows, base);
+    // (and kind by kind, [without, with]: where an adapter gains and where it loses is what the next one is aimed by)
+    const kinds = {};
+    for (const [i, r] of rows.entries()) {
+      if (r.kind === undefined) continue;
+      const k = (kinds[r.kind] = kinds[r.kind] || [0, 0]);
+      k[0] += base[i].counted ? 1 : 0;
+      k[1] += r.counted ? 1 : 0;
+    }
     single.push({
       role,
       rows,
@@ -43,6 +53,7 @@ export async function rolesServed(roles, ask, gainOf, worth) {
       gain: g.gain,
       error: g.error,
       worth: !!worth(g),
+      ...(Object.keys(kinds).length ? { kinds } : {}),
     });
   }
   let served = [];
@@ -111,6 +122,62 @@ export function examplesOf(row, calls) {
   }
   return out;
 }
+// WHERE A ROLE FAILED, THE LARGER MODEL IS ASKED THE SLOT'S OWN REQUEST. What a role got right teaches it nothing it lacks (an
+// adapter of such examples alone was judged on held questions and none was served, 2026-11-23). The module is trained toward
+// the larger model, and the larger model can be asked anything a slot is asked: the brief, the question, the drafts a checker
+// is shown, word for word. Its answer, where it is right by the question's own standard, is what that slot should have said.
+//   lessonsOf(row, calls) -> [{ role, id, kind, member, slot, messages }]: each drafting or checking slot's request on this
+//     question whose own answer was not right (wrong, or none). Not a writer's (it is right when it changes nothing, which is
+//     no answer to learn), and not a request with a tool's call or result in it (asked without the tools it would be another
+//     request). The very same request is one lesson.
+//   pickLessons(lessons, most) -> at most `most`, kind by kind in turn: every kind the module is weak in gets some before
+//     any gets many.
+//   taughtBy(lesson, text) -> the example: the slot's request, answered as the larger model answered it.
+export function lessonsOf(row, calls) {
+  const out = [];
+  const seen = new Set();
+  for (const s of (row && row.trace) || []) {
+    const role = ROLE_OF_STAGE[s.stage];
+    if ((role !== 'draft' && role !== 'check') || s.same === true) continue;
+    // (a slot that said nothing has a request too, and no text to find it by: its one request on this question)
+    const all = (calls || []).filter((x) => x.slot === s.slot);
+    const c = callOf(calls, s) || (all.length === 1 ? all[0] : null);
+    if (!c || !Array.isArray(c.messages) || !c.messages.length) continue;
+    if (c.messages.some((m) => m.role === 'tool' || Array.isArray(m.tool_calls))) continue;
+    const key = role + '|' + JSON.stringify(c.messages);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ role, id: row.id, kind: row.kind, member: c.member, slot: s.slot, messages: c.messages });
+  }
+  return out;
+}
+export function pickLessons(lessons, most) {
+  if (!(most > 0)) return [];
+  const by = new Map();
+  for (const l of lessons) by.set(l.kind, [...(by.get(l.kind) || []), l]);
+  const out = [];
+  for (let i = 0; out.length < most && [...by.values()].some((q) => q.length > i); i++)
+    for (const q of by.values()) if (q[i] && out.length < most) out.push(q[i]);
+  return out;
+}
+// the last line of an answer that says anything, where it is short enough to be an answer and not an argument ('' otherwise)
+export function closingLine(text) {
+  const last =
+    String(text || '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .pop() || '';
+  return last.length <= 100 ? last : '';
+}
+export const taughtBy = (lesson, text) => ({
+  role: lesson.role,
+  id: lesson.id,
+  kind: lesson.kind,
+  member: lesson.member,
+  taught: true,
+  messages: [...lesson.messages, { role: 'assistant', content: String(text) }],
+});
 // how many examples each role has, and of how many questions: { role: { examples, questions } }
 export function countByRole(examples) {
   const by = {};
@@ -344,6 +411,88 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   }
   // 3  EXAMPLES, by role
   const examples = rows.flatMap((r) => examplesOf(r, calls.get(r.id) || []));
+  // 3b  TAUGHT WHERE IT FAILED (lessonsOf): the larger model is asked what each failing slot was asked, and its answer is an
+  // example for that role where it is right by the question's own standard. --teach N: at most so many requests (0: none)
+  const teachMost = B.has('no-teach') ? 0 : Number(B.arg('teach', 160));
+  const lessons = pickLessons(
+    rows.flatMap((r) => lessonsOf(r, calls.get(r.id) || [])),
+    teachMost,
+  );
+  const teaching = { asked: 0, right: 0, kinds: {} };
+  const missed = [];
+  if (lessons.length) {
+    const { finalOf } = await import('../src/read.mjs');
+    const marker = readBriefs().marker;
+    const big = await B.openAlone('target');
+    try {
+      for (const [i, l] of lessons.entries()) {
+        if (i % 10 === 0)
+          say(
+            'Asking ' + TARGET.name + ' what the slots that failed were asked: ' + (i + 1) + ' of ' + lessons.length,
+            'teaching',
+          );
+        const t = byId[l.id];
+        let text = '';
+        try {
+          text = String((await big.ask(l.messages, { maxTokens: 900 })).text || '');
+        } catch {
+          text = '';
+        }
+        teaching.asked++;
+        const k = (teaching.kinds[l.kind] = teaching.kinds[l.kind] || { asked: 0, right: 0 });
+        k.asked++;
+        let final = text ? finalOf(text, marker, t.type === 'code') : '';
+        const rightBy = async (x) => {
+          try {
+            return !!x && ((await t.good(t.wrap(x), {})) || {}).grade === 'right';
+          } catch {
+            return false;
+          }
+        };
+        let ok = await rightBy(final);
+        // (it answered and did not close as the slot is told to: 174 of 366 answers not counted, 2026-11-23. Its last line,
+        // where that is short and right, is the answer, and the example closes with it as a slot's answer must to be read)
+        if (!ok && !final) {
+          const last = closingLine(text);
+          if (last && (await rightBy(last))) {
+            final = last;
+            text = text.trimEnd() + '\n\n' + marker + ' ' + last;
+            ok = true;
+          }
+        }
+        if (!ok) {
+          // (what it said where it was not right, for a person to read: was it wrong, or not read?)
+          missed.push({
+            id: l.id,
+            kind: l.kind,
+            role: l.role,
+            final: String(final).slice(0, 160),
+            tail: text.slice(-240),
+          });
+          continue;
+        }
+        teaching.right++;
+        k.right++;
+        examples.push(taughtBy({ ...l, messages: l.messages.map(forTemplate) }, text));
+      }
+    } finally {
+      await big.stop();
+    }
+    fs.mkdirSync(B.WORKC, { recursive: true });
+    fs.writeFileSync(path.join(B.WORKC, 'taught-missed.json'), JSON.stringify(missed, null, 1));
+    console.log(
+      'taught where it failed: ' +
+        TARGET.name +
+        ' was asked ' +
+        teaching.asked +
+        " of the failing slots' own requests and was right on " +
+        teaching.right +
+        '; by kind: ' +
+        Object.entries(teaching.kinds)
+          .map(([k, v]) => k + ' ' + v.right + ' of ' + v.asked)
+          .join(', '),
+    );
+  }
   const counts = countByRole(examples);
   const right = rows.filter((r) => r.grade === 'right').length;
   console.log(
@@ -376,6 +525,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       configuration: CONFIG_KEY,
       questions: rows.length,
       right,
+      teaching,
       iters,
       roles: {},
     };
@@ -403,6 +553,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
       record.roles[role] = {
         ok: !!r.ok,
         examples: r.examples || ex.length,
+        taught: ex.filter((e) => e.taught).length,
         ...(r.ok ? { gguf: r.gguf, seconds: r.seconds, valLoss: r.valLoss, perplexity: r.perplexity } : { why: r.why }),
       };
       live.roles[role] = record.roles[role];

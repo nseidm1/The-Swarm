@@ -6,6 +6,15 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A role is taught where it failed, by the larger model** (2026-11-23). An adapter learned only from what its role
+  already got right. Pretraining now also asks the larger model the very request of each drafting or checking slot
+  whose answer was not right, and keeps its answer as an example for that role where it is right by the question's
+  own standard (`training/roles.mjs`, step 3b; `--teach N`, 160 requests at most by default, `--no-teach` for none).
+  On the configured swarm the larger model was right on 250 of 600 such requests. The draft adapter taught so took the
+  module from 42 to 44 of 72 held questions, where the one before it took it from 41 to 39; that is inside the error,
+  so it is not served.
+- **The checks pass on Node 20** (2026-11-23). One check required TypeScript to run on a Node that cannot take types
+  off.
 - **Each stage is held to the one before** (2026-11-23). The first whole run read 55.2% as configured, 50.7% pretrained
   and 49.6% pretrained and trained, on 460 questions. Three causes, each closed:
   - An adapter was kept because it made its own training answers likelier. Each role's adapter is now judged on held

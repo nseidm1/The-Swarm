@@ -31,6 +31,19 @@ What was found, and changed the same day:
   checker; 11.4 points on its own held questions) and never tried an instrument or one slot. Both are now tried in
   every class.
 
+**Taught where it failed.** Pretraining then also asked the larger model the request of each slot whose answer was
+not right. Three runs, each judged on the same 72 held questions (the module without adapters read 41 or 42):
+
+| The draft adapter, taught from | Examples | With it | Gain (paired error) |
+| --- | --- | --- | --- |
+| its own right answers only | 228 | 39 | -2.8 points (3.9) |
+| those and 75 of the larger model's (160 asked, 100 steps) | 260 | 41 | 0.0 (4.8) |
+| those and 215 of the larger model's (600 asked, 300 steps) | 383 | 43 | 1.4 (5.8) |
+| those and 228, unmarked right answers counted too | 392 | 44 | 2.8 (4.8) |
+
+The direction is the one wanted and none is beyond the error, so none is served. The check and write adapters moved
+nothing. Seventy-two held questions cannot tell a gain of this size from chance.
+
 Not measured: a whole run since these changes.
 
 ## The search program, the form a system text sets, one slot for a kind of request: 2026-11-23

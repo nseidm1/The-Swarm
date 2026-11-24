@@ -10137,6 +10137,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     extra +
     "ElevatedButton(onPressed: onTap, child: const Text('Go'))]);\n}\n" +
     "void main() => runApp(MaterialApp(home: Greeting('x', onTap: () {})));\n";
+  const CAN_STRIP = typeof (await import('node:module')).default.stripTypeScriptTypes === 'function';
   const ready = {};
   await Promise.all(L.LANGS.map(async (id) => (ready[id] = await L.langReady(id))));
   const got = {};
@@ -10154,8 +10155,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   check(
     "a function is run in the language it is written in (TypeScript, Python, Go, Swift, Dart, Kotlin: each one this machine has the tools of): a call gives what the function returned; a call that fails as the program runs (it throws, or it stops the program) fails alone; a call the compiler refuses fails and the others are still made; a main of the draft's own is not in the way. A language with no tools here is not run: " +
       (L.LANGS.filter((id) => !ready[id]).join(', ') || 'none is missing'),
-    !wrong.length && ready.ts,
-    { wrong, got, ready },
+    // (TypeScript runs wherever this Node can take types off: a Node that cannot, Node 20, has no tools for it and it is not run)
+    !wrong.length && (ready.ts || !CAN_STRIP),
+    { wrong, got, ready, CAN_STRIP },
   );
   // THE BOX: nothing leaves, nothing is written outside the run's folder, and the person's folders are not read
   if (ready.python) {
@@ -11348,6 +11350,71 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       R.forTemplate(toolEx[0].messages[0]) === toolEx[0].messages[0],
     { toolEx: JSON.stringify(toolEx).slice(0, 300) },
   );
+  // ---- A ROLE IS TAUGHT WHERE IT FAILED: the requests of the slots whose answer was not right, for the larger model to answer
+  {
+    const u = (content) => [{ role: 'user', content }];
+    const trow = {
+      id: 'q9',
+      kind: 'sorted',
+      grade: 'wrong',
+      trace: [
+        { slot: 'a-direct', stage: 'draft', out: 'ANSWER: b a', same: false },
+        { slot: 'b-direct', stage: 'draft', out: 'ANSWER: b a', same: false },
+        { slot: 'a-steps', stage: 'draft', out: 'ANSWER: a b', same: true },
+        { slot: 'b-other', stage: 'draft', out: '', same: null },
+        { slot: 'a-critic', stage: 'check', out: 'ANSWER: b a', same: false },
+        { slot: 'a-writer', stage: 'write', out: 'b a', same: false },
+        { slot: 'a-tool', stage: 'draft', out: 'x', same: false },
+      ],
+    };
+    const tcalls = [
+      { slot: 'a-direct', stage: 'draft', member: 'a', text: 'ANSWER: b a', messages: u('sort: b a') },
+      { slot: 'b-direct', stage: 'draft', member: 'b', text: 'ANSWER: b a', messages: u('sort: b a') },
+      { slot: 'a-steps', stage: 'draft', member: 'a', text: 'ANSWER: a b', messages: u('step by step, sort: b a') },
+      { slot: 'b-other', stage: 'draft', member: 'b', text: '', messages: u('another way, sort: b a') },
+      { slot: 'a-critic', stage: 'check', member: 'a', text: 'ANSWER: b a', messages: u('check these: b a') },
+      { slot: 'a-writer', stage: 'write', member: 'a', text: 'b a', messages: u('write it') },
+      {
+        slot: 'a-tool',
+        stage: 'draft',
+        member: 'a',
+        text: 'x',
+        messages: [...u('look'), { role: 'tool', content: '4' }],
+      },
+    ];
+    const ls = R.lessonsOf(trow, tcalls);
+    const many = [
+      ...[1, 2, 3, 4].map((i) => ({ kind: 'sorted', id: 's' + i })),
+      { kind: 'closed', id: 'c1' },
+      { kind: 'date', id: 'd1' },
+    ];
+    const ex1 = R.taughtBy(ls[0], 'a b\nANSWER: a b');
+    const src = fs.readFileSync(new URL('../training/roles.mjs', import.meta.url), 'utf8');
+    check(
+      "a role is taught where it failed: the larger model is asked the very request of each drafting or checking slot whose answer was not right (wrong, or none), once for requests that are the same, and its answer is an example for that role where it is right by the question's own standard; a slot that was right is not asked again, a writer's request is no lesson, nor one with a tool's result in it; the lessons are taken kind by kind in turn, so every kind the module is weak in gets some; and the example is the slot's own request with the larger model's answer",
+      ls.map((l) => l.role + ':' + l.slot).join() === 'draft:a-direct,draft:b-other,check:a-critic' &&
+        ls[0].kind === 'sorted' &&
+        ls[0].member === 'a' &&
+        R.lessonsOf({ ...trow, trace: trow.trace.map((x) => ({ ...x, same: true })) }, tcalls).length === 0 &&
+        R.pickLessons(many, 4)
+          .map((l) => l.id)
+          .join() === 's1,c1,d1,s2' &&
+        R.pickLessons(many, 0).length === 0 &&
+        R.closingLine('work\n\nSo the answer is 13.\n') === 'So the answer is 13.' &&
+        R.closingLine('a\n' + 'x'.repeat(120)) === '' &&
+        R.closingLine('') === '' &&
+        ex1.role === 'draft' &&
+        ex1.taught === true &&
+        ex1.messages.length === 2 &&
+        ex1.messages[1].role === 'assistant' &&
+        ex1.messages[1].content === 'a b\nANSWER: a b' &&
+        /grade === 'right'/.test(
+          src.slice(src.indexOf('3b  TAUGHT WHERE IT FAILED'), src.indexOf('const counts = countByRole')),
+        ) &&
+        /B\.openAlone\('target'\)/.test(src),
+      { ls, picked: R.pickLessons(many, 4) },
+    );
+  }
   // ---- A STAGE DOES NO WORSE THAN THE ONE BEFORE: which roles' adapters are served (rolesServed), and what the run does with it
   {
     const rowsOf = (n) => Array.from({ length: 40 }, (_, i) => ({ counted: i < n }));

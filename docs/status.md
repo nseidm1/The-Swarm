@@ -67,8 +67,9 @@ What has not:
   and is now an arrangement training can keep; no run has shown whether it does.
 - **Pretraining that helps.** Adapters by role lowered the module from 55.2% to 50.7% on 460 questions, and the
   arrangement trained after them read 49.6%. An adapter is now served only where held questions are better with it,
-  and judged so none of the three is served: pretraining does not yet add anything. The adapters are taught what a
-  role already got right, not what it lacks.
+  and judged so none of the three is served: pretraining does not yet add anything. Taught also from the larger
+  model's answers where a role failed, the draft adapter moved the module from 42 to 44 of 72 held questions: inside
+  the error, so not served.
 - **Three figures on one code.** The run above was measured across two days of changes. No whole run has been made
   since each stage was held to the one before.
 - **Ten of the nineteen small models in a swarm, two of the four Kev sizes, and fourteen of the fifteen larger models.**

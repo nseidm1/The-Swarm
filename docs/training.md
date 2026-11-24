@@ -7,7 +7,8 @@ and keeps each only where held questions say it helped:
 
 - **the arrangement**, for each class of input: what each slot is told and how the slots are arranged (below);
 - **adapters, one for each role** (drafting, checking, writing the reply), taught from the slots' own requests and
-  the answers they gave that were right (`training/roles.mjs`; the dashboard's Pretrain). Each is then judged on held
+  the answers they gave that were right and, where a slot was not right, the larger model's answer to that slot's own
+  request (`training/roles.mjs`; the dashboard's Pretrain). Each is then judged on held
   questions, the module without it and with it, and served only where the module is better with it; the arrangement
   is trained on the module as pretrained. So each stage does no worse than the one before on training's own held
   questions;
