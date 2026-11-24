@@ -16,11 +16,11 @@ wiring, and part of the wiring is code that decides, with no model, how a reques
 | What the request is | What is done | Where |
 | --- | --- | --- |
 | An operation code does exactly (a sum, an expression of true and false, words to put in alphabetical order, brackets to close) | Done by code; no model is asked. **Only where training turned that instrument on** for the class of input | `src/instruments.mjs` |
-| A request that sets rules that can be counted (so many words, no comma, every letter a capital, labelled parts, placeholders) | The first drafters each write the whole reply, each is counted against the rules, the one that keeps the most goes out, and its writer is told once what it broke | `src/piece.mjs` |
+| A request that sets rules that can be counted (so many words, no comma, every letter a capital, labelled parts, placeholders) | The first drafters each write the whole reply, and one more is written to the request as it came, with no brief; each is counted against the rules, the one that keeps the most goes out, and its writer is told once what it broke | `src/piece.mjs` |
 | A conversation that ends with the start of the reply | The conversation before it is answered and the reply follows the start (for a Python function, its body) | `src/read.mjs` |
 | A function, in JavaScript, TypeScript, Python, Go, Swift, Dart, Flutter or Kotlin | The drafts are run on the same calls, boxed, and drafts that do the same are one answer | `src/behave.mjs`, `src/langs.mjs` |
 | A question that lists lettered options | An answer that is none of them is not counted beside one that is | `src/orchestrate.mjs` |
-| A turn with a search tool offered and nothing looked up yet | It does not end without a search: the first drafters are asked once more for a call | `src/tools.mjs` |
+| A turn with a search tool offered | Code carries the search. Nothing looked up yet: the first drafters are asked once more for a call, and where none gives one code makes the search, the question its query. After a search its first page is opened. After a page the next query is what the page newly names with what of the question it does not hold. An answer stands where the last result or an opened page holds it and what came back covers the question, or after six steps | `src/tools.mjs` |
 
 Each is a switch of the arrangement's plan, so training can turn it off for a class of input, and an evaluation can be
 run either way.

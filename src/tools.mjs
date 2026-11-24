@@ -100,6 +100,32 @@ export function sameAction(a, b) {
 // module's own, and nothing a tool returned. So the calls made since a request, and what each returned, are written into that
 // request: the person's words, then what was looked up for it and what came back. A result is cut at RESULT_MOST characters, and
 // where a request has more than FOUND_MOST characters of them the earliest are left out. A call with no result on record is left out.
+// A TOOL'S RESULT THAT IS MARKUP IS READ AS ITS TEXT (SwOA specification T.11a). A page fetched from the web is HTML: its head,
+// its scripts and its styles before a word of it. Measured 2026-11-22 on a standard test of searching: what the drafters
+// were shown of a page was its scripts, and the names read from it were DOCTYPE, RegExp and RLCONF. So wherever the module
+// reads a tool's result or passes one to a slot, a result that holds markup is first made text: scripts, styles and the
+// head are left out, a block's end is a line break, every other tag a space, the common entities are the characters they
+// stand for, and runs of white space are one. A result with no markup is left exactly as it came.
+const MARKUP =
+  /<(?:!doctype|html|head|body|script|style|div|span|p|a|table|ul|ol|li|h[1-6]|meta|link|article|section)\b/i;
+export function asText(s) {
+  const t = String(s ?? '');
+  if (!MARKUP.test(t)) return t;
+  return t
+    .replace(/<(script|style|noscript|svg|head|template)\b[\s\S]*?(?:<\/\1\s*>|$)/gi, ' ')
+    .replace(/<!--[\s\S]*?(?:-->|$)/g, ' ')
+    .replace(/<\/(?:p|div|li|tr|h[1-6]|section|article|ul|ol|table|blockquote)\s*>|<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]*>?/g, ' ')
+    .replace(/&nbsp;|&#160;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/[ \t\f\v]+/g, ' ')
+    .replace(/ ?\n[ \n]*/g, '\n')
+    .trim();
+}
 export const RESULT_MOST = 3000;
 export const FOUND_MOST = 9000;
 export const FOUND_LEAD =
@@ -123,7 +149,7 @@ export function forAnswer(messages) {
     if (!m) continue;
     if (m.role === 'tool') {
       const c = calls.get(m.tool_call_id) || lastCall;
-      found.push((c ? c.name + ' ' + c.args : 'a tool') + '\n' + textOf(m.content).slice(0, RESULT_MOST));
+      found.push((c ? c.name + ' ' + c.args : 'a tool') + '\n' + asText(textOf(m.content)).slice(0, RESULT_MOST));
       continue;
     }
     if (m.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.length) {
@@ -159,7 +185,12 @@ const asCalls = (action) =>
 // fits; the latest result is never cut. A cut result says so. (Measured 2026-11-19: four of forty questions of a search test
 // ended with no drafter able to propose a step, and nothing in the path cut anything.)
 export function fitted(messages, most = 8000, each = 500) {
-  const out = (messages || []).map((m) => ({ ...m }));
+  // (a result that is markup is passed on as its text: asText, T.11a)
+  const out = (messages || []).map((m) =>
+    m && m.role === 'tool' && typeof m.content === 'string' && asText(m.content) !== m.content
+      ? { ...m, content: asText(m.content) }
+      : { ...m },
+  );
   const size = () => out.filter((m) => m.role === 'tool').reduce((a, m) => a + textOf(m.content).length, 0);
   const tools = out.filter((m) => m.role === 'tool');
   for (const m of tools.slice(0, -1)) {
@@ -182,6 +213,247 @@ export const isSearchTool = (t) => {
     )
   );
 };
+// SEARCH THROUGH (plan.searchThrough: false leaves it; SwOA specification T.13b). What a search needs of judgement is what to
+// look for next and what a page says. The rest is mechanics, and a small model drops them: measured 2026-11-22 on a standard
+// test of searching, the module made no search at all on 11 of 20 questions though a call was required of its drafters; where
+// it searched it searched once, opened no page, and answered with something the results did not hold; the larger model, where
+// it was right, searched four times and opened a page. So, in a turn where a tool that searches is offered:
+//   1  nothing has been looked up and the step settled on is still a reply: CODE makes the search. What to search for is
+//      asked of the first two drafters IN WORDS (one line, the query alone), and the call is built from the first usable
+//      line; where neither gives one, the question itself is the query;
+//   2  something has been looked up, the step is a reply, what the tools returned does not hold that reply's answer (or it
+//      says it does not know), and fewer than `searchMost` steps have been taken: the turn goes on. After a search, the first
+//      page of its results not yet opened is opened; after a page, the drafters are asked in words what to search for
+//      next, shown what was found, and a query not made before is the step. Where there is no step, the reply stands.
+// WHY IN WORDS: a call REQUIRED of this engine's small model is not a call given (measured 2026-11-22 on the real module:
+// asked with tool_choice "required", both drafters replied "I don't have access to..." on two questions of three). A line
+// of words is something every model gives, and building a call from a line is code's to do. It is also where the one
+// judgement of a search is made: these questions chain facts, and the first thing to look up is seldom the whole question.
+// Nothing here says a reply is right. It says the turn does not end unsearched, or on an answer nothing returned holds.
+const propsOf = (t) => (((t && t.function) || t || {}).parameters || {}).properties || {};
+const nameOf = (t) => String(((t && t.function) || t || {}).name || '');
+const argNamed = (t, re) => {
+  const p = propsOf(t);
+  const names = Object.keys(p).filter((k) => !p[k].type || p[k].type === 'string');
+  return names.find((k) => re.test(k)) || '';
+};
+const QUERY_ARG = /^(?:q|query|queries|keywords?|search|search_?(?:term|query|string)|terms?|text)$/i;
+const URL_ARG = /^(?:url|uri|link|href|page|address)$/i;
+// a tool that opens a page: it takes a URL and does not search
+export const isFetchTool = (t) => !!argNamed(t, URL_ARG) && !argNamed(t, QUERY_ARG);
+// what has been looked up in a conversation: the calls made (as name and arguments), how many searched and how many opened a
+// page, what the last one was, and everything the tools returned
+export function lookedUp(messages, tools = []) {
+  const kind = (name) => {
+    const t = tools.find((x) => nameOf(x) === name);
+    return t && isFetchTool(t) ? 'page' : t && isSearchTool(t) ? 'search' : 'other';
+  };
+  const made = [];
+  const byId = new Map();
+  let text = '';
+  let pagesText = '';
+  let lastText = '';
+  for (const m of Array.isArray(messages) ? messages : []) {
+    if (!m) continue;
+    if (m.role === 'tool') {
+      lastText = asText(textOf(m.content));
+      text += '\n' + lastText;
+      const c = byId.get(m.tool_call_id) || made[made.length - 1];
+      if (c && c.kind === 'page') pagesText += '\n' + lastText;
+    }
+    if (m.role === 'assistant' && Array.isArray(m.tool_calls))
+      for (const c of m.tool_calls) {
+        const f = (c && (c.function || c)) || {};
+        if (c && c.id) byId.set(c.id, null);
+        made.push({
+          name: String(f.name || ''),
+          args: typeof f.arguments === 'string' ? f.arguments : JSON.stringify(f.arguments || {}),
+          kind: kind(String(f.name || '')),
+        });
+        if (c && c.id) byId.set(c.id, made[made.length - 1]);
+      }
+  }
+  return {
+    made,
+    searches: made.filter((c) => c.kind === 'search').length,
+    pages: made.filter((c) => c.kind === 'page').length,
+    last: made.length ? made[made.length - 1].kind : '',
+    text,
+    // (what the last call returned, and what the pages opened hold: where an answer has to stand, heldBy below)
+    lastText,
+    pagesText,
+  };
+}
+// the question a turn is about: the last thing the person said, its last sentence that asks where it has one
+const questionOf = (messages) => {
+  const u = [...(messages || [])].reverse().find((m) => m && m.role === 'user');
+  const t = textOf(u && u.content)
+    .replace(/\s+/g, ' ')
+    .trim();
+  const asks = t.match(/[^.!?]*\?/g);
+  return (asks ? asks[asks.length - 1] : t).trim().slice(0, 300);
+};
+// the search code makes: the tool that searches, its query the question. null where no such tool takes a query
+export function searchCallBy(tools, messages, query = '') {
+  const t = (tools || []).find((x) => isSearchTool(x) && argNamed(x, QUERY_ARG));
+  const q = query || questionOf(messages);
+  return t && q ? { name: nameOf(t), args: { [argNamed(t, QUERY_ARG)]: q } } : null;
+}
+// the queries a conversation has made: the query argument of each call of a tool that searches
+export function queriesMade(messages, tools = []) {
+  const out = [];
+  for (const m of Array.isArray(messages) ? messages : [])
+    if (m && m.role === 'assistant' && Array.isArray(m.tool_calls))
+      for (const c of m.tool_calls) {
+        const f = (c && (c.function || c)) || {};
+        const t = tools.find((x) => nameOf(x) === String(f.name || ''));
+        if (!t || !isSearchTool(t) || !argNamed(t, QUERY_ARG)) continue;
+        try {
+          const a = typeof f.arguments === 'string' ? JSON.parse(f.arguments) : f.arguments || {};
+          if (a[argNamed(t, QUERY_ARG)]) out.push(String(a[argNamed(t, QUERY_ARG)]));
+        } catch {
+          /* not a query */
+        }
+      }
+  return out;
+}
+// the next page to open: the first address in what the last tool returned that no call has opened. null where there is none
+export function nextPageCall(tools, messages) {
+  const t = (tools || []).find(isFetchTool);
+  if (!t) return null;
+  const done = lookedUp(messages, tools).made.map((c) => c.args);
+  const last = [...(messages || [])].reverse().find((m) => m && m.role === 'tool');
+  // (the addresses of a list of results, as the tool gave them: read before any markup is taken out)
+  const urls = textOf(last && last.content).match(/https?:\/\/[^\s'"<>\])},\\]+/g) || [];
+  const url = urls.map((u) => u.replace(/[.,;:]+$/, '')).find((u) => !done.some((a) => a.includes(u)));
+  return url ? { name: nameOf(t), args: { [argNamed(t, URL_ARG)]: url, ...asTextArg(t) } } : null;
+}
+// (the page AS TEXT, where the tool lists the ways it can give a page and one of them is text: the first of these it lists)
+const TEXT_WAYS = [
+  'text',
+  'plain',
+  'plaintext',
+  'clean',
+  'cleaned',
+  'readable',
+  'reader',
+  'truncate',
+  'markdown',
+  'md',
+];
+export function asTextArg(t) {
+  const p = propsOf(t);
+  for (const way of TEXT_WAYS)
+    for (const [k, v] of Object.entries(p))
+      if (Array.isArray(v && v.enum) && v.enum.some((x) => String(x).toLowerCase() === way))
+        return { [k]: v.enum.find((x) => String(x).toLowerCase() === way) };
+  return {};
+}
+// DOES WHAT THE TOOLS RETURNED HOLD THE REPLY'S ANSWER? The answer is what follows "answer" in the reply where it is given so
+// (as a test of searching asks), else the reply; a reply that says it does not know holds none. Every number of the answer
+// must be in what was returned, and at least three in five of its words of four letters or more.
+const UNKNOWN =
+  /\b(?:do(?:es)? not know|don't know|cannot (?:be )?(?:answer|determin)|can't answer|not clear|unable to|no (?:clear )?(?:answer|information))\b/i;
+export function heldBy(reply, text) {
+  const r = String(reply || '');
+  if (!r.trim() || UNKNOWN.test(r)) return false;
+  const m = /\banswer['"}]?\s*(?::|=|is|was)\s*['"]?([^'"\n}]+)/i.exec(r);
+  const answer = (m ? m[1] : r).toLowerCase();
+  const hay = String(text || '').toLowerCase();
+  const nums = answer.match(/\d[\d,.]*\d|\d/g) || [];
+  const words = [...new Set(answer.match(/[\p{L}]{4,}/gu) || [])];
+  if (!nums.length && !words.length) return false;
+  if (nums.some((n) => !hay.includes(n.replace(/[.,]+$/, '')))) return false;
+  return !words.length || words.filter((w) => hay.includes(w)).length * 5 >= words.length * 3;
+}
+export const SEARCH_MOST = 6;
+// THE TRAIL (measured 2026-11-22 on a search task made from a seed, which nobody had read: with the steps above every question
+// was searched, and 1 of 30 was answered; the model's query said the whole question over, search after search, and it
+// stopped on the fact halfway). Two things code can see in what came back, with no judgement:
+//   - what is NEW: the named things in the last result that the question does not name. A question that chains facts is
+//     answered through them ("the capital of X" returns a name; the mayor is then looked up by that name);
+//   - what is STILL UNMET: the words of the question that nothing returned has held yet. An answer given while a word the
+//     question turns on has never come back is an answer to something else.
+// trailQuery: the new names of the last result (three at most, in the order they stand) with the question's unmet words;
+// none where the result names nothing new. covers: every word of the question of four letters or more, that is not a
+// word of asking, stands in what was returned (or all but one in five, where there are five or more).
+const ASKING_WORDS = new Set(
+  'what which when where whose whom that this these those with from have does were been being about into than then them they there their would could should according many much most more name names named year years known called include includes including'.split(
+    ' ',
+  ),
+);
+const NOT_NAMES = new Set(
+  'The A An In On Of It Its This That These Those And But For With From By At As Is Was Are Were No Yes None True False Title Body Href Http Https Www'.split(
+    ' ',
+  ),
+);
+const contentWords = (text) => [
+  ...new Set(
+    (
+      String(text || '')
+        .toLowerCase()
+        .match(/[\p{L}\p{N}]{4,}/gu) || []
+    ).filter((w) => !ASKING_WORDS.has(w)),
+  ),
+];
+export function covers(question, text) {
+  const want = contentWords(question);
+  const hay = String(text || '').toLowerCase();
+  const unmet = want.filter((w) => !hay.includes(w));
+  return { unmet, ok: want.length >= 5 ? unmet.length * 5 <= want.length : unmet.length === 0 };
+}
+export function trailQuery(question, lastResult, allReturned = lastResult) {
+  const q = String(question || '').toLowerCase();
+  const text = asText(lastResult);
+  // (the names that stand beside the question's own words: the sentences of the result that hold the most of them, the
+  // best first and then as they stand. A page's first lines are its menus)
+  const want = contentWords(question);
+  const sentences = text
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s, i) => ({ s, i, n: want.filter((w) => s.toLowerCase().includes(w)).length }))
+    .filter((x) => x.n > 0 && x.s.length < 600)
+    .sort((a, b) => b.n - a.n || a.i - b.i)
+    .slice(0, 3);
+  const fresh = [];
+  for (const { s } of sentences)
+    for (const w of s.match(/\b\p{Lu}[\p{L}\p{N}-]{2,}/gu) || [])
+      if (!NOT_NAMES.has(w) && !q.includes(w.toLowerCase()) && !fresh.includes(w)) fresh.push(w);
+  if (!fresh.length) return '';
+  return [...fresh.slice(0, 3), ...covers(question, asText(allReturned)).unmet.slice(0, 6)].join(' ');
+}
+export const QUERY_BRIEF =
+  'You are finding something out on the web, one search at a time. Say what to search for next: the ONE fact still ' +
+  'missing, in the few words a search engine would match. Where the question hangs on something not yet known (a ' +
+  'person, a place, a year it only describes), search for that first. Write the query alone, on one line: no ' +
+  'explanation, no quotes, no answer.';
+// the query in what a drafter wrote: its first line that holds words, without a label, quotes or a mark of a list; none where
+// it is a refusal, longer than a query is, or one already made
+export function queryIn(text, made = []) {
+  const norm = (x) =>
+    String(x)
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')
+      .trim();
+  for (const raw of String(text || '').split('\n')) {
+    const l = raw
+      .trim()
+      .replace(/^(?:[-*•]|\d+[.)])\s+/, '')
+      .replace(/^(?:search(?: query| for)?|query|keywords?)\s*[:=]\s*/i, '')
+      .replace(/^["'`“]+|["'`”.]+$/g, '')
+      .trim();
+    if (!/[\p{L}\p{N}]/u.test(l)) continue;
+    if (
+      l.length > 100 ||
+      l.split(/\s+/).length > 12 ||
+      /\b(?:i (?:do not|don't|cannot|can't)|sorry|as an ai|please|could you|unclear|unknown|misspell\w*|fictional|not (?:a|an|recogni[sz]ed|specified|mentioned|known|clear))\b/i.test(
+        l,
+      )
+    )
+      return '';
+    return made.some((q) => norm(q) === norm(l)) ? '' : l;
+  }
+  return '';
+}
 // the turn itself: one proposal from each drafter, the same ones made one, the decider where they differ
 export async function answerTools(
   messages,
@@ -396,6 +668,71 @@ export async function answerTools(
     }
   }
   let action = pick.action.calls ? pick.action : { reply: pick.rows[0].action.reply };
+  // SEARCH THROUGH (above): the turn does not end unsearched, nor on an answer that nothing returned holds, while steps remain
+  if (plan.searchThrough !== false && tool_choice === undefined && !action.calls && tools.some(isSearchTool)) {
+    const seen = lookedUp(messages, tools);
+    const queries = queriesMade(messages, tools);
+    // what to search for, asked in words of the first two drafters at once: the first usable line, in their order
+    const askQuery = async () => {
+      const shown = forAnswer(messages).filter((m) => m.role !== 'system');
+      const got = await Promise.all(
+        who.slice(0, 2).map(async (s) => {
+          const t1 = Date.now();
+          let q = '';
+          let said = '';
+          try {
+            const r = await ask({ ...s, maxTokens: 60 }, [{ role: 'system', content: QUERY_BRIEF }, ...shown], {});
+            said = String(r.content !== undefined ? r.content : r.text || '');
+            q = queryIn(said, queries);
+          } catch (e) {
+            said = 'Failed: ' + String((e && e.message) || e).slice(0, 160);
+          }
+          trace.push({
+            slot: s.id,
+            member: s.member,
+            stage: 'draft',
+            ms: Date.now() - t1,
+            ok: !!q,
+            final: q,
+            out: q ? 'Search for: ' + q : 'No query: ' + said.slice(0, 120),
+            again: 'query',
+          });
+          return q;
+        }),
+      );
+      return got.find(Boolean) || '';
+    };
+    let step = null;
+    const asks = questionOf(messages);
+    const lastTool = [...messages].reverse().find((m) => m && m.role === 'tool');
+    // (the first search is the question itself: asked in words for a first query, the small model gave a refusal or said the
+    // question over at length on most of 30 made questions, and the question as it stands returned the first fact)
+    if (!seen.made.length) step = searchCallBy(tools, messages);
+    else if (seen.made.length < (plan.searchMost || SEARCH_MOST)) {
+      // AFTER A SEARCH, ITS FIRST PAGE IS OPENED, whatever the reply says: a list of results holds a line of each page, and
+      // the fact beside the one asked for stands in those lines as often as the fact itself (on a made search task the
+      // module answered from the list with another town's mayor, on most questions)
+      const pageNext = seen.last === 'search' ? nextPageCall(tools, messages) : null;
+      // (held by the last thing returned or by a page that was opened, not by an earlier list of results)
+      const more = !heldBy(action.reply, seen.lastText + '\n' + seen.pagesText) || !covers(asks, seen.text).ok;
+      if (pageNext) step = pageNext;
+      else if (more) {
+        // (the trail first: what the last result newly names, with what of the question it does not hold; a query the
+        // drafters give in words where the result names nothing new)
+        const same = (a, b) =>
+          a.toLowerCase().replace(/\s+/g, ' ').trim() === b.toLowerCase().replace(/\s+/g, ' ').trim();
+        let q = trailQuery(asks, textOf(lastTool && lastTool.content));
+        if (!q || queries.some((x) => same(x, q))) q = await askQuery();
+        if (q) step = searchCallBy(tools, messages, q);
+        if (!step) step = nextPageCall(tools, messages);
+      }
+    }
+    if (step) {
+      action = { calls: [step] };
+      path += seen.made.length ? '+through' : '+searched';
+    }
+  }
+
   // THE REPLY IS ANSWERED, NOT ONLY PROPOSED (SwOA specification T.9). Where the step settled on is a reply, every drafter's reply
   // was one and the same step, and the first drafter's words went out: unchecked, undecided, and after a search they are the one
   // reply that carries what was found. So the reply is written by the answer procedure (drafts, checks, a decision, the writer),

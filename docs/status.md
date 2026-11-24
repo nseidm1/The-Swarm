@@ -58,9 +58,14 @@ What has not:
 - **A pass weighted by the proof.** Built and checked against made-up evaluations, and read against the ones on record:
   Instructions (20 questions) and Tools (100) both read open, so nothing is short and nothing would be asked more of. It
   first has something to act on when a proof run finishes; and it takes effect at the end of a pass, for the next one.
-- **Search that works.** The web search test was asked of both models on 2026-11-22 (20 questions): the module 1 right, the
-  larger model 6. The small model seldom calls the search tool; a turn with one offered now does not end without a
-  search, which brought the module to 2 of 20. Why it is still short has not been looked into.
+- **Search on the live web.** The web search test reads 3 of 40 for the module against 8 for the larger model
+  (2026-11-22, night), no better than before the search was carried by code (4 of 40). The mechanics are mended: every
+  question is searched and pages are opened and read as text. What is missing is choosing what to look up first where a
+  question chains three or four facts. On a made task of two chained facts the same rules take the module from 1 right
+  of 30 to 28 and 30.
+- **Following instructions as well as its own model.** On 100 questions of IFEval the small model asked by itself has
+  75 right and the module 68. A reply written to the request as it came, counted beside the others, won back two.
+- **Pretraining that helps.** Adapters by role lowered the module from 55.2% to 50.6% on 460 questions.
 - **Ten of the nineteen small models in a swarm, two of the four Kev sizes, and fourteen of the fifteen larger models.**
   Pinned. Every small model has answered alone; four small models at once have not been run.
 - **Adapters that help.** Pretrain has run on the real models (2026-11-17, 100 steps each, on 72 of the larger model's

@@ -41,7 +41,7 @@ as one model, with the proof of what it does. The Swarm is not tied to one proje
 > **Status: pre-release; nothing proven yet.** The swarm configured now (2026-11-22) is LFM2.5 1.2B in both places against
 > Nemotron 3.5 Lightning 30B. As configured, before any training, it scored 55.2% on 460 questions of 23 standard tasks
 > where the larger model scored 77.6% and the small model by itself 30.0%. Twenty questions a task is a check, not a
-> proof. Pretraining, the instruments and the trained arrangement have not yet been measured on it.
+> proof. Pretrained by role it read 50.6%, lower; the instruments and a trained arrangement have not been measured on it.
 > [Results](#results) · [Status and limits](docs/status.md)
 
 ## Requirements
@@ -106,11 +106,11 @@ is taken:
 | What the request is | What is done |
 | --- | --- |
 | An operation code does exactly (a sum, true and false, words to sort, brackets to close) | Done by code, **only where training turned that instrument on** for the class of input |
-| A request that sets rules that can be counted (so many words, no comma, labelled parts) | Each first drafter writes the whole reply; the one that keeps the most rules goes out |
+| A request that sets rules that can be counted (so many words, no comma, labelled parts) | Each first drafter writes the whole reply, and one more is written to the request as it came; the one that keeps the most rules goes out |
 | A conversation that ends with the start of the reply | The reply follows the start |
 | A function in JavaScript, TypeScript, Python, Go, Swift, Dart, Flutter or Kotlin | The drafts are run, boxed, and compared by what they do |
 | A question that lists lettered options | An answer that is none of them is not counted beside one that is |
-| A turn with a search tool offered and nothing looked up yet | It does not end without a search |
+| A turn with a search tool offered | Code carries the search: it makes the first search, opens the first page of each, builds the next query from what a page newly names, and lets an answer stand only where the last result or a page holds it |
 
 The arrangement (which slots, what each is told, the order of the stages) is chosen by the class of the request: with
 tools, a conversation, asking for code, or a plain question. Finding the arrangement that does what the larger model does
@@ -206,7 +206,12 @@ Read it with care:
   not tools or search: the small model asked plainly 15.6%, with the module's reply layout only 19.1%, a module of one
   slot (all of the module's code round one call) 41.9%, the whole module 51.2%, the larger model 82.5%. So the code is
   worth about 26 points and the arrangement of seven slots about 9 more, before any training.
-- The same module pretrained, and pretrained and trained, has not been measured yet.
+- Pretrained, with an adapter for each role, the same module read 50.6%: lower. Pretrained and trained is not
+  measured; that run was stopped in training.
+- Search is the widest gap. Code now carries the mechanics of a search (the first search, opening pages, the next
+  query), which takes a made task of two chained facts from 1 right of 30 to 28, but the live web test above did not
+  improve.
+- On 100 Instructions questions the small model alone has 75 right and the module 68.
 - With every instrument on, four operation tasks read 20 of 20 where the small model alone had 0. The instruments were
   written after those tasks were read; they were then probed, with no model, on 104,520 questions by other authors and
   20,000 made at random, and answered none wrongly. Training keeps one only on wordings its trying never saw.
@@ -223,7 +228,7 @@ npm test
 python3 ui/check.py
 ```
 
-236 checks of the module and the trainers and 162 of the dashboard, against stand-in servers: nothing is fetched,
+238 checks of the module and the trainers and 162 of the dashboard, against stand-in servers: nothing is fetched,
 started or installed. `npm test` deals its 115 blocks of checks out to every core (26 seconds on a 24-core Mac, 91 one
 after another); `npm run test:serial` runs them in one process, `npm run test:all` adds the dashboard's, and
 `npm run test:python` checks the Python client. How well the

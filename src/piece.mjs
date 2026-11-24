@@ -8,7 +8,11 @@
 //   1  the first drafters each write the piece itself, whole, told the rules the request sets in so many words;
 //   2  each piece is MEASURED against those rules, by counting, with no model (rulesOf): its words, its sentences, its commas, its
 //      capitals, its placeholders, its labelled parts, its bullets, its highlights, its title, its last words;
-//   3  the piece that keeps the most rules goes out as it was written (the first, where they keep as many);
+//   1a one more is written to the conversation AS IT CAME, by the first of them, with no brief and no list of rules (plain;
+//      plan.piecePlain: false leaves it out). Its own small model asked by itself kept as many such requests as the module or
+//      more (18 of 20 against 17, 2026-11-22): a brief of ours is not always a help. Counted beside the others, it costs one
+//      call and the module can do no worse, on the rules that are counted, than its model asked plainly;
+//   3  the piece that keeps the most rules goes out as it was written (the first, where they keep as many: the plain one first);
 //   4  where even that one breaks a rule, its drafter is told which, with the measure, and writes it once more; the new one
 //      stands where it keeps more.
 // Nothing here says a piece is GOOD. It says which rules that can be counted it keeps.
@@ -247,6 +251,7 @@ export async function answerPiece({
   kept,
   house = '',
   slots,
+  plain = false,
   ask,
   onStep = () => {},
   onStart = () => {},
@@ -264,7 +269,9 @@ export async function answerPiece({
       (house ? '\n\nThe person set this for the conversation:\n' + house : ''),
   };
   const room = roomFor(question);
-  const write = async (slot, msgs, again = '') => {
+  // (what each reply was asked with, so that the one chosen is asked again the same way)
+  const askedWith = new Map();
+  const write = async (slot, msgs, again = '', asPlain = false) => {
     const at = Date.now();
     const row = {
       slot: slot.id,
@@ -277,6 +284,8 @@ export async function answerPiece({
       piece: true,
     };
     if (again) row.again = again;
+    if (asPlain) row.plain = true;
+    askedWith.set(row, msgs);
     onStart({ slot: slot.id, member: slot.member, stage: 'draft' });
     try {
       const r = await ask({ ...slot, maxTokens: room }, msgs);
@@ -294,20 +303,24 @@ export async function answerPiece({
     onStep(row);
     return row;
   };
-  const rows = await Promise.all(slots.map((s) => write(s, [sys, ...kept])));
+  // (the conversation as it came: the person's own system text where there is any, and the turns; nothing of ours)
+  const asItCame = [...(house ? [{ role: 'system', content: house }] : []), ...kept];
+  const rows = await Promise.all([
+    ...(plain && slots.length ? [write(slots[0], asItCame, '', true)] : []),
+    ...slots.map((s) => write(s, [sys, ...kept])),
+  ]);
   const good = rows.filter((r) => r.ok);
   if (!good.length)
     return { reply: '', decided: '', path: 'fallback', ms: Date.now() - t0, trace, ok: false, tried: null };
   let best = good.reduce((a, b) => (b.kept > a.kept ? b : a));
-  let path = 'piece';
+  let path = best.plain ? 'piece+plain' : 'piece';
   if (rules.length && best.kept < rules.length) {
     const broken = rules.filter((r) => !r.keeps(best.out)).map((r) => '- ' + r.broken(best.out));
     const slot = slots.find((s) => s.id === best.slot);
     const again = await write(
       slot,
       [
-        sys,
-        ...kept,
+        ...askedWith.get(best),
         { role: 'assistant', content: best.out },
         {
           role: 'user',
@@ -318,6 +331,7 @@ export async function answerPiece({
         },
       ],
       'rules',
+      !!best.plain,
     );
     if (again.ok && again.kept > best.kept) {
       best = again;

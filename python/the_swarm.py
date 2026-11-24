@@ -84,7 +84,8 @@ class Swarm:
 
     def __init__(self, spec=None, adapters=None, port=None, repo=None, node=None, llama=None, models=None, decider=None,
                  wait=600, command=None):
-        self.repo = Path(repo) if repo else Path(__file__).resolve().parent.parent
+        # (as a whole path: the server is started in this folder, and a path that leans on another folder would not hold there)
+        self.repo = Path(repo).expanduser().resolve() if repo else Path(__file__).resolve().parent.parent
         self.port = int(port) if port else _free_port()
         self.base = "http://127.0.0.1:%d" % self.port
         self.wait = wait

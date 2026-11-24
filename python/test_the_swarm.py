@@ -72,12 +72,20 @@ class Client(unittest.TestCase):
         (repo / "bin").mkdir(parents=True)
         (repo / "bin" / "swarm.mjs").write_text("")
         s = Swarm(spec="x.swoa.json", adapters="ad", port=8123, repo=repo, node="/usr/bin/true", decider="http://127.0.0.1:8009")
-        self.assertEqual(s._command[:5], ["/usr/bin/true", str(repo / "bin" / "swarm.mjs"), "serve", "--port", "8123"])
+        self.assertEqual(s._command[:5], ["/usr/bin/true", str(repo.resolve() / "bin" / "swarm.mjs"), "serve", "--port", "8123"])
         self.assertEqual(s._command[5], "--spec")
         self.assertTrue(s._command[6].endswith("x.swoa.json") and s._command[8].endswith("ad"))
         self.assertEqual(s._env["SWARM_DECIDER"], "http://127.0.0.1:8009")
         with self.assertRaises(SwarmError):
             Swarm(repo=self.dir)  # (not a checkout)
+        # (a checkout named by a path that leans on the folder one is in is named whole: the server is started inside it)
+        was = os.getcwd()
+        os.chdir(self.dir)
+        try:
+            leaning = Swarm(repo="repo", node="/usr/bin/true")
+        finally:
+            os.chdir(was)
+        self.assertTrue(os.path.isabs(leaning._command[1]) and leaning._command[1] == str(repo.resolve() / "bin" / "swarm.mjs"))
 
     def test_a_node_that_is_named_and_too_old_is_refused(self):
         old = os.path.join(self.dir, "node")

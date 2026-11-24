@@ -2,6 +2,55 @@
 
 Every measurement, dated, newest first. Each is of the swarm named in it; the lineup has changed over time.
 
+## A run stopped in training, a search carried by code, Instructions at 100: 2026-11-22 (night)
+
+LFM2.5 1.2B in both places against Nemotron 3.5 Lightning 30B, on one Apple silicon Mac.
+
+**The run's three figures** (460 questions, 20 a task): as configured 55.2%; pretrained, an adapter for each of the
+three roles, 50.6% (Reasoning 43.3 to 35.0, Tools 86 to 81, Search 10 to 5: lower by more than the error of either,
+about 2 points); pretrained and trained: not measured. The run was stopped in its fourth step. The class stage had
+gone through three classes of input and kept nothing in them; it was in the fourth, plain questions, where the
+instruments are tried.
+
+**Instructions, 100 questions of IFEval:**
+
+| | Right, of 100 |
+| --- | --- |
+| The small model, asked plainly | 75 |
+| The same, its reply laid out | 73 |
+| A module of one slot | 65 |
+| The module | 66 |
+| The module, with one reply written to the request as it came | 68 |
+| Nemotron | 79 |
+
+The small model by itself follows instructions better than the module built of it, by about nine questions in a
+hundred. The plain reply, which competes only where a request's rules can be counted, won back two.
+
+**Search.** Read from the stored answers of the web search test, the module made no search on 11 of 20 questions,
+searched once on the other 9, opened no page, and never retrieved the expected answer. Asked of the real module: with
+a call required, both drafters replied in words on two questions of three, so the engine does not enforce a required
+call for this model. With the search carried by code (the first search, a page after each search, the next query from
+what the page names, an answer only where a result holds it):
+
+| | Before | After |
+| --- | --- | --- |
+| A search task made from a seed, 30 questions of two chained facts, seed 4242 | 1 | 28 |
+| The same, seed 99 | not asked | 30 |
+| Questions of it with no search at all | 20 of 30 | 0 |
+| The web search test, 40 questions of three or four chained facts on the live web | 4 | 3 |
+| Nemotron on those 40 | 8 | 8 |
+
+- **The made task** (`python/search_made.py`) makes up countries, capitals, mayors and years, puts each fact on a page
+  of a made-up web, ranks pages as an engine does and asks questions no model can know. The rules were adjusted while
+  looking at its first seed (0 to 23 of 30 there); the two seeds above had not been run before.
+- **The live web test did not improve.** Every question is now searched (2.5 searches and 2.5 pages a question, pages
+  read as text), and the expected answer was retrieved on 4 of 20 where it had been on none; the reply was still wrong
+  there. On the other questions the first search, of the whole question, returns pages beside the point, and the names
+  taken from them lead further off. What to look up first, across three or four facts, is a judgement this small
+  model does not make and this code does not either.
+- **One thing got worse:** the test asks for the last message in a set form, and the module wrote it so on 1 to 3 of
+  20 where it had on 12. Not looked into.
+
 ## What the code adds and what the arrangement adds, 2026-11-22 (evening)
 
 The same swarm (LFM2.5 1.2B in both places, the arrangement every swarm starts from, no adapter, no instrument on),

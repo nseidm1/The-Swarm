@@ -461,7 +461,19 @@ async function answerWhole(
   if (!wantsCode && plan.piece !== false && setsRules(question)) {
     const drafters = stage('draft').filter((s) => !s.compute);
     const first = firstDrafters(drafters, plan.draftFirst) || drafters.slice(0, 2);
-    if (first.length) return answerPiece({ question, kept, house, slots: first, ask, onStep, onStart, isToolCall, t0 });
+    if (first.length)
+      return answerPiece({
+        question,
+        kept,
+        house,
+        slots: first,
+        plain: plan.piecePlain !== false,
+        ask,
+        onStep,
+        onStart,
+        isToolCall,
+        t0,
+      });
   }
   // A DRAFTER THAT ANSWERS BY A PROGRAM (slot.compute, O.6.1a): only where no code is asked for and a program can be run here;
   // anywhere else the slot is left out of the step

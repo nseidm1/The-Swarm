@@ -15,6 +15,22 @@ The first version.
   reading. Each small model is now also asked with the module's own layout code on its one reply and nothing else
   (`aloneForm` in a task's result), so what is left between that and the module is what the arrangement adds. The
   page shows it as one more column, "(laid out)", in each view of an evaluation, once every task shown was asked so.
+- **A search is carried by code** (2026-11-22). In a turn with a search tool offered the module made no search on most
+  questions: a call required of its small model was not a call given (the engine does not enforce it for this model).
+  Now code makes the first search, the question its query; opens the first page of each search, asking for it as text
+  where the tool can give it so; builds the next query from the names the page gives beside the question's own words;
+  and lets an answer stand only where the last result or an opened page holds it and what came back covers the
+  question, or after six steps (`plan.searchThrough`, `plan.searchMost`; SwOA T.13b). A tool's result that is markup
+  is read as its text everywhere (T.11a). On a search task made from a seed (`python/search_made.py`: two chained
+  facts on a made-up web) the module went from 0 or 1 right of 30 to 28 and 30 of 30 on seeds it had not been run on.
+  On the standard web search test, whose questions chain three or four facts on the live web, it did not improve (3
+  of 40, 4 before; the larger model 8).
+- **Among the replies written whole, one is written to the request as it came** (2026-11-22). Where a request sets
+  countable rules the first drafters each write the reply under the module's brief; one more is now written with no
+  brief, and code counts them all (`plan.piecePlain`; SwOA R.5.1 step 1a). Measured on 100 questions of following
+  instructions: 66 right before, 68 after; the small model asked by itself 75. The gap is not closed by this.
+- **The Python client takes a checkout named by a path that leans on the folder one is in** (2026-11-22). It started
+  the server inside the checkout with that same leaning path, and the server did not start.
 - **The System picture shows the whole of how a module is made and judged** (2026-11-22). It drew the search for an
   arrangement and nothing else. Round those lanes it now draws the run in order with where each step stands (R), a
   request inside the module with what is code and what is models (M), the three things training keeps and how far each

@@ -6232,7 +6232,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       { id: 'a1', member: 'a', stage: 'draft' },
       { id: 'b1', member: 'b', stage: 'draft' },
     ],
-    plan: {},
+    plan: { searchThrough: false },
   };
   const proposeReply = async (slot) => ({
     content: slot.id === 'a1' ? 'About 800 metres, I think.' : 'It is 859 metres.',
@@ -6250,7 +6250,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   });
   const proposed = await answerTools(convo, {
     tools,
-    briefs: { ...briefs, plan: { toolReply: 'proposed' } },
+    briefs: { ...briefs, plan: { toolReply: 'proposed', searchThrough: false } },
     ask: proposeReply,
     answerReply: async () => ({ ok: true, reply: 'never asked' }),
   });
@@ -6362,7 +6362,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   });
   const three = {
     slots: ['a1', 'b1', 'c1'].map((id) => ({ id, member: id[0], stage: 'draft' })),
-    plan: { toolReply: 'proposed' },
+    plan: { toolReply: 'proposed', searchThrough: false },
   };
   const convo = [
     { role: 'user', content: 'Who leads the town of Quendale?' },
@@ -10490,7 +10490,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const long = Array.from({ length: 45 }, (_, i) => 'word' + i).join(' ') + '.';
   const calls = [];
   const got = await orchestrate([{ role: 'user', content: Q1 }], {
-    briefs: startBriefs(),
+    briefs: { ...startBriefs(), plan: { ...startBriefs().plan, piecePlain: false } },
     ask: async (slot, m) => {
       const last = m[m.length - 1].content;
       calls.push({
@@ -10511,6 +10511,49 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       };
     },
   });
+  // ONE MORE REPLY, TO THE CONVERSATION AS IT CAME (plan.piecePlain, on as a swarm starts): counted beside the others
+  const seen = [];
+  const askPlainly = (plainText, briefed) => async (slot, m) => {
+    const ours = m[0].role === 'system' && /Write what is asked for, whole/.test(m[0].content);
+    seen.push({ slot: slot.id, ours, first: m[0].role, last: m[m.length - 1].content });
+    if (/breaks these rules/.test(m[m.length - 1].content)) return { text: long };
+    return { text: ours ? briefed : plainText };
+  };
+  // (the plain reply keeps both rules and the briefed ones one: the plain one goes out, and nobody is asked again)
+  const wonPlain = await orchestrate([{ role: 'user', content: Q1 }], {
+    briefs: startBriefs(),
+    ask: askPlainly(long, long.replace('word1 ', 'word1, ')),
+  });
+  const seenWon = seen.splice(0);
+  // (the plain reply keeps none and a briefed one both: the briefed one goes out)
+  const lostPlain = await orchestrate([{ role: 'user', content: Q1 }], {
+    briefs: startBriefs(),
+    ask: askPlainly(short, long),
+  });
+  // (all keep one rule of two: the plain one is first, and it is the one told what it breaks, in the words it was asked in)
+  const tied = await orchestrate([{ role: 'user', content: Q1 }], {
+    briefs: startBriefs(),
+    ask: askPlainly(long.replace('word1 ', 'word1, '), long.replace('word2 ', 'word2, ')),
+  });
+  const againTied = seen.find((c) => /breaks these rules/.test(c.last));
+  check(
+    'among the replies written whole, one is written to the conversation as it came, with no brief of the module (plan.piecePlain): it is counted beside the others and goes out where it keeps the most rules, first where they keep as many; a briefed one goes out where that keeps more; and the plain one, told what it breaks, is asked again as it was asked, without the brief',
+    wonPlain.path === 'piece+plain' &&
+      wonPlain.reply === long &&
+      seenWon.length === 3 &&
+      seenWon.filter((c) => !c.ours).length === 1 &&
+      seenWon.find((c) => !c.ours).first === 'user' &&
+      seenWon.find((c) => !c.ours).slot === 'a-direct' &&
+      wonPlain.trace.filter((r) => r.plain).length === 1 &&
+      lostPlain.path === 'piece' &&
+      lostPlain.reply === long &&
+      tied.path === 'piece+plain+rewritten' &&
+      tied.reply === long &&
+      !!againTied &&
+      !againTied.ours &&
+      againTied.first === 'user',
+    { won: wonPlain.path, lost: lostPlain.path, tied: tied.path, seen: seenWon.map((c) => [c.slot, c.ours, c.first]) },
+  );
   const plain = await orchestrate([{ role: 'user', content: Q1 }], {
     briefs: { ...startBriefs(), plan: { ...startBriefs().plan, piece: false } },
     ask: async () => ({ text: 'ANSWER: hammocks are restful' }),
@@ -10678,10 +10721,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     },
   ];
   const sent = [];
+  const firstOnly = { ...startBriefs(), plan: { ...startBriefs().plan, searchThrough: false } };
   const turn = (tools, messages, extra = {}) =>
     T.answerTools(messages, {
       tools,
-      briefs: startBriefs(),
+      briefs: firstOnly,
       ask: async (slot, msgs, o) => (
         sent.push(o.tool_choice || ''),
         o.tool_choice === 'required'
@@ -10715,7 +10759,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   sent.length = 0;
   const leftOut = await T.answerTools(Qs, {
     tools: [search],
-    briefs: { ...startBriefs(), plan: { ...startBriefs().plan, searchFirst: false } },
+    briefs: { ...startBriefs(), plan: { ...startBriefs().plan, searchFirst: false, searchThrough: false } },
     ask: async (slot, msgs, o) => (
       sent.push(o.tool_choice || ''),
       { ok: true, content: 'I do not know.', calls: [], text: 'I do not know.' }
@@ -10737,6 +10781,222 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       !sent.includes('required') &&
       !(leftOut.calls || []).length,
     { forced, first: [first.path, first.calls], n2, n3, leftOut: leftOut.path },
+  );
+}
+// ---- SEARCH THROUGH (src/tools.mjs): code makes the search no drafter makes, opens the page, and does not end on an answer
+// that nothing returned holds
+{
+  const T = await import('../src/tools.mjs');
+  const { startBriefs } = await import('../src/index.mjs');
+  const fn = (name, description, properties, required) => ({
+    type: 'function',
+    function: { name, description, parameters: { type: 'object', properties, required } },
+  });
+  const search = fn(
+    'search_engine_query',
+    'Search the web.',
+    { keywords: { type: 'string' }, max_results: { type: 'integer' } },
+    ['keywords'],
+  );
+  const page = fn('fetch_url_content', 'Fetch the content of a URL.', { url: { type: 'string' } }, ['url']);
+  const Q = [
+    { role: 'system', content: "Answer as {'answer': ..., 'context': ...}." },
+    {
+      role: 'user',
+      content: 'Tea is dear. Who is the richest person in the country that makes the most expensive tea?',
+    },
+  ];
+  const callOf = (name, args, id = 'c') => [
+    { id, type: 'function', function: { name, arguments: JSON.stringify(args) } },
+  ];
+  const asked = [];
+  // a model that never calls a tool, even when a call is required of it; asked in words what to search for, it says `query`
+  const turn = (
+    messages,
+    { says = "{'answer': 'I do not know'}", query = '', tools = [search, page], plan = {} } = {},
+  ) =>
+    T.answerTools(messages, {
+      tools,
+      briefs: { ...startBriefs(), plan: { ...startBriefs().plan, ...plan } },
+      ask: async (slot, msgs, o) => {
+        const forQuery = msgs[0].role === 'system' && msgs[0].content === T.QUERY_BRIEF;
+        asked.push(forQuery ? 'query' : o.tool_choice || '');
+        if (forQuery) shownForQuery.push(msgs.map((m) => m.content).join('\n'));
+        const text = forQuery ? query : says;
+        return { ok: true, content: text, calls: [], text };
+      },
+      decide: async () => ({ ok: false, why: 'not asked' }),
+    });
+  const shownForQuery = [];
+  // 1: nothing looked up, no drafter calls even when it is required of it: code makes the search, its query the line a
+  // drafter gives in words; where none gives a line (it refuses), the question itself
+  const none = await turn(Q, {
+    query: 'Search: "country that makes the most expensive tea"\nBecause that is missing.',
+  });
+  // (results that hold the reply and cover the question, and no page opened yet though one can be: the page is opened)
+  const snippets = [
+    ...Q,
+    { role: 'assistant', content: '', tool_calls: callOf('search_engine_query', { keywords: 'x' }, 'c1') },
+    {
+      role: 'tool',
+      tool_call_id: 'c1',
+      content:
+        "[{'href': 'https://rich.example/list', 'body': 'Zhang Yiming is the richest person in China, the country that makes the most expensive tea.'}]",
+    },
+  ];
+  const pageFirst = await turn(snippets, { says: "{'answer': 'Zhang Yiming'}" });
+  const noPageTool = await turn(snippets, { says: "{'answer': 'Zhang Yiming'}", tools: [search] });
+  // 2: after a search whose results do not hold the reply's answer: the first page of the results is opened
+  const after1 = [
+    ...Q,
+    { role: 'assistant', content: '', tool_calls: callOf('search_engine_query', { keywords: 'x' }, 'c1') },
+    {
+      role: 'tool',
+      tool_call_id: 'c1',
+      content:
+        "[{'title': 'Tea', 'href': 'https://tea.example/dear.', 'body': 'Da Hong Pao'}, {'href': 'https://other.example/'}]",
+    },
+  ];
+  const opened = await turn(after1, { says: "{'answer': 'Zhang Yiming'}" });
+  // 3: after a page that does not hold it either: the drafters are asked for a call, and one not made before is the step
+  const after2 = [
+    ...after1,
+    {
+      role: 'assistant',
+      content: '',
+      tool_calls: callOf('fetch_url_content', { url: 'https://tea.example/dear' }, 'c2'),
+    },
+    { role: 'tool', tool_call_id: 'c2', content: 'The most expensive tea, Da Hong Pao, is grown in China.' },
+  ];
+  asked.length = 0;
+  shownForQuery.length = 0;
+  // (the page names something new, China: the next search is that name with what of the question nothing has held yet)
+  const next = await turn(after2, { says: "{'answer': 'Zhang Yiming'}", query: 'richest person in China' });
+  const trailAsked = asked.filter((x) => x === 'query').length;
+  // (a result that names nothing new: the drafters are asked in words, shown what was found)
+  const flat = [
+    ...after1,
+    {
+      role: 'assistant',
+      content: '',
+      tool_calls: callOf('fetch_url_content', { url: 'https://tea.example/dear' }, 'c2'),
+    },
+    { role: 'tool', tool_call_id: 'c2', content: 'the tea is dear and nothing more is said here.' },
+  ];
+  asked.length = 0;
+  shownForQuery.length = 0;
+  const worded = await turn(flat, { says: "{'answer': 'Zhang Yiming'}", query: 'richest person in China' });
+  const queryAsked = asked.filter((x) => x === 'query').length;
+  const sawFound = shownForQuery.length === 2 && shownForQuery.every((x) => /nothing more is said here/.test(x));
+  // (an answer the results hold, while a word the question turns on has never come back, does not end the turn)
+  const halfway = await turn(after2, { says: "{'answer': 'China'}", query: 'richest person in China' });
+  // (a query already made is not a step: the next page of the last results, where there is one; else the reply stands)
+  const nothingNew = [
+    ...Q,
+    { role: 'assistant', content: '', tool_calls: callOf('search_engine_query', { keywords: 'x' }, 'c1') },
+    { role: 'tool', tool_call_id: 'c1', content: 'nothing new is named here.' },
+  ];
+  const repeat = await turn(nothingNew, { says: "{'answer': 'I do not know'}", query: 'X', tools: [search] });
+  // 4: what was returned holds the answer: the reply stands, and nobody is asked again
+  const after3 = [
+    ...after2,
+    {
+      role: 'assistant',
+      content: '',
+      tool_calls: callOf('search_engine_query', { keywords: 'richest person in China' }, 'c3'),
+    },
+    {
+      role: 'tool',
+      tool_call_id: 'c3',
+      content: 'Forbes: Zhang Yiming is the richest person in China, the country that makes the most expensive tea.',
+    },
+  ];
+  asked.length = 0;
+  const held = await turn(after3, { says: "{'answer': 'Zhang Yiming', 'context': 'Forbes'}" });
+  const askedHeld = asked.filter((x) => x === 'query').length;
+  // 5: the steps are spent (searchMost), or the switch is off: the reply stands
+  const spent = await turn(after2, { says: "{'answer': 'I do not know'}", plan: { searchMost: 2 } });
+  const off = await turn(Q, { plan: { searchThrough: false, searchFirst: false } });
+  const noTool = await turn(Q, {
+    tools: [fn('spotify_play', 'Play a song.', { artist: { type: 'string' } }, ['artist'])],
+  });
+  const argsOf = (r) =>
+    (r.calls || [])[0] ? [r.calls[0].function.name, JSON.parse(r.calls[0].function.arguments)] : null;
+  check(
+    'search through: where a tool that searches is offered and no drafter makes a call, code makes the search, the question its query; after a search the first page not yet opened is opened, also where the results already hold the reply; after a page the next search is the trail (what the page newly names, with what of the question nothing has held yet), or, where the page names nothing new, a query the drafters give in words, shown what was found; an answer the results hold does not end the turn while a word the question turns on has never come back; a reply whose answer the results hold stands and nobody is asked again; and with the steps spent, the switch off, or no tool that searches, the reply stands',
+    JSON.stringify(argsOf(none)) ===
+      JSON.stringify([
+        'search_engine_query',
+        { keywords: 'Who is the richest person in the country that makes the most expensive tea?' },
+      ]) &&
+      JSON.stringify(argsOf(pageFirst)) ===
+        JSON.stringify(['fetch_url_content', { url: 'https://rich.example/list' }]) &&
+      argsOf(noPageTool) === null &&
+      T.queryIn('Search: "country that makes the most expensive tea"\nBecause.') ===
+        'country that makes the most expensive tea' &&
+      T.queryIn('Cornevnev is not a recognized city; please confirm the name') === '' &&
+      /\+searched$/.test(none.path) &&
+      T.queryIn('1. "tea price record"') === 'tea price record' &&
+      T.queryIn('As an AI I cannot browse') === '' &&
+      T.queryIn('Tea Price', ['tea price']) === '' &&
+      JSON.stringify(argsOf(opened)) === JSON.stringify(['fetch_url_content', { url: 'https://tea.example/dear' }]) &&
+      /\+through$/.test(opened.path) &&
+      JSON.stringify(argsOf(next)) ===
+        JSON.stringify(['search_engine_query', { keywords: 'Hong Pao China richest person country makes' }]) &&
+      trailAsked === 0 &&
+      JSON.stringify(argsOf(worded)) ===
+        JSON.stringify(['search_engine_query', { keywords: 'richest person in China' }]) &&
+      queryAsked === 2 &&
+      sawFound &&
+      (argsOf(halfway) || [])[0] === 'search_engine_query' &&
+      T.trailQuery('Who is the mayor of the capital of Aldo?', 'The capital of Aldo is Brim.') === 'Brim mayor' &&
+      // (a page is read as text: its scripts and menus give no names, the sentence that holds the question's words does)
+      T.trailQuery(
+        'Who is the mayor of the capital of Aldo?',
+        '<!DOCTYPE html><html><head><title>Aldo</title><script>var RLCONF = {"Regex": 1};</script></head><body><div>Jump to Content. Main Menu.</div><p>The capital of Aldo is <a href="/b">Brim</a>.</p></body></html>',
+      ) === 'Brim mayor' &&
+      T.asText('<p>One &amp; two</p><script>var X = 1;</script><p>Three</p>') === 'One & two\nThree' &&
+      T.asText('plain < text, no markup') === 'plain < text, no markup' &&
+      JSON.stringify(
+        T.asTextArg({
+          function: {
+            name: 'f',
+            parameters: {
+              properties: { url: { type: 'string' }, mode: { type: 'string', enum: ['raw', 'markdown', 'truncate'] } },
+            },
+          },
+        }),
+      ) === '{"mode":"truncate"}' &&
+      JSON.stringify(T.asTextArg(page)) === '{}' &&
+      /^Aldo page\nThe capital/.test(
+        T.fitted([
+          { role: 'tool', content: '<html><body><h1>Aldo page</h1><p>The capital of Aldo is Brim.</p></body></html>' },
+        ])[0].content,
+      ) &&
+      T.trailQuery('Who is the mayor of the capital of Aldo?', 'nothing is named here') === '' &&
+      T.covers('Who is the mayor of the capital of Aldo?', 'The capital of Aldo is Brim.').unmet.join() === 'mayor' &&
+      T.covers('Who is the mayor of the capital of Aldo?', 'Capital of Aldo: Brim. Its mayor is Cy.').ok &&
+      argsOf(repeat) === null &&
+      argsOf(held) === null &&
+      askedHeld === 0 &&
+      /Zhang Yiming/.test(held.reply) &&
+      argsOf(spent) === null &&
+      argsOf(off) === null &&
+      argsOf(noTool) === null &&
+      T.heldBy('The answer is 1871.', 'It was founded in 1871') &&
+      !T.heldBy('It was 1997', 'It was founded in 1871') &&
+      !T.heldBy("{'answer': 'I do not know'}", 'anything') &&
+      T.isFetchTool(page) &&
+      !T.isFetchTool(search),
+    {
+      none: [none.path, argsOf(none)],
+      opened: [opened.path, argsOf(opened)],
+      next: argsOf(next),
+      repeat: argsOf(repeat),
+      held: [held.path, argsOf(held)],
+      spent: argsOf(spent),
+      off: argsOf(off),
+    },
   );
 }
 // ---- THE INSTRUMENTS AGAINST QUESTIONS MADE AT RANDOM, WORDINGS THE LARGER MODEL WRITES, MEMORY MEASURED BY ANY STAGE
@@ -10912,7 +11172,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     'what the swarm takes in memory is measured by any stage that serves it, not by the question loop alone (the run a person starts takes the class stage and pretraining, and the page said "estimated, not measured" of a swarm that had served for an hour): a watch measures each model\'s own process, keeps the most it saw and writes it where the page reads it, and the class stage and pretraining by role both keep one',
     !!kept &&
       kept.config === 'mine' &&
-      kept.swarm > 0 &&
+      // (the process that is watched here is this one, a few tens of megabytes: its own figure, which a sum to one decimal
+      // of a gigabyte rounds to nothing)
+      kept.members.a > 0 &&
       kept.target === 18 &&
       /watchMemory\(swarm/.test(src('classes.mjs')) &&
       /watchMemory\(swarm/.test(src('roles.mjs')) &&
