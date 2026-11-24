@@ -163,6 +163,20 @@ const safeName = (s) => String(s).replace(/[^\w.+-]+/g, '_');
 export const configKey = (config) => safeName(configId(config)) + '--' + safeName(config.target);
 export const CONFIG_KEY = configKey(CONFIG);
 
+// THE SAME MODEL, SERVED ANOTHER WAY: the other entries of the catalog that say they are the same model (`base`: its maker's
+// own repository), which differ in the file and in the build of the engine that serves it. Which of them serves a place is a
+// thing training can try and keep (training/classes.mjs: no worse, and faster). servedAs(members, { place: id }) -> the
+// members with those places served by the entries named, each keeping its place; a name that is no such entry is passed over.
+export const servingsOf = (m) => (m && m.base ? REGISTRY.small.filter((x) => x.base === m.base && x.id !== m.id) : []);
+export function servedAs(members, serving) {
+  if (!serving || !Object.keys(serving).length) return members;
+  return Object.fromEntries(
+    Object.entries(members).map(([key, m]) => {
+      const to = m && serving[key] && servingsOf(m).find((x) => x.id === serving[key]);
+      return [key, to ? { ...to, key: m.key || key } : m];
+    }),
+  );
+}
 export const fileUrl = (m, base = 'https://huggingface.co') => base + '/' + m.repo + '/resolve/' + m.rev + '/' + m.file;
 export const engineBuild = (platform = process.platform, arch = process.arch) =>
   ENGINE.builds[platform + '-' + arch] || null;

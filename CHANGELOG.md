@@ -6,6 +6,20 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Time is the tie-breaker, and training chooses between engines by it** (2026-11-24). Correctness still decides: a
+  change that gains beyond its error is kept whatever its time. After that, the class stage now times what would get
+  the same answers sooner, against the swarm as it stands, on held questions and two draws: the same model served
+  another way (another file of it and another build of the engine, where both are already on the machine; it fetches
+  nothing to try one), and a leaner arrangement that was no worse on the train questions. It is kept where its
+  answers are no worse and at least 15% of the time is saved, beyond twice the error of the timing
+  (`training/keep.mjs` `keepOnTime`; `faster` and `timeSample` in the policy; `--no-time` leaves it out). Each trial
+  records seconds a question and tokens a second, before and after, and the dashboard shows them. An arrangement can
+  name which serving a place uses (`serving`); catalog entries that are the same model say so (`base`). Run once on
+  Inkling 2 Mini, standard build against Atomic Engine, 8 held conversations and 2 draws: the same answers, 31 against
+  35 tokens a second, and 36.3 against 37.7 seconds a question, so no time saved and it was not kept.
+- **The Train card shows a stage however it was started** (2026-11-24). It said nothing was running while the class
+  stage trained from a terminal. Its head is now the stage's own figure while one runs, **Training now** reads the
+  record the stage says it is writing, the run cards wait for it, and "slots on models" counts models, not places.
 - **Atomic Engine can serve Inkling 2 Mini** (2026-11-24). A catalog entry can name another build of the engine
   (`program`); the first is Atomic Engine, a developer preview built on llama.cpp, pinned to a commit. Choosing
   **Inkling 2 Mini 26B IQ2_M, Atomic Engine** builds it from source when its models are made ready (the Xcode command

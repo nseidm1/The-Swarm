@@ -16,7 +16,7 @@
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { MEMBERS, SERVING, ENTRY, SERVED_NAME, TOOLS, toolsOf, NO_DECIDER } from './catalog.mjs';
+import { MEMBERS, SERVING, ENTRY, SERVED_NAME, TOOLS, toolsOf, NO_DECIDER, servedAs } from './catalog.mjs';
 import { attachMember, startMember, modelFile } from './members.mjs';
 import { answer as orchestrate } from './orchestrate.mjs';
 import { textOf } from './read.mjs';
@@ -158,8 +158,10 @@ export async function createSwarm(opts = {}) {
   // (and the adapters of each role, where the spec pins them so)
   if (S && Object.keys(S.roleLoras || {}).length && !opts.roleLoras) opts = { ...opts, roleLoras: S.roleLoras };
   if (S && Object.keys(S.adapterLike || {}).length && !opts.adapterLike) opts = { ...opts, adapterLike: S.adapterLike };
-  const MEM = S ? S.members : MEMBERS;
   let briefs = opts.briefs || (S && S.briefs) || readBriefs(opts.briefsFile);
+  // (a place may be served by another entry of the same model, where training found that no worse and faster: the
+  // arrangement says which, `serving`; catalog.mjs servedAs. A spec's members are its own.)
+  const MEM = S ? S.members : servedAs(MEMBERS, opts.serving || (briefs && briefs.serving));
   const slots = opts.slots || (S && S.slots) || SERVING.slots;
   if (S && S.contextPerSlot && !opts.contextPerSlot) opts = { ...opts, contextPerSlot: S.contextPerSlot };
   // TURNS WITH TOOLS (tools.mjs): "swarm" decides them; otherwise one small model takes them alone (named by its id, or its place;

@@ -2232,7 +2232,9 @@ _cpwas = _cpf.read_text() if _cpf.exists() else None
 _cpmade = not _cpf.parent.exists()
 _cpf.parent.mkdir(parents=True, exist_ok=True)
 _cp0 = swarm_ui.class_plan({**_cpd, "key": "no-such-configuration"})
-_cpf.write_text(json.dumps({"pass": 2, "carried": {"from": "x", "focus": {"chat-terse": 4}, "more": 4, "conventions": {"no-offer": {"asked": 3, "missed": 2}, "answers": {"asked": 3, "missed": 0}}}, "gaps": {"kinds": {}, "conventions": {"no-praise": {"asked": 4, "missed": 1}}, "next": {"chat-hurry": 2}}, "classes": {"words": {"train": 12, "held": 12, "kinds": ["a", "b"], "kept": [], "rounds": [
+_cpf.write_text(json.dumps({"time": {"asked": 8, "draws": 2, "trials": [
+    {"what": "serving: X is served as Y", "kind": "serving", "keep": True, "gain": 0, "saved": 0.24, "savedError": 0.03, "seconds": {"base": 80, "with": 61}, "tokensPerSecond": {"base": 25, "with": 34}},
+    {"what": "drop a-critic", "kind": "lean", "keep": False, "gain": -0.0625, "saved": 0.3, "savedError": 0.02, "seconds": {"base": 61, "with": 43}, "tokensPerSecond": {"base": 34, "with": 34}, "why": "its answers were worse by 6.2 points"}]}, "pass": 2, "carried": {"from": "x", "focus": {"chat-terse": 4}, "more": 4, "conventions": {"no-offer": {"asked": 3, "missed": 2}, "answers": {"asked": 3, "missed": 0}}}, "gaps": {"kinds": {}, "conventions": {"no-praise": {"asked": 4, "missed": 1}}, "next": {"chat-hurry": 2}}, "classes": {"words": {"train": 12, "held": 12, "kinds": ["a", "b"], "kept": [], "rounds": [
     {"gap": {"wrong": 5, "none": 3, "lost": 1, "spoiled": 1, "first": "none"}, "of": 9,
      "candidates": [{"name": "cascade: a-steps works the question one fact at a time", "n": 12, "counted": 9, "gain": 0.167},
                     {"name": "plan: decide by most", "n": 12, "counted": 7, "gain": 0.0}],
@@ -2249,7 +2251,9 @@ else:
     _cpf.write_text(_cpwas)
 check("the plan section says in real time what training is trying: what it can change (pure code, adapters, breakdown, cascade, slots and models, settling, the reply, conversation), which pass of the stage it is with what it carries from the last and what it leaves for the next, and for each class its train and held questions, what is kept, and round by round how many changes were tried of how many, where the class fell short as it stood (no slot had it, had it and lost it, reply spoiled) with what that puts first, the changes that gained most, the best and what the held questions said; a class not trained says why; with nothing recorded it says training is not running; and it stands above the question-by-question plan",
       all(w in _cp1 for w in ("What training is trying", "<b>Pure code</b>", "<b>Breakdown</b>", "<b>Cascade</b>", "<b>Slots and models</b>", "Requests in words", "12 train questions and 12 held, of 2 kinds",
-                              "2 of 9 changes tried", "<b>Conversation</b>", "<b>Pass 2 of this stage.</b> Carried from the last pass: 4 more train questions of what it was short on (chat-terse +4); in conversation it had missed no-offer (2 of 3)", "<b>Left for the next pass.</b> Asked more of: chat-hurry +2. In conversation, still missed: no-praise (1 of 4).", "Wrong as it stood: 5 (no slot had it 3, had it and lost it 1, reply spoiled 1)", "so what is drafted is tried first",
+                              "2 of 9 changes tried", "<b>Conversation</b>", "<b>Time, as the tie-breaker</b>", "<h4>Time, as the tie-breaker</h4>", "On 8 held questions, 2 draws",
+                              "served as Y: answers +0.0 points, <b>24.0%</b> of the time saved (error 3.0); 80.0 s &rarr; 61.0 s a question, 25 &rarr; 34 tokens a second: <b>kept</b>", "drop a-critic: answers -6.2 points",
+                              "not kept: its answers were worse by 6.2 points", "<b>Pass 2 of this stage.</b> Carried from the last pass: 4 more train questions of what it was short on (chat-terse +4); in conversation it had missed no-offer (2 of 3)", "<b>Left for the next pass.</b> Asked more of: chat-hurry +2. In conversation, still missed: no-praise (1 of 4).", "Wrong as it stood: 5 (no slot had it 3, had it and lost it 1, reply spoiled 1)", "so what is drafted is tried first",
                               "cascade: a-steps works the question one fact at a time: counted 9 of 12 (+16.7 points)", "+12.5 points with an error of 3.0: <b>kept</b>", "Not trained: fewer than four questions"))
       and "Training is not running" in _cp0 and "Requests in words" not in _cp0
       and _cpb.startswith('<div class="panel plan" id="trainnow">') and "Nothing is training" in _cpb and '<details class="cfg fold" data-keep="plan-earlier">' in _cpb
@@ -2316,6 +2320,24 @@ _tn1 = swarm_ui.training_now(_tn_d)
 _tn_c1 = swarm_ui.now_codes(_tn_d)
 _tn_live.write_text(json.dumps({"trainer": "classes", "step": "Class 1 of 1, a conversation: the swarm as it stands, on the held questions, draw 1 of 2 · question 3 of 78"}))
 _tn_c2 = swarm_ui.now_codes(_tn_d)
+# (and the Train card says so too, however the stage was started: here, from a terminal)
+_tn_alive = swarm_ui._classes_alive
+swarm_ui._job_state = lambda name: None
+swarm_ui._classes_alive = lambda: True
+_tn_idle = swarm_ui.idle_words()
+_tn_busy = swarm_ui.busy_with()
+# (the head of the Train card is the stage's own figure, and Training now reads the record the stage says it writes)
+_tn_other = Path(_tn_d["root"]) / ".work" / "elsewhere.json"
+_tn_other.write_text(json.dumps({"pass": 7, "classes": {"talk": {"train": 8, "held": 8, "kinds": ["a"], "kept": [], "asItStands": {"n": 8, "counted": 6}, "rounds": []}}}))
+_tn_live.write_text(json.dumps({"trainer": "classes", "record": str(_tn_other), "step": "Class 1 of 1, a conversation: how the swarm stands · question 3 of 8"}))
+_tn_head = swarm_ui.progress_strip(_tn_d)
+_tn_now2 = swarm_ui.training_now(_tn_d)
+_tn_live.write_text(json.dumps({"trainer": "classes", "record": "/etc/hosts", "step": "Class 1 of 1, a conversation: how the swarm stands · question 3 of 8"}))
+_tn_outside = swarm_ui.stage_record(_tn_d)
+_tn_other.unlink()
+swarm_ui._classes_alive = lambda: False
+_tn_idle0 = swarm_ui.idle_words()
+swarm_ui._classes_alive = _tn_alive
 swarm_ui._job_state = _tn_js
 for _f, _w in ((_tn_f, _tn_was), (_tn_live, _tn_lwas)):
     if _w is None:
@@ -2324,7 +2346,7 @@ for _f, _w in ((_tn_f, _tn_was), (_tn_live, _tn_lwas)):
         _f.write_text(_w)
 if _tn_made:
     _tn_res.rmdir()
-check("the plan section is the present, whichever run is going: the run and its pass, the class in hand and the round, what is being asked this moment, what the pass carried in, where the class fell short and so what is tried first, how far the round is, what has gained so far, and what is still to be tried, in order; where nothing is training it says so and what the next run of each kind begins from; everything earlier is folded under it. And the System picture marks the boxes in use this moment, from the same source: a change being tried is S2 with what it is of (a cascade is K4), the held questions are S4, the conversation run is K5, and nothing is marked where nothing runs; a run card's steps stand in a row where there is room and in a column where there is not",
+check("the plan section is the present, whichever run is going: the run and its pass, the class in hand and the round, what is being asked this moment, what the pass carried in, where the class fell short and so what is tried first, how far the round is, what has gained so far, and what is still to be tried, in order; where nothing is training it says so and what the next run of each kind begins from; everything earlier is folded under it. And the System picture marks the boxes in use this moment, from the same source: a change being tried is S2 with what it is of (a cascade is K4), the held questions are S4, the conversation run is K5, and nothing is marked where nothing runs; a run card's steps stand in a row where there is room and in a column where there is not. The Train card says the same of a stage however it was started (the conversation run, the whole run, a terminal), never that nothing is running while one is, and the run cards wait for it; its head is then the stage's own figure (train answers good as the swarm stands in this stage, and which pass), and Training now reads the record the stage says it is writing, wherever under this folder that is, and no file outside it",
       "Nothing is training" in _tn0 and "The next conversation pass" in _tn0 and "The next intelligence run" in _tn0 and _tn_c0 == set()
       and all(w in _tn1 for w in ('data-training="1"', "Training now: the conversation run, pass 3", "Requests in conversation · round 1", "<b>This moment:</b> Class 1 of 1, a conversation: trying",
                                   "<b>Carried in from the last pass:</b> 2 more train questions of chat-thanks +2", "80 train questions and 78 held, of 13 kinds", "9 wrong as it stood: no slot had the answer 6",
@@ -2332,6 +2354,10 @@ check("the plan section is the present, whichever run is going: the run and its 
                                   "<li>cascade: a-steps works the question one fact at a time</li>", "<li>decide by most</li>"))
       and _tn1.index("Still to try this round") < _tn1.index("<li>manners: a closing")
       and _tn_c1 == {"S2", "K4", "K5"} and _tn_c2 == {"S4", "K5"}
+      and _tn_idle.startswith("Training each class of input as a class · Class 1 of 1, a conversation: the swarm as it stands, on the held questions") and _tn_busy == "training started from a terminal"
+      and _tn_idle0 == "Nothing is running. No model is loaded."
+      and 'data-stage="1"' in _tn_head and '<b class="pct">75%</b>' in _tn_head and "train answers good" in _tn_head and "the class stage, pass 7" in _tn_head and "<b>6</b> of 8 train answers good" in _tn_head and "<b>Now:</b> Class 1 of 1" in _tn_head
+      and "8 train questions and 8 held, of 1 kinds" in _tn_now2 and _tn_outside is None and "/fragment/score','#score'" in swarm_ui.JS and "stage_alive()" in Path(swarm_ui.__file__).read_text()
       and "grid-template-columns:repeat(auto-fit,minmax(230px,1fr))" in swarm_ui.CSS and "/now/codes" in swarm_ui.JS and '"/now/codes"' in Path(swarm_ui.__file__).read_text(),
       [_tn_c1, _tn_c2, _tn1[:300]])
 
@@ -2341,7 +2367,7 @@ _vzw = swarm_ui.viz_block(data.load(swarm_ui.ARGS.root))
 check("the System picture draws the run in order (R1 to R4: pretraining is no stage of it), a request inside the module (M1 to M4), what training keeps with how far each reaches (K1 to K4: the arrangement with how many slots and models, adapters by slot, instruments saying which are on, the breakdown and the cascade), what is tried first following where the class falls short, the arrangement's lanes after them, and the judge last (J1 to J4)",
       all(">%s</span>" % c in _vzw for c in ("R1", "R4", "M1", "M2", "M4", "K1", "K2", "K3", "A1", "S5", "E1", "J1", "J4")) and ">R5</span>" not in _vzw and "Adapters, by slot" in _vzw
       and _vzw.index(">R1</span>") < _vzw.index(">M1</span>") < _vzw.index(">K1</span>") < _vzw.index(">A1</span>") < _vzw.index(">J1</span>")
-      and "None is on yet." in _vzw and "__VIZ_" not in _vzw and "async function swap(url,into,opts){if(!$(into))return;" in swarm_ui.JS and "R3 in detail" in _vzw and "each request is served with the one its slot carries" in _vzw and "those for the widest of the three gaps first" in _vzw and ">K4</span>" in _vzw and "Breakdown, cascade" in _vzw and _vzw.index(">K4</span>") < _vzw.index(">K5</span>") and "Made-up people write over several turns" in _vzw and "is not shaped to how they ask" in _vzw and "bash training/session.sh" in _vzw,
+      and "None is on yet." in _vzw and "__VIZ_" not in _vzw and "async function swap(url,into,opts){if(!$(into))return;" in swarm_ui.JS and "R3 in detail" in _vzw and "each request is served with the one its slot carries" in _vzw and "those for the widest of the three gaps first" in _vzw and ">K4</span>" in _vzw and "Breakdown, cascade" in _vzw and _vzw.index(">K4</span>") < _vzw.index(">K5</span>") < _vzw.index(">K6</span>") and "Time, the tie-breaker" in _vzw and "Made-up people write over several turns" in _vzw and "is not shaped to how they ask" in _vzw and "bash training/session.sh" in _vzw,
       [c for c in ("R1", "M1", "K3", "J4") if ">%s</span>" % c not in _vzw])
 # THE SECOND BASELINE ON THE PAGE: beside a small model by itself, the same model with its reply laid out, as one more column
 _lo = [{"alone": {"a": {"name": "A", "value": 0.0}}, "aloneForm": {"a": {"name": "A", "value": 0.5, "unread": 1}}, "agree": {"of": 10}},

@@ -207,6 +207,18 @@ export function barsOf(gaps, ids) {
   }
   return out;
 }
+// THE LEANER ARRANGEMENT WORTH TIMING: of the changes a round tried that were no worse on the train questions, one that asks
+// less of the models (fewer slots, or one model asked as the request came): the one that gained most, then the fewest slots.
+// Whether it is kept is for the held questions and the clock (keep.mjs keepOnTime). null where there is none.
+export function leanOf(scored, base) {
+  const slots = (b) => ((b && b.slots) || []).length;
+  const plain = (b) => !!(b && b.plan && b.plan.plain === true);
+  const leaner = (scored || []).filter(
+    (c) => c && c.g && c.g.gain >= 0 && c.m && (slots(c.m.briefs) < slots(base) || (plain(c.m.briefs) && !plain(base))),
+  );
+  leaner.sort((a, b) => b.g.gain - a.g.gain || slots(a.m.briefs) - slots(b.m.briefs));
+  return leaner.length ? { name: leaner[0].m.name, briefs: leaner[0].m.briefs } : null;
+}
 // THE BEST TWO OF THE SWEEP TOGETHER: the second's change made to the first's arrangement (the move of the same name from
 // there), or null where there are not two that gained or the second cannot be made from the first
 export function togetherOf(scored, stepsOf) {
@@ -274,6 +286,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const train = [...train0, ...moreOf];
   const held = mine('held');
   const lastRows = {};
+  // (for each class, a leaner arrangement that was no worse on its train questions: timed at the end, timeTrials)
+  const leanBy = {};
 
   let stored = readBriefs();
   const record = {
@@ -313,10 +327,12 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     fs.writeFileSync(OUT + '.tmp', JSON.stringify(record, null, 1));
     fs.renameSync(OUT + '.tmp', OUT);
   };
+  // (the page reads what this stage is doing from the record it writes: the note of what is happening says which record)
+  B.live({ record: path.resolve(OUT) });
   // (asked with a candidate, the class's stored arrangement must not stand over it: the candidate IS the class's arrangement)
-  const asClass = (K, b) => ({
-    ...stored,
-    kinds: { ...(stored.kinds || {}), [K]: { slots: b.slots, plan: b.plan, flow: b.flow } },
+  const asClass = (K, b, on = stored) => ({
+    ...on,
+    kinds: { ...(on.kinds || {}), [K]: { slots: b.slots, plan: b.plan, flow: b.flow } },
   });
   const seed0 = Number(B.arg('seed', 1));
   // THE MIXTURE'S ADAPTERS, as moves (arrange.mjs adapterMoves): the ones there are for this swarm's model, loaded and on no
@@ -496,7 +512,10 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         // (and the best two of the sweep together: two changes that each help may help more as one)
         const both = togetherOf(scored, steps);
         if (both) await tryOne(both);
-        if (!best) break;
+        if (!best) {
+          leanBy[K] = leanOf(scored, base);
+          break;
+        }
         // ON THE HELD QUESTIONS, which it was not chosen on: the swarm as it stands and the best, the same questions for both
         const heldBase = await onDraws(
           he,
@@ -546,9 +565,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
             (keep ? 'kept' : 'not kept: ' + verdict.why),
         );
         if (!keep) {
+          leanBy[K] = leanOf(scored, base);
           save();
           break;
         }
+        leanBy[K] = null;
         base = best.m.briefs;
         baseRows = best.rows;
         lastRows[K] = baseRows;
@@ -573,6 +594,139 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   } finally {
     memStop();
     await swarm.stop();
+  }
+  // TIME AS THE TIE-BREAKER (keep.mjs keepOnTime): once every class is trained and the swarm it was trained on is stopped,
+  // what would get the same answers sooner is tried, each against the swarm as it now stands, on held questions, two
+  // draws, every question timed as it is asked and nothing answered from memory:
+  //   - ANOTHER SERVING OF THE SAME MODEL (catalog.mjs servingsOf): another file of it, served by another build of the
+  //     engine, where both are on this machine already. Training fetches nothing to try one.
+  //   - A LEANER ARRANGEMENT for a class (leanOf), where the class kept nothing else in its last round.
+  // --no-time leaves it out; --time-sample N asks so many held questions (24 where nothing is said).
+  if (!B.has('no-time') && !B.has('dry')) {
+    const { keepOnTime } = await import('./keep.mjs');
+    const { servingsOf, MEMBERS: PLACES } = await import('../src/catalog.mjs');
+    const { modelFile, programFor } = await import('../src/members.mjs');
+    const trained = Object.entries(record.classes)
+      .filter(([, C]) => C && !C.skipped)
+      .map(([K]) => K);
+    const trials = [];
+    const now = stored.serving || {};
+    for (const alt of servingsOf(PLACES.a).filter(
+      (x) => x.id !== now.a && modelFile(x, B.modelsDir()) && (!x.program || programFor(x, '')),
+    ))
+      trials.push({
+        kind: 'serving',
+        what: 'serving: ' + PLACES.a.name + ' is served as ' + alt.name,
+        briefs: (b) => ({
+          ...b,
+          serving: Object.fromEntries(
+            Object.keys(PLACES)
+              .filter((k) => PLACES[k].id === PLACES.a.id)
+              .map((k) => [k, alt.id]),
+          ),
+        }),
+      });
+    for (const K of trained)
+      if (leanBy[K])
+        trials.push({ kind: 'lean', class: K, what: leanBy[K].name, briefs: (b) => asClass(K, leanBy[K].briefs, b) });
+    const asked = sampleOf(
+      held.filter((t) => trained.includes(classIs(t))),
+      Number(B.arg('time-sample', P.timeSample ?? 24)),
+    );
+    if (trials.length && asked.length >= 4) {
+      const timed = async (briefs, what) => {
+        const sw = await B.openSwarm(briefs, { seed: seed0, reuse: false, mix: mixture.length > 0 });
+        const out = [];
+        try {
+          for (let k = 0; k < draws; k++) {
+            sw.setSeed(k ? seed0 + '|draw' + (k + 1) : seed0);
+            const rows = [];
+            for (const [i, t] of asked.entries()) {
+              B.live({
+                trainer: 'classes',
+                step:
+                  'Time: ' +
+                  what +
+                  ', draw ' +
+                  (k + 1) +
+                  ' of ' +
+                  draws +
+                  ' · question ' +
+                  (i + 1) +
+                  ' of ' +
+                  asked.length,
+              });
+              const got = await B.askSwarm(sw, t, messagesOf(t));
+              rows.push({
+                counted: (await t.good(got.reply)).grade === 'right' ? 1 : 0,
+                ms: got.ms || 0,
+                tokens: (got.trace || []).reduce((a, r) => a + (Number(r.tokens) || 0), 0),
+              });
+            }
+            out.push(rows);
+          }
+        } finally {
+          await sw.stop();
+        }
+        return out;
+      };
+      record.time = { asked: asked.length, draws, trials: [] };
+      let base = await timed(stored, 'the swarm as it stands');
+      for (const tr of trials) {
+        const cand = tr.briefs(stored);
+        const got = await timed(cand, tr.what.replace(/^plan: /, ''));
+        const col = (runs, f) => asked.map((_, i) => runs.map((d) => d[i][f]));
+        const verdict = keepOnTime(
+          asked.map((t, i) => ({
+            id: t.id,
+            kind: t.kind,
+            base: col(base, 'counted')[i],
+            with: col(got, 'counted')[i],
+            baseMs: col(base, 'ms')[i],
+            withMs: col(got, 'ms')[i],
+            baseTokens: col(base, 'tokens')[i],
+            withTokens: col(got, 'tokens')[i],
+          })),
+          { faster: P.faster ?? 0.15 },
+        );
+        record.time.trials.push({ what: tr.what, kind: tr.kind, ...(tr.class ? { class: tr.class } : {}), ...verdict });
+        console.log(
+          '  time: ' +
+            tr.what +
+            ': ' +
+            (verdict.gain * 100).toFixed(1) +
+            ' points, ' +
+            (verdict.saved * 100).toFixed(1) +
+            '% of the time saved (error ' +
+            (verdict.savedError * 100).toFixed(1) +
+            '), ' +
+            verdict.seconds.base +
+            ' s -> ' +
+            verdict.seconds.with +
+            ' s a question, ' +
+            (verdict.tokensPerSecond.base ?? '?') +
+            ' -> ' +
+            (verdict.tokensPerSecond.with ?? '?') +
+            ' tokens a second: ' +
+            (verdict.keep ? 'kept' : 'not kept: ' + verdict.why),
+        );
+        if (verdict.keep) {
+          stored = { ...cand, version: (stored.version || 0) + 1 };
+          saveLearned(stored, {
+            what: tr.what,
+            ...(tr.class ? { class: tr.class } : {}),
+            by: 'the class stage, on time',
+            gain: verdict.gain,
+            error: verdict.error,
+            saved: verdict.saved,
+            questions: asked.length,
+            draws: verdict.draws,
+          });
+          base = got;
+        }
+        save();
+      }
+    }
   }
   // WHERE CODE COULD DO THE WORK: the kinds of question on a quarter or more of which no slot's draft had a good answer, the
   // furthest short first. No rearranging mends these (nothing good is there to choose), so they are where an instrument,

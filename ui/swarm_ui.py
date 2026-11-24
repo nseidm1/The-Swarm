@@ -857,9 +857,11 @@ document.addEventListener('click',async ev=>{const b=ev.target;if(b.id!=='conver
   await evPost(b.id==='converse-go'?'/converse/start':'/converse/stop','#conversewrap',{});});
 setInterval(async()=>{if($('#conversebox[data-running]')){await swap('/fragment/converse','#conversewrap');}},4000);
 // WHAT IS BEING TRAINED NOW, AND WHERE IN THE PICTURE: while anything trains, the plan is drawn again and the boxes in use are marked
-setInterval(async()=>{const going=$('#conversebox[data-running]')||$('#wholebox[data-running]')||$('#plan [data-training]');
+setInterval(async()=>{const going=$('#conversebox[data-running]')||$('#wholebox[data-running]')||$('#plan [data-training]')||$('#score [data-stage]');
   if(!going&&!document.querySelector('#viz .vbox.on[data-code]'))return;
   if($('#plan'))await swap('/fragment/plan','#plan');
+  // (and the Train card's head, which is the stage's own figure while a stage runs; a session's own poll draws it otherwise)
+  if($('#score')&&!$('#score [data-running]'))await swap('/fragment/score','#score');
   try{const r=await fetch('/now/codes');if(r.ok){const on=new Set((await r.text()).split(',').filter(Boolean));
     document.querySelectorAll('#viz .vbox[data-code]').forEach(b=>{if(!b.dataset.part)b.classList.toggle('on',on.has(b.dataset.code));});}}catch(e){}},4000);
 async function evPost(url,into,body){const r=await fetch(url,{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify(body||{})});
@@ -1368,7 +1370,9 @@ def now_codes(d):
         step = str(live.get("step") or "")
         if conv:
             out.add("K5")
-        if "how the swarm stands" in step:
+        if step.startswith("Time:"):
+            out.add("K6")
+        elif "how the swarm stands" in step:
             out.add("S1")
         elif "held questions" in step:
             out.add("S4")
@@ -1381,6 +1385,14 @@ def now_codes(d):
 
 def _classes_alive():
     """Whether the class stage is running though this page did not start it (a terminal): its process is there."""
+    # (of THIS folder: the stage writes its note here every question. A stage of another checkout, or the real one while the
+    # checks run in a folder of their own, is not this one)
+    try:
+        f = Path(ARGS.root) / ".work" / "train" / "live.json"
+        if time.time() - f.stat().st_mtime > 300 or (json.loads(f.read_text()) or {}).get("trainer") != "classes":
+            return False
+    except (OSError, ValueError):
+        return False
     try:
         return "training/classes.mjs" in subprocess.run(["ps", "-axo", "command"], capture_output=True, text=True, timeout=3).stdout
     except (OSError, subprocess.SubprocessError):
@@ -1443,7 +1455,8 @@ def viz_block(d):
                  box("K2", "", "Adapters, by slot", "A mixture: each drafting slot may carry its own, and the steps after them settle between them. They reach what the small model can learn."),
                  box("K3", "", "Instruments", "Operations done exactly. They can pass %s, but only where a question is that operation. %s" % (tname, inst_words)),
                  box("K4", "", "Breakdown, cascade", "The question taken apart by code: numbered lines for every drafter, or one slot working a fact at a time while code carries what was worked out. Tried like any change; on four small models neither has gained yet (2026-11-24)."),
-                 box("K5", "", "Conversation", "Made-up people write over several turns, and each reply is read by code against the conventions of that conversation. Code can tidy a reply (praise, an offer of help, a sentence said again, a second greeting), and what a pass still misses is asked more of in the next.")],
+                 box("K5", "", "Conversation", "Made-up people write over several turns, and each reply is read by code against the conventions of that conversation. Code can tidy a reply (praise, an offer of help, a sentence said again, a second greeting), and what a pass still misses is asked more of in the next."),
+                 box("K6", "", "Time, the tie-breaker", "Correctness first. Then: the same model served another way (another build of the engine), or a leaner arrangement, is kept where held answers are no worse and come at least 15% sooner, beyond the error of the timing.")],
                  "Each is kept only where held questions gained, by the one rule at S5. As a module starts, nothing is kept and no instrument is on. The held questions are training&#39;s own: what is kept here is still to be shown by the judge, J.")
              + '<p class="vintro vsub"><b>R3 in detail.</b> The run takes lanes A, S and C: each class of input, as a class. A whole pass (from a terminal: <code>bash training/session.sh</code>) goes on through B, D and E.</p>')
     tail_ = lane("J", "The judge, apart from training", [
@@ -1528,7 +1541,7 @@ def training_now(d):
                 '<p class="small" style="margin:8px 0 0">Start a run above. Each tries its changes on train questions, keeps the best only where held questions gain beyond their error, and leaves what it was short on for the next.</p>'
                 '<ul class="small" style="margin:6px 0 0;padding-left:18px">%s</ul></div>' % "".join(nxt))
     which = "conversation" if conv else "classes"
-    rec = data._json(res / (which + ".json"), None) or {}
+    rec = stage_record(d) or data._json(res / (which + ".json"), None) or {}
     classes = [(K, C) for K, C in (rec.get("classes") or {}).items() if not C.get("skipped")]
     K, C = classes[-1] if classes else ("", {})
     rounds = C.get("rounds") or []
@@ -1574,9 +1587,27 @@ TRAINS = [("Pure code", "a kind of question that is an operation is done by code
           ("Slots and models", "a slot added, dropped or moved; every slot on one model; one slot asked as the request came"),
           ("Settling", "how the drafts are settled: by most, by the drafters alone, by a model"),
           ("The reply", "how the reply is written and closed"),
+          ("Time, as the tie-breaker", "the same model served another way (another file of it, another build of the engine), or a leaner arrangement: kept where answers are no worse and come at least 15% sooner"),
           ("Conversation", "a reply tidied by code: an opening that only praises, a closing that only offers help, a sentence said again, a greeting given twice")]
 GAP_WORDS = {"none": "no slot had the answer, so what is drafted is tried first", "lost": "a slot had the answer and settling lost it, so settling is tried first",
              "spoiled": "the answer was settled and the reply spoiled it, so the reply is tried first"}
+
+
+def time_lines(rec):
+    """WHAT WAS TIMED, AND WHAT THE CLOCK DECIDED (training/keep.mjs keepOnTime; the record's `time`): each change tried on time
+    alone, with the points its answers moved, the share of time saved with its error, seconds a question and tokens a
+    second before and after, and whether it was kept or why not. '' where nothing was timed."""
+    tm = (rec or {}).get("time") or {}
+    if not tm.get("trials"):
+        return ""
+    rate = lambda x: "?" if x is None else ("%g" % x)  # noqa: E731
+    rows = "".join('<li>%s: answers %+.1f points, <b>%.1f%%</b> of the time saved (error %.1f); %.1f s &rarr; %.1f s a question, %s &rarr; %s tokens a second: <b>%s</b></li>'
+                   % (e(re.sub(r"^plan: ", "", t.get("what", ""))), 100.0 * (t.get("gain") or 0), 100.0 * (t.get("saved") or 0), 100.0 * (t.get("savedError") or 0),
+                      (t.get("seconds") or {}).get("base") or 0, (t.get("seconds") or {}).get("with") or 0, rate((t.get("tokensPerSecond") or {}).get("base")), rate((t.get("tokensPerSecond") or {}).get("with")),
+                      "kept" if t.get("keep") else "not kept: " + e(t.get("why", "")))
+                   for t in tm["trials"])
+    return ('<h4>Time, as the tie-breaker</h4><p class="small" style="margin:0">On %d held questions, %d draws, each timed as it was asked. A change is kept on time only where its answers are no worse.</p>'
+            '<ul class="small" style="margin:4px 0 0;padding-left:18px">%s</ul>' % (tm.get("asked") or 0, tm.get("draws") or 2, rows))
 
 
 def class_plan(d, which="classes"):
@@ -1614,6 +1645,7 @@ def class_plan(d, which="classes"):
         out.append('<p class="small" style="margin:6px 0 0"><b>Left for the next pass.</b> %s%s</p>'
                    % (("Asked more of: %s." % ", ".join("%s +%s" % (e(k), v) for k, v in nx.items())) if nx else "No kind was left a third wrong.",
                       (" In conversation, still missed: %s." % cw(gp.get("conventions"))) if cw(gp.get("conventions")) else ""))
+    out.append(time_lines(rec))
     for K, C in (rec.get("classes") or {}).items():
         name = "Requests %s" % CLASS_WORDS.get(K, K)
         if C.get("skipped"):
@@ -2571,11 +2603,12 @@ def faces_block(d):
 def arrangement(d):
     b, t = d["briefs"], d["target"]
     # the swarm as it stands, in a line of chips; then what is running; then what the plan is trying now
-    models = len({s["member"] for s in b["slots"]})
+    # (models, not places: one model in every place is one model)
+    models = len({((d.get("members") or {}).get(s["member"]) or {}).get("id", s["member"]) for s in b["slots"]})
     kept = len(d["learned"]["ledger"])
     head = ('<div class="arrh"><div><h3>The swarm as it stands</h3></div>'
-            '<div class="achips"><span>briefs <b>v%s</b></span><span><b>%d</b> slots on <b>%d</b> models</span><span><b>%d</b> kept change%s</span>%s</div></div>'
-            % (e(str(b.get("version", 1))), len(b["slots"]), models, kept, "" if kept == 1 else "s",
+            '<div class="achips"><span>briefs <b>v%s</b></span><span><b>%d</b> slots on <b>%d</b> model%s</span><span><b>%d</b> kept change%s</span>%s</div></div>'
+            % (e(str(b.get("version", 1))), len(b["slots"]), models, "" if models == 1 else "s", kept, "" if kept == 1 else "s",
                # a kind with its own arrangement (a change kept for questions asking for code, or in words, only): the chips above are
                # the shared one
                "".join('<span title="A change that lost only questions of the other kind was kept for these alone">questions %s: <b>their own</b> arrangement, %d slots</span>'
@@ -4342,6 +4375,17 @@ def progress_strip(d, cleared=""):
                    # (to a tenth: a pass is long, and a whole point can take minutes)
                    % (" on" if running_now else "", pp["pct"], ("%.1f" % pp["pct"]) if 0 < pp["pct"] < 100 else "%d" % pp["pct"], pp["pass"],
                       (" · " + e(step_label(pp["step"]).lower())) if running_now and pp["step"] else "" if pp["done"] or running_now else " · stopped here"))
+    # WHILE THE CLASS STAGE RUNS, THE HEAD IS ITS OWN FIGURE: the train questions good as the swarm stands in this stage, and
+    # which pass of it. The question-by-question pass's share stood here whatever was running, and read "0% answers good,
+    # pass 1" while a stage trained (console 2026-11-24).
+    sf = stage_figure(stage_record(d)) if stage_step() and not running_now else None
+    if stage_step() and not running_now:
+        return ('<div class="trainprog trainhead" data-stage="1"><div class="proghead"><span class="memnum"><b class="pct">%s</b><span>train answers good<small>%s</small></span></span>'
+                '<span class="progline">%s</span><span class="evctl">%s</span></div>%s%s</div>'
+                % (("%s%%" % fmt_pct(data.percent(sf["right"], sf["of"]))) if sf and sf["of"] else "&ndash;",
+                   ("the class stage, pass %d" % sf["pass"]) if sf else "the class stage, starting",
+                   (("<b>%d</b> of %d train answers good as the swarm stands in this stage. " % (sf["right"], sf["of"])) if sf else "") + "<b>Now:</b> " + e(stage_step()),
+                   _ctl[0], ('<div class="trainbelow">%s</div>' % _ctl[2]) if _ctl[2] else "", run_lines(cleared)))
     return ('<div class="trainprog trainhead"><div class="proghead"><span class="memnum"' + (' aria-busy="true">' + busy() if running_now else '><b class="pct">%s%%</b>' % fmt_pct(pct)) + '<span>answers good<small>pass %s</small></span></span>'
             '<span class="progline">%s %s</span><span class="evctl">%s</span></div>%s%s%s</div>'
             % (e(str(lp.get("pass") or (d.get("state") or {}).get("pass", 0) + 1)), line, now, _ctl[0], passbar, ('<div class="trainbelow">%s</div>' % _ctl[2]) if _ctl[2] else "", run_lines(cleared)))
@@ -4459,9 +4503,56 @@ def _job_state(name):
     return st
 
 
+def stage_alive():
+    """Whether the stage that trains each class as a class is running, however it was started: the conversation run, the whole
+    run, or a terminal."""
+    return bool((job_state("converse") or {}).get("running") or (job_state("whole") or {}).get("running") or _classes_alive())
+
+
+def stage_step():
+    """What the class stage says it is asking this moment, where it runs and its note is fresh; else ''."""
+    root = Path(ARGS.root)
+    live = data._json(root / ".work" / "train" / "live.json", {}) or {}
+    try:
+        fresh = time.time() - (root / ".work" / "train" / "live.json").stat().st_mtime < 300
+    except OSError:
+        fresh = False
+    return str(live.get("step") or "") if live.get("trainer") == "classes" and fresh and stage_alive() else ""
+
+
+def stage_record(d):
+    """THE RECORD THE CLASS STAGE THAT IS RUNNING WRITES (its note of what is happening names it, `record`: classes.mjs), read
+    as it stands; None where no stage runs or the note names none here. A stage started from a terminal with a record of
+    its own is read from that record, not from the configuration's usual one (console 2026-11-24)."""
+    if not stage_step():
+        return None
+    root = Path(d.get("root", ARGS.root)).resolve()
+    live = data._json(root / ".work" / "train" / "live.json", {}) or {}
+    try:
+        f = Path(str(live.get("record") or "")).resolve()
+        if root in f.parents and f.is_file():
+            return data._json(f, None)
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+def stage_figure(rec):
+    """THE STAGE'S OWN FIGURE, for the Train card's head while it runs: of the train questions it has asked as the swarm stands
+    (and as it stands after what it kept), how many are good. -> { right, of, pass } or None."""
+    cs = [C for C in ((rec or {}).get("classes") or {}).values() if C and not C.get("skipped")]
+    got = [(C.get("after") or C.get("asItStands")) for C in cs if (C.get("after") or C.get("asItStands"))]
+    if not got:
+        return None
+    return {"right": sum(x.get("counted") or 0 for x in got), "of": sum(x.get("n") or 0 for x in got), "pass": (rec or {}).get("pass") or 1}
+
+
 def idle_words():
     """What the Train card says where no training session runs: that nothing does, or that an evaluation or pretraining has the
     models (the page's script says the same from /api/live, busy)."""
+    step = stage_step()
+    if step:
+        return "Training each class of input as a class · " + step
     held = busy_with()
     return ("%s is running: the models are loaded for it." % (held[0].upper() + held[1:])) if held and held != "training" else "Nothing is running. No model is loaded."
 
@@ -4473,6 +4564,9 @@ def busy_with():
     # (the whole run first, where it was started from a shell: its steps are not this page's jobs, and it has the models)
     if (_run_elsewhere() or {}).get("running"):
         return "the run"
+    # (and the class stage where a terminal started it: it has the models as surely as one this page started)
+    if not (job_state("converse") or {}).get("running") and not (job_state("whole") or {}).get("running") and _classes_alive():
+        return "training started from a terminal"
     # (the job called pretrain is what makes adapters: the whole run starts it as its second step)
     for name, what in (("eval", "an evaluation"), ("pretrain", "making adapters"), ("serve", "the module being served"), ("converse", "a conversation pass")):
         if (job_state(name) or {}).get("running"):
@@ -6165,8 +6259,13 @@ class Handler(BaseHTTPRequestHandler):
                 now = {}
             st = run_state()
             running = bool(st and st["running"])
+            # (THE CLASS STAGE RUNS OUTSIDE A SESSION TOO: the conversation run, the whole run's third step, or one started from
+            # a terminal. The Train card said "Nothing is running. No model is loaded." while one trained, console 2026-11-24)
+            fresh = time.time() * 1000 - float(now.get("at", 0) or 0) <= 180000
+            if not running and now.get("trainer") == "classes" and fresh and stage_alive():
+                running = True
             # what a trainer wrote stands only while a session runs and it is fresh: a stopped session leaves nothing "working"
-            if not running or time.time() * 1000 - now.get("at", 0) > 180000:
+            if not running or time.time() * 1000 - float(now.get("at", 0) or 0) > 180000:
                 now = {"slots": {}}
             now["running"] = running
             # (an evaluation or pretraining has the models while it runs: the Train card does not say none is loaded)

@@ -5552,6 +5552,103 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       },
     );
   }
+  // TIME IS THE TIE-BREAKER, NEVER THE REASON (training/keep.mjs keepOnTime; classes.mjs leanOf; catalog.mjs servedAs)
+  {
+    const KP = await import('../training/keep.mjs');
+    const CLt = await import('../training/classes.mjs');
+    const CAt = await import('../src/catalog.mjs');
+    const q = (id, b, w, bm, wm) => ({
+      id,
+      kind: 'k',
+      base: b,
+      with: w,
+      baseMs: bm,
+      withMs: wm,
+      baseTokens: [300, 300],
+      withTokens: [300, 300],
+    });
+    const same = [
+      q('a', [1, 1], [1, 1], [9000, 9500], [6000, 6400]),
+      q('b', [0, 0], [0, 0], [8000, 8200], [5600, 5800]),
+      q('c', [1, 1], [1, 1], [10000, 9000], [7000, 6500]),
+    ];
+    const kept = KP.keepOnTime(same);
+    const worse = KP.keepOnTime([
+      q('a', [1, 1], [0, 0], [9000, 9500], [3000, 3400]),
+      q('b', [1, 1], [1, 1], [8000, 8200], [2600, 2800]),
+    ]);
+    const slow = KP.keepOnTime([
+      q('a', [1, 1], [1, 1], [9000, 9500], [8800, 9400]),
+      q('b', [1, 1], [1, 1], [8000, 8200], [7900, 8100]),
+    ]);
+    const noisy = KP.keepOnTime([
+      q('a', [1, 1], [1, 1], [9000, 9000], [2000, 2000]),
+      q('b', [1, 1], [1, 1], [9000, 9000], [9500, 9500]),
+      q('c', [1, 1], [1, 1], [9000, 9000], [9400, 9400]),
+    ]);
+    const oneDraw = KP.keepOnTime([q('a', [1], [1], [9000], [3000]), q('b', [1], [1], [9000], [3000])]);
+    const traded = KP.keepOnTime([
+      q('a', [1, 1], [0, 0], [9000, 9000], [3000, 3000]),
+      q('b', [0, 0], [1, 1], [9000, 9000], [3000, 3000]),
+      q('c', [1, 1], [0, 0], [9000, 9000], [3000, 3000]),
+      q('d', [0, 0], [1, 1], [9000, 9000], [3000, 3000]),
+      q('e', [1, 1], [0, 0], [9000, 9000], [3000, 3000]),
+      q('f', [0, 1], [1, 1], [9000, 9000], [3000, 3000]),
+      q('g', [0, 1], [1, 1], [9000, 9000], [3000, 3000]),
+      q('h', [0, 1], [1, 1], [9000, 9000], [3000, 3000]),
+    ]);
+    const b7 = { slots: [1, 2, 3, 4, 5, 6, 7].map((i) => ({ id: 's' + i })), plan: {} };
+    const cand = (name, gain, slots, plan = {}) => ({
+      m: { name, briefs: { slots: b7.slots.slice(0, slots), plan } },
+      g: { gain },
+    });
+    const ink = CAt.REGISTRY.small.find((m) => m.id === 'inkling2-mini-q2kxl');
+    check(
+      "time is the tie-breaker and never the reason: a change is kept on time where, on held questions asked on two draws and timed as they are asked, its answers are no worse (the mean gain not below zero, no more questions lost than made good) and the share of time saved is at least fifteen hundredths and more than twice its own error; it says seconds a question and tokens a second before and after; answers that are worse, a saving too small, a saving no surer than its error, one draw, or more questions lost than made good each refuse it and say why; the leaner arrangement worth timing is the one no worse on the train questions that asks less of the models (fewer slots, or one model asked as the request came), the most gained first; and the same model served another way is another entry of the catalog that names the same maker's model, which an arrangement can name for a place",
+      kept.keep === true &&
+        kept.gain === 0 &&
+        kept.saved > 0.29 &&
+        kept.saved < 0.32 &&
+        kept.seconds.base > kept.seconds.with &&
+        kept.tokensPerSecond.with > kept.tokensPerSecond.base &&
+        kept.draws === 2 &&
+        worse.keep === false &&
+        /worse by 50\.0 points/.test(worse.why) &&
+        slow.keep === false &&
+        /less than 15\.0%/.test(slow.why) &&
+        noisy.keep === false &&
+        /not more than twice its error/.test(noisy.why) &&
+        oneDraw.keep === false &&
+        /one draw/.test(oneDraw.why) &&
+        traded.keep === false &&
+        /lost 3 questions and made 2 good/.test(traded.why) &&
+        KP.keepOnTime([]).keep === false &&
+        CLt.leanOf(
+          [
+            cand('drop s7', 0, 6),
+            cand('drop s6', 0.02, 6),
+            cand('add one', 0.05, 8),
+            cand('drop s5', -0.01, 6),
+            cand('one model', 0.02, 7, { plain: true }),
+          ],
+          b7,
+        ).name === 'drop s6' &&
+        CLt.leanOf([cand('add one', 0.05, 8), cand('drop s5', -0.01, 6)], b7) === null &&
+        CLt.leanOf([], b7) === null &&
+        CAt.servingsOf(ink).some((m) => m.id === 'inkling2-mini-atomic') &&
+        !CAt.servingsOf(ink).some((m) => m.id === ink.id) &&
+        CAt.servingsOf(CAt.REGISTRY.small.find((m) => m.id === 'lfm25-1.2b')).length === 0 &&
+        CAt.servedAs({ a: { ...ink, key: 'a' }, b: { ...ink, key: 'b' } }, { a: 'inkling2-mini-atomic' }).a.program ===
+          'atomic' &&
+        CAt.servedAs({ a: { ...ink, key: 'a' }, b: { ...ink, key: 'b' } }, { a: 'inkling2-mini-atomic' }).a.key ===
+          'a' &&
+        CAt.servedAs({ a: { ...ink, key: 'a' }, b: { ...ink, key: 'b' } }, { a: 'inkling2-mini-atomic' }).b.id ===
+          ink.id &&
+        CAt.servedAs({ a: ink }, { a: 'lfm25-1.2b' }).a.id === ink.id &&
+        CAt.servedAs({ a: ink }, null).a === ink,
+      { kept, worse: worse.why, slow: slow.why, noisy: noisy.why, traded: traded.why },
+    );
+  }
   // A MODEL OF AN ARCHITECTURE NOT EVERY ENGINE BUILD KNOWS (Inkling 2 Mini): pinned like any other, and its engine chosen to match
   {
     const EK = await import('../training/support/engine-knows.mjs');

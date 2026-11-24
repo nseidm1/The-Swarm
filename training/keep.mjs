@@ -120,3 +120,59 @@ export function keepOf(rows, { least = 0, margin = 0.05, beside = [] } = {}) {
     ...(also.length ? { judged } : {}),
   };
 }
+
+// TIME IS THE TIE-BREAKER, NEVER THE REASON (console 2026-11-24: correctness over time; and then, "build the time tie-breaker").
+// A change that leaves the answers no worse and gets them sooner is kept: another serving of the same model, a leaner
+// arrangement. It is judged as any change is, on the held questions it was not chosen on, two draws, with the change and as
+// the swarm stands, each timed as it is asked:
+//   - NO WORSE: the mean gain is not below zero, and it loses no more questions than it makes good;
+//   - FASTER: over the questions, the share of time saved (one less the time with over the time without) is at least
+//     `faster` (15 hundredths where nothing is said) and more than twice its own error.
+// A change that gains beyond its error is kept by keepOf, whatever its time: this rule is only for the ones that do not.
+// rows: [{ id, kind, base: [score], with: [score], baseMs: [ms], withMs: [ms], baseTokens: [n], withTokens: [n] }]
+// -> { keep, gain, error, saved, savedError, seconds: { base, with }, tokensPerSecond: { base, with }, draws, why }
+export function keepOnTime(rows, { faster = 0.15 } = {}) {
+  const usable = (rows || []).filter(
+    (r) => r.base.length && r.base.length === r.with.length && (r.baseMs || []).length && (r.withMs || []).length,
+  );
+  const g = pooled(usable.map((r) => mean(r.with) - mean(r.base)));
+  const t = pooled(usable.filter((r) => mean(r.baseMs) > 0).map((r) => 1 - mean(r.withMs) / mean(r.baseMs)));
+  const draws = usable.length ? Math.min(...usable.map((r) => r.base.length)) : 0;
+  const lost = usable.filter((r) => r.base.length > 1 && r.base.every((v) => v >= 1) && r.with.every((v) => v < 1));
+  const good = usable.filter((r) => r.base.length > 1 && r.base.every((v) => v < 1) && r.with.every((v) => v >= 1));
+  const sum = (k) => usable.reduce((a, r) => a + (r[k] || []).reduce((x, y) => x + y, 0), 0);
+  const n = usable.reduce((a, r) => a + r.base.length, 0);
+  const rate = (tok, ms) => (sum(ms) > 0 && sum(tok) > 0 ? Math.round((sum(tok) / (sum(ms) / 1000)) * 10) / 10 : null);
+  const pct = (x) => (x * 100).toFixed(1);
+  const why =
+    usable.length < 2
+      ? 'fewer than two held questions could be scored and timed'
+      : draws < 2
+        ? 'it was asked on one draw only, and one draw cannot judge a change'
+        : g.gain < 0
+          ? 'its answers were worse by ' + pct(-g.gain) + ' points: time does not make up for that'
+          : lost.length > good.length
+            ? 'it lost ' + lost.length + ' questions and made ' + good.length + ' good'
+            : t.gain < faster
+              ? 'it saved ' + pct(t.gain) + '% of the time, less than ' + pct(faster) + '%'
+              : t.gain <= 2 * t.error
+                ? 'it saved ' +
+                  pct(t.gain) +
+                  '% of the time (error ' +
+                  pct(t.error) +
+                  '): not more than twice its error'
+                : '';
+  return {
+    keep: !why,
+    gain: g.gain,
+    error: g.error,
+    saved: t.gain,
+    savedError: t.error,
+    seconds: { base: n ? r3(sum('baseMs') / n / 1000) : 0, with: n ? r3(sum('withMs') / n / 1000) : 0 },
+    tokensPerSecond: { base: rate('baseTokens', 'baseMs'), with: rate('withTokens', 'withMs') },
+    draws,
+    lost: lost.map((r) => r.id),
+    good: good.map((r) => r.id),
+    ...(why ? { why } : {}),
+  };
+}

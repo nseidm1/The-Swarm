@@ -87,6 +87,11 @@ What has not:
   where LFM2.5 1.2B read 84 (103 with its adapters). No whole run has been made on it, and no adapter for it.
 - **Three figures on one code.** The run above was measured across two days of changes. No whole run has been made
   since each stage was held to the one before.
+- **A change kept on time.** The time tie-breaker has judged one real trial (Inkling 2 Mini on the standard build
+  against Atomic Engine, 8 held conversations, 2 draws): answers the same, 35 tokens a second against 31, but 37.7
+  seconds a question against 36.3, with an error of 23 points on the saving. It was not kept. Eight questions is too
+  few to say the engines differ in time; it says the rule refuses what it cannot show. No leaner arrangement has been
+  timed on a real model yet.
 - **Atomic Engine, beyond a first try.** Built here once and tried on six questions through the module (six right, 407
   seconds against 501 on the standard build). Its maker reports 106 tokens a second on an M4 Max; this machine gave
   34 for one request. No evaluation and no training has run on it, its answers have not been compared with the

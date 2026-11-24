@@ -57,6 +57,15 @@ tighter in the next pass (a short reply is forty words, then thirty, then twenty
 of replies miss it. The held questions never change, so two passes can be compared. The
 dashboard's plan section says which pass it is, what it carried and what it leaves.
 
+**Time is the tie-breaker, never the reason.** A change that gains beyond its error is kept whatever its time. Once
+every class is trained, the class stage tries what would get the same answers sooner, each against the swarm as it
+stands, on held questions, two draws, every question timed as it is asked and nothing answered from memory. Two kinds
+of change are tried: the same model served another way (another file of it, served by another build of the engine, as
+Inkling 2 Mini is by Atomic Engine), where both are on the machine already; and a leaner arrangement for a class, one
+that was no worse on its train questions and asks less of the models. One is kept where its answers are no worse (the
+mean gain not below zero, no more questions lost than made good) and it saves at least 15% of the time, by more than
+twice the error of the timing. The record says seconds a question and tokens a second, before and after.
+
 **What is tried first follows where the class falls short.** The class stage asks the class as it stands and sorts
 every wrong answer: no drafting slot had it, a slot had it and settling lost it, or it was settled rightly and the
 reply spoiled it. The changes for the widest of the three are tried first (what is drafted; how drafts are settled; how
