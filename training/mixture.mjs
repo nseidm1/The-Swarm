@@ -19,6 +19,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { newestBySlot, mixFilesOf, readMix } from './mix-record.mjs';
 
 // THE EXAMPLES OF ONE QUESTION: each drafting slot's request, once, with its own answer where that was right (own(text) ->
 // boolean), else marked to be asked of the larger model. calls: [{ slot, stage, messages, text }] of roles in `roles`
@@ -42,28 +43,9 @@ export async function rowsOf(t, calls, own) {
   }
   return out;
 }
-// the record's adapters, the newest of each slot: { adapters: { name: { slot, gguf, at } } } -> [{ name, slot, gguf }]
-export function newestBySlot(record, exists = fs.existsSync) {
-  const by = new Map();
-  for (const [name, a] of Object.entries((record && record.adapters) || {})) {
-    if (!a || !a.slot || !a.gguf || !exists(a.gguf)) continue;
-    const had = by.get(a.slot);
-    if (!had || String(a.at || '') > String(had.at || ''))
-      by.set(a.slot, { name, slot: a.slot, gguf: a.gguf, at: a.at });
-  }
-  return [...by.values()].map(({ name, slot, gguf }) => ({ name, slot, gguf }));
-}
-// what a member is loaded with for its mixture: { name: file }, of the adapters its record has
-export const mixFilesOf = (record, exists = fs.existsSync) =>
-  Object.fromEntries(newestBySlot(record, exists).map((a) => [a.name, a.gguf]));
-// the record of a model's mixture, or an empty one
-export function readMix(dir) {
-  try {
-    return JSON.parse(fs.readFileSync(path.join(dir, 'mix.json'), 'utf8'));
-  } catch {
-    return { adapters: {} };
-  }
-}
+// (the record itself is read in mix-record.mjs, which adapters.mjs reads too: this file runs adapters.mjs, and a file that
+// waits on one that waits on it never starts)
+export { newestBySlot, mixFilesOf, readMix };
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const B = await import('./support/bench.mjs');

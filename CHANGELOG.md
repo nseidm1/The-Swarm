@@ -6,6 +6,19 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Training asks for Python too** (2026-11-23). Every code question training made asked for JavaScript, and what a
+  module is asked for elsewhere is mostly Python. Adapters taught on those questions gained 24 points on them, were
+  kept by training, and took the module from 21 to 18 of 40 on two Python benchmarks; on held Python questions they
+  took it from 21 to 11 of 48. The same families of function are now also asked for in Python (`py-arrays`,
+  `py-strings`, `py-numbers`, `py-parsing`), three ways in turn: plainly, as a function with a docstring to complete,
+  and as a task with tests it should pass. The answer is run in Python and marked against the family's own function.
+  Adapters taught these as well took the module from 21 to 33 of 48 on held Python questions. The new kinds stand last
+  of all, so that no question asked before them changed.
+- **A kind that falls refuses a change only beyond chance** (2026-11-23). A change was refused where any one kind of
+  question fell by more than twice its own error. A class has five to twenty-two kinds, and among so many one falls so
+  by chance: an adapter on each drafter gained 21.7 points on held code questions (error 7.8) and was refused for one
+  kind of five, which on two other panels did not fall. The bar now rises with the number of kinds looked at
+  (`training/keep.mjs`, `fallBar`). Where most drafters agree their answer standing is a move training tries.
 - **Pretraining is no longer a stage of the run** (2026-11-23). The run was five steps and three figures: evaluate,
   pretrain, evaluate, train, evaluate. Adapters made in a stage of their own were kept without being tried, and the
   arrangement was trained without them. The run is now four steps and two figures: evaluate the module as configured;

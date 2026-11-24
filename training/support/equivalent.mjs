@@ -78,6 +78,71 @@ export async function codeEquivalent(refReply, reply, { name, inputs }) {
       };
 }
 
+// A FUNCTION ASKED FOR IN PYTHON (tasks-code.mjs PY_KINDS): the reply's function is run in Python (src/langs.mjs, boxed) on the
+// question's inputs, and marked against what a reference gives on them: the question's own function (JavaScript, `ok`), or
+// another reply's Python. Values are compared as values: [1, 2] and [1,2] are one answer, and so are 2 and 2.0.
+const canon = (text) => {
+  const sort = (v) =>
+    Array.isArray(v)
+      ? v.map(sort)
+      : v && typeof v === 'object'
+        ? Object.fromEntries(
+            Object.keys(v)
+              .sort()
+              .map((k) => [k, sort(v[k])]),
+          )
+        : v === '__undefined__'
+          ? null
+          : v;
+  try {
+    return JSON.stringify(sort(JSON.parse(text)));
+  } catch {
+    return String(text);
+  }
+};
+// the Python in a reply: the last fenced block that defines the function, else its last block, else from its first `def`
+export function pyCodeOf(reply, name = '') {
+  const s = String(reply || '');
+  const blocks = [...s.matchAll(/```[a-zA-Z0-9]*\n([\s\S]*?)```/g)].map((m) => m[1].trim()).filter(Boolean);
+  if (blocks.length) {
+    const back = [...blocks].reverse();
+    return (
+      (name && back.find((b) => new RegExp('def\\s+' + name + '\\s*\\(').test(b))) ||
+      back.find((b) => /^\s*def\s/m.test(b)) ||
+      back[0]
+    );
+  }
+  const at = s.search(/^def\s/m);
+  return at < 0 ? '' : s.slice(at).trim();
+}
+const pyCalls = (pyName, inputs, lit) => inputs.map((a) => pyName + '(' + a.map(lit).join(', ') + ')');
+export async function pyEquivalent(refReply, reply, { name, pyName, inputs, ok }, { refIsOk = false, lit } = {}) {
+  const L = await import('../../src/langs.mjs');
+  if (!(await L.langReady('python')))
+    throw new Error('Python cannot be run here: a question that asks for it cannot be marked');
+  const calls = pyCalls(pyName, inputs, lit);
+  const ref = refIsOk
+    ? await outputsOf(ok, name, inputs)
+    : await L.callsIn('python', pyCodeOf(refReply, pyName), pyName, calls);
+  if (!ref) return { grade: 'noref' };
+  const code = pyCodeOf(reply, pyName);
+  const mine = code ? await L.callsIn('python', code, pyName, calls) : null;
+  if (!mine) return { grade: 'unsure' };
+  const differs = (r, i) => (r.e ? !mine[i].e : mine[i].e || canon(mine[i].v) !== canon(r.v));
+  const at = ref.findIndex(differs);
+  const share = ref.length ? Math.round((ref.filter((r, i) => !differs(r, i)).length / ref.length) * 100) / 100 : 0;
+  return at < 0
+    ? { grade: 'right', share: 1 }
+    : {
+        grade: 'wrong',
+        share,
+        at,
+        input: inputs[at],
+        theirs: ref[at].e ? 'it fails' : ref[at].v,
+        ours: mine[at].e ? 'it fails' : mine[at].v,
+      };
+}
+
 // an answer in words: the reader says whether the two say fundamentally the same thing (decided at one half). With no reader there is
 // nothing to say it, and the question is not compared.
 // AN UNDECIDED READING IS SAID TO BE ONE. A probability this close to the reader's line (either side) is not a yes or a no: the

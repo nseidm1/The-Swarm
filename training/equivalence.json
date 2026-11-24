@@ -12,6 +12,10 @@
         "write-strings",
         "write-numbers",
         "write-parsing",
+        "py-arrays",
+        "py-strings",
+        "py-numbers",
+        "py-parsing",
         "fix",
         "bug",
         "trace",
@@ -30,7 +34,19 @@
       "id": "code",
       "name": "Code",
       "about": "Writing a function that does what is asked, correcting one, and saying what one does",
-      "kinds": ["write-arrays", "write-strings", "write-numbers", "write-parsing", "fix", "bug", "trace"],
+      "kinds": [
+        "write-arrays",
+        "write-strings",
+        "write-numbers",
+        "write-parsing",
+        "py-arrays",
+        "py-strings",
+        "py-numbers",
+        "py-parsing",
+        "fix",
+        "bug",
+        "trace"
+      ],
       "benchmarks": [
         {
           "task": "humaneval_instruct",

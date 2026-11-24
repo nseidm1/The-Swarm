@@ -275,6 +275,81 @@ const write = (group) => (t, i) => {
     ok: f.ok,
   };
 };
+// THE SAME FAMILIES, ASKED FOR IN PYTHON (py-arrays, py-strings, py-numbers, py-parsing). Every question here asked for
+// JavaScript, and what a module is asked for elsewhere is mostly Python: adapters taught on these questions gained 24 points
+// on them and none on two Python benchmarks (measured 2026-11-23). The question is the family's, said for Python; the
+// answer is run in Python and marked against what the family's own function gives on the same inputs.
+// Asked three ways in turn, the ways such a function is usually asked for: plainly; as a function with a docstring to
+// complete; and as a task with tests it should pass (the tests are the family's own function on its first inputs).
+export const pyNameOf = (name) => name.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
+// a value as Python writes it
+export const pyLit = (v) =>
+  v === null || v === undefined
+    ? 'None'
+    : v === true
+      ? 'True'
+      : v === false
+        ? 'False'
+        : Array.isArray(v)
+          ? '[' + v.map(pyLit).join(', ') + ']'
+          : typeof v === 'object'
+            ? '{' +
+              Object.entries(v)
+                .map(([k, x]) => JSON.stringify(k) + ': ' + pyLit(x))
+                .join(', ') +
+              '}'
+            : JSON.stringify(v);
+// the family's words, for Python: its lists, its None, its True and False, its dict
+export const pySays = (text, name) =>
+  text
+    .replaceAll('`' + name + '(', '`' + pyNameOf(name) + '(')
+    .replace(/\bnew array\b/g, 'new list')
+    .replace(/\barrays\b/g, 'lists')
+    .replace(/\barray\b/g, 'list')
+    .replace(/\bgives null\b/g, 'gives None')
+    .replace(/\breturns true\b/g, 'returns True')
+    .replace(/\bfalse otherwise\b/g, 'False otherwise')
+    .replace(/the object \{ a: "1", b: "2" \}/g, 'the dict {"a": "1", "b": "2"}')
+    .replace(/\bobject\b/g, 'dict');
+const pyWrite = (group) => (t, i) => {
+  const f = pickIn(group, i)(t);
+  const name = pyNameOf(f.name);
+  const args = (f.ask.match(/`[A-Za-z]+\(([^)]*)\)`/) || [])[1] || '';
+  const does = pySays(f.ask.replace(/^Write a JavaScript function `[^`]+` that /, ''), f.name);
+  // (the family's own function, run here on its first inputs: this file's code, not a model's)
+  let shown = [];
+  try {
+    const fn = new Function(f.ok + '\nreturn ' + f.name + ';')();
+    shown = f.inputs
+      .slice(1, 4)
+      .map(
+        (a) => 'assert ' + name + '(' + a.map(pyLit).join(', ') + ') == ' + pyLit(fn(...JSON.parse(JSON.stringify(a)))),
+      );
+  } catch {
+    shown = [];
+  }
+  const ask =
+    i % 3 === 0 || !shown.length
+      ? 'Write a Python function `' + name + '(' + args + ')` that ' + does + ' Give the function in one code block.'
+      : i % 3 === 1
+        ? 'Write a solution to the following problem. Give the whole function in one code block.\n```python\ndef ' +
+          name +
+          '(' +
+          args +
+          '):\n    """' +
+          does.replace(/^./, (c) => c.toUpperCase()) +
+          '"""\n```'
+        : 'Here is your task: write a Python function `' +
+          name +
+          '(' +
+          args +
+          ')` that ' +
+          does +
+          ' Your code should pass these tests:\n\n' +
+          shown.join('\n');
+  return { ask, type: 'code', lang: 'python', name: f.name, pyName: name, inputs: f.inputs, ok: f.ok };
+};
+export const PY_KINDS = Object.fromEntries(GROUPS.map((g) => [g.replace(/^write-/, 'py-'), pyWrite(g)]));
 export const CODE_KINDS = {
   ...Object.fromEntries(GROUPS.map((g) => [g, write(g)])),
   // a function with one flaw, and what it should do: give it back corrected

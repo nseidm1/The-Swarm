@@ -344,6 +344,7 @@ export function steps(
   for (const [key, dflt] of [
     ['onePerAnswer', false],
     ['agreeSkipsChecks', true],
+    ['draftsStand', false], // where most drafters agree their answer stands, and the checkers have no vote in it
     ['byBehaviour', true], // drafts of code agree by what they do (run on the same calls), or by how they read
   ]) {
     const now = b.plan && b.plan[key] !== undefined ? b.plan[key] : dflt;

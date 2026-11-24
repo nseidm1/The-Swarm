@@ -10,7 +10,7 @@
 //   - a question's gain is its mean score with the change less its mean score without, over the draws;
 //   - it is kept where the held questions gained, the mean gain is more than twice its paired error and at least the least gain
 //     the policy names, the questions it LOSES are outweighed by those it MAKES GOOD, and no kind of question falls by more
-//     than the margin and more than twice its own error.
+//     than the margin and beyond its own error by the bar for that many kinds (fallBar).
 // A KIND'S FALL IS HELD TO THE BAR A GAIN IS (2026-11-22). A kind is six to eight questions, and a class has twenty kinds: one
 // answer on one draw is a fall of 8 points in a kind of six, more than the margin and just more than its own error, and in
 // twenty kinds one such comes up most times by chance. With the lost question no longer refusing alone, the first change to
@@ -35,6 +35,13 @@ export function pooled(ds) {
   const sd = n > 1 ? Math.sqrt(ds.reduce((a, b) => a + (b - m) ** 2, 0) / (n - 1)) : 0;
   return { n, gain: r3(m), error: r3(n ? sd / Math.sqrt(n) : 0) };
 }
+// HOW FAR A KIND MUST FALL TO REFUSE A CHANGE, in its own errors: twice where one kind is looked at, and more the more kinds
+// are looked at at once. Twice the error is the bar for ONE comparison; a class has five to twenty-two kinds, each looked at,
+// and among so many one falls by twice its error by chance most times. Measured 2026-11-23: an adapter on each drafter
+// gained 21.7 points on the held code questions (error 7.8) and was refused because one kind of five fell on its six
+// questions; on two panels of other questions that kind did not fall (1 to 1 of 6; 3 to 5 of 9) and the gain was there
+// both times (23.3 and 24.4 points). The bar is the one that keeps the chance of ANY kind falling by luck at one in twenty.
+export const fallBar = (kinds) => (kinds > 1 ? Math.max(2, Math.sqrt(2 * Math.log(kinds / 0.05))) : 2);
 // what a change loses is outweighed where it makes good at least twice as many questions as it loses
 export const outweighed = (lost, good) => good >= 2 * lost;
 export function keepOf(rows, { least = 0, margin = 0.05, beside = [] } = {}) {
@@ -54,9 +61,10 @@ export function keepOf(rows, { least = 0, margin = 0.05, beside = [] } = {}) {
   const good = gains
     .filter((r) => r.base.length > 1 && r.base.every((v) => v < 1) && r.with.every((v) => v >= 1))
     .map((r) => r.id);
+  const kindsN = new Set(gains.map((r) => r.kind).filter(Boolean)).size;
   const fell = [...new Set(gains.map((r) => r.kind).filter(Boolean))]
     .map((kind) => ({ kind, ...pooled(gains.filter((r) => r.kind === kind).map((r) => r.d)) }))
-    .filter((k) => k.gain < -margin && k.gain < -2 * k.error)
+    .filter((k) => k.gain < -margin && k.gain < -fallBar(kindsN) * k.error)
     .map((k) => k.kind);
   const pct = (x) => (x * 100).toFixed(1);
   // (the bar: a mean gain more than twice its error and at least the least; cleared by the held questions alone, or by them

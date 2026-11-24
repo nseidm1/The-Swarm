@@ -1841,8 +1841,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
             t.turns.slice(1).every((m, i) => m === firstOf(t).turns[i + 1]),
         ) &&
       others2.filter((t) => t.kind === 'search' && t.turns.length === 3).length >= 3 &&
-      everyKind.length === 222 &&
-      everyKind2.length === 218 &&
+      everyKind.length === 246 &&
+      everyKind2.length === 242 &&
       without.sort().join() === 'agent,agent,agent,answer' &&
       second.every(
         (t, i) =>
@@ -2097,7 +2097,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     messagesOf,
     reworded,
   } = await import('../training/tasks.mjs');
-  const CREW_NAMES = [...CODE_KIND_NAMES, ...CREW_KIND_NAMES, 'agent'];
+  // (the kinds asked for in Python stand last of all: a new kind goes last, so that no earlier kind's questions change)
+  const PY_LAST = CODE_KIND_NAMES.filter((k) => k.startsWith('py-'));
+  const CREW_NAMES = [...CODE_KIND_NAMES.filter((k) => !PY_LAST.includes(k)), ...CREW_KIND_NAMES, 'agent', ...PY_LAST];
   const { talkEquivalent, faultsOf } = await import('../training/support/equivalent.mjs');
   const { talkPairs, checkReader } = await import('../training/readers.mjs');
   const tr = make({ split: 'train', each: 6, kinds: CREW_KIND_NAMES });
@@ -2142,8 +2144,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     "what the swarm is trained on is every body of work of a list kept as data (The Crew, Code, Math, Logic, Reasoning, Instructions, Tools, Search), and nothing is chosen: a pass asks the kinds of them all, each once (Code's are among The Crew's); the list has no default, since there is nothing to fall back to; the kinds of some can still be named (a record, a check), a name that is not one is passed over, and with none left it is every one; what a list of kinds covers is said from the kinds (a pass that asked The Crew's covered Code too); and every kind of every body makes a question",
     BODIES.join() === 'crew,code,math,logic,reasoning,instructions,tools,search' &&
       EQUIVALENCE.default === undefined &&
-      NAMES.length === 37 &&
-      new Set(NAMES).size === 37 &&
+      NAMES.length === 41 &&
+      new Set(NAMES).size === 41 &&
       NAMES.join() === kindsFor(BODIES).join() &&
       kindsFor().join() === NAMES.join() &&
       kindsFor([]).join() === NAMES.join() &&
@@ -2155,8 +2157,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       kindsFor(['math', 'crew']).length === CREW_NAMES.length + 6 &&
       kindsFor(['logic', 'reasoning']).length === 14 &&
       make({ split: 'held', each: 2, kinds: kindsFor(['math', 'logic', 'reasoning']) }).length === 40 &&
-      make({ split: 'train', each: 6 }).length === 222 &&
-      make({ split: 'held', each: 6 }).length === 222 &&
+      make({ split: 'train', each: 6 }).length === 246 &&
+      make({ split: 'held', each: 6 }).length === 246 &&
       bodiesOf(NAMES).join() === BODIES.join() &&
       bodiesOf(CREW_NAMES).join() === 'crew,code' &&
       bodiesOf(CODE_KIND_NAMES).join() === 'code' &&
@@ -2386,7 +2388,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     byRecord === 'chain,order' &&
       before === CODE_KIND_NAMES.join() &&
       first === NAMES.join() &&
-      NAMES.length === 37 &&
+      NAMES.length === 41 &&
       withOldChoice === first &&
       readOld === undefined &&
       writtenOld === undefined,
@@ -11423,6 +11425,112 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       R.forTemplate(toolEx[0].messages[0]) === toolEx[0].messages[0],
     { toolEx: JSON.stringify(toolEx).slice(0, 300) },
   );
+  // ---- THE PROGRAMS OF THE MIXTURE START: one that runs another does not wait on it for ever
+  {
+    const { spawnSync: run9 } = await import('node:child_process');
+    const here9 = fileURLToPath(new URL('..', import.meta.url));
+    const said9 = (file) => {
+      const r = run9(process.execPath, [file], { cwd: here9, encoding: 'utf8', timeout: 60000 });
+      return { code: r.status, out: String(r.stdout || '') + String(r.stderr || '') };
+    };
+    const mx = said9('training/mixture.mjs');
+    const pv = said9('training/prove.mjs');
+    check(
+      "the programs that make and prove a mixture start and say how they are used: the one that makes adapters runs the one that loads them, which reads the record the first writes, and the record is in a file of its own so that neither waits on the other (they did, and the run's step that makes the adapters would never have begun)",
+      mx.code === 2 &&
+        /mixture\.mjs make/.test(mx.out) &&
+        !/unsettled top-level await/.test(mx.out) &&
+        pv.code === 2 &&
+        /prove\.mjs ids\|teach\|train\|ask\|compare/.test(pv.out) &&
+        /from '\.\/mix-record\.mjs'/.test(
+          fs.readFileSync(new URL('../training/adapters.mjs', import.meta.url), 'utf8'),
+        ),
+      { mx: [mx.code, mx.out.slice(-200)], pv: [pv.code, pv.out.slice(-120)] },
+    );
+  }
+  // ---- TRAINING ASKS FOR PYTHON TOO: the same families, said for Python three ways, run in Python and marked by the family's own
+  {
+    const TC = await import('../training/tasks-code.mjs');
+    const TK = await import('../training/tasks.mjs');
+    const LG = await import('../src/langs.mjs');
+    const py = TK.tasks({
+      split: 'held',
+      each: 6,
+      kinds: ['py-arrays', 'py-strings', 'py-numbers', 'py-parsing'],
+      seed: 7919,
+    });
+    const before = TK.tasks({ split: 'held', each: 6, seed: 7919 }).find((t) => t.id === 'held-7919-day-2');
+    const forms = [0, 1, 2].map((i) => py.find((t) => t.kind === 'py-arrays' && t.id.endsWith('-' + (i + 1))).ask);
+    const again = TK.reworded(py);
+    const canRun = await LG.langReady('python');
+    const q = py.find((t) => t.pyName === 'count_long');
+    const marks =
+      canRun && q
+        ? [
+            (
+              await q.good(
+                '```python\ndef count_long(text):\n    return sum(1 for w in text.split() if len(w) > ' +
+                  Number(/more than (\d+) letters/.exec(q.ask)[1]) +
+                  ')\n```',
+              )
+            ).grade,
+            (await q.good('```python\ndef count_long(text):\n    return len(text.split())\n```')).grade,
+            (await q.good('function countLong(text) { return 0; }')).grade,
+          ]
+        : null;
+    check(
+      "training asks for Python as well as JavaScript: the same families of function, said for Python (its lists, None, True, a dict; the function's name as Python writes one) and asked three ways in turn: plainly, as a function with a docstring to complete, and as a task with tests it should pass, which are the family's own function on its first inputs. The answer is run in Python and is right where it gives what the family's own function gives on every input; an answer in another language is not. The Python kinds stand last of all the kinds, so that no question asked before them changed (adapters taught JavaScript alone gained 24 points on training's code questions and none on two Python benchmarks)",
+      TC.pyNameOf('sumEvery') === 'sum_every' &&
+        TC.pyLit([1, 'a', null, true, { k: [false] }]) === '[1, "a", None, True, {"k": [False]}]' &&
+        /gives None/.test(TC.pySays('An empty array gives null.', 'x')) &&
+        /empty list/.test(TC.pySays('An empty array gives null.', 'x')) &&
+        py.length === 24 &&
+        py.every((t) => t.lang === 'python' && t.type === 'code' && !/JavaScript|\barray\b/.test(t.ask)) &&
+        /^Write a Python function `\w+\(/.test(forms[0]) &&
+        /^Write a solution to the following problem[\s\S]*```python\ndef \w+\([^)]*\):\n {4}\x22{3}/.test(forms[1]) &&
+        /Your code should pass these tests:\n\nassert \w+\(/.test(forms[2]) &&
+        again.length === py.length &&
+        again.every((t) => /^I need a function in Python, `/.test(t.ask)) &&
+        TK.KIND_NAMES.slice(-4).join() === 'py-arrays,py-strings,py-numbers,py-parsing' &&
+        before.ask === 'Today is Tuesday. What day of the week will it be 158 days from now?' &&
+        (!marks || marks.join() === 'right,wrong,unsure'),
+      { forms: forms.map((f) => f.slice(0, 80)), marks, canRun },
+    );
+  }
+  // ---- A KIND THAT FALLS REFUSES A CHANGE ONLY BEYOND CHANCE: the bar is higher the more kinds are looked at at once
+  {
+    const K = await import('../training/keep.mjs');
+    const rowsOf = (ds, kind, base = [1, 1]) =>
+      ds.map((d, i) => ({ id: kind + i, kind, base, with: base.map((v) => v + d) }));
+    // (one kind of five loses some of its six questions on both draws; the other four kinds are made good throughout)
+    const withLost = (n) => [
+      ...rowsOf(
+        Array.from({ length: 6 }, (_, i) => (i < n ? -1 : 0)),
+        'down',
+      ),
+      ...['a', 'b', 'c', 'd'].flatMap((k) => rowsOf([1, 1, 1, 1, 1, 1], k, [0, 0])),
+    ];
+    const three = K.keepOf(withLost(3), { least: 0.02 });
+    const four = K.keepOf(withLost(4), { least: 0.02 });
+    const AR2 = await import('../training/arrange.mjs');
+    const CL2 = await import('../training/classes.mjs');
+    const b2 = JSON.parse(fs.readFileSync(new URL('../src/briefs.json', import.meta.url), 'utf8'));
+    const stand = AR2.steps(b2).find((m) => m.name === 'plan: draftsStand true');
+    check(
+      'a kind of question that falls refuses a change only where the fall is beyond chance for as many kinds as are looked at: twice its error for one kind, three times for five, three and a half for twenty-two (a change that gained 21.7 points on held code questions was refused for one kind of five falling on its six questions, which on two other panels did not fall); and where most drafters agree their answer standing is a move training tries every round',
+      K.fallBar(1) === 2 &&
+        Math.abs(K.fallBar(5) - 3.03) < 0.01 &&
+        Math.abs(K.fallBar(22) - 3.49) < 0.01 &&
+        three.keep === true &&
+        three.fell.length === 0 &&
+        four.keep === false &&
+        four.fell.join() === 'down' &&
+        !!stand &&
+        stand.briefs.plan.draftsStand === true &&
+        CL2.keepsDrafts(b2, stand.briefs),
+      { three: [three.keep, three.why], four: [four.keep, four.why] },
+    );
+  }
   // ---- A MIXTURE OF ADAPTERS: an adapter for a slot, loaded by name, carried by the slot the arrangement says; tried as a move
   {
     const MX = await import('../training/mixture.mjs');

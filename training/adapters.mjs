@@ -17,7 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { readMix, mixFilesOf } from './mixture.mjs';
+import { readMix, mixFilesOf } from './mix-record.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 

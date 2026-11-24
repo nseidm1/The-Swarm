@@ -2,6 +2,36 @@
 
 Every measurement, dated, newest first. Each is of the swarm named in it; the lineup has changed over time.
 
+## A mixture of adapters, proved one question at a time: 2026-11-23 and 24
+
+LFM2.5 1.2B in both places against Nemotron 3.5 Lightning 30B. Each row is the module asked the same held questions
+on the same seeds without a change and with it, compared paired (`training/prove.mjs`). "Beyond error" is a gain more
+than twice its paired error.
+
+| What was tried | Questions | Without | With | Gain (error) |
+| --- | --- | --- | --- | --- |
+| One adapter taught one kind (day of the week), on every drafter | that kind, 6 on 6 seeds | 12 of 36 | 25 | +36.1 (9.9), beyond |
+| The same adapter | 8 of other kinds, 3 seeds | 19 of 24 | 15 | -16.7 (11.5) |
+| An adapter for each drafting slot, the larger model's answers only | 14, 3 seeds | 26 of 42 | 23 | -7.1 (8.6) |
+| An adapter for each drafting slot: its own right answers, the larger model's where wrong, every kind | 80 fresh, 2 seeds | 84 of 160 | 84 | 0.0 (4.7) |
+| The same, the code questions among them | 15, 2 seeds | 6 of 30 | 13 | +23.3 (10.4), beyond |
+| The same, the plain-text questions among them | 65, 2 seeds | 78 of 130 | 71 | -5.4 (5.2) |
+| The same, code questions never looked at | 15, 3 seeds | 11 of 45 | 22 | +24.4 (6.5), beyond |
+| The same, held Python questions (the adapters were taught JavaScript) | 24, 2 seeds | 21 of 48 | 11 | -20.8 (7.3) |
+| Adapters taught Python as well | 24 held Python, 2 seeds | 21 of 48 | 33 | +25.0 (8.7), beyond |
+
+What it says:
+
+- **An adapter must be taught broadly.** Six questions of a kind asked four ways were memorised; an adapter taught one
+  kind harmed the others.
+- **In the slot's own voice.** Taught the larger model's short answers alone, a slot stopped working a question out.
+- **For the class it helps.** On code the mixture is beyond error three times over; on plain text it costs points.
+- **On what the module will be asked.** Training kept the JavaScript-taught mixture by itself (held +21.7 points, error
+  7.8), and two Python benchmarks then read 18 of 40 against 21. Training's questions were not what it is judged on.
+- **Where answers are lost.** With adapters more questions had a right draft (100 to 106 of 160) and more of those were
+  lost (16 to 23): each checker's answer counted as a drafter's, and three checkers with one drafter outvoted three
+  drafters who were right.
+
 ## The first whole run: three figures, and each stage held to the one before, 2026-11-23
 
 LFM2.5 1.2B in both places against Nemotron 3.5 Lightning 30B, 20 questions of each of 23 tasks (460).

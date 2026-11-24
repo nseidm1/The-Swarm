@@ -14,10 +14,18 @@
 //   tasks({ split: 'train' | 'held', each: 6, kinds: [...], seed, focus })
 //     -> [{ id, kind, type ('code' | 'value' | 'open' | 'talk'), split, seed, ask, equivalent(refReply, reply, ctx), show(reply), wrap(final) }]
 //   messagesOf(task) -> what is sent: the question alone, or a conversation's system line and its turns
-import { CODE_KINDS } from './tasks-code.mjs';
+import { CODE_KINDS, PY_KINDS, pyLit } from './tasks-code.mjs';
 import fs from 'node:fs';
 import { CREW_KINDS, CREW_KIND_NAMES, ownQuestion } from './tasks-crew.mjs';
-import { codeEquivalent, openEquivalent, talkEquivalent, codeOf, codeWhole } from './support/equivalent.mjs';
+import {
+  codeEquivalent,
+  openEquivalent,
+  talkEquivalent,
+  codeOf,
+  codeWhole,
+  pyEquivalent,
+  pyCodeOf,
+} from './support/equivalent.mjs';
 import { TOOL_KINDS, sameStep, stepGood } from './tasks-tools.mjs';
 import { RULE_KINDS, rulesHeld } from './tasks-rules.mjs';
 import { CALL_KINDS } from './tasks-calls.mjs';
@@ -470,9 +478,12 @@ const ALL = {
       },
     ]),
   ),
+  // (functions asked for in Python: tasks-code.mjs PY_KINDS. LAST, so that no earlier kind's questions change: a kind's
+  // questions are seeded by where it stands here)
+  ...PY_KINDS,
 };
 // the programming kinds, and with them the conversation a seat on a team carries: what a pass asks, unless its record says otherwise
-export const CODE_KIND_NAMES = [...Object.keys(CODE_KINDS), 'trace'];
+export const CODE_KIND_NAMES = [...Object.keys(CODE_KINDS), 'trace', ...Object.keys(PY_KINDS)];
 // WHAT THE SWARM IS TRAINED ON IS EVERY BODY OF WORK (equivalence.json): The Crew, Code, Math, Logic, Reasoning, Instructions,
 // Tools, Search. Each is a list of kinds, and a pass asks the kinds of them all. NOTHING IS CHOSEN (console ruling 2026-11-18;
 // a person once ticked which, and a pass asked those alone): the module chooses its arrangement by the class of a request, not
@@ -563,6 +574,25 @@ export function reword(ask) {
       );
     return null;
   }
+  // (a function asked for in Python, each of the three ways it is asked: said again as a plain request)
+  const py =
+    /^Write a Python function (`[^`]+`) that /.exec(s) ||
+    /^Here is your task: write a Python function (`[^`]+`) that /.exec(s);
+  if (py) return 'I need a function in Python, ' + py[1] + '. It ' + s.slice(py[0].length);
+  const doc =
+    /^Write a solution to the following problem\. Give the whole function in one code block\.\n```python\ndef (\w+)\(([^)]*)\):\n {4}\"\"\"([\s\S]*)\"\"\"\n```$/.exec(
+      s,
+    );
+  if (doc)
+    return (
+      'I need a function in Python, `' +
+      doc[1] +
+      '(' +
+      doc[2] +
+      ')`. It ' +
+      doc[3].replace(/^./, (c) => c.toLowerCase()) +
+      ' Give the function in one code block.'
+    );
   const write = /^Write a JavaScript function (`[^`]+`) that /.exec(s);
   if (write) return 'I need a function in JavaScript, ' + write[1] + '. It ' + s.slice(write[0].length);
   if (s.startsWith('What does this print?\n\n'))
@@ -626,7 +656,32 @@ export function tasks({
         ask: made.ask,
         type: made.type || 'value',
       };
-      if (made.type === 'code')
+      if (made.type === 'code' && made.lang === 'python')
+        // A FUNCTION ASKED FOR IN PYTHON (tasks-code.mjs PY_KINDS): run in Python, marked against the family's own function
+        out.push({
+          ...base,
+          name: made.name,
+          pyName: made.pyName,
+          lang: 'python',
+          inputs: made.inputs,
+          ok: made.ok,
+          equivalent: (refReply, reply) => pyEquivalent(refReply, reply, made, { lit: pyLit }),
+          good: async (reply) => {
+            const g = await pyEquivalent('', reply, made, { refIsOk: true, lit: pyLit });
+            return { ...g, score: g.grade === 'right' ? 1 : typeof g.share === 'number' ? g.share : 0 };
+          },
+          usable: (reply) => new RegExp('def\\s+' + made.pyName + '\\s*\\(').test(pyCodeOf(reply, made.pyName)),
+          toSpec: async (reply) =>
+            (await pyEquivalent('', reply, made, { refIsOk: true, lit: pyLit })).grade === 'right',
+          show: (reply) => {
+            const c = pyCodeOf(reply, made.pyName);
+            return c
+              ? c.split('\n')[0].slice(0, 70) + (c.includes('\n') ? ' ... (' + c.split('\n').length + ' lines)' : '')
+              : '';
+          },
+          wrap: (final) => '```python\n' + final + '\n```',
+        });
+      else if (made.type === 'code')
         out.push({
           ...base,
           name: made.name,

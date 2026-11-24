@@ -88,6 +88,7 @@ const AFTER_DRAFTS = [
   'writeAs',
   'writeCode',
   'agreeSkipsChecks',
+  'draftsStand',
   'onePerAnswer',
   'toolDecide',
   // (done by code where it applies, or one slot asked as the request came: the arranged drafts of every other question are
@@ -178,7 +179,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   // THE MIXTURE'S ADAPTERS, as moves (arrange.mjs adapterMoves): the ones there are for this swarm's model, loaded and on no
   // slot until a move puts one there
   const { adapterDir } = await import('./adapters.mjs');
-  const { readMix, newestBySlot } = await import('./mixture.mjs');
+  const { readMix, newestBySlot } = await import('./mix-record.mjs');
   const { MEMBERS: MEM0, TARGET: TGT0 } = await import('../src/catalog.mjs');
   const m0 = Object.values(MEM0)[0];
   const mixture = newestBySlot(
