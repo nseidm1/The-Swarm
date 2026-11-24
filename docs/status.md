@@ -18,7 +18,7 @@ What has been run:
   instrument is kept on ones its trying never saw.
 
 - **The module as configured, on every task (2026-11-22).** LFM2.5 1.2B in both places against Nemotron 3.5 Lightning 30B,
-  20 questions of each of 23 tasks: 54.1% against 77.6%, the small model by itself 30.0%
+  20 questions of each of 23 tasks: 55.2% against 77.6% that evening (54.1% in the afternoon), the small model by itself 30.0%
   ([Measured, not claimed](measured.md#the-module-as-configured-on-23-tasks-2026-11-22)). The same module pretrained, and
   pretrained and trained, on the same questions: not measured yet; that run was paused in its first step.
 - **Checks:** all of them, against stand-ins.

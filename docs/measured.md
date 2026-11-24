@@ -2,6 +2,35 @@
 
 Every measurement, dated, newest first. Each is of the swarm named in it; the lineup has changed over time.
 
+## What the code adds and what the arrangement adds, 2026-11-22 (evening)
+
+The same swarm (LFM2.5 1.2B in both places, the arrangement every swarm starts from, no adapter, no instrument on),
+asked again that evening as the first step of a run: 55.2% of 460 questions, the small model alone 30.0%, Nemotron 77.6%
+(Code 52.5, Math 72.5, Logic 45.0, Reasoning 43.3, Instructions 85.0, Tools 86.0, Search 10.0; no reply unread). Then,
+on the 320 questions of its 16 tasks that are not tools or search, four ways of asking the same small model, each 20 a
+task:
+
+| | Right, of 320 | Code | Math | Logic | Reasoning | Instructions |
+| --- | --- | --- | --- | --- | --- | --- |
+| The small model, asked plainly | 50 (15.6%) | 45.0 | 22.5 | 4.0 | 0.8 | 90.0 |
+| The same, its reply laid out by the module's code | 61 (19.1%) | 45.0 | 22.5 | 8.0 | 6.7 | 90.0 |
+| A module of one slot | 134 (41.9%) | 42.5 | 52.5 | 39.0 | 34.2 | 80.0 |
+| The module, seven slots | 164 (51.2%) | 52.5 | 72.5 | 45.0 | 43.3 | 85.0 |
+| Nemotron | 264 (82.5%) | 90.0 | 82.5 | 88.0 | 76.7 | 75.0 |
+
+- **A module of one slot** is the starting arrangement with every slot but its first drafter taken out and a flow that
+  drafts and stops (`node training/evaluate.mjs --one-slot`): one call a question, with all of the module's code round
+  it (how a request is read, the answer the slot is told to state, the form a reply closes with) and nothing of the
+  arrangement.
+- **The code is worth about 26 points; the arrangement about 9 more.** From 15.6% to 41.9% is the code round one call;
+  from 41.9% to 51.2% is six more slots, checking and choosing. Thirty questions of 320 separate the last two: more
+  than the error of either figure (about 3 points), and small beside what the code adds. The arrangement is also what
+  costs: one call a question against up to seven.
+- **Where the arrangement helps:** Math (52.5 to 72.5) and Code (42.5 to 52.5). On Logic and Reasoning it adds 6 and 9
+  points. On Instructions the model asked plainly is still ahead of both (90 against 80 and 85).
+- **What this does not say:** anything about a trained arrangement. Both are the arrangement as a swarm starts.
+  Twenty a task is a check, not a proof.
+
 ## The module as configured, on 23 tasks, 2026-11-22
 
 LFM2.5 1.2B in both places, no decision model, Jeffan 4B judging, against Nemotron 3.5 Lightning 30B: the first 20 questions

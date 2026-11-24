@@ -2248,6 +2248,14 @@ _wb = swarm_ui.whole_block(_dr)
 _ps = ("  501 /bin/bash -c source x.sh && bash training/run.sh --limit 20 --train classes\n"
        " 4242 bash training/run.sh --limit 50 --items code,math --train off\n"
        " 4300 sh training/evaluate.sh --variant base\n")
+# THE SYSTEM PICTURE DRAWS THE WHOLE: the run, a request inside the module, what training keeps, and the judge, round the lanes
+# of the arrangement's training
+_vzw = swarm_ui.viz_block(data.load(swarm_ui.ARGS.root))
+check("the System picture draws the run in order (R1 to R5), a request inside the module (M1 to M4), what training keeps with how far each reaches (K1 to K3, instruments saying which are on), the arrangement's lanes after them, and the judge last (J1 to J4)",
+      all(">%s</span>" % c in _vzw for c in ("R1", "R5", "M1", "M2", "M4", "K1", "K2", "K3", "A1", "S5", "E1", "J1", "J4"))
+      and _vzw.index(">R1</span>") < _vzw.index(">M1</span>") < _vzw.index(">K1</span>") < _vzw.index(">A1</span>") < _vzw.index(">J1</span>")
+      and "None is on yet." in _vzw and "__VIZ_" not in _vzw and "R4 in detail" in _vzw,
+      [c for c in ("R1", "M1", "K3", "J4") if ">%s</span>" % c not in _vzw])
 # THE SECOND BASELINE ON THE PAGE: beside a small model by itself, the same model with its reply laid out, as one more column
 _lo = [{"alone": {"a": {"name": "A", "value": 0.0}}, "aloneForm": {"a": {"name": "A", "value": 0.5, "unread": 1}}, "agree": {"of": 10}},
        {"harness": "bfcl", "alone": {"a": {"name": "A", "value": 1.0}}, "agree": {"of": 10}}]

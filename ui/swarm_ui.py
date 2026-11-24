@@ -186,7 +186,7 @@ table.spec th{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:
 .plannow{margin-top:10px}.plannow table.kv th{width:150px}.qsteps{margin:0;padding:0;list-style:none;counter-reset:qs;display:grid;gap:4px}
 .qsteps li{counter-increment:qs;display:flex;gap:8px;align-items:baseline;padding:6px 10px;border-radius:var(--r);background:var(--soft);font-size:13px;color:var(--fog)}
 .qsteps li::before{content:counter(qs);font-weight:800;color:var(--mist);min-width:14px}.qsteps li.on{background:#fdf0cf;box-shadow:inset 0 0 0 2px var(--sun)}.qsteps li.on::before{color:#8a5a00}
-.viz .vintro{margin:0 0 12px;font-size:12.5px;color:var(--mist);line-height:1.5}.viz .vfoot{margin:6px 0 0;font-size:12px;color:var(--mist);line-height:1.45}.viz .vlane{margin:0 0 16px}.viz .vlane:last-child{margin-bottom:0}.viz .vhead{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin:0 0 6px}.viz .vkey{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;font-weight:800;font-size:12px}
+.viz .vintro{margin:0 0 12px;font-size:12.5px;color:var(--mist);line-height:1.5}.viz .vfoot{margin:6px 0 0;font-size:12px;color:var(--mist);line-height:1.45}.viz .vsub{margin:18px 0 10px;padding-top:12px;border-top:1px solid var(--line2);font-size:13px;color:var(--fog)}.viz .vlane{margin:0 0 16px}.viz .vlane:last-child{margin-bottom:0}.viz .vhead{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin:0 0 6px}.viz .vkey{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;font-weight:800;font-size:12px}
 .viz .vhead small{color:var(--mist);font-size:12px}.viz .vrow{display:flex;align-items:stretch;gap:0}.viz .vbox{flex:1 1 0;min-width:0;padding:8px 10px;border-radius:var(--r);background:var(--soft);border:1px solid var(--line2)}
 .viz .vbox b{display:block;font-size:13px;line-height:1.3;color:var(--fog)}.viz .vbox small{display:block;margin-top:3px;font-size:11.5px;line-height:1.4;color:var(--mist)}
 .viz .vcode{display:inline-block;margin-right:6px;padding:0 5px;border-radius:var(--r);background:var(--panel);color:var(--teal);font-size:11px;font-weight:800}
@@ -1350,8 +1350,46 @@ def viz_block(d):
     arrow = '<span class="varr" aria-hidden="true"></span>'
     lane = lambda key, title, boxes, foot="": ('<div class="vlane"><div class="vhead"><span class="vkey">%s</span><b>%s</b></div><div class="vrow">%s</div>%s</div>'  # noqa: E731
                                                % (key, e(title), arrow.join(boxes), ('<p class="vfoot">%s</p>' % foot) if foot else ""))
-    return ('<div class="panel viz"><p class="vintro">Every part of training, coded so it can be named (B3, D2). Lanes run top to bottom; '
-            "steps run in the order of the arrows. The marked box is where the loop is now.</p>%s%s%s%s%s%s</div>" % (
+    # THE WHOLE OF IT, round the lanes of the arrangement's training (2026-11-22). The picture drew the search for an arrangement
+    # and nothing else, while most of what was measured came from what it left out: the code a request meets, the instruments,
+    # pretraining by role, and the evaluation that judges all of it. So: R the run in order, M a request inside the module, K the
+    # three things training keeps and how far each can reach; then the lanes there were (R4 in detail); then J, the judge.
+    steps_, _ = whole_steps(ARGS.root, d.get("key") or "")
+    going = bool((job_state("whole") or {}).get("running"))
+    said_ = {"done": "Done", "running": "Running now" if going else "Stopped here", "failed": "Failed", "not taken": "Not taken", "waiting": ""}
+    r_words = ["A third party&#39;s harness asks the module as it starts: no adapter, no instrument on.",
+               "An adapter for each role (draft, check, write), from the slots&#39; own right answers: K2.",
+               "The same questions again.",
+               "Each class of input as a class: lanes S to E below. Instruments are turned on here: K1, K3.",
+               "The same questions a third time: three figures side by side, J2."]
+    rbox = lambda i, x: ('<div class="vbox%s"><b><span class="vcode">R%d</span>%s</b><small>%s%s</small></div>'  # noqa: E731
+                         % (" on" if going and x["state"] == "running" else "", i + 1, e(x["name"]),
+                            ("<b>%s.</b> " % said_[x["state"]]) if said_.get(x["state"]) else "", r_words[i] if i < len(r_words) else ""))
+    on_ = lambda pl: list(data.__dict__.get("INSTRUMENT_IDS") or ["sum", "truth", "sorted", "closed"]) if (pl or {}).get("instruments") is True else list((pl or {}).get("instruments") or [])  # noqa: E731
+    br_ = d.get("briefs") or {}
+    inst_ = ([("every class", on_(br_.get("plan")))] if on_(br_.get("plan")) else []) + [(c, on_((k or {}).get("plan"))) for c, k in (br_.get("kinds") or {}).items() if on_((k or {}).get("plan"))]
+    inst_words = ("On now: %s." % "; ".join("%s (%s)" % (", ".join(v), c) for c, v in inst_)) if inst_ else "None is on yet."
+    head_ = ('<p class="vintro">How a module is made and judged, every part coded so it can be named (K3, B3). Lanes run top to bottom; steps run in the '
+             "order of the arrows. The marked box is where the run, or the loop, is now.</p>"
+             + lane("R", "The run, in order", [rbox(i, x) for i, x in enumerate(steps_)])
+             + lane("M", "A request, inside the module", [
+                 box("M1", "", "Read · code", "Its class, from the request alone: with tools, a conversation, asking for code, a plain question."),
+                 box("M2", "", "Instrument · code", "Where the question is an operation code does exactly and training turned it on for the class: done by code, no model asked."),
+                 box("M3", "", "Arrangement · models", "Otherwise the class's slots and flow: lane C."),
+                 box("M4", "", "Form · code", "The reply laid out and closed as the conversation shows; code goes out as it was settled.")],
+                 "To the program that uses it this is one chat model. M1 to M4 are its wiring, and the wiring is what training finds.")
+             + lane("K", "What training keeps, and how far each can reach", [
+                 box("K1", "", "Arrangement", "What each slot is told and how the slots are arranged, class by class. It reaches the best answer any slot drafted, and cannot make one no slot had."),
+                 box("K2", "", "Adapters, by role", "What a slot drafts, checks or writes. They reach what the small model can learn."),
+                 box("K3", "", "Instruments", "Operations done exactly. They can pass %s, but only where a question is that operation. %s" % (tname, inst_words))],
+                 "Each is kept only where held questions gained, by the one rule at S5. As a module starts, nothing is kept and no instrument is on.")
+             + '<p class="vintro vsub"><b>R4 in detail:</b> training the arrangement.</p>')
+    tail_ = lane("J", "The judge, apart from training", [
+        box("J1", "", "The harness", "A third party's benchmarks, unchanged, ask through the chat interface as they ask any model. Training never asks one of their questions."),
+        box("J2", "", "Three figures", "As configured, pretrained, pretrained and trained, on the same questions: R1, R3, R5."),
+        box("J3", "", "Beside them", "The small model asked plainly, the same with the module's layout only, and %s." % tname),
+        box("J4", "", "The verdict", "By capability: parity, short, or too few questions to say. A hundred questions a task, at least, is proof.")])
+    return ('<div class="panel viz">__VIZ_HEAD__%s%s%s%s%s%s__VIZ_TAIL__</div>' % (
                 lane("A", "Once a pass", [
                     box("A1", "", "Questions", "Of every body of work. Train questions are trained on; held questions are only checked."),
                     box("A2", "", "The standard", "The question's own where it has one; else the answers %s agrees with itself on." % tname),
@@ -1387,7 +1425,7 @@ def viz_block(d):
                 lane("E", "At the end of a pass", [
                     *([box("E1", "", "Proposed for the class", "Up to %s changes a class, those that most often brought its questions closer, scored on the class." % lpol_.get("classTries", 0))] if by_class and lpol_.get("classTries") else []),
                     box("E2" if by_class and lpol_.get("classTries") else "E1", "", "Held questions", "Does what was learned hold beyond the train questions?"),
-                    box("E3" if by_class and lpol_.get("classTries") else "E2", "", "The spec", "Every kept change, cumulative; published with its proof.")])))
+                    box("E3" if by_class and lpol_.get("classTries") else "E2", "", "The spec", "Every kept change, cumulative; published with its proof.")]))).replace("__VIZ_HEAD__", head_).replace("__VIZ_TAIL__", tail_)
 
 
 def plan_block(d):

@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/dashboard.png" alt="The top of the training dashboard: the SwOA spec and Uninstall Helper buttons; Configuration, with one small model in every role (LFM2.5 1.2B), a small model of the swarm deciding, Jeffan 4B judging equivalence, against Nemotron 3.5 Lightning 30B; who takes turns with tools; whether the swarm is served with its adapters; Your own questions, a button for each body of work; and the Run card: 0 of 5 steps, stopped, the size of each evaluation, whether the arrangement is trained too, Carry on, and the five steps (evaluate the module as configured, pretrain, evaluate it pretrained, train the arrangement, evaluate it pretrained and trained)" width="860">
+  <img src="docs/images/dashboard.png" alt="The top of the training dashboard: the SwOA spec and Uninstall Helper buttons; Configuration, with one small model in every role (LFM2.5 1.2B), a small model of the swarm deciding, Jeffan 4B judging equivalence, against Nemotron 3.5 Lightning 30B; who takes turns with tools; whether the swarm is served with its adapters; Your own questions, a button for each body of work; and the Run card: 2 of 5 steps, stopped, the size of each evaluation, whether the arrangement is trained too, Carry on, and the five steps (evaluate the module as configured, pretrain, evaluate it pretrained, train the arrangement, evaluate it pretrained and trained)" width="860">
 </p>
 
 <p align="center"><em>The top of the training dashboard on 2026-11-22: a swarm of LFM2.5 1.2B in every role against Nemotron 3.5 Lightning 30B, and Run, the one button that takes it through its five steps. Below it on the page: Memory saved, Evaluate the swarm, Pretrain, Train, the plan and the system, pictured under <a href="docs/dashboard.md">The dashboard</a>.</em></p>
@@ -39,7 +39,7 @@ as one model, with the proof of what it does. The Swarm is not tied to one proje
 [The Crew](docs/training.md#the-crew-the-first-project-that-uses-it) is the first to use it.
 
 > **Status: pre-release; nothing proven yet.** The swarm configured now (2026-11-22) is LFM2.5 1.2B in both places against
-> Nemotron 3.5 Lightning 30B. As configured, before any training, it scored 54.1% on 460 questions of 23 standard tasks
+> Nemotron 3.5 Lightning 30B. As configured, before any training, it scored 55.2% on 460 questions of 23 standard tasks
 > where the larger model scored 77.6% and the small model by itself 30.0%. Twenty questions a task is a check, not a
 > proof. Pretraining, the instruments and the trained arrangement have not yet been measured on it.
 > [Results](#results) · [Status and limits](docs/status.md)
@@ -176,7 +176,7 @@ chat-model interface as they ask any model. Training makes its own questions fro
 ## The dashboard
 
 <p align="center">
-  <img src="docs/images/dashboard-evaluate.png" alt="Evaluate the swarm: 69.7% of the larger model&#39;s score (54.1% against 77.6% on 460 questions), with Each task, Paper table and Chart; the three evaluations side by side (as configured 54.1%, pretrained and pretrained and trained not measured yet); the bodies of work asked, the harnesses used, and every task folded to one line" width="860">
+  <img src="docs/images/dashboard-evaluate.png" alt="Evaluate the swarm: 71.1% of the larger model&#39;s score (55.2% against 77.6% on 460 questions), with Each task, Paper table and Chart; the three evaluations side by side (as configured 55.2%, pretrained and pretrained and trained not measured yet); the bodies of work asked, the harnesses used, and every task folded to one line" width="860">
 </p>
 
 `python3 ui/swarm_ui.py` opens at `http://127.0.0.1:8787/` and needs nothing installed. It chooses the models, runs and
@@ -191,21 +191,21 @@ instrument on) against Nemotron 3.5 Lightning 30B, 20 questions of each of 23 st
 | Body of work | The module | The small model alone | The larger model |
 | --- | --- | --- | --- |
 | Code | 52.5 | 45.0 | 90.0 |
-| Math | 70.0 | 22.5 | 82.5 |
-| Logic | 48.0 | 4.0 | 88.0 |
-| Reasoning | 40.8 | 0.8 | 76.7 |
-| Instructions | 75.0 | 90.0 | 75.0 |
+| Math | 72.5 | 22.5 | 82.5 |
+| Logic | 45.0 | 4.0 | 88.0 |
+| Reasoning | 43.3 | 0.8 | 76.7 |
+| Instructions | 85.0 | 90.0 | 75.0 |
 | Tools | 86.0 | 88.0 | 81.0 |
-| Search | 5.0 | 0.0 | 30.0 |
-| All 460 | 54.1 | 30.0 | 77.6 |
+| Search | 10.0 | 0.0 | 30.0 |
+| All 460 | 55.2 | 30.0 | 77.6 |
 
 Read it with care:
 
 - Twenty a task is a check. A verdict needs at least a hundred, and no run of that size has finished.
-- The small model's figures on Logic and Reasoning are partly layout: asked plainly, 197 of its 220 replies there went
-  unread. With the module's layout code on its reply and nothing else, 107 went unread and it scored 7.3% (from 2.3%)
-  where the module scored 44.1%. How much of the rest is the closing form and how much the arrangement is not told apart yet. The dashboard shows
-  this baseline beside the model alone, as "(laid out)".
+- Most of the module's lead over its own small model is its code, not its arrangement. On the 320 questions that are
+  not tools or search: the small model asked plainly 15.6%, with the module's reply layout only 19.1%, a module of one
+  slot (all of the module's code round one call) 41.9%, the whole module 51.2%, the larger model 82.5%. So the code is
+  worth about 26 points and the arrangement of seven slots about 9 more, before any training.
 - The same module pretrained, and pretrained and trained, has not been measured yet.
 - With every instrument on, four operation tasks read 20 of 20 where the small model alone had 0. The instruments were
   written after those tasks were read; they were then probed, with no model, on 104,520 questions by other authors and
@@ -223,7 +223,7 @@ npm test
 python3 ui/check.py
 ```
 
-236 checks of the module and the trainers and 161 of the dashboard, against stand-in servers: nothing is fetched,
+236 checks of the module and the trainers and 162 of the dashboard, against stand-in servers: nothing is fetched,
 started or installed. `npm test` deals its 115 blocks of checks out to every core (26 seconds on a 24-core Mac, 91 one
 after another); `npm run test:serial` runs them in one process, `npm run test:all` adds the dashboard's, and
 `npm run test:python` checks the Python client. How well the

@@ -15,11 +15,15 @@ The first version.
   reading. Each small model is now also asked with the module's own layout code on its one reply and nothing else
   (`aloneForm` in a task's result), so what is left between that and the module is what the arrangement adds. The
   page shows it as one more column, "(laid out)", in each view of an evaluation, once every task shown was asked so.
+- **The System picture shows the whole of how a module is made and judged** (2026-11-22). It drew the search for an
+  arrangement and nothing else. Round those lanes it now draws the run in order with where each step stands (R), a
+  request inside the module with what is code and what is models (M), the three things training keeps and how far each
+  can reach (K: arrangement, adapters by role, instruments), and the judge apart from training (J).
 - **An evaluation of a module of one slot** (2026-11-22). `node training/evaluate.mjs --one-slot` measures the
   arrangement a swarm starts from with every slot but its first drafter taken out and a flow that drafts and stops: all
   of the module's code round one model, and none of the arrangement. Set beside the model asked plainly and the whole
-  module, it says how much of the module's lead is its code and how much its arrangement. A result names it
-  (`"arrangement": "one slot"`).
+  module, it says how much of the module's lead is its code and how much its arrangement. A result names it (`"arrangement": "one slot"`). Measured on 320 questions: the model asked plainly 15.6%, a module of one
+  slot 41.9%, the whole module 51.2%.
 - **The page counts only a run in its own folder as its run** (2026-11-22). A whole run was found by its process
   alone, so a page served from another copy of the repository took a run elsewhere on the machine for its own and
   would not start anything; the page's own checks failed while a real run was going.
