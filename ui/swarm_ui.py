@@ -371,7 +371,7 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 dialog#evd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#evd::backdrop{background:rgba(11,40,38,.45)}
 /* THE EVALUATE CARD'S HEADLINE IS A BUTTON (it opens the table, score beside score): it keeps the look of a headline, and says it can be pressed */
 .adline{display:flex;gap:14px;align-items:flex-start;margin:14px 0 4px;padding-top:12px;border-top:1px solid var(--line,#e6ecea)}.adline small{display:block;color:var(--mist);font-size:12.5px;line-height:1.45}.adline p{margin:6px 0 0}
-.wsl{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.ws{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--line,#d9e4e1);border-radius:10px;font-size:13px;min-width:0}.ws i{width:10px;height:10px;border-radius:50%;background:#c8d4d0}.ws.done i{background:#0f6b5a}.ws.running i{background:#c98a0b}.ws.failed i{background:#a23b2a}.ws.not-taken i,.ws.stopped i{background:#7a8a86}.ws small{opacity:.75}.wholet{display:flex;gap:6px;align-items:center;font-size:13px}@media(max-width:760px){.wsl{grid-template-columns:1fr}}
+.wsl{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px}.ws{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--line,#d9e4e1);border-radius:10px;font-size:13px;min-width:0}.ws i{width:10px;height:10px;border-radius:50%;background:#c8d4d0}.ws.done i{background:#0f6b5a}.ws.running i{background:#c98a0b}.ws.failed i{background:#a23b2a}.ws.not-taken i,.ws.stopped i{background:#7a8a86}.ws small{opacity:.75}.wholet{display:flex;gap:6px;align-items:center;font-size:13px}@media(max-width:760px){.wsl{grid-template-columns:1fr}}
 .cmph{margin:0 0 8px;font-size:15px}#evd{overflow-x:hidden}.evdsec{margin:14px 0 0}.evdsec+.evdsec{margin-top:22px;padding-top:16px;border-top:1px solid var(--line,#d9e4e1)}.cmpt{margin:0 0 6px}.cmpt tr.sum td{font-weight:700;border-top:2px solid var(--line,#d9e4e1)}.cmpbars{display:flex;flex-direction:column;gap:8px;margin:0 0 6px}.cmpbar{display:grid;grid-template-columns:minmax(120px,190px) 1fr minmax(110px,auto);gap:10px;align-items:center;font-size:13px}.cmpbar .mbar{position:relative;height:14px;background:#e4eeeb;border-radius:7px}.cmpbar .mbar i{position:absolute;left:0;top:0;bottom:0;background:#0f6b5a;border-radius:7px}.cmpbar .mbar u{position:absolute;top:-3px;bottom:-3px;border-left:2px solid #1d2b27;border-right:2px solid #1d2b27;background:rgba(29,43,39,.18)}.cmpbar .mbar s{position:absolute;top:-6px;bottom:-6px;border-left:2px dashed #3d4a8f}.cmpbar.none{opacity:.5}
 .cmp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 4px}.cmpc{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid var(--line,#d9e4e1);border-radius:10px;min-width:0}.cmpc b{font-size:13px}.cmpv{font-size:22px;font-weight:700}.cmpv i{font-style:normal;font-size:12px;font-weight:400;margin-left:6px;opacity:.7}.cmpc small{font-size:12px;opacity:.8}.cmpc.none .cmpv{opacity:.4}.cmpc small b.up{color:#0b6b57}.cmpc small b.down{color:#a23b2a}@media(max-width:640px){.cmp{grid-template-columns:1fr}}
 .evhead{display:flex;flex-direction:column;gap:10px;align-items:flex-start;min-width:0}.evviews{display:flex;gap:8px;flex-wrap:wrap}.evviews .btn{padding:8px 14px;font-size:13px;white-space:nowrap}.ptab{font-family:Georgia,'Times New Roman',serif;color:var(--fog)}.ptab caption{caption-side:top;text-align:left;font-size:13.5px;line-height:1.5;padding:0 0 10px}.ptab caption b{font-weight:700}.ptab table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums;border-top:2px solid var(--fog);border-bottom:2px solid var(--fog)}.ptab th,.ptab td{padding:5px 10px;text-align:right;border:0;white-space:nowrap}.ptab th:first-child,.ptab td:first-child{text-align:left;white-space:normal}.ptab thead th{font-weight:400;border-bottom:1px solid var(--fog)}.ptab tr.pg td{font-style:italic;padding-top:10px;text-align:left}.ptab tr.pall td{border-top:1px solid var(--fog);padding-top:7px}.ptab td small{color:var(--mist);font-size:.82em}.ptab-wrap{overflow-x:auto;margin-top:12px}.ptab-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}#evd-latex{width:100%;min-height:160px;margin-top:10px;font:12px ui-monospace,Menlo,monospace}dialog#tqd{border:0;border-radius:var(--r);padding:26px;max-width:min(900px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#tqd::backdrop{background:rgba(11,40,38,.45)}.tqctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}.tqctl select,.tqctl input{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel)}.tqctl input{flex:1 1 160px;min-width:0}.tql{list-style:none;margin:0;padding:0;display:grid;gap:10px}.tql li{border:1px solid var(--line2);border-radius:var(--r);padding:12px 14px}.tqh{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}.tqh small{color:var(--mist);font-size:12px;font-weight:600}.tqa{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.5}.tqb{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.45;color:var(--mist)}.tqb b{color:var(--fog)}.tqw{display:block;margin-top:6px;color:var(--mist);overflow-wrap:anywhere}@media (max-width:760px){dialog#tqd{padding:18px 12px}}.evbench select{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel);max-width:100%}.evbench{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}.evbench .seg small{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#9a5b00;margin-left:4px}.evbench .seg:disabled{opacity:.45;cursor:default}.evchart{margin-top:12px}.evchart svg{display:block;width:100%;height:auto;max-width:720px}.evchart .ax{stroke:var(--line);stroke-width:1}.evchart .tk{fill:var(--mist);font-size:11px}.evchart .lb{fill:var(--fog);font-size:12.5px;font-weight:700}.evchart .sb{fill:var(--mist);font-size:11.5px}.evchart .at{fill:var(--mist);font-size:11.5px;font-weight:700;letter-spacing:.04em}.evchart .pn{fill:#fff;font-size:11px;font-weight:800}.evchart .lgl{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px;font-size:13px;color:var(--fog)}.evchart .lgl li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.evchart .lgl i{flex:none;display:inline-block;min-width:20px;height:20px;line-height:20px;border-radius:50%;text-align:center;color:#fff;font-style:normal;font-size:11px;font-weight:800}.evchart .lgl span{color:var(--mist);font-variant-numeric:tabular-nums}.evchart .lgl i.hollow{background:var(--panel)}.evchart .lgl em{font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mist)}.evchart .lgl li.mine{background:var(--soft);border-radius:var(--r);padding:6px 8px;margin:0 -8px}.evchart .lgl li.mine em{color:var(--teal)}.lgl li.mine.tgt em{color:var(--tgt)}.evchart .pn.hollow{font-weight:800}.evopen{appearance:none;border:0;background:none;padding:6px 10px;margin:-6px -10px;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:12px;max-width:100%}
@@ -855,7 +855,13 @@ setInterval(async()=>{if($('#wholebox[data-running]')||$('#busy[data-busy="the r
 // THE CONVERSATION RUN'S BUTTON (converse_block): one press is one pass; drawn again while a pass runs, and the plan with it
 document.addEventListener('click',async ev=>{const b=ev.target;if(b.id!=='converse-go'&&b.id!=='converse-stop')return;b.disabled=true;
   await evPost(b.id==='converse-go'?'/converse/start':'/converse/stop','#conversewrap',{});});
-setInterval(async()=>{if($('#conversebox[data-running]')){await swap('/fragment/converse','#conversewrap');if($('#plan'))await swap('/fragment/plan','#plan');}},4000);
+setInterval(async()=>{if($('#conversebox[data-running]')){await swap('/fragment/converse','#conversewrap');}},4000);
+// WHAT IS BEING TRAINED NOW, AND WHERE IN THE PICTURE: while anything trains, the plan is drawn again and the boxes in use are marked
+setInterval(async()=>{const going=$('#conversebox[data-running]')||$('#wholebox[data-running]')||$('#plan [data-training]');
+  if(!going&&!document.querySelector('#viz .vbox.on[data-code]'))return;
+  if($('#plan'))await swap('/fragment/plan','#plan');
+  try{const r=await fetch('/now/codes');if(r.ok){const on=new Set((await r.text()).split(',').filter(Boolean));
+    document.querySelectorAll('#viz .vbox[data-code]').forEach(b=>{if(!b.dataset.part)b.classList.toggle('on',on.has(b.dataset.code));});}}catch(e){}},4000);
 async function evPost(url,into,body){const r=await fetch(url,{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify(body||{})});
   if(!r.ok){alert(await r.text());evAsk();return;}$(into).innerHTML=await r.text();keepOpen($(into));evAsk();}
 // WHICH BODIES OF WORK AN EVALUATION ASKS: every one to begin with; a person unticks some for a quicker look, and the device keeps
@@ -1332,6 +1338,55 @@ def plan_now(d):
             '<ol class="qsteps">%s</ol></div>' % ("".join("<tr><th>%s</th><td>%s</td></tr>" % (e(k), v) for k, v in rows), flow))
 
 
+def now_codes(d):
+    """THE BOXES OF THE SYSTEM PICTURE THAT ARE IN USE THIS MOMENT (console 2026-11-24: the picture highlights the step being
+    exercised). From what is running and the line the trainer says of what it is asking: the run's step (R1 to R4), the
+    judge while an evaluation asks (J1), and inside training the step of the class stage (S1 as it stands, S2 a change
+    being tried, S3 two together, S4 the held questions) with what the change being tried is of (K1 the arrangement, K2
+    an adapter, K3 code, K4 breakdown or cascade, K5 conversation). A set of codes; empty where nothing runs."""
+    out = set()
+    root = Path(d.get("root", ARGS.root))
+    whole = (job_state("whole") or {}).get("running")
+    conv = (job_state("converse") or {}).get("running")
+    if whole:
+        steps, _ = whole_steps(ARGS.root, d.get("key") or "")
+        for i, x in enumerate(steps):
+            if x["state"] == "running":
+                out.add("R%d" % (i + 1))
+                if i in (0, 3):
+                    out.add("J1")
+                if i == 1:
+                    out.add("K2")
+    if (job_state("eval") or {}).get("running"):
+        out.add("J1")
+    live = data._json(root / ".work" / "train" / "live.json", {}) or {}
+    try:
+        fresh = time.time() - (root / ".work" / "train" / "live.json").stat().st_mtime < 300
+    except OSError:
+        fresh = False
+    if live.get("trainer") == "classes" and fresh and (whole or conv or _classes_alive()):
+        step = str(live.get("step") or "")
+        if conv:
+            out.add("K5")
+        if "how the swarm stands" in step:
+            out.add("S1")
+        elif "held questions" in step:
+            out.add("S4")
+        elif 'trying "' in step:
+            name = step.split('trying "', 1)[1]
+            out.add("S3" if " + " in name else "S2")
+            out.add("K2" if name.startswith("adapters:") else "K3" if "is done by code" in name else "K4" if name.startswith(("breakdown:", "cascade:")) else "K5" if name.startswith("manners:") else "K1")
+    return out
+
+
+def _classes_alive():
+    """Whether the class stage is running though this page did not start it (a terminal): its process is there."""
+    try:
+        return "training/classes.mjs" in subprocess.run(["ps", "-axo", "command"], capture_output=True, text=True, timeout=3).stdout
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def viz_block(d):
     """VISUALIZING THE SYSTEM: every part of training as a coded box (A1, B3 ...) a person can name when talking about it, in the order
     things happen. The box the loop is in now is marked, live (the page's poll; data-part names the step)."""
@@ -1350,8 +1405,9 @@ def viz_block(d):
     first_n = plan_.get("draftFirst") if isinstance(plan_.get("draftFirst"), int) and 2 <= plan_.get("draftFirst") < n_draft else 0
     no_dec = ((d.get("decider") or {}).get("serve") or {}).get("kind") == "none"
     most = str(plan_.get("decideBy") or "") == "most"
-    box = lambda code, part, title, body: ('<div class="vbox"%s><b><span class="vcode">%s</span>%s</b><small>%s</small></div>'  # noqa: E731
-                                           % ((' data-part="%s"' % part) if part else "", code, e(title), e(body)))
+    now_ = now_codes(d)
+    box = lambda code, part, title, body: ('<div class="vbox%s" data-code="%s"%s><b><span class="vcode">%s</span>%s</b><small>%s</small></div>'  # noqa: E731
+                                           % (" on" if code in now_ else "", code, (' data-part="%s"' % part) if part else "", code, e(title), e(body)))
     arrow = '<span class="varr" aria-hidden="true"></span>'
     lane = lambda key, title, boxes, foot="": ('<div class="vlane"><div class="vhead"><span class="vkey">%s</span><b>%s</b></div><div class="vrow">%s</div>%s</div>'  # noqa: E731
                                                % (key, e(title), arrow.join(boxes), ('<p class="vfoot">%s</p>' % foot) if foot else ""))
@@ -1366,8 +1422,8 @@ def viz_block(d):
                "One for each drafting slot: its own right answers, and the larger model&#39;s where it was wrong. On no slot yet: K2.",
                "Each class of input as a class: lanes S to E below. Where the class falls short decides what is tried first; a change (code for a kind of question, a slot&#39;s adapter, the question taken apart, a slot working by facts, how many slots and models, how drafts are settled) is kept only where held questions gain: K1 to K4.",
                "The same questions again: two figures side by side, J2."]
-    rbox = lambda i, x: ('<div class="vbox%s"><b><span class="vcode">R%d</span>%s</b><small>%s%s</small></div>'  # noqa: E731
-                         % (" on" if going and x["state"] == "running" else "", i + 1, e(x["name"]),
+    rbox = lambda i, x: ('<div class="vbox%s" data-code="R%d"><b><span class="vcode">R%d</span>%s</b><small>%s%s</small></div>'  # noqa: E731
+                         % (" on" if (going and x["state"] == "running") or ("R%d" % (i + 1)) in now_ else "", i + 1, i + 1, e(x["name"]),
                             ("<b>%s.</b> " % said_[x["state"]]) if said_.get(x["state"]) else "", r_words[i] if i < len(r_words) else ""))
     on_ = lambda pl: list(data.__dict__.get("INSTRUMENT_IDS") or ["sum", "truth", "sorted", "closed"]) if (pl or {}).get("instruments") is True else list((pl or {}).get("instruments") or [])  # noqa: E731
     br_ = d.get("briefs") or {}
@@ -1402,7 +1458,7 @@ def viz_block(d):
                     box("A3", "", "The plan", "The moves the search draws its changes from.")]),
                 # FIRST IN A PASS: each class of input as a class (training/classes.mjs), before the larger model is asked anything
                 lane("S", "First in a pass: each class of input, as a class", [
-                    box("S1", "classes", "As it stands", "Every question of the class: did a slot have it, was it settled on, is the reply good. Each wrong one is sorted: no slot had it, a slot had it and it was lost, or the reply spoiled it."),
+                    box("S1", "", "As it stands", "Every question of the class: did a slot have it, was it settled on, is the reply good. Each wrong one is sorted: no slot had it, a slot had it and it was lost, or the reply spoiled it."),
                     box("S2", "", "Sweep, then the rest", "Every change that leaves the drafts as they are (an instrument on, one slot alone, how answers are settled), the drafts reused. Then the others, those for the widest of the three gaps first: a slot's adapter, the question taken apart, a slot working by facts, slots and models added or dropped, how drafts are settled."),
                     box("S3", "", "Together", "The best two of the sweep as one change."),
                     box("S4", "", "Held, twice", "The best against the swarm as it stands: every held question of the class, %s draws." % cpol.get("draws", 2)),
@@ -1437,7 +1493,76 @@ def viz_block(d):
 def plan_block(d):
     """What the plan part of the page holds: what training is trying now, class by class (class_plan), then the plan the
     question-by-question loop tries from (the questions themselves are on the swarm's card)."""
-    return class_plan(d) + class_plan(d, "conversation") + plan_panel(d)
+    earlier = class_plan(d) + class_plan(d, "conversation") + plan_panel(d)
+    return training_now(d) + ('<details class="cfg fold" data-keep="plan-earlier"><summary><span class="cfgh">Earlier</span><span class="fmeta">the last runs in full, and the question-by-question pass</span></summary><div class="foldb">%s</div></details>' % earlier)
+
+
+def training_now(d):
+    """THE CURRENT STATE OF TRAINING, AND ITS PLAN (console 2026-11-24: this part of the page is the present, not past runs).
+    Whichever run is going, intelligence or conversation: the class in hand and the round, what is being asked this moment,
+    where the class fell short and so what is tried first, how far the round is, what has gained so far, what is still to
+    be tried, what was kept, and what the pass carried in. Where nothing is training it says so, and what the next run of
+    each kind will begin from."""
+    root = Path(d.get("root", ARGS.root))
+    key = str(d.get("key", ""))
+    res = root / "training" / "results" / key
+    conv = bool((job_state("converse") or {}).get("running"))
+    whole = bool((job_state("whole") or {}).get("running"))
+    live = data._json(root / ".work" / "train" / "live.json", {}) or {}
+    try:
+        fresh = time.time() - (root / ".work" / "train" / "live.json").stat().st_mtime < 300
+    except OSError:
+        fresh = False
+    alive = live.get("trainer") == "classes" and fresh and (conv or whole or _classes_alive())
+    plain = lambda n: e(re.sub(r"^plan: ", "", str(n)))  # noqa: E731
+    pts = lambda x: "%+.1f" % (100.0 * (x or 0))  # noqa: E731
+    if not (conv or whole or alive):
+        nxt = []
+        for which, label in (("conversation", "The next conversation pass"), ("classes", "The next intelligence run")):
+            g = data._json(res / (which + "-gaps.json"), None) or {}
+            short = [k for k, v in (g.get("kinds") or {}).items() if v.get("n") and v.get("wrong", 0) * 3 >= v["n"]]
+            miss = ", ".join("%s (%d of %d)" % (e(k), v.get("missed") or 0, v.get("asked") or 0) for k, v in (g.get("conventions") or {}).items() if v.get("missed"))
+            nxt.append("<li><b>%s</b> %s</li>" % (label, ("is pass %d. It begins from what pass %d left: %s%s." % ((g.get("pass") or 0) + 1, g.get("pass") or 0, ("more questions of %s" % ", ".join(e(k) for k in short)) if short else "no kind a third wrong",
+                                                                    ("; conventions still missed: %s" % miss) if miss else "")) if g else "is the first: nothing is carried into it."))
+        return ('<div class="panel plan" id="trainnow"><div class="plan-head"><h3>Training now</h3><span class="muted small">Nothing is training</span></div>'
+                '<p class="small" style="margin:8px 0 0">Start a run above. Each tries its changes on train questions, keeps the best only where held questions gain beyond their error, and leaves what it was short on for the next.</p>'
+                '<ul class="small" style="margin:6px 0 0;padding-left:18px">%s</ul></div>' % "".join(nxt))
+    which = "conversation" if conv else "classes"
+    rec = data._json(res / (which + ".json"), None) or {}
+    classes = [(K, C) for K, C in (rec.get("classes") or {}).items() if not C.get("skipped")]
+    K, C = classes[-1] if classes else ("", {})
+    rounds = C.get("rounds") or []
+    R = rounds[-1] if rounds else {}
+    cands = R.get("candidates") or []
+    tried = {c.get("name") for c in cands}
+    todo = [n for n in (R.get("plan") or []) if n not in tried]
+    g = R.get("gap") or {}
+    of = R.get("of") or len(cands) or 1
+    out = ['<div class="panel plan" id="trainnow" data-training="1"><div class="plan-head"><h3>Training now: %s</h3><span class="muted small">%s</span></div>'
+           % ("the conversation run, pass %d" % (rec.get("pass") or 1) if conv else "the intelligence run, training" if whole else "each class as a class",
+              e(("Requests %s" % CLASS_WORDS.get(K, K)) + (" · round %d" % len(rounds) if rounds else "")) if K else "starting")]
+    out.append('<p class="small" style="margin:8px 0 0"><b>This moment:</b> %s</p>' % e(str(live.get("step") or "starting")))
+    car = rec.get("carried") or {}
+    if car.get("focus"):
+        out.append('<p class="small" style="margin:6px 0 0"><b>Carried in from the last pass:</b> %d more train questions of %s.</p>' % (car.get("more") or 0, ", ".join("%s +%s" % (e(k), v) for k, v in car["focus"].items())))
+    if K:
+        out.append('<p class="small" style="margin:6px 0 0"><b>The class:</b> %d train questions and %d held, of %d kinds. Kept so far this pass: %s.</p>'
+                   % (C.get("train") or 0, C.get("held") or 0, len(C.get("kinds") or []), ("<b>%s</b>" % "; ".join(plain(k) for k in C["kept"])) if C.get("kept") else "nothing yet"))
+    if g:
+        out.append('<p class="small" style="margin:6px 0 0"><b>Where it falls short:</b> %d wrong as it stood: no slot had the answer %d, a slot had it and it was lost %d, the reply spoiled it %d. So %s.</p>'
+                   % (g.get("wrong") or 0, g.get("none") or 0, g.get("lost") or 0, g.get("spoiled") or 0, GAP_WORDS.get(g.get("first"), "nothing was wrong, and the changes are tried in the policy&#39;s order")))
+    if rounds:
+        out.append('<p class="small" style="margin:6px 0 0"><b>This round:</b> %d of %d changes tried.</p><span class="prog" style="height:10px"><i class="eq" style="width:%.1f%%"></i></span>' % (len(cands), of, 100.0 * min(1.0, len(cands) / of)))
+        top = sorted(cands, key=lambda c: -(c.get("gain") or 0))[:6]
+        if top:
+            out.append('<h4>Tried so far, the most gained first</h4><ul class="small" style="margin:4px 0 0;padding-left:18px">%s</ul>'
+                       % "".join("<li>%s: counted %d of %d (%s points)</li>" % (plain(c.get("name", "")), c.get("counted") or 0, c.get("n") or 0, pts(c.get("gain"))) for c in top))
+        if todo:
+            out.append('<h4>Still to try this round</h4><ul class="small" style="margin:4px 0 0;padding-left:18px">%s%s</ul>'
+                       % ("".join("<li>%s</li>" % plain(n) for n in todo[:10]), ("<li class=\"muted\">and %d more</li>" % (len(todo) - 10)) if len(todo) > 10 else ""))
+        if R.get("best") and not R.get("held"):
+            out.append('<p class="small" style="margin:8px 0 0"><b>Being confirmed on the held questions:</b> %s.</p>' % plain(R["best"]))
+    return "".join(out) + "</div>"
 
 
 # WHAT TRAINING CAN CHANGE, in the words the page uses: every one is tried as a change to the arrangement and kept only where
@@ -3086,15 +3211,19 @@ def pills(d):
                 # (a small model TensorFold serves can be chosen on an Apple silicon Mac: where TensorFold is not there yet, making
                 # the models ready installs it (training/setup.mjs), and the list says so. On any other machine it cannot run)
                 tf_first = False
-                # (a small model of an architecture no llama.cpp build on this machine knows is listed, and cannot be chosen:
-                # asked to load it, the server stops. Inkling 2's looped transformer needs a build that has it)
+                # A SMALL MODEL OF AN ARCHITECTURE NO LLAMA.CPP BUILD HERE KNOWS (Inkling 2's looped transformer) CAN STILL BE
+                # CHOSEN where a build that knows it is pinned for this machine: making the models ready fetches it, and the
+                # list says so (console 2026-11-24: choosing a model brings what it depends on). Only where none is pinned
+                # is it listed and not to be chosen.
+                arch_first = False
                 if key in ("a", "b", "c", "d", "one") and m.get("architecture") and not data.engine_knows(m["architecture"], d.get("root", ARGS.root)):
-                    here = False
+                    here = data.engine_fetchable(m["architecture"], reg)
+                    arch_first = here
                 if key in ("a", "b", "c", "d", "one") and m.get("engine") == "tensorfold" and not tensorfold_here():
                     here = "mac" in d.get("machine", [])
                     tf_first = here
                 opts += '<option value="%s"%s%s>%s%s%s%s</option>' % (
-                    e(m["id"]), " selected" if mine else "", "" if here or mine else " disabled", e(m["name"]), "" if mine else score, "" if mine else weigh(m) + e(runs(m, key)) + (" · installed when training starts" if tf_first else ""),
+                    e(m["id"]), " selected" if mine else "", "" if here or mine else " disabled", e(m["name"]), "" if mine else score, "" if mine else weigh(m) + e(runs(m, key)) + (" · installed when training starts" if tf_first else "") + (" · its engine build is fetched when the models are made ready" if arch_first else ""),
                     "" if here else " · needs %s" % e(m.get("needs", "another machine")))
             opts += "</optgroup>"
         if group == "judge":
@@ -6060,6 +6189,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(whole_block(d))
         if u.path == "/fragment/converse":
             return self._send(converse_block(d))
+        if u.path == "/now/codes":
+            return self._send(",".join(sorted(now_codes(d))), 200, "text/plain; charset=utf-8")
         if u.path == "/fragment/trainq":
             g = lambda k: (parse_qs(u.query).get(k) or [""])[0]  # noqa: E731
             return self._send(train_questions(d, g("split"), g("cls"), g("kind"), g("q")))

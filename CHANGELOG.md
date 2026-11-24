@@ -6,6 +6,21 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The page shows the present** (2026-11-24). "The plan being carried out" opens with **Training now**: whichever run
+  is going, the class in hand and the round, what is being asked this moment, where the class fell short, how far the
+  round is, what has gained so far and what is still to be tried; with nothing training it says what the next run of
+  each kind begins from. Everything earlier is folded under it. "Visualizing the System" marks the boxes in use this
+  moment. A run card's steps stand in a row where there is room and in a column where there is not.
+- **Choosing a model brings what it depends on** (2026-11-24). A model of an architecture the engine here does not know
+  is no longer greyed out: making the models ready fetches the llama.cpp release pinned for it (b12649 for Inkling 2,
+  by hash, for macOS and Linux), kept with the engine so the Uninstall Helper lists and removes it.
+- **A reasoning model's thinking is not taken for its answer** (2026-11-24). Inkling 2 Mini was served so that its
+  reasoning came out as its reply, and a reply once went out quoting the module's own instructions. A catalog entry
+  can say how much room a model's reasoning is given (`thinks`), an empty answer from such a model is empty, and an
+  answer that says its instructions back is no answer for any model (SwOA O.6.1d). An answer given as a letter and
+  the option's own words ("C) 10am to 12pm") is read as that option.
+- **Bonsai 2.5 27B is in the catalog** (2026-11-24), beside Bonsai 2 27B, as a small model and as a larger model: the
+  file stock llama.cpp runs (Q2_0, 7.7 GB). Not yet loaded here.
 - **Inkling 2 Mini is in the small-model list** (2026-11-24). Six of Unsloth's quantizations of Thinking Machines'
   Inkling 2 Mini (26B; Q4_K_XL, Q4_K_M, Q8_K_XL, Q3_K_XL, IQ3_XXS, Q2_K_XL; 9 to 23 GB), each pinned. It is a looped
   transformer (`inkling2_loop`), which loads only in a llama.cpp build that knows that architecture: a catalog entry

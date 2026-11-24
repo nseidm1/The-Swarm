@@ -76,6 +76,21 @@ export const JUDGE_BRIEF =
 // how the matter is settled (plan.decideBy): 'decider' where nothing is said; the names from when Kev was the only decider are
 // read as the same
 export const decideByOf = (v) => String(v || 'decider');
+// DOES A TEXT SAY BACK WHAT ITS WRITER WAS TOLD? True where it holds a run of `run` words in a row that the instructions
+// hold too, case and punctuation aside. Eight words in a row are not said by chance.
+export function saysBack(text, told, run = 8) {
+  const w = (x) =>
+    String(x || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean);
+  const a = w(text);
+  const b = ' ' + w(told).join(' ') + ' ';
+  for (let i = 0; i + run <= a.length; i++) if (b.includes(' ' + a.slice(i, i + run).join(' ') + ' ')) return true;
+  return false;
+}
+
 // THE SLOTS THAT DRAFT FIRST (plan.draftFirst: n), or null where every drafting slot drafts at once: n of them where n is a
 // whole number from 2 to one fewer than there are; in order, the first slot of each member, then the rest in order until n
 export function firstDrafters(slots, n) {
@@ -590,6 +605,17 @@ async function answerWhole(
           : slot.stage === 'judge'
             ? !!letterOf(row.out, marker, LETTERS)
             : !!row.final || (slot.stage === 'check' && !!letterOf(row.out, marker, LETTERS));
+      // AN ANSWER THAT SAYS ITS INSTRUCTIONS BACK IS NO ANSWER (O.6.1d): where what a drafting or checking slot gave as its
+      // answer repeats a run of eight words of what it was told, it has answered nothing, and has no vote
+      if (
+        (slot.stage === 'draft' || slot.stage === 'check') &&
+        row.final &&
+        saysBack(row.final, (msgs[0] || {}).content)
+      ) {
+        row.final = '';
+        row.ok = false;
+        row.why = 'said its instructions back';
+      }
       if (r && r.tokens) row.tokens = r.tokens;
       // ITS PROGRAM IS RUN, and what it printed is its answer (at most 400 characters); a program that does not run, or prints
       // nothing, leaves the slot without an answer, and it is not asked again

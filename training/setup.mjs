@@ -19,7 +19,18 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { has, llamaServer, modelsDir, REPO_ROOT, WORK } from './support/bench.mjs';
-import { MEMBERS, DECIDER, TARGET, ENGINE, REGISTRY, fileUrl, engineBuild, engineUrl } from '../src/catalog.mjs';
+import {
+  MEMBERS,
+  DECIDER,
+  TARGET,
+  ENGINE,
+  REGISTRY,
+  fileUrl,
+  engineBuild,
+  engineUrl,
+  engineBuildFor,
+} from '../src/catalog.mjs';
+import { knows } from './support/engine-knows.mjs';
 import { modelFile, filesOf, engineOf, tensorfoldProgram } from '../src/members.mjs';
 import { programOf } from './target.mjs';
 
@@ -127,6 +138,47 @@ export async function fetchFile({ url, dest, bytes, sha256, what, fetchImpl = fe
     }
   }
   return { ok: false, why: what + ' could not be fetched' };
+}
+
+// A MODEL OF AN ARCHITECTURE THE ENGINE HERE DOES NOT KNOW (its catalog entry says which: Inkling 2's looped transformer)
+// is not refused: the build pinned for it (models.json engine.also) is fetched beside the usual one, checked against its
+// hash, and used for the swarms that need it (bench.mjs llamaServer). It is kept under .work/engine, so the Uninstall Helper
+// lists it with the engine and takes it out with it.
+async function engineKnowing(check) {
+  const archs = [
+    ...new Set(
+      Object.values(MEMBERS)
+        .map((m) => m && m.architecture)
+        .filter(Boolean),
+    ),
+  ];
+  if (!archs.length) return true;
+  const what = 'An engine build that knows ' + archs.join(', ');
+  const have = llamaServer();
+  if (have && archs.every((a) => knows(have, a))) return (say(what, 'ready', { note: have }), true);
+  const b = engineBuildFor(archs);
+  if (!b)
+    return (
+      say(what, 'failed', {
+        why: 'no llama.cpp build is pinned for it on this machine. Install one that knows it and name it with SWARM_LLAMA_SERVER.',
+      }),
+      false
+    );
+  if (check) return (say(what, 'missing', { of: b.bytes }), false);
+  const dir = path.join(REPO_ROOT, '.work', 'engine', b.tag);
+  const pack = path.join(REPO_ROOT, '.work', 'engine', b.asset);
+  const got = await fetchFile({ url: engineUrl(b), dest: pack, bytes: b.bytes, sha256: b.sha256, what });
+  if (!got.ok) return (say(what, 'failed', { why: got.why }), false);
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
+  const un = spawnSync('tar', ['-xf', pack, '-C', dir]);
+  const found = un.status === 0 ? find(dir, 'llama-server') : '';
+  fs.rmSync(pack, { force: true });
+  if (!found || !archs.every((a) => knows(found, a)))
+    return (say(what, 'failed', { why: 'llama.cpp ' + b.tag + ' was fetched and does not know it' }), false);
+  fs.chmodSync(found, 0o755);
+  fs.writeFileSync(path.join(REPO_ROOT, '.work', 'engine', 'also-' + b.tag), found);
+  return (say(what, 'ready', { note: 'llama.cpp ' + b.tag }), true);
 }
 
 async function engine(check) {
@@ -333,6 +385,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   }
   const ok = [];
   ok.push(await engine(check));
+  ok.push(await engineKnowing(check));
   // (and TensorFold, where a small model the swarm is made of is served by it; --model: where one of the models named is)
   const wantsTensorfold = has('model')
     ? String(process.argv[process.argv.indexOf('--model') + 1] || '')

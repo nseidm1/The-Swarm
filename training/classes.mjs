@@ -489,6 +489,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
           sweep,
         );
         R.of = toTry.length + 1;
+        // (and which, in order: the page says what is still to be tried)
+        R.plan = toTry.map((m) => m.name);
+        save();
         for (const m of toTry) await tryOne(m);
         // (and the best two of the sweep together: two changes that each help may help more as one)
         const both = togetherOf(scored, steps);

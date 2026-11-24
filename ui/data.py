@@ -18,6 +18,7 @@ import os
 import platform
 import re
 import shutil
+import sys
 from pathlib import Path
 
 STAGES = [("draft", "Draft"), ("check", "Check"), ("decide", "Decide"), ("write", "Write")]
@@ -133,6 +134,14 @@ def _with_places(briefs, places):
 
 
 
+def engine_fetchable(arch, registry):
+    """Whether a llama.cpp build that knows an architecture is pinned for this machine (models.json engine.also), so that
+    making the models ready can fetch it: a model that needs it can then be chosen though no build here has it yet."""
+    import platform
+    key = {"darwin": "darwin", "linux": "linux", "win32": "win32"}.get(sys.platform, sys.platform) + "-" + {"x86_64": "x64", "AMD64": "x64", "aarch64": "arm64"}.get(platform.machine(), platform.machine())
+    return any(arch in (x.get("architectures") or []) and key in (x.get("builds") or {}) for x in ((registry or {}).get("engine") or {}).get("also") or [])
+
+
 def engine_knows(arch, root=None):
     """Whether a llama.cpp build on this machine names an architecture a model needs (training/support/engine-knows.mjs: the
     program itself, or the libllama beside it or in ../lib): the one on the PATH, the one a person updated to, the one setup
@@ -145,6 +154,10 @@ def engine_knows(arch, root=None):
                 cands.append((Path(root) / ".work" / "engine" / f).read_text().strip())
             except OSError:
                 pass
+        try:
+            cands += [f.read_text().strip() for f in (Path(root) / ".work" / "engine").glob("also-*")]
+        except OSError:
+            pass
     cands.append(str(Path.home() / ".unsloth" / "llama.cpp" / "build" / "bin" / "llama-server"))
     needle = str(arch).encode()
     for c in cands:

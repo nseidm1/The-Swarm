@@ -94,7 +94,7 @@ def inventory(root, d):
                 note=("A link to %s: only the link is removed, the file it points at is kept." % os.readlink(f)) if link
                 else ("%s: the folder of files TensorFold serves it from" % f.name) if f.is_dir() else f.name)
     # the llama.cpp build the swarm fetched, where it fetched one
-    add("engine", "Programs", "The engine (llama.cpp)", [work / "engine"], used=True, note="Train fetches it again where no llama-server is on the PATH.")
+    add("engine", "Programs", "The engine (llama.cpp)", [work / "engine"], used=True, note="Train fetches it again where no llama-server is on the PATH. With it, any later build fetched for a model whose architecture the usual one does not know.")
     # the adapter trainer (training/mlx-setup.sh): MLX and the small models' original weights it trains from
     add("mlx:program", "Programs", "MLX: the adapter trainer and its Python", [work / "mlx" / p for p in ("venv", "python", "uv-cache", "hf-home")],
         note="Only Pretrain uses it, and installs it again the next time.")

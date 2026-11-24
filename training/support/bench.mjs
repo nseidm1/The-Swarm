@@ -55,7 +55,18 @@ export function llamaServer() {
     ),
   ];
   if (!archs.length) return usual;
-  return engineFor(archs, [usual, ...OTHER_BUILDS]) || usual;
+  // (a build setup fetched for such a model: .work/engine/also-<tag> holds its place)
+  let fetched = [];
+  try {
+    const dir = path.join(REPO_ROOT, '.work', 'engine');
+    fetched = fs
+      .readdirSync(dir)
+      .filter((f) => f.startsWith('also-'))
+      .map((f) => fs.readFileSync(path.join(dir, f), 'utf8').trim());
+  } catch {
+    fetched = [];
+  }
+  return engineFor(archs, [usual, ...fetched, ...OTHER_BUILDS]) || usual;
 }
 function usualLlamaServer() {
   try {

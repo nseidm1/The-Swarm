@@ -27,7 +27,35 @@
         "bytes": 18949862,
         "sha256": "dc7aa17a67884619b7223870aca9fd6addbc01717713b04a714add1c31137359"
       }
-    }
+    },
+    "also": [
+      {
+        "tag": "b12649",
+        "architectures": ["inkling2_loop"],
+        "builds": {
+          "darwin-arm64": {
+            "asset": "llama-b12649-bin-macos-arm64.tar.gz",
+            "bytes": 16643876,
+            "sha256": "04db8281b11189b91b159c7890688b7dc3bc62a95fe81ec5c8078067be5bb4ad"
+          },
+          "darwin-x64": {
+            "asset": "llama-b12649-bin-macos-x64.tar.gz",
+            "bytes": 12434664,
+            "sha256": "9bf8150afe2c26a6f2c6f8ea3b0d05a725fd8225938289d963913e9e8cc8d47a"
+          },
+          "linux-x64": {
+            "asset": "llama-b12649-bin-ubuntu-x64.tar.gz",
+            "bytes": 23297314,
+            "sha256": "619afdef397198af6f03aa5ed892e5d1cf6e156b2c4183a10ee38d0e04840fe1"
+          },
+          "linux-arm64": {
+            "asset": "llama-b12649-bin-ubuntu-arm64.tar.gz",
+            "bytes": 18812338,
+            "sha256": "552e434ed82e99cda578b5599b533acfbd0eaf7ef3baae790938dadfca2b6d4b"
+          }
+        }
+      }
+    ]
   },
   "engines": {
     "tensorfold": {
@@ -131,6 +159,27 @@
       "file": "Ternary-Bonsai-2-27B-Q2_0.gguf",
       "bytes": 7626008928,
       "sha256": "4f99aed01b8a877e153f9aa6569a4440fe17c59701cc0953e36d7f460549e70e",
+      "license": "Apache-2.0",
+      "serve": ["--reasoning", "off"],
+      "sampling": {
+        "temperature": 0.7,
+        "top_p": 0.8,
+        "top_k": 20,
+        "min_p": 0,
+        "presence_penalty": 1.5
+      }
+    },
+    {
+      "id": "bonsai25-27b",
+      "name": "Bonsai 2.5 27B",
+      "by": "Prism ML",
+      "engine": "llama",
+      "params": 27,
+      "repo": "prism-ml/Ternary-Bonsai-2.5-27B-GGUF",
+      "rev": "f71afa90d5f8f07f0518b6105eaf9b50e2c6d210",
+      "file": "Ternary-Bonsai-2.5-27B-Q2_0.gguf",
+      "bytes": 7673194848,
+      "sha256": "84496171ca79d4d33fb45612a2afd8303ec494baf916281023b7dc9cb3b3b9fa",
       "license": "Apache-2.0",
       "serve": ["--reasoning", "off"],
       "sampling": {
@@ -482,13 +531,13 @@
       "sha256": "e64276656f072e9b2197a61723667cbdb71da66a716ffd966e572c21088f3cd3",
       "license": "Apache-2.0",
       "architecture": "inkling2_loop",
-      "needs": "a llama.cpp build that knows the inkling2_loop architecture (Unsloth's build does)",
-      "about": "A looped transformer: its middle layers run three times, and its reasoning cannot be turned off entirely. Quantized by Unsloth. Its maker names no sampling settings; these are the ones this catalog gives a model that has none. Its use is also under its maker's acceptable use policy.",
-      "serve": ["--reasoning", "off"],
+      "needs": "llama.cpp b12649 or later, which knows its architecture: fetched when its models are made ready, where no build here has it",
+      "about": "A looped transformer: its middle layers run three times, and it reasons before it answers (that cannot be turned off; `thinks` is the room each request is given for it). Quantized by Unsloth. Its maker names no sampling settings; these are the ones this catalog gives a model that has none. Its use is also under its maker's acceptable use policy.",
       "sampling": {
         "temperature": 0.7,
         "top_p": 0.9
-      }
+      },
+      "thinks": 600
     },
     {
       "id": "inkling2-mini-q4km",
@@ -503,13 +552,13 @@
       "sha256": "78fcedcf93c5d1bfe83e225513b71392bb52259be0eaa5f8899c856a2e5834ae",
       "license": "Apache-2.0",
       "architecture": "inkling2_loop",
-      "needs": "a llama.cpp build that knows the inkling2_loop architecture (Unsloth's build does)",
-      "about": "A looped transformer: its middle layers run three times, and its reasoning cannot be turned off entirely. Quantized by Unsloth. Its maker names no sampling settings; these are the ones this catalog gives a model that has none. Its use is also under its maker's acceptable use policy.",
-      "serve": ["--reasoning", "off"],
+      "needs": "llama.cpp b12649 or later, which knows its architecture: fetched when its models are made ready, where no build here has it",
+      "about": "A looped transformer: its middle layers run three times, and it reasons before it answers (that cannot be turned off; `thinks` is the room each request is given for it). Quantized by Unsloth. Its maker names no sampling settings; these are the ones this catalog gives a model that has none. Its use is also under its maker's acceptable use policy.",
       "sampling": {
         "temperature": 0.7,
         "top_p": 0.9
-      }
+      },
+      "thinks": 600
     },
     {
       "id": "inkling2-mini-q8kxl",
@@ -524,13 +573,13 @@
       "sha256": "2da51788d43a17e1f033bec420fa83ba9cb87ac1f0130dc9135a4d2ed2678b68",
       "license": "Apache-2.0",
       "architecture": "inkling2_loop",
-      "needs": "a llama.cpp build that knows the inkling2_loop architecture (Unsloth's build does)",
-      "about": "A looped transformer: its middle layers run three times, and its reasoning cannot be turned off entirely. Quantized by Unsloth. Its maker names no sampling settings; these are the ones this catalog gives a model that has none. Its use is also under its maker's acceptable use policy.",
-      "serve": ["--reasoning", "off"],
+      "needs": "llama.cpp b12649 or later, which knows its architecture: fetched when its models are made ready, where no build here has it",
+      "about": "A looped transformer: its middle layers run three times, and it reasons before it answers (that cannot be turned off; `thinks` is the room each request is given for it). Quantized by Unsloth. Its maker names no sampling settings; these are the ones this catalog gives a model that has none. Its use is also under its maker's acceptable use policy.",
       "sampling": {
         "temperature": 0.7,
         "top_p": 0.9
-      }
+      },
+      "thinks": 600
     },
     {
       "id": "inkling2-mini-q3kxl",
@@ -545,13 +594,13 @@
       "sha256": "e2d03e8c92ac21cff0e3309b95f40dfd27d1825184f0d2bc09db249797273639",
       "license": "Apache-2.0",
       "architecture": "inkling2_loop",
-      "needs": "a llama.cpp build that knows the inkling2_loop architecture (Unsloth's build does)",
-      "about": "A looped transformer: its middle layers run three times, and its reasoning cannot be turned off entirely. Quantized by Unsloth. Its maker names no sampling settings; these are the ones this catalog gives a model that has none. Its use is also under its maker's acceptable use policy.",
-      "serve": ["--reasoning", "off"],
+      "needs": "llama.cpp b12649 or later, which knows its architecture: fetched when its models are made ready, where no build here has it",
+      "about": "A looped transformer: its middle layers run three times, and it reasons before it answers (that cannot be turned off; `thinks` is the room each request is given for it). Quantized by Unsloth. Its maker names no sampling settings; these are the ones this catalog gives a model that has none. Its use is also under its maker's acceptable use policy.",
       "sampling": {
         "temperature": 0.7,
         "top_p": 0.9
-      }
+      },
+      "thinks": 600
     },
     {
       "id": "inkling2-mini-iq3xxs",
@@ -566,13 +615,13 @@
       "sha256": "fd9ccedae17c1bb89744612fbb46730b5275f2a342133d0419776bd1ae311657",
       "license": "Apache-2.0",
       "architecture": "inkling2_loop",
-      "needs": "a llama.cpp build that knows the inkling2_loop architecture (Unsloth's build does)",
-      "about": "A looped transformer: its middle layers run three times, and its reasoning cannot be turned off entirely. Quantized by Unsloth. Its maker names no sampling settings; these are the ones this catalog gives a model that has none. Its use is also under its maker's acceptable use policy.",
-      "serve": ["--reasoning", "off"],
+      "needs": "llama.cpp b12649 or later, which knows its architecture: fetched when its models are made ready, where no build here has it",
+      "about": "A looped transformer: its middle layers run three times, and it reasons before it answers (that cannot be turned off; `thinks` is the room each request is given for it). Quantized by Unsloth. Its maker names no sampling settings; these are the ones this catalog gives a model that has none. Its use is also under its maker's acceptable use policy.",
       "sampling": {
         "temperature": 0.7,
         "top_p": 0.9
-      }
+      },
+      "thinks": 600
     },
     {
       "id": "inkling2-mini-q2kxl",
@@ -587,13 +636,13 @@
       "sha256": "b42841608ea380ddde5a3f1125081357128a3c71b80d006246de4e31292fc6c1",
       "license": "Apache-2.0",
       "architecture": "inkling2_loop",
-      "needs": "a llama.cpp build that knows the inkling2_loop architecture (Unsloth's build does)",
-      "about": "A looped transformer: its middle layers run three times, and its reasoning cannot be turned off entirely. Quantized by Unsloth. Its maker names no sampling settings; these are the ones this catalog gives a model that has none. Its use is also under its maker's acceptable use policy.",
-      "serve": ["--reasoning", "off"],
+      "needs": "llama.cpp b12649 or later, which knows its architecture: fetched when its models are made ready, where no build here has it",
+      "about": "A looped transformer: its middle layers run three times, and it reasons before it answers (that cannot be turned off; `thinks` is the room each request is given for it). Quantized by Unsloth. Its maker names no sampling settings; these are the ones this catalog gives a model that has none. Its use is also under its maker's acceptable use policy.",
       "sampling": {
         "temperature": 0.7,
         "top_p": 0.9
-      }
+      },
+      "thinks": 600
     }
   ],
   "deciders": [
@@ -1165,6 +1214,20 @@
       "file": "Ternary-Bonsai-2-27B-Q2_0.gguf",
       "bytes": 7626008928,
       "sha256": "4f99aed01b8a877e153f9aa6569a4440fe17c59701cc0953e36d7f460549e70e",
+      "license": "Apache-2.0",
+      "serve": ["--reasoning", "off"],
+      "engine": "llama"
+    },
+    {
+      "id": "bonsai25-27b",
+      "name": "Bonsai 2.5 27B",
+      "by": "Prism ML",
+      "params": 27,
+      "repo": "prism-ml/Ternary-Bonsai-2.5-27B-GGUF",
+      "rev": "f71afa90d5f8f07f0518b6105eaf9b50e2c6d210",
+      "file": "Ternary-Bonsai-2.5-27B-Q2_0.gguf",
+      "bytes": 7673194848,
+      "sha256": "84496171ca79d4d33fb45612a2afd8303ec494baf916281023b7dc9cb3b3b9fa",
       "license": "Apache-2.0",
       "serve": ["--reasoning", "off"],
       "engine": "llama"

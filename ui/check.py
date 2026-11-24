@@ -700,7 +700,7 @@ with tempfile.TemporaryDirectory() as tmp:
     check("each subsection of the plan (the gap, what the measurement showed, how it is training, steer it, the moves...) folds under its heading, folded to begin with and saying in a line what it holds while folded, and kept open or folded on the device like the training card's",
           all(('data-keep="plan-%s">' % k) in after_u for k in ("steer-it", "how-it-is-training", "moves-in-plan-order")) and after_u.count('<details class="psec"') == after_u.count("<h4>")
           and " open>" not in after_u.split('class="psec"')[1][:80] and after_u.count('class="pmeta"') >= 3 and "until its answer is good, best first, building on the 3 closest" in after_u and "Decider loops only · 1 skipped · nothing queued" in after_u and "2 moves · 0 tried by the loop · 0 kept" in after_u
-          and after_u.rstrip().endswith("</div>") and swarm_ui.fold_sections('<div class="panel"><p>x</p></div>', "p") == '<div class="panel"><p>x</p></div>', after_u.count("<h4>"))
+          and after_u.rstrip().endswith("</details>") and swarm_ui.fold_sections('<div class="panel"><p>x</p></div>', "p") == '<div class="panel"><p>x</p></div>', after_u.count("<h4>"))
     (wdp / "steer.json").unlink()
     if had_plan is None:
         plan_file.unlink()
@@ -1140,7 +1140,7 @@ with tempfile.TemporaryDirectory() as tmp:
     _all_once = swarm_ui.avatars(dict(_shape_d, briefs=dict(_rd["briefs"], plan={k: v for k, v in _rd["briefs"]["plan"].items() if k not in ("draftFirst", "decideBy")})))
     check("the page draws the shape that is run: training's picture has the class stage as a lane of its own before the questions (as it stands, the sweep, the best two together, the held questions on two draws, the one keep rule), and inside one try says how many slots draft first and that the answer most slots hold stands; the faces show one model once with every slot, say there is no decision model and what settles it, and mark the drafts asked only where the first differ; with a decision model it breaks ties; with every draft at once and a model deciding, none of that is said",
           all(">%s</span>" % c in _vz2 for c in ("S1", "S2", "S3", "S4", "S5", "B1", "B5", "C1", "C4")) and _vz2.index(">S1</span>") < _vz2.index(">B1</span>") and _vz2.index(">A1</span>") < _vz2.index(">S1</span>")
-          and 'data-part="classes"' in _vz2 and "2 draws" in _vz2 and "2 slots first, each its own way; the other 2 only where those differ." in _vz2 and "The answer most slots hold stands." in _vz2
+          and 'data-code="S1"' in _vz2 and "2 draws" in _vz2 and "2 slots first, each its own way; the other 2 only where those differ." in _vz2 and "The answer most slots hold stands." in _vz2
           and "n.trainer==='classes'?'classes'" in swarm_ui.JS
           and _av2.count('class="mav a"') == 1 and 'class="mav b"' not in _av2 and "in every role · 7 slots · loaded once" in _av2
           and "No decision model" in _av2 and "the answer most slots hold stands" in _av2 and ">most hold<" in _av2
@@ -2252,7 +2252,8 @@ check("the plan section says in real time what training is trying: what it can c
                               "2 of 9 changes tried", "<b>Conversation</b>", "<b>Pass 2 of this stage.</b> Carried from the last pass: 4 more train questions of what it was short on (chat-terse +4); in conversation it had missed no-offer (2 of 3)", "<b>Left for the next pass.</b> Asked more of: chat-hurry +2. In conversation, still missed: no-praise (1 of 4).", "Wrong as it stood: 5 (no slot had it 3, had it and lost it 1, reply spoiled 1)", "so what is drafted is tried first",
                               "cascade: a-steps works the question one fact at a time: counted 9 of 12 (+16.7 points)", "+12.5 points with an error of 3.0: <b>kept</b>", "Not trained: fewer than four questions"))
       and "Training is not running" in _cp0 and "Requests in words" not in _cp0
-      and _cpb.startswith('<div class="panel plan" id="classplan">') and _cpb.count('class="panel plan"') == 2,
+      and _cpb.startswith('<div class="panel plan" id="trainnow">') and "Nothing is training" in _cpb and '<details class="cfg fold" data-keep="plan-earlier">' in _cpb
+      and _cpb.index('id="trainnow"') < _cpb.index('data-keep="plan-earlier"') < _cpb.index('id="classplan"') and _cpb.count('class="panel plan"') == 3,
       [_cp1[:300]])
 
 # THE CONVERSATION RUN, APART FROM THE INTELLIGENCE RUN
@@ -2291,6 +2292,48 @@ check("the conversation run is a card of its own under Run, apart from the intel
       and "conversation.json" in _cvsrc and 'id="conversewrap"' in swarm_ui.main_body(_cvd) and "/converse/start" in swarm_ui.JS
       and all(k in swarm_ui.CHAT_KINDS.split(",") for k in ("chat-terse", "chat-doubt", "chat-reason", "chat-code")) and len(swarm_ui.CHAT_KINDS.split(",")) == 13,
       [_cv0[:200], _cv1[-400:]])
+
+# THE PLAN SECTION IS THE PRESENT: what is training this moment, and the picture marks the step in use
+_tn_d = data.load(swarm_ui.ARGS.root)
+_tn_res = Path(_tn_d["root"]) / "training" / "results" / str(_tn_d.get("key", ""))
+_tn_made = not _tn_res.exists()
+_tn_res.mkdir(parents=True, exist_ok=True)
+_tn_f = _tn_res / "conversation.json"
+_tn_was = _tn_f.read_text() if _tn_f.exists() else None
+_tn_live = Path(_tn_d["root"]) / ".work" / "train" / "live.json"
+_tn_live.parent.mkdir(parents=True, exist_ok=True)
+_tn_lwas = _tn_live.read_text() if _tn_live.exists() else None
+_tn_js = swarm_ui._job_state
+swarm_ui._job_state = lambda name: None
+_tn0 = swarm_ui.training_now(_tn_d)
+_tn_c0 = swarm_ui.now_codes(_tn_d)
+_tn_f.write_text(json.dumps({"pass": 3, "carried": {"focus": {"chat-thanks": 2}, "more": 2}, "classes": {"talk": {"train": 80, "held": 78, "kinds": list("abcdefghijklm"), "kept": [], "rounds": [
+    {"gap": {"wrong": 9, "none": 6, "lost": 2, "spoiled": 1, "first": "none"}, "of": 5, "plan": ["adapters: a-direct carries its adapter", "cascade: a-steps works the question one fact at a time", "manners: a closing that only offers more help is taken off", "plan: decide by most"],
+     "candidates": [{"name": "adapters: a-direct carries its adapter", "n": 80, "counted": 73, "gain": 0.025}]}]}}}))
+_tn_live.write_text(json.dumps({"trainer": "classes", "step": 'Class 1 of 1, a conversation: trying "cascade: a-steps works the question one fact at a time" · question 12 of 80'}))
+swarm_ui._job_state = lambda name: {"running": True, "pid": 1} if name == "converse" else None
+_tn1 = swarm_ui.training_now(_tn_d)
+_tn_c1 = swarm_ui.now_codes(_tn_d)
+_tn_live.write_text(json.dumps({"trainer": "classes", "step": "Class 1 of 1, a conversation: the swarm as it stands, on the held questions, draw 1 of 2 · question 3 of 78"}))
+_tn_c2 = swarm_ui.now_codes(_tn_d)
+swarm_ui._job_state = _tn_js
+for _f, _w in ((_tn_f, _tn_was), (_tn_live, _tn_lwas)):
+    if _w is None:
+        _f.unlink()
+    else:
+        _f.write_text(_w)
+if _tn_made:
+    _tn_res.rmdir()
+check("the plan section is the present, whichever run is going: the run and its pass, the class in hand and the round, what is being asked this moment, what the pass carried in, where the class fell short and so what is tried first, how far the round is, what has gained so far, and what is still to be tried, in order; where nothing is training it says so and what the next run of each kind begins from; everything earlier is folded under it. And the System picture marks the boxes in use this moment, from the same source: a change being tried is S2 with what it is of (a cascade is K4), the held questions are S4, the conversation run is K5, and nothing is marked where nothing runs; a run card's steps stand in a row where there is room and in a column where there is not",
+      "Nothing is training" in _tn0 and "The next conversation pass" in _tn0 and "The next intelligence run" in _tn0 and _tn_c0 == set()
+      and all(w in _tn1 for w in ('data-training="1"', "Training now: the conversation run, pass 3", "Requests in conversation · round 1", "<b>This moment:</b> Class 1 of 1, a conversation: trying",
+                                  "<b>Carried in from the last pass:</b> 2 more train questions of chat-thanks +2", "80 train questions and 78 held, of 13 kinds", "9 wrong as it stood: no slot had the answer 6",
+                                  "so what is drafted is tried first", "1 of 5 changes tried", "adapters: a-direct carries its adapter: counted 73 of 80 (+2.5 points)", "<h4>Still to try this round</h4>",
+                                  "<li>cascade: a-steps works the question one fact at a time</li>", "<li>decide by most</li>"))
+      and _tn1.index("Still to try this round") < _tn1.index("<li>manners: a closing")
+      and _tn_c1 == {"S2", "K4", "K5"} and _tn_c2 == {"S4", "K5"}
+      and "grid-template-columns:repeat(auto-fit,minmax(230px,1fr))" in swarm_ui.CSS and "/now/codes" in swarm_ui.JS and '"/now/codes"' in Path(swarm_ui.__file__).read_text(),
+      [_tn_c1, _tn_c2, _tn1[:300]])
 
 # THE SYSTEM PICTURE DRAWS THE WHOLE: the run, a request inside the module, what training keeps, and the judge, round the lanes
 # of the arrangement's training

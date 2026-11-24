@@ -166,7 +166,14 @@ export const CONFIG_KEY = configKey(CONFIG);
 export const fileUrl = (m, base = 'https://huggingface.co') => base + '/' + m.repo + '/resolve/' + m.rev + '/' + m.file;
 export const engineBuild = (platform = process.platform, arch = process.arch) =>
   ENGINE.builds[platform + '-' + arch] || null;
-export const engineUrl = (b) => ENGINE.site + '/releases/download/' + ENGINE.tag + '/' + b.asset;
+export const engineUrl = (b) => ENGINE.site + '/releases/download/' + (b.tag || ENGINE.tag) + '/' + b.asset;
+// A BUILD FOR ARCHITECTURES THE PINNED ONE DOES NOT KNOW (models.json engine.also: a later release, pinned the same way, and
+// the architectures it is there for): the first that names every one asked, for this machine, with its tag; or null
+export const engineBuildFor = (archs, platform = process.platform, arch = process.arch) => {
+  const e = (ENGINE.also || []).find((x) => (archs || []).every((a) => (x.architectures || []).includes(a)));
+  const b = e && e.builds && e.builds[platform + '-' + arch];
+  return b ? { ...b, tag: e.tag } : null;
+};
 
 // HOW EACH MEMBER IS SERVED: so many slots, each with so much context. llama.cpp shares one context between its slots, so the
 // server is started with slots x contextPerSlot.

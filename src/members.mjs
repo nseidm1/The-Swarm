@@ -120,7 +120,9 @@ function member(m, base, slots, stop = () => {}, { revive = null, onRecover = ()
               stream: false,
               cache_prompt: true,
               id_slot: pinned.get(slotId),
-              max_tokens: maxTokens,
+              // (a model that reasons before it answers is given room for that above what the answer may take: its catalog
+              // entry says how much, `thinks`. Without it the reasoning used the answer's room and nothing was answered)
+              max_tokens: maxTokens + (Number(m.thinks) || 0),
               ...(withTools
                 ? {
                     tools,
@@ -145,7 +147,9 @@ function member(m, base, slots, stop = () => {}, { revive = null, onRecover = ()
               ? calls
                   .map((c) => 'CALL ' + ((c.function || {}).name || '') + ' ' + ((c.function || {}).arguments || '{}'))
                   .join('\n')
-              : withoutThinking(msg.content || msg.reasoning_content || ''),
+              : // (a model that reasons apart from its answer, `thinks`: an empty answer is empty. Its reasoning is not taken for
+                // the answer: it talks about what it was told, and was once sent out as the reply, found 2026-11-24)
+                withoutThinking(msg.content || (Number(m.thinks) ? '' : msg.reasoning_content) || ''),
             // (what it said, its thinking left out: read.mjs withoutThinking)
             content: withoutThinking(msg.content || ''),
             ...(calls ? { calls } : {}),

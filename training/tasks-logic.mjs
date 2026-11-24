@@ -230,13 +230,17 @@ export function answerOf(reply, among) {
             set +
             '])\\b|^\\s*\\**([' +
             set +
-            '])[.)*]*\\s*$',
+            '])[.)*]*\\s*$|^\\s*\\**([' +
+            // (and a line that opens with the letter and goes on with the option's own words: "C) 10am to 12pm", found
+            // 2026-11-24, a right answer read as none)
+            set +
+            '])[.):]\\**\\s+\\S',
           'gim',
         ),
       ),
     ];
     const last = found[found.length - 1];
-    return last ? last[1] || last[2] || last[3] : '';
+    return last ? last[1] || last[2] || last[3] || last[4] : '';
   }
   // (the longest first: "invalid" is not also "valid")
   const words = [...among].sort((a, b) => b.length - a.length);

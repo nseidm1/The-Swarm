@@ -1241,6 +1241,12 @@ blank line, the line
 line each after `- `. Where FOUND is empty it drafts as any other slot of the step does. In every other case the slot
 drafts as O.6.1 has it.
 
+#### O.6.1d An answer that says its instructions back
+
+Where the answer read from a `draft` or `check` row holds eight words in a row that the row's own system message holds
+too (both lowercased, every character that is not a letter, a digit or white space taken as a space), the row has no
+answer: it is not ok, it has no vote, and it is not asked again for that reason.
+
 #### O.6.2 try
 
 Given: the pool and the probe. Produces: behaviour signatures; may shrink the pool.

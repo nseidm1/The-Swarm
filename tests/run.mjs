@@ -5555,7 +5555,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   // A MODEL OF AN ARCHITECTURE NOT EVERY ENGINE BUILD KNOWS (Inkling 2 Mini): pinned like any other, and its engine chosen to match
   {
     const EK = await import('../training/support/engine-knows.mjs');
-    const { REGISTRY: REGk } = await import('../src/catalog.mjs');
+    const CATk = await import('../src/catalog.mjs');
+    const REGk = CATk.REGISTRY;
+    const ORk = await import('../src/orchestrate.mjs');
     const ink = REGk.small.filter((m) => /^inkling2-mini-/.test(m.id));
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'engine-knows-'));
     fs.mkdirSync(path.join(tmp, 'a', 'bin'), { recursive: true });
@@ -5590,7 +5592,32 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
         EK.engineFor(['inkling2_loop'], [A, Bb]) === Bb &&
         EK.engineFor(['gemma'], [A, Bb]) === A &&
         EK.engineFor(['inkling2_loop', 'no_such'], [A, Bb]) === '' &&
-        EK.engineFor([], [A, Bb]) === A,
+        EK.engineFor([], [A, Bb]) === A &&
+        // (the build pinned for it is fetched where no build here knows it: a later release, pinned by hash for each platform)
+        CATk.engineBuildFor(['inkling2_loop'], 'darwin', 'arm64').tag === 'b12649' &&
+        /^[0-9a-f]{64}$/.test(CATk.engineBuildFor(['inkling2_loop'], 'linux', 'x64').sha256) &&
+        CATk.engineBuildFor(['no_such'], 'darwin', 'arm64') === null &&
+        CATk.engineBuildFor(['inkling2_loop'], 'win32', 'x64') === null &&
+        /\/releases\/download\/b12649\/llama-b12649-bin-macos-arm64\.tar\.gz$/.test(
+          CATk.engineUrl(CATk.engineBuildFor(['inkling2_loop'], 'darwin', 'arm64')),
+        ) &&
+        // (it reasons before it answers: room for that above each answer's own, and no serving flag that turns its reasoning into its answer)
+        ink.every((m) => m.thinks === 600 && !m.serve) &&
+        // (an answer that says its instructions back is no answer; a few shared words are not that)
+        ORk.saysBack(
+          'and holds only the answer itself. If what is asked for is code give the whole',
+          'End with one last line that starts with ANSWER: and holds only the answer itself. If what is asked for is code, give the whole of it',
+        ) &&
+        !ORk.saysBack(
+          'The answer is Lena, the shortest of them.',
+          'End with one last line that starts with ANSWER: and holds only the answer itself.',
+        ) &&
+        // (Bonsai 2.5 27B beside Bonsai 2 27B, as a small model and as a larger one, pinned)
+        ['small', 'targets'].every(
+          (sec) =>
+            REGk[sec].some((m) => m.id === 'bonsai25-27b' && m.bytes === 7673194848 && /^84496171/.test(m.sha256)) &&
+            REGk[sec].some((m) => m.id === 'bonsai2-27b'),
+        ),
       { ink: ink.map((m) => m.id) },
     );
     fs.rmSync(tmp, { recursive: true, force: true });
