@@ -362,6 +362,12 @@ with tempfile.TemporaryDirectory() as tmp:
     parts_nc = {
         "no boxes": "Equivalent on" not in html and "data-equiv" not in html and 'class="equiv"' not in html and 'class="tick"' not in html and 'class="tick on"' not in html and "data-qedit" in html and "{equivalence:" not in html and "/fragment/equiv" not in html,
         "two rows": cfg_html.count('class="cfgrow"') == 2 and 'id="pre-use"' not in cfg_html and '<span class="cfgl">Adapters</span>' not in cfg_html and '<span class="cfgl">Turns with tools</span><div class="tools" id="tools">' in cfg_html and '<span class="cfgl">Your own questions</span><div class="ownq" id="ownq">' in cfg_html,
+        # (a swarm of one model, its turns decided by the swarm, is not asked who takes turns with tools; set to one model alone,
+        # or made of several, the row is there. And One model says nothing under the choice.)
+        "one model": swarm_ui.tools_row({"members": {"a": {"id": "x", "name": "X"}, "b": {"id": "x", "name": "X"}}, "tools": "swarm", "mix": False}) == ""
+        and "Turns with tools" in swarm_ui.tools_row({"members": {"a": {"id": "x", "name": "X"}, "b": {"id": "x", "name": "X"}}, "tools": "a", "mix": False})
+        and "Turns with tools" in swarm_ui.tools_row({"members": {"a": {"id": "x", "name": "X"}, "b": {"id": "y", "name": "Y"}}, "tools": "swarm", "mix": False})
+        and "fills every role of the module" not in html,
         "no description": 'data-tools="swarm"' in cfg_html and "An agent&#x27;s turn" not in cfg_html and "<p>" not in cfg_html and "<p " not in cfg_html and "<small>The " not in cfg_html,
         "eight buttons": cfg_html.count('class="ownb"') == 8 and all('data-qedit="%s"' % i in cfg_html for i in ("crew", "code", "math", "logic", "reasoning", "instructions", "tools", "search")),
         "refused": e_no == 400 and "every body of work" in e_why and "equivalence" not in json.loads(cfg_was) and get(base + "/fragment/equiv")[0] == 404,

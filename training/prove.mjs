@@ -380,6 +380,19 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
           const marks = { reply: await mark(got.reply) };
           for (const [i, s] of (got.trace || []).entries()) if (s.final) marks[i] = await mark(t.wrap(s.final));
           const row = { ...rowOf(t, seed, withAdapter, got, marks), label };
+          // (--show: what every slot asked gave, in the order asked, so one question can be read through)
+          if (B.has('show'))
+            for (const x of got.trace || [])
+              console.log(
+                '  [' +
+                  x.stage +
+                  ' ' +
+                  x.slot +
+                  '] ' +
+                  String(x.out || x.why || '')
+                    .slice(0, 700)
+                    .replace(/\n/g, '\n    '),
+              );
           rows.push(row);
           console.log(
             (row.right ? 'RIGHT ' : 'wrong ') +

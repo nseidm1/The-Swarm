@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A swarm of one model is not asked who takes turns with tools** (2026-11-24). The row is left out of Configuration
+  where every place holds the same model and the swarm decides its turns: the other choice was that model asked once.
+  It is shown for several models, and where one model was set to take turns alone. The sentence under **One model**
+  is gone; the pill says the same. `training/prove.mjs ask --show` prints what every slot gave for a question.
 - **An adapter is carried only on requests like what it was taught** (2026-11-24). Adapters taught families of
   function gained 25 to 30 points on held questions of those families and lost 12 on tasks they had not seen, and 10 on
   two benchmarks: an adapter is a memory of what it was taught, and training's held questions were near-copies of its

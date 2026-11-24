@@ -3017,10 +3017,11 @@ def pills(d):
     # ONE MODEL OR SEVERAL, above the pills. One model: a single pill, the model that fills every role. Several: a pill for each
     # place, marked as the experiment it is, with what was measured of it (never more than was measured)
     seg = lambda val, label, sel: '<button type="button" class="seg%s" data-mix="%s" aria-pressed="%s">%s</button>' % (" on" if sel else "", val, "true" if sel else "false", label)  # noqa: E731
-    made = ('<div class="madeof" id="madeof"><span class="cfgl">The swarm is made of</span><div class="tgl" role="group" aria-label="What the swarm is made of">%s%s</div><small>%s</small></div>'
+    made = ('<div class="madeof" id="madeof"><span class="cfgl">The swarm is made of</span><div class="tgl" role="group" aria-label="What the swarm is made of">%s%s</div>%s</div>'
             % (seg("0", "One model", one), seg("1", "Several models <i>experimental</i>", not one),
-               "One small model fills every role of the module: drafts, checks and the reply. Training then arranges those roles." if one
-               else "Experimental. Measured on this project&#39;s own questions: a mix of two small models scored 173 of 216 where the better of the two in every role scored 192, and a mix of three scored 91 of 108 where its best scored 97."))
+               # (One model says nothing under the choice: the pill says "in every role", and the rest was implied; console 2026-11-24)
+               "" if one
+               else "<small>Experimental. Measured on this project&#39;s own questions: a mix of two small models scored 173 of 216 where the better of the two in every role scored 192, and a mix of three scored 91 of 108 where its best scored 97.</small>"))
     if one:
         return (
             '<div class="picks" id="picks">%s<div class="group small n1" style="flex-basis:185px">%s</div><div class="group against" style="flex-basis:740px">%s%s%s</div></div>'
@@ -3594,10 +3595,20 @@ def config_section(d):
     n = len(recommendations(d))  # (every one the dialog lists: one with no button was out of reach where it was the only one)
     badge = ('<button type="button" class="recbadge" id="rec-open" title="Open the recommended configuration changes"><i></i>%d recommendation%s</button>' % (n, "" if n == 1 else "s")) if n else ""
     return ('<details class="cfg fold" data-keep="cfg" open><summary><span class="cfgh">Configuration</span><span id="rec-slot">%s</span><span class="fmeta" id="cfg-meta">%s</span></summary>'
-            '<div class="foldb">%s<div class="cfgrows"><div class="cfgrow"><span class="cfgl">Turns with tools</span>%s</div>'
+            '<div class="foldb">%s<div class="cfgrows">%s'
             # (no row for adapters: whether a slot carries one is training's to find, and is shown with the arrangement)
             '<div class="cfgrow"><span class="cfgl">Your own questions</span>%s</div></div></div></details>'
-            % (badge, e(cfg_meta(d)), pills(d), tools_toggle(d), own_questions(d)))
+            % (badge, e(cfg_meta(d)), pills(d), tools_row(d), own_questions(d)))
+
+
+def tools_row(d):
+    """The row that asks who takes turns with tools, or nothing: A SWARM OF ONE MODEL, ITS TURNS DECIDED BY THE SWARM, IS NOT
+    ASKED (console 2026-11-24). There the only other choice is that same model asked once, which is the module not used; it is
+    what the swarm is measured and trained as. The row is shown where there are several models (which of them alone is a
+    choice), and where a swarm of one model was set to take turns alone, so that what is set can be seen and put back."""
+    if one_model(d) and (d.get("tools") or "a") == "swarm":
+        return ""
+    return '<div class="cfgrow"><span class="cfgl">Turns with tools</span>%s</div>' % tools_toggle(d)
 
 
 def tools_toggle(d, inner=False):
