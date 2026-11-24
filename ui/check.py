@@ -361,13 +361,13 @@ with tempfile.TemporaryDirectory() as tmp:
     tg = eq_all["targets"]
     parts_nc = {
         "no boxes": "Equivalent on" not in html and "data-equiv" not in html and 'class="equiv"' not in html and 'class="tick"' not in html and 'class="tick on"' not in html and "data-qedit" in html and "{equivalence:" not in html and "/fragment/equiv" not in html,
-        "two rows": cfg_html.count('class="cfgrow"') == 3 and '<span class="cfgl">Adapters</span><div id="adapt"><label class="preuse"><input type="checkbox" id="pre-use"' in cfg_html and 'id="pre-use"' not in swarm_ui.pretrain_block(data.load(root)) and '<span class="cfgl">Turns with tools</span><div class="tools" id="tools">' in cfg_html and '<span class="cfgl">Your own questions</span><div class="ownq" id="ownq">' in cfg_html,
+        "two rows": cfg_html.count('class="cfgrow"') == 2 and 'id="pre-use"' not in cfg_html and '<span class="cfgl">Adapters</span>' not in cfg_html and '<span class="cfgl">Turns with tools</span><div class="tools" id="tools">' in cfg_html and '<span class="cfgl">Your own questions</span><div class="ownq" id="ownq">' in cfg_html,
         "no description": 'data-tools="swarm"' in cfg_html and "An agent&#x27;s turn" not in cfg_html and "<p>" not in cfg_html and "<p " not in cfg_html and "<small>The " not in cfg_html,
         "eight buttons": cfg_html.count('class="ownb"') == 8 and all('data-qedit="%s"' % i in cfg_html for i in ("crew", "code", "math", "logic", "reasoning", "instructions", "tools", "search")),
         "refused": e_no == 400 and "every body of work" in e_why and "equivalence" not in json.loads(cfg_was) and get(base + "/fragment/equiv")[0] == 404,
         "leftover": asked_old == eq_all["asked"] and t_ok == 200 and "equivalence" not in cfg_after and cfg_after["tools"] == "swarm",
         "asked": "chosen" not in eq_all and eq_all["asked"] == data.bodies_asked(tg, data.load(root)["state"]) == [t["id"] for t in tg] and len(tg) == 8
-                 and "A pass asks every body of work: <b>37</b> kinds of question" in swarm_ui.main_body(data.load(root)),
+                 and "A pass asks every body of work: <b>42</b> kinds of question" in swarm_ui.main_body(data.load(root)),
         "record": data.bodies_asked(tg, {"kinds": next(t["kinds"] for t in tg if t["id"] == "crew"), "history": [{"pass": 1}]}) == ["crew", "code"]
                   and data.bodies_asked(tg, {"history": [{"pass": 1}]}) == ["code"] and data.bodies_asked(tg, {"kinds": ["chain"]}) == [] and data.bodies_asked(tg, {}) == [t["id"] for t in tg],
         # (and a SwOA says what its training asked from the questions of the pass in hand, where it has asked any)
@@ -523,7 +523,7 @@ with tempfile.TemporaryDirectory() as tmp:
     ev_table_l = get(base + "/fragment/evtable?h=lm")[1]
     (root / ".work" / "eval" / "results.json").unlink()
     check("Memory saved first, its share at the top left as the cards after it have theirs; then, above Train, Evaluate the swarm and Pretrain: Evaluate says what it does (standard benchmarks of lm-evaluation-harness, asked of the larger model and the swarm, kept apart from training), has a box for each harness beside the boxes for the bodies of work (a task is asked where both are ticked; a harness the page has no name for has its box all the same) and the same boxes over its table of scores, which is summed again over the harnesses ticked, has a size to choose (a proof run among them) and a button, names each harness a body of work is measured by, has a row for every task of every body of work that has a standard test, and a box for each of those bodies, ticked to begin with, that says which of them this run asks (kept on the device and sent with the press: a choice for one run, never of what the swarm is trained on); an unknown size, no body of work, one that is not listed, or a request from elsewhere is refused; once evaluated its headline is one figure, benchmark against benchmark, the swarm's score as a share of the larger model's on the same questions with the two scores under it, and it is a button that opens a table of every body of work and task with the two scores side by side (the share that had the SAME answer, called equivalent, marked the swarm down for being right where the larger model was wrong), each task leads with the two scores, and how many had the same answer is said under them, split by whether both were right, with when; Pretrain lists each small model and, where MLX is not installed, says Pretrain installs it and can be pressed on Apple silicon, or that it is not available on any other machine; the adapters switch is written beside the models and refuses anything but on or off; and while an evaluation runs, its headline shows moving bars where the share and the count will be and the questions chosen, the last result returning as it was when the run ends unfinished (Pretrain the same, the adapter that stood still standing beside an attempt that was not kept), it can be stopped from its section, and training and pretraining wait for it and say so",
-          html.index('<h2>Memory saved</h2>') < html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2>Pretrain</h2>') < html.index('<h2 id="arrangement">Train</h2>')
+          html.index('<h2>Memory saved</h2>') < html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2 id="arrangement">Train</h2>') and '<h2>Pretrain</h2>' not in html
           and '<div id="memwrap"><h2>Memory saved</h2><div class="panel memcard" id="memcard"><div class="proghead"><span class="memnum"><b class="pct">' in html and 'class="memh"' not in html.split('<h2>Memory saved</h2>')[1].split('<h2>')[0]
           and "lm-evaluation-harness 0.4.13" in ev0 and 'id="ev-go"' in ev0 and ev0.count("<option") == 4 and "a proof run" in ev0 and "Function-Calling" in ev0 and 'data-evt="ifeval"' in ev0 and 'data-evt="gsm8k"' in ev0 and ev0.count('data-evt="') == 23 and "not evaluated yet" in ev0 and api0.get("running") is False
           and 'class="evask"' in ev0 and ev0.count('data-ev-item="') == 7 and ev0.count('" checked>') == 9 and bad_harness == [400, 400, 400, 400]
@@ -594,7 +594,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and '<tr class="evt-item"><th scope="row">' in ev_table and '<td class="num">45%</td><td class="num">60%</td><td class="num"><b class="down">75%</b></td><td class="num evn">20</td>' in ev_table
           and ev_table.count('<tr class="evt-task">') == 23 and "not evaluated" in ev_table and '<tr class="evt-all"><th scope="row">Every question</th><td class="num">45%</td>' in ev_table
           and swarm_ui._ev_share(5, 0) == "–" and "$('#evd').showModal()" in swarm_ui.JS and '<dialog id="evd">' in html and "pct busy" not in ev_after,
-          {"order": html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2>Pretrain</h2>') < html.index('<h2 id="arrangement">Train</h2>'),
+          {"order": html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2 id="arrangement">Train</h2>'),
            "ev0": ["lm-evaluation-harness 0.4.13" in ev0, 'id="ev-go"' in ev0, ev0.count("<option"), 'data-evt="ifeval"' in ev0, "not evaluated yet" in ev0, api0.get("running")],
            "codes": [bad_size, foreign, a_on, a_bad, a_off, held_pre[0]], "pre": ['id="pre-go"' in pre0, apple, pre_ok, pre0.count('class="prerow"')],
            "ev1": ["15 of 20 the same (75%)" in ev1 and '<b class="evpct">45%</b> <span>the swarm · ' in ev1, "9 both right · 6 both wrong · 5 differ" in ev1, "Last evaluated 2026-11-17 12:00 UTC" in ev1, "without adapters" in ev1],
@@ -1774,39 +1774,42 @@ _m7s_old = data.measured_footprint(_fp7, None, "x+y+d", _mem7s, None, kept=dict(
 _card7s = swarm_ui.memory_card({"footprint": _m7s})
 # ---- THE THREE EVALUATIONS SIDE BY SIDE
 _cmp_rows = {"base": {"limit": 50, "swarm": {"value": 0.60, "stderr": 0.02, "n": 800}, "target": {"value": 0.80, "stderr": 0.015, "n": 800}},
-             "pretrained": {"limit": 50, "swarm": {"value": 0.68, "stderr": 0.02, "n": 800}, "target": {"value": 0.80, "stderr": 0.015, "n": 800}, "adapters": ["Small"]},
-             "trained": {"limit": 20, "swarm": {"value": 0.70, "stderr": 0.03, "n": 320}, "target": {"value": 0.80, "stderr": 0.02, "n": 320}}}
+             "trained": {"limit": 50, "swarm": {"value": 0.68, "stderr": 0.02, "n": 800}, "target": {"value": 0.80, "stderr": 0.015, "n": 800}, "adapters": ["Small"]},
+             # (a record from when pretraining had a figure of its own: it is not shown)
+             "pretrained": {"limit": 50, "swarm": {"value": 0.10, "stderr": 0.02, "n": 800}, "target": {"value": 0.80, "stderr": 0.015, "n": 800}}}
+_cmp_other = data.compare_of(dict(_cmp_rows, trained={"limit": 20, "swarm": {"value": 0.70, "stderr": 0.03, "n": 320}, "target": {"value": 0.80, "stderr": 0.02, "n": 320}}))
 _cmp = data.compare_of(_cmp_rows)
-_pair_rows = {"base": dict(_cmp_rows["base"], tasks=[{"task": "t", "bits": "1" * 400 + "0" * 400}]), "pretrained": dict(_cmp_rows["pretrained"], swarm={"value": 0.63, "stderr": 0.02, "n": 800}, tasks=[{"task": "t", "bits": "1" * 424 + "0" * 376}])}
+_pair_rows = {"base": dict(_cmp_rows["base"], tasks=[{"task": "t", "bits": "1" * 400 + "0" * 400}]), "trained": dict(_cmp_rows["trained"], swarm={"value": 0.63, "stderr": 0.02, "n": 800}, tasks=[{"task": "t", "bits": "1" * 424 + "0" * 376}])}
 _pair = data.compare_of(_pair_rows)
-_cmp_near = data.compare_of(dict(_cmp_rows, pretrained=dict(_cmp_rows["pretrained"], swarm={"value": 0.63, "stderr": 0.02, "n": 800})))
+_cmp_near = data.compare_of(dict(_cmp_rows, trained=dict(_cmp_rows["trained"], swarm={"value": 0.63, "stderr": 0.02, "n": 800})))
 _cmp_html = swarm_ui.eval_compare({"compare": _cmp})
 _cmp_near_html = swarm_ui.eval_compare({"compare": _cmp_near})
-check("the Evaluate card sets three evaluations side by side, always in their order: the module as configured, pretrained, and pretrained and trained; each is its score with its error, its share of the larger model's score and how many questions; the second and third say how they stand to the first, a gain or a loss only beyond twice the error of the difference and otherwise that no difference is shown; one asked at another size than the first is not compared; one not measured says so; and nothing is drawn where none was measured",
-      [r["id"] for r in _cmp] == ["base", "pretrained", "trained"] and _cmp[1]["beyond"] is True and _cmp[1]["diff"] == 0.08 and _cmp[2]["sameQuestions"] is False and _cmp[2]["beyond"] is False
-      and _cmp_near[1]["beyond"] is False and "a gain of 8 points" in _cmp_html.replace("8.0", "8") and "asked at another size than the first: not compared" in _cmp_html
+check("the Evaluate card sets two evaluations side by side, always in their order: the module as configured, which is the baseline, and the module as trained (pretraining is no stage of its own, and a record of one from before is not shown); each is its score with its error, its share of the larger model's score and how many questions; the second says how it stands to the first, a gain or a loss only beyond twice the error of the difference and otherwise that no difference is shown; one asked at another size than the first is not compared; one not measured says so; and nothing is drawn where none was measured",
+      [r["id"] for r in _cmp] == ["base", "trained"] and _cmp[1]["beyond"] is True and _cmp[1]["diff"] == 0.08 and _cmp_other[1]["sameQuestions"] is False and _cmp_other[1]["beyond"] is False
+      and _cmp_near[1]["beyond"] is False and "a gain of 8 points" in _cmp_html.replace("8.0", "8") and "asked at another size than the first: not compared" in swarm_ui.eval_compare({"compare": _cmp_other}) and "Pretrained" not in _cmp_html
       and "no difference shown" in _cmp_near_html and "75% of the larger model" in _cmp_html.replace("75.0", "75") and "± 2" in _cmp_html.replace("2.0", "2")
-      and [r["measured"] for r in data.compare_of({})] == [False, False, False] and swarm_ui.eval_compare({"compare": data.compare_of({})}) == ""
+      and [r["measured"] for r in data.compare_of({})] == [False, False] and swarm_ui.eval_compare({"compare": data.compare_of({})}) == ""
       and "not measured yet" in swarm_ui.eval_compare({"compare": data.compare_of({"base": _cmp_rows["base"]})})
       # (paired by question, a gain of 3 points that the two errors together would not show is shown, with how many questions moved)
       and _pair[1]["paired"] is True and _pair[1]["diff"] == 0.03 and _pair[1]["beyond"] is True and _pair[1]["better"] == 24 and _pair[1]["worse"] == 0
       and "24 questions better, 0 worse" in swarm_ui.eval_compare({"compare": _pair}), [_cmp, _cmp_html[:500]])
 _cmp_t = lambda sw, n=400: [{"task": "t1", "name": "Task One", "swarm": {"value": sw, "stderr": 0.02, "n": n}, "target": {"value": 0.8, "stderr": 0.02, "n": n}},  # noqa: E731
                            {"task": "t2", "name": "Task Two", "swarm": {"value": sw - 0.1, "stderr": 0.02, "n": n}, "target": {"value": 0.8, "stderr": 0.02, "n": n}}]
-_cmp_d = {"target": {"name": "Big"}, "compare": data.compare_of({"base": dict(_cmp_rows["base"], tasks=_cmp_t(0.6)), "pretrained": dict(_cmp_rows["pretrained"], tasks=_cmp_t(0.7))})}
+_cmp_d = {"target": {"name": "Big"}, "compare": data.compare_of({"base": dict(_cmp_rows["base"], tasks=_cmp_t(0.6)), "trained": dict(_cmp_rows["trained"], tasks=_cmp_t(0.7))})}
 _cd_t, _cd_p, _cd_c = (swarm_ui.compare_dialog(_cmp_d, v) for v in ("table", "paper", "chart"))
-check("each dialog of the Evaluate card opens with the three evaluations, said its own way: Each task has a line for every task with the larger model's score and the three in their order, and a last line over every question; Paper table gives each score with its error and the best of the three in bold; Chart draws one bar for each on one scale with its error marked and a line where the larger model scored; one not measured is a dash or says so; and nothing is added where none was measured",
-      all("The three evaluations" in x for x in (_cd_t, _cd_p, _cd_c)) and "Task One" in _cd_t and "Every question" in _cd_t and _cd_t.count("</th>") == 6 and "Pretrained and trained" in _cd_t
-      and "±" in _cd_p and "<b>70" in _cd_p and "±" not in _cd_t.split("<tbody>")[1].split("</tbody>")[0] and _cd_c.count("cmpbar") >= 4 and "not measured yet" in _cd_c and "Big" in _cd_c
+check("each dialog of the Evaluate card opens with the two evaluations, said its own way: Each task has a line for every task with the larger model's score and the two in their order, and a last line over every question; Paper table gives each score with its error and the best of the three in bold; Chart draws one bar for each on one scale with its error marked and a line where the larger model scored; one not measured is a dash or says so; and nothing is added where none was measured",
+      all("The two evaluations" in x for x in (_cd_t, _cd_p, _cd_c)) and "Task One" in _cd_t and "Every question" in _cd_t and _cd_t.count("</th>") == 5 and ">Trained</th>" in _cd_t and "Pretrained" not in _cd_t
+      and "±" in _cd_p and "<b>70" in _cd_p and "±" not in _cd_t.split("<tbody>")[1].split("</tbody>")[0] and _cd_c.count("cmpbar") >= 3 and "Big" in _cd_c
+      and "not measured yet" in swarm_ui.compare_dialog({"target": {"name": "Big"}, "compare": data.compare_of({"base": dict(_cmp_rows["base"], tasks=_cmp_t(0.6))})}, "chart")
       and "a gain of 8" in _cd_t and swarm_ui.compare_dialog({"compare": data.compare_of({})}, "table") == "", [_cd_t[:400], _cd_c[:400]])
 # ---- THE WHOLE RUN, ONE BUTTON
 swarm_ui.CARD_STARTS = False
 _bare = swarm_ui.main_body(_d)
 swarm_ui.CARD_STARTS = True
 _full = swarm_ui.main_body(_d)
-check("only the Run card starts and stops: the Evaluate, Pretrain and Train cards are drawn without their own Start buttons, the chooser of a size and the button that asked again what fell short, and with them where the page is started to draw them; what else the cards hold is as it was",
+check("only the Run card starts and stops: the Evaluate and Train cards are drawn without their own Start buttons, the chooser of a size and the button that asked again what fell short, and with them where the page is started to draw them; what else the cards hold is as it was",
       all('id="%s"' % i not in _bare for i in ("ev-go", "ev-size", "ev-narrow", "pre-go", "run-go", "ev-stop", "pre-stop", "run-stop")) and 'id="whole-go"' in _bare
-      and all('id="%s"' % i in _full for i in ("ev-go", "ev-size", "pre-go", "run-go")) and "<h2>Evaluate the swarm</h2>" in _bare and "<h2>Pretrain</h2>" in _bare, [len(_bare), len(_full)])
+      and all('id="%s"' % i in _full for i in ("ev-go", "ev-size", "run-go")) and "<h2>Evaluate the swarm</h2>" in _bare and "<h2>Pretrain</h2>" not in _bare and "<h2>Pretrain</h2>" not in _full, [len(_bare), len(_full)])
 import tempfile as _tf9
 _wr = Path(_tf9.mkdtemp())
 (_wr / ".work" / "run" / "k" / "pass-1").mkdir(parents=True)
@@ -1818,9 +1821,9 @@ _root9 = swarm_ui.ARGS.root
 swarm_ui.ARGS.root = str(_wr)
 _wb = swarm_ui.whole_block({"key": "k"})
 swarm_ui.ARGS.root = _root9
-check("the whole run has one button: Run is the first card, with the size of its evaluations, whether it is trained too, and Start (Carry on where a run was stopped part way); under it its four steps in order (the module as configured evaluated, an adapter made for each drafting slot, training, the trained module evaluated: pretraining is no stage of it), each done, running, not taken where it refused, failed or waiting, with how long it took; a step a stopped run left as running reads as stopped; and the page says the run has the models while it is between two steps",
+check("the whole run has one button: Run is the first card, with the size of its evaluations and Start; no box to tick for training, since whether a change betters the module is what training finds; (Carry on where a run was stopped part way); under it its four steps in order (the module as configured evaluated, an adapter made for each drafting slot, training, the trained module evaluated: pretraining is no stage of it), each done, running, not taken where it refused, failed or waiting, with how long it took; a step a stopped run left as running reads as stopped; and the page says the run has the models while it is between two steps",
       [x["state"] for x in _ws] == ["done", "not taken", "running", "waiting"] and [x["id"] for x in _ws] == ["1-evaluate-as-configured", "2-make-adapters", "3-train-classes", "4-evaluate-trained"] and _ws[0]["minutes"] == 20 and _wdone is False and all(x["state"] == "waiting" for x in _ws0)
-      and 'id="whole-go"' in _wb and "Carry on" in _wb and 'id="whole-size"' in _wb and 'id="whole-train"' in _wb and _wb.count('<li class="ws ') == 4 and "pretrain" not in " ".join(x["name"].lower() for x in _ws) and "stopped here" in _wb and "not taken" in _wb
+      and 'id="whole-go"' in _wb and "Carry on" in _wb and 'id="whole-size"' in _wb and 'id="whole-train"' not in _wb and "Train the arrangement too" not in _wb and _wb.count('<li class="ws ') == 4 and "pretrain" not in " ".join(x["name"].lower() for x in _ws) and "stopped here" in _wb and "not taken" in _wb
       and html.index("<h2>Run</h2>") < html.index("<h2>Memory saved</h2>") and '"whole": "training/run.sh"' in open(swarm_ui.__file__).read() and 'return "the run"' in open(swarm_ui.__file__).read(), [_ws, _wb[:300]])
 _card7k = swarm_ui.memory_card({"footprint": _m7_kept})
 _card7 = swarm_ui.memory_card({"footprint": _m7})
@@ -2111,12 +2114,12 @@ _both = swarm_ui.evaluated_lineups(_dz)
 swarm_ui._eval_rows = lambda root: [dict(_full11, configuration=_okz, target=_dz["target"]["name"], arrangement="default", at="2026-11-21T10:00:00.000Z")]
 _only_default = swarm_ui.evaluated_lineups(_dz)
 _evb = swarm_ui.eval_block(_dz)
-check("where a lineup has an evaluation of the arrangement it started from and a later one of what training kept, the views hold both, named trained and default arrangement; one evaluation alone is named plainly; and the Evaluate card can ask for the arrangement it started from, which it says is the same until training has kept something",
+check("where a lineup has an evaluation of the arrangement it started from and a later one of what training kept, the views hold both, named trained and default arrangement; one evaluation alone is named plainly; and the Evaluate card has no box for which arrangement: an evaluation from the page is of the module as it is, read against the module as configured",
       [k for k, _, _ in _both] == [_okz, _okz + swarm_ui.DEFAULT_MARK] and swarm_ui.lineup_name(_both[0][1]).endswith(", trained") and swarm_ui.lineup_name(_both[1][1]).endswith(", default arrangement")
       and _both[1][2]["arrangement"] == "default" and _both[0][2]["arrangement"] == "trained"
       and [k for k, _, _ in _only_default] == [_okz] and not swarm_ui.lineup_name(_only_default[0][1]).endswith("arrangement")
-      and 'id="ev-default" disabled' in _evb and "training has kept nothing yet" in _evb
-      and "arrangement:'default'" in swarm_ui.JS and '["--default"]' in open(os.path.join(os.path.dirname(os.path.abspath(swarm_ui.__file__)), "swarm_ui.py")).read(), [[k for k, _, _ in _both]])
+      and 'id="ev-default"' not in _evb and "The arrangement it started from" not in _evb
+      and "arrangement:'default'" not in swarm_ui.JS and '["--default"]' in open(os.path.join(os.path.dirname(os.path.abspath(swarm_ui.__file__)), "swarm_ui.py")).read(), [[k for k, _, _ in _both]])
 swarm_ui._eval_rows = lambda root: [_full11]
 _pre_full = swarm_ui.pretrain_block(_d11)
 swarm_ui._eval_rows = lambda root: [_full11, _other11, _narrow11]
@@ -2270,7 +2273,7 @@ check("the small model alone with its reply laid out is one more column wherever
 _found = swarm_ui._run_in(_ps)
 _detail = ('<div class="spec-head"><div><div class="kicker">Evaluate the swarm</div><h3>The swarm against X</h3></div>'
            '<button class="btn stop top" id="evd-close" type="button">Close</button></div><table id="detail"></table>')
-_shaped = swarm_ui.evd_shape(_dr, "paper", '<h3 class="cmph">The three evaluations, side by side</h3><table id="three"></table>', _detail)
+_shaped = swarm_ui.evd_shape(_dr, "paper", '<h3 class="cmph">The two evaluations, side by side</h3><table id="three"></table>', _detail)
 _alone = swarm_ui.evd_shape(_dr, "chart", "", _detail)
 check("the Run card has the head every card has (the figure and what it is, what the card does, its controls, in the same three columns: its figure had fallen to the right and its label ran into the description), "
       "and where it waits for something else it says so in a line of its own; a whole run started from a shell is found by its process (the shell whose script is training/run.sh, not a shell that only launched it), "
@@ -2281,7 +2284,7 @@ check("the Run card has the head every card has (the figure and what it is, what
       and _found == {"pid": 4242, "limit": 50, "train": "off", "adopted": True, "running": True}
       and swarm_ui._run_in(" 501 /bin/bash -c bash training/run.sh --limit 20\n") is None and swarm_ui._run_in("") is None
       and swarm_ui._run_in(" 7 bash training/run.sh --proof\n")["limit"] == -1
-      and _shaped.index("Evaluate the swarm · Paper table") < _shaped.index('id="evd-close"') < _shaped.index("The three evaluations, side by side") < _shaped.index('id="three"')
+      and _shaped.index("Evaluate the swarm · Paper table") < _shaped.index('id="evd-close"') < _shaped.index("The two evaluations, side by side") < _shaped.index('id="three"')
           < _shaped.index("The last evaluation in detail:") < _shaped.index('id="detail"')
       and _shaped.count('id="evd-close"') == 1 and _shaped.count('class="evdsec"') == 2
       and "Evaluate the swarm · Chart" in _alone and "evdsec" not in _alone and "The last evaluation in detail" not in _alone
@@ -2420,6 +2423,34 @@ check("a spec pins a mixture: an adapter a slot of the arrangement carries by na
       (_spins3.get(_k3) or {}).get("named", {}).get("a-direct@1", {}).get("file") == "mix/a-direct@1/m-lora.gguf" and len(_spins3[_k3]["named"]["a-direct@1"]["sha256"]) == 64
       and _smade3[_k3]["named"]["a-direct@1"]["own"] == 242 and "mixture.mjs" in _smade3[_k3]["makeNamed"] and not any("named" in (v or {}) for v in _spins3_none.values()),
       [_spins3, _spins3_none])
+
+# THE ADAPTERS ARE SHOWN WITH THE ARRANGEMENT: which there are, and which slots carry one (they had a card of their own, Pretrain)
+(_sdir / "mix" / "a-direct@1").mkdir(parents=True, exist_ok=True)
+(_sdir / "mix" / "a-direct@1" / "m-lora.gguf").write_bytes(b"one slot")
+_smix_was4 = (_sdir / "mix.json").read_text() if (_sdir / "mix.json").exists() else None
+(_sdir / "mix.json").write_text(json.dumps({"adapters": {
+    "a-direct@1": {"slot": "a-direct", "gguf": str(_sdir / "mix" / "a-direct@1" / "m-lora.gguf"), "examples": 504, "own": 242, "larger": 262, "kinds": 25, "at": "2026-11-23T18:00:00Z"},
+    "a-direct@2": {"slot": "a-direct", "gguf": str(_sdir / "mix" / "a-direct@1" / "m-lora.gguf"), "examples": 560, "own": 250, "larger": 310, "kinds": 29, "at": "2026-11-23T21:00:00Z"},
+    "gone@1": {"slot": "b-direct", "gguf": str(_sdir / "mix" / "none.gguf"), "at": "2026-11-23T21:00:00Z"}}}))
+try:
+    _sd4 = data.load(str(_sr))
+    _mx_none = data.mixture_of(_sd4)
+    _line_none = swarm_ui.adapters_line(_sd4)
+    _sd4["briefs"] = dict(_sd4["briefs"], kinds={"code": {"slots": [dict(x, adapter="a-direct@2") if x.get("id") == "a-direct" else x for x in _sd4["briefs"]["slots"]]}})
+    _mx_on = data.mixture_of(_sd4)
+    _line_on = swarm_ui.adapters_line(_sd4)
+    _page4 = swarm_ui.main_body(_sd4)
+finally:
+    if _smix_was4 is None:
+        (_sdir / "mix.json").unlink()
+    else:
+        (_sdir / "mix.json").write_text(_smix_was4)
+check("the adapters are shown with the arrangement, not in a card or a setting of their own: the line under Train says which adapters there are (the newest for each slot, with what it was taught on; one whose file is gone is not listed) and which slots of which class of input carry one, or that none does; "
+      "it says each request is served with the adapter its slot carries and that training finds which; the page has no Pretrain card and the configuration no box for adapters",
+      [a["name"] for a in _mx_none["made"]] == ["a-direct@2"] and _mx_none["carried"] == [] and "by no slot" in _line_none and "a-direct@2" in _line_none and "560 examples" in _line_none and "gone@1" not in _line_none
+      and _mx_on["carried"] == [("code", "a-direct", "a-direct@2")] and "<b>code</b>: a-direct carries a-direct@2" in _line_on and "each request is served with the adapter its slot carries" in _line_on
+      and 'id="adline"' in _page4 and "<h2>Pretrain</h2>" not in _page4 and swarm_ui.adapters_line(dict(_sd4, briefs={"slots": []}, members={})) == "",
+      [_mx_none, _line_on[:300]])
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

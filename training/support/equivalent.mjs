@@ -116,14 +116,23 @@ export function pyCodeOf(reply, name = '') {
   return at < 0 ? '' : s.slice(at).trim();
 }
 const pyCalls = (pyName, inputs, lit) => inputs.map((a) => pyName + '(' + a.map(lit).join(', ') + ')');
-export async function pyEquivalent(refReply, reply, { name, pyName, inputs, ok }, { refIsOk = false, lit } = {}) {
+export async function pyEquivalent(
+  refReply,
+  reply,
+  { name, pyName, inputs, ok, calls: madeCalls = null, expected = null },
+  { refIsOk = false, lit } = {},
+) {
   const L = await import('../../src/langs.mjs');
   if (!(await L.langReady('python')))
     throw new Error('Python cannot be run here: a question that asks for it cannot be marked');
-  const calls = pyCalls(pyName, inputs, lit);
-  const ref = refIsOk
-    ? await outputsOf(ok, name, inputs)
-    : await L.callsIn('python', pyCodeOf(refReply, pyName), pyName, calls);
+  // (a task the larger model wrote carries its calls as it wrote them, and what its own two solutions gave: tasks-code.mjs pyWide)
+  const calls = madeCalls || pyCalls(pyName, inputs, lit);
+  const ref =
+    refIsOk && expected
+      ? expected
+      : refIsOk
+        ? await outputsOf(ok, name, inputs)
+        : await L.callsIn('python', pyCodeOf(refReply, pyName), pyName, calls);
   if (!ref) return { grade: 'noref' };
   const code = pyCodeOf(reply, pyName);
   const mine = code ? await L.callsIn('python', code, pyName, calls) : null;

@@ -19,8 +19,7 @@ What has been run:
 
 - **The module as configured, on every task (2026-11-22).** LFM2.5 1.2B in both places against Nemotron 3.5 Lightning 30B,
   20 questions of each of 23 tasks: 55.2% against 77.6% that evening (54.1% in the afternoon), the small model by itself 30.0%
-  ([Measured, not claimed](measured.md#the-module-as-configured-on-23-tasks-2026-11-22)). The same module pretrained, and
-  pretrained and trained, on the same questions: not measured yet; that run was paused in its first step.
+  ([Measured, not claimed](measured.md#the-module-as-configured-on-23-tasks-2026-11-22)). Trained, the same module has not yet read higher on any benchmark (below).
 - **Checks:** all of them, against stand-ins.
 - **Training question by question, on real models:** a night and a morning with LFM2.5 1.2B, Qwen3.5 2B, Bonsai 2 4B,
   Jeffan 4B and Nemotron 3.5 Lightning 30B: the loop, the found arrangements tried first, and one review of the search by the
@@ -65,11 +64,11 @@ What has not:
 - **Following instructions as well as its own model.** On 100 questions of IFEval the small model asked by itself has
   75 right and the module 68. One slot asked as the request came, for a request that instructs its reply, reads 71,
   and is now an arrangement training can keep; no run has shown whether it does.
-- **Pretraining that helps.** Adapters by role lowered the module from 55.2% to 50.7% on 460 questions, and the
-  arrangement trained after them read 49.6%. An adapter is now served only where held questions are better with it,
-  and judged so none of the three is served: pretraining does not yet add anything. Taught also from the larger
-  model's answers where a role failed, the draft adapter moved the module from 42 to 44 of 72 held questions: inside
-  the error, so not served.
+- **Training that betters the module on a benchmark.** Adapters made for each drafting slot gain 25 to 30 points on
+  training's own held code questions, beyond error, and training keeps them by itself. On HumanEval and MBPP at 100
+  questions each the module with them read 75 of 200 against 95 without, so they were taken off. Training's own
+  questions (eleven families of function) are not what the module is judged on, and its keep rule cannot see that:
+  its held questions come from the same maker.
 - **Three figures on one code.** The run above was measured across two days of changes. No whole run has been made
   since each stage was held to the one before.
 - **Ten of the nineteen small models in a swarm, two of the four Kev sizes, and fourteen of the fifteen larger models.**

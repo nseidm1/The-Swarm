@@ -68,7 +68,7 @@ npm test
 ```
 
 **With the dashboard.** Choose the models at the top and press **Start** on the Run card: what is missing is fetched,
-then the module is evaluated, pretrained and trained, and evaluated after each.
+then the module is evaluated as configured, trained, and evaluated again.
 
 ```bash
 python3 ui/swarm_ui.py
@@ -210,9 +210,11 @@ Read it with care:
   not tools or search: the small model asked plainly 15.6%, with the module's reply layout only 19.1%, a module of one
   slot (all of the module's code round one call) 41.9%, the whole module 51.2%, the larger model 82.5%. So the code is
   worth about 26 points and the arrangement of seven slots about 9 more, before any training.
-- Pretrained, with an adapter for each role, the same module read 50.7%, and pretrained and trained 49.6%: both
-  lower. An adapter is now served only where held questions are better with it (none of those three is), and the
-  arrangement is trained on the module as pretrained. No whole run has been made since.
+- Training has not yet bettered the module on a benchmark. The first whole run read 50.7% and 49.6% after its two
+  stages. Since then adapters are made for each drafting slot and tried by training like any other change; training
+  kept a set of them for code on its own held questions (+29.6 points), and the code benchmarks at 100 questions each
+  read 75 of 200 with them against 95 without. They were taken off. Training's questions are not yet what the module
+  is judged on ([Measured, not claimed](docs/measured.md)).
 - Search is the widest gap. A search is now a program of code that asks the module only to read: a made task of two
   chained facts went from 1 right of 30 to 30, but the live web test above, of three or four chained facts, did not
   improve.
@@ -234,7 +236,7 @@ npm test
 python3 ui/check.py
 ```
 
-249 checks of the module and the trainers and 165 of the dashboard, against stand-in servers: nothing is fetched,
+250 checks of the module and the trainers and 166 of the dashboard, against stand-in servers: nothing is fetched,
 started or installed. `npm test` deals its 115 blocks of checks out to every core (26 seconds on a 24-core Mac, 91 one
 after another); `npm run test:serial` runs them in one process, `npm run test:all` adds the dashboard's, and
 `npm run test:python` checks the Python client. How well the

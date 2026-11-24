@@ -1841,8 +1841,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
             t.turns.slice(1).every((m, i) => m === firstOf(t).turns[i + 1]),
         ) &&
       others2.filter((t) => t.kind === 'search' && t.turns.length === 3).length >= 3 &&
-      everyKind.length === 246 &&
-      everyKind2.length === 242 &&
+      everyKind.length === 252 &&
+      everyKind2.length === 248 &&
       without.sort().join() === 'agent,agent,agent,answer' &&
       second.every(
         (t, i) =>
@@ -2144,8 +2144,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     "what the swarm is trained on is every body of work of a list kept as data (The Crew, Code, Math, Logic, Reasoning, Instructions, Tools, Search), and nothing is chosen: a pass asks the kinds of them all, each once (Code's are among The Crew's); the list has no default, since there is nothing to fall back to; the kinds of some can still be named (a record, a check), a name that is not one is passed over, and with none left it is every one; what a list of kinds covers is said from the kinds (a pass that asked The Crew's covered Code too); and every kind of every body makes a question",
     BODIES.join() === 'crew,code,math,logic,reasoning,instructions,tools,search' &&
       EQUIVALENCE.default === undefined &&
-      NAMES.length === 41 &&
-      new Set(NAMES).size === 41 &&
+      NAMES.length === 42 &&
+      new Set(NAMES).size === 42 &&
       NAMES.join() === kindsFor(BODIES).join() &&
       kindsFor().join() === NAMES.join() &&
       kindsFor([]).join() === NAMES.join() &&
@@ -2157,8 +2157,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       kindsFor(['math', 'crew']).length === CREW_NAMES.length + 6 &&
       kindsFor(['logic', 'reasoning']).length === 14 &&
       make({ split: 'held', each: 2, kinds: kindsFor(['math', 'logic', 'reasoning']) }).length === 40 &&
-      make({ split: 'train', each: 6 }).length === 246 &&
-      make({ split: 'held', each: 6 }).length === 246 &&
+      make({ split: 'train', each: 6 }).length === 252 &&
+      make({ split: 'held', each: 6 }).length === 252 &&
       bodiesOf(NAMES).join() === BODIES.join() &&
       bodiesOf(CREW_NAMES).join() === 'crew,code' &&
       bodiesOf(CODE_KIND_NAMES).join() === 'code' &&
@@ -2388,7 +2388,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     byRecord === 'chain,order' &&
       before === CODE_KIND_NAMES.join() &&
       first === NAMES.join() &&
-      NAMES.length === 41 &&
+      NAMES.length === 42 &&
       withOldChoice === first &&
       readOld === undefined &&
       writtenOld === undefined,
@@ -11425,6 +11425,63 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       R.forTemplate(toolEx[0].messages[0]) === toolEx[0].messages[0],
     { toolEx: JSON.stringify(toolEx).slice(0, 300) },
   );
+  // ---- THE LARGER MODEL WRITES THE PYTHON TASKS (training/wide.mjs): read from what it wrote, kept where its two solutions agree
+  {
+    const WD = await import('../training/wide.mjs');
+    const TC2 = await import('../training/tasks-code.mjs');
+    const TK2 = await import('../training/tasks.mjs');
+    const wrote =
+      'Here they are.\n' +
+      '{"name": "add_two", "args": "a, b", "does": "a function that returns the sum of a and b", "calls": ["add_two(1, 2)", "add_two(0, 0)", "add_two(-1, 1)", "add_two(5, 5)", "other(1)"]},\n' +
+      '{"name": "Bad Name", "does": "returns something or other", "calls": []}\n' +
+      '{"name": "add_two", "does": "returns it again, twice", "calls": ["add_two(1)", "add_two(2)", "add_two(3)", "add_two(4)"]}\n' +
+      '{"name": "taken_one", "does": "returns the first thing it was given", "calls": ["taken_one(1)", "taken_one(2)", "taken_one(3)", "taken_one(4)"]}\n' +
+      'not json at all';
+    const found = WD.tasksIn(wrote, ['taken_one']);
+    const two = [
+      {
+        name: 'double_all',
+        args: 'xs',
+        does: 'returns a new list with every number doubled.',
+        calls: ['double_all([1, 2])', 'double_all([])', 'double_all([0])'],
+        expected: [{ v: '[2, 4]' }, { v: '[]' }, { v: '[0]' }],
+      },
+      {
+        name: 'first_word',
+        args: 'text',
+        does: 'returns the first word of the text.',
+        calls: ['first_word("a b")', 'first_word("x")', 'first_word("")'],
+        expected: [{ v: '"a"' }, { v: '"x"' }, { e: true }],
+      },
+    ];
+    const fallback = TK2.tasks({ split: 'train', each: 2, kinds: ['py-wide'], seed: 1009 });
+    TC2.setWide([...two, { name: 'Not Ok' }]);
+    const tr = TK2.tasks({ split: 'train', each: 3, kinds: ['py-wide'], seed: 1009 });
+    const he = TK2.tasks({ split: 'held', each: 3, kinds: ['py-wide'], seed: 7919 });
+    TC2.setWide([]);
+    check(
+      "the larger model writes the Python tasks training asks: what it wrote is read line by line, each a name, its arguments, what the function returns and calls that call it (a line that is no such thing, a name that is not one, a task named twice or already had, a call to another function are left out); a task is kept only where its two solutions, asked two ways, ran and gave the same on every call, and what they gave is its standard; the first, third, fifth of them are train questions and the others held, so what the module is taught on is never what it is judged on; each is asked the three ways a function is asked for; and where none has been written the kind asks a family's question",
+      found.length === 1 &&
+        found[0].name === 'add_two' &&
+        found[0].does === 'returns the sum of a and b.' &&
+        found[0].calls.length === 4 &&
+        WD.SORTS.length >= 15 &&
+        /a function that/.test(WD.askFor('lists', 6, ['x'])) &&
+        JSON.stringify(WD.agreed([{ v: '1' }, { v: '2' }, { e: true }], [{ v: '1' }, { v: '2' }, { e: true }])) ===
+          '[{"v":"1"},{"v":"2"},{"e":true}]' &&
+        WD.agreed([{ v: '1' }, { v: '2' }], [{ v: '1' }, { v: '3' }]) === null &&
+        WD.agreed([{ e: true }, { e: true }, { v: '1' }], [{ e: true }, { e: true }, { v: '1' }]) === null &&
+        WD.agreed(null, [{ v: '1' }]) === null &&
+        tr.every((t) => t.pyName === 'double_all') &&
+        he.every((t) => t.pyName === 'first_word') &&
+        /^Write a Python function `double_all\(xs\)` that returns a new list/.test(tr[0].ask) &&
+        /assert double_all\(\[1, 2\]\) == \[2, 4\]/.test(tr[2].ask) &&
+        !/assert first_word\(""\)/.test(he[2].ask) &&
+        fallback.length === 2 &&
+        fallback.every((t) => t.lang === 'python' && t.ok),
+      { found, tr: tr.map((t) => t.ask.slice(0, 60)), fallback: fallback.map((t) => t.pyName) },
+    );
+  }
   // ---- THE PROGRAMS OF THE MIXTURE START: one that runs another does not wait on it for ever
   {
     const { spawnSync: run9 } = await import('node:child_process');
@@ -11491,7 +11548,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
         /Your code should pass these tests:\n\nassert \w+\(/.test(forms[2]) &&
         again.length === py.length &&
         again.every((t) => /^I need a function in Python, `/.test(t.ask)) &&
-        TK.KIND_NAMES.slice(-4).join() === 'py-arrays,py-strings,py-numbers,py-parsing' &&
+        TK.KIND_NAMES.slice(-5).join() === 'py-arrays,py-strings,py-numbers,py-parsing,py-wide' &&
         before.ask === 'Today is Tuesday. What day of the week will it be 158 days from now?' &&
         (!marks || marks.join() === 'right,wrong,unsure'),
       { forms: forms.map((f) => f.slice(0, 80)), marks, canRun },

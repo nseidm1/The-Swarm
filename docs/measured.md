@@ -20,6 +20,18 @@ than twice its paired error.
 | The same, held Python questions (the adapters were taught JavaScript) | 24, 2 seeds | 21 of 48 | 11 | -20.8 (7.3) |
 | Adapters taught Python as well | 24 held Python, 2 seeds | 21 of 48 | 33 | +25.0 (8.7), beyond |
 
+**The outside judge, at 100 questions a task** (HumanEval and MBPP; 2026-11-24). Training kept the adapters taught
+Python as well on its own held code questions (+29.6 points, error 5.4).
+
+| | HumanEval | MBPP | Of 200 |
+| --- | --- | --- | --- |
+| As configured | 60 | 35 | 95 (47.5%) |
+| Trained: an adapter on each drafter for code | 42 | 33 | 75 (37.5%) |
+| The larger model | 93 | 77 | 170 |
+
+Ten points lower, and eighteen on HumanEval. The adapters were taken off the code class. At 20 questions a task the
+same comparison read 21 and 20 of 40, which could not tell.
+
 What it says:
 
 - **An adapter must be taught broadly.** Six questions of a kind asked four ways were memorised; an adapter taught one
@@ -28,6 +40,9 @@ What it says:
 - **For the class it helps.** On code the mixture is beyond error three times over; on plain text it costs points.
 - **On what the module will be asked.** Training kept the JavaScript-taught mixture by itself (held +21.7 points, error
   7.8), and two Python benchmarks then read 18 of 40 against 21. Training's questions were not what it is judged on.
+- **Its own held questions are not enough.** Thirty points on held questions of training's own making, ten points lost
+  on two benchmarks: held questions from the same maker as the train questions cannot see an adapter that learned the
+  maker.
 - **Where answers are lost.** With adapters more questions had a right draft (100 to 106 of 160) and more of those were
   lost (16 to 23): each checker's answer counted as a drafter's, and three checkers with one drafter outvoted three
   drafters who were right.

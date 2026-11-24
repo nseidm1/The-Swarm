@@ -6,19 +6,17 @@ A module is trained toward a larger model, and what training finds is the module
 and keeps each only where held questions say it helped:
 
 - **the arrangement**, for each class of input: what each slot is told and how the slots are arranged (below);
-- **adapters, one for each role** (drafting, checking, writing the reply), taught from the slots' own requests and
-  the answers they gave that were right and, where a slot was not right, the larger model's answer to that slot's own
-  request (`training/roles.mjs`; the dashboard's Pretrain). Each is then judged on held
-  questions, the module without it and with it, and served only where the module is better with it; the arrangement
-  is trained on the module as pretrained. So each stage does no worse than the one before on training's own held
-  questions;
+- **adapters, one for each drafting slot**, taught that slot's own requests on many questions of every kind: its own
+  answer where that was right and the larger model's where it was not (`training/mixture.mjs`). An adapter is on no
+  slot when it is made. Whether a slot carries one is a move the class stage tries and keeps like any other, so a
+  mixture of adapters is part of the arrangement, and each request is served with the adapter its slot carries;
 - **instruments**: where a class of input holds operations code does exactly, the class stage turns that instrument
   on (`src/instruments.mjs`). None is on in a module as it starts. Training asks such operations in questions of its
   own (`training/tasks-exact.mjs`), so what an instrument is worth is measured before a benchmark sees it.
 
-`bash training/run.sh` is the whole of it in one run, with the three figures it is judged by: the module as
-configured is evaluated, it is pretrained and evaluated, its arrangement is trained and it is evaluated again, on the
-same questions (the dashboard's **Run**). The evaluation is a third party's, unchanged: the harness asks the module
+`bash training/run.sh` is the whole of it in one run, with the two figures it is judged by: the module as configured
+is evaluated, which is the baseline; an adapter is made for each drafting slot and the module is trained; and it is
+evaluated again, on the same questions (the dashboard's **Run**). The evaluation is a third party's, unchanged: the harness asks the module
 through the chat-model interface as it asks any model, and training never asks a harness's question.
 
 What follows is the training of the arrangement. Nothing here changes the small models' weights. What is trained is what each slot is told, and how the slots are arranged:
@@ -150,7 +148,7 @@ named.
 | Script                                                                                   | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `training/setup.mjs`                                                                     | Fetches and makes ready the engine, the models and the decider. A download that stops carries on; a file that arrives wrong is fetched once more                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `training/run.sh` | The whole of training in one run (the dashboard's Run): evaluate as configured, pretrain by role, evaluate, train the arrangement class by class, evaluate again, each evaluation on the same questions. `--limit N` or `--proof` sizes the evaluations, `--items` names the bodies of work, `--train classes` or `off`, `--train-minutes M`. A stopped run carries on from its step |
+| `training/run.sh` | The whole of training in one run (the dashboard's Run): evaluate as configured, make an adapter for each drafting slot, train class by class (the arrangement, which slot carries its adapter, the instruments), evaluate again, each evaluation on the same questions. `--limit N` or `--proof` sizes the evaluations, `--items` names the bodies of work, `--train classes` or `off`, `--train-minutes M`. A stopped run carries on from its step |
 | `training/session.sh` | One session: pass after pass, each step of a pass in order, resumed where it stopped |
 | `training/roles.mjs` | Pretraining by role: for each role a slot can have, the slots' own requests on the train questions with the answers that were right, and a LoRA adapter taught from them |
 | `training/classes.mjs` | The class stage: each class of input trained as a class, a candidate arrangement tried on its train questions and kept on its held ones; instruments are candidates here |

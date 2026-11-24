@@ -16,6 +16,7 @@
         "py-strings",
         "py-numbers",
         "py-parsing",
+        "py-wide",
         "fix",
         "bug",
         "trace",
@@ -43,6 +44,7 @@
         "py-strings",
         "py-numbers",
         "py-parsing",
+        "py-wide",
         "fix",
         "bug",
         "trace"

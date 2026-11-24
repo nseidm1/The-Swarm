@@ -368,7 +368,8 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .moves li.skipped{opacity:.55}.moves li.pinned{background:linear-gradient(90deg,#e8f6f1,transparent)}
 dialog#evd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#evd::backdrop{background:rgba(11,40,38,.45)}
 /* THE EVALUATE CARD'S HEADLINE IS A BUTTON (it opens the table, score beside score): it keeps the look of a headline, and says it can be pressed */
-.wsl{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.ws{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--line,#d9e4e1);border-radius:10px;font-size:13px;min-width:0}.ws i{width:10px;height:10px;border-radius:50%;background:#c8d4d0}.ws.done i{background:#0f6b5a}.ws.running i{background:#c98a0b}.ws.failed i{background:#a23b2a}.ws.not-taken i,.ws.stopped i{background:#7a8a86}.ws small{opacity:.75}.wholet{display:flex;gap:6px;align-items:center;font-size:13px}@media(max-width:760px){.wsl{grid-template-columns:1fr}}
+.adline{display:flex;gap:14px;align-items:flex-start;margin:14px 0 4px;padding-top:12px;border-top:1px solid var(--line,#e6ecea)}.adline small{display:block;color:var(--mist);font-size:12.5px;line-height:1.45}.adline p{margin:6px 0 0}
+.wsl{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.ws{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--line,#d9e4e1);border-radius:10px;font-size:13px;min-width:0}.ws i{width:10px;height:10px;border-radius:50%;background:#c8d4d0}.ws.done i{background:#0f6b5a}.ws.running i{background:#c98a0b}.ws.failed i{background:#a23b2a}.ws.not-taken i,.ws.stopped i{background:#7a8a86}.ws small{opacity:.75}.wholet{display:flex;gap:6px;align-items:center;font-size:13px}@media(max-width:760px){.wsl{grid-template-columns:1fr}}
 .cmph{margin:0 0 8px;font-size:15px}#evd{overflow-x:hidden}.evdsec{margin:14px 0 0}.evdsec+.evdsec{margin-top:22px;padding-top:16px;border-top:1px solid var(--line,#d9e4e1)}.cmpt{margin:0 0 6px}.cmpt tr.sum td{font-weight:700;border-top:2px solid var(--line,#d9e4e1)}.cmpbars{display:flex;flex-direction:column;gap:8px;margin:0 0 6px}.cmpbar{display:grid;grid-template-columns:minmax(120px,190px) 1fr minmax(110px,auto);gap:10px;align-items:center;font-size:13px}.cmpbar .mbar{position:relative;height:14px;background:#e4eeeb;border-radius:7px}.cmpbar .mbar i{position:absolute;left:0;top:0;bottom:0;background:#0f6b5a;border-radius:7px}.cmpbar .mbar u{position:absolute;top:-3px;bottom:-3px;border-left:2px solid #1d2b27;border-right:2px solid #1d2b27;background:rgba(29,43,39,.18)}.cmpbar .mbar s{position:absolute;top:-6px;bottom:-6px;border-left:2px dashed #3d4a8f}.cmpbar.none{opacity:.5}
 .cmp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 4px}.cmpc{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid var(--line,#d9e4e1);border-radius:10px;min-width:0}.cmpc b{font-size:13px}.cmpv{font-size:22px;font-weight:700}.cmpv i{font-style:normal;font-size:12px;font-weight:400;margin-left:6px;opacity:.7}.cmpc small{font-size:12px;opacity:.8}.cmpc.none .cmpv{opacity:.4}.cmpc small b.up{color:#0b6b57}.cmpc small b.down{color:#a23b2a}@media(max-width:640px){.cmp{grid-template-columns:1fr}}
 .evhead{display:flex;flex-direction:column;gap:10px;align-items:flex-start;min-width:0}.evviews{display:flex;gap:8px;flex-wrap:wrap}.evviews .btn{padding:8px 14px;font-size:13px;white-space:nowrap}.ptab{font-family:Georgia,'Times New Roman',serif;color:var(--fog)}.ptab caption{caption-side:top;text-align:left;font-size:13.5px;line-height:1.5;padding:0 0 10px}.ptab caption b{font-weight:700}.ptab table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums;border-top:2px solid var(--fog);border-bottom:2px solid var(--fog)}.ptab th,.ptab td{padding:5px 10px;text-align:right;border:0;white-space:nowrap}.ptab th:first-child,.ptab td:first-child{text-align:left;white-space:normal}.ptab thead th{font-weight:400;border-bottom:1px solid var(--fog)}.ptab tr.pg td{font-style:italic;padding-top:10px;text-align:left}.ptab tr.pall td{border-top:1px solid var(--fog);padding-top:7px}.ptab td small{color:var(--mist);font-size:.82em}.ptab-wrap{overflow-x:auto;margin-top:12px}.ptab-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}#evd-latex{width:100%;min-height:160px;margin-top:10px;font:12px ui-monospace,Menlo,monospace}dialog#tqd{border:0;border-radius:var(--r);padding:26px;max-width:min(900px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#tqd::backdrop{background:rgba(11,40,38,.45)}.tqctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}.tqctl select,.tqctl input{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel)}.tqctl input{flex:1 1 160px;min-width:0}.tql{list-style:none;margin:0;padding:0;display:grid;gap:10px}.tql li{border:1px solid var(--line2);border-radius:var(--r);padding:12px 14px}.tqh{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}.tqh small{color:var(--mist);font-size:12px;font-weight:600}.tqa{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.5}.tqb{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.45;color:var(--mist)}.tqb b{color:var(--fog)}.tqw{display:block;margin-top:6px;color:var(--mist);overflow-wrap:anywhere}@media (max-width:760px){dialog#tqd{padding:18px 12px}}.evbench select{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel);max-width:100%}.evbench{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}.evbench .seg small{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#9a5b00;margin-left:4px}.evbench .seg:disabled{opacity:.45;cursor:default}.evchart{margin-top:12px}.evchart svg{display:block;width:100%;height:auto;max-width:720px}.evchart .ax{stroke:var(--line);stroke-width:1}.evchart .tk{fill:var(--mist);font-size:11px}.evchart .lb{fill:var(--fog);font-size:12.5px;font-weight:700}.evchart .sb{fill:var(--mist);font-size:11.5px}.evchart .at{fill:var(--mist);font-size:11.5px;font-weight:700;letter-spacing:.04em}.evchart .pn{fill:#fff;font-size:11px;font-weight:800}.evchart .lgl{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px;font-size:13px;color:var(--fog)}.evchart .lgl li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.evchart .lgl i{flex:none;display:inline-block;min-width:20px;height:20px;line-height:20px;border-radius:50%;text-align:center;color:#fff;font-style:normal;font-size:11px;font-weight:800}.evchart .lgl span{color:var(--mist);font-variant-numeric:tabular-nums}.evchart .lgl i.hollow{background:var(--panel)}.evchart .lgl em{font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mist)}.evchart .lgl li.mine{background:var(--soft);border-radius:var(--r);padding:6px 8px;margin:0 -8px}.evchart .lgl li.mine em{color:var(--teal)}.lgl li.mine.tgt em{color:var(--tgt)}.evchart .pn.hollow{font-weight:800}.evopen{appearance:none;border:0;background:none;padding:6px 10px;margin:-6px -10px;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:12px;max-width:100%}
@@ -832,7 +833,7 @@ setInterval(liveTick,1500);liveTick();
 // THE WHOLE RUN'S ONE BUTTON (whole_block): Start or Carry on with the size and whether to train; Stop. Its steps are drawn again
 // every three seconds while it runs, and the cards under it follow their own steps as they always do
 document.addEventListener('click',async ev=>{const b=ev.target;if(b.id!=='whole-go'&&b.id!=='whole-stop')return;b.disabled=true;
-  await evPost(b.id==='whole-go'?'/whole/start':'/whole/stop','#wholewrap',b.id==='whole-go'?{limit:Number(($('#whole-size')||{}).value||20),train:!!($('#whole-train')||{}).checked}:{});});
+  await evPost(b.id==='whole-go'?'/whole/start':'/whole/stop','#wholewrap',b.id==='whole-go'?{limit:Number(($('#whole-size')||{}).value||20)}:{});});
 setInterval(async()=>{if($('#wholebox[data-running]')||$('#busy[data-busy="the run"]'))await swap('/fragment/whole','#wholewrap');},3000);
 async function evPost(url,into,body){const r=await fetch(url,{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify(body||{})});
   if(!r.ok){alert(await r.text());evAsk();return;}$(into).innerHTML=await r.text();keepOpen($(into));evAsk();}
@@ -878,7 +879,7 @@ document.addEventListener('click',async(ev)=>{
   const b=ev.target.closest('#ev-go,#ev-narrow,#ev-stop,#pre-go,#pre-stop');if(!b)return;b.disabled=true;
   if(b.id==='ev-go'){const its=[...document.querySelectorAll('[data-ev-item]')];
     const hs=[...document.querySelectorAll('[data-ev-harness]')];
-    await evPost('/eval/start','#evalwrap',{limit:Number(($('#ev-size')||{}).value||0),...(its.length?{items:its.filter(x=>x.checked&&!x.closest('label').classList.contains('none')).map(x=>x.dataset.evItem)}:{}),...(hs.length?{harnesses:hs.filter(x=>x.checked).map(x=>x.dataset.evHarness)}:{}),...(($('#ev-default')||{}).checked?{arrangement:'default'}:{})});}
+    await evPost('/eval/start','#evalwrap',{limit:Number(($('#ev-size')||{}).value||0),...(its.length?{items:its.filter(x=>x.checked&&!x.closest('label').classList.contains('none')).map(x=>x.dataset.evItem)}:{}),...(hs.length?{harnesses:hs.filter(x=>x.checked).map(x=>x.dataset.evHarness)}:{}),});}
   else if(b.id==='ev-stop')await evPost('/eval/stop','#evalwrap');
   // A SECOND LOOK: only the bodies of work that fell short (the button carries them), at the size chosen
   else if(b.id==='ev-narrow')await evPost('/eval/start','#evalwrap',{limit:Number(($('#ev-size')||{}).value||0),items:b.dataset.items.split(',')});
@@ -949,7 +950,7 @@ async function preTick(){const box=$('#prebox');if(!box||!box.dataset.running)re
 // until the page was reloaded. When the holder changes, the three cards are drawn again in place
 async function busyTick(){const m=$('#busy');if(!m)return;let s;try{s=await (await fetch('/api/busy')).json();}catch(e){return;}
   if(s.busy===m.dataset.busy)return;m.dataset.busy=s.busy;
-  await swap('/fragment/eval','#evalwrap');await swap('/fragment/pretrain','#prewrap');await swap('/fragment/score','#score');
+  await swap('/fragment/eval','#evalwrap');await swap('/fragment/score','#score');
   if(s.busy==='training')watch();}
 trainAsk();setInterval(()=>{evTick();preTick();busyTick();},1500);
 // THE FACES DRAW THE ARRANGEMENT AS IT IS ASKED: while a try runs, the one it asks (the kept arrangement with the change on it); asked
@@ -1385,7 +1386,7 @@ def viz_block(d):
              + '<p class="vintro vsub"><b>R3 in detail:</b> training the arrangement.</p>')
     tail_ = lane("J", "The judge, apart from training", [
         box("J1", "", "The harness", "A third party's benchmarks, unchanged, ask through the chat interface as they ask any model. Training never asks one of their questions."),
-        box("J2", "", "Three figures", "As configured, pretrained, pretrained and trained, on the same questions: R1, R3, R5."),
+        box("J2", "", "Two figures", "As configured, which is the baseline, and trained, on the same questions: R1, R4."),
         box("J3", "", "Beside them", "The small model asked plainly, the same with the module's layout only, and %s." % tname),
         box("J4", "", "The verdict", "By capability: parity, short, or too few questions to say. A hundred questions a task, at least, is proof.")])
     return ('<div class="panel viz">__VIZ_HEAD__%s%s%s%s%s%s__VIZ_TAIL__</div>' % (
@@ -2375,8 +2376,8 @@ def arrangement(d):
     # marked running repeated it, from marks a stopped session leaves behind)
     plan_line = ""
     # (the training share, the line beside it, Train and Clear training state head the card: #score, drawn again in place)
-    one = ('<div class="panel arr"><div id="score">%s</div>%s<div class="now" id="now"><i></i><span>%s</span></div>%s%s%s</div>'
-           % (progress_strip(d), head, idle_words(), question_track(d), plan_line, faces_block(d)))
+    one = ('<div class="panel arr"><div id="score">%s</div>%s<div class="now" id="now"><i></i><span>%s</span></div>%s%s%s%s</div>'
+           % (progress_strip(d), head, idle_words(), question_track(d), plan_line, adapters_line(d), faces_block(d)))
     return ('%s<h2 id="strategy">The plan being carried out</h2><div id="plan">%s</div><h2 id="system">Visualizing the System</h2><div id="viz">%s</div>'
             % (one, plan_block(d), viz_block(d)))
 
@@ -3609,9 +3610,9 @@ def config_section(d):
     badge = ('<button type="button" class="recbadge" id="rec-open" title="Open the recommended configuration changes"><i></i>%d recommendation%s</button>' % (n, "" if n == 1 else "s")) if n else ""
     return ('<details class="cfg fold" data-keep="cfg" open><summary><span class="cfgh">Configuration</span><span id="rec-slot">%s</span><span class="fmeta" id="cfg-meta">%s</span></summary>'
             '<div class="foldb">%s<div class="cfgrows"><div class="cfgrow"><span class="cfgl">Turns with tools</span>%s</div>'
-            '<div class="cfgrow"><span class="cfgl">Adapters</span>%s</div>'
+            # (no row for adapters: whether a slot carries one is training's to find, and is shown with the arrangement)
             '<div class="cfgrow"><span class="cfgl">Your own questions</span>%s</div></div></div></details>'
-            % (badge, e(cfg_meta(d)), pills(d), tools_toggle(d), adapters_toggle(d), own_questions(d)))
+            % (badge, e(cfg_meta(d)), pills(d), tools_toggle(d), own_questions(d)))
 
 
 def adapters_kept(d):
@@ -5256,7 +5257,7 @@ def eval_compare(d):
             how = "no difference shown: %s%s points on the first, within twice the error (%s)" % ("+" if r.get("diff", 0) >= 0 else "−", pts(abs(r.get("diff", 0))), pts(r.get("diffErr", 0)))
         cells.append('<span class="cmpc"><b>%s</b><span class="cmpv">%s%%<i>± %s</i></span><small>%s of the larger model&#39;s score · %d questions</small><small>%s</small></span>'
                      % (e(r["name"]), pts(r["value"]), pts(r["stderr"]), (fmt_pct(100.0 * r["share"]) + "%") if r.get("share") is not None else "–", r["n"], how))
-    return '<div class="cmp" role="group" aria-label="The three evaluations side by side">%s</div>' % "".join(cells)
+    return '<div class="cmp" role="group" aria-label="The two evaluations side by side">%s</div>' % "".join(cells)
 
 
 EVD_NAMES = {"table": "Each task", "paper": "Paper table", "chart": "Chart"}
@@ -5296,7 +5297,7 @@ def compare_dialog(d, view="table"):
         return ""
     pts = lambda x: fmt_pct(100.0 * x)  # noqa: E731
     tname = e((d.get("target") or {}).get("name", "the larger model"))
-    said = '<h3 class="cmph">The three evaluations, side by side</h3>'
+    said = '<h3 class="cmph">The two evaluations, side by side</h3>'
     if view == "chart":
         top = max([r["value"] + 2 * r["stderr"] for r in got] + [r.get("target") or 0 for r in got] + [0.01])
         scale = min(1.0, top * 1.1)
@@ -5332,19 +5333,19 @@ def compare_dialog(d, view="table"):
     lines = []
     for k in order:
         vs = by[k]["v"]
-        sw = {vid: (vs.get(vid) or {}).get("swarm") for vid in ("base", "pretrained", "trained")}
+        sw = {vid: (vs.get(vid) or {}).get("swarm") for vid in ("base", "trained")}
         tgt = next(((vs[vid] or {}).get("target") for vid in vs if (vs[vid] or {}).get("target")), None)
         top = max([x["value"] for x in sw.values() if x and x.get("n")] or [None]) if paper else None
         n = max([x["n"] for x in sw.values() if x and x.get("n")] or [0])
-        lines.append('<tr><td>%s</td>%s%s<td class="num evn">%d</td></tr>' % (e(by[k]["name"]), cell(tgt), "".join(cell(sw[vid], top is not None and sw[vid] and sw[vid].get("n") and sw[vid]["value"] == top) for vid in ("base", "pretrained", "trained")), n))
+        lines.append('<tr><td>%s</td>%s%s<td class="num evn">%d</td></tr>' % (e(by[k]["name"]), cell(tgt), "".join(cell(sw[vid], top is not None and sw[vid] and sw[vid].get("n") and sw[vid]["value"] == top) for vid in ("base", "trained")), n))
     allrow = {r["id"]: {"value": r["value"], "stderr": r["stderr"], "n": r["n"]} for r in got}
     tg_all = next(({"value": r["target"], "stderr": 0, "n": r["n"]} for r in got if r.get("target") is not None), None)
-    lines.append('<tr class="sum"><td>Every question</td>%s%s<td class="num evn">%d</td></tr>' % (cell(tg_all), "".join(cell(allrow.get(vid)) for vid in ("base", "pretrained", "trained")), max(r["n"] for r in got)))
+    lines.append('<tr class="sum"><td>Every question</td>%s%s<td class="num evn">%d</td></tr>' % (cell(tg_all), "".join(cell(allrow.get(vid)) for vid in ("base", "trained")), max(r["n"] for r in got)))
     note = "; ".join("%s: %s" % (e(r["name"]), ("a gain" if r["diff"] > 0 else "a loss") + " of %s points on the first, beyond twice the error" % pts(abs(r["diff"])) if r.get("beyond")
                      else ("asked at another size than the first, so not compared" if not r.get("sameQuestions", True) else "no difference from the first is shown"))
                      for r in got if r["id"] != "base")
-    return ('%s<table class="evt cmpt"><thead><tr><th>Task</th><th class="num">%s</th><th class="num">As configured</th><th class="num">Pretrained</th><th class="num">Pretrained and trained</th><th class="num">Questions</th></tr></thead>'
-            '<tbody>%s</tbody></table><p class="small muted">The same questions, asked of the same lineup three ways and marked by each benchmark&#39;s own checker.%s</p>'
+    return ('%s<table class="evt cmpt"><thead><tr><th>Task</th><th class="num">%s</th><th class="num">As configured</th><th class="num">Trained</th><th class="num">Questions</th></tr></thead>'
+            '<tbody>%s</tbody></table><p class="small muted">The same questions, asked of the same lineup as configured and as trained, and marked by each benchmark&#39;s own checker.%s</p>'
             % (said, tname, "".join(lines), (" " + note[0].upper() + note[1:] + ".") if note else ""))
 
 
@@ -5459,9 +5460,9 @@ def eval_block(d):
         # WHICH ARRANGEMENT: the one the swarm runs, which is what training has kept; or the one it started from, to set beside
         # it. Only where training has kept something: until then they are the same arrangement, and the box says so
         trained_ = int((d.get("briefs") or {}).get("version") or 1) > 1
-        out.append('<div class="evask evharn" role="group" aria-label="Which arrangement this evaluation measures"><span class="cfgl">Of</span>'
-                   '<label title="Measure the arrangement this configuration started from (the default), in place of what training has kept for it: the figure training is judged against, by the same code on the same questions"><input type="checkbox" id="ev-default"%s>The arrangement it started from<small>%s</small></label></div>'
-                   % (" disabled" if held or not trained_ else "", "in place of what training kept" if trained_ else "training has kept nothing yet: it is what an evaluation measures"))
+        # (no box for which arrangement: an evaluation from the page is of the module as it is, and the baseline it is read
+        # against is the module as configured, which a run measures first. evaluate.mjs --default is there for a terminal)
+        del trained_
     # WHAT IS HAPPENING NOW (painted again in place from /api/eval)
     if running or (shown and live.get("phase") in ("stopped", "failed")):
         cls = "on" if running else ("warn" if live.get("phase") == "failed" else "")
@@ -5814,9 +5815,10 @@ def whole_block(d):
     else:
         blocked = held and held != "the run"
         ctl = ('<select id="whole-size" aria-label="How many questions of each task, in each evaluation of the run"%s>%s</select>'
-               '<label class="wholet" title="Adapters are made and the class stage of training is run, two hours at most. Unticked, only the module as configured is evaluated."><input type="checkbox" id="whole-train"%s%s>Train the arrangement too</label>'
+               # (no box to tick for training: whether a change to the module betters it is what training finds, and a change
+               # that does not is not kept. A person once chose whether the arrangement was trained at all)
                '<button class="btn top" id="whole-go" type="button"%s>%s</button>'
-               % (" disabled" if blocked else "", opts, "" if st.get("train") == "off" else " checked", " disabled" if blocked else "", " disabled" if blocked else "",
+               % (" disabled" if blocked else "", opts, " disabled" if blocked else "",
                   "Carry on" if any(x["state"] in ("done", "stopped") for x in steps) and not done else "Start"))
     word = {"done": "done", "running": "running", "stopped": "stopped here", "not taken": "not taken", "failed": "failed", "waiting": "waiting"}
     rows = "".join('<li class="ws %s"><i></i><span>%s</span><small>%s%s</small></li>'
@@ -5825,10 +5827,30 @@ def whole_block(d):
     # else says so in a line of its own under the head, as Pretrain and Train do)
     waits = ('<div class="state warn"><i></i><span>%s is running: the run waits for it.</span></div>' % e(held[0].upper() + held[1:])) if held and held != "the run" and not running else ""
     return ('<div class="panel prep wholep" id="wholebox"%s><div class="proghead"><span class="memnum"><b class="pct">%d</b><span>of 4 steps<small>%s</small></span></span>'
-            '<span class="progline">One run, three figures: the module as configured is evaluated, then pretrained and evaluated, then its arrangement trained and evaluated, '
-            'each on the same questions. Stop is safe at any step; Start carries on from the step it stopped in.</span><span class="evctl">%s</span></div>%s<ol class="wsl">%s</ol></div>'
+            '<span class="progline">One run, two figures: the module as configured is evaluated, which is the baseline; it is trained (adapters, arrangement, instruments); and it is evaluated again, '
+            'on the same questions. Stop is safe at any step; Start carries on from the step it stopped in.</span><span class="evctl">%s</span></div>%s<ol class="wsl">%s</ol></div>'
             % (' data-running="1"' if running else "", sum(1 for x in steps if x["state"] == "done"),
                "running" if running else ("done" if done else ("waiting" if held and held != "the run" else "not started" if not any(x["state"] != "waiting" for x in steps) else "stopped")), ctl, waits, rows))
+
+
+def adapters_line(d):
+    """THE ADAPTERS, WITH THE ARRANGEMENT (they had a card of their own, Pretrain, when they were made in a stage of their own and
+    served or not by a box a person ticked). An adapter is made for a slot and is on nowhere; training puts it on a slot, for a
+    class of input, where held questions gain, and each request is then served with the adapter its slot carries. So the line
+    says which there are and which slots carry one. '' where none has been made."""
+    mx = data.mixture_of(d)
+    if not mx["made"] and not mx["carried"]:
+        return ""
+    made = "; ".join("<b>%s</b> (%s examples: %s its own right answers, %s the larger model&#39;s; %s kinds)"
+                     % (e(a["name"]), e(str(a.get("examples", "?"))), e(str(a.get("own", "?"))), e(str(a.get("larger", "?"))), e(str(a.get("kinds", "?")))) for a in mx["made"])
+    by = {}
+    for cls, slot, name in mx["carried"]:
+        by.setdefault(cls, []).append("%s carries %s" % (e(str(slot)), e(str(name))))
+    carried = "; ".join("<b>%s</b>: %s" % (e(c), ", ".join(v)) for c, v in by.items())
+    return ('<div class="adline" id="adline"><span class="cfgl">Adapters</span><div><small>One small model, several adapters loaded at once: each request is served with the adapter its slot carries. '
+            'Which slot carries which is found by training, class by class, like the rest of the arrangement.</small>'
+            '<p class="small">%s</p><p class="small"><b>Made:</b> %s</p></div></div>'
+            % (("<b>Carried now:</b> " + carried) if carried else "<b>Carried now:</b> by no slot. Training has kept none on a slot.", made or "none"))
 
 
 def main_body(d):
@@ -5838,9 +5860,9 @@ def main_body(d):
         '<h2>Run</h2><div id="wholewrap">%s</div>'
         '%s'
         '<h2>Evaluate the swarm</h2><div id="evalwrap">%s</div>'
-        '<h2>Pretrain</h2><div id="prewrap">%s</div>'
+        # (no Pretrain card: an adapter is made for a slot and tried by training, and is shown with the arrangement, below)
         '<h2 id="arrangement">Train</h2>%s'
-        % (e(busy_with()), whole_block(d), '<div id="memwrap">%s</div>' % memory_card(d), eval_block(d), pretrain_block(d), arrangement(d))
+        % (e(busy_with()), whole_block(d), '<div id="memwrap">%s</div>' % memory_card(d), eval_block(d), arrangement(d))
     )
 
 
@@ -6153,8 +6175,8 @@ class Handler(BaseHTTPRequestHandler):
             why = engine_update_start(ARGS.root, asked.get("id") if isinstance(asked, dict) else None)
             return self._send(why, 409, "text/plain; charset=utf-8") if why else self._send("started", 200, "text/plain; charset=utf-8")
         if path in ("/whole/start", "/whole/stop"):
-            # THE WHOLE RUN (training/run.sh): the size of its three evaluations, one of the sizes the Evaluate card offers, and
-            # whether the arrangement is trained. Stop ends the step it is in, and the models that step started
+            # THE WHOLE RUN (training/run.sh): the size of its evaluations, one of the sizes the Evaluate card offers. Stop ends
+            # the step it is in, and the models that step started
             if path == "/whole/stop":
                 stop_job("whole")
                 return self._send(whole_block(data.load(ARGS.root)))
@@ -6165,7 +6187,8 @@ class Handler(BaseHTTPRequestHandler):
             limit = asked.get("limit") if isinstance(asked, dict) else None
             if limit not in [n for n, _ in EVAL_SIZES if n != 0]:
                 return self._send("Choose how many questions of each task.", 400, "text/plain; charset=utf-8")
-            train = "classes" if not isinstance(asked, dict) or asked.get("train", True) else "off"
+            # (a run from the page always trains: training/run.sh --train off is still there for a terminal)
+            train = "classes"
             argv = ["bash", "training/run.sh"] + (["--proof"] if limit == PROOF_SIZE else ["--limit", str(limit)]) + ["--train", train]
             why = start_job("whole", argv, {"limit": limit, "train": train})
             if why:

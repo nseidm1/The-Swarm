@@ -349,7 +349,75 @@ const pyWrite = (group) => (t, i) => {
           shown.join('\n');
   return { ask, type: 'code', lang: 'python', name: f.name, pyName: name, inputs: f.inputs, ok: f.ok };
 };
-export const PY_KINDS = Object.fromEntries(GROUPS.map((g) => [g.replace(/^write-/, 'py-'), pyWrite(g)]));
+// TASKS THE LARGER MODEL WROTE (py-wide; training/wide.mjs). The families above are eleven, written here: an adapter taught
+// them learns eleven kinds of function. The larger model is asked for many small Python tasks of many sorts, each with calls
+// to try it by; it solves each twice, asked two ways, and a task is kept where its two solutions run and give the same on
+// every call. What they gave is the task's standard. The first, third, fifth ... are train questions and the others held.
+// Where none has been written (a machine that has not run wide.mjs, the checks), the kind asks a family's question.
+let WIDE = [];
+const wideOk = (w) =>
+  w &&
+  /^[a-z_][a-z0-9_]*$/.test(String(w.name || '')) &&
+  typeof w.does === 'string' &&
+  Array.isArray(w.calls) &&
+  Array.isArray(w.expected) &&
+  w.calls.length === w.expected.length &&
+  w.calls.length >= 3;
+export const setWide = (list) => {
+  WIDE = Array.isArray(list) ? list.filter(wideOk) : [];
+};
+export const wideOf = () => WIDE;
+// the three ways a function is asked for, for a task that is a name, its arguments, what it does and tests to show
+export const pyAskOf = (i, name, args, does, shown) =>
+  i % 3 === 0 || !shown.length
+    ? 'Write a Python function `' + name + '(' + args + ')` that ' + does + ' Give the function in one code block.'
+    : i % 3 === 1
+      ? 'Write a solution to the following problem. Give the whole function in one code block.\n```python\ndef ' +
+        name +
+        '(' +
+        args +
+        '):\n    """' +
+        does.replace(/^./, (c) => c.toUpperCase()) +
+        '"""\n```'
+      : 'Here is your task: write a Python function `' +
+        name +
+        '(' +
+        args +
+        ')` that ' +
+        does +
+        ' Your code should pass these tests:\n\n' +
+        shown.join('\n');
+const pyWide = (t, i) => {
+  const mine = WIDE.filter((_, k) => (t.split === 'train' ? k % 2 === 0 : k % 2 === 1));
+  if (!mine.length) return pyWrite(GROUPS[i % GROUPS.length])(t, i);
+  const w = mine[i % mine.length];
+  const shown = w.calls
+    .map((c, k) => (w.expected[k] && w.expected[k].v !== undefined ? [c, w.expected[k].v] : null))
+    .filter(Boolean)
+    .slice(0, 3)
+    .map(([c, v]) => {
+      try {
+        return 'assert ' + c + ' == ' + pyLit(JSON.parse(v));
+      } catch {
+        return '';
+      }
+    })
+    .filter(Boolean);
+  return {
+    ask: pyAskOf(i, w.name, w.args || '', w.does, shown),
+    type: 'code',
+    lang: 'python',
+    name: w.name,
+    pyName: w.name,
+    calls: w.calls,
+    expected: w.expected,
+    inputs: w.calls,
+  };
+};
+export const PY_KINDS = {
+  ...Object.fromEntries(GROUPS.map((g) => [g.replace(/^write-/, 'py-'), pyWrite(g)])),
+  'py-wide': pyWide,
+};
 export const CODE_KINDS = {
   ...Object.fromEntries(GROUPS.map((g) => [g, write(g)])),
   // a function with one flaw, and what it should do: give it back corrected

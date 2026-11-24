@@ -142,7 +142,9 @@ def machine():
     return out
 
 
-COMPARE_VARIANTS = [("base", "As configured"), ("pretrained", "Pretrained"), ("trained", "Pretrained and trained")]
+# (two evaluations: the module as configured, which is the baseline every figure is read against, and the module as trained.
+# Pretraining is no stage of its own and has no figure of its own; a record of one from before is not shown)
+COMPARE_VARIANTS = [("base", "As configured"), ("trained", "Trained")]
 
 
 def paired_of(a, b):
@@ -883,6 +885,33 @@ def _sha256(path):
                 h.update(chunk)
         _SHA[key] = h.hexdigest()
     return _SHA[key]
+
+
+def mixture_of(d):
+    """THE MIXTURE OF ADAPTERS, as the page shows it with the arrangement: the adapters there are for this lineup's small model
+    (training/mixture.mjs writes mix.json beside the model's adapters), the newest for each slot, and which slots of which
+    class of input carry one (the arrangement names it: slot.adapter). -> {"made": [{name, slot, examples, own, larger, kinds}],
+    "carried": [(class or "every class", slot, name)]}"""
+    root = Path(d["root"])
+    orig = (_json(root / "training" / "originals.json", {}) or {}).get("models", {})
+    tid = str((d.get("target") or {}).get("id", ""))
+    newest = {}
+    for m in (d.get("members") or {}).values():
+        if not m:
+            continue
+        o = orig.get(m.get("file")) or {}
+        rec = (_json(root / ".work" / "library" / "adapters" / tid / (o.get("dir") or m.get("file", "")) / "mix.json", None) or {}).get("adapters") or {}
+        for name, a in rec.items():
+            if not a or not a.get("slot") or not Path(str(a.get("gguf") or "")).is_file():
+                continue
+            had = newest.get(a["slot"])
+            if not had or str(a.get("at", "")) > str(had.get("at", "")):
+                newest[a["slot"]] = dict(a, name=name)
+    br = d.get("briefs") or {}
+    carried = [("every class", s_.get("id"), s_.get("adapter")) for s_ in (br.get("slots") or []) if s_.get("adapter") and s_.get("adapter") != "none"]
+    for cls, c in (br.get("kinds") or {}).items():
+        carried += [(cls, s_.get("id"), s_.get("adapter")) for s_ in ((c or {}).get("slots") or []) if s_.get("adapter") and s_.get("adapter") != "none"]
+    return {"made": [newest[k] for k in sorted(newest)], "carried": carried}
 
 
 def spec_adapters(d):

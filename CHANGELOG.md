@@ -6,14 +6,20 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The page shows what training decides, and asks for none of it** (2026-11-24). Run has no box for whether the
+  arrangement is trained: it always is, and a change that does not better the module is not kept. Evaluate has no box
+  for "the arrangement it started from" and sets two evaluations side by side, not three: the module as configured,
+  which is the baseline, and trained. The Pretrain card and the configuration's box for adapters are gone; the
+  adapters are shown under Train, with the arrangement they are part of: which there are, and which slots carry one.
 - **Training asks for Python too** (2026-11-23). Every code question training made asked for JavaScript, and what a
   module is asked for elsewhere is mostly Python. Adapters taught on those questions gained 24 points on them, were
   kept by training, and took the module from 21 to 18 of 40 on two Python benchmarks; on held Python questions they
   took it from 21 to 11 of 48. The same families of function are now also asked for in Python (`py-arrays`,
   `py-strings`, `py-numbers`, `py-parsing`), three ways in turn: plainly, as a function with a docstring to complete,
   and as a task with tests it should pass. The answer is run in Python and marked against the family's own function.
-  Adapters taught these as well took the module from 21 to 33 of 48 on held Python questions. The new kinds stand last
-  of all, so that no question asked before them changed.
+  Adapters taught these as well took the module from 21 to 33 of 48 on held Python questions, were kept by training,
+  and read 75 of 200 on the two benchmarks at 100 questions each against 95 without: they were taken off. The new
+  kinds stand last of all, so that no question asked before them changed.
 - **A kind that falls refuses a change only beyond chance** (2026-11-23). A change was refused where any one kind of
   question fell by more than twice its own error. A class has five to twenty-two kinds, and among so many one falls so
   by chance: an adapter on each drafter gained 21.7 points on held code questions (error 7.8) and was refused for one

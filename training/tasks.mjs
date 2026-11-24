@@ -665,6 +665,7 @@ export function tasks({
           lang: 'python',
           inputs: made.inputs,
           ok: made.ok,
+          ...(made.calls ? { calls: made.calls, expected: made.expected } : {}),
           equivalent: (refReply, reply) => pyEquivalent(refReply, reply, made, { lit: pyLit }),
           good: async (reply) => {
             const g = await pyEquivalent('', reply, made, { refIsOk: true, lit: pyLit });

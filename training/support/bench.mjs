@@ -16,6 +16,7 @@ import { note, checkpoint, briefKey } from './recover.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { attachMember, startMember } from '../../src/members.mjs';
 import { tasks, kindsFor, readOwn, CODE_KIND_NAMES, reworded } from '../tasks.mjs';
+import { setWide } from '../tasks-code.mjs';
 import { againstStandard } from './standard.mjs';
 import { readerOk, readerMark, READER_FILE } from './reader-file.mjs';
 import { readState, targetOf } from '../state.mjs';
@@ -75,7 +76,17 @@ const shownByPolicy = () => {
   }
 };
 // the questions of this pass: made from the seeds the last pass left, with more of the kinds it found the swarm trailing on
+// (the Python tasks the larger model wrote for this target, where it has: training/wide.mjs; the kind py-wide asks them)
+export const wideFile = () => path.join(REPO_ROOT, '.work', 'library', 'wide', targetOf().id, 'python.json');
+const loadWide = () => {
+  try {
+    setWide(JSON.parse(fs.readFileSync(wideFile(), 'utf8')).tasks);
+  } catch {
+    setWide([]);
+  }
+};
 export const questions = (split, each = Number(arg('each', 6))) => {
+  loadWide();
   const kinds = String(arg('kinds', '')).split(',').filter(Boolean);
   const state = readState();
   const of = (s) =>
