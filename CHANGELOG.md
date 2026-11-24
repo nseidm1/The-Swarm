@@ -6,6 +6,14 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A run that ends on an error says so, and what is being made ready is said** (2026-11-24). A press of Run a pass
+  came back to a button that could be pressed again and said nothing: the pass had ended in its first second on a
+  model that was not on the disk, and only a log knew. A conversation pass now first fetches what the lineup needs
+  (`training/converse.sh`: the engine and the small models), as the intelligence run does. A run that still ends on an
+  error keeps the error on its card and the page reads it out once in a snackbar at its foot; what the page cannot do
+  is said there too, where it was a browser alert. While an engine, a program of one or a model is fetched or
+  installed, the card of the run that waits for it and a bar at the foot of the page say which piece, what is being
+  done to it and how much has arrived.
 - **An evaluation's views open on the lineup configured now** (2026-11-24), evaluated or not: one with no evaluation
   says so and how to go on, and the box above still chooses another lineup's. They opened on the lineup evaluated most
   lately, which read as that one being configured. In the chart, each line of the list turns its point on and off,

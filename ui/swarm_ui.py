@@ -512,7 +512,13 @@ textarea{width:100%;min-height:80px;background:var(--soft);border:0;border-radiu
 .facts small{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--mist)}.facts b{font-size:16px;font-weight:800}
 .facts select{background:none;border:0;padding:0;font:inherit;font-size:16px;font-weight:800;color:var(--fog);width:100%;cursor:pointer}
 .state{display:flex;gap:8px;align-items:center;font-size:12.5px;font-weight:700;color:var(--mist)}.state i{width:8px;height:8px;border-radius:50%;background:var(--unsure);flex:none}
-.state.on{color:var(--teal)}.state.on i{background:var(--teal2);animation:p 1.2s infinite}.state.warn{color:#9a5b00}.state.warn i{background:var(--sun)}
+.state.on{color:var(--teal)}.state.on i{background:var(--teal2);animation:p 1.2s infinite}.state.warn{color:#9a5b00}.state.warn i{background:var(--sun)}.state.bad{color:#a3261c;align-items:flex-start}.state.bad i{background:#c8362a;margin-top:5px}
+#snack{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);max-width:min(640px,calc(100vw - 32px));background:#3a1512;color:#fff;border-left:4px solid #e2574c;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.45;box-shadow:0 10px 30px rgba(0,0,0,.35);display:flex;gap:12px;align-items:flex-start;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:9999}
+#readybar{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);max-width:min(640px,calc(100vw - 32px));background:#10302e;color:#fff;border-left:4px solid var(--teal2);border-radius:10px;
+padding:11px 14px;font-size:13px;line-height:1.45;box-shadow:0 10px 30px rgba(0,0,0,.3);display:flex;gap:10px;align-items:center;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:9998}
+#readybar.on{opacity:1;transform:translate(-50%,0)}#readybar i{width:8px;height:8px;border-radius:50%;background:var(--teal2);flex:none;animation:p 1.2s infinite}
+#snack.on~#readybar.on,body:has(#snack.on) #readybar.on{bottom:84px}
+#snack.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}#snack button{background:none;border:0;color:#ffd2cd;font-weight:700;cursor:pointer;font-size:13px;padding:0;flex:none}
 .panel.run{display:grid;gap:14px;padding:18px}.panel.run>*{margin:0}
 .run .meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--mist);font-weight:600}.run .meta b{color:var(--fog);font-weight:800}
 .run .sec{display:grid;gap:8px;padding-top:14px;border-top:1px solid var(--line2)}
@@ -616,15 +622,15 @@ document.addEventListener('click',async(ev)=>{
 // A MODEL CHOSEN: written down, and everything that depends on it drawn again in place
 document.addEventListener('change',async(ev)=>{const s=ev.target.closest('[data-pick]');if(!s)return;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({[s.dataset.pick]:s.value})});
-  if(r.ok){$('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');liveTick();}else{alert(await r.text());await swap('/fragment/picks','#picks');}});
+  if(r.ok){$('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');liveTick();}else{snack(await r.text());await swap('/fragment/picks','#picks');}});
 // ONE MODEL OR SEVERAL: the choice above the pills, saved as a pill's choice is
 document.addEventListener('click',async(ev)=>{const b=ev.target.closest('[data-mix]');if(!b||b.classList.contains('on'))return;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({mix:b.dataset.mix==='1'})});
-  if(r.ok){$('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');liveTick();}else alert(await r.text());});
+  if(r.ok){$('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');liveTick();}else snack(await r.text());});
 // TURNS WITH TOOLS: who takes an agent's turn, saved as a pill's choice is, and the row and the folded line drawn again in place
 document.addEventListener('click',async(ev)=>{const b=ev.target.closest('[data-tools]');if(!b||b.classList.contains('on'))return;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({tools:b.dataset.tools})});
-  if(!r.ok){alert(await r.text());return;}
+  if(!r.ok){snack(await r.text());return;}
   await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');});
 // THE ARRANGEMENT'S FACES: choosing one opens that slot's card below the row (what it is told, its record, what is being tried
 // on it); choosing it again closes it. The card is painted live like the faces, since it carries the same data-live.
@@ -666,17 +672,17 @@ document.addEventListener('click',async(ev)=>{
   const up=ev.target.closest('[data-engine-update]');
   if(up){up.disabled=true;
     const r=await fetch('/engine/update',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({id:up.dataset.engineUpdate})});
-    if(!r.ok){alert(await r.text());up.disabled=false;return;}
+    if(!r.ok){snack(await r.text());up.disabled=false;return;}
     engineWatch(up);return;}
   // TRAIN, FROM A RECOMMENDATION: the page's own Train button is pressed (what it starts, and when it may, are its own), and it is brought into view
   if(ev.target.closest('[data-rec-train]')){$('#recd').close();const g=$('#run-go');if(g){g.scrollIntoView({block:'center'});if(!g.disabled)g.click();}return;}
   const a=ev.target.closest('[data-rec-apply]');if(!a)return;a.disabled=true;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:a.dataset.recApply});
-  if(!r.ok){alert(await r.text());a.disabled=false;return;}
+  if(!r.ok){snack(await r.text());a.disabled=false;return;}
   $('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/recslot','#rec-slot');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');$('#recd').close();
 });
 // STEER IT: focus an area, queue or skip a move, choose any move; each choice written down and the plan drawn again in place
-const steerPost=async(body)=>{const r=await fetch('/steer',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify(body)});if(!r.ok){alert(await r.text());return false;}$('#plan').innerHTML=await r.text();keepOpen($('#plan'));return true;};
+const steerPost=async(body)=>{const r=await fetch('/steer',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify(body)});if(!r.ok){snack(await r.text());return false;}$('#plan').innerHTML=await r.text();keepOpen($('#plan'));return true;};
 document.addEventListener('click',async(ev)=>{
   const f=ev.target.closest('[data-steer-focus]');if(f){await steerPost({op:'focus',area:f.dataset.steerFocus,value:f.dataset.v});return;}
   const s=ev.target.closest('[data-steer]');if(s){s.disabled=true;const ok=await steerPost({op:s.dataset.steer,id:s.dataset.id});if(ok&&$('#steerd').open)await swap('/fragment/steer','#steerd-body');return;}
@@ -703,7 +709,7 @@ document.addEventListener('click',async(ev)=>{
   if(!confirm('Remove '+b.dataset.what+' ('+b.dataset.size+')? This cannot be undone.'+again))return;
   b.disabled=true;b.textContent='Removing';
   const r=await fetch('/uninstall',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({id:b.dataset.tidy})});
-  if(!r.ok){alert(await r.text());await swap('/fragment/tidy','#tidy-body');return;}
+  if(!r.ok){snack(await r.text());await swap('/fragment/tidy','#tidy-body');return;}
   $('#tidy-body').innerHTML=await r.text();
 });
 // THE QUESTIONS A PERSON WROTE FOR ONE BODY OF WORK: its button under the pills opens them; a row is added, changed or taken
@@ -718,7 +724,7 @@ document.addEventListener('click',async(ev)=>{
   if(ev.target.id==='qsave'){const b=ev.target;b.disabled=true;
     const questions=[...document.querySelectorAll('#qlist .qrow')].map(li=>({ask:li.querySelector('[data-q-ask]').value,mode:(li.querySelector('[data-q-mode]')||{}).value||undefined}));
     const r=await fetch('/questions',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({id:$('#qlist').dataset.target,questions})});
-    b.disabled=false;if(!r.ok){alert(await r.text());return;}
+    b.disabled=false;if(!r.ok){snack(await r.text());return;}
     $('#ownq').innerHTML=await r.text();$('#qedit').close();}
 });
 // THE SwOA SPEC: what the swarm module as it stands is, in one document
@@ -744,7 +750,7 @@ document.addEventListener('click',async ev=>{
   const u=ev.target.closest('#serve-url');if(u){try{await navigator.clipboard.writeText(u.textContent);const t=u.textContent;u.textContent='Copied';setTimeout(()=>{u.textContent=t;},900);}catch(e){}return;}
   const b=ev.target.closest('#serve-toggle');if(!b||b.disabled)return;b.disabled=true;
   const r=await fetch(b.dataset.on==='1'?'/serve/stop':'/serve/start',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:'{}'});
-  if(r.ok){$('#chips').innerHTML=await r.text();if($('#serve-toggle.starting'))serveWatch();}else{alert(await r.text());await swap('/fragment/chips','#chips');}
+  if(r.ok){$('#chips').innerHTML=await r.text();if($('#serve-toggle.starting'))serveWatch();}else{snack(await r.text());await swap('/fragment/chips','#chips');}
   // (the run cards wait while the module is served, and are free again the moment it stops: drawn again now, and once
   // more shortly after, since a stopped process takes a moment to be gone)
   const runs=async()=>{await swap('/fragment/whole','#wholewrap');await swap('/fragment/converse','#conversewrap');await swap('/fragment/chips','#chips');};
@@ -869,8 +875,26 @@ setInterval(async()=>{const going=$('#conversebox[data-running]')||$('#wholebox[
   if($('#score')&&!$('#score [data-running]'))await swap('/fragment/score','#score');
   try{const r=await fetch('/now/codes');if(r.ok){const on=new Set((await r.text()).split(',').filter(Boolean));
     document.querySelectorAll('#viz .vbox[data-code]').forEach(b=>{if(!b.dataset.part)b.classList.toggle('on',on.has(b.dataset.code));});}}catch(e){}},4000);
+// THE ERROR SNACKBAR: what the page could not do, or what a run ended on, said at the foot of the page until it is dismissed
+// (or for twelve seconds). It was a browser alert, and a run that ended on an error said nothing at all (2026-11-24)
+let snackT=0;function snack(text){let n=$('#snack');if(!n){n=document.createElement('div');n.id='snack';n.setAttribute('role','alert');
+  n.innerHTML='<span></span><button type="button" aria-label="Dismiss">Dismiss</button>';document.body.appendChild(n);
+  n.querySelector('button').addEventListener('click',()=>n.classList.remove('on'));}
+  n.querySelector('span').textContent=String(text||'It could not be done.');n.classList.add('on');clearTimeout(snackT);snackT=setTimeout(()=>n.classList.remove('on'),12000);}
+// (a card that says its run failed is read out once for that run; the line stays on the card)
+function failSeen(){try{return JSON.parse(sessionStorage.getItem('swarm.failed')||'[]');}catch(e){return [];}}
+function failWatch(first){document.querySelectorAll('[data-failed]').forEach(x=>{const seen=failSeen();if(seen.includes(x.dataset.failed))return;
+  seen.push(x.dataset.failed);try{sessionStorage.setItem('swarm.failed',JSON.stringify(seen.slice(-20)));}catch(e){}if(!first)snack(x.dataset.why);});}
+failWatch(true);setInterval(()=>failWatch(false),1500);
+// WHAT IS BEING FETCHED OR INSTALLED NOW (/now/ready), at the foot of the page for as long as it lasts: an engine, a program of
+// one, a model. It is not an error and is not dismissed: it goes when the piece is ready
+async function readyWatch(){let t='';try{const r=await fetch('/now/ready');if(r.ok)t=await r.text();}catch(e){}
+  let n=$('#readybar');if(!t){if(n)n.classList.remove('on');return;}
+  if(!n){n=document.createElement('div');n.id='readybar';n.setAttribute('role','status');n.innerHTML='<i></i><span></span>';document.body.appendChild(n);}
+  n.querySelector('span').textContent=t;n.classList.add('on');}
+readyWatch();setInterval(readyWatch,3000);
 async function evPost(url,into,body){const r=await fetch(url,{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify(body||{})});
-  if(!r.ok){alert(await r.text());evAsk();return;}$(into).innerHTML=await r.text();keepOpen($(into));evAsk();}
+  if(!r.ok){snack(await r.text());evAsk();return;}$(into).innerHTML=await r.text();keepOpen($(into));evAsk();}
 // WHICH BODIES OF WORK AN EVALUATION ASKS: every one to begin with; a person unticks some for a quicker look, and the device keeps
 // which. It is a choice for one run, not a setting of the swarm: training asks every body of work whatever is ticked here. The
 // boxes are drawn ticked, and painted from what the device kept whenever the card is drawn again
@@ -2753,7 +2777,7 @@ def _ours(pid, marker):
 
 
 # what each kind of run this page starts is started as (start_run, start_job): looked for in the command line of its process
-RUN_MARKS = {"train": "training/session.sh", "eval": "training/evaluate.sh", "pretrain": ("training/adapters.mjs", "training/mixture.mjs"), "whole": "training/run.sh"}
+RUN_MARKS = {"train": "training/session.sh", "eval": "training/evaluate.sh", "pretrain": ("training/adapters.mjs", "training/mixture.mjs"), "whole": "training/run.sh", "converse": "training/converse.sh"}
 
 
 def run_state():
@@ -3077,12 +3101,40 @@ def _making_ready(st):
     busy = [x for x in steps if x.get("state") != "ready"]
     if not busy:
         return ""
+    cls = "warn" if busy[0].get("state") == "failed" else "on"
+    return '<div class="state %s" data-ready="1"><i></i><span>%s</span></div>' % (cls, e(_ready_words(steps)))
+
+
+def _ready_words(steps):
+    """What is being made ready, in a sentence: how many pieces are ready, which one is being worked on, what is being done to it
+    (fetching, checking, installing) and how much of it has arrived. The engine and its programs are pieces as the models are."""
+    busy = [x for x in steps if x.get("state") != "ready"]
+    if not busy:
+        return ""
     x = busy[0]
     of = x.get("of") or 0
     got = (" · %.1f of %.1f GB" % (x.get("done", 0) / 2**30, of / 2**30)) if of and x.get("done") is not None else ""
-    cls = "warn" if x.get("state") == "failed" else "on"
-    return ('<div class="state %s"><i></i><span>Making ready: %d of %d pieces ready · %s%s</span></div>'
-            % (cls, len(steps) - len(busy), len(steps), e(x.get("what", "")), e(x.get("why") or got)))
+    doing = {"fetching": "fetching ", "checking": "checking ", "installing": "installing ", "failed": "failed: ", "missing": "missing: "}.get(x.get("state"), "")
+    note = (" (%s)" % x["note"]) if x.get("note") and not x.get("why") else ""
+    return "Making ready: %d of %d pieces ready · %s%s%s%s" % (len(steps) - len(busy), len(steps), doing, x.get("what", ""), (": " + x["why"]) if x.get("why") else got, note)
+
+
+def now_ready():
+    """WHAT IS BEING FETCHED OR INSTALLED THIS MOMENT, whatever started it (a run, an evaluation, a session, serving the module, a
+    terminal): the sentence of _ready_words while training/setup.mjs is alive and has a piece that is not ready; else ''. The
+    page says it at its foot, so that a press which first has an engine or a model to fetch is not a press that seems to do
+    nothing (console 2026-11-24)."""
+    try:
+        su = json.loads((Path(ARGS.root) / ".work" / "train" / "setup.json").read_text())
+    except (OSError, ValueError):
+        return ""
+    if time.time() * 1000 - su.get("at", 0) > 1800000:
+        return ""
+    try:
+        alive = subprocess.run(["pgrep", "-f", "training/setup.mjs"], capture_output=True, text=True, timeout=5).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        alive = ""
+    return _ready_words(su.get("steps", [])) if alive else ""
 
 
 def run_lines(cleared=""):
@@ -4497,7 +4549,14 @@ def _job_state(name):
         return None
     try:
         try:
-            if os.waitpid(st["pid"], os.WNOHANG)[0] == st["pid"]:
+            got, status = os.waitpid(st["pid"], os.WNOHANG)
+            if got == st["pid"]:
+                # (how it ended is kept beside it: a run that ended on an error says so on its card, job_failure)
+                st["exit"] = os.waitstatus_to_exitcode(status)
+                try:
+                    _job_file(name).write_text(json.dumps(st))
+                except OSError:
+                    pass
                 raise OSError("ended")
         except ChildProcessError:
             pass
@@ -4606,10 +4665,51 @@ def start_job(name, argv, keep=None):
     return ""
 
 
+def job_failure(name):
+    """WHY A RUN THIS PAGE STARTED ENDED WITHOUT DOING ITS WORK, in its own words, or '' (it runs, it finished, or a person
+    stopped it). A press of Run a pass once came back to a button that could be pressed again and said nothing: the pass had
+    ended in its first second on a model that was not on the disk, and only its log knew (2026-11-24). The sentence is the
+    last error the run wrote; where it wrote none and ended badly, its last line."""
+    st = _job_state(name)
+    if not st or st.get("running") or st.get("stopped") or st.get("exit") == 0:
+        return ""
+    try:
+        with open(Path(ARGS.root) / ".work" / name / "ui-run.log", "rb") as f:
+            f.seek(0, 2)
+            f.seek(max(0, f.tell() - 6000))
+            lines = [x.strip() for x in f.read().decode("utf-8", "replace").splitlines() if x.strip()]
+    except OSError:
+        lines = []
+    said = [m.group(1) for m in (re.match(r"^(?:[A-Za-z]*Error|failed\s+\S.*?|NOT READY): *(.+)$", x) for x in lines) if m]
+    failed = [x for x in lines if x.startswith("failed ")]
+    if failed:
+        return re.sub(r"^failed\s+", "", failed[-1])[:400]
+    if said:
+        return said[-1][:400]
+    if st.get("exit") is None:
+        return ""  # (how it ended is not known, and it wrote no error: nothing is claimed)
+    return (lines[-1] if lines else "It ended early and wrote nothing (exit %s)." % st.get("exit"))[:400]
+
+
+def failed_line(name, what):
+    """The line a card draws for job_failure, and what the page's snackbar reads (data-failed: once for each run)."""
+    why = job_failure(name)
+    if not why:
+        return ""
+    st = _job_state(name) or {}
+    return ('<div class="state bad" data-failed="%s" data-why="%s"><i></i><span>%s did not run: %s</span></div>'
+            % (e("%s %s" % (name, st.get("at", ""))), e("%s did not run: %s" % (what, why)), e(what), e(why)))
+
+
 def stop_job(name):
     st = job_state(name)
     if not (st and st["running"]):
         return
+    # (a run a person stopped did not fail: its card does not say it did)
+    try:
+        _job_file(name).write_text(json.dumps(dict({k: v for k, v in st.items() if k not in ("running", "adopted")}, stopped=True)))
+    except OSError:
+        pass
     if st.get("adopted"):
         # (a run started from a shell is in that shell's group, not one of its own: it is told to stop, and so is everything it
         # started, which a group would have told for us. Found before the first signal, while each still names its parent)
@@ -5936,6 +6036,7 @@ def whole_block(d):
     # (the head every card has: the figure and what it is, what the card does, its controls. A run that waits for something
     # else says so in a line of its own under the head, as Pretrain and Train do)
     waits = ('<div class="state warn"><i></i><span>%s is running: the run waits for it.</span></div>' % e(held[0].upper() + held[1:])) if held and held != "the run" and not running else ""
+    waits += _making_ready(st) if running else failed_line("whole", "The run")
     return ('<div class="panel prep wholep" id="wholebox"%s><div class="proghead"><span class="memnum"><b class="pct">%d</b><span>of 4 steps<small>%s</small></span></span>'
             '<span class="progline">One run, two figures: the module as configured is evaluated, which is the baseline; it is trained (pure code, adapters, breakdown, cascade, slots and models, arrangement); and it is evaluated again, '
             'on the same questions. Stop is safe at any step; Start carries on from the step it stopped in.</span><span class="evctl">%s</span></div>%s<ol class="wsl">%s</ol></div>'
@@ -5983,6 +6084,8 @@ def converse_block(d):
                       (" · left for the next: %s" % e(", ".join("%s +%s" % kv for kv in (h.get("next") or {}).items()))) if h.get("next") else "")
                    for i, h in enumerate(hist[-6:]))
     waits = ('<div class="state warn"><i></i><span>%s is running: a pass waits for it.</span></div>' % e(held[0].upper() + held[1:])) if held and held != "a conversation pass" and not running else ""
+    # (what the lineup needs is fetched first, and the card says how far that is; a pass that ended on an error says why)
+    waits += (_making_ready(st) if running else failed_line("converse", "The conversation pass"))
     return ('<div class="panel prep wholep" id="conversebox"%s><div class="proghead"><span class="memnum"><b class="pct">%s</b><span>held conversations<small>%s</small></span></span>'
             '<span class="progline">One press is one pass: made-up people write over several turns, each reply is read by code against the conventions of that conversation, '
             'and a change is kept only where held conversations gain. Each pass asks more of what the last was short on. No benchmark is asked.%s</span><span class="evctl">%s</span></div>%s%s</div>'
@@ -6306,6 +6409,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(whole_block(d))
         if u.path == "/fragment/converse":
             return self._send(converse_block(d))
+        if u.path == "/now/ready":
+            return self._send(now_ready(), 200, "text/plain; charset=utf-8")
         if u.path == "/now/codes":
             return self._send(",".join(sorted(now_codes(d))), 200, "text/plain; charset=utf-8")
         if u.path == "/fragment/trainq":
@@ -6387,8 +6492,7 @@ class Handler(BaseHTTPRequestHandler):
                 time.sleep(0.3)
                 return self._send(converse_block(data.load(ARGS.root)))
             key = str(data.load(ARGS.root).get("key", ""))
-            why = start_job("converse", [node_for_training(), "training/classes.mjs", "--only", "talk", "--kinds", CHAT_KINDS, "--figures",
-                                         "--out", str(Path("training") / "results" / key / "conversation.json")])
+            why = start_job("converse", ["bash", "training/converse.sh", CHAT_KINDS, str(Path("training") / "results" / key / "conversation.json")])
             if why:
                 return self._send(why, 409, "text/plain; charset=utf-8")
             return self._send(converse_block(data.load(ARGS.root)))

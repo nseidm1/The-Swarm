@@ -2294,7 +2294,7 @@ check("the conversation run is a card of its own under Run, apart from the intel
       and "held 77% &rarr; 85% · kept: manners: a closing that only offers more help is taken off · left for the next: chat-thanks +2" in _cv1
       and "held 85% &rarr; 85% · nothing kept" in _cv1
       and "disabled" in _cv2 and "The module being served is running: a pass waits for it." in _cv2
-      and '"/converse/start", "/converse/stop"' in _cvsrc and '("converse", "a conversation pass")' in _cvsrc and '"--only", "talk"' in _cvsrc and '"--figures"' in _cvsrc
+      and '"/converse/start", "/converse/stop"' in _cvsrc and '("converse", "a conversation pass")' in _cvsrc and '"training/converse.sh", CHAT_KINDS' in _cvsrc and "--only talk" in (_HERE / "training" / "converse.sh").read_text() and "setup.mjs --small" in (_HERE / "training" / "converse.sh").read_text()
       and "conversation.json" in _cvsrc and 'id="conversewrap"' in swarm_ui.main_body(_cvd) and "/converse/start" in swarm_ui.JS
       and all(k in swarm_ui.CHAT_KINDS.split(",") for k in ("chat-terse", "chat-doubt", "chat-reason", "chat-code")) and len(swarm_ui.CHAT_KINDS.split(",")) == 13,
       [_cv0[:200], _cv1[-400:]])
@@ -2564,6 +2564,46 @@ check("the adapters are shown with the arrangement, not in a card or a setting o
       and _mx_on["carried"] == [("code", "a-direct", "a-direct@2")] and "<b>code</b>: a-direct carries a-direct@2" in _line_on and "each request is served with the adapter its slot carries" in _line_on
       and 'id="adline"' in _page4 and "<h2>Pretrain</h2>" not in _page4 and swarm_ui.adapters_line(dict(_sd4, briefs={"slots": []}, members={})) == "",
       [_mx_none, _line_on[:300]])
+
+# A RUN THAT ENDED ON AN ERROR SAYS SO, AND WHAT IS BEING MADE READY IS SAID (console 2026-11-24)
+_fj_root = Path(tempfile.mkdtemp(prefix="swarm-check-failed-"))
+(_fj_root / ".work" / "converse").mkdir(parents=True)
+(_fj_root / ".work" / "train").mkdir(parents=True)
+_fj_was = (swarm_ui.ARGS.root, swarm_ui._job_state)
+swarm_ui.ARGS.root = str(_fj_root)
+swarm_ui._job_state = _fj_was[1].__wrapped__ if hasattr(_fj_was[1], "__wrapped__") else swarm_ui._job_state
+_fj_log = _fj_root / ".work" / "converse" / "ui-run.log"
+_fj_log.write_text("No decision model.\n      throw new Error(r.why);\n\nError: Bonsai 2.5 27B is not here (x.gguf). Fetch it first.\n    at createSwarm (file:///x)\n\nNode.js v22.23.3\n")
+_fj = lambda st: (setattr(swarm_ui, "_job_state", lambda name: dict(st) if name == "converse" else None), swarm_ui.job_failure("converse"), swarm_ui.failed_line("converse", "The conversation pass"))[1:]  # noqa: E731
+_fj_bad = _fj({"pid": 1, "at": "2026-11-24 16:59:37", "running": False, "exit": 1})
+_fj_unknown = _fj({"pid": 1, "at": "2026-11-24 16:59:37", "running": False})
+_fj_stopped = _fj({"pid": 1, "at": "x", "running": False, "exit": -15, "stopped": True})
+_fj_ok = _fj({"pid": 1, "at": "x", "running": False, "exit": 0})
+_fj_run = _fj({"pid": 1, "at": "x", "running": True})
+_fj_log.write_text("ready    The engine\nfailed   Small model 1 (Bonsai 2.5 27B): no room on the disk\nNOT READY: what the lineup needs could not be made ready. No pass was run.\n")
+_fj_setup = _fj({"pid": 1, "at": "x", "running": False, "exit": 1})
+_fj_log.write_text("something odd\n")
+_fj_last = _fj({"pid": 1, "at": "x", "running": False, "exit": 3})
+_fj_none = _fj({"pid": 1, "at": "x", "running": False})
+_rw = swarm_ui._ready_words
+_rw1 = _rw([{"what": "The engine (llama.cpp)", "state": "ready"}, {"what": "Small model 1 (Bonsai 2.5 27B)", "state": "fetching", "done": 2 * 2**30, "of": 7 * 2**30}])
+_rw2 = _rw([{"what": "The engine (llama.cpp)", "state": "installing", "note": "its maker's installer: brew"}])
+_rw3 = _rw([{"what": "The engine", "state": "ready"}])
+(_fj_root / ".work" / "train" / "setup.json").write_text(json.dumps({"at": time.time() * 1000, "steps": [{"what": "The engine", "state": "fetching"}]}))
+_nr_idle = swarm_ui.now_ready()
+swarm_ui.ARGS.root, swarm_ui._job_state = _fj_was
+_fsrc = Path(swarm_ui.__file__).read_text()
+check("a run that ended on an error says so: its card carries the run's own last error in a line that stays, and the page reads it out once in a snackbar at its foot (it was nothing at all: the button came back and only a log knew); "
+      "a run that finished, runs, or was stopped by a person says no such thing, and neither does one whose ending is not known and that wrote no error; what the page cannot do is said in the snackbar and not in a browser alert; "
+      "and what is being fetched or installed (an engine, a model) is said on the card of the run that waits for it and at the foot of the page, with what is being done to which piece and how much has arrived, only while it is being made ready",
+      _fj_bad[0] == "Bonsai 2.5 27B is not here (x.gguf). Fetch it first." and 'class="state bad"' in _fj_bad[1] and 'data-failed="converse 2026-11-24 16:59:37"' in _fj_bad[1] and "The conversation pass did not run: Bonsai" in _fj_bad[1]
+      and _fj_unknown[0] == _fj_bad[0] and _fj_stopped == ("", "") and _fj_ok == ("", "") and _fj_run == ("", "")
+      and _fj_setup[0] == "Small model 1 (Bonsai 2.5 27B): no room on the disk" and _fj_last[0] == "something odd" and _fj_none == ("", "")
+      and "alert(" not in swarm_ui.JS and "function snack(" in swarm_ui.JS and "failWatch" in swarm_ui.JS and "/now/ready" in swarm_ui.JS and "#snack" in swarm_ui.CSS and "#readybar" in swarm_ui.CSS
+      and _rw1 == "Making ready: 1 of 2 pieces ready · fetching Small model 1 (Bonsai 2.5 27B) · 2.0 of 7.0 GB" and _rw2.startswith("Making ready: 0 of 1 pieces ready · installing The engine (llama.cpp) (its maker") and _rw3 == ""
+      and _nr_idle == "" and 'u.path == "/now/ready"' in _fsrc and "stopped=True" in _fsrc and '"converse": "training/converse.sh"' in _fsrc
+      and '_making_ready(st) if running else failed_line("converse"' in _fsrc and '_making_ready(st) if running else failed_line("whole"' in _fsrc,
+      [_fj_bad, _fj_unknown, _fj_stopped, _fj_setup, _fj_last, _fj_none, _rw1, _rw2, _nr_idle])
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)
