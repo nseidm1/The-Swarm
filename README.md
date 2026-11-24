@@ -168,6 +168,9 @@ of these is tried as a change and kept only where held questions, never trained 
   puts it there.
 - **Instruments**: where a class of input holds operations code does exactly, that instrument is turned on. None is on
   as a module starts.
+- **Written code**: for a kind of question a class is short on, a model of the swarm is asked for a function that
+  works the answer out from the question. It is run on training questions it was not shown and refused on one wrong
+  answer; one that passes is tried like any other change. None is on as a module starts.
 - **How many slots and models**: a slot added, dropped or moved to another model; every slot on one model.
 - **Breakdown and cascade**: code takes the question apart, with no model asked. Every drafter is sent it with each
   thing it states on a numbered line, or one slot works it a fact at a time while code carries what was worked out.

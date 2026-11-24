@@ -12473,6 +12473,150 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+{
+  // TRAINING WRITES CODE (training/write-code.mjs, src/written.mjs, arrange.mjs writtenMoves)
+  const W = await import('../src/written.mjs');
+  const WC = await import('../training/write-code.mjs');
+  const AR = await import('../training/arrange.mjs');
+  const CL = await import('../training/classes.mjs');
+  const { startBriefs } = await import('../src/index.mjs');
+  const { answer: orchestrate } = await import('../src/orchestrate.mjs');
+  const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const dayQ = (d, n) => ({
+    kind: 'day',
+    ask: 'Today is ' + DAYS[d] + '. What day of the week will it be ' + n + ' days from now?',
+    want: DAYS[(d + n) % 7],
+    good: async (r) => ({ grade: String(r).trim() === DAYS[(d + n) % 7] ? 'right' : 'wrong' }),
+  });
+  const own = [dayQ(3, 179), dayQ(2, 81), dayQ(3, 128), dayQ(4, 194), dayQ(0, 15), dayQ(6, 44)];
+  const others = [
+    {
+      kind: 'lies',
+      ask: 'Gia tells the truth. Dev says Gia lies. Does Dev tell the truth?',
+      want: 'No',
+      good: async (r) => ({ grade: r === 'No' ? 'right' : 'wrong' }),
+    },
+    {
+      kind: 'chain',
+      ask: 'Start with 3. Add 4. What number do you have?',
+      want: 7,
+      good: async (r) => ({ grade: r === '7' ? 'right' : 'wrong' }),
+    },
+  ];
+  const real =
+    'function answer(q){const m=/Today is (\\w+)\\. What day of the week will it be (\\d+) days from now\\?/.exec(q);if(!m)return null;' +
+    'const d=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];const i=d.indexOf(m[1]);if(i<0)return null;return d[(i+Number(m[2]))%7];}';
+  const byHeart =
+    'function answer(q){const k={' +
+    own
+      .slice(0, 3)
+      .map((t) => JSON.stringify(t.ask) + ':' + JSON.stringify(t.want))
+      .join(',') +
+    '};return k[q]||null;}';
+  const guess = 'function answer(q){return "Monday";}';
+  const greedy = 'function answer(q){return /truth/.test(q) ? "Yes" : null;}';
+  const fence = (c) => 'Here it is.\n```js\n' + c + '\n```';
+  const replies = [fence(guess), 'I cannot.', fence(byHeart), fence(real)];
+  const asks = [];
+  const got = await WC.writeFor('day', own, others, async (m) => (asks.push(m), replies[asks.length - 1]), {
+    tries: 4,
+  });
+  const never = await WC.writeFor('day', own, others, async () => fence(guess), { tries: 2 });
+  const vGreedy = await WC.vet(greedy, { seen: own.slice(0, 3), unseen: own.slice(3), others });
+  const few = await WC.writeFor('day', own.slice(0, 3), others, async () => fence(real));
+  const asked = [];
+  const base = startBriefs();
+  const moves = AR.writtenMoves(base, [{ id: 'day@1', kind: 'day', code: real }]);
+  const withIt = moves[0].briefs;
+  const done = await orchestrate([{ role: 'user', content: 'Q: ' + own[4].ask + '\nA:' }], {
+    briefs: withIt,
+    ask: async (slot) => (asked.push(slot.id), { text: 'ANSWER: no' }),
+  });
+  const n0 = asked.length;
+  const other = await orchestrate([{ role: 'user', content: 'What is the capital of France?' }], {
+    briefs: withIt,
+    ask: async (slot) => (asked.push(slot.id), { text: 'ANSWER: Paris' }),
+  });
+  const hostile = await W.writtenFor('x', [
+    { id: 'loop', code: 'function answer(q){while(true){}}' },
+    { id: 'throws', code: 'function answer(q){throw new Error("no")}' },
+    {
+      id: 'reach',
+      code: 'function answer(q){return typeof process==="undefined"&&typeof require==="undefined"&&typeof fetch==="undefined"?"sealed":"open"}',
+    },
+  ]);
+  const rows = [
+    ...own.map((t, i) => ({ kind: t.kind, counted: i > 3 })),
+    { kind: 'lies', counted: true },
+    { kind: 'chain', counted: false },
+  ];
+  check(
+    "training writes code, and none of it is trusted: for a kind of question a class is short on, a model is asked for one function that works the answer out from the question, shown some of training's questions of that kind with their right answers; what comes back is run where it can reach nothing, on questions of the kind it was NOT shown and on the class's other questions, and is refused on one wrong answer anywhere, on answering too few of the unseen ones, or on holding only the answers it was shown; refused, it is told why on what it was shown alone and asked again, a few times; one that passes is a move like any other, the class's arrangement with that function asked before any model, which leaves every draft as it was; the module then answers such a question by that code with no model asked, closing the reply as the conversation shows, and every other question goes on as it would have; a function that never ends, throws, or reaches for the process gives nothing; none is on until training keeps one",
+    got.ok === true &&
+      got.code === real &&
+      got.shown === 3 &&
+      got.tries.length === 4 &&
+      /wrong answer to a question it was shown/.test(got.tries[0].why) &&
+      /no function called answer/.test(got.tries[1].why) &&
+      /answered 0 of 3 questions of this kind it had not been shown/.test(got.tries[2].why) &&
+      got.tries[3].ok === true &&
+      got.tries[3].right === 3 &&
+      !('failed' in got.tries[0]) &&
+      // (asked again with what it wrote and where it failed on what it was shown; an unseen question is never said)
+      asks[1].length === 4 &&
+      /It returned: Monday/.test(asks[1][3].content) &&
+      !own.slice(3).some((t) => asks.some((m) => m.some((x) => x.content.includes(t.ask)))) &&
+      asks[2].length === 2 &&
+      never.ok === false &&
+      never.tries.length === 2 &&
+      vGreedy.ok === false &&
+      /another kind/.test(vGreedy.why) &&
+      few.ok === false &&
+      /too few/.test(few.why) &&
+      WC.codeIn('```js\nconst answer = (q) => null;\n```') === 'const answer = (q) => null;' &&
+      WC.codeIn('```js\nfunction other(){}\n```') === '' &&
+      WC.codeIn('```js\nfunction answer(q){ return') === '' &&
+      WC.writable({ ask: 'a', want: 3, good: async () => ({}) }) &&
+      !WC.writable({ ask: 'a', want: 'b', good: async () => ({}), turns: [] }) &&
+      !WC.writable({ ask: 'a', good: async () => ({}) }) &&
+      JSON.stringify(WC.kindsShort(rows, [...own, ...others], 2)) ===
+        JSON.stringify([{ kind: 'day', wrong: 4, n: 6 }]) &&
+      WC.kindsShort(rows, [...own, ...others], 2, ['day']).length === 0 &&
+      moves.length === 1 &&
+      moves[0].name === AR.writtenName('day') &&
+      withIt.plan.written[0].id === 'day@1' &&
+      withIt.plan.written[0].code === real &&
+      AR.writtenMoves(withIt, [{ id: 'day@2', kind: 'day', code: real }]).length === 0 &&
+      CL.keepsDrafts(base, withIt) === true &&
+      CL.gapOfMove(moves[0].name) === 'none' &&
+      done.ok &&
+      done.path === 'written' &&
+      done.decided === 'Tuesday' &&
+      done.trace.length === 1 &&
+      done.trace[0].member === 'code' &&
+      done.written === 'day@1' &&
+      n0 === 0 &&
+      other.path !== 'written' &&
+      asked.length > 0 &&
+      hostile.id === 'reach' &&
+      hostile.answer === 'sealed' &&
+      W.answerOf({ v: 'null' }) === null &&
+      W.answerOf({ v: '"__undefined__"' }) === null &&
+      W.answerOf({ v: '42' }) === '42' &&
+      W.answerOf({ v: '["a"]' }) === null &&
+      W.answerOf({ e: true }) === null &&
+      W.writtenOn([{ id: 'a', code: 'x' }, { id: '', code: 'x' }, { id: 'b' }, null]).length === 1 &&
+      !('written' in (startBriefs().plan || {})),
+    {
+      got: got.tries.map((t) => t.why),
+      vGreedy: vGreedy.why,
+      done: [done.path, done.reply],
+      other: other.path,
+      hostile,
+    },
+  );
+}
+
 await swarm.stop();
 lfm.close();
 bonsai.close();

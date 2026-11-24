@@ -63,6 +63,7 @@ import {
 import { probeBriefFor, expectBriefFor, langOfQuestion, expectedIn, programOf } from './behave.mjs';
 import { answerPiece, setsRules, roomFor } from './piece.mjs';
 import { instrumentFor } from './instruments.mjs';
+import { writtenFor, writtenOn } from './written.mjs';
 
 // an answer as it is shown to another slot or to the person: code in a block of its own, anything else as it is
 const fenced = (final) => (isCode(final) ? '\n```\n' + final + '\n```' : ' ' + final);
@@ -502,6 +503,38 @@ async function answerWhole(
         ok: true,
         tried: null,
         instrument: it.id,
+      };
+    }
+  }
+  // CODE TRAINING WROTE (written.mjs; plan.written: the functions training kept for this class). Asked after the instruments
+  // and before any model: a function that reads the whole of what it needs gives the answer, and one that does not gives
+  // nothing and the question goes on as it would have. It runs where it can reach nothing (sandbox.mjs)
+  if (!wantsCode && writtenOn(plan.written).length) {
+    const it = await writtenFor(question, plan.written);
+    if (it) {
+      const form = plan.closeAs === 'shown' ? closingForm(talk.slice(0, -1)) : null;
+      const reply = form ? closedAs('', it.answer, form, question) : it.answer;
+      const row = {
+        slot: 'written',
+        member: 'code',
+        stage: 'run',
+        ms: Date.now() - t0,
+        out: 'The question is ' + it.name + '.',
+        final: it.answer,
+        ok: true,
+        written: it.id,
+      };
+      onStart({ slot: 'written', member: 'code', stage: 'run' });
+      onStep(row);
+      return {
+        reply: reply || it.answer,
+        decided: it.answer,
+        path: 'written',
+        ms: Date.now() - t0,
+        trace: [row],
+        ok: true,
+        tried: null,
+        written: it.id,
       };
     }
   }

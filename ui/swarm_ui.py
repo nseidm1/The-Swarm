@@ -1475,7 +1475,7 @@ def viz_block(d):
              + lane("R", "The run, in order", [rbox(i, x) for i, x in enumerate(steps_)])
              + lane("M", "A request, inside the module", [
                  box("M1", "", "Read · code", "Its class, from the request alone: with tools, a conversation, asking for code, a plain question."),
-                 box("M2", "", "Code first", "An operation code does exactly, where training turned that instrument on: done by code, no model asked. A search: a program of code that asks the module only to read."),
+                 box("M2", "", "Code first", "An operation code does exactly, where training turned that instrument on, or a kind of question training wrote and kept a function for: done by code, no model asked. A search: a program of code that asks the module only to read."),
                  box("M3", "", "Arrangement · models", "Otherwise the class's slots and flow: lane C. One small model holds several adapters at once, and each request is served with the one its slot carries, where training put one there. Or one slot alone, where training found that enough. Where training kept it, code first puts the question in numbered lines, or a slot works it one fact at a time."),
                  box("M4", "", "Form · code", "The reply laid out and closed as the conversation shows; code goes out as it was settled.")],
                  "To the program that uses it this is one chat model. M1 to M4 are its wiring, and the wiring is what training finds.")
@@ -1593,6 +1593,8 @@ def training_now(d):
     if g:
         out.append('<p class="small" style="margin:6px 0 0"><b>Where it falls short:</b> %d wrong as it stood: no slot had the answer %d, a slot had it and it was lost %d, the reply spoiled it %d. So %s.</p>'
                    % (g.get("wrong") or 0, g.get("none") or 0, g.get("lost") or 0, g.get("spoiled") or 0, GAP_WORDS.get(g.get("first"), "nothing was wrong, and the changes are tried in the policy&#39;s order")))
+    if R.get("written"):
+        out.append('<p class="small" style="margin:6px 0 0"><b>Code written this round:</b> %s.</p>' % written_words(R["written"]))
     if rounds:
         out.append('<p class="small" style="margin:6px 0 0"><b>This round:</b> %d of %d changes tried.</p><span class="prog" style="height:10px"><i class="eq" style="width:%.1f%%"></i></span>' % (len(cands), of, 100.0 * min(1.0, len(cands) / of)))
         top = sorted(cands, key=lambda c: -(c.get("gain") or 0))[:6]
@@ -1607,9 +1609,24 @@ def training_now(d):
     return "".join(out) + "</div>"
 
 
+def written_words(written):
+    """What a round's code writing came to, kind by kind (training/write-code.mjs): written and how it did on the questions it
+    was not shown, or that none passed and why. A function that passed is then tried as a change like any other."""
+    said = []
+    for w in written or []:
+        last = (w.get("tries") or [{}])[-1]
+        if w.get("ok"):
+            said.append("for <b>%s</b> (wrong on %d of %d), a function right on %d of %d questions it was not shown, in %d %s"
+                        % (e(w.get("kind", "")), w.get("wrong") or 0, w.get("of") or 0, last.get("right") or 0, last.get("n") or 0, len(w.get("tries") or []), "try" if len(w.get("tries") or []) == 1 else "tries"))
+        else:
+            said.append("for <b>%s</b> (wrong on %d of %d), none passed: %s" % (e(w.get("kind", "")), w.get("wrong") or 0, w.get("of") or 0, e(w.get("why") or "nothing was written")))
+    return "; ".join(said)
+
+
 # WHAT TRAINING CAN CHANGE, in the words the page uses: every one is tried as a change to the arrangement and kept only where
 # the held questions gain beyond their error (training/arrange.mjs steps, training/classes.mjs, training/keep.mjs)
 TRAINS = [("Pure code", "a kind of question that is an operation is done by code, no model asked"),
+          ("Written code", "for a kind of question the class is short on, a model of the swarm writes a function that works the answer out; it is run on questions it was not shown and refused on one wrong answer"),
           ("Adapters", "which slot carries the adapter made for it, on requests like what it was taught"),
           ("Breakdown", "the question put to the drafters with each thing it states on a numbered line"),
           ("Cascade", "a drafting slot works the question one fact at a time, code carrying what was worked out"),

@@ -97,6 +97,8 @@ const AFTER_DRAFTS = [
   // the ones it had, so these are tried every round. Left out of the sweep, and named by no pattern of the policy, they were
   // tried in no class of the first whole run)
   'instruments',
+  // (code training wrote: asked before any model, where it reads the question; every other question is drafted as it was)
+  'written',
   'plain',
   'pieceBy',
 ];
@@ -240,7 +242,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const { readBriefs, saveLearned } = await import('../src/index.mjs');
   const { briefsFor, classOf, CLASSES } = await import('../src/orchestrate.mjs');
   const { messagesOf, ownStandard } = await import('./tasks.mjs');
-  const { steps } = await import('./arrange.mjs');
+  const { steps, writtenMoves } = await import('./arrange.mjs');
+  const { kindsShort, writeFor, writable } = await import('./write-code.mjs');
   const policy = JSON.parse(fs.readFileSync(path.join(HERE, 'policy.json'), 'utf8'));
   const P = policy.classes || {};
   const { keepOf } = await import('./keep.mjs');
@@ -263,6 +266,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const OUT0 = B.arg('out') || path.join(B.RESULTS, 'classes.json');
   const GAPS = OUT0.replace(/\.json$/, '') + '-gaps.json';
   const HISTORY = OUT0.replace(/\.json$/, '') + '-history.jsonl';
+  // (the code training wrote, kept or not, with what each try came to: beside this stage's record, as the gaps are)
+  const WRITTEN = OUT0.replace(/\.json$/, '') + '-written.json';
   let lastGaps = null;
   try {
     lastGaps = JSON.parse(fs.readFileSync(GAPS, 'utf8'));
@@ -335,6 +340,17 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     kinds: { ...(on.kinds || {}), [K]: { slots: b.slots, plan: b.plan, flow: b.flow } },
   });
   const seed0 = Number(B.arg('seed', 1));
+  let writtenLog = [];
+  try {
+    writtenLog = JSON.parse(fs.readFileSync(WRITTEN, 'utf8')).written || [];
+  } catch {
+    writtenLog = [];
+  }
+  const saveWritten = () => {
+    fs.mkdirSync(path.dirname(WRITTEN), { recursive: true });
+    fs.writeFileSync(WRITTEN + '.tmp', JSON.stringify({ written: writtenLog.slice(-200) }, null, 1));
+    fs.renameSync(WRITTEN + '.tmp', WRITTEN);
+  };
   // THE MIXTURE'S ADAPTERS, as moves (arrange.mjs adapterMoves): the ones there are for this swarm's model, loaded and on no
   // slot until a move puts one there
   const { adapterDir } = await import('./adapters.mjs');
@@ -347,6 +363,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     ),
   ).map(({ name, slot }) => ({ name, slot }));
   const swarm = await B.openSwarm(stored, { seed: seed0, reuse: true, mix: mixture.length > 0 });
+  // (who writes code: the model in the swarm's first place, asked alone. The larger model as the writer is not built)
+  const writer = Object.keys(MEM0)[0];
+  const writerName = m0.name;
   // (what the swarm takes in memory, measured while this stage serves it: support/measure-memory.mjs watchMemory)
   const { watchMemory } = await import('./support/measure-memory.mjs');
   const { CONFIG_ID: MEM_CONFIG, footprintOf: memEstimate } = await import('../src/catalog.mjs');
@@ -442,6 +461,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         'class ' + K + ': ' + tr.length + ' train questions, ' + he.length + ' held, of ' + C.kinds.length + ' kinds',
       );
       let base = briefsFor(stored, '', K);
+      // (the functions written for this class in this pass that passed, and the kinds one was refused for: not asked twice)
+      const made = [];
+      const refused = [];
       let baseRows = await all(tr, asClass(K, base), said(K) + ': how the swarm stands');
       C.asItStands = figuresOf(baseRows);
       lastRows[K] = baseRows;
@@ -496,9 +518,65 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
           );
           if (g.gain > 0 && (!best || g.gain > best.g.gain)) best = { m, rows, g };
         };
+        // CODE IS WRITTEN FOR WHAT THE CLASS IS SHORT ON (write-code.mjs): for the kinds it was most wrong on, a model of
+        // the swarm is asked for a function, which is run on train questions it was not shown and refused on one wrong
+        // answer. What passes is a move of this round, tried with the rest and kept by the same rule. --no-write: none.
+        if (!B.has('no-write') && (P.writeKinds ?? 2) > 0) {
+          const codeable = tr.filter(writable);
+          const have = [
+            ...((base.plan || {}).written || []).map((w) => w.kind),
+            ...made.map((w) => w.kind),
+            ...refused,
+          ];
+          for (const k of kindsShort(baseRows, tr, P.writeKinds ?? 2, have)) {
+            const own = codeable.filter((t) => t.kind === k.kind);
+            const got = await writeFor(
+              k.kind,
+              own,
+              codeable.filter((t) => t.kind !== k.kind),
+              async (messages) => (await swarm.alone(writer, messages, { maxTokens: P.writeTokens ?? 1500 })).text,
+              {
+                tries: P.writeTries ?? 3,
+                cover: P.writeCover ?? 0.5,
+                say: (what) => B.live({ trainer: 'classes', step: said(K) + ': ' + what }),
+              },
+            );
+            const id = k.kind + '@' + record.pass;
+            (R.written = R.written || []).push({
+              kind: k.kind,
+              wrong: k.wrong,
+              of: k.n,
+              ok: got.ok,
+              why: got.why || '',
+              tries: got.tries,
+            });
+            writtenLog.push({ at: new Date().toISOString(), pass: record.pass, class: K, id, by: writerName, ...got });
+            saveWritten();
+            console.log(
+              '  code for "' +
+                k.kind +
+                '" (wrong on ' +
+                k.wrong +
+                ' of ' +
+                k.n +
+                '): ' +
+                (got.ok
+                  ? 'written, right on ' +
+                    got.tries[got.tries.length - 1].right +
+                    ' of ' +
+                    got.tries[got.tries.length - 1].n +
+                    ' it was not shown'
+                  : 'none kept (' + got.why + ')'),
+            );
+            if (got.ok) made.push({ id, kind: k.kind, code: got.code });
+            else refused.push(k.kind);
+            save();
+          }
+        }
         // (how many it has to try, for the page to say how far the stage has come: the round's, and one more for the two together)
+        const stepsWith = (b, o) => [...writtenMoves(b, made), ...steps(b, o)];
         const toTry = roundOf(
-          steps(base, { adapters: mixture, adapterLeast: P.adapterLeast ?? 0.9 }),
+          stepsWith(base, { adapters: mixture, adapterLeast: P.adapterLeast ?? 0.9 }),
           base,
           orderedFor(P.moves, gap),
           tries,
@@ -510,7 +588,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         save();
         for (const m of toTry) await tryOne(m);
         // (and the best two of the sweep together: two changes that each help may help more as one)
-        const both = togetherOf(scored, steps);
+        const both = togetherOf(scored, stepsWith);
         if (both) await tryOne(both);
         if (!best) {
           leanBy[K] = leanOf(scored, base);

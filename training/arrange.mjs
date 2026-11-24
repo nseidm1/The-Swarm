@@ -88,6 +88,34 @@ export function adapterMoves(b, adapters = [], least = null) {
   ];
 }
 // every arrangement one step from this one: [{ name, briefs }]
+// CODE TRAINING WROTE, AS MOVES (training/write-code.mjs: a function that was run on train questions it was not shown and
+// was wrong nowhere; src/written.mjs runs it). One move for each function the class does not have on yet: the class's
+// arrangement with that function asked before any model. It leaves every draft as it was, so it is tried for the cost of
+// the questions it answers. made: [{ id, kind, code }]
+export const writtenName = (kind) => 'code: a question of the kind "' + kind + '" is answered by code training wrote';
+export function writtenMoves(b, made = []) {
+  const on = Array.isArray((b.plan || {}).written) ? b.plan.written : [];
+  return (made || [])
+    .filter((w) => w && w.id && w.code && !on.some((x) => x.id === w.id || x.kind === w.kind))
+    .map((w) => ({
+      name: writtenName(w.kind),
+      briefs: {
+        ...b,
+        plan: {
+          ...b.plan,
+          written: [
+            ...on,
+            {
+              id: w.id,
+              kind: w.kind,
+              name: 'of the kind "' + w.kind + '", answered by code training wrote',
+              code: w.code,
+            },
+          ],
+        },
+      },
+    }));
+}
 export function steps(
   b,
   {

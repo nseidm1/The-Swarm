@@ -2605,5 +2605,12 @@ check("a run that ended on an error says so: its card carries the run's own last
       and '_making_ready(st) if running else failed_line("converse"' in _fsrc and '_making_ready(st) if running else failed_line("whole"' in _fsrc,
       [_fj_bad, _fj_unknown, _fj_stopped, _fj_setup, _fj_last, _fj_none, _rw1, _rw2, _nr_idle])
 
+_ww = swarm_ui.written_words([{"kind": "day", "wrong": 4, "of": 6, "ok": True, "tries": [{"ok": False, "why": "x"}, {"ok": True, "right": 3, "n": 3}]},
+                              {"kind": "li<es", "wrong": 2, "of": 6, "ok": False, "why": "it gave a wrong answer to a question it was shown", "tries": [{"ok": False}]}])
+check("code that training writes is said where training is said: among what training can change, in the picture's code-first box, and in the plan being carried out, which says for each kind a round wrote for whether a function passed (and on how many questions it was not shown) or that none did and why",
+      any(n == "Written code" for n, _ in swarm_ui.TRAINS) and "training wrote and kept a function for" in Path(swarm_ui.__file__).read_text()
+      and "for <b>day</b> (wrong on 4 of 6), a function right on 3 of 3 questions it was not shown, in 2 tries" in _ww and "for <b>li&lt;es</b> (wrong on 2 of 6), none passed: it gave a wrong answer" in _ww
+      and 'R.get("written")' in Path(swarm_ui.__file__).read_text(), _ww)
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

@@ -13,6 +13,18 @@ and keeps each only where held questions say it helped:
 - **instruments**: where a class of input holds operations code does exactly, the class stage turns that instrument
   on (`src/instruments.mjs`). None is on in a module as it starts. Training asks such operations in questions of its
   own (`training/tasks-exact.mjs`), so what an instrument is worth is measured before a benchmark sees it.
+- **written code**: the code itself is found by training (`training/write-code.mjs`). Each round, for the kinds of
+  question the class was most wrong on (`writeKinds`, two), the model in the swarm's first place is asked alone for
+  one function, `answer(question)`, shown half of the train questions of that kind with their right answers. What it
+  writes is run where it can reach nothing (`src/written.mjs`) on the train questions of the kind it was **not**
+  shown and on the class's other questions. It is refused on one wrong answer anywhere, on answering fewer than half
+  of the unseen ones (`writeCover`), or on not being a function; refused, it is told why on what it was shown alone
+  and asked again (`writeTries`, three). One that passes is a move of the round: the class's arrangement with that
+  function asked before any model. It is scored on the train questions and kept only where held questions gain, as
+  every change is. Held questions are never shown to the writer and never used to vet. What was written or refused,
+  with the code, is in `<record>-written.json`. `--no-write` leaves the step out. Not built: the larger model as the
+  writer, and code written for anything but the answer to a single question (a reply's wording, a turn with tools).
+  The first trial is under [Measured](measured.md#training-writes-code-the-first-trial-2026-11-24);
 - **how many slots and models**: a slot added, dropped or moved to another model, every slot on one model, one slot
   asked as the request came;
 - **breakdown and cascade**: code takes the question apart, with no model asked. With the breakdown every drafter is
@@ -213,6 +225,7 @@ named.
 | `training/session.sh` | One session: pass after pass, each step of a pass in order, resumed where it stopped |
 | `training/mixture.mjs` | Makes an adapter for each drafting slot: many questions of every kind, the slot's own request, its own answer where it was right and the larger model's where it was not. The adapters are on no slot; the class stage tries each as a move. `mix-record.mjs` is their record. `training/prove.mjs` asks one question at a time with and without a change and compares the two paired; `training/wide.mjs` has the larger model write the Python tasks |
 | `training/classes.mjs` | The class stage: each class of input trained as a class, a candidate arrangement tried on its train questions and kept on its held ones; instruments are candidates here |
+| `training/write-code.mjs` | Code training writes: asks a model of the swarm for a function for a kind the class is short on, runs it on questions it was not shown, refuses it on one wrong answer; what passes is a move of the class stage |
 | `training/keep.mjs` | The one rule a change is kept by, at every stage: the paired gain on held questions against its error, what it loses against what it makes good, and no kind falling |
 | `training/wordings.mjs` | New ways of asking each operation, written by the larger model every pass and kept only where its own answer is right; parted between train and held questions, so an instrument is kept on wordings its trying never saw |
 | `training/pass.mjs`                                                                      | Begins a pass from what the last one left, and ends it with the verdict and what the next pass needs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |

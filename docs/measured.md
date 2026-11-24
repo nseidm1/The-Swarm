@@ -2,6 +2,31 @@
 
 Every measurement, dated, newest first. Each is of the swarm named in it; the lineup has changed over time.
 
+## Training writes code: the first trial, 2026-11-24
+
+LFM3 1.7B in both places, the class of plain questions, six kinds of training's own questions (day, order, string,
+lies, date, count), six train and six held of each, one round, nothing kept (`--dry`). The model was asked for a
+function for the two kinds the class was most wrong on.
+
+| Kind | Wrong as it stood (train) | What the model wrote |
+| --- | --- | --- |
+| count | 5 of 6 | A function on the first try: right on 3 of 3 questions it was not shown, silent on the 30 questions of other kinds |
+| lies | 4 of 6 | Refused three times: a wrong answer on a question it was not shown, then two replies with no whole function |
+
+| The class, 36 questions | As it stood | With the function for count |
+| --- | --- | --- |
+| Train | 23 | 28 (+13.9 points) |
+| Held, first draw | 21 (count 4 of 6) | 23 (count 6 of 6) |
+
+On the held questions over two draws the gain was 5.6 points with a paired error of 3.9: not more than twice the
+error, so by the one rule **it was not kept**. Every other kind read the same with and without it.
+
+- **What this shows:** a 1.7B model can write a function that reads a question and computes its answer, the vetting
+  refuses what guesses, and the module answers by that code with no model asked (18 answers in 0.6 seconds).
+- **What it does not show:** a kept gain. One kind of six, six held questions of it, is too little for the rule to
+  tell from chance; the held questions of a kind do not grow from pass to pass.
+- **Not measured:** a whole class with every kind, a larger model as the writer, any benchmark.
+
 ## A mixture of adapters, proved one question at a time: 2026-11-23 and 24
 
 LFM2.5 1.2B in both places against Nemotron 3.5 Lightning 30B. Each row is the module asked the same held questions

@@ -6,6 +6,13 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Training writes code** (2026-11-24). Training chose which of four instruments a person wrote were on; it now
+  also writes the code. Each round of the class stage, for the kinds of question a class was most wrong on, the
+  swarm's own model is asked for a function that works the answer out from the question. The function is run where
+  it can reach nothing, on train questions it was not shown and on the class's other questions, and is refused on one
+  wrong answer; one that passes is tried like any other change and kept only where held questions gain. A kept
+  function is part of the class's arrangement (`plan.written`), so it is in the module wherever the module goes, and
+  the module answers such a question by that code with no model asked. Measured: see `docs/measured.md`.
 - **A run that ends on an error says so, and what is being made ready is said** (2026-11-24). A press of Run a pass
   came back to a button that could be pressed again and said nothing: the pass had ended in its first second on a
   model that was not on the disk, and only a log knew. A conversation pass now first fetches what the lineup needs

@@ -1823,6 +1823,7 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `piece` | boolean | true | a reply the request sets countable rules on is written whole and kept to them (R.5.1) |
 | `piecePlain` | boolean | true | among those replies, one is written to the conversation as it came, with no brief (R.5.1 step 1a) |
 | `instruments` | list of ids, or `true` | none | the instruments that are on: a question that is one of their operations is done by code and no model is asked (R.6) |
+| `written` | list of `{ id, kind, name, code }` | none | functions training wrote and kept for the class: `code` declares `answer(question)` in ECMAScript, which returns the answer as text, or null where it does not read the whole question. Where the question does not want code, each is run in turn, after the instruments and before any model, with no access to files, programs, the network or the clock and a bound on its time; the first answer given is the decided answer and the path is `written`. Where none gives one, or none can be run, the request goes on as it would have |
 | `searchFirst` | boolean | true | a turn with a search tool offered and nothing yet looked up does not end without a call (T.13a) |
 | `searchThrough` | boolean | true | a turn with a search tool offered is taken by the search program (T.13b) |
 | `searchMost` | integer | 12 | the calls a conversation may hold before the search program lets a reply stand |

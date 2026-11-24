@@ -13,6 +13,10 @@
     "draws": 2,
     "sweep": 60,
     "adapterLeast": 0.9,
+    "writeKinds": 2,
+    "writeTries": 3,
+    "writeCover": 0.5,
+    "writeTokens": 1500,
     "moves": [
       "^adapters: every slot that has one carries its adapter$",
       "^adapters: .* carries its adapter$",
@@ -34,7 +38,7 @@
       "^plan: onePerAnswer true$",
       "a model decides in place of the decider"
     ],
-    "about": "The stage before training goes question by question (training/classes.mjs): each class of input trained as a class. sample: the most train questions, and held questions, of a class it asks, taken kind by kind in turn (0: every one). sweep: the most changes that leave the drafts as they are that a round tries, which is every one of them unless there are more; tries: the most of the other changes, the ones the patterns below name. draws: how many times each held question is asked, with the change and without, before it is kept or not (training/keep.mjs; never fewer than 2). rounds: how often it goes again from what it kept. moves: which changes it tries (a slot's adapter; the question taken apart by code; a slot working one fact at a time; how many models and how many slots; how the drafts are settled), as patterns of the names training/arrange.mjs gives its moves, in the order they are tried. A candidate is kept where it is better on the held questions by more than twice its paired error and by at least loop.classMinGain. faster: how much of the time a change that is no worse must save to be kept on time alone (keep.mjs keepOnTime); timeSample: how many held questions it is timed on.",
+    "about": "The stage before training goes question by question (training/classes.mjs): each class of input trained as a class. writeKinds: for how many kinds of question a round asks a model of the swarm to write a function (the kinds the class was most wrong on; 0: code is not written), writeTries: how many times it is asked for one kind, writeCover: the share of the questions it was not shown that a function must answer, all rightly, writeTokens: the room it has to write in (training/write-code.mjs). sample: the most train questions, and held questions, of a class it asks, taken kind by kind in turn (0: every one). sweep: the most changes that leave the drafts as they are that a round tries, which is every one of them unless there are more; tries: the most of the other changes, the ones the patterns below name. draws: how many times each held question is asked, with the change and without, before it is kept or not (training/keep.mjs; never fewer than 2). rounds: how often it goes again from what it kept. moves: which changes it tries (a slot's adapter; the question taken apart by code; a slot working one fact at a time; how many models and how many slots; how the drafts are settled), as patterns of the names training/arrange.mjs gives its moves, in the order they are tried. A candidate is kept where it is better on the held questions by more than twice its paired error and by at least loop.classMinGain. faster: how much of the time a change that is no worse must save to be kept on time alone (keep.mjs keepOnTime); timeSample: how many held questions it is timed on.",
     "faster": 0.15,
     "timeSample": 24
   },
