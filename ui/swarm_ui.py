@@ -1345,7 +1345,7 @@ def viz_block(d):
     said_ = {"done": "Done", "running": "Running now" if going else "Stopped here", "failed": "Failed", "not taken": "Not taken", "waiting": ""}
     r_words = ["A third party&#39;s harness asks the module as it starts: no adapter, no instrument on.",
                "One for each drafting slot: its own right answers, and the larger model&#39;s where it was wrong. On no slot yet: K2.",
-               "Each class of input as a class: lanes S to E below. A slot is given its adapter, an instrument turned on, the arrangement changed, each kept only where held questions gain: K1 to K3.",
+               "Each class of input as a class: lanes S to E below. Where the class falls short decides what is tried first; a change (code for a kind of question, a slot&#39;s adapter, the question taken apart, a slot working by facts, how many slots and models, how drafts are settled) is kept only where held questions gain: K1 to K4.",
                "The same questions again: two figures side by side, J2."]
     rbox = lambda i, x: ('<div class="vbox%s"><b><span class="vcode">R%d</span>%s</b><small>%s%s</small></div>'  # noqa: E731
                          % (" on" if going and x["state"] == "running" else "", i + 1, e(x["name"]),
@@ -1360,17 +1360,18 @@ def viz_block(d):
              + lane("M", "A request, inside the module", [
                  box("M1", "", "Read · code", "Its class, from the request alone: with tools, a conversation, asking for code, a plain question."),
                  box("M2", "", "Code first", "An operation code does exactly, where training turned that instrument on: done by code, no model asked. A search: a program of code that asks the module only to read."),
-                 box("M3", "", "Arrangement · models", "Otherwise the class's slots and flow: lane C. One small model holds several adapters at once, and each request is served with the one its slot carries, where training put one there. Or one slot alone, where training found that enough."),
+                 box("M3", "", "Arrangement · models", "Otherwise the class's slots and flow: lane C. One small model holds several adapters at once, and each request is served with the one its slot carries, where training put one there. Or one slot alone, where training found that enough. Where training kept it, code first puts the question in numbered lines, or a slot works it one fact at a time."),
                  box("M4", "", "Form · code", "The reply laid out and closed as the conversation shows; code goes out as it was settled.")],
                  "To the program that uses it this is one chat model. M1 to M4 are its wiring, and the wiring is what training finds.")
              + lane("K", "What training keeps, and how far each can reach", [
-                 box("K1", "", "Arrangement", "What each slot is told, how the slots are arranged and how their answers are settled, class by class; one slot alone is an arrangement too. It reaches the best answer any slot drafted, and cannot make one no slot had."),
+                 box("K1", "", "Arrangement", "What each slot is told, how many slots there are and on which model, how they are arranged and how their answers are settled, class by class; one slot alone is an arrangement too. It reaches the best answer any slot drafted, and cannot make one no slot had."),
                  box("K2", "", "Adapters, by slot", "A mixture: each drafting slot may carry its own, and the steps after them settle between them. They reach what the small model can learn."),
-                 box("K3", "", "Instruments", "Operations done exactly. They can pass %s, but only where a question is that operation. %s" % (tname, inst_words))],
+                 box("K3", "", "Instruments", "Operations done exactly. They can pass %s, but only where a question is that operation. %s" % (tname, inst_words)),
+                 box("K4", "", "Breakdown, cascade", "The question taken apart by code: numbered lines for every drafter, or one slot working a fact at a time while code carries what was worked out. Tried like any change; on four small models neither has gained yet (2026-11-24).")],
                  "Each is kept only where held questions gained, by the one rule at S5. As a module starts, nothing is kept and no instrument is on. The held questions are training&#39;s own: what is kept here is still to be shown by the judge, J.")
              + '<p class="vintro vsub"><b>R3 in detail.</b> The run takes lanes A, S and C: each class of input, as a class. A whole pass (from a terminal: <code>bash training/session.sh</code>) goes on through B, D and E.</p>')
     tail_ = lane("J", "The judge, apart from training", [
-        box("J1", "", "The harness", "A third party's benchmarks, unchanged, ask through the chat interface as they ask any model. Training never asks one of their questions."),
+        box("J1", "", "The harness", "A third party's benchmarks, unchanged, ask through the chat interface as they ask any model. Training never asks one of their questions, and is not shaped to how they ask."),
         box("J2", "", "Two figures", "As configured, which is the baseline, and trained, on the same questions: R1, R4."),
         box("J3", "", "Beside them", "The small model asked plainly, the same with the module's layout only, and %s." % tname),
         box("J4", "", "The verdict", "By capability: parity, short, or too few questions to say. A hundred questions a task, at least, is proof.")])
@@ -1381,8 +1382,8 @@ def viz_block(d):
                     box("A3", "", "The plan", "The moves the search draws its changes from.")]),
                 # FIRST IN A PASS: each class of input as a class (training/classes.mjs), before the larger model is asked anything
                 lane("S", "First in a pass: each class of input, as a class", [
-                    box("S1", "classes", "As it stands", "Every question of the class: did a slot have it, was it settled on, is the reply good."),
-                    box("S2", "", "Sweep, then the rest", "Every change that leaves the drafts as they are (an instrument on, one slot alone, how answers are settled), the drafts reused. Then the others: a slot given its adapter first, then the moves the policy names."),
+                    box("S1", "classes", "As it stands", "Every question of the class: did a slot have it, was it settled on, is the reply good. Each wrong one is sorted: no slot had it, a slot had it and it was lost, or the reply spoiled it."),
+                    box("S2", "", "Sweep, then the rest", "Every change that leaves the drafts as they are (an instrument on, one slot alone, how answers are settled), the drafts reused. Then the others, those for the widest of the three gaps first: a slot's adapter, the question taken apart, a slot working by facts, slots and models added or dropped, how drafts are settled."),
                     box("S3", "", "Together", "The best two of the sweep as one change."),
                     box("S4", "", "Held, twice", "The best against the swarm as it stands: every held question of the class, %s draws." % cpol.get("draws", 2)),
                     box("S5", "", "Keep", "Gain over twice its error, losses outweighed by twice as many made good, no kind fallen beyond chance for as many kinds as there are.")],
@@ -1414,8 +1415,68 @@ def viz_block(d):
 
 
 def plan_block(d):
-    """What the plan part of the page holds: the plan the loop tries from (the questions themselves are on the swarm's card)."""
-    return plan_panel(d)
+    """What the plan part of the page holds: what training is trying now, class by class (class_plan), then the plan the
+    question-by-question loop tries from (the questions themselves are on the swarm's card)."""
+    return class_plan(d) + plan_panel(d)
+
+
+# WHAT TRAINING CAN CHANGE, in the words the page uses: every one is tried as a change to the arrangement and kept only where
+# the held questions gain beyond their error (training/arrange.mjs steps, training/classes.mjs, training/keep.mjs)
+TRAINS = [("Pure code", "a kind of question that is an operation is done by code, no model asked"),
+          ("Adapters", "which slot carries the adapter made for it, on requests like what it was taught"),
+          ("Breakdown", "the question put to the drafters with each thing it states on a numbered line"),
+          ("Cascade", "a drafting slot works the question one fact at a time, code carrying what was worked out"),
+          ("Slots and models", "a slot added, dropped or moved; every slot on one model; one slot asked as the request came"),
+          ("Settling", "how the drafts are settled: by most, by the drafters alone, by a model"),
+          ("The reply", "how the reply is written and closed")]
+GAP_WORDS = {"none": "no slot had the answer, so what is drafted is tried first", "lost": "a slot had the answer and settling lost it, so settling is tried first",
+             "spoiled": "the answer was settled and the reply spoiled it, so the reply is tried first"}
+
+
+def class_plan(d):
+    """WHAT TRAINING IS TRYING NOW, CLASS BY CLASS (console 2026-11-24: this part of the page says in real time what is being
+    trained). From the stage's own record as it writes it (training/results/<configuration>/classes.json: each class's train
+    and held questions, where it falls short, every change tried with what it counted, the best and what the held questions
+    said) and the line it says of what it is asking this moment (.work/train/live.json). Nothing here is a setting."""
+    root = Path(d.get("root", ARGS.root))
+    rec = data._json(root / "training" / "results" / str(d.get("key", "")) / "classes.json", None) or {}
+    live = data._json(root / ".work" / "train" / "live.json", {}) or {}
+    try:
+        fresh = time.time() - (root / ".work" / "train" / "live.json").stat().st_mtime < 300
+    except OSError:
+        fresh = False
+    now = str(live.get("step") or "") if live.get("trainer") == "classes" and fresh and not rec.get("done") else ""
+    pts = lambda x: ("%+.1f" % (100.0 * (x or 0)))  # noqa: E731
+    can = "".join("<li><b>%s</b>: %s</li>" % (e(a), e(b)) for a, b in TRAINS)
+    head = ('<div class="panel plan" id="classplan"><div class="plan-head"><h3>What training is trying</h3><span class="muted small">%s</span></div>'
+            % (e("Now: " + now) if now else "Finished %s" % e(str(rec.get("done"))[:16].replace("T", " ")) if rec.get("done") else "Training is not running" if not rec else "Stopped before it finished"))
+    out = [head, '<p class="muted small" style="margin:8px 0 0">Each class of input is trained as a class. Training asks the class as it stands, sees where it falls short, tries the changes for that first, '
+                 'and keeps the best only where held questions it was not chosen on gain by more than twice their error. What it can change:</p><ul class="small" style="margin:6px 0 0;padding-left:18px">%s</ul>' % can]
+    for K, C in (rec.get("classes") or {}).items():
+        name = "Requests %s" % CLASS_WORDS.get(K, K)
+        if C.get("skipped"):
+            out.append('<h4>%s</h4><p class="muted small" style="margin:0">Not trained: %s.</p>' % (e(name), e(C["skipped"])))
+            continue
+        rounds = C.get("rounds") or []
+        out.append('<h4>%s</h4><p class="small" style="margin:0">%d train questions and %d held, of %d kinds. Kept so far: %s</p>'
+                   % (e(name), C.get("train") or 0, C.get("held") or 0, len(C.get("kinds") or []),
+                      ("<b>%s</b>" % "; ".join(e(re.sub(r"^plan: ", "", k)) for k in C["kept"])) if C.get("kept") else "nothing"))
+        for i, R in enumerate(rounds):
+            g = R.get("gap") or {}
+            cands = R.get("candidates") or []
+            top = sorted(cands, key=lambda c: -(c.get("gain") or 0))[:4]
+            rows = "".join('<li>%s: counted %d of %d (%s points)</li>' % (e(re.sub(r"^plan: ", "", c.get("name", ""))), c.get("counted") or 0, c.get("n") or 0, pts(c.get("gain"))) for c in top)
+            h = R.get("held")
+            verdict = ("" if not R.get("best") else
+                       '<p class="small" style="margin:4px 0 0">Best: <b>%s</b>. %s</p>'
+                       % (e(re.sub(r"^plan: ", "", R["best"])),
+                          ("On the held questions, %s draws: %s points with an error of %.1f: <b>%s</b>" % (h.get("draws") or 2, pts(h.get("gain")), 100.0 * (h.get("error") or 0), "kept" if R.get("kept") else "not kept")) if h
+                          else "Being confirmed on the held questions"))
+            out.append('<p class="small" style="margin:8px 0 0"><b>Round %d</b>: %d of %d changes tried.%s</p>%s%s'
+                       % (i + 1, len(cands), R.get("of") or len(cands),
+                          (" Wrong as it stood: %d (no slot had it %d, had it and lost it %d, reply spoiled %d): %s." % (g.get("wrong") or 0, g.get("none") or 0, g.get("lost") or 0, g.get("spoiled") or 0, GAP_WORDS.get(g.get("first"), "nothing was wrong"))) if g else "",
+                          ('<ul class="small" style="margin:4px 0 0;padding-left:18px">%s</ul>' % rows) if rows else "", verdict))
+    return "".join(out) + "</div>"
 
 
 RANK_WORDS = {"pin": "pinned", "yield": "what its kind has yielded", "evidence": "the question's record", "momentum": "like a kept change", "learned": "what has worked",
@@ -5594,7 +5655,7 @@ def whole_block(d):
     # else says so in a line of its own under the head, as Pretrain and Train do)
     waits = ('<div class="state warn"><i></i><span>%s is running: the run waits for it.</span></div>' % e(held[0].upper() + held[1:])) if held and held != "the run" and not running else ""
     return ('<div class="panel prep wholep" id="wholebox"%s><div class="proghead"><span class="memnum"><b class="pct">%d</b><span>of 4 steps<small>%s</small></span></span>'
-            '<span class="progline">One run, two figures: the module as configured is evaluated, which is the baseline; it is trained (adapters, arrangement, instruments); and it is evaluated again, '
+            '<span class="progline">One run, two figures: the module as configured is evaluated, which is the baseline; it is trained (pure code, adapters, breakdown, cascade, slots and models, arrangement); and it is evaluated again, '
             'on the same questions. Stop is safe at any step; Start carries on from the step it stopped in.</span><span class="evctl">%s</span></div>%s<ol class="wsl">%s</ol></div>'
             % (' data-running="1"' if running else "", sum(1 for x in steps if x["state"] == "done"),
                "running" if running else ("done" if done else ("waiting" if held and held != "the run" else "not started" if not any(x["state"] != "waiting" for x in steps) else "stopped")), ctl, waits, rows))

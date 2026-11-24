@@ -177,7 +177,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
           asked++;
           const solve = async (i) => {
             try {
-              const r = await big.ask(u(pyAskOf(i, t.name, t.args, t.does, [])), { maxTokens: 900 });
+              const r = await big.ask(u(pyAskOf(t.name, t.args, t.does)), { maxTokens: 900 });
               const code = pyCodeOf(String(r.text || ''), t.name);
               return code ? await L.callsIn('python', code, t.name, t.calls) : null;
             } catch {

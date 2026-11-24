@@ -24,6 +24,17 @@
 // is the reply). It knows nothing of servers: `ask(slot, messages)` is handed in, and returns { text } or throws.
 //   const { reply, path, trace } = await answer(messages, { briefs, ask });
 import {
+  statedOf,
+  linesOf,
+  factAsk,
+  factLine,
+  LINES_HEAD,
+  FOUND_HEAD,
+  FACT_BRIEF,
+  LEAST_STATED,
+  MOST_FACTS,
+} from './breakdown.mjs';
+import {
   finalOf as readFinal,
   workOf as readWork,
   plain,
@@ -560,9 +571,10 @@ async function answerWhole(
       row.out = String((r && r.text) || '');
       row.final = slot.stage === 'write' ? '' : finalOf(row.out, marker);
       // a reply that is a call to a tool is not what the writer was asked for; a checker may answer with a letter alone
-      if (slot.stage === 'probe' || slot.stage === 'expect' || slot.stage === 'judge') row.final = '';
+      if (slot.stage === 'probe' || slot.stage === 'expect' || slot.stage === 'judge' || slot.stage === 'prepare')
+        row.final = '';
       row.ok =
-        slot.stage === 'write' || slot.stage === 'probe' || slot.stage === 'expect'
+        slot.stage === 'write' || slot.stage === 'probe' || slot.stage === 'expect' || slot.stage === 'prepare'
           ? row.out.trim().length > 0 && !isToolCall(row.out)
           : slot.stage === 'judge'
             ? !!letterOf(row.out, marker, LETTERS)
@@ -812,9 +824,48 @@ async function answerWhole(
         maxTokens: (plan.probe && plan.probe.maxTokens) || 260,
         temperature: 0.2,
       };
+      // THE QUESTION IN NUMBERED LINES (plan.prepare: 'lines'; breakdown.mjs; O.6.1b): code, and no model, puts each thing the
+      // question states on a line of its own, and every drafter is sent the question with those lines under it. Not for code,
+      // and a question that states fewer than three things goes as it came.
+      const last = kept.at(-1);
+      const under = (text) =>
+        text && last && typeof last.content === 'string'
+          ? [...kept.slice(0, -1), { ...last, content: last.content + '\n\n' + text }]
+          : kept;
+      const lines = plan.prepare === 'lines' && !wantsCode ? linesOf(question) : '';
+      const asked = lines ? under(LINES_HEAD + '\n' + lines) : kept;
+      // A SLOT THAT WORKS BY FACTS (slot.byFacts: true; O.6.1c): it is taken through what the question states one thing at a
+      // time, each time shown the facts so far and what was worked out so far, both kept by code, and writes one line that
+      // now follows; then it drafts, sent the question with what was worked out under it. Its steps are not answers and
+      // have no vote. Not for code; a question of fewer than three stated things, or more than twelve, it drafts as it came.
+      const facts = statedOf(question);
+      const byFacts = (s) =>
+        s.byFacts === true && !wantsCode && facts.states.length >= LEAST_STATED && facts.states.length <= MOST_FACTS;
+      const draftOf = async (s) => {
+        if (!byFacts(s)) return run(s, [sys(s), ...asked]);
+        const stepper = {
+          ...s,
+          id: s.id + '-facts',
+          stage: 'prepare',
+          brief: FACT_BRIEF,
+          maxTokens: 80,
+          compute: false,
+        };
+        const found = [];
+        for (let i = 1; i < facts.states.length; i++) {
+          const r = await run(stepper, [sys(stepper), { role: 'user', content: factAsk(facts, i, found) }]);
+          const one = r && r.ok ? factLine(r.out) : '';
+          if (one) found.push(one);
+        }
+        S.worked = { ...(S.worked || {}), [s.id]: found };
+        return run(s, [
+          sys(s),
+          ...(found.length ? under(FOUND_HEAD + '\n' + found.map((x) => '- ' + x).join('\n')) : asked),
+        ]);
+      };
       const round = async (slots) => {
         const [rows, probe] = await Promise.all([
-          all(slots, (s) => [sys(s), ...kept]),
+          Promise.all(slots.map(draftOf)),
           byBehaviour && !S.probe ? run(prober, [sys(prober), ...kept]) : null,
         ]);
         if (probe) S.probe = probe;
@@ -823,7 +874,7 @@ async function answerWhole(
             askAgain(
               r,
               slots.find((s) => s.id === r.slot),
-              [sys(byId[r.slot]), ...kept],
+              [sys(byId[r.slot]), ...asked],
             ),
           ),
         );

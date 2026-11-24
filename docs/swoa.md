@@ -1210,6 +1210,37 @@ and what the program printed is the slot's answer.
    tallied, shown, checked and decided between by the same rules.
 6. A slot whose `compute` is true never takes part in a `revise` step (O.6.5).
 
+#### O.6.1b The question in numbered lines
+
+Where `plan.prepare` is the string `lines` and the question does not ask for code, the question is taken apart by code,
+with no model asked. Lines that are options (a capital letter in or before a bracket, then a space or a full stop) and a
+line that is the word "Options" are set aside. The remaining lines are split into sentences at a full stop, question
+mark or exclamation mark followed by white space and a capital letter, a quotation mark or an opening bracket. A
+sentence that ends in a question mark ASKS. A sentence that ends in a colon, or begins with "answer", "reply",
+"respond" or "give", is neither. Every other sentence STATES.
+
+If fewer than three sentences state, nothing is done. Otherwise LINES is each stating sentence on a line of its own,
+numbered from 1 in the order given, then one line `Asked: ` followed by the asking sentences joined by a space (left
+out where none asks), cut to 2400 characters. Every drafting slot's request in this step (and where it is asked again)
+is the conversation with its last message replaced by that message, a blank line, the line
+`The same question, one thing it states to a line. Use every line:` and LINES. No other step's requests change.
+
+#### O.6.1c A drafting slot that works by facts
+
+A `draft` slot with `byFacts` the boolean `true`, that does not compute, where the question does not ask for code and
+between three and twelve of its sentences state (O.6.1b), is taken through them. FOUND begins empty. For each stating
+sentence after the first, in order, the slot's member is called once: the system message is the by-facts brief with
+the slot's own additions (O.4), `maxTokens` 80, and the one user message gives the asking sentences, the stating
+sentences so far numbered, FOUND (one to a line, or `(nothing yet)`), and the newest stating sentence. The first line of
+its reply, cut to 240 characters, is added to FOUND unless it is empty or contains "nothing new". Each such call
+records a row with stage `prepare`, the slot's id followed by `-facts`, and no answer: it has no vote and is no draft.
+
+The slot then drafts as O.6.1 has it, its request the conversation with its last message replaced by that message, a
+blank line, the line
+`Worked out from what the question states, one fact at a time (check each against the question):` and FOUND, one to a
+line each after `- `. Where FOUND is empty it drafts as any other slot of the step does. In every other case the slot
+drafts as O.6.1 has it.
+
 #### O.6.2 try
 
 Given: the pool and the probe. Produces: behaviour signatures; may shrink the pool.
@@ -1746,6 +1777,7 @@ or amended. Notifications MUST NOT affect the procedure.
 | `adapter` | OPTIONAL: the name of the adapter this slot's requests are served with (S1.4.1), or `"none"` |
 | `adapterLeast` | OPTIONAL, 0 to 1: the adapter is carried only on requests at least so like what it was taught (S1.4.2) |
 | `adapterScale` | OPTIONAL, above 0: how strongly the adapter is applied (1 where absent) |
+| `byFacts` | `true` on a `draft` slot: it works the question one stated thing at a time before it drafts (O.6.1c) |
 | `maxTokens` | passed to the member call; the judge slot inherits it unless `plan.decideWith.maxTokens`; the ask-again calls override it (420/40 for drafts, 16 for checks) |
 | `temperature` and other sampling fields | passed to the member call; ask-again calls force `temperature` 0 |
 | `purpose` | not read by orchestration (descriptive only) |
@@ -1776,6 +1808,7 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `partChars` | integer | 6000 | the most characters of the text a part holds (O.13; falsy means 6000) |
 | `byBehaviour` | boolean | true | `false` turns off probe, try and everything that depends on tried |
 | `agreeSkipsChecks` | boolean | true | `false` stops dispute steps being passed over when settled |
+| `prepare` | string | none | `lines`: every drafter is sent the question with each thing it states on a numbered line under it (O.6.1b) |
 | `draftsStand` | boolean | false | `true`: where more than half of the drafting slots hold one answer, the answer most slots hold is counted over the drafts alone, and the checking slots' answers are counted only where the drafts have no such majority (O.6.6) |
 | `draftFirst` | integer | none | drafting slots called first; the rest are called only if those do not settle the matter (O.6.1 step 1a; ignored unless at least 2 and fewer than the drafting slots) |
 | `onePerAnswer` | boolean | false | sheet shows one row per distinct answer even when not tried |

@@ -70,6 +70,13 @@ What has not:
   were taught, they read 92 of 200, and 247 of 460 on all 23 tasks against 254: no harm and no gain. Training's own
   questions (eleven families of function) are not what the module is judged on, and its keep rule cannot see that:
   its held questions come from the same maker.
+- **A breakdown or a cascade that helps.** Code that puts the question in numbered lines for the drafters, and a slot
+  that works it one fact at a time, are built and are changes training can try. Tried by hand on four small models
+  (LFM2.5 1.2B and 2.6B, Ministral 3 3B, Bonsai 2 9B; 10 to 30 questions each, 2026-11-24), neither gained: the
+  smallest model's steps are not reliable, and the largest is right when asked plainly. The size of the small model
+  moved the same questions from 5 of 18 to 16.
+- **A larger small model, in a whole run.** LFM2.5 2.6B in both places reads 109 of 160 on training's fresh panel
+  where LFM2.5 1.2B read 84 (103 with its adapters). No whole run has been made on it, and no adapter for it.
 - **Three figures on one code.** The run above was measured across two days of changes. No whole run has been made
   since each stage was held to the one before.
 - **Ten of the nineteen small models in a swarm, two of the four Kev sizes, and fourteen of the fifteen larger models.**

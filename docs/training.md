@@ -13,6 +13,22 @@ and keeps each only where held questions say it helped:
 - **instruments**: where a class of input holds operations code does exactly, the class stage turns that instrument
   on (`src/instruments.mjs`). None is on in a module as it starts. Training asks such operations in questions of its
   own (`training/tasks-exact.mjs`), so what an instrument is worth is measured before a benchmark sees it.
+- **how many slots and models**: a slot added, dropped or moved to another model, every slot on one model, one slot
+  asked as the request came;
+- **breakdown and cascade**: code takes the question apart, with no model asked. With the breakdown every drafter is
+  sent the question with each thing it states on a numbered line. With a cascade one drafting slot works the question
+  a fact at a time: at each it is shown the facts so far and what was worked out so far, both kept by code, and adds
+  one line; then it drafts. Tried on four small models (2026-11-24), neither has gained yet
+  ([Measured](measured.md)), so neither is on anywhere: they are there for training to try.
+
+**What is tried first follows where the class falls short.** The class stage asks the class as it stands and sorts
+every wrong answer: no drafting slot had it, a slot had it and settling lost it, or it was settled rightly and the
+reply spoiled it. The changes for the widest of the three are tried first (what is drafted; how drafts are settled; how
+the reply is written), each group in the order `training/policy.json` lists.
+
+**Training is not shaped to a benchmark.** It never asks a benchmark's question, and it does not copy how one asks: the
+Python kinds were asked three ways for a day, two of them the ways two code benchmarks ask, and those two were taken
+out (2026-11-24). What carries a gain to a benchmark has to be breadth of training's own questions.
 
 `bash training/run.sh` is the whole of it in one run, with the two figures it is judged by: the module as configured
 is evaluated, which is the baseline; an adapter is made for each drafting slot and the module is trained; and it is

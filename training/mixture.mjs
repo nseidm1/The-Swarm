@@ -120,7 +120,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(0);
   }
   if (cmd !== 'make') {
-    console.log('node training/mixture.mjs make [--each 24] [--kinds a,b] [--min 40] [--lr 5e-5] [--epochs 2] | list');
+    console.log(
+      'node training/mixture.mjs make [--each 24] [--kinds a,b] [--stages draft,check] [--min 40] [--lr 5e-5] [--epochs 2] | list',
+    );
     process.exit(2);
   }
   if (!A.mlxReady(model, work).ok) {
@@ -129,6 +131,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   }
   const kinds = String(B.arg('kinds', '')).split(',').filter(Boolean);
   const each = Number(B.arg('each', 24));
+  // (--stages draft,check: the slots an adapter is made for, by what they do: those that draft, where nothing is said; with
+  // check, the slots that check as well, each taught its own request: the drafts it was shown and what it is asked of them)
+  const stages = String(B.arg('stages', 'draft')).split(',').filter(Boolean);
   const tasks = B.questions('train', each).filter(
     (t) =>
       typeof t.good === 'function' &&
@@ -150,7 +155,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const swarm = await B.openSwarm(readBriefs(), {
     seed: 1,
     adapters: false,
-    onAsk: (c) => cur && ROLE_OF_STAGE[c.stage] === 'draft' && calls.set(cur, [...(calls.get(cur) || []), c]),
+    onAsk: (c) => cur && stages.includes(ROLE_OF_STAGE[c.stage]) && calls.set(cur, [...(calls.get(cur) || []), c]),
   });
   const rows = [];
   try {

@@ -38,7 +38,7 @@ harness, unchanged ([docs/swoa-parity.md](docs/swoa-parity.md)).
 as one model, with the proof of what it does. The Swarm is not tied to one project;
 [The Crew](docs/training.md#the-crew-the-first-project-that-uses-it) is the first to use it.
 
-> **Status: pre-release; nothing proven yet.** The swarm configured now (2026-11-24) is LFM2.5 1.2B in both places against
+> **Status: pre-release; nothing proven yet.** The swarm these figures are of (2026-11-24) is LFM2.5 1.2B in both places against
 > Nemotron 3.5 Lightning 30B. As configured, before any training, it scored 55.2% on 460 questions of 23 standard tasks
 > where the larger model scored 77.6% and the small model by itself 30.0%. Twenty questions a task is a check, not a
 > proof. **Training has not yet bettered it on any benchmark**: what training kept at first read lower when
@@ -167,6 +167,12 @@ of these is tried as a change and kept only where held questions, never trained 
   puts it there.
 - **Instruments**: where a class of input holds operations code does exactly, that instrument is turned on. None is on
   as a module starts.
+- **How many slots and models**: a slot added, dropped or moved to another model; every slot on one model.
+- **Breakdown and cascade**: code takes the question apart, with no model asked. Every drafter is sent it with each
+  thing it states on a numbered line, or one slot works it a fact at a time while code carries what was worked out.
+
+What is tried first follows where the class falls short: no slot had the answer, a slot had it and settling lost it, or
+the reply spoiled it.
 
 Training's held questions are its own, so what it keeps is still to be shown by the benchmarks; so far it has not been
 ([Results](#results)).
@@ -180,7 +186,7 @@ adapter is made for each drafting slot, the module is trained (the arrangement, 
 instruments), and it is evaluated again on the same questions (the dashboard's **Run**). The evaluation
 is a third party's: EleutherAI's [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) and the
 [Berkeley Function-Calling Leaderboard](https://gorilla.cs.berkeley.edu/leaderboard.html) ask the module through the
-chat-model interface as they ask any model. Training makes its own questions from a seed and never asks a benchmark's.
+chat-model interface as they ask any model. Training makes its own questions from a seed, never asks a benchmark's, and is not shaped to how a benchmark asks.
 [Training, in full](docs/training.md) · [The procedure](training/TRAIN.md)
 
 ## The dashboard
@@ -245,7 +251,7 @@ npm test
 python3 ui/check.py
 ```
 
-250 checks of the module and the trainers and 164 of the dashboard, against stand-in servers: nothing is fetched,
+252 checks of the module and the trainers and 165 of the dashboard, against stand-in servers: nothing is fetched,
 started or installed. `npm test` deals its blocks of checks out to every core (27 seconds on a 24-core Mac, 88 one
 after another); `npm run test:serial` runs them in one process, `npm run test:all` adds the dashboard's, and
 `npm run test:python` checks the Python client. How well the

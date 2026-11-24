@@ -33,6 +33,7 @@ export const shapeOf = (b) =>
         s.maxTokens ?? '',
         ...(s.copyOf ? ['as:' + s.copyOf] : []),
         ...(s.examples ? ['examples:' + s.examples] : []),
+        ...(s.byFacts ? ['byFacts'] : []),
       ]),
       plan: Object.fromEntries(Object.entries(b.plan || {}).sort()),
       flow: b.flow || null,
@@ -429,6 +430,43 @@ export function steps(
     }
   }
   // an arrangement must still be able to answer: two drafters at least, and no model asked for more slots than it has
+  out.push(
+    // THE QUESTION TAKEN APART BY CODE (src/breakdown.mjs): put to the drafters in numbered lines, or as it came
+    (b.plan || {}).prepare === 'lines'
+      ? {
+          name: 'breakdown: the question is put to the drafters as it came',
+          briefs: { ...b, plan: (({ prepare: _p, ...rest }) => rest)(b.plan || {}) },
+        }
+      : {
+          name: 'breakdown: the question is put to the drafters in numbered lines',
+          briefs: { ...b, plan: { ...b.plan, prepare: 'lines' } },
+        },
+    // A CASCADE: a drafting slot works the question one stated thing at a time, code carrying what was worked out, or all
+    // at once (slot.byFacts)
+    ...b.slots
+      .filter((s) => s.stage === 'draft' && !s.compute)
+      .map((s) =>
+        s.byFacts === true
+          ? {
+              name: 'cascade: ' + s.id + ' works the question all at once',
+              briefs: {
+                ...b,
+                slots: b.slots.map((x) => (x.id === s.id ? (({ byFacts: _f, ...rest }) => rest)(x) : x)),
+              },
+            }
+          : {
+              name: 'cascade: ' + s.id + ' works the question one fact at a time',
+              briefs: { ...b, slots: b.slots.map((x) => (x.id === s.id ? { ...x, byFacts: true } : x)) },
+            },
+      ),
+    // HOW MANY MODELS: every slot on one of them, where the slots are on more than one and it has the room
+    ...members
+      .filter((m) => b.slots.some((x) => x.member !== m) && b.slots.length <= cap)
+      .map((m) => ({
+        name: 'models: every slot is on ' + m,
+        briefs: { ...b, slots: b.slots.map((x) => ({ ...x, member: m })) },
+      })),
+  );
   return out
     .filter(
       (c) =>

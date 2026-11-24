@@ -279,8 +279,9 @@ const write = (group) => (t, i) => {
 // JavaScript, and what a module is asked for elsewhere is mostly Python: adapters taught on these questions gained 24 points
 // on them and none on two Python benchmarks (measured 2026-11-23). The question is the family's, said for Python; the
 // answer is run in Python and marked against what the family's own function gives on the same inputs.
-// Asked three ways in turn, the ways such a function is usually asked for: plainly; as a function with a docstring to
-// complete; and as a task with tests it should pass (the tests are the family's own function on its first inputs).
+// ASKED PLAINLY, ONE WAY. They were asked three ways for a day (plainly; a docstring to complete; a task with tests to
+// pass): the last two are how two benchmarks ask, and TRAINING IS NOT SHAPED TO A BENCHMARK (console 2026-11-24), so
+// they are gone.
 export const pyNameOf = (name) => name.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
 // a value as Python writes it
 export const pyLit = (v) =>
@@ -316,37 +317,8 @@ const pyWrite = (group) => (t, i) => {
   const name = pyNameOf(f.name);
   const args = (f.ask.match(/`[A-Za-z]+\(([^)]*)\)`/) || [])[1] || '';
   const does = pySays(f.ask.replace(/^Write a JavaScript function `[^`]+` that /, ''), f.name);
-  // (the family's own function, run here on its first inputs: this file's code, not a model's)
-  let shown = [];
-  try {
-    const fn = new Function(f.ok + '\nreturn ' + f.name + ';')();
-    shown = f.inputs
-      .slice(1, 4)
-      .map(
-        (a) => 'assert ' + name + '(' + a.map(pyLit).join(', ') + ') == ' + pyLit(fn(...JSON.parse(JSON.stringify(a)))),
-      );
-  } catch {
-    shown = [];
-  }
   const ask =
-    i % 3 === 0 || !shown.length
-      ? 'Write a Python function `' + name + '(' + args + ')` that ' + does + ' Give the function in one code block.'
-      : i % 3 === 1
-        ? 'Write a solution to the following problem. Give the whole function in one code block.\n```python\ndef ' +
-          name +
-          '(' +
-          args +
-          '):\n    """' +
-          does.replace(/^./, (c) => c.toUpperCase()) +
-          '"""\n```'
-        : 'Here is your task: write a Python function `' +
-          name +
-          '(' +
-          args +
-          ')` that ' +
-          does +
-          ' Your code should pass these tests:\n\n' +
-          shown.join('\n');
+    'Write a Python function `' + name + '(' + args + ')` that ' + does + ' Give the function in one code block.';
   return { ask, type: 'code', lang: 'python', name: f.name, pyName: name, inputs: f.inputs, ok: f.ok };
 };
 // TASKS THE LARGER MODEL WROTE (py-wide; training/wide.mjs). The families above are eleven, written here: an adapter taught
@@ -367,44 +339,15 @@ export const setWide = (list) => {
   WIDE = Array.isArray(list) ? list.filter(wideOk) : [];
 };
 export const wideOf = () => WIDE;
-// the three ways a function is asked for, for a task that is a name, its arguments, what it does and tests to show
-export const pyAskOf = (i, name, args, does, shown) =>
-  i % 3 === 0 || !shown.length
-    ? 'Write a Python function `' + name + '(' + args + ')` that ' + does + ' Give the function in one code block.'
-    : i % 3 === 1
-      ? 'Write a solution to the following problem. Give the whole function in one code block.\n```python\ndef ' +
-        name +
-        '(' +
-        args +
-        '):\n    """' +
-        does.replace(/^./, (c) => c.toUpperCase()) +
-        '"""\n```'
-      : 'Here is your task: write a Python function `' +
-        name +
-        '(' +
-        args +
-        ')` that ' +
-        does +
-        ' Your code should pass these tests:\n\n' +
-        shown.join('\n');
+// how a function is asked for, for a task that is a name, its arguments and what it does: plainly, and one way only
+export const pyAskOf = (name, args, does) =>
+  'Write a Python function `' + name + '(' + args + ')` that ' + does + ' Give the function in one code block.';
 const pyWide = (t, i) => {
   const mine = WIDE.filter((_, k) => (t.split === 'train' ? k % 2 === 0 : k % 2 === 1));
   if (!mine.length) return pyWrite(GROUPS[i % GROUPS.length])(t, i);
   const w = mine[i % mine.length];
-  const shown = w.calls
-    .map((c, k) => (w.expected[k] && w.expected[k].v !== undefined ? [c, w.expected[k].v] : null))
-    .filter(Boolean)
-    .slice(0, 3)
-    .map(([c, v]) => {
-      try {
-        return 'assert ' + c + ' == ' + pyLit(JSON.parse(v));
-      } catch {
-        return '';
-      }
-    })
-    .filter(Boolean);
   return {
-    ask: pyAskOf(i, w.name, w.args || '', w.does, shown),
+    ask: pyAskOf(w.name, w.args || '', w.does),
     type: 'code',
     lang: 'python',
     name: w.name,

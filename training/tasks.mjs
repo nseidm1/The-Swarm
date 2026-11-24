@@ -574,25 +574,9 @@ export function reword(ask) {
       );
     return null;
   }
-  // (a function asked for in Python, each of the three ways it is asked: said again as a plain request)
-  const py =
-    /^Write a Python function (`[^`]+`) that /.exec(s) ||
-    /^Here is your task: write a Python function (`[^`]+`) that /.exec(s);
+  // (a function asked for in Python: said again as a plain request)
+  const py = /^Write a Python function (`[^`]+`) that /.exec(s);
   if (py) return 'I need a function in Python, ' + py[1] + '. It ' + s.slice(py[0].length);
-  const doc =
-    /^Write a solution to the following problem\. Give the whole function in one code block\.\n```python\ndef (\w+)\(([^)]*)\):\n {4}\"\"\"([\s\S]*)\"\"\"\n```$/.exec(
-      s,
-    );
-  if (doc)
-    return (
-      'I need a function in Python, `' +
-      doc[1] +
-      '(' +
-      doc[2] +
-      ')`. It ' +
-      doc[3].replace(/^./, (c) => c.toLowerCase()) +
-      ' Give the function in one code block.'
-    );
   const write = /^Write a JavaScript function (`[^`]+`) that /.exec(s);
   if (write) return 'I need a function in JavaScript, ' + write[1] + '. It ' + s.slice(write[0].length);
   if (s.startsWith('What does this print?\n\n'))

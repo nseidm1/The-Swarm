@@ -6,6 +6,19 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Training can take the question apart, vary how many slots and models there are, and tries first what the class
+  is short of** (2026-11-24). Two new changes to an arrangement, both by code with no model asked (`src/breakdown.mjs`;
+  SwOA O.6.1b, O.6.1c): `plan.prepare: "lines"` sends every drafter the question with each thing it states on a
+  numbered line, and a drafting slot with `byFacts: true` works the question one fact at a time while code carries what
+  was worked out. Neither is on anywhere, and neither has gained on any of four small models tried; they are there for
+  training to try. The class stage now also tries a slot dropped or added and every slot on one model, and it sorts
+  every wrong answer of a class (no slot had it; a slot had it and settling lost it; the reply spoiled it) and tries
+  the changes for the widest of the three first. The dashboard's plan section opens with **What training is trying**,
+  in real time. An evaluation measures the swarm's memory as training does, so the page's figure is measured from a
+  run's first step.
+- **Training is not shaped to a benchmark** (2026-11-24). The Python kinds are asked plainly, one way. They had been
+  asked three ways, two of them the ways two code benchmarks ask (a docstring to complete; a task with tests to pass):
+  those are gone.
 - **A swarm of one model is not asked who takes turns with tools** (2026-11-24). The row is left out of Configuration
   where every place holds the same model and the swarm decides its turns: the other choice was that model asked once.
   It is shown for several models, and where one model was set to take turns alone. The sentence under **One model**
@@ -33,8 +46,7 @@ The first version.
   module is asked for elsewhere is mostly Python. Adapters taught on those questions gained 24 points on them, were
   kept by training, and took the module from 21 to 18 of 40 on two Python benchmarks; on held Python questions they
   took it from 21 to 11 of 48. The same families of function are now also asked for in Python (`py-arrays`,
-  `py-strings`, `py-numbers`, `py-parsing`), three ways in turn: plainly, as a function with a docstring to complete,
-  and as a task with tests it should pass. The answer is run in Python and marked against the family's own function.
+  `py-strings`, `py-numbers`, `py-parsing`), plainly. The answer is run in Python and marked against the family's own function.
   Adapters taught these as well took the module from 21 to 33 of 48 on held Python questions, were kept by training,
   and read 75 of 200 on the two benchmarks at 100 questions each against 95 without: they were taken off. The new
   kinds stand last of all, so that no question asked before them changed.

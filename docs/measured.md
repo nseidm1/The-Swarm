@@ -43,6 +43,21 @@ did not keep them (+1.1, error 2.7), and kept two kinds of plain question done b
 | Trained: adapters carried everywhere | 42 | 33 | 75 (37.5%) |
 | Trained: adapters carried on like requests | 57 | 35 | 92 (46.0%) |
 
+**Taking the question apart, on four small models** (2026-11-24; a probe outside the module, the model asked plainly
+beside each).
+
+| Small model | Plainly, 18 mixed | One fact at a time | Plainly, 10 orderings | Sentence to a relation, then code |
+| --- | --- | --- | --- | --- |
+| LFM2.5 1.2B | 5 | 5 | 5 | 5 |
+| LFM2.5 2.6B | 12 | 13 | 8 | 8 |
+| Ministral 3 3B | 13 | 6 | 8 | 8 |
+| Bonsai 2 9B | 16 | 15 | 9 | 6 |
+
+No gain anywhere. The smallest model turns one sentence in four the wrong way round; the largest turned every sentence
+rightly and lost only where the probe's own prompt for the place asked was misread. The question in numbered lines,
+through the whole module on LFM2.5 1.2B: 37 of 60 against 40. Both are built as changes training can try, and are on
+nowhere.
+
 On all 23 tasks at 20 questions: 247 of 460 (53.7%) against 254 as configured (55.2%); 10 questions won and 17 lost,
 1.5 points with a paired error of 1.1, so no difference that can be told. Four of the seven are the live web search,
 which does not repeat from one day to the next. The harm is gone and no gain has come: a benchmark's requests are

@@ -122,6 +122,40 @@ export function roundOf(moves, base, patterns, tries, sweep = 40) {
     ),
   ];
 }
+// WHERE THE CLASS FALLS SHORT, AND WHAT IS TRIED FIRST FOR IT. Every train question the swarm got wrong is one of three:
+//   none      no drafting slot had the answer: only a change to what is drafted can help (code in place of a model, a slot's
+//             adapter, the question taken apart, a slot working fact by fact, another drafter, another model)
+//   lost      a slot had it and what was settled was wrong: how the drafts are settled, and who checks
+//   spoiled   it was settled rightly and the reply did not count: how the reply is written and closed
+// gapOf(rows) -> { wrong, none, lost, spoiled, first: 'none' | 'lost' | 'spoiled' | null }
+export function gapOf(rows) {
+  const wrong = (rows || []).filter((x) => !x.counted);
+  const spoiled = wrong.filter((x) => x.settled).length;
+  const lost = wrong.filter((x) => !x.settled && x.any).length;
+  const none = wrong.length - spoiled - lost;
+  const by = [
+    ['none', none],
+    ['lost', lost],
+    ['spoiled', spoiled],
+  ].sort((a, b) => b[1] - a[1]);
+  return { wrong: wrong.length, none, lost, spoiled, first: by[0][1] > 0 ? by[0][0] : null };
+}
+// which of the three a change is for, by its name (or a pattern of the policy that names it)
+export const GAP_OF_MOVE = [
+  ['spoiled', /reply closes|writeAs|writeCode|written by one model|closeAs/],
+  [
+    'lost',
+    /decide by|draftsStand|onePerAnswer|agreeSkipsChecks|every draft at once|two drafts first|most drafters|would reply|a model decides|decider|checks instead|sees /,
+  ],
+  ['none', /./],
+];
+export const gapOfMove = (name) => GAP_OF_MOVE.find(([, re]) => re.test(String(name)))[0];
+// the policy's patterns, those for the widest gap first, then the next, each group in the policy's own order
+export function orderedFor(patterns, gap) {
+  if (!gap || !gap.first) return [...(patterns || [])];
+  const order = ['none', 'lost', 'spoiled'].sort((a, b) => (gap[b] || 0) - (gap[a] || 0));
+  return [...(patterns || [])].sort((a, b) => order.indexOf(gapOfMove(a)) - order.indexOf(gapOfMove(b)));
+}
 // THE BEST TWO OF THE SWEEP TOGETHER: the second's change made to the first's arrangement (the move of the same name from
 // there), or null where there are not two that gained or the second cannot be made from the first
 export function togetherOf(scored, stepsOf) {
@@ -284,7 +318,20 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       save();
       console.log('  as it stands: ' + JSON.stringify(C.asItStands));
       for (let round = 0; round < rounds; round++) {
-        const R = { candidates: [] };
+        // (where the class falls short as it stands, and so what is tried first: gapOf)
+        const gap = gapOf(baseRows);
+        const R = { candidates: [], gap };
+        console.log(
+          '  wrong ' +
+            gap.wrong +
+            ': no slot had it ' +
+            gap.none +
+            ', had it and lost it ' +
+            gap.lost +
+            ', reply spoiled ' +
+            gap.spoiled +
+            (gap.first ? '; first tried: changes for "' + gap.first + '"' : ''),
+        );
         C.rounds.push(R);
         let best = null;
         const scored = [];
@@ -317,7 +364,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         const toTry = roundOf(
           steps(base, { adapters: mixture, adapterLeast: P.adapterLeast ?? 0.9 }),
           base,
-          P.moves,
+          orderedFor(P.moves, gap),
           tries,
           sweep,
         );

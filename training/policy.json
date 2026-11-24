@@ -8,7 +8,7 @@
   },
   "classes": {
     "sample": 0,
-    "tries": 10,
+    "tries": 24,
     "rounds": 2,
     "draws": 2,
     "sweep": 60,
@@ -17,6 +17,12 @@
       "^adapters: every slot that has one carries its adapter$",
       "^adapters: .* carries its adapter$",
       "^adapters: .* carries no adapter$",
+      "^breakdown: ",
+      "^cascade: ",
+      "^models: every slot is on ",
+      "^drop ",
+      "^add a second ",
+      "answers by a program",
       "the reply closes as the earlier replies do",
       "the reply closes as it was written",
       "a turn with tools goes on unless most would reply",
@@ -25,11 +31,10 @@
       "^plan: decide by decider-unless-majority$",
       "^plan: every draft at once$",
       "^plan: decide by decider$",
-      "answers by a program",
       "^plan: onePerAnswer true$",
       "a model decides in place of the decider"
     ],
-    "about": "The stage before training goes question by question (training/classes.mjs): each class of input trained as a class. sample: the most train questions, and held questions, of a class it asks, taken kind by kind in turn (0: every one). sweep: the most changes that leave the drafts as they are that a round tries, which is every one of them unless there are more; tries: the most of the other changes, the ones the patterns below name. draws: how many times each held question is asked, with the change and without, before it is kept or not (training/keep.mjs; never fewer than 2). rounds: how often it goes again from what it kept. moves: which changes it tries, as patterns of the names training/arrange.mjs gives its moves, in the order they are tried. A candidate is kept where it is better on the held questions by more than twice its paired error and by at least loop.classMinGain."
+    "about": "The stage before training goes question by question (training/classes.mjs): each class of input trained as a class. sample: the most train questions, and held questions, of a class it asks, taken kind by kind in turn (0: every one). sweep: the most changes that leave the drafts as they are that a round tries, which is every one of them unless there are more; tries: the most of the other changes, the ones the patterns below name. draws: how many times each held question is asked, with the change and without, before it is kept or not (training/keep.mjs; never fewer than 2). rounds: how often it goes again from what it kept. moves: which changes it tries (a slot's adapter; the question taken apart by code; a slot working one fact at a time; how many models and how many slots; how the drafts are settled), as patterns of the names training/arrange.mjs gives its moves, in the order they are tried. A candidate is kept where it is better on the held questions by more than twice its paired error and by at least loop.classMinGain."
   },
   "loop": {
     "cap": null,

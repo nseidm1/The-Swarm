@@ -5380,6 +5380,137 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       split: [split.decided, split.path],
     },
   );
+  // WHAT TRAINING TRIES FIRST FOLLOWS WHERE THE CLASS FALLS SHORT (training/classes.mjs gapOf, orderedFor)
+  {
+    const CL = await import('../training/classes.mjs');
+    const POL = JSON.parse(fs.readFileSync(new URL('../training/policy.json', import.meta.url), 'utf8')).classes;
+    const row = (any, settled, counted) => ({ any, settled, counted });
+    const gNone = CL.gapOf([
+      row(false, false, false),
+      row(false, false, false),
+      row(true, false, false),
+      row(true, true, true),
+    ]);
+    const gLost = CL.gapOf([
+      row(true, false, false),
+      row(true, false, false),
+      row(false, false, false),
+      row(true, true, false),
+    ]);
+    const gSpoiled = CL.gapOf([row(true, true, false), row(true, true, false), row(true, false, false)]);
+    const firstOf = (g) => CL.gapOfMove(CL.orderedFor(POL.moves, g)[0]);
+    check(
+      "what training tries first follows where the class falls short: each train question the swarm got wrong is one where no drafting slot had the answer, one a slot had and the settling lost, or one settled rightly whose reply did not count; the changes for the widest of the three are tried first (what is drafted: code, an adapter, the question taken apart, a slot working by facts, how many slots and models; how drafts are settled; how the reply is written), each group in the policy's own order, and none is left out; a class with nothing wrong tries them as the policy lists them; and the policy names the breakdown, the cascade, how many models and how many slots among what is tried",
+      gNone.first === 'none' &&
+        gNone.wrong === 3 &&
+        gNone.none === 2 &&
+        gNone.lost === 1 &&
+        gNone.spoiled === 0 &&
+        gLost.first === 'lost' &&
+        gLost.lost === 2 &&
+        gLost.none === 1 &&
+        gLost.spoiled === 1 &&
+        gSpoiled.first === 'spoiled' &&
+        CL.gapOf([row(true, true, true)]).first === null &&
+        firstOf(gNone) === 'none' &&
+        firstOf(gLost) === 'lost' &&
+        firstOf(gSpoiled) === 'spoiled' &&
+        CL.orderedFor(POL.moves, gLost).length === POL.moves.length &&
+        new Set(CL.orderedFor(POL.moves, gLost)).size === POL.moves.length &&
+        CL.orderedFor(POL.moves, CL.gapOf([])).join() === POL.moves.join() &&
+        CL.gapOfMove('plan: decide by most') === 'lost' &&
+        CL.gapOfMove('the reply closes as it was written') === 'spoiled' &&
+        CL.gapOfMove('cascade: a-steps works the question one fact at a time') === 'none' &&
+        ['^breakdown: ', '^cascade: ', '^models: every slot is on ', '^drop ', '^add a second '].every((m) =>
+          POL.moves.includes(m),
+        ),
+      { gNone, gLost, gSpoiled, first: [firstOf(gNone), firstOf(gLost), firstOf(gSpoiled)] },
+    );
+  }
+  // A QUESTION TAKEN APART BY CODE (src/breakdown.mjs): numbered lines for the drafters, and a slot that works by facts
+  {
+    const BD = await import('../src/breakdown.mjs');
+    const AR3 = await import('../training/arrange.mjs');
+    const QF =
+      'Esme is taller than Ben. Lena is shorter than Jon. Gia is taller than Jon. Gia is shorter than Ben. Who is the shortest?';
+    const seen = [];
+    const runBD = (plan, slots = base.slots) =>
+      orchestrate([{ role: 'user', content: QF }], {
+        briefs: {
+          marker: 'ANSWER:',
+          flow: [{ do: 'draft' }, { do: 'decide' }],
+          plan: { decideBy: 'most', writeAs: 'settled', ...plan },
+          slots,
+        },
+        ask: async (sl, msgs) => {
+          seen.push({ id: sl.id, stage: sl.stage, last: String(msgs.at(-1).content) });
+          return {
+            text:
+              sl.stage === 'prepare'
+                ? seen.filter((x) => x.stage === 'prepare').length === 2
+                  ? 'nothing new'
+                  : 'Ben is taller than Gia'
+                : 'ANSWER: Lena',
+          };
+        },
+        decide: async () => ({ ok: false, why: 'none' }),
+      });
+    const plainRun = await runBD({});
+    const plainSeen = seen.splice(0);
+    const linesRun = await runBD({ prepare: 'lines' });
+    const linesSeen = seen.splice(0);
+    const factsRun = await runBD(
+      {},
+      base.slots.map((x, k) => (k === 0 ? { ...x, byFacts: true } : x)),
+    );
+    const factsSeen = seen.splice(0);
+    const first = base.slots[0].id;
+    const moves = AR3.steps({ marker: 'ANSWER:', plan: {}, slots: base.slots });
+    const lineMove = moves.find((m) => m.name === 'breakdown: the question is put to the drafters in numbered lines');
+    const factMove = moves.find((m) => m.name === 'cascade: ' + first + ' works the question one fact at a time');
+    check(
+      'a question is taken apart by code, and training can try what is built on that: the sentences that state, those that ask, the options and how to answer are told apart with no model asked; with plan.prepare lines every drafter is sent the question with each thing it states on a numbered line under it (fewer than three stated things, or code asked for: as it came); a drafting slot with byFacts is taken through the stated things one at a time, shown the facts so far and what was worked out so far, both kept by code, and a step that gives nothing new adds nothing; then it drafts with what was worked out under the question; its steps are not answers and have no vote; and each is a move of the arrangement, known by another shape than the arrangement it came from',
+      BD.statedOf(QF).states.length === 4 &&
+        BD.statedOf(QF).asks.join() === 'Who is the shortest?' &&
+        BD.statedOf('Pick one.\nOptions:\n(A) one\n(B) two\nAnswer with the letter.').options.length === 2 &&
+        BD.linesOf(QF).split('\n').length === 5 &&
+        /^4\. Gia is shorter than Ben\.$/m.test(BD.linesOf(QF)) &&
+        /^Asked: Who is the shortest\?$/m.test(BD.linesOf(QF)) &&
+        BD.linesOf('Today is Monday. What day is it tomorrow?') === '' &&
+        plainSeen.every((x) => !x.last.includes(BD.LINES_HEAD) && x.stage !== 'prepare') &&
+        linesSeen.filter((x) => x.stage === 'draft').length > 1 &&
+        linesSeen
+          .filter((x) => x.stage === 'draft')
+          .every((x) => x.last.startsWith(QF) && x.last.includes(BD.LINES_HEAD + '\n1. Esme is taller than Ben.')) &&
+        factsSeen.filter((x) => x.stage === 'prepare').length === 3 &&
+        factsSeen
+          .filter((x) => x.stage === 'prepare')
+          .every((x) => x.id === first + '-facts' && x.last.includes('Newest fact: ')) &&
+        /Worked out so far:\n- Ben is taller than Gia\n\nNewest fact: Gia is shorter than Ben\.$/.test(
+          factsSeen.filter((x) => x.stage === 'prepare')[2].last,
+        ) &&
+        factsSeen
+          .filter((x) => x.stage === 'draft' && x.id === first)
+          .every((x) => x.last.includes(BD.FOUND_HEAD + '\n- Ben is taller than Gia\n- Ben is taller than Gia')) &&
+        factsSeen.filter((x) => x.stage === 'draft' && x.id !== first).every((x) => x.last === QF) &&
+        plainRun.decided === 'Lena' &&
+        linesRun.decided === 'Lena' &&
+        factsRun.decided === 'Lena' &&
+        factsRun.trace.filter((r) => r.stage === 'prepare').every((r) => !r.final) &&
+        !!lineMove &&
+        lineMove.briefs.plan.prepare === 'lines' &&
+        !!factMove &&
+        factMove.briefs.slots[0].byFacts === true &&
+        AR3.shapeOf(lineMove.briefs) !== AR3.shapeOf(factMove.briefs) &&
+        AR3.steps(factMove.briefs).some((m) => m.name === 'cascade: ' + first + ' works the question all at once') &&
+        AR3.steps(lineMove.briefs).some((m) => m.name === 'breakdown: the question is put to the drafters as it came'),
+      {
+        lines: BD.linesOf(QF),
+        facts: factsSeen.map((x) => [x.id, x.stage, x.last.slice(-60)]),
+        moves: [!!lineMove, !!factMove],
+      },
+    );
+  }
   const tie = await run(said);
   const tieAsked = asked.splice(0);
   const clear = await run({ ...said, b2: 'it can warp' });
@@ -11528,8 +11659,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
         tr.every((t) => t.pyName === 'double_all') &&
         he.every((t) => t.pyName === 'first_word') &&
         /^Write a Python function `double_all\(xs\)` that returns a new list/.test(tr[0].ask) &&
-        /assert double_all\(\[1, 2\]\) == \[2, 4\]/.test(tr[2].ask) &&
-        !/assert first_word\(""\)/.test(he[2].ask) &&
+        // (asked plainly, one way: no docstring to complete and no tests to pass, which are how two benchmarks ask)
+        tr.every((t) => /^Write a Python function `/.test(t.ask) && !/assert |should pass these tests/.test(t.ask)) &&
         fallback.length === 2 &&
         fallback.every((t) => t.lang === 'python' && t.ok),
       { found, tr: tr.map((t) => t.ask.slice(0, 60)), fallback: fallback.map((t) => t.pyName) },
@@ -11589,7 +11720,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           ]
         : null;
     check(
-      "training asks for Python as well as JavaScript: the same families of function, said for Python (its lists, None, True, a dict; the function's name as Python writes one) and asked three ways in turn: plainly, as a function with a docstring to complete, and as a task with tests it should pass, which are the family's own function on its first inputs. The answer is run in Python and is right where it gives what the family's own function gives on every input; an answer in another language is not. The Python kinds stand last of all the kinds, so that no question asked before them changed (adapters taught JavaScript alone gained 24 points on training's code questions and none on two Python benchmarks)",
+      "training asks for Python as well as JavaScript: the same families of function, said for Python (its lists, None, True, a dict; the function's name as Python writes one) and asked plainly, one way (not as a docstring to complete or a task with tests to pass, which are how two benchmarks ask: training is not shaped to a benchmark). The answer is run in Python and is right where it gives what the family's own function gives on every input; an answer in another language is not. The Python kinds stand last of all the kinds, so that no question asked before them changed (adapters taught JavaScript alone gained 24 points on training's code questions and none on two Python benchmarks)",
       TC.pyNameOf('sumEvery') === 'sum_every' &&
         TC.pyLit([1, 'a', null, true, { k: [false] }]) === '[1, "a", None, True, {"k": [False]}]' &&
         /gives None/.test(TC.pySays('An empty array gives null.', 'x')) &&
@@ -11597,8 +11728,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
         py.length === 24 &&
         py.every((t) => t.lang === 'python' && t.type === 'code' && !/JavaScript|\barray\b/.test(t.ask)) &&
         /^Write a Python function `\w+\(/.test(forms[0]) &&
-        /^Write a solution to the following problem[\s\S]*```python\ndef \w+\([^)]*\):\n {4}\x22{3}/.test(forms[1]) &&
-        /Your code should pass these tests:\n\nassert \w+\(/.test(forms[2]) &&
+        forms.every(
+          (f) => /^Write a Python function `\w+\(/.test(f) && !/following problem|pass these tests|assert /.test(f),
+        ) &&
         again.length === py.length &&
         again.every((t) => /^I need a function in Python, `/.test(t.ask)) &&
         TK.KIND_NAMES.slice(-5).join() === 'py-arrays,py-strings,py-numbers,py-parsing,py-wide' &&

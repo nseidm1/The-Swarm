@@ -2202,13 +2202,43 @@ _wb = swarm_ui.whole_block(_dr)
 _ps = ("  501 /bin/bash -c source x.sh && bash training/run.sh --limit 20 --train classes\n"
        " 4242 bash training/run.sh --limit 50 --items code,math --train off\n"
        " 4300 sh training/evaluate.sh --variant base\n")
+# WHAT TRAINING IS TRYING, IN REAL TIME: the plan section opens with the class stage's own record
+_cpd = data.load(swarm_ui.ARGS.root)
+_cpf = Path(_cpd["root"]) / "training" / "results" / str(_cpd.get("key", "")) / "classes.json"
+_cpwas = _cpf.read_text() if _cpf.exists() else None
+_cpmade = not _cpf.parent.exists()
+_cpf.parent.mkdir(parents=True, exist_ok=True)
+_cp0 = swarm_ui.class_plan({**_cpd, "key": "no-such-configuration"})
+_cpf.write_text(json.dumps({"classes": {"words": {"train": 12, "held": 12, "kinds": ["a", "b"], "kept": [], "rounds": [
+    {"gap": {"wrong": 5, "none": 3, "lost": 1, "spoiled": 1, "first": "none"}, "of": 9,
+     "candidates": [{"name": "cascade: a-steps works the question one fact at a time", "n": 12, "counted": 9, "gain": 0.167},
+                    {"name": "plan: decide by most", "n": 12, "counted": 7, "gain": 0.0}],
+     "best": "cascade: a-steps works the question one fact at a time",
+     "held": {"draws": 2, "gain": 0.125, "error": 0.03}, "kept": True}]},
+    "tools": {"skipped": "fewer than four questions of this class carry a standard of their own"}}}))
+_cp1 = swarm_ui.class_plan(_cpd)
+_cpb = swarm_ui.plan_block(_cpd)
+if _cpwas is None:
+    _cpf.unlink()
+    if _cpmade:
+        _cpf.parent.rmdir()
+else:
+    _cpf.write_text(_cpwas)
+check("the plan section says in real time what training is trying: what it can change (pure code, adapters, breakdown, cascade, slots and models, settling, the reply), and for each class its train and held questions, what is kept, and round by round how many changes were tried of how many, where the class fell short as it stood (no slot had it, had it and lost it, reply spoiled) with what that puts first, the changes that gained most, the best and what the held questions said; a class not trained says why; with nothing recorded it says training is not running; and it stands above the question-by-question plan",
+      all(w in _cp1 for w in ("What training is trying", "<b>Pure code</b>", "<b>Breakdown</b>", "<b>Cascade</b>", "<b>Slots and models</b>", "Requests in words", "12 train questions and 12 held, of 2 kinds",
+                              "2 of 9 changes tried", "Wrong as it stood: 5 (no slot had it 3, had it and lost it 1, reply spoiled 1)", "so what is drafted is tried first",
+                              "cascade: a-steps works the question one fact at a time: counted 9 of 12 (+16.7 points)", "+12.5 points with an error of 3.0: <b>kept</b>", "Not trained: fewer than four questions"))
+      and "Training is not running" in _cp0 and "Requests in words" not in _cp0
+      and _cpb.startswith('<div class="panel plan" id="classplan">') and _cpb.count('class="panel plan"') == 2,
+      [_cp1[:300]])
+
 # THE SYSTEM PICTURE DRAWS THE WHOLE: the run, a request inside the module, what training keeps, and the judge, round the lanes
 # of the arrangement's training
 _vzw = swarm_ui.viz_block(data.load(swarm_ui.ARGS.root))
-check("the System picture draws the run in order (R1 to R4: pretraining is no stage of it), a request inside the module (M1 to M4), what training keeps with how far each reaches (K1 to K3, instruments saying which are on), the arrangement's lanes after them, and the judge last (J1 to J4)",
+check("the System picture draws the run in order (R1 to R4: pretraining is no stage of it), a request inside the module (M1 to M4), what training keeps with how far each reaches (K1 to K4: the arrangement with how many slots and models, adapters by slot, instruments saying which are on, the breakdown and the cascade), what is tried first following where the class falls short, the arrangement's lanes after them, and the judge last (J1 to J4)",
       all(">%s</span>" % c in _vzw for c in ("R1", "R4", "M1", "M2", "M4", "K1", "K2", "K3", "A1", "S5", "E1", "J1", "J4")) and ">R5</span>" not in _vzw and "Adapters, by slot" in _vzw
       and _vzw.index(">R1</span>") < _vzw.index(">M1</span>") < _vzw.index(">K1</span>") < _vzw.index(">A1</span>") < _vzw.index(">J1</span>")
-      and "None is on yet." in _vzw and "__VIZ_" not in _vzw and "async function swap(url,into,opts){if(!$(into))return;" in swarm_ui.JS and "R3 in detail" in _vzw and "each request is served with the one its slot carries" in _vzw and "a slot given its adapter first" in _vzw and "bash training/session.sh" in _vzw,
+      and "None is on yet." in _vzw and "__VIZ_" not in _vzw and "async function swap(url,into,opts){if(!$(into))return;" in swarm_ui.JS and "R3 in detail" in _vzw and "each request is served with the one its slot carries" in _vzw and "those for the widest of the three gaps first" in _vzw and ">K4</span>" in _vzw and "Breakdown, cascade" in _vzw and "is not shaped to how they ask" in _vzw and "bash training/session.sh" in _vzw,
       [c for c in ("R1", "M1", "K3", "J4") if ">%s</span>" % c not in _vzw])
 # THE SECOND BASELINE ON THE PAGE: beside a small model by itself, the same model with its reply laid out, as one more column
 _lo = [{"alone": {"a": {"name": "A", "value": 0.0}}, "aloneForm": {"a": {"name": "A", "value": 0.5, "unread": 1}}, "agree": {"of": 10}},

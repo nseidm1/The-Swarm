@@ -1122,6 +1122,21 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     if (!servedAt) {
       swarm = await B.openSwarm(readBriefs());
       stopping.push(() => swarm.stop());
+      // WHAT THE SWARM TAKES IN MEMORY IS MEASURED WHILE IT IS ASKED (support/measure-memory.mjs watchMemory), into the file
+      // the training stage writes and the page reads: a run's first step is an evaluation, and until this the page said
+      // "estimated" until the run reached training (console 2026-11-24)
+      try {
+        const { watchMemory } = await import('./support/measure-memory.mjs');
+        const { CONFIG_ID, footprintOf } = await import('../src/catalog.mjs');
+        const memStop = watchMemory(swarm, {
+          file: path.join(B.WORKC, 'memory.json'),
+          config: CONFIG_ID,
+          target: (footprintOf() || {}).target,
+        });
+        if (typeof memStop === 'function') stopping.push(async () => memStop());
+      } catch {
+        /* an evaluation is not stopped by a measurement that cannot be taken */
+      }
       served = await serve(swarm, { port: 0 });
       stopping.push(served.close);
     }
