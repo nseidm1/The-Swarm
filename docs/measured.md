@@ -21,10 +21,25 @@ function for the two kinds the class was most wrong on.
 On the held questions over two draws the gain was 5.6 points with a paired error of 3.9: not more than twice the
 error, so by the one rule **it was not kept**. Every other kind read the same with and without it.
 
+**Judged where it acts (the same trial again, the same day).** A change that puts a function on is now confirmed on
+the class's held questions and on eighteen more held questions of that function's kind. The model wrote the function
+for count again on its first try, and was refused for lies again.
+
+| Held, first draw | As it stood | With the function for count |
+| --- | --- | --- |
+| The 54 questions | 33 | 41 |
+| count (24 of them) | 16 | 24 |
+| The other five kinds (30) | 17 | 17 |
+
+Over two draws the gain was 16.7 points with a paired error of 4.8: more than three times the error, so by the same
+rule **it would be kept** (the trial keeps nothing). One server stopped answering during the held questions and was
+started again by itself; the question in hand was asked again.
+
 - **What this shows:** a 1.7B model can write a function that reads a question and computes its answer, the vetting
   refuses what guesses, and the module answers by that code with no model asked (18 answers in 0.6 seconds).
-- **What it does not show:** a kept gain. One kind of six, six held questions of it, is too little for the rule to
-  tell from chance; the held questions of a kind do not grow from pass to pass.
+- **What it does not show:** a gain on a whole class with every kind, where one kind is a smaller share, or on any
+  benchmark. The 16.7 points are over six kinds with the written kind asked four times as often as the others; over
+  the class's own 36 held questions the same function is worth 5.6.
 - **Not measured:** a whole class with every kind, a larger model as the writer, any benchmark.
 
 ## A mixture of adapters, proved one question at a time: 2026-11-23 and 24

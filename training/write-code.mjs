@@ -208,3 +208,27 @@ export async function writeFor(kind, own, others, ask, { tries = 3, show = 4, co
   }
   return { ...out, why: (out.tries[out.tries.length - 1] || {}).why || 'nothing was written' };
 }
+
+// JUDGED WHERE IT ACTS. A function answers one kind of question and is silent on every other, and a class has only a few held
+// questions of any one kind (six): on the first trial a function that took its kind from 4 to 6 of 6 held questions was a
+// gain of 5.6 points over the class with an error of 3.9, which no rule can tell from chance (2026-11-24). So a change that
+// puts a function on is confirmed on the class's held questions AND on more held questions of that function's kind, made
+// from the held seed as the others are. They are held questions like any other: never shown to the writer, never used to
+// vet, and asked of the swarm as it stands and of the change alike. The rule a change is kept by is not changed.
+//   kindsAdded(base, cand)                   the kinds a candidate has a function for that the arrangement it came from has not
+//   moreHeldOf(kinds, held, make, extra, ok) -> the further held questions, `extra` of each kind (make: tasks.mjs tasks)
+export const kindsAdded = (base, cand) => {
+  const of = (b) => (Array.isArray(((b || {}).plan || {}).written) ? b.plan.written : []).map((w) => w.kind);
+  const had = of(base);
+  return [...new Set(of(cand).filter((k) => k && !had.includes(k)))];
+};
+export function moreHeldOf(kinds, held, make, extra = 18, ok = () => true) {
+  if (!(extra > 0)) return [];
+  return (kinds || []).flatMap((kind) => {
+    const had = (held || []).filter((t) => t.kind === kind);
+    if (!had.length) return [];
+    return make({ split: 'held', each: had.length + extra, kinds: [kind], seed: had[0].seed })
+      .filter((t) => ok(t) && !(held || []).some((x) => x.id === t.id))
+      .slice(0, extra);
+  });
+}

@@ -12545,6 +12545,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       code: 'function answer(q){return typeof process==="undefined"&&typeof require==="undefined"&&typeof fetch==="undefined"?"sealed":"open"}',
     },
   ]);
+  const TK = await import('../training/tasks.mjs');
+  const heldDay = TK.tasks({ split: 'held', each: 6, kinds: ['day'] });
+  const trainAsks = new Set(TK.tasks({ split: 'train', each: 40, kinds: ['day'] }).map((t) => t.ask));
+  const moreHeld = WC.moreHeldOf(['day'], heldDay, TK.tasks, 18, (t) => typeof t.good === 'function');
+  const clSrc = fs.readFileSync(new URL('../training/classes.mjs', import.meta.url), 'utf8');
   const rows = [
     ...own.map((t, i) => ({ kind: t.kind, counted: i > 3 })),
     { kind: 'lies', counted: true },
@@ -12600,6 +12605,19 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       asked.length > 0 &&
       hostile.id === 'reach' &&
       hostile.answer === 'sealed' &&
+      // (judged where it acts: more held questions of the kind a function was written for, made from the held seed, none of
+      // them a train question or one the class already holds; no function added, none asked)
+      moreHeld.length === 18 &&
+      moreHeld.every((t) => t.kind === 'day' && t.split === 'held' && typeof t.good === 'function') &&
+      new Set([...heldDay, ...moreHeld].map((t) => t.id)).size === heldDay.length + 18 &&
+      !moreHeld.some((t) => trainAsks.has(t.ask)) &&
+      WC.moreHeldOf([], heldDay, TK.tasks, 18).length === 0 &&
+      WC.moreHeldOf(['day'], heldDay, TK.tasks, 0).length === 0 &&
+      WC.kindsAdded(base, withIt).join() === 'day' &&
+      WC.kindsAdded(withIt, withIt).length === 0 &&
+      WC.kindsAdded(base, base).length === 0 &&
+      /heAll\.map\(\(t, i\) => \(\{/.test(clSrc) &&
+      /moreHeldOf\(\s*wroteFor,/.test(clSrc) &&
       W.answerOf({ v: 'null' }) === null &&
       W.answerOf({ v: '"__undefined__"' }) === null &&
       W.answerOf({ v: '42' }) === '42' &&

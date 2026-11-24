@@ -51,7 +51,7 @@ as one model, with the proof of what it does. The Swarm is not tied to one proje
 | Need | For |
 | --- | --- |
 | [Node.js](https://nodejs.org) 20 or later | Everything. There are no package dependencies; `npm install` is only for the formatter |
-| `llama-server` (llama.cpp 1.0.0 or later) | Serving the small models. A pinned build is fetched if none is on the machine |
+| An engine: `llama-server` (llama.cpp 1.0.0 or later), and for some models Atomic Engine or TensorFold | Serving the models. What a lineup needs is fetched or built where the machine has none ([engines](#use-it-in-a-program)) |
 | Python 3.9 or later | The dashboard (standard library only) |
 | Python 3.10 or later, or `uv` | Evaluating: the harnesses are installed into `.work` the first time |
 | An Apple silicon Mac | Making adapters (MLX). Everything else runs without it |
@@ -125,14 +125,29 @@ after them settle between them. Finding the arrangement that does what the large
 ```js
 import { createSwarm } from 'the-swarm';
 
-const swarm = await createSwarm({ llamaServer: '/path/to/llama-server', modelsDir: '.work/models' });
+// the lineup is the one configured (src/config.json), or a spec's: createSwarm({ spec, ... })
+const swarm = await createSwarm({ llamaServer: process.env.SWARM_LLAMA_SERVER, modelsDir: '.work/models' });
 const { reply, ok } = await swarm.answer([{ role: 'user', content: 'Write a function that reverses a string.' }]);
 await swarm.stop();
 ```
 
+**Which engine serves a model is the model's own entry in the catalog** (`src/models.json`), not something a program
+chooses. A lineup may mix them, and the module starts each model with the engine its entry names:
+
+| Engine | Serves | How the module finds it |
+| --- | --- | --- |
+| llama.cpp (`llama-server`) | Any GGUF model. The usual engine | The program `llamaServer` names. `node training/setup.mjs` fetches a pinned build where the machine has none, and a second pinned build for a model whose architecture the first does not know |
+| Atomic Engine (developer preview) | A model whose entry names it, such as one Inkling 2 Mini entry | Built by `setup.mjs` at a pinned commit, or the program `SWARM_ATOMIC_SERVER` names |
+| TensorFold | An MLX model on an Apple silicon Mac whose entry names it, small or larger | On the `PATH` or in `~/.tensorfold/bin`; its maker's installer puts it there |
+
+So the same three lines serve any lineup: `llamaServer` is the usual program, and a model served another way needs
+nothing more said. With no program of your own, `node bin/swarm.mjs serve` finds the engines the lineup needs by itself
+(`--llama <file>`, `SWARM_LLAMA_SERVER`, or one on the `PATH`), after `node training/setup.mjs` has made them ready.
+
 As a server (`swarm.serve()`, `node bin/swarm.mjs serve`, or the dashboard's **Serve the module** button, which shows
-the address once it answers) it answers what llama.cpp's own server answers, on
-`127.0.0.1` only, so a program that talks to one model at an address needs no change:
+the address once it answers) it answers the chat completions protocol that llama.cpp's server and others answer, on
+`127.0.0.1` only, whatever engines serve the models behind it. A program that talks to one model at an address needs no
+change:
 
 | Endpoint | Answers |
 | --- | --- |

@@ -12,7 +12,7 @@ The first version.
   it can reach nothing, on train questions it was not shown and on the class's other questions, and is refused on one
   wrong answer; one that passes is tried like any other change and kept only where held questions gain. A kept
   function is part of the class's arrangement (`plan.written`), so it is in the module wherever the module goes, and
-  the module answers such a question by that code with no model asked. Measured: see `docs/measured.md`.
+  the module answers such a question by that code with no model asked. A function is judged where it acts: it is confirmed on the class's held questions and on eighteen more held questions of its own kind. Measured: see `docs/measured.md`.
 - **A run that ends on an error says so, and what is being made ready is said** (2026-11-24). A press of Run a pass
   came back to a button that could be pressed again and said nothing: the pass had ended in its first second on a
   model that was not on the disk, and only a log knew. A conversation pass now first fetches what the lineup needs

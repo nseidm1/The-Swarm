@@ -243,7 +243,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const { briefsFor, classOf, CLASSES } = await import('../src/orchestrate.mjs');
   const { messagesOf, ownStandard } = await import('./tasks.mjs');
   const { steps, writtenMoves } = await import('./arrange.mjs');
-  const { kindsShort, writeFor, writable } = await import('./write-code.mjs');
+  const { kindsShort, writeFor, writable, kindsAdded, moreHeldOf } = await import('./write-code.mjs');
   const policy = JSON.parse(fs.readFileSync(path.join(HERE, 'policy.json'), 'utf8'));
   const P = policy.classes || {};
   const { keepOf } = await import('./keep.mjs');
@@ -594,19 +594,34 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
           leanBy[K] = leanOf(scored, base);
           break;
         }
-        // ON THE HELD QUESTIONS, which it was not chosen on: the swarm as it stands and the best, the same questions for both
+        // ON THE HELD QUESTIONS, which it was not chosen on: the swarm as it stands and the best, the same questions for both.
+        // Where the best puts a function on, more held questions of that function's kind are asked with them
+        // (write-code.mjs moreHeldOf): a function is judged where it acts
+        const wroteFor = kindsAdded(base, best.m.briefs);
+        const heMore = moreHeldOf(
+          wroteFor,
+          held.filter((t) => classIs(t) === K),
+          makeTasks,
+          P.writeHeld ?? 18,
+          (t) => ownStandard(t) && !['open', 'talk'].includes(t.type) && classIs(t) === K,
+        );
+        const heAll = [...he, ...heMore];
+        if (heMore.length)
+          console.log(
+            '  and ' + heMore.length + ' more held questions of ' + wroteFor.join(', ') + ', where the function acts',
+          );
         const heldBase = await onDraws(
-          he,
+          heAll,
           asClass(K, base),
           said(K) + ': the swarm as it stands, on the held questions',
         );
         const heldBest = await onDraws(
-          he,
+          heAll,
           asClass(K, best.m.briefs),
           said(K) + ': confirming "' + plainMove(best.m.name) + '" on the held questions',
         );
         const verdict = keepOf(
-          he.map((t, i) => ({
+          heAll.map((t, i) => ({
             id: t.id,
             kind: t.kind,
             base: heldBase.map((d) => (d[i].counted ? 1 : 0)),
@@ -624,6 +639,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
             gain: hg.gain,
             error: hg.error,
             draws: verdict.draws,
+            ...(heMore.length ? { more: { kinds: wroteFor, questions: heMore.length } } : {}),
             ...(verdict.lost.length ? { lost: verdict.lost } : {}),
             ...(verdict.fell.length ? { fell: verdict.fell } : {}),
             ...(verdict.why ? { why: verdict.why } : {}),
@@ -662,7 +678,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
             by: 'the class stage',
             gain: hg.gain,
             error: hg.error,
-            questions: he.length,
+            questions: heAll.length,
             draws: verdict.draws,
           });
         }

@@ -1609,6 +1609,13 @@ def training_now(d):
     return "".join(out) + "</div>"
 
 
+def held_more_words(h):
+    """Where a change put a function on, the held questions it was confirmed on were the class's and more of that function's
+    kind (training/write-code.mjs moreHeldOf): said beside the verdict. '' otherwise."""
+    m = (h or {}).get("more") or {}
+    return (" and %d more of %s, where the function acts" % (m.get("questions") or 0, e(", ".join(m.get("kinds") or [])))) if m.get("questions") else ""
+
+
 def written_words(written):
     """What a round's code writing came to, kind by kind (training/write-code.mjs): written and how it did on the questions it
     was not shown, or that none passed and why. A function that passed is then tried as a change like any other."""
@@ -1710,7 +1717,7 @@ def class_plan(d, which="classes"):
             verdict = ("" if not R.get("best") else
                        '<p class="small" style="margin:4px 0 0">Best: <b>%s</b>. %s</p>'
                        % (e(re.sub(r"^plan: ", "", R["best"])),
-                          ("On the held questions, %s draws: %s points with an error of %.1f: <b>%s</b>" % (h.get("draws") or 2, pts(h.get("gain")), 100.0 * (h.get("error") or 0), "kept" if R.get("kept") else "not kept")) if h
+                          ("On the held questions%s, %s draws: %s points with an error of %.1f: <b>%s</b>" % (held_more_words(h), h.get("draws") or 2, pts(h.get("gain")), 100.0 * (h.get("error") or 0), "kept" if R.get("kept") else "not kept")) if h
                           else "Being confirmed on the held questions"))
             out.append('<p class="small" style="margin:8px 0 0"><b>Round %d</b>: %d of %d changes tried.%s</p>%s%s'
                        % (i + 1, len(cands), R.get("of") or len(cands),
