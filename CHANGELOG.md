@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The README is short and plain** (2026-11-24): what the Swarm is, how to start, how to use it like any model,
+  what happens inside, where it stands, and where to read more. What it held in detail is in the documents it links:
+  results in `docs/results.md` (new), engines in `docs/api.md`, the two runs in `docs/training.md`, the checks and
+  the repository layout in `CONTRIBUTING.md`.
 - **The README starts from the dashboard** (2026-11-24). The table of requirements is gone from it: on an Apple
   silicon Mac with Node.js and Python, three lines open the dashboard, which fetches what a lineup needs, serves the
   module and removes what it installed. The SwOA spec is a note under the endpoint. The full table is in

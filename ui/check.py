@@ -2604,7 +2604,7 @@ check("a run that ended on an error says so: its card carries the run's own last
       and _nr_idle == "" and 'u.path == "/now/ready"' in _fsrc and "stopped=True" in _fsrc and '"converse": "training/converse.sh"' in _fsrc
       and '_making_ready(st) if running else failed_line("converse"' in _fsrc and '_making_ready(st) if running else failed_line("whole"' in _fsrc
       and '["bash", "bin/serve.sh", str(SERVE_PORT)]' in _fsrc and "setup.mjs --small" in (_HERE / "bin" / "serve.sh").read_text() and 'exec "$NODE" bin/swarm.mjs serve' in (_HERE / "bin" / "serve.sh").read_text() and 'job_failure("serve")' in _fsrc
-      and "## Use it as a model endpoint" in (_HERE / "README.md").read_text() and (_HERE / "README.md").read_text().index("## Use it as a model endpoint") < (_HERE / "README.md").read_text().index("## Embed it in a program") and "http://127.0.0.1:%d/v1" % swarm_ui.SERVE_PORT in (_HERE / "README.md").read_text(),
+      and "## Use it like any model" in (_HERE / "README.md").read_text() and "Serve the module" in (_HERE / "README.md").read_text() and "http://127.0.0.1:%d/v1" % swarm_ui.SERVE_PORT in (_HERE / "README.md").read_text() and "## Requirements" not in (_HERE / "README.md").read_text(),
       [_fj_bad, _fj_unknown, _fj_stopped, _fj_setup, _fj_last, _fj_none, _rw1, _rw2, _nr_idle])
 
 _ww = swarm_ui.written_words([{"kind": "day", "wrong": 4, "of": 6, "ok": True, "tries": [{"ok": False, "why": "x"}, {"ok": True, "right": 3, "n": 3}]},

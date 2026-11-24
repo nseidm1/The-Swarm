@@ -21,6 +21,34 @@ node training/setup.mjs
 node bin/swarm.mjs ask "Today is Monday. What day is it in 100 days?" --trace --llama /path/to/llama-server
 ```
 
+## The checks
+
+```bash
+npm test
+```
+
+```bash
+python3 ui/check.py
+```
+
+256 checks of the module and the trainers and 171 of the dashboard, against stand-in servers: nothing is fetched,
+started or installed. `npm test` deals its blocks of checks out to every core (27 seconds on a 24-core Mac, 88 one
+after another); `npm run test:serial` runs them in one process, `npm run test:all` adds the dashboard's, and
+`npm run test:python` checks the Python client. How well the
+models do is not a check. It is a measurement.
+
+## Repository layout
+
+| Path | What it holds |
+| --- | --- |
+| `src/` | The module: the server, the order of things, the models that can be chosen, the configuration, the briefs |
+| `bin/`, `python/` | `swarm serve` and `swarm ask`; the Python client |
+| `training/` | The questions, the trainers, the policy they train by, the evaluator, and what makes and proves adapters |
+| `specs/` | Published SwOA specs, each with its card and its proof: the only thing training leaves that is committed |
+| `tests/`, `ui/` | The checks; the dashboard (Python, standard library only) with its sample data and checks |
+| `docs/` | The documents, and the pictures |
+| `.work/`, `src/learned/` | Made when it runs, never committed: model files, engines, harnesses, and what each configuration has learned |
+
 ## What a change comes with
 
 1. **A check that fails without it.** The module's conduct is checked in `tests/run.mjs`, with stand-in servers in place of the

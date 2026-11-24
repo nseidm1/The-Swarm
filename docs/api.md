@@ -116,3 +116,18 @@ the same call shape a llama.cpp model is started with. It answers at an OpenAI-c
 has been shown good for is in its proof, capability by capability (`proof.capabilities`); what its training asked is on the
 card (`card.trainedOn`): replies a person reads, single checked steps and, with turns with tools decided by the swarm, an
 agent's steps. With them given to one small model, an agent gets that model alone.
+
+## Engines
+
+**Which engine serves a model is the model's own entry in the catalog** (`src/models.json`), not something a program
+chooses. A lineup may mix them, and the module starts each model with the engine its entry names:
+
+| Engine | Serves | How the module finds it |
+| --- | --- | --- |
+| llama.cpp (`llama-server`) | Any GGUF model. The usual engine | The program `llamaServer` names. `node training/setup.mjs` fetches a pinned build where the machine has none, and a second pinned build for a model whose architecture the first does not know |
+| Atomic Engine (developer preview) | A model whose entry names it, such as one Inkling 2 Mini entry | Built by `setup.mjs` at a pinned commit, or the program `SWARM_ATOMIC_SERVER` names |
+| TensorFold | An MLX model on an Apple silicon Mac whose entry names it, small or larger | On the `PATH` or in `~/.tensorfold/bin`; its maker's installer puts it there |
+
+So the same three lines serve any lineup: `llamaServer` is the usual program, and a model served another way needs
+nothing more said. With no program of your own, `node bin/swarm.mjs serve` finds the engines the lineup needs by itself
+(`--llama <file>`, `SWARM_LLAMA_SERVER`, or one on the `PATH`), after `node training/setup.mjs` has made them ready.

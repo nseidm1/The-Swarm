@@ -264,6 +264,33 @@ only the person knows; Search offers a search tool and a fact made up from the s
 carry questions a person wrote. None of them is a benchmark's question. [training/TRAIN.md](../training/TRAIN.md) is the procedure, and
 `training/research.md` what was read on this machine (it is written by the first pass, and not committed).
 
+## The two runs, and who judges them
+
+**Two runs, apart.** The run that evaluates, trains and evaluates again is the intelligence run, judged by outside benchmarks (**Run Intelligence Training** on the
+dashboard). The conversation run is a card of its own under it (**Run Conversation Training**): one press is one pass over the class of input that is a conversation, judged on held
+conversations read by code, with the passes side by side. No benchmark is asked.
+
+**Each pass learns from the last.** A pass writes down every kind of question it was still wrong on and every
+convention a reply still missed; the next pass asks more train questions of those.
+
+What is tried first follows where the class falls short: no slot had the answer, a slot had it and settling lost it, or
+the reply spoiled it.
+
+Training's held questions are its own, so what it keeps is still to be shown by the benchmarks; so far it has not been
+([Results](results.md)).
+
+```bash
+bash training/run.sh
+```
+
+That is the whole of it in one run, with the two figures it is judged by: the module is evaluated as configured, an
+adapter is made for each drafting slot, the module is trained (the arrangement, which slot carries its adapter, the
+instruments), and it is evaluated again on the same questions (the dashboard's **Run Intelligence Training**). The evaluation
+is a third party's: EleutherAI's [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) and the
+[Berkeley Function-Calling Leaderboard](https://gorilla.cs.berkeley.edu/leaderboard.html) ask the module through the
+chat-model interface as they ask any model. Training makes its own questions from a seed, never asks a benchmark's, and is not shaped to how a benchmark asks.
+[Training, in full](training.md) · [The procedure](../training/TRAIN.md)
+
 ## The Crew: the first project that uses it
 
 [The Crew](https://myfamilyoffice.eth.limo/start.html) is the reason this project exists, and its body of work is the
