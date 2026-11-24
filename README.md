@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="#quick-start">Quick start</a> ·
+  <a href="#get-started">Get started</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#use-it-as-a-model-endpoint">Endpoint</a> ·
   <a href="#embed-it-in-a-program">API</a> ·
@@ -35,8 +35,9 @@ matched, not an answer copied: the module scores no worse than the larger model,
 tests (code, math, logic, reasoning, following instructions, tools, search), each asked of both by a third party's
 harness, unchanged ([docs/swoa-parity.md](docs/swoa-parity.md)).
 
-**What training makes is a spec.** A [SwOA](docs/swoa.md) spec is everything needed to make that swarm again and serve it
-as one model, with the proof of what it does. The Swarm is not tied to one project;
+**The dashboard does the setting up.** Choose the models, and it fetches what they need, trains the module, and
+serves it at an address any program can use as it would a model. Nothing is configured by hand, and everything it
+installs can be taken out again from the same page. The Swarm is not tied to one project;
 [The Crew](docs/training.md#the-crew-the-first-project-that-uses-it) is the first to use it.
 
 > **Status: pre-release; nothing proven yet.** The swarm these figures are of (2026-11-24) is LFM2.5 1.2B in both places against
@@ -47,49 +48,33 @@ as one model, with the proof of what it does. The Swarm is not tied to one proje
 > configured (92 of 200; 247 of 460 on all tasks against 254), within error.
 > [Results](#results) · [Status and limits](docs/status.md)
 
-## Requirements
+## Get started
 
-| Need | For |
-| --- | --- |
-| [Node.js](https://nodejs.org) 20 or later | Everything. There are no package dependencies; `npm install` is only for the formatter |
-| An engine: `llama-server` (llama.cpp 1.0.0 or later), and for some models Atomic Engine or TensorFold | Serving the models. What a lineup needs is fetched or built where the machine has none ([engines](#embed-it-in-a-program)) |
-| Python 3.9 or later | The dashboard (standard library only) |
-| Python 3.10 or later, or `uv` | Evaluating: the harnesses are installed into `.work` the first time |
-| An Apple silicon Mac | Making adapters (MLX). Everything else runs without it |
-| Memory and disk | About 3.5 to 13 GB of memory for the small models; 0.5 to 5 GB of disk for each, 2.5 GB and up for a larger model |
-
-Everything it fetches goes into `.work`, and the dashboard's Uninstall Helper takes it out again piece by piece.
-[The full table](docs/configuration.md#requirements).
-
-## Quick start
+On an Apple silicon Mac, with [Node.js](https://nodejs.org) 20 or later and Python 3 (macOS has it):
 
 ```bash
 git clone https://github.com/nseidm1/The-Swarm.git
 cd The-Swarm
-npm test
-```
-
-**With the dashboard.** Choose the models at the top. Press **Serve the module** to use the swarm from any program as one model at an address ([below](#use-it-as-a-model-endpoint)), or press **Start** under **Run Intelligence Training**: what is missing is fetched,
-then the module is evaluated as configured, trained, and evaluated again.
-
-```bash
 python3 ui/swarm_ui.py
 ```
 
-**From a terminal.** Make ready what the configured swarm needs, ask it something and see what each slot wrote, or serve
-it at an address as one model:
+That serves the dashboard at `http://127.0.0.1:8787`. Open it, and from there:
 
-```bash
-node training/setup.mjs
-```
+1. **Choose the models** at the top. One small model can fill every place, or several can share them.
+2. **Press Serve the module** to use the swarm from any program as one model at an address
+   ([below](#use-it-as-a-model-endpoint)).
+3. **Press Start** under **Run Intelligence Training** to evaluate it as configured, train it, and evaluate it again.
 
-```bash
-node bin/swarm.mjs ask "Write a JavaScript function isEven(n) that returns true for even whole numbers." --trace
-```
+**What it needs, it gets.** The engines that serve the models, the models themselves, the evaluation harnesses and the
+tools that make adapters are fetched or built the first time something needs them, into the `.work` folder. (One engine, TensorFold, is installed by its maker's installer into a folder of its own; the Uninstall Helper lists that too.) A bar at the foot of the page says what is being fetched and how far it is. There are no package dependencies to
+install.
 
-```bash
-node bin/swarm.mjs serve --port 8090
-```
+**What it installs, it can remove.** The **Uninstall Helper** at the top of the dashboard lists every piece with its
+size and takes any of them out again.
+
+Allow about 3.5 to 13 GB of memory for the small models and 0.5 to 5 GB of disk for each. Other machines, and each piece
+by name: [the full table](docs/configuration.md#requirements). Without the dashboard, `node training/setup.mjs` makes the lineup ready and
+`node bin/swarm.mjs serve` serves it.
 
 ## Use it as a model endpoint
 
@@ -115,6 +100,9 @@ It answers the chat completions protocol that llama.cpp's server and others answ
 engines serve the models behind it. In an app that lists providers, add it as a custom or OpenAI-compatible connection
 with the base URL above (tried with Unsloth's desktop app). While it is served the models are in use, so the
 dashboard's run cards wait until it is stopped.
+
+The **SwOA spec** button beside it exports the module as one file: the pinned models, the arrangement and what
+training kept, enough to make the same swarm again elsewhere ([docs/swoa.md](docs/swoa.md)).
 
 | Endpoint | Answers |
 | --- | --- |

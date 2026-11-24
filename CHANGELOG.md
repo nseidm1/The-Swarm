@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The README starts from the dashboard** (2026-11-24). The table of requirements is gone from it: on an Apple
+  silicon Mac with Node.js and Python, three lines open the dashboard, which fetches what a lineup needs, serves the
+  module and removes what it installed. The SwOA spec is a note under the endpoint. The full table is in
+  `docs/configuration.md`.
 - **The README leads with the module as a model endpoint** (2026-11-24): press **Serve the module**, then point any
   program at `http://127.0.0.1:8090/v1`, model `the-swarm`. Holding the module inside a program comes after it. The
   button now first makes ready what the lineup needs (`bin/serve.sh`), and a serving that ends on an error is read
