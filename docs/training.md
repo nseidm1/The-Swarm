@@ -77,7 +77,7 @@ out (2026-11-24). What carries a gain to a benchmark has to be breadth of traini
 
 `bash training/run.sh` is the whole of it in one run, with the two figures it is judged by: the module as configured
 is evaluated, which is the baseline; an adapter is made for each drafting slot and the module is trained; and it is
-evaluated again, on the same questions (the dashboard's **Run**). The evaluation is a third party's, unchanged: the harness asks the module
+evaluated again, on the same questions (the dashboard's **Run Intelligence Training**). The evaluation is a third party's, unchanged: the harness asks the module
 through the chat-model interface as it asks any model, and training never asks a harness's question.
 
 What follows is the training of the arrangement. Nothing here changes the small models' weights. What is trained is what each slot is told, and how the slots are arranged:

@@ -1812,7 +1812,7 @@ swarm_ui.ARGS.root = _root9
 check("the whole run has one button: Run is the first card, with the size of its evaluations and Start; no box to tick for training, since whether a change betters the module is what training finds; (Carry on where a run was stopped part way); under it its four steps in order (the module as configured evaluated, an adapter made for each drafting slot, training, the trained module evaluated: pretraining is no stage of it), each done, running, not taken where it refused, failed or waiting, with how long it took; a step a stopped run left as running reads as stopped; and the page says the run has the models while it is between two steps",
       [x["state"] for x in _ws] == ["done", "not taken", "running", "waiting"] and [x["id"] for x in _ws] == ["1-evaluate-as-configured", "2-make-adapters", "3-train-classes", "4-evaluate-trained"] and _ws[0]["minutes"] == 20 and _wdone is False and all(x["state"] == "waiting" for x in _ws0)
       and 'id="whole-go"' in _wb and "Carry on" in _wb and 'id="whole-size"' in _wb and 'id="whole-train"' not in _wb and "Train the arrangement too" not in _wb and _wb.count('<li class="ws ') == 4 and "pretrain" not in " ".join(x["name"].lower() for x in _ws) and "stopped here" in _wb and "not taken" in _wb
-      and html.index("<h2>Run</h2>") < html.index("<h2>Memory saved</h2>") and '"whole": "training/run.sh"' in open(swarm_ui.__file__).read() and 'return "the run"' in open(swarm_ui.__file__).read(), [_ws, _wb[:300]])
+      and html.index("<h2>Run Intelligence Training</h2>") < html.index("<h2>Run Conversation Training</h2>") < html.index("<h2>Memory saved</h2>") and '"whole": "training/run.sh"' in open(swarm_ui.__file__).read() and 'return "the run"' in open(swarm_ui.__file__).read(), [_ws, _wb[:300]])
 _card7k = swarm_ui.memory_card({"footprint": _m7_kept})
 _card7 = swarm_ui.memory_card({"footprint": _m7})
 _card7e = swarm_ui.memory_card({"footprint": _fp7})
@@ -2050,7 +2050,7 @@ _cht_none11 = swarm_ui.eval_chart(dict(_dc11, footprint={}))
 swarm_ui._eval_rows = lambda root: [_full11]
 check("the evaluation's results as a paper sets them out, and as score against memory: a caption, each benchmark with both scores and their standard errors, the higher in bold, a line over every question and the table as LaTeX; and a point for each of the two, named, where their memory is known",
       "<b>Table 1.</b>" in _pap11 and "± is one standard error" in _pap11 and 'class="pall"><td>All questions</td><td>40</td>' in _pap11 and "<small>± " in _pap11 and "\\begin{tabular}{lrrrr}" in _pap11 and "\\toprule" in _pap11 and 'id="evd-copy"' in _pap11
-      and _cht11.count('<text class="pn"') == 2 and "while holding 25% of its memory (4 GB against 16 GB)" in _cht11 and "<em>configured now</em>" in _cht11 and '<li class="mine">' in _cht11 and 'role="img"' in _cht11
+      and _cht11.count('<text class="pn"') == 2 and "while holding 25% of its memory (4 GB against 16 GB)" in _cht11 and "<em>configured now</em>" in _cht11 and '<li class="mine" data-pt="' in _cht11 and 'role="button" tabindex="0" aria-pressed="true"' in _cht11 and _cht11.count('<g data-pt="') == _cht11.count('<li class="mine" data-pt="') + _cht11.count('<li data-pt="') + _cht11.count('<li class="mine tgt" data-pt="') and "chartLine" in swarm_ui.JS and "svg g[data-pt].off{display:none}" in swarm_ui.CSS and 'role="img"' in _cht11
       and 'r="15" fill="none"' in _cht11 and "<em>the larger model, configured now</em>" in _cht11 and 'stroke="var(--tgt)" stroke-width="2"/>' in _cht11 and 'class="mine tgt"' in _cht11 and "No lineup has been evaluated yet." in _cht_none11 and 'id="evd-cfg"' not in _cht11
       # (the chart's scores are of one thing at a time: every question, or one benchmark by the name it is known by; a benchmark
       # of several tasks is the mean of its tasks; a result of fewer than a hundred questions of a task says it is a quick look)
@@ -2078,7 +2078,7 @@ _dal11 = dict(_d11, key="k--t", target={"id": "t", "name": "Big"}, footprint={"s
 _chal11, _paal11 = swarm_ui.eval_chart(_dal11), swarm_ui.eval_paper(_dal11)
 check("where an evaluation asked each small model by itself, the chart has a point for each at its own memory beside the swarm and the larger model, and says the swarm's score beside the best of them; and the paper's table has a column for each",
       _chal11.count('<text class="pn"') == 4 and '<ol class="lgl">' in _chal11 and _chal11.count("</li>") == 4 and 'class="lb"' not in _chal11
-      and re.search(r'<li><i style="background:[^"]+">\d</i><b>Mini B by itself</b><span>50% · 2\.5 GB · 40 questions of 2 tasks</span>', _chal11) is not None and "<title>Mini A by itself: 25% of 40 questions, 1.5 GB</title>" in _chal11 and "<title>Mini B by itself: 50% of 40 questions, 2.5 GB</title>" in _chal11
+      and re.search(r'<li data-pt="\d+" role="button" tabindex="0" aria-pressed="true" title="[^"]+"><i style="background:[^"]+">\d</i><b>Mini B by itself</b><span>50% · 2\.5 GB · 40 questions of 2 tasks</span>', _chal11) is not None and "<title>Mini A by itself: 25% of 40 questions, 1.5 GB</title>" in _chal11 and "<title>Mini B by itself: 50% of 40 questions, 2.5 GB</title>" in _chal11
       and '<th class="num evm">Mini A alone</th><th class="num evm">Mini B alone</th><th class="num">The swarm</th>' in swarm_ui.eval_table(_dal11) and '<td class="num evm">25%</td><td class="num evm">50%</td>' in swarm_ui.eval_table(_dal11) and "evt-m" not in _tab_full
       and "By itself, the best of its models (Mini B) scored 50%" in _chal11 and "<th>Mini A alone</th><th>Mini B alone</th><th>The swarm</th>" in _paal11 and "lrrrrrr" in _paal11 and "Each small model is also shown by itself" in _paal11,
       [_chal11[-500:], _paal11[:300]])
@@ -2091,9 +2091,11 @@ _okz = "%s+%s+none--%s" % (_smz[-1], _smz[-1], _dz["target"]["id"])
 swarm_ui._eval_rows = lambda root: [dict(_full11, configuration=_okz, target=_dz["target"]["name"])]
 _tz, _bz = swarm_ui.eval_table(_dz), swarm_ui.eval_block(_dz)
 _lz = swarm_ui.lineup_of(_dz, _okz)
-check("the three views of an evaluation can show any lineup evaluated against this larger model: where the lineup configured now has none, its card still has the three buttons, the dialog has a box to choose the lineup with this one marked not evaluated and the other chosen, and a lineup of one model in two places is named so",
+check("the three views of an evaluation can show any lineup evaluated against this larger model: where the lineup configured now has none, its card still has the three buttons, the dialog opens on the lineup configured now, says it has not been evaluated and how to go on, and has a box to choose another, which then shows that one's evaluation, and a lineup of one model in two places is named so",
       _okz != _dz["key"] and 'data-evd-view="chart"' in _bz and "not evaluated yet" in _bz and 'id="evd-cfg"' in _tz and "This lineup: " in _tz and "(not evaluated yet)</option>" in _tz
-      and ('<option value="%s" selected>' % _okz) in _tz and swarm_ui.lineup_name(_lz).endswith(", 2 of it") and swarm_ui.lineup_of(_dz, "nothing+none--x") is None
+      and ('<option value="%s" selected>' % _dz["key"]) in _tz and ('<option value="%s">' % _okz) in _tz and "is the lineup configured now, and it has not been evaluated yet" in _tz
+      and "or choose another lineup above to see its evaluation" in _tz and ('<option value="%s" selected>' % _okz) in swarm_ui.eval_table(_dz, cfg=_okz) and "has not been evaluated yet" not in swarm_ui.eval_table(_dz, cfg=_okz)
+      and swarm_ui.lineup_name(_lz).endswith(", 2 of it") and swarm_ui.lineup_of(_dz, "nothing+none--x") is None
       and [k for k, _, _ in swarm_ui.evaluated_lineups(_dz)] == [_okz], [_tz[:400]])
 # (the arrangement a lineup started from, beside the one training kept: a line of its own in the views, each named for what it is)
 swarm_ui._eval_rows = lambda root: [dict(_full11, configuration=_okz, target=_dz["target"]["name"], arrangement="default", at="2026-11-21T10:00:00.000Z"),

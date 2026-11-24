@@ -6,6 +6,11 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **An evaluation's views open on the lineup configured now** (2026-11-24), evaluated or not: one with no evaluation
+  says so and how to go on, and the box above still chooses another lineup's. They opened on the lineup evaluated most
+  lately, which read as that one being configured. In the chart, each line of the list turns its point on and off,
+  to scope the chart to what is being compared. The two run sections are named **Run Intelligence Training** and
+  **Run Conversation Training**.
 - **The exported spec carries the serving training chose** (2026-11-24). Where training kept another serving of the
   same model for a place, that entry is the place's member in the spec, with what it needs to be served that way
   (`architecture`, `thinks`, `program`, its parts and flags), the build it names pinned under the spec's engine, and

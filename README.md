@@ -68,7 +68,7 @@ cd The-Swarm
 npm test
 ```
 
-**With the dashboard.** Choose the models at the top and press **Start** on the Run card: what is missing is fetched,
+**With the dashboard.** Choose the models at the top and press **Start** under **Run Intelligence Training**: what is missing is fetched,
 then the module is evaluated as configured, trained, and evaluated again.
 
 ```bash
@@ -176,8 +176,8 @@ of these is tried as a change and kept only where held questions, never trained 
   that conversation (no praise to open, no offer of help to close, a short reply to a short message, the answer first
   for someone in a hurry). Code can tidy a reply, and that too is a change training keeps or not.
 
-**Two runs, apart.** The run above is the intelligence run, judged by outside benchmarks. The conversation run is a
-card of its own under it: one press is one pass over the class of input that is a conversation, judged on held
+**Two runs, apart.** The run above is the intelligence run, judged by outside benchmarks (**Run Intelligence Training** on the
+dashboard). The conversation run is a card of its own under it (**Run Conversation Training**): one press is one pass over the class of input that is a conversation, judged on held
 conversations read by code, with the passes side by side. No benchmark is asked.
 
 **Each pass learns from the last.** A pass writes down every kind of question it was still wrong on and every
@@ -195,7 +195,7 @@ bash training/run.sh
 
 That is the whole of it in one run, with the two figures it is judged by: the module is evaluated as configured, an
 adapter is made for each drafting slot, the module is trained (the arrangement, which slot carries its adapter, the
-instruments), and it is evaluated again on the same questions (the dashboard's **Run**). The evaluation
+instruments), and it is evaluated again on the same questions (the dashboard's **Run Intelligence Training**). The evaluation
 is a third party's: EleutherAI's [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) and the
 [Berkeley Function-Calling Leaderboard](https://gorilla.cs.berkeley.edu/leaderboard.html) ask the module through the
 chat-model interface as they ask any model. Training makes its own questions from a seed, never asks a benchmark's, and is not shaped to how a benchmark asks.

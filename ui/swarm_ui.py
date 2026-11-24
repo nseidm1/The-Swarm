@@ -149,7 +149,7 @@ dialog#qedit::backdrop{background:rgba(11,40,38,.45)}dialog#qedit h4{margin:22px
 .picks .pick{flex:1 1 185px}.picks .pick.target{flex:1.6 1 300px}
 .specbtn{font:inherit;font-size:12.5px;font-weight:800;color:var(--fog);background:var(--panel);border:0;border-left:4px solid var(--sun);border-radius:var(--r);padding:7px 14px;box-shadow:var(--shadow);cursor:pointer;white-space:nowrap}
 .specbtn span{font-weight:700;color:var(--mist);margin-left:6px}.specbtn.tidy{border-left-color:var(--coral)}
-#conversewrap{margin-top:14px}.specbtn.serve{border-left-color:var(--teal2)}.specbtn.serve[disabled]{opacity:.55;cursor:not-allowed}.specbtn.serve.on i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--right);margin-right:7px}
+.lgl li[data-pt]{cursor:pointer}.lgl li[data-pt].off{opacity:.38}.lgl li[data-pt].off b{text-decoration:line-through}svg g[data-pt].off{display:none}.specbtn.serve{border-left-color:var(--teal2)}.specbtn.serve[disabled]{opacity:.55;cursor:not-allowed}.specbtn.serve.on i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--right);margin-right:7px}
 .specbtn.serve.starting{color:var(--mist)}.serveurl{font:600 12.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--fog);background:var(--panel);border-radius:var(--r);padding:7px 12px;box-shadow:var(--shadow);cursor:copy;user-select:all;white-space:nowrap}
 dialog#tidy{border:0;border-radius:var(--r);padding:26px;max-width:min(820px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}
 dialog#tidy::backdrop{background:rgba(11,40,38,.45)}.tlist{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}
@@ -852,6 +852,11 @@ setInterval(liveTick,1500);liveTick();
 document.addEventListener('click',async ev=>{const b=ev.target;if(b.id!=='whole-go'&&b.id!=='whole-stop')return;b.disabled=true;
   await evPost(b.id==='whole-go'?'/whole/start':'/whole/stop','#wholewrap',b.id==='whole-go'?{limit:Number(($('#whole-size')||{}).value||20)}:{});});
 setInterval(async()=>{if($('#wholebox[data-running]')||$('#busy[data-busy="the run"]'))await swap('/fragment/whole','#wholewrap');},3000);
+// THE CHART'S LIST SCOPES THE CHART: a line pressed (or Enter, or the space bar, on it) turns its point off, and on again
+const chartLine=li=>{const off=li.classList.toggle('off');li.setAttribute('aria-pressed',off?'false':'true');
+  const root=li.closest('dialog,.panel,body');root.querySelectorAll('svg g[data-pt="'+li.dataset.pt+'"]').forEach(g=>g.classList.toggle('off',off));};
+document.addEventListener('click',ev=>{const li=ev.target.closest('.lgl li[data-pt]');if(li)chartLine(li);});
+document.addEventListener('keydown',ev=>{if(ev.key!=='Enter'&&ev.key!==' ')return;const li=ev.target.closest&&ev.target.closest('.lgl li[data-pt]');if(li){ev.preventDefault();chartLine(li);}});
 // THE CONVERSATION RUN'S BUTTON (converse_block): one press is one pass; drawn again while a pass runs, and the plan with it
 document.addEventListener('click',async ev=>{const b=ev.target;if(b.id!=='converse-go'&&b.id!=='converse-stop')return;b.disabled=true;
   await evPost(b.id==='converse-go'?'/converse/start':'/converse/stop','#conversewrap',{});});
@@ -4876,15 +4881,20 @@ def evaluated_lineups(d):
     return out
 
 
+def not_evaluated(d, other):
+    """What a view says of a lineup that has no evaluation: which lineup, that it has none, and where to go from there."""
+    return ('<p class="muted"><b>%s</b> is the lineup configured now, and it has not been evaluated yet. Press <b>Evaluate</b> to evaluate it%s.</p>'
+            % (e(lineup_name(d)), ", or choose another lineup above to see its evaluation" if other else ""))
+
+
 def view_of(d, cfg=None):
-    """WHICH LINEUP'S EVALUATION A VIEW SHOWS: the one asked for (cfg, a configuration's key), or the lineup configured now, or,
-    where that has not been evaluated, the one evaluated most lately. -> (its `d`, its view as eval_view gives one, the box
-    that chooses between them: '' where there is one or none)"""
+    """WHICH LINEUP'S EVALUATION A VIEW SHOWS: the one asked for (cfg, a configuration's key), else THE LINEUP CONFIGURED NOW,
+    evaluated or not (console 2026-11-24: a view opens on what is configured and says its state; it opened on the lineup
+    evaluated most lately where the configured one had no evaluation, which read as that lineup's being configured).
+    -> (its `d`, its view as eval_view gives one, the box that chooses between them: '' where there is one or none)"""
     every = evaluated_lineups(d)
     mine = eval_view(Path(ARGS.root), d)
     pick = next((x for x in every if x[0] == cfg), None) if cfg else None
-    if not pick and not mine["res"] and every:
-        pick = every[0]
     if pick and pick[0] != d.get("key"):
         res = pick[2]
         view = {"res": res, "any": res, "by_task": {x["task"]: dict(x) for x in res.get("results", [])}, "short": [], "base": res, "carried": 0}
@@ -4923,7 +4933,7 @@ def eval_table(d, only=None, cfg=None):
              % "".join('<label><input type="checkbox" data-evd-harness="%s"%s>%s</label>' % (e(k), " checked" if k in hs else "", e(harness_name(k))) for k in hs_all)) if len(hs_all) > 1 else ""
     boxes = lineups + boxes + ev_speed(res, tname, hs)
     if not done:
-        return head + boxes + '<p class="muted">%s</p>' % ("Nothing of %s has been evaluated yet for the swarm as it is now." % e(_and([harness_name(k) for k in hs])) if len(hs) < len(hs_all) else "The swarm as it is now has not been evaluated yet.")
+        return head + boxes + (('<p class="muted">Nothing of %s has been evaluated yet for the swarm as it is now.</p>' % e(_and([harness_name(k) for k in hs]))) if len(hs) < len(hs_all) and res else not_evaluated(d, bool(lineups)))
     was = any(r.get("before") for r in done)
     old = any(r.get("carried") for r in done)
 
@@ -5150,7 +5160,7 @@ def eval_paper(d, only=None, cfg=None):
     rows = [(t, [(b, have(b["task"])) for b in t["benchmarks"] if have(b["task"])]) for t in sc["listed"]]
     rows = [(t, bs) for t, bs in rows if bs]
     if not rows:
-        return sc["head"] + sc["boxes"] + '<p class="muted">The swarm as it is now has not been evaluated yet.</p>'
+        return sc["head"] + sc["boxes"] + not_evaluated(d, 'id="evd-cfg"' in sc["boxes"])
     every = [r for _, bs in rows for _, r in bs]
     alone = alone_keys(every)
     cols = len(alone) + 5
@@ -5325,13 +5335,14 @@ def eval_chart(d, only=None, bench=None, cfg=None):
         dot = ('<circle cx="%.1f" cy="%.1f" r="10" fill="%s" stroke="var(--panel)" stroke-width="2"/><text class="pn" x="%.1f" y="%.1f" text-anchor="middle">%d</text>' % (x, y, p["col"], x, y + 4, num[i])
                if p["same"] else
                '<circle cx="%.1f" cy="%.1f" r="9" fill="var(--panel)" stroke="%s" stroke-width="2.5"/><text class="pn hollow" x="%.1f" y="%.1f" text-anchor="middle" style="fill:%s">%d</text>' % (x, y, p["col"], x, y + 4, p["col"], num[i]))
-        g.append('<g><title>%s: %s%% of %d questions, %s GB</title>%s%s</g>' % (e(p["name"]), fmt_pct(p["pc"]), p["of"], fmt_pct(p["gb"]), ring, dot))
+        g.append('<g data-pt="%d"><title>%s: %s%% of %d questions, %s GB</title>%s%s</g>' % (i, e(p["name"]), fmt_pct(p["pc"]), p["of"], fmt_pct(p["gb"]), ring, dot))
     rows = []
     for i in order:
         p = pts[i]
         mark = ('<i style="background:%s">%d</i>' % (p["col"], num[i])) if p["same"] else ('<i class="hollow" style="color:%s;box-shadow:inset 0 0 0 2px %s">%d</i>' % (p["col"], p["col"], num[i]))
-        rows.append('<li%s>%s<b>%s</b><span>%s%% · %s GB · %d question%s of %d task%s%s</span>%s</li>'
-                    % (' class="mine"' if p.get("mine") else ' class="mine tgt"' if p.get("target") else "", mark, e(p["name"]), fmt_pct(p["pc"]), fmt_pct(p["gb"]), p["of"], "" if p["of"] == 1 else "s", p["tasks"], "" if p["tasks"] == 1 else "s",
+        # (EACH LINE TURNS ITS POINT ON AND OFF, to scope the chart to what is being compared: pressed, it is shown)
+        rows.append('<li%s data-pt="%d" role="button" tabindex="0" aria-pressed="true" title="Show or hide this one on the chart">%s<b>%s</b><span>%s%% · %s GB · %d question%s of %d task%s%s</span>%s</li>'
+                    % (' class="mine"' if p.get("mine") else ' class="mine tgt"' if p.get("target") else "", i, mark, e(p["name"]), fmt_pct(p["pc"]), fmt_pct(p["gb"]), p["of"], "" if p["of"] == 1 else "s", p["tasks"], "" if p["tasks"] == 1 else "s",
                        "", ('<em>%s</em>' % e(" · ".join(x for x in [p.get("note", ""), "" if p["same"] else "other questions"] if x))) if (p.get("note") or not p["same"]) else ""))
     # (the lineup configured now, where nothing of it is shown: said, with no point)
     if not any(p.get("mine") for p in pts):
@@ -5973,7 +5984,7 @@ def converse_block(d):
                    for i, h in enumerate(hist[-6:]))
     waits = ('<div class="state warn"><i></i><span>%s is running: a pass waits for it.</span></div>' % e(held[0].upper() + held[1:])) if held and held != "a conversation pass" and not running else ""
     return ('<div class="panel prep wholep" id="conversebox"%s><div class="proghead"><span class="memnum"><b class="pct">%s</b><span>held conversations<small>%s</small></span></span>'
-            '<span class="progline"><b>Conversation.</b> One press is one pass: made-up people write over several turns, each reply is read by code against the conventions of that conversation, '
+            '<span class="progline">One press is one pass: made-up people write over several turns, each reply is read by code against the conventions of that conversation, '
             'and a change is kept only where held conversations gain. Each pass asks more of what the last was short on. No benchmark is asked.%s</span><span class="evctl">%s</span></div>%s%s</div>'
             % (' data-running="1"' if running else "", pc((last or {}).get("heldAfter")) if last else "–",
                ("pass %d running" % (len(hist) + 1)) if running else ("after pass %d" % (last.get("pass") or len(hist))) if last else "no pass yet", now, ctl, waits,
@@ -6004,7 +6015,7 @@ def main_body(d):
     """Everything that depends on which models are chosen: drawn again, in place, when one is changed."""
     return (
         '<i id="busy" data-busy="%s" hidden></i>'
-        '<h2>Run</h2><div id="wholewrap">%s</div><div id="conversewrap">%s</div>'
+        '<h2>Run Intelligence Training</h2><div id="wholewrap">%s</div><h2>Run Conversation Training</h2><div id="conversewrap">%s</div>'
         '%s'
         '<h2>Evaluate the swarm</h2><div id="evalwrap">%s</div>'
         # (no Pretrain card: an adapter is made for a slot and tried by training, and is shown with the arrangement, below)
