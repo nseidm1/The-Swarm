@@ -2215,13 +2215,13 @@ _sv_starting = swarm_ui.serve_chip()
 _sv_state = swarm_ui.serve_state()
 _sv_chips = swarm_ui.chips(data.load(swarm_ui.ARGS.root))
 swarm_ui._job_state, swarm_ui.busy_with = _sv_was, _sv_busy
-check("the module is served from a button left of the SwOA spec: off, it reads Serve the module and starts it (and cannot be pressed while training, an evaluation or the making of adapters has the models, saying which); while its small models load it says so; once it answers, the address a program or a harness connects to is shown beside it and the button stops it; a served module holds the models, so the others wait for it; the page starts it only from this page (the header other requests cannot send)",
+check("the module is served from a button left of the SwOA spec: off, it reads Serve the module and starts it (and cannot be pressed while training, an evaluation or the making of adapters has the models, saying which); while its small models load it says so; once it answers, the address a program or a harness connects to is shown beside it and the button stops it; a served module holds the models, so the others wait for it, and the run cards are drawn again when it starts or stops so that their buttons follow at once; the page starts it only from this page (the header other requests cannot send)",
       'data-on="0"' in _sv_off and "Serve the module" in _sv_off and "disabled" not in _sv_off
       and "disabled" in _sv_held and "an evaluation" in _sv_held
       and 'class="specbtn serve starting"' in _sv_starting and 'data-on="1"' in _sv_starting and "serve-url" not in _sv_starting
       and _sv_state == {"state": "starting", "url": "http://127.0.0.1:1/v1", "port": 1}
       and _sv_chips.index('id="serve-toggle"') < _sv_chips.index('id="spec-open"')
-      and '"/serve/start", "/serve/stop"' in Path(swarm_ui.__file__).read_text() and "serve-url" in swarm_ui.JS and "/serve/stop" in swarm_ui.JS
+      and '"/serve/start", "/serve/stop"' in Path(swarm_ui.__file__).read_text() and "serve-url" in swarm_ui.JS and "/serve/stop" in swarm_ui.JS and "await swap('/fragment/whole','#wholewrap');await swap('/fragment/converse','#conversewrap');" in swarm_ui.JS and "setTimeout(runs,1500)" in swarm_ui.JS
       and '("serve", "the module being served")' in Path(swarm_ui.__file__).read_text(),
       [_sv_off[:120], _sv_state])
 

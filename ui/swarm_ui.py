@@ -149,7 +149,7 @@ dialog#qedit::backdrop{background:rgba(11,40,38,.45)}dialog#qedit h4{margin:22px
 .picks .pick{flex:1 1 185px}.picks .pick.target{flex:1.6 1 300px}
 .specbtn{font:inherit;font-size:12.5px;font-weight:800;color:var(--fog);background:var(--panel);border:0;border-left:4px solid var(--sun);border-radius:var(--r);padding:7px 14px;box-shadow:var(--shadow);cursor:pointer;white-space:nowrap}
 .specbtn span{font-weight:700;color:var(--mist);margin-left:6px}.specbtn.tidy{border-left-color:var(--coral)}
-.specbtn.serve{border-left-color:var(--teal2)}.specbtn.serve[disabled]{opacity:.55;cursor:not-allowed}.specbtn.serve.on i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--right);margin-right:7px}
+#conversewrap{margin-top:14px}.specbtn.serve{border-left-color:var(--teal2)}.specbtn.serve[disabled]{opacity:.55;cursor:not-allowed}.specbtn.serve.on i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--right);margin-right:7px}
 .specbtn.serve.starting{color:var(--mist)}.serveurl{font:600 12.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--fog);background:var(--panel);border-radius:var(--r);padding:7px 12px;box-shadow:var(--shadow);cursor:copy;user-select:all;white-space:nowrap}
 dialog#tidy{border:0;border-radius:var(--r);padding:26px;max-width:min(820px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}
 dialog#tidy::backdrop{background:rgba(11,40,38,.45)}.tlist{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}
@@ -744,7 +744,11 @@ document.addEventListener('click',async ev=>{
   const u=ev.target.closest('#serve-url');if(u){try{await navigator.clipboard.writeText(u.textContent);const t=u.textContent;u.textContent='Copied';setTimeout(()=>{u.textContent=t;},900);}catch(e){}return;}
   const b=ev.target.closest('#serve-toggle');if(!b||b.disabled)return;b.disabled=true;
   const r=await fetch(b.dataset.on==='1'?'/serve/stop':'/serve/start',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:'{}'});
-  if(r.ok){$('#chips').innerHTML=await r.text();if($('#serve-toggle.starting'))serveWatch();}else{alert(await r.text());await swap('/fragment/chips','#chips');}});
+  if(r.ok){$('#chips').innerHTML=await r.text();if($('#serve-toggle.starting'))serveWatch();}else{alert(await r.text());await swap('/fragment/chips','#chips');}
+  // (the run cards wait while the module is served, and are free again the moment it stops: drawn again now, and once
+  // more shortly after, since a stopped process takes a moment to be gone)
+  const runs=async()=>{await swap('/fragment/whole','#wholewrap');await swap('/fragment/converse','#conversewrap');await swap('/fragment/chips','#chips');};
+  await runs();setTimeout(runs,1500);});
 if($('#serve-toggle.starting'))serveWatch();
 // WHAT EVERY SLOT IS DOING NOW: asked for every second and a half while a session runs, and written onto the cards in place
 const STEP={classes:'Training each class of input as a class',loop:'Training question by question',measure:'Measuring the swarm',improve:'Trying a brief',arrange:'Trying an arrangement',baseline:'One model alone'};

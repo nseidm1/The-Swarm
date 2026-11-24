@@ -6,6 +6,8 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Stopping the served module frees the run cards at once** (2026-11-24). Their buttons were greyed until the page
+  was next drawn; both cards are now drawn again when serving starts or stops.
 - **The conversation run is a run of its own** (2026-11-24). Under Run the dashboard has two cards: the intelligence
   run, judged by outside benchmarks, and the conversation run, where one press is one pass and the figures are the
   held conversations before and after it, pass beside pass (`conversation.json`, `conversation-gaps.json` and
