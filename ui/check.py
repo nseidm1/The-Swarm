@@ -90,7 +90,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and any(r["ref"] != str(q[2]) for r, q in zip(held["swarm"], sample.QUESTIONS)) and data.parity([{"grade": "noref"}]) is None, p)
     check("an answer is the wanted one as a number or as a word, and no answer is not", data.same_answer("about 4,200.0 apples", 4200) and data.same_answer("Saturday.", "Saturday") and not data.same_answer("41", 42) and not data.same_answer("", 42))
     srv, base = serve(root)
-    code, html = get(base + "/")
+    code, html = get(base + "/page")
     check("the page says the data is made up when it is", code == 200 and "Sample data, made up" in html)
     t = d["target"]
     none_yet = swarm_ui.at_parity(d, t)
@@ -411,7 +411,7 @@ with tempfile.TemporaryDirectory() as tmp:
     busy0 = json.loads(get(base + "/api/busy")[1])
     body0 = get(base + "/fragment/body")[1]
     check("the page knows who holds the machine and redraws the three cards when that changes",
-          busy0 == {"busy": ""} and 'id="busy" data-busy=""' in body0 and "busyTick" in get(base + "/")[1],
+          busy0 == {"busy": ""} and 'id="busy" data-busy=""' in body0 and "busyTick" in get(base + "/page")[1],
           json.dumps(busy0))
     bad_size = send("/eval/start", {"limit": 7})[0]
     # (which bodies of work a run asks: none, one that is not listed, one with no standard test, or not a list, is refused)
@@ -827,7 +827,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and spec["members"]["a"]["sha256"] == d["members"]["a"]["sha256"] and spec["interface"]["out"] == "one reply" and "training's measure and not the proof" in spec["trainedAgainst"]["parityMeans"] and "fundamentally equivalent" not in json.dumps(spec), sp[:200])
     # TURNS WITH TOOLS: who takes an agent's turn is a toggle in Configuration, saved beside the models, said in the folded line, and
     # part of the spec's recipe and of what it says it can do
-    tg0 = get(base + "/")[1]
+    tg0 = get(base + "/page")[1]
     lead_spec = data.spec(data.load(root))
     ida, idb = d["members"]["a"]["id"], d["members"]["b"]["id"]
     nb = d["members"]["b"]["name"]
@@ -973,12 +973,12 @@ with tempfile.TemporaryDirectory() as tmp:
     empty = Path(tmp) / "empty"
     empty.mkdir()
     srv, base = serve(empty)
-    code, html = get(base + "/")
+    code, html = get(base + "/page")
     check("with nothing measured and nothing configured the page still opens, and says nothing of a pass that has not begun", code == 200 and "Training starts at question 1" not in html and "No larger model is named" in html)
     srv.shutdown()
     # ---- the Train button, with a stand-in for the session (it writes its steps and waits): no model is started
     srv, base = serve(empty)
-    check("on a folder with no trainers the button is there but cannot be pressed, and says why", 'id="run-go" type="button" disabled' in get(base + "/")[1] and "no trainers" in get(base + "/")[1])
+    check("on a folder with no trainers the button is there but cannot be pressed, and says why", 'id="run-go" type="button" disabled' in get(base + "/page")[1] and "no trainers" in get(base + "/page")[1])
     srv.shutdown()
     fake = Path(tmp) / "repo"
     (fake / "training").mkdir(parents=True)
@@ -1099,7 +1099,7 @@ with tempfile.TemporaryDirectory() as tmp:
     # (a configuration is evaluated before it is trained: this one has been, on every body of work that has a standard task)
     _fd = data.load(str(fake))
     first_said = swarm_ui.needs_eval(_fd)
-    blocked_page = get(base + "/")[1]
+    blocked_page = get(base + "/page")[1]
     post("/run/start")
     blocked_ran = (fake / ".work" / "train" / "ui-run.json").exists()
     (fake / ".work" / "eval").mkdir(parents=True, exist_ok=True)
@@ -1166,7 +1166,7 @@ with tempfile.TemporaryDirectory() as tmp:
     check("evaluated with one harness only, Train can be pressed, and says beside it which bodies of work have no figure from before, the harness that measures them and where to tick it; evaluated on all, it says nothing",
           _part_need == "" and _part_gap == "Tools and Search have no figure from before: to see them move, evaluate with BFCL (function calling) ticked (under With on the Evaluate card) before training."
           and 'id="run-go" type="button" title=' in _part_ctl and "Tools and Search have no figure from before" in _part_ctl and swarm_ui.eval_gaps(_fd) == "" and swarm_ui.needs_eval(_fd) == "", [_part_need, _part_gap, _part_ctl[:200]])
-    page0 = get(base + "/")[1]
+    page0 = get(base + "/page")[1]
     check("where training can be started the Train card has a Train button that can be pressed, no count of passes to choose, and says it goes on until it is stopped",
           'id="run-go" type="button" title="Train question by question, pass after pass, until Stop training is pressed">Train</button>' in page0 and 'id="run-stop"' not in page0 and 'id="run-passes"' not in page0 and 'class="facts"' not in page0
           and swarm_ui.step_label("10-questions") == "Train, question by question" and swarm_ui.step_label("07-plan") == "Plan what to try" and swarm_ui.step_label("99-new") == "new")
@@ -1197,7 +1197,7 @@ with tempfile.TemporaryDirectory() as tmp:
     tm = swarm_ui.tries_list({"list": [{"id": "q-m", "kind": "fix", "state": "not reached", "lostAt": "drafting", "attempts": [{"move": "", "grade": "wrong"},
         {"move": "flow: the answers go back", "grade": "wrong", "round": 2, "closer": True, "near": {"lost": "choosing", "had": 2, "p": 0.35},
          "method": {"place": 4, "open": 37, "from": {"lost": "drafting", "had": 0}, "reasons": ["no slot had the answer: this makes other drafts", "the first area for an answer lost in drafting (slots)"]}}]}]})
-    page = get(base + "/")[1]
+    page = get(base + "/page")[1]
     check("each change in the fold says how it was chosen and how close it came: its round and place among those open, each reason, and where the answer was lost before and after it, with how many slots had it and the decider's probability; while a change is tried the page shows the same live, with what was tried on the question before it",
           "why: round 2, 4 of 37 open; no slot had the answer: this makes other drafts; the first area for an answer lost in drafting (slots)" in tm
           and "came out: lost in choosing, 2 slots had the answer, the decider 35% on it (before it: lost in drafting, 0 slots had the answer)" in tm
@@ -1308,7 +1308,7 @@ with tempfile.TemporaryDirectory() as tmp:
     for k in ("NODE", "SWARM_LLAMA_SERVER", "TEACHER"):
         os.environ.pop(k, None)
     srv, base = serve(REPO)
-    code, html = get(base + "/")
+    code, html = get(base + "/page")
     check("on this repository it opens and names the model being chased", code == 200 and "Nemotron 3.5 Lightning 30B" in html and "Sample data" not in html)
     srv.shutdown()
 
@@ -1335,7 +1335,7 @@ with tempfile.TemporaryDirectory() as tmp:
 # THE HEAD OF EVERY CARD IS ONE STRUCTURE: the figure, what the card does, its controls, in that order, on one grid of fixed columns
 with tempfile.TemporaryDirectory() as tmp:
     srv, base = serve(REPO)
-    page = get(base + "/")[1]
+    page = get(base + "/page")[1]
     srv.shutdown()
     heads = re.findall(r'<div class="proghead">(.*?)</div>', page, re.S)
     shape = [re.findall(r'<span class="(memnum|progline|evctl)"', h)[:3] for h in heads]
@@ -1473,7 +1473,7 @@ check("the questions' card sets the module beside the larger model family by fam
 # differ shows a note with a Refresh button (hidden otherwise); it never reloads on its own
 with tempfile.TemporaryDirectory() as tmp:
     srv, base = serve(REPO)
-    pg, bj = get(base + "/")[1], json.loads(get(base + "/api/build")[1])
+    pg, bj = get(base + "/page")[1], json.loads(get(base + "/api/build")[1])
     srv.shutdown()
 check("an open page carries the build of the code it was drawn with, the server says which it runs, and where they differ the page shows a note with a Refresh button, hidden otherwise, and never reloads by itself",
       ('<meta name="swarm-build" content="%s">' % swarm_ui.BUILD) in pg and bj == {"build": swarm_ui.BUILD} and '<div class="updnote" id="updnote" hidden>' in pg and 'id="upd-go"' in pg
@@ -2614,6 +2614,33 @@ check("code that training writes is said where training is said: among what trai
       and "for <b>day</b> (wrong on 4 of 6), a function right on 3 of 3 questions it was not shown, in 2 tries" in _ww and "for <b>li&lt;es</b> (wrong on 2 of 6), none passed: it gave a wrong answer" in _ww
       and 'R.get("written")' in Path(swarm_ui.__file__).read_text()
       and swarm_ui.held_more_words({"more": {"kinds": ["count"], "questions": 18}}) == " and 18 more of count, where the function acts" and swarm_ui.held_more_words({}) == "" and "held_more_words(h)" in Path(swarm_ui.__file__).read_text(), _ww)
+
+# THE PAGE ARRIVES AT ONCE AND SAYS IT IS READING (console 2026-11-24)
+_sh = swarm_ui.shell()
+_asked = []
+_was_now = swarm_ui._run_elsewhere_now
+swarm_ui._run_elsewhere_now = lambda: _asked.append(1)
+swarm_ui._run_elsewhere(), swarm_ui._run_elsewhere()
+_outside = len(_asked)
+swarm_ui._REQ.kept = {}
+swarm_ui._run_elsewhere(), swarm_ui._run_elsewhere(), swarm_ui._run_elsewhere()
+_inside = len(_asked) - _outside
+swarm_ui._forget()
+swarm_ui._run_elsewhere()
+_after_forget = len(_asked) - _outside
+swarm_ui._REQ.kept = None
+swarm_ui._run_elsewhere_now = _was_now
+_fsrc2 = Path(swarm_ui.__file__).read_text()
+check("the page arrives at once and says it is reading: a browser is first sent a shell that reads nothing (the styles, the title, a bar that moves and the shape of what is coming), which then asks for the dashboard and starts the page's script on it, and says so where the dashboard cannot be read, with a way to try again; "
+      "the whole page made at once is still there for the checks; what is running is asked of the system once for each request and not once for each card, and asked again after something is started or stopped; "
+      "and while something asked for is on its way a bar moves across the top of the page: from the moment a change is sent, and for a reading once it has taken longer than a third of a second",
+      'id="apploading"' in _sh and 'class="loadbar"' in _sh and 'role="status"' in _sh and "/fragment/app" in _sh and "/app.js" in _sh and "Try again" in _sh and 'id="body"' not in _sh and 'id="spec"' in _sh
+      and len(_sh) < len(swarm_ui.CSS) + 6000 and 'id="conversebox"' not in _sh
+      and 'id="body"' in swarm_ui.page(_cvd) and "<script>" in swarm_ui.page(_cvd) and 'id="body"' in swarm_ui.app_inner(_cvd) and "<html" not in swarm_ui.app_inner(_cvd)
+      and _outside == 2 and _inside == 1 and _after_forget == 2
+      and 'if u.path == "/":\n            return self._send(shell())' in _fsrc2 and 'u.path == "/fragment/app"' in _fsrc2 and 'u.path == "/app.js"' in _fsrc2
+      and "#busybar" in swarm_ui.CSS and "busybar" in swarm_ui.JS and "setTimeout(show,330)" in swarm_ui.JS and ".loadbar" in swarm_ui.CSS and "prefers-reduced-motion:reduce){.loadbar" in swarm_ui.CSS,
+      [_outside, _inside, _after_forget, len(_sh)])
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

@@ -28,6 +28,7 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 from html import escape as e
@@ -518,6 +519,14 @@ textarea{width:100%;min-height:80px;background:var(--soft);border:0;border-radiu
 padding:11px 14px;font-size:13px;line-height:1.45;box-shadow:0 10px 30px rgba(0,0,0,.3);display:flex;gap:10px;align-items:center;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:9998}
 #readybar.on{opacity:1;transform:translate(-50%,0)}#readybar i{width:8px;height:8px;border-radius:50%;background:var(--teal2);flex:none;animation:p 1.2s infinite}
 #snack.on~#readybar.on,body:has(#snack.on) #readybar.on{bottom:84px}
+.loadbar{height:4px;border-radius:4px;background:rgba(0,0,0,.08);overflow:hidden;margin:26px 0 14px}.loadbar i{display:block;height:100%;width:34%;border-radius:4px;background:var(--teal2);animation:slide 1.1s ease-in-out infinite}
+@keyframes slide{0%{transform:translateX(-110%)}100%{transform:translateX(310%)}}
+.skel{height:92px;border-radius:14px;margin:14px 0;background:linear-gradient(90deg,rgba(0,0,0,.05),rgba(0,0,0,.09),rgba(0,0,0,.05));background-size:200% 100%;animation:sheen 1.4s linear infinite}.skel.tall{height:240px}
+@keyframes sheen{0%{background-position:200% 0}100%{background-position:-200% 0}}
+#busybar{position:fixed;left:0;top:0;right:0;height:3px;z-index:10000;overflow:hidden;opacity:0;transition:opacity .15s;pointer-events:none}#busybar.on{opacity:1}
+#busybar i{display:block;height:100%;width:30%;background:var(--teal2);animation:slide 1s ease-in-out infinite}
+.btn.waiting,.specbtn.waiting{position:relative;opacity:.75;cursor:progress}
+@media (prefers-reduced-motion:reduce){.loadbar i,.skel,#busybar i{animation-duration:3s}}
 #snack.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}#snack button{background:none;border:0;color:#ffd2cd;font-weight:700;cursor:pointer;font-size:13px;padding:0;flex:none}
 .panel.run{display:grid;gap:14px;padding:18px}.panel.run>*{margin:0}
 .run .meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--mist);font-weight:600}.run .meta b{color:var(--fog);font-weight:800}
@@ -578,6 +587,18 @@ details.fold:not([open])>summary::after,details.fold.shutting>summary::after{tra
 
 JS = """
 const $=(s,r=document)=>r.querySelector(s);
+// SOMETHING ASKED FOR IS ON ITS WAY: a thin bar moves across the top of the page from the moment a change is sent (anything
+// that is not a plain reading), and for a reading once it has taken longer than a third of a second. The page reads its
+// own state every few seconds and those readings are quick, so the bar is there only when there is something to wait for.
+// The button that was pressed is marked as waiting until its answer comes.
+(()=>{const real=window.fetch.bind(window);let n=0,pressed=null;
+  const bar=()=>{let b=$('#busybar');if(!b){b=document.createElement('div');b.id='busybar';b.setAttribute('role','progressbar');b.setAttribute('aria-label','Working');b.innerHTML='<i></i>';document.body.appendChild(b);}return b;};
+  document.addEventListener('click',(ev)=>{pressed=ev.target.closest('button');setTimeout(()=>{pressed=null;},0);},true);
+  window.fetch=(url,opts)=>{const change=opts&&opts.method&&opts.method!=='GET';const btn=change?pressed:null;let shown=false;
+    const show=()=>{shown=true;n++;bar().classList.add('on');};const t=change?(show(),0):setTimeout(show,330);
+    if(btn)btn.classList.add('waiting');
+    const done=()=>{clearTimeout(t);if(btn)btn.classList.remove('waiting');if(shown&&--n<=0){n=0;bar().classList.remove('on');}};
+    return real(url,opts).then((r)=>{done();return r;},(e)=>{done();throw e;});};})();
 // A SECTION FOLDED STAYS FOLDED: open or closed is kept on this device, and put back each time a part of the page is drawn again
 const keepOpen=(root)=>{try{(root||document).querySelectorAll('details[data-keep]').forEach(d=>{const v=localStorage.getItem('swarm.open.'+d.dataset.keep);if(v!==null)d.open=v==='1';});}catch(e){}};
 // SMOOTH: a section's content grows to its height as it opens and shrinks as it folds (not where motion is asked to be reduced)
@@ -2826,6 +2847,10 @@ def run_state():
 
 def node_for_training():
     """A Node of 20 or later: the one named (NODE), the one on the PATH, or the newest nvm has. '' when there is none."""
+    return _per_request("node", _node_for_training_now)
+
+
+def _node_for_training_now():
     import glob
     found = sorted(glob.glob(os.path.expanduser("~/.nvm/versions/node/v*/bin/node")), key=lambda p: [int(x) for x in p.split("/v")[-1].split("/")[0].split(".") if x.isdigit()], reverse=True)
     for c in [os.environ.get("NODE", ""), shutil.which("node") or ""] + found:
@@ -4514,8 +4539,34 @@ def _run_in(ps_text):
     return None
 
 
+# ASKED ONCE FOR EACH REQUEST. Drawing the page asked the system which processes are running twenty-five times, once for every
+# card that says whether something has the models, and each asking is a program started: 1.3 of the 2.3 seconds the page took
+# to arrive (measured 2026-11-24). While a request is being answered (Handler), what such a question came to is kept and given
+# again; a request that starts or stops something forgets it (_forget). Outside a request nothing is kept, so a check that
+# changes what is running between two calls sees the change.
+_REQ = threading.local()
+
+
+def _per_request(key, ask):
+    kept = getattr(_REQ, "kept", None)
+    if kept is None:
+        return ask()
+    if key not in kept:
+        kept[key] = ask()
+    return kept[key]
+
+
+def _forget():
+    if getattr(_REQ, "kept", None) is not None:
+        _REQ.kept = {}
+
+
 def _run_elsewhere():
     """A whole run this page did not start (from a shell): it has the models all the same, and the page can stop it."""
+    return _per_request("run_elsewhere", _run_elsewhere_now)
+
+
+def _run_elsewhere_now():
     try:
         found = _run_in(subprocess.run(["ps", "-axo", "pid=,command="], capture_output=True, text=True, timeout=5).stdout)
         # (THIS folder's run, and no other's: a run of another checkout on the machine has other models, and is not this page's
@@ -4682,6 +4733,7 @@ def start_job(name, argv, keep=None):
         except OSError:
             pass
     log = open(root / ".work" / name / "ui-run.log", "wb")
+    _forget()
     env = dict(os.environ, NODE=node_for_training())
     p = subprocess.Popen(argv, cwd=str(root), env=env, stdout=log, stderr=log, stdin=subprocess.DEVNULL, start_new_session=True)
     # (with what was chosen for it, so the page can say so from the first moment, before the run itself has written anything)
@@ -4750,6 +4802,7 @@ def stop_job(name):
             pass
     for _ in range(50):
         time.sleep(0.1)
+        _forget()
         if not (job_state(name) or {}).get("running"):
             break
 
@@ -6354,20 +6407,56 @@ def tidy_panel(d, said=""):
     )
 
 
-def page(d):
+PAGE_DIALOGS = '<dialog id="spec"><div id="spec-body"></div></dialog><dialog id="qedit"><div id="qedit-body"></div></dialog><dialog id="tqd"><div id="tqd-body"></div></dialog><dialog id="tidy"><div id="tidy-body"></div></dialog><dialog id="steerd"><div id="steerd-body"></div></dialog><dialog id="recd"><div id="recd-body"></div></dialog><dialog id="evd"><div id="evd-body"></div></dialog>'
+
+
+def app_inner(d):
+    """Everything inside the page's <main>: the title and its buttons, the configuration, and the body. What the shell asks
+    for once it is on the screen (/fragment/app), and what page() holds when the whole page is made at once."""
     banner = '<div class="banner">Sample data, made up to show the layout. It is not a measurement of anything.</div>' if d["sample"] else ""
+    return ('<header><div><div class="kicker">The Swarm · training overview</div><h1>Training Dashboard</h1></div>'
+            '<div class="chips" id="chips">%s</div></header>%s%s<div id="body">%s</div>%s'
+            % (chips(d), config_section(d), banner, main_body(d), footer()))
+
+
+# WHAT IS ON THE SCREEN WHILE THE DASHBOARD IS BEING READ: its title, a bar that moves, and the shape of what is coming
+LOADING = ('<header><div><div class="kicker">The Swarm · training overview</div><h1>Training Dashboard</h1></div><div class="chips" id="chips"></div></header>'
+           '<div id="apploading" role="status" aria-live="polite"><div class="loadbar"><i></i></div><p class="muted">Reading the swarm&#39;s state: what is configured, what is running, what was measured.</p>'
+           '<div class="skel"></div><div class="skel"></div><div class="skel tall"></div></div>')
+
+# THE SHELL'S OWN FEW LINES: ask for the dashboard, put it in, then start the page's script on it. The script is the one the
+# whole page carries (/app.js) and finds the page complete, as it always has; what it does when the page is ready is done
+# by saying so again. Where the dashboard cannot be read, it says so and offers to try again.
+BOOT = """
+(async()=>{const main=document.getElementById('top');
+  const fail=(why)=>{const n=document.getElementById('apploading');if(n)n.innerHTML='<p><b>The dashboard could not be read.</b> '+why+'</p><button class="btn top" type="button" onclick="location.reload()">Try again</button>';};
+  try{const r=await fetch('/fragment/app');if(!r.ok){fail('The page answered '+r.status+'.');return;}
+    main.innerHTML=await r.text();
+    const sc=document.createElement('script');sc.src='/app.js';sc.onload=()=>document.dispatchEvent(new Event('DOMContentLoaded'));
+    sc.onerror=()=>fail('Its script did not load.');document.body.appendChild(sc);
+  }catch(e){fail('Is the dashboard still running?');}})();
+"""
+
+
+def _frame(inner, script):
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
         '<title>The Swarm</title><meta name="swarm-build" content="' + BUILD + '"><style>%s</style></head><body><div class="shell">'
         # (shown when the dashboard's code has changed since this page was drawn: a note and a button, never a reload on its own)
         '<div class="updnote" id="updnote" hidden><span>The dashboard was updated since this page was opened.</span><button class="btn top" id="upd-go" type="button">Refresh</button></div>'
-        '<main id="top"><header><div><div class="kicker">The Swarm · training overview</div><h1>Training Dashboard</h1></div>'
-        '<div class="chips" id="chips">%s</div></header>%s%s'
-        '<div id="body">%s</div>'
-        '%s</main></div><dialog id="spec"><div id="spec-body"></div></dialog><dialog id="qedit"><div id="qedit-body"></div></dialog><dialog id="tqd"><div id="tqd-body"></div></dialog><dialog id="tidy"><div id="tidy-body"></div></dialog><dialog id="steerd"><div id="steerd-body"></div></dialog><dialog id="recd"><div id="recd-body"></div></dialog><dialog id="evd"><div id="evd-body"></div></dialog>'
-        '<script>%s</script></body></html>'
-        % (CSS, chips(d), config_section(d), banner, main_body(d), footer(), JS)
-    )
+        '<main id="top">%s</main></div>%s%s</body></html>' % (CSS, inner, PAGE_DIALOGS, script))
+
+
+def page(d):
+    """The whole page, made at once (the checks read it; a browser is sent shell() and asks for the rest)."""
+    return _frame(app_inner(d), "<script>%s</script>" % JS)
+
+
+def shell():
+    """THE PAGE AS A BROWSER FIRST GETS IT: at once, with nothing read. The dashboard took 2.3 seconds to arrive and the window
+    was blank until it did (2026-11-24). The shell is the styles, the title and a bar that moves; it then asks for the
+    dashboard (/fragment/app) and starts the page's script on it (/app.js)."""
+    return _frame(LOADING, "<script>%s</script>" % BOOT)
 
 
 # ---------------------------------------------------------------- the server
@@ -6388,11 +6477,33 @@ class Handler(BaseHTTPRequestHandler):
             self.close_connection = True
 
     def do_GET(self):  # noqa: N802
+        # (what is running is asked once for the whole of this request: _per_request)
+        _REQ.kept = {}
+        try:
+            return self._get()
+        finally:
+            _REQ.kept = None
+
+    def do_POST(self):  # noqa: N802
+        _REQ.kept = {}
+        try:
+            return self._post()
+        finally:
+            _REQ.kept = None
+
+    def _get(self):
         u = urlparse(self.path)
+        # (the shell and the script need nothing read: they are sent at once)
+        if u.path == "/":
+            return self._send(shell())
+        if u.path == "/app.js":
+            return self._send(JS, 200, "text/javascript; charset=utf-8")
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
         split = q.get("split") if q.get("split") in ("held", "train") else "held"
         d = data.load(ARGS.root)
-        if u.path == "/":
+        if u.path == "/fragment/app":
+            return self._send(app_inner(d))
+        if u.path == "/page":  # (the whole page in one answer, as it was: the checks read it)
             return self._send(page(d))
         if u.path == "/api/live":
             try:
@@ -6496,7 +6607,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(question(d, split, q.get("id", "")))
         return self._send("Not here.", 404, "text/plain; charset=utf-8")
 
-    def do_POST(self):  # noqa: N802
+    def _post(self):
         path = urlparse(self.path).path
         if path not in ("/run/start", "/run/stop", "/run/clear", "/config", "/questions", "/uninstall", "/steer", "/spec/publish",
                         "/eval/start", "/eval/stop", "/engine/update", "/whole/start", "/whole/stop", "/serve/start", "/serve/stop", "/converse/start", "/converse/stop"):

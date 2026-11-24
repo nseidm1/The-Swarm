@@ -6,6 +6,12 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The dashboard arrives at once and says when it is working** (2026-11-24). The page was made whole before any of
+  it was sent: 2.3 seconds of a blank window. A browser is now sent a shell at once (the title, a bar that moves, the
+  shape of what is coming), which reads the dashboard and then starts on it; where it cannot be read it says so, with
+  a way to try again. Reading it takes 0.7 seconds, down from 2.3: the system was asked what is running 25 times for
+  one page, and is now asked once for each request. While anything asked for is on its way, a thin bar moves across
+  the top of the page and the button that was pressed is marked as waiting.
 - **The README is short and plain** (2026-11-24): what the Swarm is, how to start, how to use it like any model,
   what happens inside, where it stands, and where to read more. What it held in detail is in the documents it links:
   results in `docs/results.md` (new), engines in `docs/api.md`, the two runs in `docs/training.md`, the checks and
