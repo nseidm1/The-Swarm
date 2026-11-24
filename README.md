@@ -110,7 +110,8 @@ is taken:
 | A conversation that ends with the start of the reply | The reply follows the start |
 | A function in JavaScript, TypeScript, Python, Go, Swift, Dart, Flutter or Kotlin | The drafts are run, boxed, and compared by what they do |
 | A question that lists lettered options | An answer that is none of them is not counted beside one that is |
-| A turn with a search tool offered | Code carries the search: it makes the first search, opens the first page of each, builds the next query from what a page newly names, and lets an answer stand only where the last result or a page holds it |
+| A turn with only search and page tools offered | A program of code: it searches for what the question hangs on, opens the page as text, has the module read that text for the one fact, puts the fact into the question, and goes on. No slot proposes a step |
+| A system text that sets the reply's form as a template | The settled answer is written into that form by code |
 
 The arrangement (which slots, what each is told, the order of the stages) is chosen by the class of the request: with
 tools, a conversation, asking for code, or a plain question. Finding the arrangement that does what the larger model does
@@ -208,10 +209,11 @@ Read it with care:
   worth about 26 points and the arrangement of seven slots about 9 more, before any training.
 - Pretrained, with an adapter for each role, the same module read 50.6%: lower. Pretrained and trained is not
   measured; that run was stopped in training.
-- Search is the widest gap. Code now carries the mechanics of a search (the first search, opening pages, the next
-  query), which takes a made task of two chained facts from 1 right of 30 to 28, but the live web test above did not
+- Search is the widest gap. A search is now a program of code that asks the module only to read: a made task of two
+  chained facts went from 1 right of 30 to 30, but the live web test above, of three or four chained facts, did not
   improve.
-- On 100 Instructions questions the small model alone has 75 right and the module 68.
+- On 100 Instructions questions the small model alone has 75 right and the module 68. One slot asked plainly is now an
+  arrangement training can keep for such requests (71 measured ahead of training).
 - With every instrument on, four operation tasks read 20 of 20 where the small model alone had 0. The instruments were
   written after those tasks were read; they were then probed, with no model, on 104,520 questions by other authors and
   20,000 made at random, and answered none wrongly. Training keeps one only on wordings its trying never saw.
@@ -228,7 +230,7 @@ npm test
 python3 ui/check.py
 ```
 
-238 checks of the module and the trainers and 162 of the dashboard, against stand-in servers: nothing is fetched,
+239 checks of the module and the trainers and 162 of the dashboard, against stand-in servers: nothing is fetched,
 started or installed. `npm test` deals its 115 blocks of checks out to every core (26 seconds on a 24-core Mac, 91 one
 after another); `npm run test:serial` runs them in one process, `npm run test:all` adds the dashboard's, and
 `npm run test:python` checks the Python client. How well the

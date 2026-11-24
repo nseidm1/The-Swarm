@@ -15,16 +15,26 @@ The first version.
   reading. Each small model is now also asked with the module's own layout code on its one reply and nothing else
   (`aloneForm` in a task's result), so what is left between that and the module is what the arrangement adds. The
   page shows it as one more column, "(laid out)", in each view of an evaluation, once every task shown was asked so.
-- **A search is carried by code** (2026-11-22). In a turn with a search tool offered the module made no search on most
-  questions: a call required of its small model was not a call given (the engine does not enforce it for this model).
-  Now code makes the first search, the question its query; opens the first page of each search, asking for it as text
-  where the tool can give it so; builds the next query from the names the page gives beside the question's own words;
-  and lets an answer stand only where the last result or an opened page holds it and what came back covers the
-  question, or after six steps (`plan.searchThrough`, `plan.searchMost`; SwOA T.13b). A tool's result that is markup
-  is read as its text everywhere (T.11a). On a search task made from a seed (`python/search_made.py`: two chained
-  facts on a made-up web) the module went from 0 or 1 right of 30 to 28 and 30 of 30 on seeds it had not been run on.
-  On the standard web search test, whose questions chain three or four facts on the live web, it did not improve (3
-  of 40, 4 before; the larger model 8).
+- **A search is a program of code, and the reading is asked of the module** (2026-11-22 and 23). In a turn with a
+  search tool offered the module made no search on most questions: a call required of its small model was not a call
+  given, and asked in words what to look up first it guessed an answer. So where only tools that search and open pages
+  are offered, no slot proposes a step. Code finds what the question hangs on ("the country that makes the most
+  expensive tea"), searches for that, opens the first page as text, has the answer procedure read that text for the one
+  fact, believes it only where the text holds it, puts it into the question, and goes on; the answer is read out the
+  same way (`plan.searchThrough`, `plan.searchMost`; SwOA T.13b). A tool's result that is markup is read as its text
+  everywhere (T.11a). On a search task made from a seed (`python/search_made.py`) the module went from 0 or 1 right of
+  30 to 30 of 30 on seeds it had not been run on, in a fifth of the time. On the standard web search test, whose
+  questions chain three or four facts on the live web, it did not improve.
+- **The reply is written in the form the system text sets** (2026-11-22). Where a conversation's system text gives the
+  reply's form as a template (`{'answer': ..., 'context': ...}`), what was settled is written into it by code
+  (`plan.setForm`; SwOA O.8.8). A small writer kept the form on 11 of 20 replies of a made search task, loosely, and on
+  1 to 3 of 20 of a standard one; now 20 of 20 on both.
+- **One model, asked as the request came, is an arrangement training can keep** (2026-11-22). On 100 questions of
+  following instructions the small model by itself has 75 right and the module built of it 66 to 68. `plan.plain`
+  (every request of a class) and `plan.pieceBy: "plain"` (a request that sets rules, asks for a piece of writing, or
+  instructs its own reply) send the request to one slot with no brief (SwOA R.5.0); both are candidates of the class
+  stage, so that training finds where a single slot is the best arrangement and a module does no worse than its model.
+  Measured before training has tried them (`node training/evaluate.mjs --plan pieceBy=plain`): 71 of 100.
 - **Among the replies written whole, one is written to the request as it came** (2026-11-22). Where a request sets
   countable rules the first drafters each write the reply under the module's brief; one more is now written with no
   brief, and code counts them all (`plan.piecePlain`; SwOA R.5.1 step 1a). Measured on 100 questions of following

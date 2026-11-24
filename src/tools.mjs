@@ -11,7 +11,7 @@
 //   forAnswer(messages)       -> the conversation as the answer procedure is shown it: what tools were called for, and what came back,
 //                                written into the request they were called for (SwOA specification T.9)
 import { briefsFor } from './orchestrate.mjs';
-import { textOf } from './read.mjs';
+import { textOf, setFormOf, inSetForm } from './read.mjs';
 
 const canon = (x) =>
   Array.isArray(x)
@@ -253,13 +253,21 @@ export function lookedUp(messages, tools = []) {
   let text = '';
   let pagesText = '';
   let lastText = '';
+  let lastSearch = '';
+  let pagesSince = 0;
   for (const m of Array.isArray(messages) ? messages : []) {
     if (!m) continue;
     if (m.role === 'tool') {
       lastText = asText(textOf(m.content));
       text += '\n' + lastText;
       const c = byId.get(m.tool_call_id) || made[made.length - 1];
-      if (c && c.kind === 'page') pagesText += '\n' + lastText;
+      if (c && c.kind === 'page') {
+        pagesText += '\n' + lastText;
+        pagesSince++;
+      } else if (c && c.kind === 'search') {
+        lastSearch = textOf(m.content);
+        pagesSince = 0;
+      }
     }
     if (m.role === 'assistant' && Array.isArray(m.tool_calls))
       for (const c of m.tool_calls) {
@@ -282,6 +290,9 @@ export function lookedUp(messages, tools = []) {
     // (what the last call returned, and what the pages opened hold: where an answer has to stand, heldBy below)
     lastText,
     pagesText,
+    // (the list the last search returned, as it came, and how many of its pages have been opened)
+    lastSearch,
+    pagesSince,
   };
 }
 // the question a turn is about: the last thing the person said, its last sentence that asks where it has one
@@ -318,13 +329,14 @@ export function queriesMade(messages, tools = []) {
   return out;
 }
 // the next page to open: the first address in what the last tool returned that no call has opened. null where there is none
-export function nextPageCall(tools, messages) {
+export function nextPageCall(tools, messages, from = null) {
   const t = (tools || []).find(isFetchTool);
   if (!t) return null;
   const done = lookedUp(messages, tools).made.map((c) => c.args);
   const last = [...(messages || [])].reverse().find((m) => m && m.role === 'tool');
   // (the addresses of a list of results, as the tool gave them: read before any markup is taken out)
-  const urls = textOf(last && last.content).match(/https?:\/\/[^\s'"<>\])},\\]+/g) || [];
+  const urls =
+    (from !== null ? String(from) : textOf(last && last.content)).match(/https?:\/\/[^\s'"<>\])},\\]+/g) || [];
   const url = urls.map((u) => u.replace(/[.,;:]+$/, '')).find((u) => !done.some((a) => a.includes(u)));
   return url ? { name: nameOf(t), args: { [argNamed(t, URL_ARG)]: url, ...asTextArg(t) } } : null;
 }
@@ -366,7 +378,86 @@ export function heldBy(reply, text) {
   if (nums.some((n) => !hay.includes(n.replace(/[.,]+$/, '')))) return false;
   return !words.length || words.filter((w) => hay.includes(w)).length * 5 >= words.length * 3;
 }
-export const SEARCH_MOST = 6;
+export const SEARCH_MOST = 12;
+// THE SEARCH AS A PROGRAM (SwOA specification T.13b). Code takes the question apart and puts it together again; the module is
+// asked, by its own answer procedure, the one thing in a search that is reading.
+//   innermost(question) -> { text } the description the question hangs on, where it has one: from its last "the ... that /
+//       which / who / whose / where" to its end, else from its last "of the" or "from the". "Who is the richest person from
+//       the country that makes the most expensive tea?" hangs on "the country that makes the most expensive tea". That is
+//       what is looked up first, and what was read of it is put in its place: "... from China?"
+//   notesOf(messages) -> { find, now } what the last call of the conversation was looking up, and the question as it then
+//       stood. They are written into the content of the message that makes a call (noteFor), which a caller hands back
+//       with the conversation: the module keeps nothing between turns
+//   passageFor(text, query) -> the sentences of a text that hold words of the query, as they stand, to `most` characters
+//   asQuestion(find) -> the thing looked up, as a question to put to a reader
+// (a question HANGS ON a description where it asks something more of it: "the mayor of ...", "how many floors ...". "What is the
+// capital of France?" asks nothing more: it is the description, and is looked up whole)
+const hangsOn = (q, text) => contentWords(q.replace(text, ' ')).length > 0;
+export function innermost(question) {
+  const q = String(question || '')
+    .replace(/\?+\s*$/, '')
+    .trim();
+  let at = -1;
+  const rel = /\bthe (?:(?!the\b)[\p{L}\p{N}'’.-]+ ){1,5}?(?:that|which|who|whose|where)\b/giu;
+  for (let m = rel.exec(q); m; m = rel.exec(q)) at = m.index;
+  if (at >= 0) {
+    const text = q.slice(at).trim();
+    return at > 0 && text.split(/\s+/).length >= 2 && hangsOn(q, text) ? { text } : null;
+  }
+  // (no such clause: its last "the X of Y", Y a name. It ends where the name ends, so that what follows it in the question,
+  // "founded", "win", stays in the question when the name read is put in its place)
+  const named = /\bthe (?:[\p{L}'’-]+ ){1,3}?(?:of|in|at|from|for) /giu;
+  let last = null;
+  for (let m = named.exec(q); m; m = named.exec(q)) {
+    const rest = q.slice(m.index + m[0].length).split(/\s+/);
+    let n = 0;
+    let names = 0;
+    for (const w of rest) {
+      if (/^[\p{Lu}\d]/u.test(w)) names++;
+      else if (!/^(?:the|of|and|de|la|del|von|van|al|el)$/i.test(w)) break;
+      n++;
+      if (/[,;:]$/.test(w)) break;
+    }
+    while (n > 0 && !/^[\p{Lu}\d]/u.test(rest[n - 1])) n--;
+    if (names && n) last = { at: m.index, text: (m[0] + rest.slice(0, n).join(' ')).replace(/[,;:]$/, '').trim() };
+    named.lastIndex = m.index + 4;
+  }
+  return last && hangsOn(q, last.text) ? { text: last.text } : null;
+}
+const NOTE_FIND = 'Looking up: ';
+const NOTE_NOW = 'Question now: ';
+export const noteFor = (find, now) => NOTE_FIND + find + '\n' + NOTE_NOW + now;
+export function notesOf(messages) {
+  for (const m of [...(Array.isArray(messages) ? messages : [])].reverse())
+    if (m && m.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.length) {
+      const t = textOf(m.content);
+      const f = /^Looking up: (.+)$/m.exec(t);
+      const n = /^Question now: (.+)$/m.exec(t);
+      return f && n ? { find: f[1].trim(), now: n[1].trim() } : null;
+    }
+  return null;
+}
+export function passageFor(text, query, most = 2400) {
+  const want = contentWords(query);
+  const all = asText(text)
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s, i) => ({ s: s.trim(), i, n: want.filter((w) => s.toLowerCase().includes(w)).length }))
+    .filter((x) => x.s && x.s.length < 700);
+  const best = all
+    .filter((x) => x.n > 0)
+    .sort((a, b) => b.n - a.n || a.i - b.i)
+    .slice(0, 14)
+    .sort((a, b) => a.i - b.i);
+  const out = (best.length ? best : all.slice(0, 14)).map((x) => x.s).join('\n');
+  return out.slice(0, most);
+}
+export const asQuestion = (find) => (/\?\s*$/.test(find) ? find.trim() : 'What is ' + find.trim() + '?');
+export const READ_ASK = (find, passage) =>
+  'Text:\n' +
+  passage +
+  '\n\nFrom the text alone: ' +
+  asQuestion(find) +
+  '\nAnswer with the name, the number or the date alone. If the text does not say, answer NOT FOUND.';
 // THE TRAIL (measured 2026-11-22 on a search task made from a seed, which nobody had read: with the steps above every question
 // was searched, and 1 of 30 was answered; the model's query said the whole question over, search after search, and it
 // stopped on the fact halfway). Two things code can see in what came back, with no judgement:
@@ -421,38 +512,90 @@ export function trailQuery(question, lastResult, allReturned = lastResult) {
   if (!fresh.length) return '';
   return [...fresh.slice(0, 3), ...covers(question, asText(allReturned)).unmet.slice(0, 6)].join(' ');
 }
-export const QUERY_BRIEF =
-  'You are finding something out on the web, one search at a time. Say what to search for next: the ONE fact still ' +
-  'missing, in the few words a search engine would match. Where the question hangs on something not yet known (a ' +
-  'person, a place, a year it only describes), search for that first. Write the query alone, on one line: no ' +
-  'explanation, no quotes, no answer.';
-// the query in what a drafter wrote: its first line that holds words, without a label, quotes or a mark of a list; none where
-// it is a refusal, longer than a query is, or one already made
-export function queryIn(text, made = []) {
-  const norm = (x) =>
-    String(x)
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}]+/gu, ' ')
-      .trim();
-  for (const raw of String(text || '').split('\n')) {
-    const l = raw
-      .trim()
-      .replace(/^(?:[-*•]|\d+[.)])\s+/, '')
-      .replace(/^(?:search(?: query| for)?|query|keywords?)\s*[:=]\s*/i, '')
-      .replace(/^["'`“]+|["'`”.]+$/g, '')
-      .trim();
-    if (!/[\p{L}\p{N}]/u.test(l)) continue;
-    if (
-      l.length > 100 ||
-      l.split(/\s+/).length > 12 ||
-      /\b(?:i (?:do not|don't|cannot|can't)|sorry|as an ai|please|could you|unclear|unknown|misspell\w*|fictional|not (?:a|an|recogni[sz]ed|specified|mentioned|known|clear))\b/i.test(
-        l,
-      )
-    )
-      return '';
-    return made.some((q) => norm(q) === norm(l)) ? '' : l;
+// ONE STEP OF THE SEARCH PROGRAM: -> { call, note, first } the next call and what it is looking up; { reply } the answer, read
+// out of a text that holds it, in the form the system text sets; {} where the program has no step (the reply stands)
+export async function searchStep({ messages, tools, plan = {}, answerReply = null, trace = [] }) {
+  const seen = lookedUp(messages, tools);
+  const queries = queriesMade(messages, tools);
+  const asks = questionOf(messages);
+  const d0 = innermost(asks);
+  const state = notesOf(messages) || { find: d0 ? d0.text : asks, now: asks };
+  const same = (a, b) => a.toLowerCase().replace(/\s+/g, ' ').trim() === b.toLowerCase().replace(/\s+/g, ' ').trim();
+  // (a search for what the question, as it now stands, hangs on; for the question itself where it hangs on nothing)
+  const begin = (now) => {
+    const d = innermost(now);
+    const find = d ? d.text : now;
+    return queries.some((x) => same(x, find))
+      ? null
+      : { call: searchCallBy(tools, messages, find), note: noteFor(find, now) };
+  };
+  let step = null;
+  let readOut = '';
+  if (!seen.made.length) step = begin(asks);
+  else if (seen.made.length < (plan.searchMost || SEARCH_MOST)) {
+    const find = state.find || state.now;
+    // WHAT DOES THE TEXT SAY OF IT? Asked of the answer procedure, shown the sentences of the text that hold the words of
+    // what is looked up. What it says is believed only where the text holds it
+    const readIn = async (text) => {
+      if (!answerReply) return '';
+      const t1 = Date.now();
+      let said = '';
+      try {
+        const got = await answerReply([{ role: 'user', content: READ_ASK(find, passageFor(text, find)) }]);
+        said = String((got && (got.decided || got.reply)) || '')
+          .split('\n')[0]
+          .replace(/^[\s'"`]+|[\s'"`.]+$/g, '')
+          .trim();
+      } catch {
+        said = '';
+      }
+      const fact = said && said.length <= 80 && !/not found/i.test(said) && heldBy(said, text) ? said : '';
+      trace.push({
+        slot: 'read',
+        member: 'swarm',
+        stage: 'read',
+        ms: Date.now() - t1,
+        ok: !!fact,
+        final: fact,
+        out: fact ? asQuestion(find) + ' ' + fact : 'The text does not say: ' + asQuestion(find),
+      });
+      return fact;
+    };
+    // AFTER A SEARCH, ITS FIRST PAGE IS OPENED, and nothing is read from the list of results: a list holds a line of each
+    // page, and the fact beside the one asked for stands in those lines as often as the fact itself. (Reading a fact on
+    // the way from the list, to save a step, was tried on the live web, 2026-11-23: the list gave a year and the name of
+    // the event as the performer's name, and every chain went on from there.)
+    const pageNext = seen.last === 'search' ? nextPageCall(tools, messages) : null;
+    if (pageNext) step = { call: pageNext, note: noteFor(find, state.now) };
+    else {
+      const fact = await readIn(seen.lastText);
+      if (fact && !same(find, state.now)) {
+        // (a fact on the way: put in the place of what described it, and on with the question as it now stands)
+        step = begin(state.now.replace(find, fact));
+      } else if (fact) readOut = fact;
+      // (the text does not say: the next page of the last results, two at most; then the question as it stands, whole;
+      // then the names the text does give, with what of the question it lacks)
+      if (!step && !readOut && seen.pagesSince < 2) {
+        const more = nextPageCall(tools, messages, seen.lastSearch);
+        if (more) step = { call: more, note: noteFor(find, state.now) };
+      }
+      if (!step && !readOut && !same(find, state.now) && !queries.some((x) => same(x, state.now)))
+        step = { call: searchCallBy(tools, messages, state.now), note: noteFor(state.now, state.now) };
+      if (!step && !readOut) {
+        const q = trailQuery(state.now, seen.lastText);
+        if (q && !queries.some((x) => same(x, q)))
+          step = { call: searchCallBy(tools, messages, q), note: noteFor(find, state.now) };
+      }
+    }
   }
-  return '';
+  if (step && step.call) return { call: step.call, note: step.note, first: !seen.made.length };
+  if (readOut) {
+    // (the answer, read: in the form the system text sets where it sets one, with the sentence it was read in)
+    const held = passageFor(seen.lastText, readOut, 400).split('\n')[0] || readOut;
+    const form = plan.setForm !== false ? setFormOf(messages) : null;
+    return { reply: form ? inSetForm(held, readOut, form) : readOut };
+  }
+  return {};
 }
 // the turn itself: one proposal from each drafter, the same ones made one, the decider where they differ
 export async function answerTools(
@@ -466,6 +609,58 @@ export async function answerTools(
   const who = drafters.length ? drafters : [{ id: 'lead', member: lead, stage: 'draft', maxTokens: 700 }];
   const trace = [];
   const plan = briefs.plan || {};
+  // WHERE NOTHING IS OFFERED BUT TOOLS THAT SEARCH AND TOOLS THAT OPEN A PAGE, THE PROGRAM TAKES THE TURN (T.13b): no drafter is
+  // asked for a step. What such a turn needs of a model is reading, and that is asked of the answer procedure; the step is
+  // code's. Where the program has no step, the reply is the answer procedure's, shown what was found (T.9)
+  if (
+    plan.searchThrough !== false &&
+    tool_choice === undefined &&
+    tools.length &&
+    tools.some(isSearchTool) &&
+    tools.every((x) => isSearchTool(x) || isFetchTool(x))
+  ) {
+    const next = await searchStep({ messages, tools, plan, answerReply, trace });
+    let action = next.call ? { calls: [next.call] } : { reply: next.reply || '' };
+    let path = next.call
+      ? next.first
+        ? 'program+searched'
+        : 'program+through'
+      : next.reply
+        ? 'program+read'
+        : 'program';
+    const rows = [...trace];
+    if (!next.call && !next.reply) {
+      let got = null;
+      try {
+        got = answerReply ? await answerReply(forAnswer(messages)) : null;
+      } catch {
+        got = null;
+      }
+      if (!got || !got.ok || !String(got.reply || '').trim()) {
+        // (nothing could be written: the turn says it does not know, in the form the system text sets where it sets one,
+        // and does not fail. A search that found nothing is an answer, not an error)
+        const form = plan.setForm !== false ? setFormOf(messages) : null;
+        action = { reply: (form && form.unknown) || 'I do not know.' };
+        path += '+unknown';
+      } else {
+        action = { reply: String(got.reply).trim() };
+        path += '+answered';
+        for (const r of got.trace || []) rows.push({ ...r, reply: true });
+      }
+    }
+    return {
+      ok: true,
+      action,
+      calls: asCalls(action),
+      reply: action.reply || '',
+      ...(next.call && next.note ? { note: next.note } : {}),
+      text: actionText(action),
+      decided: actionText(action),
+      path: 'tools-' + path,
+      trace: rows,
+      ms: Date.now() - t0,
+    };
+  }
   // (the conversation as every drafter is sent it: fitted to a slot, T.11)
   const sent = fitted(messages, plan.toolFit || 8000);
   await Promise.all(
@@ -668,78 +863,29 @@ export async function answerTools(
     }
   }
   let action = pick.action.calls ? pick.action : { reply: pick.rows[0].action.reply };
-  // SEARCH THROUGH (above): the turn does not end unsearched, nor on an answer that nothing returned holds, while steps remain
+  // THE SEARCH, CARRIED BY CODE (searchStep; plan.searchThrough: false leaves it): where a tool that searches is offered and
+  // the step settled on is a reply, the program takes the next step, or reads the answer out, or lets the reply stand
+  let note = '';
+  let readOut = '';
   if (plan.searchThrough !== false && tool_choice === undefined && !action.calls && tools.some(isSearchTool)) {
-    const seen = lookedUp(messages, tools);
-    const queries = queriesMade(messages, tools);
-    // what to search for, asked in words of the first two drafters at once: the first usable line, in their order
-    const askQuery = async () => {
-      const shown = forAnswer(messages).filter((m) => m.role !== 'system');
-      const got = await Promise.all(
-        who.slice(0, 2).map(async (s) => {
-          const t1 = Date.now();
-          let q = '';
-          let said = '';
-          try {
-            const r = await ask({ ...s, maxTokens: 60 }, [{ role: 'system', content: QUERY_BRIEF }, ...shown], {});
-            said = String(r.content !== undefined ? r.content : r.text || '');
-            q = queryIn(said, queries);
-          } catch (e) {
-            said = 'Failed: ' + String((e && e.message) || e).slice(0, 160);
-          }
-          trace.push({
-            slot: s.id,
-            member: s.member,
-            stage: 'draft',
-            ms: Date.now() - t1,
-            ok: !!q,
-            final: q,
-            out: q ? 'Search for: ' + q : 'No query: ' + said.slice(0, 120),
-            again: 'query',
-          });
-          return q;
-        }),
-      );
-      return got.find(Boolean) || '';
-    };
-    let step = null;
-    const asks = questionOf(messages);
-    const lastTool = [...messages].reverse().find((m) => m && m.role === 'tool');
-    // (the first search is the question itself: asked in words for a first query, the small model gave a refusal or said the
-    // question over at length on most of 30 made questions, and the question as it stands returned the first fact)
-    if (!seen.made.length) step = searchCallBy(tools, messages);
-    else if (seen.made.length < (plan.searchMost || SEARCH_MOST)) {
-      // AFTER A SEARCH, ITS FIRST PAGE IS OPENED, whatever the reply says: a list of results holds a line of each page, and
-      // the fact beside the one asked for stands in those lines as often as the fact itself (on a made search task the
-      // module answered from the list with another town's mayor, on most questions)
-      const pageNext = seen.last === 'search' ? nextPageCall(tools, messages) : null;
-      // (held by the last thing returned or by a page that was opened, not by an earlier list of results)
-      const more = !heldBy(action.reply, seen.lastText + '\n' + seen.pagesText) || !covers(asks, seen.text).ok;
-      if (pageNext) step = pageNext;
-      else if (more) {
-        // (the trail first: what the last result newly names, with what of the question it does not hold; a query the
-        // drafters give in words where the result names nothing new)
-        const same = (a, b) =>
-          a.toLowerCase().replace(/\s+/g, ' ').trim() === b.toLowerCase().replace(/\s+/g, ' ').trim();
-        let q = trailQuery(asks, textOf(lastTool && lastTool.content));
-        if (!q || queries.some((x) => same(x, q))) q = await askQuery();
-        if (q) step = searchCallBy(tools, messages, q);
-        if (!step) step = nextPageCall(tools, messages);
-      }
-    }
-    if (step) {
-      action = { calls: [step] };
-      path += seen.made.length ? '+through' : '+searched';
+    const next = await searchStep({ messages, tools, plan, answerReply, trace });
+    if (next.call) {
+      action = { calls: [next.call] };
+      note = next.note;
+      path += next.first ? '+searched' : '+through';
+    } else if (next.reply) {
+      action = { reply: next.reply };
+      readOut = next.reply;
+      path += '+read';
     }
   }
-
   // THE REPLY IS ANSWERED, NOT ONLY PROPOSED (SwOA specification T.9). Where the step settled on is a reply, every drafter's reply
   // was one and the same step, and the first drafter's words went out: unchecked, undecided, and after a search they are the one
   // reply that carries what was found. So the reply is written by the answer procedure (drafts, checks, a decision, the writer),
   // shown the conversation with what the tools returned in it (forAnswer). Where that gives nothing, the proposed reply stands.
   // plan.toolReply "proposed" keeps the proposed reply, as before.
   const rows = trace.map(({ action: _a, ...r }) => r);
-  if (!action.calls && answerReply && (briefs.plan || {}).toolReply !== 'proposed') {
+  if (!action.calls && !readOut && answerReply && (briefs.plan || {}).toolReply !== 'proposed') {
     let got = null;
     try {
       got = await answerReply(forAnswer(messages));
@@ -757,6 +903,8 @@ export async function answerTools(
     action,
     calls: asCalls(action),
     reply: action.reply || '',
+    // (what the program is looking up, and the question as it stands: said with the call, and read back next turn)
+    ...(note && action.calls ? { note } : {}),
     text: actionText(action),
     decided: actionText(action),
     path: 'tools-' + path,

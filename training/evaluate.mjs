@@ -554,7 +554,20 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   // same code on the same questions. A result says which it is of ("arrangement": "default" or "trained"): the two are kept
   // apart already, each under its own arrangement's hash.
   const { readBriefs: storedBriefs, startBriefs } = await import('../src/index.mjs');
-  const readBriefs = () =>
+  // (--plan pieceBy=plain,searchMost=4: the arrangement measured, with those fields of its plan set, to measure a switch before
+  // training has tried it. A result says so, and its answers are kept apart by the arrangement's hash)
+  const planSet = Object.fromEntries(
+    String(B.arg('plan', ''))
+      .split(',')
+      .filter((x) => x.includes('='))
+      .map((x) => {
+        const [k, v] = [x.slice(0, x.indexOf('=')), x.slice(x.indexOf('=') + 1)];
+        return [k, v === 'true' ? true : v === 'false' ? false : v !== '' && !Number.isNaN(Number(v)) ? Number(v) : v];
+      }),
+  );
+  const withPlan = (b) => (Object.keys(planSet).length ? { ...b, plan: { ...(b.plan || {}), ...planSet } } : b);
+  const readBriefs = () => withPlan(readBriefs0());
+  const readBriefs0 = () =>
     B.has('one-slot')
       ? oneSlot(startBriefs())
       : B.has('default') || (variant && variant.default)
@@ -602,7 +615,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       ? 'default'
       : B.has('one-slot')
         ? 'one slot'
-        : 'trained';
+        : B.arg('plan')
+          ? 'plan ' + B.arg('plan')
+          : 'trained';
   // (whether its small models are served with the adapters Pretrain trained: what an evaluation before and after compares)
   const { servedWith } = await import('./adapters.mjs');
   const { MEMBERS } = await import('../src/catalog.mjs');

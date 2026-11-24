@@ -58,13 +58,13 @@ What has not:
 - **A pass weighted by the proof.** Built and checked against made-up evaluations, and read against the ones on record:
   Instructions (20 questions) and Tools (100) both read open, so nothing is short and nothing would be asked more of. It
   first has something to act on when a proof run finishes; and it takes effect at the end of a pass, for the next one.
-- **Search on the live web.** The web search test reads 3 of 40 for the module against 8 for the larger model
-  (2026-11-22, night), no better than before the search was carried by code (4 of 40). The mechanics are mended: every
-  question is searched and pages are opened and read as text. What is missing is choosing what to look up first where a
-  question chains three or four facts. On a made task of two chained facts the same rules take the module from 1 right
-  of 30 to 28 and 30.
+- **Search on the live web.** The web search test reads 2 of 40 for the module against 8 for the larger model
+  (2026-11-23), no better than before the search was made a program of code (4 of 40). The first facts of a chain are
+  found and the answer comes in the form asked; the second or third fact is lost, to a page that does not hold it or a
+  reading of the fact beside it. On a made task of two chained facts the program has 30 of 30.
 - **Following instructions as well as its own model.** On 100 questions of IFEval the small model asked by itself has
-  75 right and the module 68. A reply written to the request as it came, counted beside the others, won back two.
+  75 right and the module 68. One slot asked as the request came, for a request that instructs its reply, reads 71,
+  and is now an arrangement training can keep; no run has shown whether it does.
 - **Pretraining that helps.** Adapters by role lowered the module from 55.2% to 50.6% on 460 questions.
 - **Ten of the nineteen small models in a swarm, two of the four Kev sizes, and fourteen of the fifteen larger models.**
   Pinned. Every small model has answered alone; four small models at once have not been run.

@@ -105,6 +105,22 @@ export const asksForPiece = (question) =>
   /\b(?:write|draft|compose|word)\b[^.?!\n]{0,60}\b(?:text|message|email|e-mail|note|letter|reply|post|card|speech|toast|caption|invitation|apology|announcement)\b/i.test(
     String(question || ''),
   );
+// DOES THE REQUEST INSTRUCT ITS OWN REPLY? It speaks of the reply as a thing to be made a certain way ("your entire response",
+// "respond using only", "in your answer", "wrap the output", "do not use", "without using", "make sure to", "first repeat")
+// or asks for something to be written, made or put another way (write, compose, draft, rewrite, make a ..., create a ...).
+// Such a reply is itself what is asked for: there is no short answer in it to settle. (Measured 2026-11-22 on 100 requests
+// of a standard test of following instructions: the two readings before this one knew 59 of them.)
+export const instructsReply = (question) => {
+  const q = String(question || '');
+  return (
+    /\b(?:your|the) (?:entire |whole |final )?(?:response|reply|answer|output)\b|\brespond(?:ing)? (?:using|in|with|only)\b|\bin your (?:response|reply|answer)\b|\bwrap (?:the|your)\b|\b(?:do not|don't) (?:use|include|say|write|add)\b|\bwithout (?:using|any)\b|\bmake sure (?:to|that|it|your)\b|\bfirst,? repeat\b|\bseparated? (?:by|the)\b|\bin (?:json|markdown|xml) format\b/i.test(
+      q,
+    ) ||
+    /(?:^|[.!?:]\s+|\bplease\s+|\b(?:can|could|would) you (?:please )?(?:help me )?)(?:write|compose|draft|rewrite|rephrase|create|generate|make|produce|give me|provide|summari[sz]e|translate|explain|describe)\b/im.test(
+      q,
+    )
+  );
+};
 // is an answer code? Words about a function are not: code has the marks of code (a function with its brackets, an arrow, a
 // statement ended, a name given a value), or the marks of Python (a def or a class with its colon, a line that imports, a
 // lambda). Python had none of the first marks, so a Python function was taken for words (measured 2026-11-22: 0 of 40).
@@ -406,6 +422,72 @@ export function optionsOf(question) {
     words: m[2],
   }));
   return out.length >= 2 && new Set(out.map((o) => o.letter)).size === out.length ? out : [];
+}
+// THE FORM THE SYSTEM TEXT SETS (plan.setForm; SwOA specification O.8.8). A caller may say, in the conversation's system text,
+// the form the reply is to have, as a template: {'answer': A short and precise answer, 'context': A brief explanation}. A
+// small writer keeps it loosely (a quote dropped, a brace astray, or no form at all once what it is shown is long: measured
+// 2026-11-22, 11 of 20 on a made search task and 1 to 3 of 20 on a standard one). The answer is already settled and the form
+// is stated, so code writes the one into the other.
+//   setFormOf(messages) -> { first, second, unknown } where the system text holds a template of two quoted keys whose values
+//                          are descriptions (not quoted themselves); unknown: the literal form it gives for "I do not know",
+//                          where it gives one; null where there is no such template
+//   inSetForm(reply, decided, form) -> the reply in that form: the first key holds what was settled, the second what the
+//                          reply said of it. A reply already in the form, well made, stands as it was written
+const SAYS_UNKNOWN =
+  /\b(?:do(?:es)? not know|don't know|cannot (?:be )?(?:answer|determin)\w*|can't answer|not (?:clear|specified|mentioned|provided)|unable to|no (?:clear )?(?:answer|information))\b/i;
+export function setFormOf(messages) {
+  const sys = (Array.isArray(messages) ? messages : [])
+    .filter((m) => m && m.role === 'system' && typeof m.content === 'string')
+    .map((m) => m.content)
+    .join('\n');
+  const m =
+    /\{\s*(['"])([A-Za-z][\w ]{1,24})\1\s*:\s*(?!['"])[^{}]*?,\s*(['"])([A-Za-z][\w ]{1,24})\3\s*:\s*(?!['"])[^{}]*\}/.exec(
+      sys,
+    );
+  if (!m) return null;
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const unknown = new RegExp(
+    '\\{\\s*[\'"]' +
+      esc(m[2]) +
+      '[\'"]\\s*:\\s*[\'"]I do not know[\'"]\\s*,\\s*[\'"]' +
+      esc(m[4]) +
+      '[\'"]\\s*:\\s*[\'"][^\'"{}]*[\'"]\\s*\\}',
+    'i',
+  ).exec(sys);
+  return { first: m[2], second: m[4], unknown: unknown ? unknown[0] : '' };
+}
+export function inSetForm(reply, decided, form) {
+  const r = String(reply || '').trim();
+  if (!form || !r) return r;
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const key = (k) => '[\'"]' + esc(k) + '[\'"]\\s*:\\s*';
+  const value = '(?:\'[^\']*\'|"[^"]*"|-?\\d[\\d.,]*)';
+  if (new RegExp('^\\{\\s*' + key(form.first) + value + '\\s*,\\s*' + key(form.second) + value + '\\s*\\}$').test(r))
+    return r;
+  const bare = (x) =>
+    String(x || '')
+      .replace(/[{}]/g, ' ')
+      .replace(/^[\s'",:]+|[\s'",:]+$/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  // (what the reply itself gave under each key, where it tried the form; else what was settled, and the reply's own words)
+  const under = (k, next) => {
+    const m = new RegExp(
+      key(k) + '([\\s\\S]*?)' + (next ? '(?=,?\\s*[\'"{]*' + esc(next) + '[\'"]?\\s*:)' : '$'),
+      'i',
+    ).exec(r);
+    return m ? bare(m[1]) : '';
+  };
+  const settled = bare(decided);
+  let first =
+    settled && settled.length <= 200 && !new RegExp(key(form.first), 'i').test(settled)
+      ? settled
+      : under(form.first, form.second) || settled || bare(r);
+  let second = under(form.second, '') || bare(r.replace(new RegExp(key(form.first), 'gi'), ' '));
+  if (form.unknown && SAYS_UNKNOWN.test(first)) return form.unknown;
+  if (!second || second === first) second = first;
+  const q = (x) => "'" + x.slice(0, 600).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+  return '{' + q(form.first) + ': ' + q(first) + ', ' + q(form.second) + ': ' + q(second) + '}';
 }
 export function optionOf(final, options) {
   if (!options || !options.length) return '';

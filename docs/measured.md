@@ -2,6 +2,50 @@
 
 Every measurement, dated, newest first. Each is of the swarm named in it; the lineup has changed over time.
 
+## The search program, the form a system text sets, one slot for a kind of request: 2026-11-23
+
+The same swarm (LFM2.5 1.2B in both places against Nemotron 3.5 Lightning 30B), after the section below.
+
+**Why a program.** The rules of the section below made every question searched and did not make it answered on the
+live web. Two things were then asked of the real module. Asked, as a plain question, for the smaller question that has
+to be answered first, it guessed an answer on eight chained questions of eight ("Singapore", "Tampa, Florida").
+Given a text and one thing to find in it, it reads it. So code takes the question apart at what it hangs on, searches,
+opens the page, and puts what was read back into the question; the answer procedure is asked only to read.
+
+| | The rules before | The program |
+| --- | --- | --- |
+| The made search task, 30 questions, four seeds never run before | 28 and 30 of 30 on two | 30 of 30 on each of four |
+| Minutes for those 30 | 2.6 | 0.4 |
+| The live web search test, 40 questions | 3 | 2 (0 to 2 over four versions) |
+| Of 20, the expected answer retrieved | 4 | 6 |
+| Of 20, the last message in the form asked | 1 to 3 | 20 |
+| Nemotron on those 40 | 8 | 8 |
+
+- **On the live web the first facts are now found** ("the performer at the 2024 Super Bowl": Usher; then "the
+  birthplace of Usher"), and the chain breaks at the second or third: a page cut to 2000 characters does not hold the
+  fact, or the small model reads a neighbouring one. Reading a fact on the way from the list of results, to save
+  steps, was tried and taken out: the list gave a year as a performer's name and every chain went on from there (0 of
+  40).
+- **The live test is no longer an untouched judge of these rules:** its questions were read several times while the
+  program was written. The made task's seeds are.
+- **The form.** The test asks for the last message as `{'answer': ..., 'context': ...}`. Code now writes what was
+  settled into the form a system text sets: 20 of 20 on the live test and on the made task (11 of 20 there before,
+  loosely).
+
+**One slot for a kind of request**, Instructions, 100 questions:
+
+| | Right, of 100 |
+| --- | --- |
+| The small model, asked plainly | 75 |
+| The module | 68 |
+| The module, a request that instructs its reply answered by one slot (`--plan pieceBy=plain`) | 71 |
+| The module, every request answered by one slot (`--plan plain=true`) | 71 |
+| Nemotron | 79 |
+
+Both are arrangements the class stage can now try and keep. A reading was added for a request that instructs its own
+reply: it knows 99 of these 100 requests, where the readings before it knew 59. No run has yet shown what training
+keeps. The four questions between 71 and 75 are not looked into (the model by itself is asked with other sampling).
+
 ## A run stopped in training, a search carried by code, Instructions at 100: 2026-11-22 (night)
 
 LFM2.5 1.2B in both places against Nemotron 3.5 Lightning 30B, on one Apple silicon Mac.

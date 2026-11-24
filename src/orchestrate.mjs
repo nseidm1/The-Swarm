@@ -35,18 +35,21 @@ import {
   optionOf,
   asksForCode,
   asksForPiece,
+  instructsReply,
   MARKER,
   isToolCall,
   letterOf,
   describedNotGiven,
   withoutClosingRemark,
   closingForm,
+  setFormOf,
+  inSetForm,
   closedAs,
   laidOutAs,
   withoutRestating,
 } from './read.mjs';
 import { probeBriefFor, expectBriefFor, langOfQuestion, expectedIn, programOf } from './behave.mjs';
-import { answerPiece, setsRules } from './piece.mjs';
+import { answerPiece, setsRules, roomFor } from './piece.mjs';
 import { instrumentFor } from './instruments.mjs';
 
 // an answer as it is shown to another slot or to the person: code in a block of its own, anything else as it is
@@ -274,10 +277,21 @@ export function partsOf(text, most = PART_CHARS) {
 // as the start of the reply and reads what follows as its body; the start was taken for the question and answered in words.
 export async function answer(messages, opts) {
   const begun = begunOf(messages);
-  if (!begun) return answerAsked(messages, opts);
+  if (!begun) return inFormSet(await answerAsked(messages, opts), messages, opts);
   const got = await answerAsked(messages.slice(0, -1), opts);
   const reply = continuedFrom(begun, got.reply, got.decided);
   return { ...got, reply, begun: true, path: reply !== got.reply ? got.path + '+continued' : got.path };
+}
+// THE REPLY IS WRITTEN IN THE FORM THE SYSTEM TEXT SETS (read.mjs setFormOf; plan.setForm: false leaves it; O.8.8): where the
+// conversation's system text gives the reply's form as a template of two keys, what was settled is written into it by code.
+// Not code, and not a reply already begun (that one follows what was begun)
+function inFormSet(got, messages, opts) {
+  const plan = (briefsFor(opts.briefs, '', classOf(messages)) || {}).plan || {};
+  if (plan.setForm === false || !got || !got.ok || !got.reply || isCode(got.decided || got.reply)) return got;
+  const form = setFormOf(messages);
+  if (!form) return got;
+  const reply = inSetForm(got.reply, got.decided, form);
+  return reply === got.reply ? got : { ...got, reply, path: got.path + '+form' };
 }
 async function answerAsked(messages, opts) {
   const mine = briefsFor(opts.briefs, '', classOf(messages)) || {};
@@ -452,6 +466,55 @@ async function answerWhole(
         tried: null,
         instrument: it.id,
       };
+    }
+  }
+  // ONE MODEL, ASKED AS THE REQUEST CAME (plan.plain: true, every request of the class; plan.pieceBy: 'plain', a request for a
+  // piece of writing: one that sets countable rules or asks for a piece. SwOA specification R.5.0). The first drafter is sent
+  // the conversation as it came, with no brief of the module's, and its reply is the reply, laid out as the conversation
+  // shows. Neither is on as a module starts: on some kinds of request a small model by itself does as well as the module
+  // built of it, or better (measured 2026-11-22, following instructions, 100 questions: 75 right by itself, 66 to 68 in
+  // the module), and which kinds those are is training's to find and keep, so that a module does no worse than its model.
+  // Where the slot gives nothing, or a call, the request goes on as it would have.
+  if (
+    plan.plain === true ||
+    (plan.pieceBy === 'plain' &&
+      !wantsCode &&
+      (setsRules(question) || asksForPiece(question) || instructsReply(question)))
+  ) {
+    const slot = stage('draft').find((s) => !s.compute);
+    if (slot) {
+      const at = Date.now();
+      const row = {
+        slot: slot.id,
+        member: slot.member,
+        stage: 'draft',
+        ms: 0,
+        out: '',
+        final: '',
+        ok: false,
+        plain: true,
+      };
+      onStart({ slot: slot.id, member: slot.member, stage: 'draft' });
+      try {
+        const r = await ask({ ...slot, maxTokens: Math.max(roomFor(question), Number(slot.maxTokens) || 0) }, [
+          ...(house ? [{ role: 'system', content: house }] : []),
+          ...kept,
+        ]);
+        row.out = String((r && r.text) || '').trim();
+        row.ok = !!row.out && !isToolCall(row.out);
+        if (r && r.tokens) row.tokens = r.tokens;
+      } catch (e) {
+        row.why = String((e && e.message) || e).slice(0, 200);
+      }
+      row.final = row.ok ? row.out : '';
+      row.ms = Date.now() - at;
+      onStep(row);
+      if (row.ok) {
+        const reply = laidOutAs(withoutRestating(row.out, question), kept);
+        // (what it settled on is what it stated as its answer, where it stated one so; else the reply itself)
+        row.final = finalOf(row.out, marker) || reply;
+        return { reply, decided: row.final, path: 'plain', ms: Date.now() - t0, trace: [row], ok: true, tried: null };
+      }
     }
   }
   // A REPLY THE REQUEST SETS COUNTABLE RULES ON IS WRITTEN WHOLE (piece.mjs; plan.piece: false leaves it): so many words, no

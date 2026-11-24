@@ -52,6 +52,20 @@ export function steps(b, { cap = SERVING.slots, members = [...new Set(b.slots.ma
       name: 'plan: a question ' + INSTRUMENT_NAMES[id] + ' is done by code',
       briefs: { ...b, plan: { ...b.plan, instruments: [...instrOn, id] } },
     })),
+    // ONE MODEL, ASKED AS THE REQUEST CAME (src/orchestrate.mjs plan.pieceBy, plan.plain): for a piece of writing, and for
+    // the whole class. A module is to do no worse than its own model, and where one slot asked plainly is the best
+    // arrangement for a kind of request this is how training finds it: kept, as anything is, only where held questions gain
+    ...((b.plan || {}).pieceBy === 'plain' || (b.plan || {}).plain === true
+      ? []
+      : [
+          {
+            name: 'plan: a piece of writing is written by one model, asked as it came',
+            briefs: { ...b, plan: { ...b.plan, pieceBy: 'plain' } },
+          },
+        ]),
+    ...((b.plan || {}).plain === true
+      ? []
+      : [{ name: 'plan: one model answers, asked as it came', briefs: { ...b, plan: { ...b.plan, plain: true } } }]),
     // the flow next: with nothing measured to point anywhere, a pass tries the order of steps before it tries who sits where
     ...flowMoves(b),
   ];

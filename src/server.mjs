@@ -68,7 +68,7 @@ export function serve(swarm, { port = 0, host = '127.0.0.1', lead = 'a', name = 
         const created = Math.floor(Date.now() / 1000);
         if (!got.ok) return json(res, 502, { error: { message: 'no drafter proposed a step that could be taken' } });
         const message = got.calls.length
-          ? { role: 'assistant', content: null, tool_calls: got.calls }
+          ? { role: 'assistant', content: got.note || null, tool_calls: got.calls }
           : { role: 'assistant', content: got.reply };
         const finish = got.calls.length ? 'tool_calls' : 'stop';
         const tokens = got.trace.reduce((a, r) => a + (r.tokens || 0), 0);

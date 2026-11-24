@@ -1152,7 +1152,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       // (an instrument turned on comes first of all: it costs nothing to try; then the flow)
       /^plan: a question .* is done by code$/.test(all[0].name) &&
       all.filter((c) => / is done by code$/.test(c.name)).length === 4 &&
-      /^flow: /.test(all[4].name) &&
+      // (then one model asked as the request came, for a piece of writing and for the whole class; then the flow)
+      /a piece of writing is written by one model, asked as it came$/.test(all[4].name) &&
+      /^plan: one model answers, asked as it came$/.test(all[5].name) &&
+      all[5].briefs.plan.plain === true &&
+      /^flow: /.test(all[6].name) &&
       first.every((c) => c.briefs.flow[0].do === 'draft'),
     { first: names(briefs), second: second.map((c) => c.name) },
   );
@@ -9940,7 +9944,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     start.plan.draftFirst === 2 &&
       start.slots.every((x) => Object.keys(MEMBERS).includes(x.member)) &&
       /B\.has\('default'\) \|\| \(variant && variant\.default\)\s*\? startBriefs\(\)\s*: storedBriefs\(\)/.test(ev) &&
-      /\? 'default'\s*: B\.has\('one-slot'\)\s*\? 'one slot'\s*: 'trained'/.test(ev) &&
+      /readBriefs = \(\) => withPlan\(readBriefs0\(\)\)/.test(ev) &&
+      /\? 'default'\s*: B\.has\('one-slot'\)\s*\? 'one slot'\s*: B\.arg\('plan'\)\s*\? 'plan ' \+ B\.arg\('plan'\)\s*: 'trained'/.test(
+        ev,
+      ) &&
       (ev.match(/arrangementSha256,\n\s+arrangement,/g) || []).length === 2,
     Object.keys(start.plan),
   );
@@ -10783,220 +10790,210 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { forced, first: [first.path, first.calls], n2, n3, leftOut: leftOut.path },
   );
 }
-// ---- SEARCH THROUGH (src/tools.mjs): code makes the search no drafter makes, opens the page, and does not end on an answer
-// that nothing returned holds
+// ---- THE SEARCH PROGRAM (src/tools.mjs searchStep): code takes the question apart, searches, opens the page, has the answer
+// procedure read it, and puts what was read back into the question
 {
   const T = await import('../src/tools.mjs');
+  const R = await import('../src/read.mjs');
   const { startBriefs } = await import('../src/index.mjs');
   const fn = (name, description, properties, required) => ({
     type: 'function',
     function: { name, description, parameters: { type: 'object', properties, required } },
   });
-  const search = fn(
-    'search_engine_query',
-    'Search the web.',
-    { keywords: { type: 'string' }, max_results: { type: 'integer' } },
-    ['keywords'],
+  const search = fn('search_engine_query', 'Search the web.', { keywords: { type: 'string' } }, ['keywords']);
+  const page = fn(
+    'fetch_url_content',
+    'Fetch the content of a URL.',
+    { url: { type: 'string' }, mode: { type: 'string', enum: ['raw', 'markdown', 'truncate'] } },
+    ['url'],
   );
-  const page = fn('fetch_url_content', 'Fetch the content of a URL.', { url: { type: 'string' } }, ['url']);
+  const calc = fn('add', 'Add two numbers.', { a: { type: 'number' } }, ['a']);
+  const SYS =
+    "Answer as {'answer': A short answer, 'context': Why}. If you do not know, respond with {'answer': 'I do not know', 'context': 'I do not know'}.";
+  const ASK = 'Tea is dear. Who is the richest person in the country that makes the most expensive tea?';
   const Q = [
-    { role: 'system', content: "Answer as {'answer': ..., 'context': ...}." },
-    {
-      role: 'user',
-      content: 'Tea is dear. Who is the richest person in the country that makes the most expensive tea?',
-    },
+    { role: 'system', content: SYS },
+    { role: 'user', content: ASK },
   ];
-  const callOf = (name, args, id = 'c') => [
-    { id, type: 'function', function: { name, arguments: JSON.stringify(args) } },
-  ];
-  const asked = [];
-  // a model that never calls a tool, even when a call is required of it; asked in words what to search for, it says `query`
-  const turn = (
-    messages,
-    { says = "{'answer': 'I do not know'}", query = '', tools = [search, page], plan = {} } = {},
-  ) =>
+  const drafted = [];
+  const read = [];
+  // (a reader that answers what it is told to, and says so; no drafter is ever to be asked for a step)
+  const turn = (messages, { reads = 'NOT FOUND', final = 'I do not know.', tools = [search, page], plan = {} } = {}) =>
     T.answerTools(messages, {
       tools,
       briefs: { ...startBriefs(), plan: { ...startBriefs().plan, ...plan } },
-      ask: async (slot, msgs, o) => {
-        const forQuery = msgs[0].role === 'system' && msgs[0].content === T.QUERY_BRIEF;
-        asked.push(forQuery ? 'query' : o.tool_choice || '');
-        if (forQuery) shownForQuery.push(msgs.map((m) => m.content).join('\n'));
-        const text = forQuery ? query : says;
-        return { ok: true, content: text, calls: [], text };
-      },
+      ask: async () => (
+        drafted.push(1),
+        { ok: true, content: 'I can search for that.', calls: [], text: 'I can search for that.' }
+      ),
       decide: async () => ({ ok: false, why: 'not asked' }),
+      answerReply: async (msgs) => {
+        const text = msgs[msgs.length - 1].content;
+        const isRead = /^Text:\n/.test(text);
+        if (isRead) read.push(text);
+        return { ok: true, reply: isRead ? reads : final, decided: isRead ? reads : final, trace: [] };
+      },
     });
-  const shownForQuery = [];
-  // 1: nothing looked up, no drafter calls even when it is required of it: code makes the search, its query the line a
-  // drafter gives in words; where none gives a line (it refuses), the question itself
-  const none = await turn(Q, {
-    query: 'Search: "country that makes the most expensive tea"\nBecause that is missing.',
-  });
-  // (results that hold the reply and cover the question, and no page opened yet though one can be: the page is opened)
-  const snippets = [
-    ...Q,
-    { role: 'assistant', content: '', tool_calls: callOf('search_engine_query', { keywords: 'x' }, 'c1') },
-    {
-      role: 'tool',
-      tool_call_id: 'c1',
-      content:
-        "[{'href': 'https://rich.example/list', 'body': 'Zhang Yiming is the richest person in China, the country that makes the most expensive tea.'}]",
-    },
-  ];
-  const pageFirst = await turn(snippets, { says: "{'answer': 'Zhang Yiming'}" });
-  const noPageTool = await turn(snippets, { says: "{'answer': 'Zhang Yiming'}", tools: [search] });
-  // 2: after a search whose results do not hold the reply's answer: the first page of the results is opened
-  const after1 = [
-    ...Q,
-    { role: 'assistant', content: '', tool_calls: callOf('search_engine_query', { keywords: 'x' }, 'c1') },
-    {
-      role: 'tool',
-      tool_call_id: 'c1',
-      content:
-        "[{'title': 'Tea', 'href': 'https://tea.example/dear.', 'body': 'Da Hong Pao'}, {'href': 'https://other.example/'}]",
-    },
-  ];
-  const opened = await turn(after1, { says: "{'answer': 'Zhang Yiming'}" });
-  // 3: after a page that does not hold it either: the drafters are asked for a call, and one not made before is the step
-  const after2 = [
-    ...after1,
-    {
-      role: 'assistant',
-      content: '',
-      tool_calls: callOf('fetch_url_content', { url: 'https://tea.example/dear' }, 'c2'),
-    },
-    { role: 'tool', tool_call_id: 'c2', content: 'The most expensive tea, Da Hong Pao, is grown in China.' },
-  ];
-  asked.length = 0;
-  shownForQuery.length = 0;
-  // (the page names something new, China: the next search is that name with what of the question nothing has held yet)
-  const next = await turn(after2, { says: "{'answer': 'Zhang Yiming'}", query: 'richest person in China' });
-  const trailAsked = asked.filter((x) => x === 'query').length;
-  // (a result that names nothing new: the drafters are asked in words, shown what was found)
-  const flat = [
-    ...after1,
-    {
-      role: 'assistant',
-      content: '',
-      tool_calls: callOf('fetch_url_content', { url: 'https://tea.example/dear' }, 'c2'),
-    },
-    { role: 'tool', tool_call_id: 'c2', content: 'the tea is dear and nothing more is said here.' },
-  ];
-  asked.length = 0;
-  shownForQuery.length = 0;
-  const worded = await turn(flat, { says: "{'answer': 'Zhang Yiming'}", query: 'richest person in China' });
-  const queryAsked = asked.filter((x) => x === 'query').length;
-  const sawFound = shownForQuery.length === 2 && shownForQuery.every((x) => /nothing more is said here/.test(x));
-  // (an answer the results hold, while a word the question turns on has never come back, does not end the turn)
-  const halfway = await turn(after2, { says: "{'answer': 'China'}", query: 'richest person in China' });
-  // (a query already made is not a step: the next page of the last results, where there is one; else the reply stands)
-  const nothingNew = [
-    ...Q,
-    { role: 'assistant', content: '', tool_calls: callOf('search_engine_query', { keywords: 'x' }, 'c1') },
-    { role: 'tool', tool_call_id: 'c1', content: 'nothing new is named here.' },
-  ];
-  const repeat = await turn(nothingNew, { says: "{'answer': 'I do not know'}", query: 'X', tools: [search] });
-  // 4: what was returned holds the answer: the reply stands, and nobody is asked again
-  const after3 = [
-    ...after2,
-    {
-      role: 'assistant',
-      content: '',
-      tool_calls: callOf('search_engine_query', { keywords: 'richest person in China' }, 'c3'),
-    },
-    {
-      role: 'tool',
-      tool_call_id: 'c3',
-      content: 'Forbes: Zhang Yiming is the richest person in China, the country that makes the most expensive tea.',
-    },
-  ];
-  asked.length = 0;
-  const held = await turn(after3, { says: "{'answer': 'Zhang Yiming', 'context': 'Forbes'}" });
-  const askedHeld = asked.filter((x) => x === 'query').length;
-  // 5: the steps are spent (searchMost), or the switch is off: the reply stands
-  const spent = await turn(after2, { says: "{'answer': 'I do not know'}", plan: { searchMost: 2 } });
-  const off = await turn(Q, { plan: { searchThrough: false, searchFirst: false } });
-  const noTool = await turn(Q, {
-    tools: [fn('spotify_play', 'Play a song.', { artist: { type: 'string' } }, ['artist'])],
+  const callMsg = (name, args, id, note) => ({
+    role: 'assistant',
+    content: note || null,
+    tool_calls: [{ id, type: 'function', function: { name, arguments: JSON.stringify(args) } }],
   });
   const argsOf = (r) =>
     (r.calls || [])[0] ? [r.calls[0].function.name, JSON.parse(r.calls[0].function.arguments)] : null;
+  // 1: nothing looked up: the search is for what the question hangs on, and the call says what it is looking up
+  const first = await turn(Q);
+  const NOW = 'Who is the richest person in the country that makes the most expensive tea?';
+  const FIND = 'the country that makes the most expensive tea';
+  // 2: after the search, its first page, as text where the tool lists that way
+  const c1 = [
+    ...Q,
+    callMsg('search_engine_query', { keywords: FIND }, 'c1', first.note),
+    {
+      role: 'tool',
+      tool_call_id: 'c1',
+      content: "[{'href': 'https://tea.example/dear', 'body': 'Dear teas'}, {'href': 'https://tea.example/second'}]",
+    },
+  ];
+  const opened = await turn(c1);
+  // 3: the page is read for what is looked up; what is read is put into the question, and the question as it now stands is searched
+  const c2 = [
+    ...c1,
+    callMsg('fetch_url_content', { url: 'https://tea.example/dear', mode: 'truncate' }, 'c2', opened.note),
+    {
+      role: 'tool',
+      tool_call_id: 'c2',
+      content:
+        '<html><head><script>var X = 1;</script></head><body><p>The most expensive tea, Da Hong Pao, is grown in China.</p></body></html>',
+    },
+  ];
+  read.length = 0;
+  const on = await turn(c2, { reads: 'China' });
+  const readAsked = read[0] || '';
+  // (what the reader says is believed only where the text holds it; and where the text does not say, the next page of the list)
+  const notHeld = await turn(c2, { reads: 'Japan' });
+  // 4: the question, with the fact in it, hangs on nothing more: it is searched whole, its page opened, and the answer read out
+  const NOW2 = 'Who is the richest person in China?';
+  const c3 = [
+    ...c2,
+    callMsg('search_engine_query', { keywords: NOW2 }, 'c3', on.note),
+    { role: 'tool', tool_call_id: 'c3', content: "[{'href': 'https://rich.example/china'}]" },
+  ];
+  const opened2 = await turn(c3);
+  const c4 = [
+    ...c3,
+    callMsg('fetch_url_content', { url: 'https://rich.example/china', mode: 'truncate' }, 'c4', opened2.note),
+    { role: 'tool', tool_call_id: 'c4', content: 'Forbes says Zhang Yiming is the richest person in China.' },
+  ];
+  const done = await turn(c4, { reads: 'Zhang Yiming' });
+  // 5: two pages of a list read and neither says: the question as it stands is searched whole; with the steps spent, the reply is
+  // the answer procedure's, shown what was found
+  const c2b = [
+    ...c2,
+    callMsg('fetch_url_content', { url: 'https://tea.example/second', mode: 'truncate' }, 'c2b', opened.note),
+    { role: 'tool', tool_call_id: 'c2b', content: 'nothing of use is said here' },
+  ];
+  const whole = await turn(c2b);
+  const spent = await turn(c4, { plan: { searchMost: 4 }, final: 'It cannot be told.' });
+  // 6: a tool that is neither is offered too: the drafters are asked, as in any turn with tools; the switch off: likewise
+  drafted.length = 0;
+  const mixed = await turn(Q, { tools: [search, page, calc] });
+  const mixedDrafted = drafted.length;
+  drafted.length = 0;
+  const off = await turn(Q, { plan: { searchThrough: false, searchFirst: false } });
+  const offDrafted = drafted.length;
+  drafted.length = 0;
+  await turn(Q);
   check(
-    'search through: where a tool that searches is offered and no drafter makes a call, code makes the search, the question its query; after a search the first page not yet opened is opened, also where the results already hold the reply; after a page the next search is the trail (what the page newly names, with what of the question nothing has held yet), or, where the page names nothing new, a query the drafters give in words, shown what was found; an answer the results hold does not end the turn while a word the question turns on has never come back; a reply whose answer the results hold stands and nobody is asked again; and with the steps spent, the switch off, or no tool that searches, the reply stands',
-    JSON.stringify(argsOf(none)) ===
-      JSON.stringify([
-        'search_engine_query',
-        { keywords: 'Who is the richest person in the country that makes the most expensive tea?' },
-      ]) &&
-      JSON.stringify(argsOf(pageFirst)) ===
-        JSON.stringify(['fetch_url_content', { url: 'https://rich.example/list' }]) &&
-      argsOf(noPageTool) === null &&
-      T.queryIn('Search: "country that makes the most expensive tea"\nBecause.') ===
-        'country that makes the most expensive tea' &&
-      T.queryIn('Cornevnev is not a recognized city; please confirm the name') === '' &&
-      /\+searched$/.test(none.path) &&
-      T.queryIn('1. "tea price record"') === 'tea price record' &&
-      T.queryIn('As an AI I cannot browse') === '' &&
-      T.queryIn('Tea Price', ['tea price']) === '' &&
-      JSON.stringify(argsOf(opened)) === JSON.stringify(['fetch_url_content', { url: 'https://tea.example/dear' }]) &&
-      /\+through$/.test(opened.path) &&
-      JSON.stringify(argsOf(next)) ===
-        JSON.stringify(['search_engine_query', { keywords: 'Hong Pao China richest person country makes' }]) &&
-      trailAsked === 0 &&
-      JSON.stringify(argsOf(worded)) ===
-        JSON.stringify(['search_engine_query', { keywords: 'richest person in China' }]) &&
-      queryAsked === 2 &&
-      sawFound &&
-      (argsOf(halfway) || [])[0] === 'search_engine_query' &&
-      T.trailQuery('Who is the mayor of the capital of Aldo?', 'The capital of Aldo is Brim.') === 'Brim mayor' &&
-      // (a page is read as text: its scripts and menus give no names, the sentence that holds the question's words does)
-      T.trailQuery(
-        'Who is the mayor of the capital of Aldo?',
-        '<!DOCTYPE html><html><head><title>Aldo</title><script>var RLCONF = {"Regex": 1};</script></head><body><div>Jump to Content. Main Menu.</div><p>The capital of Aldo is <a href="/b">Brim</a>.</p></body></html>',
-      ) === 'Brim mayor' &&
+    'the search program: where nothing is offered but tools that search and open pages, no drafter is asked for a step; the first search is for what the question hangs on, and the call says what it is looking up and how the question stands; after a search its first page is opened, as text where the tool lists that way; the page is read by the answer procedure, shown its sentences that hold the words looked up, and what it reads is believed only where the text holds it; a fact read on the way is put into the question, which is searched as it then stands; the answer is read out in the form the system text sets; where a text does not say, the next page of the list, then the question whole; with the steps spent the answer procedure replies; and with another kind of tool offered, or the switch off, the drafters are asked as before',
+    JSON.stringify(argsOf(first)) === JSON.stringify(['search_engine_query', { keywords: FIND }]) &&
+      first.note === T.noteFor(FIND, NOW) &&
+      first.path === 'tools-program+searched' &&
+      drafted.length === 0 &&
+      JSON.stringify(argsOf(opened)) ===
+        JSON.stringify(['fetch_url_content', { url: 'https://tea.example/dear', mode: 'truncate' }]) &&
+      opened.note === first.note &&
+      JSON.stringify(argsOf(on)) === JSON.stringify(['search_engine_query', { keywords: NOW2 }]) &&
+      on.note === T.noteFor(NOW2, NOW2) &&
+      /^Text:\nThe most expensive tea, Da Hong Pao, is grown in China\.\n\nFrom the text alone: What is the country that makes the most expensive tea\?/.test(
+        readAsked,
+      ) &&
+      !/var X/.test(readAsked) &&
+      JSON.stringify(argsOf(notHeld)) ===
+        JSON.stringify(['fetch_url_content', { url: 'https://tea.example/second', mode: 'truncate' }]) &&
+      JSON.stringify(argsOf(opened2)) ===
+        JSON.stringify(['fetch_url_content', { url: 'https://rich.example/china', mode: 'truncate' }]) &&
+      argsOf(done) === null &&
+      done.reply ===
+        "{'answer': 'Zhang Yiming', 'context': 'Forbes says Zhang Yiming is the richest person in China.'}" &&
+      done.path === 'tools-program+read' &&
+      JSON.stringify(argsOf(whole)) === JSON.stringify(['search_engine_query', { keywords: NOW }]) &&
+      argsOf(spent) === null &&
+      spent.reply === 'It cannot be told.' &&
+      spent.path === 'tools-program+answered' &&
+      mixedDrafted > 0 &&
+      offDrafted > 0 &&
+      argsOf(off) === null,
+    {
+      first: [first.path, argsOf(first), first.note],
+      opened: argsOf(opened),
+      on: [argsOf(on), on.note],
+      notHeld: argsOf(notHeld),
+      done: [done.path, done.reply],
+      whole: argsOf(whole),
+      spent: [spent.path, spent.reply],
+      mixedDrafted,
+      offDrafted,
+      readAsked: readAsked.slice(0, 160),
+    },
+  );
+  // the parts, by themselves
+  const sys2 = [{ role: 'system', content: SYS }];
+  const form = R.setFormOf(sys2);
+  check(
+    'a question is taken apart at what it hangs on: its last "the ... that / which / who / whose / where" clause, else its last "the X of Y" with Y a name, ended where the name ends; one that asks nothing more of it is not; a page is read as text; the names of a trail come from the sentences that hold the question\'s words; an answer stands in a text where its numbers and most of its words do; the form the system text sets is read from its template and a loose reply is written into it; and a call\'s notes are read back from the conversation',
+    T.innermost('Who is the mayor of the capital of Aldo?').text === 'the capital of Aldo' &&
+      T.innermost('In what year was the capital of Aldo founded?').text === 'the capital of Aldo' &&
+      T.innermost('How many floors are in the tallest building in the city that received the most tourists in 2024?')
+        .text === 'the city that received the most tourists in 2024' &&
+      T.innermost('What is the capital of France?') === null &&
+      T.innermost('Who is the mayor of Brim?') === null &&
+      T.innermost('What is 2 + 2?') === null &&
+      T.asQuestion('the capital of Aldo') === 'What is the capital of Aldo?' &&
+      T.asQuestion('Who is the mayor of Brim?') === 'Who is the mayor of Brim?' &&
+      T.passageFor('Menus here.\nThe capital of Aldo is Brim.\nNothing else.', 'the capital of Aldo') ===
+        'The capital of Aldo is Brim.' &&
       T.asText('<p>One &amp; two</p><script>var X = 1;</script><p>Three</p>') === 'One & two\nThree' &&
       T.asText('plain < text, no markup') === 'plain < text, no markup' &&
-      JSON.stringify(
-        T.asTextArg({
-          function: {
-            name: 'f',
-            parameters: {
-              properties: { url: { type: 'string' }, mode: { type: 'string', enum: ['raw', 'markdown', 'truncate'] } },
-            },
-          },
-        }),
-      ) === '{"mode":"truncate"}' &&
-      JSON.stringify(T.asTextArg(page)) === '{}' &&
+      JSON.stringify(T.asTextArg(page)) === '{"mode":"truncate"}' &&
+      JSON.stringify(T.asTextArg(search)) === '{}' &&
       /^Aldo page\nThe capital/.test(
         T.fitted([
           { role: 'tool', content: '<html><body><h1>Aldo page</h1><p>The capital of Aldo is Brim.</p></body></html>' },
         ])[0].content,
       ) &&
+      T.trailQuery('Who is the mayor of the capital of Aldo?', 'The capital of Aldo is Brim.') === 'Brim mayor' &&
       T.trailQuery('Who is the mayor of the capital of Aldo?', 'nothing is named here') === '' &&
-      T.covers('Who is the mayor of the capital of Aldo?', 'The capital of Aldo is Brim.').unmet.join() === 'mayor' &&
-      T.covers('Who is the mayor of the capital of Aldo?', 'Capital of Aldo: Brim. Its mayor is Cy.').ok &&
-      argsOf(repeat) === null &&
-      argsOf(held) === null &&
-      askedHeld === 0 &&
-      /Zhang Yiming/.test(held.reply) &&
-      argsOf(spent) === null &&
-      argsOf(off) === null &&
-      argsOf(noTool) === null &&
       T.heldBy('The answer is 1871.', 'It was founded in 1871') &&
       !T.heldBy('It was 1997', 'It was founded in 1871') &&
       !T.heldBy("{'answer': 'I do not know'}", 'anything') &&
       T.isFetchTool(page) &&
-      !T.isFetchTool(search),
-    {
-      none: [none.path, argsOf(none)],
-      opened: [opened.path, argsOf(opened)],
-      next: argsOf(next),
-      repeat: argsOf(repeat),
-      held: [held.path, argsOf(held)],
-      spent: argsOf(spent),
-      off: argsOf(off),
-    },
+      !T.isFetchTool(search) &&
+      form.first === 'answer' &&
+      form.second === 'context' &&
+      /I do not know/.test(form.unknown) &&
+      R.setFormOf([{ role: 'system', content: 'Be brief.' }]) === null &&
+      R.inSetForm("{'answer': Sev Cor', 'context': The mayor is Sev Cor.", '', form) ===
+        "{'answer': 'Sev Cor', 'context': 'The mayor is Sev Cor.'}" &&
+      R.inSetForm('The mayor is Sev Cor. Records say so.', 'Sev Cor', form) ===
+        "{'answer': 'Sev Cor', 'context': 'The mayor is Sev Cor. Records say so.'}" &&
+      R.inSetForm("{'answer': '1702', 'context': 'checked'}", '1702', form) ===
+        "{'answer': '1702', 'context': 'checked'}" &&
+      R.inSetForm('I do not know the answer.', 'I do not know', form) === form.unknown &&
+      JSON.stringify(T.notesOf([{ role: 'assistant', content: T.noteFor('a', 'b?'), tool_calls: [{ id: '1' }] }])) ===
+        '{"find":"a","now":"b?"}' &&
+      T.notesOf([{ role: 'assistant', content: null, tool_calls: [{ id: '1' }] }]) === null,
+    { form },
   );
 }
 // ---- THE INSTRUMENTS AGAINST QUESTIONS MADE AT RANDOM, WORDINGS THE LARGER MODEL WRITES, MEMORY MEASURED BY ANY STAGE

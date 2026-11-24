@@ -10,7 +10,7 @@ Needs the models of the configured swarm on the machine, and free. Writes .work/
 import argparse, json, random, re, sys, time
 from pathlib import Path
 ap = argparse.ArgumentParser(); ap.add_argument("--repo", default=str(Path(__file__).resolve().parent.parent)); ap.add_argument("--n", type=int, default=30)
-ap.add_argument("--seed", type=int, default=7); ap.add_argument("--label", default="run"); ap.add_argument("--models", default=""); ap.add_argument("--most", type=int, default=8)
+ap.add_argument("--seed", type=int, default=7); ap.add_argument("--label", default="run"); ap.add_argument("--models", default=""); ap.add_argument("--most", type=int, default=10); ap.add_argument("--form", action="store_true", help="ask for the last message in a set form, and count where it is kept")
 A = ap.parse_args()
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from the_swarm import Swarm  # noqa: E402
@@ -57,10 +57,14 @@ def run_tool(c):
         p = pages.get(str(a.get("url") or "").rstrip("/"))
         return "page", (p[0] + "\n" + " ".join(p[1])) if p else "No such page."
     return "other", "No such tool."
+# (the form a standard search test asks the last message in: kept where the message opens with a brace and 'answer')
+FORM = ("For your final answer to the user, you must respond in this format: {'answer': A short and precise answer to the question, 'context': A brief explanation of how you arrived at this answer or why it is correct}. "
+        "If you do not know the answer, respond with {'answer': 'I do not know', 'context': 'I do not know'}.")
+inform = lambda s: bool(re.match(r"""\s*\{\s*['"]answer['"]\s*:""", s or ""))
 out = []; t0 = time.time()
 with Swarm(repo=A.repo, models=A.models or None, wait=600) as s:
     for w in world:
-        msgs = [{"role": "user", "content": w["q"]}]; steps = []; last = ""; seen = ""; asked = []
+        msgs = ([{"role": "system", "content": FORM}] if A.form else []) + [{"role": "user", "content": w["q"]}]; steps = []; last = ""; seen = ""; asked = []
         for _ in range(A.most):
             try: m = s.chat(msgs, tools=TOOLS)["choices"][0]["message"]
             except Exception as e:  # noqa: BLE001
@@ -72,11 +76,11 @@ with Swarm(repo=A.repo, models=A.models or None, wait=600) as s:
                 kind, text = run_tool(c); steps.append(kind); seen += " " + text; asked.append((c.get("function") or {}).get("arguments"))
                 msgs.append({"role": "tool", "tool_call_id": c.get("id"), "content": text})
         right = w["want"].lower() in last.lower()
-        out.append({"q": w["q"], "want": w["want"], "right": right, "steps": steps, "retrieved": w["want"].lower() in seen.lower(), "asked": asked, "last": last[:200]})
+        out.append({"q": w["q"], "want": w["want"], "right": right, "steps": steps, "retrieved": w["want"].lower() in seen.lower(), "asked": asked, "form": inform(last), "last": last[:200]})
         print(("ok  " if right else "miss"), len(steps), "steps", "| retrieved" if out[-1]["retrieved"] else "| never retrieved", "|", last[:70].replace("\n", " "), flush=True)
 n = len(out); r = sum(x["right"] for x in out)
 tot = {"label": A.label, "repo": str(Path(A.repo).resolve()), "n": n, "right": r, "noSearch": sum(1 for x in out if not x["steps"]), "retrieved": sum(x["retrieved"] for x in out),
-       "searches": round(sum(x["steps"].count("search") for x in out) / n, 2), "pages": round(sum(x["steps"].count("page") for x in out) / n, 2), "minutes": round((time.time() - t0) / 60, 1)}
+       "searches": round(sum(x["steps"].count("search") for x in out) / n, 2), "pages": round(sum(x["steps"].count("page") for x in out) / n, 2), "minutes": round((time.time() - t0) / 60, 1), **({"inForm": sum(x["form"] for x in out)} if A.form else {})}
 OUT = Path(A.repo).resolve() / ".work"
 OUT.mkdir(exist_ok=True)
 (OUT / ("search-made.%s.json" % A.label)).write_text(json.dumps({"totals": tot, "rows": out}, indent=1))

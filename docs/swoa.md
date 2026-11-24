@@ -1539,6 +1539,28 @@ If decided is non-empty, there are writers, and neither AS-IS nor PASS-OVER hold
 Suffixes are appended in this order when they apply: `+narrowed`, `+as-settled`, `+full`, `+trimmed`,
 `+rewritten`, `+described`, `+tool-call`, `+code-restored`, `+picked`, `+unwritten`, `+closed`, `+split` (O.13).
 
+#### O.8.8 The reply is written in the form the system text sets
+
+After everything else of O.8, and for a turn with tools after T.9: where `plan.setForm` is not `false`, the answer is
+ok, the reply is non-empty, "is code" does not hold of what was decided, the conversation did not end with a reply
+already begun, and the conversation's `system` messages, joined by line breaks, hold a **template**, the reply is
+written in it and `+form` is appended to the path. A template is `{`, a key in single or double quotes (a letter, then
+1 to 24 letters, digits, `_` or spaces), `:`, a value that does not begin with a quote and holds no brace, `,`, a
+second such key and value, `}`; the first in the text. Its **unknown form** is a text of the same two keys whose first
+value is the quoted words `I do not know` and whose second is quoted, where the system text holds one.
+
+A reply that is, whole, `{`, the first key quoted, `:`, a quoted value or a number, `,`, the second key quoted, `:`, a
+quoted value, `}` stands as it was written. Otherwise: the **first value** is what was decided, with braces removed,
+surrounding white space, quotes, commas and colons removed and runs of white space made one space, where that is
+non-empty, at most 200 characters and does not itself hold the first key followed by `:`; else what the reply gives
+after the first key and `:` up to the second key (or to its end), cleaned the same way; else the reply so cleaned. The
+**second value** is what the reply gives after the second key and `:`, so cleaned; else the reply with every "first
+key and `:`" removed, so cleaned; and the first value where that is empty. Where there is an unknown form and the
+first value says it is not known (`do not know`, `does not know`, `don't know`, `cannot answer`, `cannot be
+determined`, `can't answer`, `not clear`, `not specified`, `not mentioned`, `not provided`, `unable to`, `no answer`,
+`no information`), the reply is the unknown form. Else it is `{'` first key `': '` first value `', '` second key
+`': '` second value `'}`, each value cut at 600 characters, with `\` before every backslash and single quote in it.
+
 #### O.8.7 The reply closes as the earlier replies do
 
 After O.8.6, when `plan.closeAs` is `shown`, the reply is non-empty, decided is non-empty and "is code" does not hold:
@@ -1700,13 +1722,16 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `keepTurns` | integer | 6 | turns kept (top-level plan only; falsy means 6) |
 | `options` | boolean | true | where the question lists lettered options, answers that are none of them are not counted or shown beside answers that are (R.1.16) |
 | `optionAgain` | boolean | true | where the question lists options, a drafter whose final is none of them is asked once more for the option (O.6.1 step 1c) |
+| `plain` | boolean | false | every request of the class is answered by the first drafting slot, sent the conversation as it came (R.5.0) |
+| `pieceBy` | text | none | `plain`: a request for a piece of writing is answered so (R.5.0) |
 | `piece` | boolean | true | a reply the request sets countable rules on is written whole and kept to them (R.5.1) |
 | `piecePlain` | boolean | true | among those replies, one is written to the conversation as it came, with no brief (R.5.1 step 1a) |
 | `instruments` | list of ids, or `true` | none | the instruments that are on: a question that is one of their operations is done by code and no model is asked (R.6) |
 | `searchFirst` | boolean | true | a turn with a search tool offered and nothing yet looked up does not end without a call (T.13a) |
-| `searchThrough` | boolean | true | such a turn does not end unsearched, nor on a reply that what the tools returned does not hold, while steps remain (T.13b) |
-| `searchMost` | integer | 6 | the calls a conversation may hold before T.13b lets a reply stand |
+| `searchThrough` | boolean | true | a turn with a search tool offered is taken by the search program (T.13b) |
+| `searchMost` | integer | 12 | the calls a conversation may hold before the search program lets a reply stand |
 | `codeAgain` | boolean | true | where the question wants code, a drafter whose final is not code is asked once more for the code (O.6.1 step 1b) |
+| `setForm` | boolean | true | where the system text sets the reply's form as a template of two keys, what was settled is written into it (O.8.8) |
 | `closeAs` | text | none | `shown`: the reply ends with the form the conversation's earlier replies close with, around what was settled (O.8.7) |
 | `split` | text | none | `off`: a request is never read in parts (O.13) |
 | `splitOver` | integer | 8000 | the characters of the request's last `user` message past which it is read in parts (O.13; falsy means 8000) |
@@ -2620,6 +2645,27 @@ break, then one of the listed nouns as a whole word. `Write a text to Maya to ca
 `write to my sister for me` and `What should I write? My text got no reply.` do not. The reply to such a
 question is the piece itself, so it is never written under FULL (O.8.3).
 
+#### R.5.0 One slot, asked as the request came
+
+Where `plan.plain` is `true`; or `plan.pieceBy` is `plain`, the question does not want code, and the question states
+a rule (R.5.1), asks for a piece of writing (R.5), or **instructs its reply**: the answer procedure of Part II is not
+run. The first drafting slot that is not a compute slot is called once with the conversation's own system text, where
+it has any, as one `system` message, and the kept turns: no brief. Its room is the room R.5.1 gives a piece, or the
+slot's own where that is more. Where it gives a non-empty reply that is not a call to a tool: the reply is that text
+without the question said over at its head and laid out as the conversation shows (O.8.7), what was decided is the
+final it stated by the marker where it stated one and the reply otherwise, and the path is `plain`. Where it does not,
+the procedure goes on as it would have. Neither field is set in a module as it starts: they are for training to set,
+for a class of input, where held questions gain by it.
+
+A question **instructs its reply** where, without regard to case, it holds one of: `your` or `the`, optionally
+`entire`, `whole` or `final`, then `response`, `reply`, `answer` or `output`; `respond` or `responding` then `using`,
+`in`, `with` or `only`; `in your response`, `in your reply`, `in your answer`; `wrap the`, `wrap your`; `do not` or
+`don't` then `use`, `include`, `say`, `write` or `add`; `without using`, `without any`; `make sure` then `to`, `that`,
+`it` or `your`; `first repeat`; `separate` or `separated` then `by` or `the`; `in json format`, `in markdown format`,
+`in xml format`; or where a sentence of it, or what follows `please`, `can you`, `could you` or `would you` (with
+`please` and `help me` allowed after), begins with `write`, `compose`, `draft`, `rewrite`, `rephrase`, `create`,
+`generate`, `make`, `produce`, `give me`, `provide`, `summarize`, `summarise`, `translate`, `explain` or `describe`.
+
 #### R.5.1 A reply the request sets countable rules on is written whole
 
 The **rules** of a question are those of the following it states, read from its text without regard to case:
@@ -3240,56 +3286,85 @@ the content where it is not closed); every comment likewise; the closing tag of 
 `&nbsp;`, `&#160;`, `&amp;`, `&quot;`, `&#39;`, `&apos;`, `&lt;`, `&gt;` are the characters they stand for; runs of
 spaces and tabs are one space, a line break with the white space round it is one line break, and the whole is trimmed.
 
-#### T.13b Search through (mode swarm)
+#### T.13b The search program (mode swarm)
 
-Where `plan.searchThrough` is not `false`, the request names no `tool_choice`, a tool that searches is offered, and the
-step settled on (T.6 to T.8, after T.13a) is a reply, then before the reply is answered (T.9):
+Where `plan.searchThrough` is not `false`, the request names no `tool_choice`, and a tool that searches is offered, a
+turn's step is taken by code as far as code can take it. What a search needs of a model is reading, and that is asked
+of the answer procedure (Part II), one text at a time.
 
 A tool **opens a page** when it has a string parameter named `url`, `uri`, `link`, `href`, `page` or `address` and none
 named as a query is (`q`, `query`, `queries`, `keyword`, `keywords`, `search`, `search_term`, `search_query`,
 `search_string`, `term`, `terms`, `text`). The **calls made** are the tool calls of the conversation's assistant
-messages, in order; **what was returned** is the text of its `tool` messages.
+messages, in order. The **question** is the last `user` message with runs of white space made one space; its last
+sentence ending in `?` where it has one; at most 300 characters.
 
-1. No call has been made: the step is one call of the first tool that searches and takes a query, that parameter set to
-   the **question** (the last `user` message with runs of white space made one space; its last sentence ending in `?`
-   where it has one; at most 300 characters). `+searched` is appended to the path.
-2. Calls have been made, fewer than `plan.searchMost` (6 where it is not set), then: where the last call made was of
-   a tool that searches, the step is a call of the first tool that opens a page, on the first address (`http://` or `https://`, to the next white space, quote, bracket,
-   comma or backslash, trailing `.,;:` removed) in the last `tool` message that no call made contains, whatever the reply says. Where a parameter of that tool lists its values (`enum`) and
-   one of them is, without regard to case, `text`, `plain`, `plaintext`, `clean`, `cleaned`, `readable`, `reader`,
-   `truncate`, `markdown` or `md`, the call sets that parameter to the first of these that is listed. Otherwise, or
-   where there is none, the turn goes on only where neither the last `tool` message nor the `tool` messages that
-   answer calls of a tool that opens a page **hold** the reply, or what was returned does not **cover** the question;
-   the step is then a call of the tool that searches with the **trail query**, or, where there is none
-   or it is a query already made, with the **query asked for**; where there is none, the page rule is tried once more. `+through` is appended to the path. Where no step is found the reply stands.
+**When the program runs.** Where every tool offered either searches or opens a page, the program takes the turn: no
+slot is called for a step (T.6 to T.8 and T.13a are not run). Otherwise the turn is taken as any turn with tools, and
+the program runs only where the step settled on is a reply, before that reply is answered (T.9).
 
-The **query asked for**: the first two drafting slots are each called once, at once, with no tools, room for 60
-tokens, one system message (the QUERY BRIEF) and the conversation as T.9 shows it to the answer procedure (what was
-looked up written into the request), its system messages left out. A slot's query is the first line of its reply that
-holds a letter or digit, with a leading list mark, a leading label (`search`, `search for`, `search query`, `query`,
-`keyword`, `keywords`, then `:` or `=`) and surrounding quotes removed; it has none where that line is longer than 100
-characters or twelve words, refuses or asks back (`I do not`, `I don't`, `I cannot`, `I can't`, `sorry`, `as an AI`,
-`please`, `could you`, `unclear`, `unknown`, `misspell...`, `fictional`, `not` followed by `a`, `an`, `recognized`,
-`specified`, `mentioned`, `known` or `clear`), or is, compared without case
-or punctuation, a query a call of the tool that searches has already made. The query asked for is the first slot's,
-else the second's. QUERY BRIEF: "You are finding something out on the web, one search at a time. Say what to search
-for next: the ONE fact still missing, in the few words a search engine would match. Where the question hangs on
-something not yet known (a person, a place, a year it only describes), search for that first. Write the query alone,
-on one line: no explanation, no quotes, no answer."
+**What a question hangs on.** With its closing `?` removed: the text from its last match of `the`, one to five words
+none of which is `the`, then `that`, `which`, `who`, `whose` or `where`, to its end. Where there is no such match: its
+last match of `the`, one to three words, then `of`, `in`, `at`, `from` or `for`, followed by a name, which is the
+following words while each begins with a capital letter or a digit or is one of `the`, `of`, `and`, `de`, `la`, `del`,
+`von`, `van`, `al`, `el`, ended at a word that ends with `,`, `;` or `:`, and with trailing words that are not names
+removed; there is none where no word of it begins with a capital letter or a digit. A question hangs on such a text
+only where the question with that text taken out still holds a content word (below); otherwise it hangs on nothing.
+
+**The state.** A message that makes a call carries, as its `content`, two lines: `Looking up: ` and what is being
+looked up, then `Question now: ` and the question as it stands. The state of a turn is read from the last assistant
+message that makes a call; where it carries no such lines (the caller did not hand the content back, or the call was
+not the program's), what is looked up is what the question hangs on, or the question, and the question as it stands is
+the question.
+
+**A step.**
+
+1. No call has been made: a search for what the question hangs on, or for the question where it hangs on nothing
+   (the first tool that searches and takes a query, that parameter set to it). `+searched` is appended to the path.
+2. Calls have been made, fewer than `plan.searchMost` (12 where it is not set):
+   1. The last call was a search: the step opens a page (the first tool that opens one), on the first address
+      (`http://` or `https://`, to the next white space, quote, bracket, comma or backslash, trailing `.,;:` removed) in
+      the last `tool` message that no call made contains. Where a parameter of that tool lists its values (`enum`)
+      and one of them is, without regard to case, `text`, `plain`, `plaintext`, `clean`, `cleaned`, `readable`,
+      `reader`, `truncate`, `markdown` or `md`, the call sets that parameter to the first of these that is listed.
+   2. Otherwise (the last call opened a page, or was a search with no address to open) the last `tool` message is
+      **read**: the answer procedure is called with one `user` message, `Text:`,
+      a line break, the **passage**, an empty line, `From the text alone: `, what is looked up as a question (itself
+      where it ends with `?`, else `What is ` before it and `?` after), a line break, and "Answer with the name, the
+      number or the date alone. If the text does not say, answer NOT FOUND." The **fact** is the first line of what it
+      settled (its reply where it settled nothing), with surrounding quotes and a closing full stop removed; there is
+      none where that is empty, longer than 80 characters, holds `not found`, or is not **held** by the `tool`
+      message.
+   3. A fact, and what was looked up is not the question as it stands: the fact is put in the place of what was
+      looked up in the question as it stands, and the step is a search for what that question hangs on, or for it
+      where it hangs on nothing; not where that query has been made.
+   4. A fact, and what was looked up is the question as it stands: the turn ends. The reply is the fact, or, where the
+      system text sets a form (O.8.8), that form with the fact under its first key and, under its second, the first
+      line of the passage of the `tool` message for the fact. `+read` is appended to the path, and T.9 is not run.
+   5. No fact, and fewer than two pages have been opened since the last search: the step opens the first address of
+      that search's `tool` message that no call made contains.
+   6. Still no step: where what was looked up is not the question as it stands and that question has not been
+      searched, a search for it; else a search for the **trail query**, where there is one and it has not been made.
+   `+through` is appended to the path where a step was found.
+3. Where no step is found and the turn has not ended, the reply stands (T.9). In a turn the program takes whole,
+   where the answer procedure then gives no reply, the reply is the unknown form the system text sets (O.8.8), or
+   `I do not know.` where it sets none, and `+unknown` is appended to the path.
+
+The **passage** of a text for a query: the text as text (T.11a), parted into sentences at `.`, `!`, `?` followed by
+white space and at line breaks; the fourteen sentences shorter than 700 characters that hold the most content words of
+the query, in the order they stand (the first fourteen where none holds one), joined by line breaks, to 2400
+characters.
 
 The **content words** of a text are its distinct runs of four or more letters or digits, lower-cased, that are not
 words of asking (`what`, `which`, `when`, `where`, `whose`, `whom`, `that`, `this`, `these`, `those`, `with`, `from`,
 `have`, `does`, `were`, `been`, `being`, `about`, `into`, `than`, `then`, `them`, `they`, `there`, `their`, `would`,
 `could`, `should`, `according`, `many`, `much`, `most`, `more`, `name`, `names`, `named`, `year`, `years`, `known`,
-`called`, `include`, `includes`, `including`). What was returned **covers** the question when every content word of
-the question stands in it, or, where the question has five or more, all but at most one in five. The **trail query**:
-the names the last `tool` message (as text, T.11a) newly gives in its sentences that hold content words of the
-question, the three that hold the most first and then as they stand, each shorter than 600 characters (runs that begin with a capital letter and hold three characters or
-more, that the question does not hold and that are not `The`, `A`, `An`, `In`, `On`, `Of`, `It`, `Its`, `This`,
-`That`, `These`, `Those`, `And`, `But`, `For`, `With`, `From`, `By`, `At`, `As`, `Is`, `Was`, `Are`, `Were`, `No`,
-`Yes`, `None`, `True`, `False`, `Title`, `Body`, `Href`, `Http`, `Https`, `Www`), the first three in the order they
-stand, then up to six content words of the question that this message does not hold, joined by spaces; there is none
-where the message newly gives no name.
+`called`, `include`, `includes`, `including`). The **trail query**: the names the last `tool` message (as text) gives
+in its sentences that hold content words of the question, the three that hold the most first, each shorter than 600
+characters (runs that begin with a capital letter and hold three characters or more, that the question does not hold
+and that are not `The`, `A`, `An`, `In`, `On`, `Of`, `It`, `Its`, `This`, `That`, `These`, `Those`, `And`, `But`,
+`For`, `With`, `From`, `By`, `At`, `As`, `Is`, `Was`, `Are`, `Were`, `No`, `Yes`, `None`, `True`, `False`, `Title`,
+`Body`, `Href`, `Http`, `Https`, `Www`), the first three in the order they stand, then up to six content words of the
+question that this message does not hold, joined by spaces; there is none where it gives no such name.
 
 A text **holds** a reply when the reply does not say it does not know (`do not know`, `don't know`,
 `cannot answer`, `cannot be determined`, `not clear`, `unable to`, `no answer`, `no information`), and, of its
