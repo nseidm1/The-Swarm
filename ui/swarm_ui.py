@@ -898,7 +898,7 @@ async function evTick(){const box=$('#evalbox');if(!box||!box.dataset.running)re
   const set=(k,t)=>{const el=box.querySelector('[data-ev="'+k+'"]');if(el&&el.textContent!==t)el.textContent=t;};
   set('step',s.step||'');
   // HOW FAR IT IS IN ALL, in questions as the headline counts them: one is finished once both models answered it (ev_progress, the same count)
-  {let dn=0,tot=0,known=true;for(const t of s.tasks||[]){const a=t.target||{},b=t.swarm||{};dn+=Math.min(Number(a.done)||0,Number(b.done)||0);
+  {let dn=0,tot=0,known=true;for(const t of s.tasks||[]){const a=t.target||{},b=t.swarm||{};dn+=Math.min(Number(a.whole??a.done)||0,Number(b.whole??b.done)||0);
      const n=Number(a.of||b.of)||0;if(n)tot+=n;else known=false;}
    set('prog',(s.tasks||[]).length?(known&&tot?dn+' of '+tot+' questions finished · '+Math.round(100*dn/tot)+'%':''):'');}
   const q=box.querySelector('.evq'),n=s.now;
@@ -925,7 +925,7 @@ async function evTick(){const box=$('#evalbox');if(!box||!box.dataset.running)re
   const at=(s.tasks||[]).find(t=>['target','swarm'].some(w=>(t[w]||{}).state==='asking'));
   if(at&&box.dataset.at!==at.item){box.dataset.at=at.item;const d=box.querySelector('details[data-keep="eval-'+at.item+'"]');let v=null;try{v=localStorage.getItem('swarm.open.eval-'+at.item);}catch(e){}if(d&&v===null)d.open=true;}}
 const evShare=all=>{const ts=all.filter(t=>!['target','swarm'].every(w=>String((t[w]||{}).why||'').startsWith('not asked')));if(!ts.length)return null;
-  let dn=0,tot=0,known=true,sum=0;for(const t of ts){const a=t.target||{},b=t.swarm||{},d=Math.min(Number(a.done)||0,Number(b.done)||0),n=Number(a.of||b.of)||0;dn+=d;tot+=n;
+  let dn=0,tot=0,known=true,sum=0;for(const t of ts){const a=t.target||{},b=t.swarm||{},d=Math.min(Number(a.whole??a.done)||0,Number(b.whole??b.done)||0),n=Number(a.of||b.of)||0;dn+=d;tot+=n;
     if(n)sum+=Math.min(1,d/n);else if([a,b].every(x=>['done','kept'].includes(x.state)))sum+=1;else known=false;}
   return [Math.min(100,known&&tot?100*dn/tot:100*sum/ts.length),ts.some(t=>['target','swarm'].some(w=>(t[w]||{}).state==='asking'))];};
 const evMeta=(all,tn)=>{const na=t=>String((t.target||{}).why||'').startsWith('not asked');if(all.every(na))return all[0].target.why;
@@ -4396,6 +4396,13 @@ COMPARE_WORDS = {"answer": "the same answer", "verdict": "the same verdict on th
 METRIC_WORDS = {"exact_match": "exact match", "pass@1": "pass@1", "pass_at_1": "pass@1", "prompt_level_strict_acc": "strict prompt accuracy", "accuracy": "the test's own checker"}
 
 
+def _whole(row):
+    """THE QUESTIONS OF A TASK ONE SIDE HAS FINISHED, over all its askings: a task asked in two ways (the web search test) starts
+    its own count again at the second, and the evaluation says how far it is in all (`whole`). Counted by `done`, the page read
+    460 of 460 and then 420."""
+    return int((row.get("whole") if row.get("whole") is not None else row.get("done")) or 0)
+
+
 def ev_progress(live):
     """HOW FAR A RUNNING EVALUATION IS, in a line, IN THE HEADLINE'S OWN UNIT: questions. A question is finished once both the
     larger model and the swarm have answered it (answers kept from before count), so the count is the lesser of the two in each
@@ -4406,7 +4413,7 @@ def ev_progress(live):
     known = True
     for t in live.get("tasks") or []:
         a, b = t.get("target") or {}, t.get("swarm") or {}
-        done += min(int(a.get("done") or 0), int(b.get("done") or 0))
+        done += min(_whole(a), _whole(b))
         n = int(a.get("of") or b.get("of") or 0)
         if n:
             of += n
@@ -4440,7 +4447,7 @@ def _ev_through(rows):
     parts = []
     for r in ts:
         a, b = r.get("target") or {}, r.get("swarm") or {}
-        d_, n_ = min(int(a.get("done") or 0), int(b.get("done") or 0)), int(a.get("of") or b.get("of") or 0)
+        d_, n_ = min(_whole(a), _whole(b)), int(a.get("of") or b.get("of") or 0)
         done, of = done + d_, of + n_
         parts.append(min(1.0, float(d_) / n_) if n_ else (1.0 if all((x.get("state") in ("done", "kept")) for x in (a, b)) else None))
     pct = 100.0 * done / of if all(x is not None for x in parts) and of else 100.0 * sum(x or 0 for x in parts) / len(parts)

@@ -280,6 +280,10 @@ export const waysOf = (b) =>
 // asked the one way, and the larger model's score by the other way was set beside it: 7 of 40 against 1, where asked as the
 // swarm was the larger model also scored 1 (measured 2026-11-19). The written way stays the larger model's alone: it is there
 // for a server that returns one call of several, and the swarm's own runtime returns every call.
+// THE QUESTIONS OF A TASK FINISHED OVER ALL ITS ASKINGS: a task asked in two ways is half done when the first is through. The
+// row's own `done` is of the asking in hand and starts again with each; the count on the page is of this, and never goes back
+export const wholeOf = (row) =>
+  row.rounds > 1 && row.of ? Math.floor(((row.round - 1) * row.of + (row.done || 0)) / row.rounds) : row.done || 0;
 export const swarmWaysOf = (b) => (isToolTest(b) && b.targetAlsoAfter ? ['tools', 'after'] : ['tools']);
 
 // THE FILES A TASK IS COMPARED FROM, where every way it was asked is kept: the plain way's own files, or null where one of
@@ -759,6 +763,12 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     const all = idsFor(b);
     const n = limitOf(b) && limitOf(b) < all.length ? limitOf(b) : 0;
     row.of = n || all.length;
+    // (which asking of the task this is, of how many: wholeOf)
+    const ways = who === 'target' ? waysOf(b) : who === 'swarm' ? swarmWaysOf(b) : ['tools'];
+    row.rounds = ways.length;
+    row.round = Math.max(1, ways.indexOf(b.way || 'tools') + 1);
+    row.done = 0;
+    row.whole = wholeOf(row);
     write(true);
     // (a task that searches the web: the search this machine serves is started for it, once a run, and its searches go there)
     let env = {};
@@ -785,6 +795,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       onSaid: (said, step) => {
         const p = step === 'generate' ? bfclProgress(said) : null;
         if (p && p.of) row.done = p.done;
+        row.whole = wholeOf(row);
         write();
       },
     });
@@ -792,6 +803,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     if (got.ok) {
       row.state = 'done';
       row.done = row.of;
+      row.whole = wholeOf(row);
       secondsNote(out, row.seconds, row.of);
     } else {
       row.state = 'failed';

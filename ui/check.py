@@ -2353,5 +2353,15 @@ check("a SwOA spec pins an adapter for each role where pretraining made them (ea
       and "briefs" not in (json.loads(re.search(r'<pre[^>]*>([\s\S]*?)</pre>', _shtml).group(1).replace("&quot;", '"').replace("&#x27;", "'").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&"))["arrangement"]),
       [_spins])
 
+# (a task asked in two ways: the swarm's own count starts again at the second asking, and the page counts by `whole`)
+_two = lambda sw: {"tasks": [{"target": {"state": "kept", "done": 20, "of": 20}, "swarm": {"state": "done", "done": 20, "of": 20}}, {"target": {"state": "kept", "done": 20, "of": 20}, "swarm": sw}]}
+_lin = [swarm_ui.ev_progress(_two(x)) for x in ({"state": "done", "done": 20, "of": 20, "round": 1, "rounds": 2, "whole": 10}, {"state": "asking", "done": 0, "of": 20, "round": 2, "rounds": 2, "whole": 10},
+                                               {"state": "asking", "done": 12, "of": 20, "round": 2, "rounds": 2, "whole": 16}, {"state": "done", "done": 20, "of": 20, "round": 2, "rounds": 2, "whole": 20})]
+check("the count of questions finished never goes back: a task asked in two ways (the web search test) starts its own count again at the second asking, and the page counts the task by how far it is over both (it read 460 of 460 and then 420); "
+      "the page's own script counts the same way, in the line and in the bar",
+      _lin == ["30 of 40 questions finished · 75%", "30 of 40 questions finished · 75%", "36 of 40 questions finished · 90%", "40 of 40 questions finished · 100%"]
+      and swarm_ui._whole({"done": 7}) == 7 and open(swarm_ui.__file__).read().count("a.whole??a.done") == 2,
+      _lin)
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

@@ -9634,6 +9634,23 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     T.formAfter(plain) === plain &&
     typeof T.askAfterAt === 'function' &&
     E.WAY_SAID.after.includes('after the question');
+  // (a task asked in two ways: the count of its questions finished goes one way only, across the second asking's start)
+  const seen = [
+    { round: 1, rounds: 2, of: 20, done: 0 },
+    { round: 1, rounds: 2, of: 20, done: 13 },
+    { round: 1, rounds: 2, of: 20, done: 20 },
+    { round: 2, rounds: 2, of: 20, done: 0 },
+    { round: 2, rounds: 2, of: 20, done: 7 },
+    { round: 2, rounds: 2, of: 20, done: 20 },
+  ].map(E.wholeOf);
+  check(
+    "the questions of a task finished are counted over all its askings: a task asked in two ways (the web search test) is half done when the first asking is through, the count never goes back when the second starts, and it is the task's whole length when both are done; a task asked once is counted as it was",
+    JSON.stringify(seen) === JSON.stringify([0, 6, 10, 10, 13, 20]) &&
+      E.wholeOf({ round: 1, rounds: 1, of: 20, done: 9 }) === 9 &&
+      E.wholeOf({ done: 20, of: 20, state: 'kept' }) === 20 &&
+      E.wholeOf({ state: 'waiting', done: 0, of: null }) === 0,
+    seen,
+  );
   const by = E.wayByItem([
     ...[14, 15, 2, 8, 20].map((right) => ({ item: 'tools', way: 'tools', right, n: 20 })),
     ...[19, 18, 16, 18, 10].map((right) => ({ item: 'tools', way: 'written', right, n: 20 })),

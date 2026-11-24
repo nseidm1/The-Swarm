@@ -6,6 +6,9 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The count of questions finished no longer goes back** (2026-11-23). A task asked in two ways (the web search test,
+  asked again with the form of its answer said after the question) started its count again at the second asking, so an
+  evaluation read 460 of 460 and then 420. Such a task now counts as half done when its first asking is through.
 - **A Python client** (2026-11-22). `python/the_swarm.py`, one file with no dependencies: it starts the module's own
   server, waits until it answers, asks it (`reply`, `chat`, `last`) and stops it with the models it loaded. The module
   itself still runs on Node; nothing of it is written again in Python. Checked against a stand-in server
