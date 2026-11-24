@@ -5614,14 +5614,20 @@ def pretrain_block(d):
         roles = ((data._json(adir / "roles.json", None) or {}).get("roles")) or ((live.get("roles") or {}) if running else {})
         if roles and (m.get("engine") or "llama") == "llama":
             parts = []
+            _judged = (data._json(adir / "roles.json", None) or {}).get("judged") or {}
             for rname, does in (("draft", "drafts"), ("check", "checks"), ("write", "writes the reply")):
                 r = roles.get(rname)
                 if not r:
                     parts.append('<span class="muted"><b>%s</b> (%s): too few right answers of its own to teach it from</span>' % (rname, does))
                 elif r.get("ok"):
                     px = r.get("perplexity") or {}
-                    parts.append('<span><b>%s</b> (%s): adapted on %d of its own right answers · llama.cpp perplexity on them %s → %s</span>'
-                                 % (rname, does, r.get("examples") or 0, px.get("without"), px.get("with")))
+                    # (and whether it is SERVED: judged on held questions, with and without it, training/roles.mjs rolesServed)
+                    jd = next((x for x in (_judged.get("single") or []) if x.get("role") == rname), None)
+                    served_ = ("" if jd is None and r.get("served") is None else
+                               " · <b>%s</b>%s" % ("served" if r.get("served") else "not served",
+                                                   (": %d of %d held questions right with it, %d without" % (jd.get("with") or 0, _judged.get("questions") or 0, jd.get("without") or 0)) if jd else ""))
+                    parts.append('<span><b>%s</b> (%s): adapted on %d of its own right answers · llama.cpp perplexity on them %s → %s%s</span>'
+                                 % (rname, does, r.get("examples") or 0, px.get("without"), px.get("with"), served_))
                 else:
                     parts.append('<span class="bad"><b>%s</b> (%s): not adapted on its %d examples: %s</span>' % (rname, does, r.get("examples") or 0, e(str(r.get("why") or "")[:160])))
             if not by_role:

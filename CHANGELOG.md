@@ -6,6 +6,18 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Each stage is held to the one before** (2026-11-23). The first whole run read 55.2% as configured, 50.7% pretrained
+  and 49.6% pretrained and trained, on 460 questions. Three causes, each closed:
+  - An adapter was kept because it made its own training answers likelier. Each role's adapter is now judged on held
+    questions, the module without it and with it, and served only where the module is better with it by the rule any
+    change is kept by (`training/roles.mjs`, `rolesServed`; `node training/roles.mjs judge` judges the ones there are).
+    Judged so, none of the three adapters of that run is served (41 of 72 right without; 40, 39 and 41 with each).
+  - The arrangement was trained without the adapters and evaluated with them. The whole run now trains it on the module
+    as pretrained.
+  - The class stage never tried an instrument or a module of one slot: they were in no list it tried from. They are now
+    tried in every class, every round.
+
+  A spec pins only the adapters that are served, and the Pretrain card says of each whether it is.
 - **The count of questions finished no longer goes back** (2026-11-23). A task asked in two ways (the web search test,
   asked again with the form of its answer said after the question) started its count again at the second asking, so an
   evaluation read 460 of 460 and then 420. Such a task now counts as half done when its first asking is through.

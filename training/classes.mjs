@@ -90,6 +90,12 @@ const AFTER_DRAFTS = [
   'agreeSkipsChecks',
   'onePerAnswer',
   'toolDecide',
+  // (done by code where it applies, or one slot asked as the request came: the arranged drafts of every other question are
+  // the ones it had, so these are tried every round. Left out of the sweep, and named by no pattern of the policy, they were
+  // tried in no class of the first whole run)
+  'instruments',
+  'plain',
+  'pieceBy',
 ];
 const draftPartOf = (b) =>
   JSON.stringify([

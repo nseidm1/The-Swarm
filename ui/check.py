@@ -2363,5 +2363,40 @@ check("the count of questions finished never goes back: a task asked in two ways
       and swarm_ui._whole({"done": 7}) == 7 and open(swarm_ui.__file__).read().count("a.whole??a.done") == 2,
       _lin)
 
+# A STAGE DOES NO WORSE THAN THE ONE BEFORE: the Pretrain card says which role's adapter is served, and a spec pins only those
+_had_roles2 = (_rdir / "roles.json").read_text() if (_rdir / "roles.json").exists() else None
+(_rdir / "roles.json").write_text(json.dumps({"roles": {
+    "draft": {"ok": True, "examples": 228, "perplexity": {"without": 2.3, "with": 2.13}, "served": True},
+    "check": {"ok": True, "examples": 66, "perplexity": {"without": 4.0, "with": 3.8}, "served": False},
+    "write": {"ok": True, "examples": 100, "perplexity": {"without": 4.18, "with": 3.72}}},
+    "judged": {"questions": 72, "without": 40, "with": 47, "served": ["draft"],
+               "single": [{"role": "check", "without": 40, "with": 36}, {"role": "draft", "without": 40, "with": 47}]}}))
+try:
+    _pre_served = swarm_ui.pretrain_block(_dr)
+finally:
+    if _had_roles2 is None:
+        (_rdir / "roles.json").unlink()
+    else:
+        (_rdir / "roles.json").write_text(_had_roles2)
+_sroles_was2 = (_sdir / "roles.json").read_text() if (_sdir / "roles.json").exists() else None
+(_sdir / "roles.json").write_text(json.dumps({"roles": {
+    "draft": {"ok": True, "examples": 59, "gguf": str(_sdir / "roles" / "draft" / "m-lora.gguf"), "served": True},
+    "check": {"ok": True, "examples": 15, "gguf": str(_sdir / "roles" / "check" / "m-lora.gguf"), "served": False}}}))
+_scfg.write_text(json.dumps({**json.loads(_scfg_was), "adapters": True}))
+try:
+    _spins2, _ = data.spec_adapters(data.load(str(_sr)))
+finally:
+    _scfg.write_text(_scfg_was)
+    if _sroles_was2 is None:
+        (_sdir / "roles.json").unlink()
+    else:
+        (_sdir / "roles.json").write_text(_sroles_was2)
+_sk2 = next(iter(_spins2), None)
+check("a stage does no worse than the one before: the Pretrain card says of each role's adapter whether it is served, with the held questions the module had right with it and without it; one that was not judged says neither; "
+      "and a spec pins only the adapters that are served, since one that was judged and found no better is no part of the module",
+      "<b>served</b>: 47 of 72 held questions right with it, 40 without" in _pre_served and "<b>not served</b>: 36 of 72 held questions right with it, 40 without" in _pre_served
+      and _pre_served.count("served</b>") == 2 and _sk2 is not None and set(_spins2[_sk2]["roles"]) == {"draft"},
+      [_pre_served[:400], _spins2])
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

@@ -11,7 +11,7 @@
     "tries": 6,
     "rounds": 2,
     "draws": 2,
-    "sweep": 40,
+    "sweep": 60,
     "moves": [
       "the reply closes as the earlier replies do",
       "the reply closes as it was written",

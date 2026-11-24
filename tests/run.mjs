@@ -11348,6 +11348,78 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       R.forTemplate(toolEx[0].messages[0]) === toolEx[0].messages[0],
     { toolEx: JSON.stringify(toolEx).slice(0, 300) },
   );
+  // ---- A STAGE DOES NO WORSE THAN THE ONE BEFORE: which roles' adapters are served (rolesServed), and what the run does with it
+  {
+    const rowsOf = (n) => Array.from({ length: 40 }, (_, i) => ({ counted: i < n }));
+    // (how many of 40 held questions the module has right with each set of adapters on)
+    const scores = { '': 20, check: 14, draft: 30, write: 31, 'write+draft': 38, 'draft+write': 38 };
+    const asked = [];
+    const ask = async (set) => (asked.push(set.join('+')), rowsOf(scores[set.join('+')]));
+    const CL = await import('../training/classes.mjs');
+    const worth = (g) => CL.worthKeeping(g, 0.02);
+    const v = await R.rolesServed(['check', 'draft', 'write'], ask, CL.pairedGain, worth);
+    const none = await R.rolesServed(
+      ['check', 'draft'],
+      async (set) => rowsOf(set.length ? 20 - set.length : 20),
+      CL.pairedGain,
+      worth,
+    );
+    const flat = await R.rolesServed(
+      ['draft', 'write'],
+      async (set) => rowsOf({ '': 20, draft: 30, write: 31, 'write+draft': 31 }[set.join('+')]),
+      CL.pairedGain,
+      worth,
+    );
+    // (a role judged and not served is not served; while it is being judged, every one that was trained is)
+    const dir2 = fs.mkdtempSync(path.join(os8.tmpdir(), 'roles-served-'));
+    const m2 = { name: 'Small', file: 'small.gguf', engine: 'llama' };
+    const d2 = A.adapterDir(dir2, 'big', { name: m2.name, file: path.join('/models', m2.file) });
+    fs.mkdirSync(d2, { recursive: true });
+    const g2 = (n) => (fs.writeFileSync(path.join(d2, n), n), path.join(d2, n));
+    fs.writeFileSync(
+      path.join(d2, 'roles.json'),
+      JSON.stringify({
+        roles: {
+          draft: { ok: true, gguf: g2('draft.gguf'), served: true },
+          check: { ok: true, gguf: g2('check.gguf'), served: false },
+          write: { ok: true, gguf: g2('write.gguf') },
+        },
+      }),
+    );
+    const live2 = A.roleLorasFor({ adapters: true }, { a: m2 }, dir2, 'big', '/models');
+    const judging = A.roleLorasFor({ adapters: true }, { a: m2 }, dir2, 'big', '/models', { judging: true });
+    const runSh = fs.readFileSync(new URL('../training/run.sh', import.meta.url), 'utf8');
+    const stepsOf = (await import('../training/arrange.mjs')).steps;
+    check(
+      "a stage does no worse than the one before: an adapter is served only where the module is better with it on held questions, by the rule any change is kept by (asked without adapters, then with each role's alone; the roles that gained are added best first, each kept only where the module is better again with it); a role that lowered the module is not served and not tried with the others; where none gains none is served and the pretrained module is the module as it was; a role judged and not served is not loaded, and every trained one is while they are judged; the arrangement is then trained on the module as pretrained (the whole run turns the adapters on for the class stage), so a change is kept against the module the third figure is of",
+      v.served.join() === 'write,draft' &&
+        asked.join() === ',check,draft,write,write+draft' &&
+        v.single.find((x) => x.role === 'check').worth === false &&
+        v.single.find((x) => x.role === 'write').with === 31 &&
+        v.rows.filter((x) => x.counted).length === 38 &&
+        none.served.length === 0 &&
+        none.rows === none.base &&
+        flat.served.join() === 'write' &&
+        flat.added.map((x) => x.kept).join() === 'true,false' &&
+        Object.keys(live2.a).sort().join() === 'draft,write' &&
+        Object.keys(judging.a).sort().join() === 'check,draft,write' &&
+        /SWARM_ADAPTERS=on PASSES=1 SESSION_STEPS=classes step 4-train-classes/.test(runSh),
+      { served: v.served, asked, none: none.served, flat: flat.added, live2, judging },
+    );
+    // (and the candidates training had never tried are tried every round: they leave the arranged drafts as they were)
+    const base2 = JSON.parse(fs.readFileSync(new URL('../src/briefs.json', import.meta.url), 'utf8'));
+    const named = stepsOf(base2).filter((x) => /is done by code$|asked as it came$/.test(x.name));
+    const round = CL.roundOf(stepsOf(base2), base2, [], 0, 60).map((x) => x.name);
+    check(
+      'the class stage tries an instrument and a module of one slot in every class, every round: each is a change that leaves the arranged drafts as they were (a question done by code asks no model; one slot asked as the request came asks one), so it is in the sweep and waits on no pattern of the policy. In the first whole run none of them was tried in any class',
+      named.length >= 5 &&
+        named.every((x) => CL.keepsDrafts(base2, x.briefs)) &&
+        named.every((x) => round.includes(x.name)) &&
+        !CL.keepsDrafts(base2, { ...base2, plan: { draftFirst: 1 } }) &&
+        JSON.parse(fs.readFileSync(new URL('../training/policy.json', import.meta.url), 'utf8')).classes.sweep >= 60,
+      { named: named.map((x) => x.name), round: round.length },
+    );
+  }
   const on = A.roleLorasFor({ adapters: true }, { a: m, b: m }, work, 'big', '/models');
   const off = A.roleLorasFor({}, { a: m, b: m }, work, 'big', '/models');
   const served = A.servedWith({ adapters: true }, { a: m, b: m }, work, 'big', '/models');
@@ -11452,7 +11524,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     'the whole run is one start: the module as configured is evaluated, it is pretrained and evaluated, its arrangement is trained (the class stage and no more, one pass) and it is evaluated again, in that order and at the size asked; a step that refuses (no adapter to measure) is said and the run goes on; each step is written down where its card looks; a run stopped part way carries on, the steps that ended well passed over and the ones that did not taken again; and with training off the third figure is not taken, and a run at another size begins again',
     first.join('|') ===
       'eval --variant base --limit 50|pretrain|eval --variant pretrained --limit 50|session 1 classes|eval --variant trained --limit 50' &&
-      /No adapter is trained for this configuration: the pretrained figure is not taken/.test(said) &&
+      /No adapter is served: the pretrained figure is the first figure, and is not taken again/.test(said) &&
       /The trained module was not evaluated/.test(said) &&
       second.join('|') === 'eval --variant pretrained --limit 50|eval --variant trained --limit 50' &&
       evalJob.limit === 50 &&

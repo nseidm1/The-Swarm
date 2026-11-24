@@ -907,7 +907,8 @@ def spec_adapters(d):
         for role in ("draft", "check", "write"):
             x = rj.get(role) or {}
             f = Path(str(x.get("gguf") or ""))
-            if x.get("ok") and f.is_file():
+            # (one judged and found no better is not served, and so is no part of the module: training/roles.mjs rolesServed)
+            if x.get("ok") and f.is_file() and x.get("served") is not False:
                 rpins[role] = {"file": "%s/%s" % (role, f.name), "sha256": _sha256(f), "bytes": f.stat().st_size}
                 rmade[role] = {"examples": x.get("examples"), "perplexity": x.get("perplexity")}
         if rpins:

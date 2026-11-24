@@ -2,6 +2,37 @@
 
 Every measurement, dated, newest first. Each is of the swarm named in it; the lineup has changed over time.
 
+## The first whole run: three figures, and each stage held to the one before, 2026-11-23
+
+LFM2.5 1.2B in both places against Nemotron 3.5 Lightning 30B, 20 questions of each of 23 tasks (460).
+
+| Right of 460 | Alone | As configured | Pretrained | Pretrained and trained | Larger model |
+| --- | --- | --- | --- | --- | --- |
+| All | 30.0% | 55.2% | 50.7% | 49.6% | 77.6% |
+| Code (40) | 45.0 | 52.5 | 50.0 | 50.0 | 90.0 |
+| Math (40) | 22.5 | 72.5 | 70.0 | 62.5 | 82.5 |
+| Logic (100) | 4.0 | 45.0 | 43.0 | 42.0 | 88.0 |
+| Reasoning (120) | 0.8 | 43.3 | 35.0 | 35.8 | 76.7 |
+| Instructions (20) | 90.0 | 85.0 | 85.0 | 80.0 | 75.0 |
+| Tools (100) | 88.0 | 86.0 | 81.0 | 80.0 | 81.0 |
+| Search (40) | 0.0 | 10.0 | 5.0 | 5.0 | 30.0 |
+
+Neither stage reached the module as configured. The falls are about one and a half times the sampling error, so not
+conclusive alone, but six of seven bodies of work fell or stayed level. The first two figures were measured on the
+code of 22 November and the third on the code of the 23rd, so they are not of one code.
+
+What was found, and changed the same day:
+
+- **Adapters were kept on perplexity alone.** Judged on 72 held questions, the module had 41 right without adapters
+  and 40, 39 and 41 with the check, draft and write adapter alone. None is served now.
+- **The arrangement was trained without the adapters and evaluated with them.** The run now trains on the module as
+  pretrained.
+- **The class stage kept one change** (plain-text questions: the settled answer goes out as it is, and a second
+  checker; 11.4 points on its own held questions) and never tried an instrument or one slot. Both are now tried in
+  every class.
+
+Not measured: a whole run since these changes.
+
 ## The search program, the form a system text sets, one slot for a kind of request: 2026-11-23
 
 The same swarm (LFM2.5 1.2B in both places against Nemotron 3.5 Lightning 30B), after the section below.

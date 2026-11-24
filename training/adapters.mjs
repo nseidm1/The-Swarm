@@ -308,7 +308,8 @@ export function adapterOf(work, targetId, m) {
 // AN ADAPTER FOR EACH ROLE (training/roles.mjs writes roles.json beside result.json: { roles: { draft: { ok, gguf, examples },
 // check: {...}, write: {...} } }). Where the configuration serves adapters and a member has them, it is served with one for each
 // role on one load, chosen per request (src/index.mjs roleLoras), in place of its one adapter. -> { memberKey: { role: gguf } }
-export function roleLorasFor(config, members, work, targetId, modelsDir) {
+// (a role judged and found no better is not served: roles.mjs rolesServed. judging: every one that was trained, to be judged)
+export function roleLorasFor(config, members, work, targetId, modelsDir, { judging = false } = {}) {
   if (!config || !config.adapters) return {};
   const out = {};
   for (const [key, m] of Object.entries(members)) {
@@ -326,7 +327,7 @@ export function roleLorasFor(config, members, work, targetId, modelsDir) {
     }
     const roles = Object.fromEntries(
       Object.entries((j && j.roles) || {})
-        .filter(([, r]) => r && r.ok && r.gguf && fs.existsSync(r.gguf))
+        .filter(([, r]) => r && r.ok && r.gguf && fs.existsSync(r.gguf) && (judging || r.served !== false))
         .map(([k, r]) => [k, r.gguf]),
     );
     if (Object.keys(roles).length) out[key] = roles;

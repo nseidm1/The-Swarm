@@ -12,11 +12,54 @@
 //      (trainAdapter), kept beside the model's own adapter: <adapters>/<larger model>/<model>/roles/<role>/ and roles.json
 // The swarm is then served with all of them on one load, each request naming its role's (src/index.mjs roleLoras), where the
 // configuration serves adapters. Whether that is better is the evaluation's to say (evaluate.mjs --variant pretrained).
-//   node training/roles.mjs train [--limit N] [--iters N] [--min N]     examplesOf and roleOfCall are the pure parts, tested
+//   5  JUDGE. Each is served only where the module is better with it on held questions (rolesServed): a stage does no worse
+//      than the one before
+//   node training/roles.mjs train [--limit N] [--iters N] [--min N]     examplesOf and rolesServed are the pure parts, tested
+//   node training/roles.mjs judge [--sample N]                          the adapters there are, judged again, none trained
 import fs from 'node:fs';
 import path from 'node:path';
 import { ROLE_OF_STAGE } from '../src/index.mjs';
 
+// WHICH ROLES' ADAPTERS ARE SERVED: A STAGE DOES NO WORSE THAN THE ONE BEFORE. An adapter that makes its own training answers
+// likelier (trainAdapter's check) may still make the module worse: the first whole run lost 21 questions of 460 with three such
+// adapters on. So each is JUDGED AS ANY CHANGE IS (classes.mjs worthKeeping): held questions are asked of the module without
+// adapters, then with each role's alone; the roles that gained, best first, are added one at a time, each kept only where the
+// module with it is better again than the module so far. None may pass, and the pretrained module is then the module as it was.
+//   roles: [names]; ask(set) -> rows [{ counted }] of the module served with that set's adapters ([]: none);
+//   gainOf(rows, than) -> { gain, error }; worth(g) -> boolean
+// -> { served: [roles], rows, base, single: [{ role, without, with, gain, error, worth }], added: [{ role, gain, error, kept }] }
+export async function rolesServed(roles, ask, gainOf, worth) {
+  const count = (rows) => rows.filter((x) => x.counted).length;
+  const base = await ask([]);
+  const single = [];
+  for (const role of roles) {
+    const rows = await ask([role]);
+    const g = gainOf(rows, base);
+    single.push({
+      role,
+      rows,
+      without: count(base),
+      with: count(rows),
+      gain: g.gain,
+      error: g.error,
+      worth: !!worth(g),
+    });
+  }
+  let served = [];
+  let rows = base;
+  const added = [];
+  for (const x of single.filter((s) => s.worth).sort((a, b) => b.gain - a.gain)) {
+    const next = served.length ? await ask([...served, x.role]) : x.rows;
+    const g = served.length ? gainOf(next, rows) : { gain: x.gain, error: x.error };
+    const kept = served.length ? !!worth(g) : true;
+    added.push({ role: x.role, gain: g.gain, error: g.error, kept });
+    if (kept) {
+      served = [...served, x.role];
+      rows = next;
+    }
+  }
+  return { served, rows, base, single: single.map(({ rows: _, ...s }) => s), added };
+}
 // A SLOT'S CALL FOR A TRACE ENTRY: the request of that slot, on that question, whose answer is the entry's (its output as it
 // came back). A slot asked twice on one question (a retry, a revision) has two calls: the text says which.
 export function callOf(calls, s) {
@@ -87,8 +130,12 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const A = await import('./adapters.mjs');
   const { MEMBERS, TARGET, CONFIG_KEY } = await import('../src/catalog.mjs');
   const { readBriefs } = await import('../src/index.mjs');
-  if (process.argv[2] !== 'train') {
-    console.log('node training/roles.mjs train [--limit N] [--iters N] [--min N]');
+  const cmd = process.argv[2];
+  if (cmd !== 'train' && cmd !== 'judge') {
+    console.log('node training/roles.mjs train [--limit N] [--iters N] [--min N] [--sample N] [--no-judge]');
+    console.log(
+      'node training/roles.mjs judge [--sample N]     which of the adapters there are is served, by held questions',
+    );
     process.exit(2);
   }
   const work = path.join(B.REPO_ROOT, '.work');
@@ -124,6 +171,116 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   if (!can.length) {
     say("None of the swarm's small models can be trained here: nothing was asked.", 'done');
     process.exit(3);
+  }
+  // 5  JUDGE: which of them the module is served with (rolesServed). Written into each model's roles.json (served, judged).
+  // `node training/roles.mjs judge` judges the adapters there are, without training them again
+  const judgeRoles = async () => {
+    const { sampleOf, pairedGain, worthKeeping } = await import('./classes.mjs');
+    const { ownStandard } = await import('./tasks.mjs');
+    const leastGain = Number(
+      (JSON.parse(fs.readFileSync(path.join(B.REPO_ROOT, 'training', 'policy.json'), 'utf8')).loop || {})
+        .classMinGain || 0,
+    );
+    const held = sampleOf(
+      B.questions('held').filter((t) => ownStandard(t) && !['open', 'talk'].includes(t.type)),
+      Number(B.arg('sample', 72)),
+    );
+    const recordOf = (m) =>
+      JSON.parse(fs.readFileSync(path.join(A.adapterDir(work, TARGET.id, m), 'roles.json'), 'utf8'));
+    const roleNames = [
+      ...new Set(
+        can.flatMap((m) =>
+          Object.entries(recordOf(m).roles)
+            .filter(([, r]) => r.ok)
+            .map(([k]) => k),
+        ),
+      ),
+    ].sort();
+    const ask = async (set) => {
+      const swarm2 = await B.openSwarm(readBriefs(), {
+        seed: 1,
+        adapters: set.length > 0,
+        lorasWith: () => ({}),
+        roleLorasWith: (...a) =>
+          Object.fromEntries(
+            Object.entries(A.roleLorasFor(...a, { judging: true }))
+              .map(([k, by]) => [k, Object.fromEntries(Object.entries(by).filter(([r]) => set.includes(r)))])
+              .filter(([, by]) => Object.keys(by).length),
+          ),
+      });
+      const out = [];
+      try {
+        for (const [i, t] of held.entries()) {
+          if (i % 12 === 0)
+            say(
+              'Judging the adapters on held questions: ' +
+                (set.length ? 'with ' + set.join(' and ') : 'without them') +
+                ', question ' +
+                (i + 1) +
+                ' of ' +
+                held.length,
+              'judging',
+            );
+          const got = await B.askSwarm(swarm2, t, messagesOf(t));
+          out.push({ id: t.id, kind: t.kind, counted: (await t.good(got.reply)).grade === 'right' });
+        }
+      } finally {
+        await swarm2.stop();
+      }
+      return out;
+    };
+    const verdict = await rolesServed(roleNames, ask, pairedGain, (g) => worthKeeping(g, leastGain));
+    const right = (rows) => rows.filter((x) => x.counted).length;
+    for (const m of can) {
+      const f = path.join(A.adapterDir(work, TARGET.id, m), 'roles.json');
+      const rec = recordOf(m);
+      for (const [k, r] of Object.entries(rec.roles)) if (r.ok) r.served = verdict.served.includes(k);
+      rec.judged = {
+        at: new Date().toISOString(),
+        questions: held.length,
+        without: right(verdict.base),
+        with: right(verdict.rows),
+        served: verdict.served,
+        single: verdict.single,
+        added: verdict.added,
+      };
+      fs.writeFileSync(f, JSON.stringify(rec, null, 1));
+    }
+    for (const s of verdict.single)
+      console.log(
+        'judged, ' +
+          s.role +
+          ': ' +
+          s.without +
+          ' of ' +
+          held.length +
+          ' held questions right without it, ' +
+          s.with +
+          ' with it (' +
+          (s.gain * 100).toFixed(1) +
+          ' points, paired error ' +
+          (s.error * 100).toFixed(1) +
+          '): ' +
+          (verdict.served.includes(s.role) ? 'served' : 'not served'),
+      );
+    say(
+      verdict.served.length
+        ? 'Served with the adapter of: ' +
+            verdict.served.join(', ') +
+            ' (' +
+            right(verdict.rows) +
+            ' of ' +
+            held.length +
+            ' held questions right, ' +
+            right(verdict.base) +
+            ' without)'
+        : 'No adapter made the module better on held questions: none is served, and the pretrained module is the module as configured',
+      'done',
+    );
+  };
+  if (cmd === 'judge') {
+    await judgeRoles();
+    process.exit(0);
   }
   // 1  DIAGNOSE: the train questions with a standard of their own (marked without a reader), as the swarm stands, no adapters
   const all = B.questions('train').filter(
@@ -263,6 +420,11 @@ if (import.meta.url === 'file://' + process.argv[1]) {
     }
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, 'roles.json'), JSON.stringify(record, null, 1));
+  }
+  if (trained && !B.has('no-judge')) {
+    await judgeRoles();
+    // (the step ended well either way: a run carried on does not pretrain again because nothing passed)
+    process.exit(0);
   }
   say(
     trained

@@ -41,7 +41,8 @@ as one model, with the proof of what it does. The Swarm is not tied to one proje
 > **Status: pre-release; nothing proven yet.** The swarm configured now (2026-11-22) is LFM2.5 1.2B in both places against
 > Nemotron 3.5 Lightning 30B. As configured, before any training, it scored 55.2% on 460 questions of 23 standard tasks
 > where the larger model scored 77.6% and the small model by itself 30.0%. Twenty questions a task is a check, not a
-> proof. Pretrained by role it read 50.6%, lower; the instruments and a trained arrangement have not been measured on it.
+> proof. Pretrained by role it read 50.7% and trained after that 49.6%, both lower; each stage is now held to the one
+> before, and no whole run has been made since.
 > [Results](#results) · [Status and limits](docs/status.md)
 
 ## Requirements
@@ -159,7 +160,7 @@ only where held questions, never trained on, say it helped:
 
 - **The arrangement**, for each class of input: what each slot is told and how the slots are arranged.
 - **Adapters, one for each role** (drafting, checking, writing the reply): LoRA adapters taught from the slots' own
-  requests and the answers they gave that were right.
+  requests and the answers they gave that were right, each served only where held questions are better with it.
 - **Instruments**: where a class of input holds operations code does exactly, that instrument is turned on. None is on
   as a module starts.
 
@@ -207,8 +208,9 @@ Read it with care:
   not tools or search: the small model asked plainly 15.6%, with the module's reply layout only 19.1%, a module of one
   slot (all of the module's code round one call) 41.9%, the whole module 51.2%, the larger model 82.5%. So the code is
   worth about 26 points and the arrangement of seven slots about 9 more, before any training.
-- Pretrained, with an adapter for each role, the same module read 50.6%: lower. Pretrained and trained is not
-  measured; that run was stopped in training.
+- Pretrained, with an adapter for each role, the same module read 50.7%, and pretrained and trained 49.6%: both
+  lower. An adapter is now served only where held questions are better with it (none of those three is), and the
+  arrangement is trained on the module as pretrained. No whole run has been made since.
 - Search is the widest gap. A search is now a program of code that asks the module only to read: a made task of two
   chained facts went from 1 right of 30 to 30, but the live web test above, of three or four chained facts, did not
   improve.
@@ -230,7 +232,7 @@ npm test
 python3 ui/check.py
 ```
 
-240 checks of the module and the trainers and 163 of the dashboard, against stand-in servers: nothing is fetched,
+242 checks of the module and the trainers and 164 of the dashboard, against stand-in servers: nothing is fetched,
 started or installed. `npm test` deals its 115 blocks of checks out to every core (26 seconds on a 24-core Mac, 91 one
 after another); `npm run test:serial` runs them in one process, `npm run test:all` adds the dashboard's, and
 `npm run test:python` checks the Python client. How well the

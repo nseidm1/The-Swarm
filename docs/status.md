@@ -65,7 +65,12 @@ What has not:
 - **Following instructions as well as its own model.** On 100 questions of IFEval the small model asked by itself has
   75 right and the module 68. One slot asked as the request came, for a request that instructs its reply, reads 71,
   and is now an arrangement training can keep; no run has shown whether it does.
-- **Pretraining that helps.** Adapters by role lowered the module from 55.2% to 50.6% on 460 questions.
+- **Pretraining that helps.** Adapters by role lowered the module from 55.2% to 50.7% on 460 questions, and the
+  arrangement trained after them read 49.6%. An adapter is now served only where held questions are better with it,
+  and judged so none of the three is served: pretraining does not yet add anything. The adapters are taught what a
+  role already got right, not what it lacks.
+- **Three figures on one code.** The run above was measured across two days of changes. No whole run has been made
+  since each stage was held to the one before.
 - **Ten of the nineteen small models in a swarm, two of the four Kev sizes, and fourteen of the fifteen larger models.**
   Pinned. Every small model has answered alone; four small models at once have not been run.
 - **Adapters that help.** Pretrain has run on the real models (2026-11-17, 100 steps each, on 72 of the larger model's

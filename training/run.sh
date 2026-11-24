@@ -77,9 +77,9 @@ step 1-evaluate-as-configured eval "\"limit\": $LIMJ" $EVALUATE --variant base $
 
 # 2  PRETRAINED: an adapter for each role of slot, from what each slot is asked (training/roles.mjs)
 step 2-pretrain pretrain "" $PRETRAIN
-[ $? = 0 ] || say "Pretraining did not end well (see $OUT/2-pretrain.out): where no adapter was made, the second figure is not taken."
+case $? in 0) ;; 3) say "No adapter was made, or none made the module better on held questions: the pretrained module is the module as configured." ;; *) say "Pretraining did not end well (see $OUT/2-pretrain.out): where no adapter was made, the second figure is not taken." ;; esac
 step 3-evaluate-pretrained eval "\"limit\": $LIMJ" $EVALUATE --variant pretrained $ASK
-case $? in 0) ;; 3) say "No adapter is trained for this configuration: the pretrained figure is not taken." ;; *) say "The pretrained module was not evaluated (see $OUT/3-evaluate-pretrained.out)." ;; esac
+case $? in 0) ;; 3) say "No adapter is served: the pretrained figure is the first figure, and is not taken again." ;; *) say "The pretrained module was not evaluated (see $OUT/3-evaluate-pretrained.out)." ;; esac
 
 # 3  PRETRAINED AND TRAINED: the class stage, for so many minutes at most; what it kept by then is kept
 # (its time ends the session AND the step the session waits on: a shell acts on a signal only when what it waits on ends, so
@@ -89,7 +89,10 @@ if [ "$TRAIN" = classes ]; then
     ( sleep $((MINUTES * 60 + 1)); P=$(cat "$WORK/train/ui-run.json" 2>/dev/null | "$NODE" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).pid)}catch{}})"); [ -n "$P" ] && { kill -TERM "$P" 2>/dev/null; pkill -TERM -P "$P" 2>/dev/null; } ) > /dev/null 2>&1 &
     WATCH=$!
   fi
-  PASSES=1 SESSION_STEPS=classes step 4-train-classes train "\"passes\": 1, \"first\": 1, \"classes\": []" $SESSION
+  # (the arrangement is trained on the module AS PRETRAINED, the adapters that are served on: a change is then kept where it
+  # betters that module, the one the third figure is of. Trained without them and evaluated with them, 2026-11-22, the
+  # third figure was of a module nothing had tried)
+  SWARM_ADAPTERS=on PASSES=1 SESSION_STEPS=classes step 4-train-classes train "\"passes\": 1, \"first\": 1, \"classes\": []" $SESSION
   code=$?
   # (the watch on its time is ended with it, and the wait it was in: left alone it would hold the run's output open)
   if [ -n "$WATCH" ]; then pkill -P "$WATCH" 2>/dev/null; kill "$WATCH" 2>/dev/null; fi
