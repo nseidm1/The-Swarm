@@ -6,9 +6,8 @@ python3 ui/swarm_ui.py
 
 It opens at `http://127.0.0.1:8787/` (`--port` changes that). It needs nothing installed.
 
-The pictures here and at the top of this page show it on 2026-11-22: a swarm of LFM2.5 1.2B in both places against
-Nemotron 3.5 Lightning 30B, evaluated as configured, its run paused and nothing running. They are taken from the page as
-it is served. Every section folds, smoothly, and says in a line what it holds while folded; open or folded
+The pictures here and at the top of the [README](../README.md) show it on 2026-11-22: a swarm of LFM2.5 1.2B in both places against
+Nemotron 3.5 Lightning 30B, that evening. They are taken from the page as it is served: the top of the page, Evaluate and the System picture while its run was stopped after its second step, the others once it was going again. Every section folds, smoothly, and says in a line what it holds while folded; open or folded
 is kept on the device.
 
 <p align="center">
@@ -18,7 +17,7 @@ is kept on the device.
 <p align="center"><em>Evaluate the swarm: the module&#39;s score as a share of the larger model&#39;s on the same questions, and the three evaluations Run sets side by side: as configured, pretrained, and pretrained and trained. The three buttons open the same results as a line for every task, as a paper sets them out, and drawn.</em></p>
 
 <p align="center">
-  <img src="images/dashboard-arrangement.png" alt="The Train card: 0% answers good in pass 1; the classes of input a session trains (with tools, a conversation, asking for code, a plain question); Clear training state; the swarm as it stands (briefs v1, 7 slots on 2 models, 0 kept changes); nothing running and no model loaded; Question by question, not begun, with the key to its pips; and the plain flow as faces: draft, try, check, decide, write" width="860">
+  <img src="images/dashboard-arrangement.png" alt="The Train card: 0% answers good in pass 1; the classes of input a session trains (with tools, a conversation, asking for code, a plain question); Clear training state; the swarm as it stands (briefs v1, 7 slots on 2 models, 0 kept changes); a line saying that the run is going and training waits for it, the models being loaded for the run; Question by question, not begun, with the key to its pips; and the plain flow as faces: draft, try, check, decide, write" width="860">
 </p>
 
 <p align="center"><em>The Train card before a pass: the share of answers good, the classes of input a session trains, and every slot as a face of its model, in the step of the flow it stands in. Choosing one opens what it is told.</em></p>
@@ -36,7 +35,7 @@ is kept on the device.
 <p align="center"><em>Visualizing the System: the run, a request inside the module, what training keeps, the training of the arrangement in detail, and the judge. Every part has a code to name it by, and the box the run or the loop is in is marked.</em></p>
 
 <p align="center">
-  <img src="images/dashboard-spec.png" alt="The head of the SwOA spec of one configuration: its name; Copy as JSON, Save as a file, and Publish to specs/ greyed out; not yet measured by training against Nemotron 3.5 Lightning 30B; and the proof: its rule, and a verdict for each capability with its questions and its gap (Code short, Instructions open, Logic short, Math open, Reasoning short, Search short, Tools at parity), each a check and not yet proof" width="860">
+  <img src="images/dashboard-spec.png" alt="The head of the SwOA spec of one configuration: its name; Copy as JSON, Save as a file, and Publish to specs/ greyed out; not yet measured by training against Nemotron 3.5 Lightning 30B; and the proof: its rule, and a verdict for each capability with its questions and its gap (Code short, Instructions open, Logic short, Math open, Reasoning short, Search open, Tools at parity), each a check and not yet proof" width="860">
 </p>
 
 <p align="center"><em>The SwOA spec, its first screen: where training stands, and the proof, capability by capability. Below it in the dialog: each task, what training kept with the evidence, the card a model chooser lists, what it needs of a machine, what it can do, what it is made from (its adapters, by role, and the instruments that are on), its models, the flow, every slot with what it is told, and the spec as JSON. Copy it, or save it as a file.</em></p>
@@ -72,7 +71,7 @@ say which model's drafts held each right answer (and which held it alone), how o
 how often a slot stopped at its token limit, and how often the decider did not answer.
 
 <p align="center">
-  <img src="images/dashboard-recommendations.png" alt="Recommended configuration changes: no change to the configuration is recommended now; and, before an evaluation is read, to train this swarm first, since training has kept nothing for it yet, with a Train button" width="620">
+  <img src="images/dashboard-recommendations.png" alt="Recommended configuration changes: no change to the configuration is recommended now; and, before an evaluation is read, to train this swarm first, since training has kept nothing for it yet, with a Train button, greyed out while the run is going" width="620">
 </p>
 
 <p align="center"><em>Recommendations, as the page showed them on 2026-11-22: nothing to change in the lineup, and a reminder that an evaluation before training measures the swarm as every swarm starts. Under it the page lists updates to the engines on the machine.</em></p>
