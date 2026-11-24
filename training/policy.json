@@ -12,6 +12,7 @@
     "rounds": 2,
     "draws": 2,
     "sweep": 60,
+    "adapterLeast": 0.9,
     "moves": [
       "^adapters: every slot that has one carries its adapter$",
       "^adapters: .* carries its adapter$",

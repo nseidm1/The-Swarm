@@ -314,7 +314,13 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
           if (g.gain > 0 && (!best || g.gain > best.g.gain)) best = { m, rows, g };
         };
         // (how many it has to try, for the page to say how far the stage has come: the round's, and one more for the two together)
-        const toTry = roundOf(steps(base, { adapters: mixture }), base, P.moves, tries, sweep);
+        const toTry = roundOf(
+          steps(base, { adapters: mixture, adapterLeast: P.adapterLeast ?? 0.9 }),
+          base,
+          P.moves,
+          tries,
+          sweep,
+        );
         R.of = toTry.length + 1;
         for (const m of toTry) await tryOne(m);
         // (and the best two of the sweep together: two changes that each help may help more as one)

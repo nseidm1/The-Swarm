@@ -6,6 +6,14 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **An adapter is carried only on requests like what it was taught** (2026-11-24). Adapters taught families of
+  function gained 25 to 30 points on held questions of those families and lost 12 on tasks they had not seen, and 10 on
+  two benchmarks: an adapter is a memory of what it was taught, and training's held questions were near-copies of its
+  train questions. For each request the module now measures, by code and with no model, how like the request is to the
+  nearest request the adapter was taught (`src/like.mjs`; SwOA S1.4.2, S1.4.3), and a slot carries its adapter only at
+  or above a least likeness (`adapterLeast`, 0.9 from the policy); under it the request is answered as the module
+  without adapters answers it. An adapter may be applied at part strength (`adapterScale`). The larger model's own
+  tasks, held back, are the panel that showed the harm that training's held questions could not.
 - **What the mixture replaced is taken out** (2026-11-24). The Pretrain card's code is gone from the page with its
   routes, and `training/roles.mjs` (an adapter for each role, made in a stage of its own) is retired; an adapter made
   for a role before is still loaded where a configuration serves one. A run asked for again trains again: the class

@@ -20,6 +20,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { newestBySlot, mixFilesOf, readMix } from './mix-record.mjs';
+import { signatureOf } from '../src/like.mjs';
 
 // THE EXAMPLES OF ONE QUESTION: each drafting slot's request, once, with its own answer where that was right (own(text) ->
 // boolean), else marked to be asked of the larger model. calls: [{ slot, stage, messages, text }] of roles in `roles`
@@ -72,6 +73,15 @@ export function closingLine(text) {
       .pop() || '';
   return last.length <= 100 ? last : '';
 }
+// the requests an adapter's examples answer, each once: the last thing asked before the answer
+export const requestsOf = (examples) => [
+  ...new Set(
+    (examples || [])
+      .map((e) => [...(e.messages || [])].reverse().find((m) => m && m.role === 'user'))
+      .filter(Boolean)
+      .map((m) => String(m.content)),
+  ),
+];
 // (the record itself is read in mix-record.mjs, which adapters.mjs reads too: this file runs adapters.mjs, and a file that
 // waits on one that waits on it never starts)
 export { newestBySlot, mixFilesOf, readMix };
@@ -226,6 +236,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     fs.mkdirSync(out, { recursive: true });
     const ds = path.join(out, 'examples.jsonl');
     fs.writeFileSync(ds, mine.map((e) => JSON.stringify(e)).join('\n') + '\n');
+    // WHAT IT WAS TAUGHT, as a signature (src/like.mjs): the requests themselves, by which a request is found like them or
+    // not. A slot carries this adapter only on requests that are (adapterLeast): on others it is the model as it is
+    fs.writeFileSync(path.join(out, 'like.json'), JSON.stringify(signatureOf(requestsOf(mine))));
     say('Training the adapter of ' + slot + ' on ' + mine.length + ' examples', 'training');
     const r = A.trainAdapter(model, ds, out, {
       work,

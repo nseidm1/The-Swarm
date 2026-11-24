@@ -377,6 +377,21 @@ export function mixFor(members, work, targetId, modelsDir, names = null) {
   }
   return out;
 }
+// the signature of each of those adapters (what it was taught, src/like.mjs), where its maker wrote one beside its file
+// (like.json): { name: signature }. A slot that says how like a request must be is measured by it (src/index.mjs adapterFor).
+export function likesFor(members, work, targetId, modelsDir, names = null) {
+  const out = {};
+  for (const files of Object.values(mixFor(members, work, targetId, modelsDir, names)))
+    for (const [name, file] of Object.entries(files)) {
+      if (out[name]) continue;
+      try {
+        out[name] = JSON.parse(fs.readFileSync(path.join(path.dirname(file), 'like.json'), 'utf8'));
+      } catch {
+        /* none written: a slot that asks for likeness then carries no adapter */
+      }
+    }
+  return out;
+}
 // WHAT A SWARM IS SERVED WITH, for a measurement to say and to keep its answers by: the members that have adapters, and the
 // files (each role's where it has them, else its one). -> { names: [member names], files: [paths, sorted], roles: [role names] }
 // (briefs: the arrangement asked, whose slots may carry adapters of the mixture; those are part of what it is served with)

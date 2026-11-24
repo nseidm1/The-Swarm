@@ -256,6 +256,7 @@ export async function openSwarm(
     roleLorasWith = null,
     onAsk = null,
     mix = undefined,
+    adapterLike = null,
   } = {},
 ) {
   const attach = {};
@@ -293,6 +294,12 @@ export async function openSwarm(
       ))
         roleLoras[k] = { ...(roleLoras[k] || {}), ...files };
   }
+  // (what each of the mixture's adapters was taught, for a slot that carries one only on requests like those)
+  let likes = adapterLike;
+  if (!likes && mix !== false && !roleLorasWith && !lorasWith) {
+    const A = await import('../adapters.mjs');
+    likes = A.likesFor(MEMBERS, path.join(REPO_ROOT, '.work'), targetOf().id, modelsDir());
+  }
   for (const [k, by] of Object.entries(roleLoras))
     console.log(
       MEMBERS[k].name +
@@ -327,6 +334,7 @@ export async function openSwarm(
     decider,
     loras,
     roleLoras,
+    ...(likes && Object.keys(likes).length ? { adapterLike: likes } : {}),
     ...(onAsk ? { onAsk } : {}),
     onRecover: note,
     // (an agent's step is asked with tools, whichever way the configuration has it decided: the servers read and write calls in

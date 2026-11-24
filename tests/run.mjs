@@ -11295,6 +11295,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
   // A MIXTURE IN A SPEC (S1.4.1): adapters pinned by name, and a slot that carries one names one pinned for its place
   const M = Buffer.from('the adapter of one drafting slot');
+  const LIKE = Buffer.from(JSON.stringify({ n: 1, idf: { sum: 0.69 }, docs: [{ sum: 1 }] }));
   const first = briefs.slots.find((x) => x.stage === 'draft');
   const carrying = {
     ...briefs,
@@ -11304,7 +11305,15 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     ...recipe,
     briefs: carrying,
     adapters: {
-      [first.member]: { named: { [first.id + '@1']: { file: 'mix/' + first.id + '@1/m-lora.gguf', sha256: sha(M) } } },
+      [first.member]: {
+        named: {
+          [first.id + '@1']: {
+            file: 'mix/' + first.id + '@1/m-lora.gguf',
+            sha256: sha(M),
+            like: { file: 'mix/' + first.id + '@1/like.json', sha256: sha(LIKE) },
+          },
+        },
+      },
     },
   };
   const mixSpec = {
@@ -11315,6 +11324,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   fs.writeFileSync(mixFile, JSON.stringify(mixSpec));
   fs.mkdirSync(path.join(dir, 'mix.adapters', 'mix', first.id + '@1'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'mix.adapters', 'mix', first.id + '@1', 'm-lora.gguf'), M);
+  const noLike = why(() => fromSpec(mixFile));
+  fs.writeFileSync(path.join(dir, 'mix.adapters', 'mix', first.id + '@1', 'like.json'), LIKE);
   const mixed = fromSpec(mixFile);
   const unpinned = why(() =>
     readSpec({ spec: { format: 'the-swarm/spec', version: 3 }, recipe: { ...mixRecipe, adapters: {} } }),
@@ -11332,6 +11343,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       mixed.briefs.slots.find((x) => x.id === first.id).adapter === first.id + '@1' &&
       /carries the adapter .* which the recipe does not pin for place/.test(unpinned) &&
       /is not pinned/.test(badName) &&
+      // (the signature of what the adapter was taught travels with it, pinned, and is loaded under the adapter's name)
+      /pins the signature/.test(noLike) &&
+      mixed.adapterLike[first.id + '@1'].n === 1 &&
       recipeSha256(mixRecipe) !== recipeSha256({ ...mixRecipe, briefs }),
     { mixed: mixed.roleLoras, unpinned, badName },
   );
@@ -11419,6 +11433,51 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       R.closingLine('') === '',
     { toolEx: JSON.stringify(toolEx).slice(0, 300) },
   );
+  // ---- AN ADAPTER IS CARRIED ONLY ON REQUESTS LIKE WHAT IT WAS TAUGHT (src/like.mjs, src/index.mjs adapterFor), and at a strength
+  {
+    const LK = await import('../src/like.mjs');
+    const taughtQs = [
+      'Write a JavaScript function `sumEvery(numbers)` that returns the sum of every second number in the array, starting with the first one.',
+      'Today is Monday. What day of the week will it be 178 days from now?',
+      'Sort these words alphabetically: pear fig apple',
+    ];
+    const sig = LK.signatureOf(taughtQs);
+    const same = LK.likeTo(sig, 'Today is Friday. What day of the week will it be 12 days from now?');
+    const far = LK.likeTo(sig, 'Write a python function to find the volume of a triangular prism.');
+    const none = LK.likeTo(sig, 'What is the capital of France?');
+    const u = (c) => [
+      { role: 'system', content: 'brief' },
+      { role: 'user', content: c },
+    ];
+    const slot = { id: 'a-direct', stage: 'draft', adapter: 'a-direct@3', adapterLeast: 0.5 };
+    const likes = { 'a-direct@3': sig };
+    const ids3 = { 'a-direct@3': 0, draft: 1 };
+    const scaleOf = (x) => x.map((y) => y.scale).join();
+    check(
+      'an adapter is carried only on requests like what it was taught: how like a request is, is the cosine of its words (numbers as one word, each word weighed by how rare it is among the taught requests) to the nearest taught request, by code and with no model; a slot says how like a request must be, and one under it is served with no adapter, so that it is answered as the module without adapters answers it; with no least said the adapter is carried on every request, and with a least said and no signature to measure by it is carried on none; and an adapter may be applied at part strength (adapters taught families of function gained on held questions of those families and lost 12 points on tasks they had not seen)',
+      same > 0.8 &&
+        far < 0.4 &&
+        none === 0 &&
+        LK.likeTo(sig, taughtQs[0]) > 0.99 &&
+        LK.likeTo({ n: 0, idf: {}, docs: [] }, 'x') === 0 &&
+        LK.termsOf('The 3 cats, and 12 dogs').join() === '#,cats,#,dogs' &&
+        I.adapterFor(slot, u('Today is Friday. What day of the week will it be 12 days from now?'), likes) ===
+          'a-direct@3' &&
+        I.adapterFor(slot, u('Write a python function to find the volume of a triangular prism.'), likes) === 'none' &&
+        I.adapterFor(slot, u('anything'), {}) === 'none' &&
+        I.adapterFor({ ...slot, adapterLeast: undefined }, u('anything at all'), {}) === 'a-direct@3' &&
+        I.adapterFor({ id: 'x', stage: 'draft' }, u('q'), likes) === undefined &&
+        I.adapterFor({ id: 'x', stage: 'draft', adapter: 'none', adapterLeast: 0.5 }, u('q'), likes) === 'none' &&
+        scaleOf(I.loraFor(ids3, 'draft', 'a-direct@3', 0.5)) === '0.5,0' &&
+        scaleOf(I.loraFor(ids3, 'draft', 'a-direct@3')) === '1,0' &&
+        scaleOf(I.loraFor(ids3, 'draft', 'none', 0.5)) === '0,0' &&
+        scaleOf(I.loraFor(ids3, 'draft', undefined, 0.5)) === '0,0.5' &&
+        LK.gated([{ counted: true }, { counted: false }], [{ counted: false }, { counted: true }], [0.9, 0.1], 0.5)
+          .map((r) => r.counted)
+          .join() === 'true,true',
+      { same, far, none },
+    );
+  }
   // ---- THE LARGER MODEL WRITES THE PYTHON TASKS (training/wide.mjs): read from what it wrote, kept where its two solutions agree
   {
     const WD = await import('../training/wide.mjs');

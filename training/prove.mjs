@@ -313,16 +313,59 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
         return [k, v === 'true' ? true : v === 'false' ? false : /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : v];
       }),
     );
-    const placed = (b) => plannedOf(placedOf(b, carried), planned);
+    // (--least X: a slot carries its adapter only on requests at least so like what it was taught, measured against the
+    // requests in --taught file; --scale X: at part strength)
+    const least = B.arg('least') !== undefined && B.arg('least') !== true ? Number(B.arg('least')) : null;
+    const scale = B.arg('scale') !== undefined && B.arg('scale') !== true ? Number(B.arg('scale')) : null;
+    const { signatureOf } = await import('../src/like.mjs');
+    const sig = B.arg('taught')
+      ? signatureOf([
+          ...new Set(
+            fs
+              .readFileSync(String(B.arg('taught')), 'utf8')
+              .split('\n')
+              .filter(Boolean)
+              .map((l) => String(JSON.parse(l).messages.at(-2).content)),
+          ),
+        ])
+      : null;
+    const tuned = (b) => {
+      const on = (slots) =>
+        (slots || []).map((x) =>
+          x.adapter && x.adapter !== 'none'
+            ? {
+                ...x,
+                ...(least !== null ? { adapterLeast: least } : {}),
+                ...(scale !== null ? { adapterScale: scale } : {}),
+              }
+            : x,
+        );
+      return {
+        ...b,
+        slots: on(b.slots),
+        ...(b.kinds
+          ? {
+              kinds: Object.fromEntries(
+                Object.entries(b.kinds).map(([k, c]) => [k, c && c.slots ? { ...c, slots: on(c.slots) } : c]),
+              ),
+            }
+          : {}),
+      };
+    };
+    const placed = (b) => tuned(plannedOf(placedOf(b, carried), planned));
     const pool = every();
     const tasks = ids.map((id) => pool.find((t) => t.id === id)).filter(Boolean);
     const rows = [];
+    const used = [];
     for (const seed of seeds.length ? seeds : [1]) {
       const swarm = await B.openSwarm(placed(readBriefs()), {
         seed,
         adapters: withAdapter,
         lorasWith: () => ({}),
         roleLorasWith: () => (withAdapter ? Object.fromEntries(Object.keys(MEMBERS).map((k) => [k, by])) : {}),
+        ...(sig ? { adapterLike: Object.fromEntries(Object.keys(by).map((n) => [n, sig])) } : {}),
+        // (how many of the drafting requests were served with the adapter their slot carries)
+        onAsk: (c) => c.adapter !== undefined && used.push(c.adapter === 'none' ? 0 : 1),
       });
       try {
         for (const t of tasks) {
@@ -356,6 +399,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
         await swarm.stop();
       }
     }
+    if (used.length)
+      console.log(
+        'ADAPTER on ' + used.filter(Boolean).length + ' of ' + used.length + ' requests of slots that carry one',
+      );
     fs.mkdirSync(dir, { recursive: true });
     fs.appendFileSync(path.join(dir, 'asked.jsonl'), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
     for (const t of tasks) {

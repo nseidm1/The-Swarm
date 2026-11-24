@@ -393,6 +393,25 @@ names an adapter that is not pinned for its place MUST be refused. Which slot ca
 arrangement, and so of `arrangementSha256`: drafters may each carry a different one, and the steps after them settle
 between their answers.
 
+S1.4.2 AN ADAPTER IS CARRIED ON THE REQUESTS THAT ARE LIKE WHAT IT WAS TAUGHT. A named adapter MAY carry `like`: a file
+(with its `sha256`) that holds the adapter's SIGNATURE, the requests it was taught, as S1.4.3 writes them. A slot that
+carries an adapter MAY carry `adapterLeast`, a number from 0 to 1, and `adapterScale`, a number above 0 (1 where absent).
+For each request the module is asked, LIKENESS is that of the request (its last user message) to the adapter's
+signature (S1.4.3). Where the slot carries `adapterLeast` and the likeness is under it, every request of that slot made
+in answering is served with NO adapter: it is answered as the module without adapters answers it. Where the likeness is
+at or above it, or the slot carries no `adapterLeast`, the slot's requests are served with its adapter at
+`adapterScale`. A slot that carries `adapterLeast` and whose adapter has no signature MUST be served with no adapter.
+The likeness is of the request the module was asked and never of what a slot is sent: a slot asked again in the course
+of an answer is served as its first request was.
+
+S1.4.3 LIKENESS. The TERMS of a text are its lower-cased runs of a letter or underscore followed by two or more letters,
+digits or underscores, and its runs of digits, each run of digits written as the one term `#`; less a fixed list of
+common words. A signature of N taught requests holds, for each term, its WEIGHT `ln(1 + N / d)` where d is how many of
+the requests hold the term; and each request as a vector of unit length whose entry for a term is `(1 + ln(c))` times
+the term's weight, c being how often the request holds it. The likeness of a text to a signature is the greatest
+cosine between the text's vector, made the same way with the weight `ln(1 + N)` for a term no taught request holds,
+and any taught request's vector; 0 where the signature holds no request. It is found by code, with no model.
+
 S1.5 `recipe.serving` (OPTIONAL) holds:
 
 - `slots` (integer ≥ 1): server slots per member. Default **6**.
@@ -1725,6 +1744,8 @@ or amended. Notifications MUST NOT affect the procedure.
 | `sees` | `finals`: a checker is shown answers without their working; anything else: with |
 | `compute` | `true` on a `draft` slot: it answers by a program it writes, which is run (O.6.1a); it is left out of a draft step where it does not compute, and out of every revise step |
 | `adapter` | OPTIONAL: the name of the adapter this slot's requests are served with (S1.4.1), or `"none"` |
+| `adapterLeast` | OPTIONAL, 0 to 1: the adapter is carried only on requests at least so like what it was taught (S1.4.2) |
+| `adapterScale` | OPTIONAL, above 0: how strongly the adapter is applied (1 where absent) |
 | `maxTokens` | passed to the member call; the judge slot inherits it unless `plan.decideWith.maxTokens`; the ask-again calls override it (420/40 for drafts, 16 for checks) |
 | `temperature` and other sampling fields | passed to the member call; ask-again calls force `temperature` 0 |
 | `purpose` | not read by orchestration (descriptive only) |

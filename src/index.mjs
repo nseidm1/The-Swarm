@@ -26,6 +26,7 @@ import { fromSpec, readSpec, recipeSha256 } from './spec.mjs';
 import { answerTools } from './tools.mjs';
 import { behaviours, printed } from './behave.mjs';
 import { readLearned, saveLearned, notePass, learnedFile, LEARNED_DIR } from './learned.mjs';
+import { likeTo } from './like.mjs';
 
 export { MEMBERS, SERVING, ENTRY, SERVED_NAME, TOOLS, toolsOf, modelFile };
 export { DECIDER, TARGET, REGISTRY, readConfig, writeConfig, CONFIG_ID } from './catalog.mjs';
@@ -116,11 +117,38 @@ export const roleFilesOf = (map) =>
 // A MIXTURE OF ADAPTERS: adapters are loaded by name, and which slot carries which is part of the arrangement, so that
 // drafters can each be a specialist and the stages after them settle between them. One adapter on every drafter moved them
 // all together: taught one kind of question it gained 36 points there and lost 17 on other kinds (2026-11-23).
-export const loraFor = (ids, stage, adapter) => {
+// scale: how strongly the one is applied (1 where nothing is said; a slot may carry its adapter at part strength).
+export const loraFor = (ids, stage, adapter, scale = 1) => {
   const name = adapter !== undefined && adapter !== null ? adapter : ROLE_OF_STAGE[stage];
+  const s = Number.isFinite(Number(scale)) && Number(scale) > 0 ? Number(scale) : 1;
   return Object.entries(ids)
     .sort(([, a], [, b]) => a - b)
-    .map(([r, id]) => ({ id, scale: r === name ? 1 : 0 }));
+    .map(([r, id]) => ({ id, scale: r === name ? s : 0 }));
+};
+// WHICH ADAPTER THIS REQUEST OF A SLOT IS SERVED WITH (S1.4.2): the one the slot carries, where the request is LIKE what that
+// adapter was taught; none where it is not. An adapter is proven on requests of some sort and harms others: taught families
+// of function, it gained 25 to 30 points on held questions of those families and lost 12 on tasks it had not seen, and 10 on
+// two benchmarks (2026-11-24). A slot says how like a request must be (adapterLeast, 0 to 1); the likeness is to the nearest
+// request the adapter was taught (src/like.mjs), from the signature loaded with it. A request under it is answered as the
+// module without adapters answers it. No least said: the adapter is carried on every request, as before. A least said and
+// no signature to measure by: none, since nothing says the request is its kind.
+// The likeness is of the REQUEST THE MODULE WAS ASKED (request: its last user message), not of what a slot is sent: a slot
+// asked again ("give the code itself") was measured by that line, which every adapter was taught, and carried its adapter
+// on requests it should not have (measured 2026-11-24: on 40% of unseen tasks, where the requests themselves were like on 18%).
+export const requestOf = (messages) => {
+  const last = [...(messages || [])].reverse().find((m) => m && m.role === 'user');
+  return last ? (typeof last.content === 'string' ? last.content : JSON.stringify(last.content || '')) : '';
+};
+export const adapterFor = (slot, messages, likes = {}, request = null) => {
+  const carried = slot.adapter;
+  if (carried === undefined || carried === null || carried === 'none') return carried;
+  const least = Number(slot.adapterLeast);
+  if (!Number.isFinite(least) || slot.adapterLeast === undefined || slot.adapterLeast === null) return carried;
+  const sig = likes && likes[carried];
+  if (!sig) return 'none';
+  return likeTo(sig, request !== null && request !== undefined ? request : requestOf(messages)) >= least
+    ? carried
+    : 'none';
 };
 export async function createSwarm(opts = {}) {
   // FROM A SPEC (spec.mjs): its members, its arrangement and its serving, exactly; nothing from this machine's configuration
@@ -129,6 +157,7 @@ export async function createSwarm(opts = {}) {
   if (S && Object.keys(S.loras || {}).length && !opts.loras) opts = { ...opts, loras: S.loras };
   // (and the adapters of each role, where the spec pins them so)
   if (S && Object.keys(S.roleLoras || {}).length && !opts.roleLoras) opts = { ...opts, roleLoras: S.roleLoras };
+  if (S && Object.keys(S.adapterLike || {}).length && !opts.adapterLike) opts = { ...opts, adapterLike: S.adapterLike };
   const MEM = S ? S.members : MEMBERS;
   let briefs = opts.briefs || (S && S.briefs) || readBriefs(opts.briefsFile);
   const slots = opts.slots || (S && S.slots) || SERVING.slots;
@@ -262,14 +291,15 @@ export async function createSwarm(opts = {}) {
           return r;
         }
       : decideRaw;
-  const ask = (slot, messages, extra = {}) => {
+  const ask = (slot, messages, extra = {}, request = null) => {
     const m = members[slot.member];
     if (!m) throw new Error('no member called ' + slot.member);
     const { maxTokens, temperature, top_p, top_k } = slot;
     const params = { maxTokens, timeoutMs: opts.timeoutMs, ...extra };
     // (the adapter of this slot's role, where its model is served with one for each role: every adapter named, one at full strength)
     const ids = roleIds[slot.member];
-    if (ids) params.lora = loraFor(ids, slot.stage, slot.adapter);
+    const using = ids ? adapterFor(slot, messages, opts.adapterLike, request) : undefined;
+    if (ids) params.lora = loraFor(ids, slot.stage, using, slot.adapterScale);
     for (const [k, v] of Object.entries({ temperature, top_p, top_k })) if (v !== undefined) params[k] = v;
     // opts.seed: the same slot asked the same thing draws the same answer. A program that serves people leaves it off; the
     // trainers set it, because a measurement that changes by itself from one run to the next cannot say whether a change helped
@@ -288,6 +318,7 @@ export async function createSwarm(opts = {}) {
                 stage: slot.stage,
                 member: slot.member,
                 messages,
+                ...(using !== undefined ? { adapter: using } : {}),
                 text: (r && (r.text || r.content)) || '',
               });
             } catch {
@@ -319,6 +350,11 @@ export async function createSwarm(opts = {}) {
       return r;
     });
   };
+  // (the same, for one request the module is answering: each slot's adapter is chosen by that request, adapterFor)
+  const askFor = (messages) => {
+    const request = requestOf(messages);
+    return (slot, msgs, extra) => ask(slot, msgs, extra, request);
+  };
   let last = null;
   const swarm = {
     members,
@@ -344,7 +380,7 @@ export async function createSwarm(opts = {}) {
     async answer(messages, o = {}) {
       last = await orchestrate(messages, {
         briefs: o.briefs || briefs,
-        ask,
+        ask: askFor(messages),
         // (the swarm's small models, largest first: who rewrites a reply that described the answer instead of giving it)
         others: Object.keys(members).sort((x, y) => (Number(MEM[y]?.params) || 0) - (Number(MEM[x]?.params) || 0)),
         decide,
@@ -400,14 +436,14 @@ export async function createSwarm(opts = {}) {
         tool_choice: o.tool_choice,
         parallel_tool_calls: o.parallel_tool_calls,
         briefs: o.briefs || briefs,
-        ask,
+        ask: askFor(messages),
         decide,
         lead: opts.lead || 'a',
         // (where the step is a reply, the answer procedure writes it, shown what the tools returned: SwOA specification T.9)
         answerReply: (shown) =>
           orchestrate(shown, {
             briefs: o.briefs || briefs,
-            ask,
+            ask: askFor(messages),
             others: Object.keys(members).sort((x, y) => (Number(MEM[y]?.params) || 0) - (Number(MEM[x]?.params) || 0)),
             decide,
             modelDecides,

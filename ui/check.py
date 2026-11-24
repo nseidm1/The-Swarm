@@ -2332,6 +2332,7 @@ check("a spec pins only the adapters that are served: a role's adapter that was 
 # A MIXTURE IN THE SPEC: the adapters the arrangement's slots carry by name are pinned, whatever the configuration says of adapters
 (_sdir / "mix" / "a-direct@1").mkdir(parents=True, exist_ok=True)
 (_sdir / "mix" / "a-direct@1" / "m-lora.gguf").write_bytes(b"one slot")
+(_sdir / "mix" / "a-direct@1" / "like.json").write_text(json.dumps({"n": 1, "idf": {"sum": 0.69}, "docs": [{"sum": 1}]}))
 _smix_was = (_sdir / "mix.json").read_text() if (_sdir / "mix.json").exists() else None
 (_sdir / "mix.json").write_text(json.dumps({"adapters": {"a-direct@1": {"slot": "a-direct", "gguf": str(_sdir / "mix" / "a-direct@1" / "m-lora.gguf"), "examples": 504, "own": 242, "larger": 262, "kinds": 25}}}))
 try:
@@ -2347,9 +2348,9 @@ finally:
         (_sdir / "mix.json").write_text(_smix_was)
 _k3 = _first3.get("member")
 check("a spec pins a mixture: an adapter a slot of the arrangement carries by name is pinned for that slot's place under its name (its file under mix/<name>/, with its SHA-256), whether or not the configuration serves adapters, "
-      "with how it was made (the slot, its examples, how many were its own right answers and how many the larger model's); an arrangement whose slots carry none pins none",
+      "with how it was made (the slot, its examples, how many were its own right answers and how many the larger model's) and with its signature, what it was taught, by which a request is found like it or not; an arrangement whose slots carry none pins none",
       (_spins3.get(_k3) or {}).get("named", {}).get("a-direct@1", {}).get("file") == "mix/a-direct@1/m-lora.gguf" and len(_spins3[_k3]["named"]["a-direct@1"]["sha256"]) == 64
-      and _smade3[_k3]["named"]["a-direct@1"]["own"] == 242 and "mixture.mjs" in _smade3[_k3]["makeNamed"] and not any("named" in (v or {}) for v in _spins3_none.values()),
+      and _smade3[_k3]["named"]["a-direct@1"]["own"] == 242 and _spins3[_k3]["named"]["a-direct@1"]["like"]["file"] == "mix/a-direct@1/like.json" and len(_spins3[_k3]["named"]["a-direct@1"]["like"]["sha256"]) == 64 and "mixture.mjs" in _smade3[_k3]["makeNamed"] and not any("named" in (v or {}) for v in _spins3_none.values()),
       [_spins3, _spins3_none])
 
 # THE ADAPTERS ARE SHOWN WITH THE ARRANGEMENT: which there are, and which slots carry one (they had a card of their own, Pretrain)

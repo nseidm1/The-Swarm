@@ -937,6 +937,10 @@ def spec_adapters(d):
         f = Path(str(a.get("gguf") or ""))
         if f.is_file():
             named.setdefault(k, {})[nm] = {"file": "mix/%s/%s" % (nm, f.name), "sha256": _sha256(f), "bytes": f.stat().st_size}
+            # (what it was taught, as a signature: a slot carries it only on requests like those, SwOA S1.4.2)
+            lk = f.parent / "like.json"
+            if lk.is_file():
+                named[k][nm]["like"] = {"file": "mix/%s/like.json" % nm, "sha256": _sha256(lk), "bytes": lk.stat().st_size}
             named_made.setdefault(k, {})[nm] = {"slot": a.get("slot"), "examples": a.get("examples"), "own": a.get("own"), "larger": a.get("larger"), "kinds": a.get("kinds")}
     def _with_named(pins, made):
         for k, n in named.items():

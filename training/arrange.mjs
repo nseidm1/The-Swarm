@@ -51,12 +51,21 @@ export const shapeOf = (b) =>
 //   adapters: [{ name, slot }], the ones there are for this arrangement's slots
 // -> each slot that has one and does not carry it, carrying it; every such slot carrying its own, at once; and a slot that
 //    carries one, carrying none
-export function adapterMoves(b, adapters = []) {
+export function adapterMoves(b, adapters = [], least = null) {
   const forSlot = (id) => (adapters || []).find((a) => a && a.slot === id && a.name);
   const can = b.slots.filter((s) => forSlot(s.id) && s.adapter !== forSlot(s.id).name);
   const withAdapter = (ids) => ({
     ...b,
-    slots: b.slots.map((s) => (ids.includes(s.id) ? { ...s, adapter: forSlot(s.id).name } : s)),
+    // (carried on the requests that are like what it was taught, and on no other: adapterLeast, src/index.mjs adapterFor)
+    slots: b.slots.map((s) =>
+      ids.includes(s.id)
+        ? {
+            ...s,
+            adapter: forSlot(s.id).name,
+            ...(least !== null && least !== undefined ? { adapterLeast: least } : {}),
+          }
+        : s,
+    ),
   });
   return [
     ...(can.length > 1
@@ -67,14 +76,24 @@ export function adapterMoves(b, adapters = []) {
       .filter((s) => s.adapter && s.adapter !== 'none')
       .map((s) => ({
         name: 'adapters: ' + s.id + ' carries no adapter',
-        briefs: { ...b, slots: b.slots.map((x) => (x.id === s.id ? (({ adapter, ...rest }) => rest)(x) : x)) },
+        briefs: {
+          ...b,
+          slots: b.slots.map((x) =>
+            x.id === s.id ? (({ adapter, adapterLeast: _l, adapterScale: _s, ...rest }) => rest)(x) : x,
+          ),
+        },
       })),
   ];
 }
 // every arrangement one step from this one: [{ name, briefs }]
 export function steps(
   b,
-  { cap = SERVING.slots, members = [...new Set(b.slots.map((s) => s.member))].sort(), adapters = [] } = {},
+  {
+    cap = SERVING.slots,
+    members = [...new Set(b.slots.map((s) => s.member))].sort(),
+    adapters = [],
+    adapterLeast = null,
+  } = {},
 ) {
   // AN INSTRUMENT TURNED ON (src/instruments.mjs): a question of the class that IS an operation is done by code. First of
   // all, since it costs nothing to try (no model is asked where it applies) and is exact where it does
@@ -99,7 +118,7 @@ export function steps(
       ? []
       : [{ name: 'plan: one model answers, asked as it came', briefs: { ...b, plan: { ...b.plan, plain: true } } }]),
     // A SLOT CARRIES ITS ADAPTER (adapterMoves): the mixture, one slot at a time and all of them at once
-    ...adapterMoves(b, adapters),
+    ...adapterMoves(b, adapters, adapterLeast),
     // the flow next: with nothing measured to point anywhere, a pass tries the order of steps before it tries who sits where
     ...flowMoves(b),
   ];

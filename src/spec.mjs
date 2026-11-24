@@ -89,7 +89,11 @@ export function readSpec(from) {
     const pinned = (x) => !!(x && x.file && x.sha256);
     // (and the adapters a slot can carry by name, S1.4.1: `named`, beside the roles' or alone)
     const named = a && a.named && typeof a.named === 'object' ? Object.entries(a.named) : null;
-    const okNamed = !named || (named.length > 0 && named.every(([name, x]) => name && name !== 'none' && pinned(x)));
+    // (and with a named adapter, the signature of what it was taught, S1.4.2: `like`, pinned as the adapter is)
+    const okNamed =
+      !named ||
+      (named.length > 0 &&
+        named.every(([name, x]) => name && name !== 'none' && pinned(x) && (!x.like || pinned(x.like))));
     const ok =
       okNamed &&
       (roles
@@ -148,9 +152,15 @@ export function fromSpec(spec, { adaptersDir, anyAdapters = false } = {}) {
   const loras = {};
   const roleLoras = {};
   const pins = [];
+  const likePins = [];
+  const adapterLike = {};
   for (const [k, a] of Object.entries(r.adapters || {})) {
     if (a.roles) for (const [role, x] of Object.entries(a.roles)) pins.push({ k, role, a: x });
-    if (a.named) for (const [name, x] of Object.entries(a.named)) pins.push({ k, role: name, a: x });
+    if (a.named)
+      for (const [name, x] of Object.entries(a.named)) {
+        pins.push({ k, role: name, a: x });
+        if (x.like) likePins.push({ name, a: x.like });
+      }
     if (!a.roles && !a.named) pins.push({ k, role: '', a });
   }
   for (const { k, role, a } of pins) {
@@ -179,6 +189,27 @@ export function fromSpec(spec, { adaptersDir, anyAdapters = false } = {}) {
     if (role) roleLoras[k] = { ...(roleLoras[k] || {}), [role]: file };
     else loras[k] = file;
   }
+  // (each named adapter's signature, found and checked as the adapter is: a slot that carries the adapter only on requests
+  // like what it was taught is measured by it, and one whose signature is not there carries none, S1.4.2)
+  for (const { name, a } of likePins) {
+    const file = dir ? path.join(dir, a.file) : '';
+    if (!file || !fs.existsSync(file))
+      throw new Error(
+        'the spec pins the signature ' +
+          a.file +
+          ' of the adapter ' +
+          name +
+          ', and it is not ' +
+          (dir ? 'in ' + dir : 'given'),
+      );
+    if (sha256Of(file) !== a.sha256 && !anyAdapters)
+      throw new Error(
+        'the signature ' +
+          a.file +
+          ' is not the one the spec pins: what the adapter is carried on would be another thing',
+      );
+    adapterLike[name] = JSON.parse(fs.readFileSync(file, 'utf8'));
+  }
   return {
     members: r.members,
     briefs: r.briefs,
@@ -188,5 +219,6 @@ export function fromSpec(spec, { adaptersDir, anyAdapters = false } = {}) {
     tools: (r.serving && r.serving.tools) || 'lead',
     loras,
     roleLoras,
+    adapterLike,
   };
 }
