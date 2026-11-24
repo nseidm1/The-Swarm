@@ -299,6 +299,28 @@ export function tensorfoldProgram() {
     return '';
   }
 }
+// A MEMBER SERVED BY ANOTHER BUILD OF THE ENGINE (its catalog entry names one, `program`: "atomic", Atomic Engine): the
+// program named by SWARM_ATOMIC_SERVER, or the one setup built here (.work/engine/atomic/path holds its place); '' where
+// neither is there. A member that names none is served by the usual program.
+export function programFor(m, usual) {
+  if (!m || !m.program) return usual;
+  if (m.program !== 'atomic') return '';
+  if (process.env.SWARM_ATOMIC_SERVER)
+    return fs.existsSync(process.env.SWARM_ATOMIC_SERVER) ? process.env.SWARM_ATOMIC_SERVER : '';
+  try {
+    const at = fs.readFileSync(new URL('../.work/engine/atomic/path', import.meta.url), 'utf8').trim();
+    return at && fs.existsSync(at) ? at : '';
+  } catch {
+    return '';
+  }
+}
+// (a flag of the catalog that names one of the model's own parts, "{part:0}": the place that part is kept, beside the model)
+export const serveWithParts = (m, file, serve) =>
+  (serve || []).map((a) => {
+    const g = /^\{part:(\d+)\}$/.exec(String(a));
+    const part = g && (m.parts || [])[Number(g[1])];
+    return part ? path.join(path.dirname(file), path.basename(part.file)) : a;
+  });
 // what a member's server is started with: [program, args] for a port, the context of each slot and its own flags
 export function serveArgs(
   m,
@@ -365,6 +387,12 @@ export async function startMember(m, opts = {}) {
       why: m.name + ' is served by TensorFold, which is not on this machine (an Apple silicon Mac with TensorFold)',
     };
   if (!viaTensorfold && !llamaServer) return { ok: false, why: 'no llama-server program was named' };
+  const program0 = viaTensorfold ? '' : programFor(m, llamaServer);
+  if (!viaTensorfold && !program0)
+    return {
+      ok: false,
+      why: m.name + ' is served by another build of the engine, which is not here yet: make its models ready',
+    };
   if (viaTensorfold && (opts.flags || []).length)
     onLine(m.key + ': served by TensorFold, which loads no adapter: started without ' + opts.flags.join(' '));
   const UNKNOWN_FLAG = /invalid argument|unknown argument|unrecognized|error while handling argument/i;
@@ -381,7 +409,7 @@ export async function startMember(m, opts = {}) {
   // (those two are llama.cpp's own; a member another engine serves is given its catalog flags and no others)
   let serve = viaTensorfold
     ? [...(m.serve || [])]
-    : [...(opts.jinja ? ['--jinja'] : []), ...(m.serve || []), '--cache-ram', cacheRam];
+    : [...(opts.jinja ? ['--jinja'] : []), ...serveWithParts(m, file, m.serve), '--cache-ram', cacheRam];
   const tryWith = async () => {
     const port = await freePort();
     const base = 'http://127.0.0.1:' + port;
@@ -392,7 +420,7 @@ export async function startMember(m, opts = {}) {
       contextPerSlot,
       serve,
       flags: opts.flags || [],
-      llamaServer,
+      llamaServer: program0 || llamaServer,
       tensorfold,
     });
     const tail = [];

@@ -31,7 +31,7 @@ import {
   engineBuildFor,
 } from '../src/catalog.mjs';
 import { knows } from './support/engine-knows.mjs';
-import { modelFile, filesOf, engineOf, tensorfoldProgram } from '../src/members.mjs';
+import { modelFile, filesOf, engineOf, tensorfoldProgram, programFor } from '../src/members.mjs';
 import { programOf } from './target.mjs';
 
 const gb = (n) => (n / 2 ** 30).toFixed(n > 2 ** 30 ? 1 : 2) + ' GB';
@@ -179,6 +179,94 @@ async function engineKnowing(check) {
   fs.chmodSync(found, 0o755);
   fs.writeFileSync(path.join(REPO_ROOT, '.work', 'engine', 'also-' + b.tag), found);
   return (say(what, 'ready', { note: 'llama.cpp ' + b.tag }), true);
+}
+
+// A MODEL SERVED BY ANOTHER BUILD OF THE ENGINE (its catalog entry names one: Atomic Engine, models.json engine.programs)
+// brings it: built from source at the commit pinned, under .work/engine/<name> with the CMake fetched for it, so the
+// Uninstall Helper lists it with the engine and takes all of it out. Only where a model of the swarm names it: nothing is
+// built for a swarm that does not use it.
+async function enginePrograms(check) {
+  const names = [
+    ...new Set(
+      Object.values(MEMBERS)
+        .map((m) => m && m.program)
+        .filter(Boolean),
+    ),
+  ];
+  let all = true;
+  for (const name of names) {
+    const P = (ENGINE.programs || {})[name];
+    const what = (P && P.name) || name;
+    const member = Object.values(MEMBERS).find((m) => m && m.program === name);
+    if (programFor(member, '')) {
+      say(what, 'ready', { note: programFor(member, '') });
+      continue;
+    }
+    if (!P || !(P.runsOn || []).includes(process.platform + '-' + process.arch)) {
+      say(what, 'failed', {
+        why: what + ' is not built for this machine (' + process.platform + ' ' + process.arch + ')',
+      });
+      all = false;
+      continue;
+    }
+    if (check) {
+      say(what, 'missing', {});
+      all = false;
+      continue;
+    }
+    const dir = path.join(REPO_ROOT, '.work', 'engine', name);
+    const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', maxBuffer: 1 << 26, ...opts });
+    fs.mkdirSync(dir, { recursive: true });
+    // (CMake: the one on the PATH, or one fetched into a folder of its own here)
+    let cmake = (run(process.platform === 'win32' ? 'where' : 'which', ['cmake']).stdout || '')
+      .split(/\r?\n/)[0]
+      .trim();
+    if (!cmake) {
+      say(what, 'installing', { note: 'fetching CMake' });
+      const venv = path.join(dir, 'venv');
+      if (
+        run('python3', ['-m', 'venv', venv]).status !== 0 ||
+        run(path.join(venv, 'bin', 'pip'), ['-q', 'install', 'cmake']).status !== 0
+      ) {
+        say(what, 'failed', { why: 'CMake could not be fetched. Install CMake and try again.' });
+        all = false;
+        continue;
+      }
+      cmake = path.join(venv, 'bin', 'cmake');
+    }
+    say(what, 'installing', { note: 'fetching its source at ' + P.rev.slice(0, 12) });
+    const src = path.join(dir, 'src');
+    if (!fs.existsSync(path.join(src, '.git'))) {
+      run('git', ['init', '-q', src]);
+      run('git', ['-C', src, 'remote', 'add', 'origin', P.repo]);
+    }
+    const got = run('git', ['-C', src, 'fetch', '-q', '--depth', '1', 'origin', P.rev]);
+    const at =
+      got.status === 0 && run('git', ['-C', src, 'checkout', '-q', 'FETCH_HEAD']).status === 0
+        ? run('git', ['-C', src, 'rev-parse', 'HEAD']).stdout.trim()
+        : '';
+    if (at !== P.rev) {
+      say(what, 'failed', { why: 'its source at ' + P.rev.slice(0, 12) + ' could not be fetched' });
+      all = false;
+      continue;
+    }
+    say(what, 'installing', { note: 'building it (some minutes)' });
+    const build = path.join(dir, 'build');
+    const made =
+      run(cmake, ['-S', src, '-B', build, ...(P.cmake || [])]).status === 0 &&
+      run(cmake, ['--build', build, '--target', 'llama-server', '-j', '8'], { timeout: 3600000 }).status === 0;
+    const bin = path.join(build, 'bin', 'llama-server');
+    if (!made || !fs.existsSync(bin)) {
+      say(what, 'failed', {
+        why: 'it would not build here: it needs the Xcode command line tools (xcode-select --install)',
+      });
+      all = false;
+      continue;
+    }
+    fs.writeFileSync(path.join(dir, 'path'), bin);
+    say(what, 'ready', { note: 'built at ' + P.rev.slice(0, 12) });
+  }
+  return all;
 }
 
 async function engine(check) {
@@ -386,6 +474,7 @@ if (import.meta.url === 'file://' + process.argv[1]) {
   const ok = [];
   ok.push(await engine(check));
   ok.push(await engineKnowing(check));
+  ok.push(await enginePrograms(check));
   // (and TensorFold, where a small model the swarm is made of is served by it; --model: where one of the models named is)
   const wantsTensorfold = has('model')
     ? String(process.argv[process.argv.indexOf('--model') + 1] || '')

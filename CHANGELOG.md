@@ -6,6 +6,14 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Atomic Engine can serve Inkling 2 Mini** (2026-11-24). A catalog entry can name another build of the engine
+  (`program`); the first is Atomic Engine, a developer preview built on llama.cpp, pinned to a commit. Choosing
+  **Inkling 2 Mini 26B IQ2_M, Atomic Engine** builds it from source when its models are made ready (the Xcode command
+  line tools are needed; CMake is fetched for it) and fetches its model and the small draft model that proposes tokens
+  for it, 9.2 GB. Apple silicon only. The Uninstall Helper lists the build as a piece of its own. Measured here (M2
+  Ultra): 34 tokens a second for one request against 25 on the standard build, and six questions through the module
+  in 407 seconds against 501, all six right. It is served without the engine's memory budget, which allows one
+  conversation at a time.
 - **The page shows the present** (2026-11-24). "The plan being carried out" opens with **Training now**: whichever run
   is going, the class in hand and the round, what is being asked this moment, where the class fell short, how far the
   round is, what has gained so far and what is still to be tried; with nothing training it says what the next run of

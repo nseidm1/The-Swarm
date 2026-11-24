@@ -87,6 +87,11 @@ What has not:
   where LFM2.5 1.2B read 84 (103 with its adapters). No whole run has been made on it, and no adapter for it.
 - **Three figures on one code.** The run above was measured across two days of changes. No whole run has been made
   since each stage was held to the one before.
+- **Atomic Engine, beyond a first try.** Built here once and tried on six questions through the module (six right, 407
+  seconds against 501 on the standard build). Its maker reports 106 tokens a second on an M4 Max; this machine gave
+  34 for one request. No evaluation and no training has run on it, its answers have not been compared with the
+  standard build's beyond those six, and it is a developer preview. Training does not yet choose between engines:
+  it is a model a person chooses.
 - **Inkling 2 Mini, beyond a first try.** Six quantizations are in the catalog. One (Q2_K_XL) has answered through
   the module, six questions, five right, about 96 seconds a question on this machine; it needs a llama.cpp build that
   knows its architecture (Unsloth's was used). No evaluation, no training, and none of the other five has been loaded.

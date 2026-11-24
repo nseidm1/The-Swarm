@@ -57,6 +57,10 @@ def _read_json(p):
         return None
 
 
+# the other builds of the engine a model may name, each kept in a folder of its own under .work/engine
+ENGINE_PROGRAMS = ("atomic",)
+
+
 def inventory(root, d):
     """[{id, group, what, paths, bytes, used, note, removable}] of what is installed here, largest first within each group."""
     root = Path(root)
@@ -94,7 +98,14 @@ def inventory(root, d):
                 note=("A link to %s: only the link is removed, the file it points at is kept." % os.readlink(f)) if link
                 else ("%s: the folder of files TensorFold serves it from" % f.name) if f.is_dir() else f.name)
     # the llama.cpp build the swarm fetched, where it fetched one
-    add("engine", "Programs", "The engine (llama.cpp)", [work / "engine"], used=True, note="Train fetches it again where no llama-server is on the PATH. With it, any later build fetched for a model whose architecture the usual one does not know.")
+    add("engine", "Programs", "The engine (llama.cpp)", [p for p in ((work / "engine").iterdir() if (work / "engine").is_dir() else []) if p.name not in ENGINE_PROGRAMS], used=True, note="Train fetches it again where no llama-server is on the PATH. With it, any later build fetched for a model whose architecture the usual one does not know, and any other build of the engine made here for a model that names one (Atomic Engine: its source, its build and the CMake fetched for it).")
+    # another build of the engine made here for a model that names one (training/setup.mjs enginePrograms): Atomic Engine, its
+    # source, its build and the CMake fetched for it, as a piece of its own so that it can be taken out by itself
+    for name in ENGINE_PROGRAMS:
+        P = ((reg.get("engine") or {}).get("programs") or {}).get(name) or {}
+        add("engine:" + name, "Programs", "%s (built here from source)" % P.get("name", name), [work / "engine" / name],
+            used=any((m or {}).get("program") == name for m in members.values()),
+            note="A model that names it builds it again when its models are made ready." + (" A developer preview." if P.get("preview") else ""))
     # the adapter trainer (training/mlx-setup.sh): MLX and the small models' original weights it trains from
     add("mlx:program", "Programs", "MLX: the adapter trainer and its Python", [work / "mlx" / p for p in ("venv", "python", "uv-cache", "hf-home")],
         note="Only Pretrain uses it, and installs it again the next time.")

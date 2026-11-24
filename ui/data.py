@@ -134,11 +134,31 @@ def _with_places(briefs, places):
 
 
 
+def platform_key():
+    """This machine as the catalog names one: darwin-arm64, linux-x64."""
+    import platform
+    return {"darwin": "darwin", "linux": "linux", "win32": "win32"}.get(sys.platform, sys.platform) + "-" + {"x86_64": "x64", "AMD64": "x64", "aarch64": "arm64"}.get(platform.machine(), platform.machine())
+
+
+def program_of(m, registry, root=None):
+    """ANOTHER BUILD OF THE ENGINE A MODEL IS SERVED BY (its entry names one, `program`; models.json engine.programs): what it
+    is called, whether it can be built on this machine, and whether it is built here already. None where the model names none."""
+    name = (m or {}).get("program")
+    if not name:
+        return None
+    P = (((registry or {}).get("engine") or {}).get("programs") or {}).get(name) or {}
+    here = False
+    try:
+        here = Path((Path(root) / ".work" / "engine" / name / "path").read_text().strip()).is_file() if root else False
+    except OSError:
+        here = False
+    return {"name": P.get("name", name), "can": platform_key() in (P.get("runsOn") or []), "here": here, "preview": bool(P.get("preview"))}
+
+
 def engine_fetchable(arch, registry):
     """Whether a llama.cpp build that knows an architecture is pinned for this machine (models.json engine.also), so that
     making the models ready can fetch it: a model that needs it can then be chosen though no build here has it yet."""
-    import platform
-    key = {"darwin": "darwin", "linux": "linux", "win32": "win32"}.get(sys.platform, sys.platform) + "-" + {"x86_64": "x64", "AMD64": "x64", "aarch64": "arm64"}.get(platform.machine(), platform.machine())
+    key = platform_key()
     return any(arch in (x.get("architectures") or []) and key in (x.get("builds") or {}) for x in ((registry or {}).get("engine") or {}).get("also") or [])
 
 

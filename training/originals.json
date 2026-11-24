@@ -165,6 +165,12 @@
       "revision": "aa432fd0e17612f6684e728d4d3c42b6656bcabb",
       "dir": "Ternary-Bonsai-2.5-27B-mlx-2bit",
       "cannot": "only its ternary, Hadamard-rotated weights are published: the trainer here (mlx-lm) does not load them, and its maker documents no way to train an adapter on them"
+    },
+    "Inkling-2-Mini-AD-IQ2_M.gguf": {
+      "repo": "thinkingmachines/Inkling-2-Mini",
+      "revision": "c9d028302cd0f035fdf8e7e91f089a4ce94d2195",
+      "dir": "Inkling-2-Mini",
+      "cannot": "its looped architecture (inkling2_loop) has no adapter trainer that has been tried here: neither MLX nor llama.cpp's has been run on it"
     }
   }
 }

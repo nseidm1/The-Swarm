@@ -55,7 +55,34 @@
           }
         }
       }
-    ]
+    ],
+    "programs": {
+      "atomic": {
+        "name": "Atomic Engine",
+        "site": "https://github.com/AtomicBot-ai/atomic-engine",
+        "repo": "https://github.com/AtomicBot-ai/atomic-engine.git",
+        "rev": "fb69fff02101b048a0a165a3b502712dd2ca978f",
+        "license": "MIT",
+        "preview": true,
+        "runsOn": ["darwin-arm64"],
+        "about": "A developer preview built on llama.cpp. It runs a model within a memory budget and, for Inkling 2 Mini, lets a small draft model propose tokens the model checks. Built from source at a pinned commit: it needs the Xcode command line tools; CMake is fetched for it.",
+        "cmake": [
+          "-DCMAKE_BUILD_TYPE=Release",
+          "-DBUILD_SHARED_LIBS=OFF",
+          "-DLLAMA_BUILD_TESTS=OFF",
+          "-DLLAMA_BUILD_TOOLS=ON",
+          "-DLLAMA_BUILD_EXAMPLES=OFF",
+          "-DLLAMA_BUILD_SERVER=ON",
+          "-DLLAMA_BUILD_APP=OFF",
+          "-DLLAMA_BUILD_UI=OFF",
+          "-DLLAMA_OPENSSL=OFF",
+          "-DGGML_METAL=ON",
+          "-DGGML_METAL_EMBED_LIBRARY=ON",
+          "-DGGML_BLAS=OFF",
+          "-DGGML_CCACHE=OFF"
+        ]
+      }
+    }
   },
   "engines": {
     "tensorfold": {
@@ -643,6 +670,64 @@
         "top_p": 0.9
       },
       "thinks": 600
+    },
+    {
+      "id": "inkling2-mini-atomic",
+      "name": "Inkling 2 Mini 26B IQ2_M, Atomic Engine",
+      "by": "Thinking Machines",
+      "engine": "llama",
+      "program": "atomic",
+      "params": 26,
+      "repo": "AtomicChat/Inkling-2-Mini-GGUF",
+      "rev": "309509848b3151419aa26d069eb03db57fd29a00",
+      "file": "Inkling-2-Mini-AD-IQ2_M.gguf",
+      "bytes": 8665091680,
+      "sha256": "7321d77bd62fb1b4ee620ec12e677a4b4b99668d083c1e6e350fd1c3376e29bf",
+      "license": "Apache-2.0",
+      "architecture": "inkling2_loop",
+      "parts": [
+        {
+          "file": "dspark-Inkling-2-Mini-Q8_0.gguf",
+          "bytes": 503857696,
+          "sha256": "f51f32d3fb4dca9ca2f094e447b80741caac0a3445ec02af02a8cc3c86e45992"
+        }
+      ],
+      "needs": "Atomic Engine, a developer preview: built from source and its files fetched (9.2 GB) when its models are made ready; an Apple silicon Mac with the Xcode command line tools",
+      "about": "Inkling 2 Mini as AtomicChat quantized it, served by Atomic Engine with a small draft model that proposes tokens Inkling checks. It reasons before it answers (`thinks`). Its use is also under its maker's acceptable use policy. It is served without the engine's memory budget, which allows one conversation at a time where a swarm's slots need several.",
+      "thinks": 600,
+      "serve": [
+        "-md",
+        "{part:0}",
+        "--spec-type",
+        "draft-dspark",
+        "-fit",
+        "off",
+        "-b",
+        "1024",
+        "-ub",
+        "1024",
+        "-fa",
+        "on",
+        "-ctk",
+        "q4_0",
+        "-ctv",
+        "q4_0",
+        "-ctkd",
+        "q4_0",
+        "-ctvd",
+        "q4_0",
+        "-ngl",
+        "all",
+        "-ngld",
+        "99",
+        "--ctx-checkpoints",
+        "0",
+        "--no-warmup"
+      ],
+      "sampling": {
+        "temperature": 0.7,
+        "top_p": 0.9
+      }
     }
   ],
   "deciders": [

@@ -5558,7 +5558,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     const CATk = await import('../src/catalog.mjs');
     const REGk = CATk.REGISTRY;
     const ORk = await import('../src/orchestrate.mjs');
-    const ink = REGk.small.filter((m) => /^inkling2-mini-/.test(m.id));
+    const ink = REGk.small.filter((m) => /^inkling2-mini-/.test(m.id) && !m.program);
+    const atomic = REGk.small.find((m) => m.id === 'inkling2-mini-atomic');
+    const MBk = await import('../src/members.mjs');
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'engine-knows-'));
     fs.mkdirSync(path.join(tmp, 'a', 'bin'), { recursive: true });
     fs.mkdirSync(path.join(tmp, 'b', 'bin'), { recursive: true });
@@ -5612,6 +5614,21 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           'The answer is Lena, the shortest of them.',
           'End with one last line that starts with ANSWER: and holds only the answer itself.',
         ) &&
+        // (a model served by another build of the engine names it, and that build is pinned to a commit: Atomic Engine. The
+        // model brings a draft model as a part of itself, named in its flags by its place; where the build is not here the
+        // member is not started, and a member that names none is served by the usual program)
+        atomic.program === 'atomic' &&
+        atomic.parts.length === 1 &&
+        /^[0-9a-f]{64}$/.test(atomic.parts[0].sha256) &&
+        atomic.thinks === 600 &&
+        /^[0-9a-f]{40}$/.test(CATk.ENGINE.programs.atomic.rev) &&
+        CATk.ENGINE.programs.atomic.preview === true &&
+        CATk.ENGINE.programs.atomic.runsOn.join() === 'darwin-arm64' &&
+        MBk.serveWithParts(atomic, '/m/Inkling-2-Mini-AD-IQ2_M.gguf', atomic.serve).slice(0, 2).join(' ') ===
+          '-md /m/dspark-Inkling-2-Mini-Q8_0.gguf' &&
+        MBk.serveWithParts({ parts: [] }, '/m/x.gguf', ['--a', '{part:0}']).join() === '--a,{part:0}' &&
+        MBk.programFor({ id: 'x' }, '/usual') === '/usual' &&
+        MBk.programFor({ program: 'no-such' }, '/usual') === '' &&
         // (Bonsai 2.5 27B beside Bonsai 2 27B, as a small model and as a larger one, pinned)
         ['small', 'targets'].every(
           (sec) =>

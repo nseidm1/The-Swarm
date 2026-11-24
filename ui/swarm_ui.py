@@ -3216,6 +3216,13 @@ def pills(d):
                 # list says so (console 2026-11-24: choosing a model brings what it depends on). Only where none is pinned
                 # is it listed and not to be chosen.
                 arch_first = False
+                # A SMALL MODEL SERVED BY ANOTHER BUILD OF THE ENGINE (Atomic Engine): offered where that build can be made
+                # on this machine, and the list says what choosing it brings (built from source when its models are made ready)
+                prog_note = ""
+                pg = data.program_of(m, reg, d.get("root", ARGS.root)) if key in ("a", "b", "c", "d", "one") else None
+                if pg:
+                    here = pg["can"]
+                    prog_note = "" if pg["here"] or not pg["can"] else " · %s%s is built from source when the models are made ready" % (pg["name"], " (a developer preview)" if pg["preview"] else "")
                 if key in ("a", "b", "c", "d", "one") and m.get("architecture") and not data.engine_knows(m["architecture"], d.get("root", ARGS.root)):
                     here = data.engine_fetchable(m["architecture"], reg)
                     arch_first = here
@@ -3223,7 +3230,7 @@ def pills(d):
                     here = "mac" in d.get("machine", [])
                     tf_first = here
                 opts += '<option value="%s"%s%s>%s%s%s%s</option>' % (
-                    e(m["id"]), " selected" if mine else "", "" if here or mine else " disabled", e(m["name"]), "" if mine else score, "" if mine else weigh(m) + e(runs(m, key)) + (" · installed when training starts" if tf_first else "") + (" · its engine build is fetched when the models are made ready" if arch_first else ""),
+                    e(m["id"]), " selected" if mine else "", "" if here or mine else " disabled", e(m["name"]), "" if mine else score, "" if mine else weigh(m) + e(runs(m, key)) + (" · installed when training starts" if tf_first else "") + (" · its engine build is fetched when the models are made ready" if arch_first else "") + prog_note,
                     "" if here else " · needs %s" % e(m.get("needs", "another machine")))
             opts += "</optgroup>"
         if group == "judge":
