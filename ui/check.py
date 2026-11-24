@@ -2602,7 +2602,9 @@ check("a run that ended on an error says so: its card carries the run's own last
       and "alert(" not in swarm_ui.JS and "function snack(" in swarm_ui.JS and "failWatch" in swarm_ui.JS and "/now/ready" in swarm_ui.JS and "#snack" in swarm_ui.CSS and "#readybar" in swarm_ui.CSS
       and _rw1 == "Making ready: 1 of 2 pieces ready · fetching Small model 1 (Bonsai 2.5 27B) · 2.0 of 7.0 GB" and _rw2.startswith("Making ready: 0 of 1 pieces ready · installing The engine (llama.cpp) (its maker") and _rw3 == ""
       and _nr_idle == "" and 'u.path == "/now/ready"' in _fsrc and "stopped=True" in _fsrc and '"converse": "training/converse.sh"' in _fsrc
-      and '_making_ready(st) if running else failed_line("converse"' in _fsrc and '_making_ready(st) if running else failed_line("whole"' in _fsrc,
+      and '_making_ready(st) if running else failed_line("converse"' in _fsrc and '_making_ready(st) if running else failed_line("whole"' in _fsrc
+      and '["bash", "bin/serve.sh", str(SERVE_PORT)]' in _fsrc and "setup.mjs --small" in (_HERE / "bin" / "serve.sh").read_text() and 'exec "$NODE" bin/swarm.mjs serve' in (_HERE / "bin" / "serve.sh").read_text() and 'job_failure("serve")' in _fsrc
+      and "## Use it as a model endpoint" in (_HERE / "README.md").read_text() and (_HERE / "README.md").read_text().index("## Use it as a model endpoint") < (_HERE / "README.md").read_text().index("## Embed it in a program") and "http://127.0.0.1:%d/v1" % swarm_ui.SERVE_PORT in (_HERE / "README.md").read_text(),
       [_fj_bad, _fj_unknown, _fj_stopped, _fj_setup, _fj_last, _fj_none, _rw1, _rw2, _nr_idle])
 
 _ww = swarm_ui.written_words([{"kind": "day", "wrong": 4, "of": 6, "ok": True, "tries": [{"ok": False, "why": "x"}, {"ok": True, "right": 3, "n": 3}]},

@@ -6294,11 +6294,14 @@ def serve_chip():
     sv = serve_state()
     if sv["state"] == "off":
         held = busy_with()
-        return ('<button class="specbtn serve" id="serve-toggle" type="button" data-on="0"%s>Serve the module</button>'
+        # (a serving that ended on an error: the page's snackbar reads out why, once; failed_line)
+        why = job_failure("serve")
+        failed = ('<span hidden data-failed="%s" data-why="%s"></span>' % (e("serve %s" % (_job_state("serve") or {}).get("at", "")), e("The module is not served: " + why))) if why else ""
+        return ('<button class="specbtn serve" id="serve-toggle" type="button" data-on="0"%s>Serve the module</button>%s'
                 % ((' disabled title="Wait for %s to end, or stop it: each needs the models to itself"' % e(held)) if held
-                   else ' title="Start the module as one chat model at an address on this machine, for a program or a harness to connect to"'))
+                   else ' title="Start the module as one chat model at an address on this machine, for a program or a harness to connect to"', failed))
     if sv["state"] == "starting":
-        return '<button class="specbtn serve starting" id="serve-toggle" type="button" data-on="1" title="Its small models are loading. Press to stop">Starting the module<span>stop</span></button>'
+        return '<button class="specbtn serve starting" id="serve-toggle" type="button" data-on="1" title="What the lineup needs is made ready, then its small models load. Press to stop">Starting the module<span>stop</span></button>'
     return ('<span class="serveurl" id="serve-url" title="Connect a program or a harness here: an OpenAI-style chat endpoint, one model, the-swarm. Press to copy">%s</span>'
             '<button class="specbtn serve on" id="serve-toggle" type="button" data-on="1" title="The module is being served on this machine only. Press to stop it"><i></i>Serving<span>stop</span></button>'
             % e(sv["url"]))
@@ -6308,7 +6311,8 @@ def serve_start():
     """Start the module's own server; '' when it started, else why not."""
     if (_job_state("serve") or {}).get("running"):
         return ""
-    return start_job("serve", [node_for_training(), "bin/swarm.mjs", "serve", "--port", str(SERVE_PORT)], {"port": SERVE_PORT})
+    # (bin/serve.sh: what the lineup needs is made ready first, then bin/swarm.mjs serve takes its place)
+    return start_job("serve", ["bash", "bin/serve.sh", str(SERVE_PORT)], {"port": SERVE_PORT})
 
 
 def chips(d):

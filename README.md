@@ -11,7 +11,8 @@
 <p align="center">
   <a href="#quick-start">Quick start</a> ·
   <a href="#how-it-works">How it works</a> ·
-  <a href="#use-it-in-a-program">API</a> ·
+  <a href="#use-it-as-a-model-endpoint">Endpoint</a> ·
+  <a href="#embed-it-in-a-program">API</a> ·
   <a href="#training">Training</a> ·
   <a href="docs/architecture.md">Architecture</a> ·
   <a href="CONTRIBUTING.md">Contributing</a>
@@ -51,7 +52,7 @@ as one model, with the proof of what it does. The Swarm is not tied to one proje
 | Need | For |
 | --- | --- |
 | [Node.js](https://nodejs.org) 20 or later | Everything. There are no package dependencies; `npm install` is only for the formatter |
-| An engine: `llama-server` (llama.cpp 1.0.0 or later), and for some models Atomic Engine or TensorFold | Serving the models. What a lineup needs is fetched or built where the machine has none ([engines](#use-it-in-a-program)) |
+| An engine: `llama-server` (llama.cpp 1.0.0 or later), and for some models Atomic Engine or TensorFold | Serving the models. What a lineup needs is fetched or built where the machine has none ([engines](#embed-it-in-a-program)) |
 | Python 3.9 or later | The dashboard (standard library only) |
 | Python 3.10 or later, or `uv` | Evaluating: the harnesses are installed into `.work` the first time |
 | An Apple silicon Mac | Making adapters (MLX). Everything else runs without it |
@@ -68,7 +69,7 @@ cd The-Swarm
 npm test
 ```
 
-**With the dashboard.** Choose the models at the top and press **Start** under **Run Intelligence Training**: what is missing is fetched,
+**With the dashboard.** Choose the models at the top. Press **Serve the module** to use the swarm from any program as one model at an address ([below](#use-it-as-a-model-endpoint)), or press **Start** under **Run Intelligence Training**: what is missing is fetched,
 then the module is evaluated as configured, trained, and evaluated again.
 
 ```bash
@@ -89,6 +90,38 @@ node bin/swarm.mjs ask "Write a JavaScript function isEven(n) that returns true 
 ```bash
 node bin/swarm.mjs serve --port 8090
 ```
+
+## Use it as a model endpoint
+
+The module is served at one address and answers as one model does, so anything that talks to a model endpoint can use
+it with no change: a chat app, an agent harness, an SDK, `curl`. Everything inside it (the models, their engines, the
+slots, the adapters, the code) is behind that address.
+
+1. Open the dashboard (`python3 ui/swarm_ui.py`) and press **Serve the module**, at the top beside the SwOA spec. What the lineup needs is fetched or built where it is missing (a bar at the foot of the page says how far), the models load, and the button reads **Serving** with the address beside it. Press the address to copy it, the button to stop. From a terminal, `node bin/swarm.mjs serve --port 8090` serves it too, once `node training/setup.mjs` has made the lineup ready.
+2. Point the program at it:
+
+   | Setting | Value |
+   | --- | --- |
+   | Base URL | `http://127.0.0.1:8090/v1` |
+   | Model | `the-swarm` |
+   | API key | none is checked; put any text where one is required |
+
+```bash
+curl http://127.0.0.1:8090/v1/chat/completions -H 'content-type: application/json' \
+  -d '{"model":"the-swarm","messages":[{"role":"user","content":"What is 17% of 240?"}]}'
+```
+
+It answers the chat completions protocol that llama.cpp's server and others answer, on `127.0.0.1` only, whatever
+engines serve the models behind it. In an app that lists providers, add it as a custom or OpenAI-compatible connection
+with the base URL above (tried with Unsloth's desktop app). While it is served the models are in use, so the
+dashboard's run cards wait until it is stopped.
+
+| Endpoint | Answers |
+| --- | --- |
+| `GET /health` | `200` while the small models answer, `503` otherwise |
+| `GET /v1/models` | One model, `the-swarm` |
+| `POST /v1/chat/completions` | Messages in, one reply out; streamed with `"stream": true`; tools as `tool_calls` |
+| `GET /swarm/last` | What every slot did on the last message |
 
 ## How it works
 
@@ -120,7 +153,9 @@ tools, a conversation, asking for code, or a plain question. A slot may carry an
 holds several at once, and each request is served with the one its slot carries, so drafters can differ and the stages
 after them settle between them. Finding the arrangement that does what the larger model does is what training is for. [How it works, in full](docs/how-it-works.md) · [Architecture](docs/architecture.md)
 
-## Use it in a program
+## Embed it in a program
+
+Most uses need only [the endpoint](#use-it-as-a-model-endpoint). To hold the module inside a Node program instead:
 
 ```js
 import { createSwarm } from 'the-swarm';
@@ -144,17 +179,8 @@ So the same three lines serve any lineup: `llamaServer` is the usual program, an
 nothing more said. With no program of your own, `node bin/swarm.mjs serve` finds the engines the lineup needs by itself
 (`--llama <file>`, `SWARM_LLAMA_SERVER`, or one on the `PATH`), after `node training/setup.mjs` has made them ready.
 
-As a server (`swarm.serve()`, `node bin/swarm.mjs serve`, or the dashboard's **Serve the module** button, which shows
-the address once it answers) it answers the chat completions protocol that llama.cpp's server and others answer, on
-`127.0.0.1` only, whatever engines serve the models behind it. A program that talks to one model at an address needs no
-change:
-
-| Endpoint | Answers |
-| --- | --- |
-| `GET /health` | `200` while the small models answer, `503` otherwise |
-| `GET /v1/models` | One model, `the-swarm` |
-| `POST /v1/chat/completions` | Messages in, one reply out; streamed with `"stream": true`; tools as `tool_calls` |
-| `GET /swarm/last` | What every slot did on the last message |
+The module as a server is the same module: `swarm.serve()` gives the address described under
+[Use it as a model endpoint](#use-it-as-a-model-endpoint).
 
 **From Python.** [`python/the_swarm.py`](python/the_swarm.py) is a thin client, standard library only: it starts that
 server, waits until it answers, asks it, and stops it with the models it loaded. Node is still what runs the module.

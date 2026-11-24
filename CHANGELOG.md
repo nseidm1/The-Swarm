@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The README leads with the module as a model endpoint** (2026-11-24): press **Serve the module**, then point any
+  program at `http://127.0.0.1:8090/v1`, model `the-swarm`. Holding the module inside a program comes after it. The
+  button now first makes ready what the lineup needs (`bin/serve.sh`), and a serving that ends on an error is read
+  out in the snackbar.
 - **Training writes code** (2026-11-24). Training chose which of four instruments a person wrote were on; it now
   also writes the code. Each round of the class stage, for the kinds of question a class was most wrong on, the
   swarm's own model is asked for a function that works the answer out from the question. The function is run where
