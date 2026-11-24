@@ -6,6 +6,24 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Pretraining is no longer a stage of the run** (2026-11-23). The run was five steps and three figures: evaluate,
+  pretrain, evaluate, train, evaluate. Adapters made in a stage of their own were kept without being tried, and the
+  arrangement was trained without them. The run is now four steps and two figures: evaluate the module as configured;
+  make an adapter for each drafting slot (`training/mixture.mjs`, on no slot); train, where the class stage tries each
+  adapter as a move; evaluate it trained. A spec pins the adapters its slots carry by name (`named`). `plan.draftsStand`
+  (off) counts the answer most slots hold over the drafts alone where most drafters agree: a checker's answer counted as
+  a drafter's does, and three checkers with one drafter outvoted three drafters who were right.
+- **A mixture of adapters, proved one question at a time** (2026-11-23). A slot of the arrangement can name the adapter
+  its requests are served with (`adapter`; SwOA S1.4.1), so drafters can each carry their own and the steps after them
+  settle between them. Which slot carries which is a move training tries and keeps like any other
+  (`training/arrange.mjs`, `adapterMoves`); an adapter is on nowhere until it is kept there. Adapters are made for each
+  drafting slot by `training/mixture.mjs`: many questions of every kind, the slot's own request, its own answer where
+  that was right and the larger model's where it was not. `training/prove.mjs` asks one question at a time, with and
+  without a change, on several seeds, and compares the two paired. What it found: an adapter taught one kind gained 36
+  points on that kind (beyond error) and lost 17 on the others; taught from the larger model's answers alone, a slot
+  stopped working a question out and got it wrong; four slot adapters taught every kind made more drafts right (one
+  drafter 60 to 81 of 160) and left the module's replies where they were (84 of 160 with and without), because what
+  the module does after the drafts loses them. Nothing here is kept by training yet.
 - **A role is taught where it failed, by the larger model** (2026-11-23). An adapter learned only from what its role
   already got right. Pretraining now also asks the larger model the very request of each drafting or checking slot
   whose answer was not right, and keeps its answer as an example for that role where it is right by the question's

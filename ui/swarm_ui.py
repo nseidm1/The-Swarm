@@ -1353,15 +1353,14 @@ def viz_block(d):
     # THE WHOLE OF IT, round the lanes of the arrangement's training (2026-11-22). The picture drew the search for an arrangement
     # and nothing else, while most of what was measured came from what it left out: the code a request meets, the instruments,
     # pretraining by role, and the evaluation that judges all of it. So: R the run in order, M a request inside the module, K the
-    # three things training keeps and how far each can reach; then the lanes there were (R4 in detail); then J, the judge.
+    # three things training keeps and how far each can reach; then the lanes there were (R3 in detail); then J, the judge.
     steps_, _ = whole_steps(ARGS.root, d.get("key") or "")
     going = bool((job_state("whole") or {}).get("running"))
     said_ = {"done": "Done", "running": "Running now" if going else "Stopped here", "failed": "Failed", "not taken": "Not taken", "waiting": ""}
     r_words = ["A third party&#39;s harness asks the module as it starts: no adapter, no instrument on.",
-               "An adapter for each role (draft, check, write), from the slots&#39; own right answers: K2.",
-               "The same questions again.",
-               "Each class of input as a class: lanes S to E below. Instruments are turned on here: K1, K3.",
-               "The same questions a third time: three figures side by side, J2."]
+               "One for each drafting slot: its own right answers, and the larger model&#39;s where it was wrong. On no slot yet: K2.",
+               "Each class of input as a class: lanes S to E below. A slot is given its adapter, an instrument turned on, the arrangement changed, each kept only where held questions gain: K1 to K3.",
+               "The same questions again: two figures side by side, J2."]
     rbox = lambda i, x: ('<div class="vbox%s"><b><span class="vcode">R%d</span>%s</b><small>%s%s</small></div>'  # noqa: E731
                          % (" on" if going and x["state"] == "running" else "", i + 1, e(x["name"]),
                             ("<b>%s.</b> " % said_[x["state"]]) if said_.get(x["state"]) else "", r_words[i] if i < len(r_words) else ""))
@@ -1380,10 +1379,10 @@ def viz_block(d):
                  "To the program that uses it this is one chat model. M1 to M4 are its wiring, and the wiring is what training finds.")
              + lane("K", "What training keeps, and how far each can reach", [
                  box("K1", "", "Arrangement", "What each slot is told and how the slots are arranged, class by class. It reaches the best answer any slot drafted, and cannot make one no slot had."),
-                 box("K2", "", "Adapters, by role", "What a slot drafts, checks or writes. They reach what the small model can learn."),
+                 box("K2", "", "Adapters, by slot", "A mixture: each drafting slot may carry its own, and the steps after them settle between them. They reach what the small model can learn."),
                  box("K3", "", "Instruments", "Operations done exactly. They can pass %s, but only where a question is that operation. %s" % (tname, inst_words))],
                  "Each is kept only where held questions gained, by the one rule at S5. As a module starts, nothing is kept and no instrument is on.")
-             + '<p class="vintro vsub"><b>R4 in detail:</b> training the arrangement.</p>')
+             + '<p class="vintro vsub"><b>R3 in detail:</b> training the arrangement.</p>')
     tail_ = lane("J", "The judge, apart from training", [
         box("J1", "", "The harness", "A third party's benchmarks, unchanged, ask through the chat interface as they ask any model. Training never asks one of their questions."),
         box("J2", "", "Three figures", "As configured, pretrained, pretrained and trained, on the same questions: R1, R3, R5."),
@@ -2507,7 +2506,7 @@ def _ours(pid, marker):
 
 
 # what each kind of run this page starts is started as (start_run, start_job): looked for in the command line of its process
-RUN_MARKS = {"train": "training/session.sh", "eval": "training/evaluate.sh", "pretrain": ("training/adapters.mjs", "training/roles.mjs"), "whole": "training/run.sh"}
+RUN_MARKS = {"train": "training/session.sh", "eval": "training/evaluate.sh", "pretrain": ("training/adapters.mjs", "training/roles.mjs", "training/mixture.mjs"), "whole": "training/run.sh"}
 
 
 def run_state():
@@ -3884,8 +3883,14 @@ def spec_panel(d):
         """One row a pinned file: the one adapter of a place, or the adapter of each role it was pretrained for."""
         mk = made.get(k, {})
         frm = "from %s @ %s" % (e(str((mk.get("from") or {}).get("weights", ""))), e(str((mk.get("from") or {}).get("revision", ""))[:12]))
+        # (a mixture: the adapters its slots carry by name, S1.4.1)
+        named_rows = "".join(row("Adapter (place %s, %s)" % (k, e(nm)), "<code>%s</code> <span class='muted'>%.1f MB</span><br><code>sha256 %s</code><br><span class='muted'>carried by the slot %s; taught on %s examples of that slot's own requests (%s its own right answers, %s the larger model's); %s</span>"
+                                 % (e(x["file"]), (x.get("bytes") or 0) / 2**20, e(x["sha256"]), e(str(((mk.get("named") or {}).get(nm) or {}).get("slot", "?"))), e(str(((mk.get("named") or {}).get(nm) or {}).get("examples", "?"))),
+                                    e(str(((mk.get("named") or {}).get(nm) or {}).get("own", "?"))), e(str(((mk.get("named") or {}).get(nm) or {}).get("larger", "?"))), frm)) for nm, x in (a.get("named") or {}).items())
+        if a.get("named") and not a.get("roles") and not a.get("file"):
+            return named_rows
         if a.get("roles"):
-            return "".join(row("Adapter (place %s, %s)" % (k, role), "<code>%s</code> <span class='muted'>%.1f MB</span><br><code>sha256 %s</code><br><span class='muted'>taught on %s of its own right answers as a slot of this role; %s</span>"
+            return named_rows + "".join(row("Adapter (place %s, %s)" % (k, role), "<code>%s</code> <span class='muted'>%.1f MB</span><br><code>sha256 %s</code><br><span class='muted'>taught on %s of its own right answers as a slot of this role; %s</span>"
                                % (e(x["file"]), (x.get("bytes") or 0) / 2**20, e(x["sha256"]), e(str(((mk.get("roles") or {}).get(role) or {}).get("examples", "?"))), frm)) for role, x in a["roles"].items())
         return row("Adapter (place %s)" % k, "<code>%s</code> <span class='muted'>%.1f MB</span><br><code>sha256 %s</code><br><span class='muted'>%s; %s, %s steps</span>"
                    % (e(a["file"]), a["bytes"] / 2**20, e(a["sha256"]), e(mk.get("learned", "")), frm, e(str(mk.get("iters", "")))))
@@ -5761,13 +5766,14 @@ def pretrain_api():
     return live
 
 
-WHOLE_STEPS = (("1-evaluate-as-configured", "Evaluate the module as configured"), ("2-pretrain", "Pretrain"), ("3-evaluate-pretrained", "Evaluate it pretrained"),
-               ("4-train-classes", "Train the arrangement"), ("5-evaluate-trained", "Evaluate it pretrained and trained"))
+# (pretraining is no stage of the run: an adapter is made for each drafting slot and is a thing training tries, 2026-11-23)
+WHOLE_STEPS = (("1-evaluate-as-configured", "Evaluate the module as configured"), ("2-make-adapters", "Make an adapter for each drafting slot"),
+               ("3-train-classes", "Train: the arrangement, the adapters and the instruments"), ("4-evaluate-trained", "Evaluate it trained"))
 
 
 def whole_steps(root, key):
     """WHERE THE WHOLE RUN IS, step by step, from what it wrote down (training/run.sh: .work/run/<configuration>/pass-1/status.txt):
-    each of its five steps as done, running, not taken (it refused: nothing to pretrain, no adapter to measure), failed, or
+    each of its four steps as done, running, not taken (it refused: no adapter could be made), failed, or
     waiting; and whether the run is done. -> ([{id, name, state, minutes}], done)"""
     try:
         lines = (Path(root) / ".work" / "run" / key / "pass-1" / "status.txt").read_text().splitlines()
@@ -5790,10 +5796,11 @@ def whole_steps(root, key):
 
 
 def whole_block(d):
-    """THE WHOLE RUN, ONE BUTTON: the module as configured is evaluated, pretrained and evaluated, its arrangement trained and
-    evaluated, each on the same questions, so the Evaluate card can set the three side by side (training/run.sh). The size of
+    """THE WHOLE RUN, ONE BUTTON: the module as configured is evaluated; an adapter is made for each drafting slot and the
+    module is trained (the arrangement, which slot carries its adapter, the instruments); and it is evaluated again, on the
+    same questions, so the Evaluate card can set the two side by side (training/run.sh). The size of
     each evaluation and whether the arrangement is trained are chosen here; Start begins or carries on, Stop stops whatever
-    step it is in. Under it, the five steps and where each stands."""
+    step it is in. Under it, the four steps and where each stands."""
     st = job_state("whole") or {}
     running = bool(st.get("running"))
     held = busy_with()
@@ -5806,8 +5813,8 @@ def whole_block(d):
         ctl = '<button class="btn stop top" id="whole-stop" type="button">Stop</button>'
     else:
         blocked = held and held != "the run"
-        ctl = ('<select id="whole-size" aria-label="How many questions of each task, in each of the three evaluations"%s>%s</select>'
-               '<label class="wholet" title="The class stage of training, two hours at most. Unticked, the run ends after the pretrained evaluation."><input type="checkbox" id="whole-train"%s%s>Train the arrangement too</label>'
+        ctl = ('<select id="whole-size" aria-label="How many questions of each task, in each evaluation of the run"%s>%s</select>'
+               '<label class="wholet" title="Adapters are made and the class stage of training is run, two hours at most. Unticked, only the module as configured is evaluated."><input type="checkbox" id="whole-train"%s%s>Train the arrangement too</label>'
                '<button class="btn top" id="whole-go" type="button"%s>%s</button>'
                % (" disabled" if blocked else "", opts, "" if st.get("train") == "off" else " checked", " disabled" if blocked else "", " disabled" if blocked else "",
                   "Carry on" if any(x["state"] in ("done", "stopped") for x in steps) and not done else "Start"))
@@ -5817,7 +5824,7 @@ def whole_block(d):
     # (the head every card has: the figure and what it is, what the card does, its controls. A run that waits for something
     # else says so in a line of its own under the head, as Pretrain and Train do)
     waits = ('<div class="state warn"><i></i><span>%s is running: the run waits for it.</span></div>' % e(held[0].upper() + held[1:])) if held and held != "the run" and not running else ""
-    return ('<div class="panel prep wholep" id="wholebox"%s><div class="proghead"><span class="memnum"><b class="pct">%d</b><span>of 5 steps<small>%s</small></span></span>'
+    return ('<div class="panel prep wholep" id="wholebox"%s><div class="proghead"><span class="memnum"><b class="pct">%d</b><span>of 4 steps<small>%s</small></span></span>'
             '<span class="progline">One run, three figures: the module as configured is evaluated, then pretrained and evaluated, then its arrangement trained and evaluated, '
             'each on the same questions. Stop is safe at any step; Start carries on from the step it stopped in.</span><span class="evctl">%s</span></div>%s<ol class="wsl">%s</ol></div>'
             % (' data-running="1"' if running else "", sum(1 for x in steps if x["state"] == "done"),

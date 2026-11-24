@@ -8,11 +8,14 @@
   },
   "classes": {
     "sample": 0,
-    "tries": 6,
+    "tries": 10,
     "rounds": 2,
     "draws": 2,
     "sweep": 60,
     "moves": [
+      "^adapters: every slot that has one carries its adapter$",
+      "^adapters: .* carries its adapter$",
+      "^adapters: .* carries no adapter$",
       "the reply closes as the earlier replies do",
       "the reply closes as it was written",
       "a turn with tools goes on unless most would reply",

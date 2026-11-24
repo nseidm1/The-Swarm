@@ -42,8 +42,40 @@ export const shapeOf = (b) =>
     }),
   );
 
+// A MIXTURE OF ADAPTERS, AS MOVES. An adapter is made for a slot: that slot's own requests, on many questions of every kind
+// of its class, with the answers that were right (its own first, the larger model's where it was wrong: training/mixture.mjs).
+// Whether a slot CARRIES its adapter is part of the arrangement (slot.adapter, the name it is loaded under; src/index.mjs
+// loraFor), and so it is tried and kept as any change to the arrangement is: on the class's train questions, and kept only
+// where held questions gain beyond their error. Measured question by question, 2026-11-23: an adapter taught one kind and put
+// on every drafter gained 36 points on that kind and lost 17 on the others, so there is no adapter that is simply on.
+//   adapters: [{ name, slot }], the ones there are for this arrangement's slots
+// -> each slot that has one and does not carry it, carrying it; every such slot carrying its own, at once; and a slot that
+//    carries one, carrying none
+export function adapterMoves(b, adapters = []) {
+  const forSlot = (id) => (adapters || []).find((a) => a && a.slot === id && a.name);
+  const can = b.slots.filter((s) => forSlot(s.id) && s.adapter !== forSlot(s.id).name);
+  const withAdapter = (ids) => ({
+    ...b,
+    slots: b.slots.map((s) => (ids.includes(s.id) ? { ...s, adapter: forSlot(s.id).name } : s)),
+  });
+  return [
+    ...(can.length > 1
+      ? [{ name: 'adapters: every slot that has one carries its adapter', briefs: withAdapter(can.map((s) => s.id)) }]
+      : []),
+    ...can.map((s) => ({ name: 'adapters: ' + s.id + ' carries its adapter', briefs: withAdapter([s.id]) })),
+    ...b.slots
+      .filter((s) => s.adapter && s.adapter !== 'none')
+      .map((s) => ({
+        name: 'adapters: ' + s.id + ' carries no adapter',
+        briefs: { ...b, slots: b.slots.map((x) => (x.id === s.id ? (({ adapter, ...rest }) => rest)(x) : x)) },
+      })),
+  ];
+}
 // every arrangement one step from this one: [{ name, briefs }]
-export function steps(b, { cap = SERVING.slots, members = [...new Set(b.slots.map((s) => s.member))].sort() } = {}) {
+export function steps(
+  b,
+  { cap = SERVING.slots, members = [...new Set(b.slots.map((s) => s.member))].sort(), adapters = [] } = {},
+) {
   // AN INSTRUMENT TURNED ON (src/instruments.mjs): a question of the class that IS an operation is done by code. First of
   // all, since it costs nothing to try (no model is asked where it applies) and is exact where it does
   const instrOn = instrumentsOn((b.plan || {}).instruments);
@@ -66,6 +98,8 @@ export function steps(b, { cap = SERVING.slots, members = [...new Set(b.slots.ma
     ...((b.plan || {}).plain === true
       ? []
       : [{ name: 'plan: one model answers, asked as it came', briefs: { ...b, plan: { ...b.plan, plain: true } } }]),
+    // A SLOT CARRIES ITS ADAPTER (adapterMoves): the mixture, one slot at a time and all of them at once
+    ...adapterMoves(b, adapters),
     // the flow next: with nothing measured to point anywhere, a pass tries the order of steps before it tries who sits where
     ...flowMoves(b),
   ];

@@ -681,7 +681,18 @@ async function answerWhole(
   const relabel = () => S.pool.forEach((d, i) => (d.letter = LETTERS[i % LETTERS.length]));
   // nothing is in dispute: at least two answers, and they are all the same one
   const settled = () => answersOf(S.pool).length >= 2 && distinct().length === 1;
-  const votes = () => tallyOf(answersOf([...S.pool, ...S.backers.filter((c) => c.final && (!S.tried || c.does))]));
+  // WHERE MOST OF THE DRAFTERS HOLD ONE ANSWER, IT STANDS (plan.draftsStand): the checkers then have no vote, and vote only
+  // where the drafters have no majority. A checker's answer counted as a drafter's does, so three checkers and one drafter
+  // outvoted three drafters who were right (measured 2026-11-23, with an adapter on each drafter: more questions had a right
+  // draft, 100 to 106 of 160, and more of those were lost, 16 to 23).
+  const votes = () => {
+    if (plan.draftsStand === true) {
+      const drafts = answersOf(S.pool);
+      const t = tallyOf(drafts);
+      if (t.length && t[0].by.length * 2 > drafts.length) return t;
+    }
+    return tallyOf(answersOf([...S.pool, ...S.backers.filter((c) => c.final && (!S.tried || c.does))]));
+  };
   // one worked answer for each different answer (plan.onePerAnswer; after arXiv 2610.21290), and always where the answers were
   // run: two drafts that do the same are not two answers
   const tableOf = () => (plan.onePerAnswer || S.tried ? distinct() : answersOf(S.pool));

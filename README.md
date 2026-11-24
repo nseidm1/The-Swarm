@@ -169,8 +169,9 @@ only where held questions, never trained on, say it helped:
 bash training/run.sh
 ```
 
-That is the whole of it in one run, with the three figures it is judged by: the module is evaluated as configured,
-pretrained and evaluated, trained and evaluated again, on the same questions (the dashboard's **Run**). The evaluation
+That is the whole of it in one run, with the two figures it is judged by: the module is evaluated as configured, an
+adapter is made for each drafting slot, the module is trained (the arrangement, which slot carries its adapter, the
+instruments), and it is evaluated again on the same questions (the dashboard's **Run**). The evaluation
 is a third party's: EleutherAI's [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) and the
 [Berkeley Function-Calling Leaderboard](https://gorilla.cs.berkeley.edu/leaderboard.html) ask the module through the
 chat-model interface as they ask any model. Training makes its own questions from a seed and never asks a benchmark's.
@@ -233,7 +234,7 @@ npm test
 python3 ui/check.py
 ```
 
-243 checks of the module and the trainers and 164 of the dashboard, against stand-in servers: nothing is fetched,
+246 checks of the module and the trainers and 165 of the dashboard, against stand-in servers: nothing is fetched,
 started or installed. `npm test` deals its 115 blocks of checks out to every core (26 seconds on a 24-core Mac, 91 one
 after another); `npm run test:serial` runs them in one process, `npm run test:all` adds the dashboard's, and
 `npm run test:python` checks the Python client. How well the

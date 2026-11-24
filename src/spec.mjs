@@ -87,12 +87,35 @@ export function readSpec(from) {
   for (const [k, a] of Object.entries(r.adapters || {})) {
     const roles = a && a.roles && typeof a.roles === 'object' ? Object.entries(a.roles) : null;
     const pinned = (x) => !!(x && x.file && x.sha256);
-    const ok = roles ? roles.length > 0 && roles.every(([role, x]) => ROLES.includes(role) && pinned(x)) : pinned(a);
+    // (and the adapters a slot can carry by name, S1.4.1: `named`, beside the roles' or alone)
+    const named = a && a.named && typeof a.named === 'object' ? Object.entries(a.named) : null;
+    const okNamed = !named || (named.length > 0 && named.every(([name, x]) => name && name !== 'none' && pinned(x)));
+    const ok =
+      okNamed &&
+      (roles
+        ? roles.length > 0 && roles.every(([role, x]) => ROLES.includes(role) && pinned(x))
+        : named
+          ? true
+          : pinned(a));
     if (!r.members[k] || !ok)
       throw new Error(
         'the adapter in place ' +
           k +
           ' is not pinned to a small model of the recipe (a file and its SHA-256, for the place or for each role)',
+      );
+  }
+  // (S1.4.1: a slot that names an adapter names one pinned for its place)
+  for (const s of slotsOfBriefs(r.briefs)) {
+    if (!s.adapter || s.adapter === 'none') continue;
+    const has = ((r.adapters || {})[s.member] || {}).named || {};
+    if (!has[s.adapter])
+      throw new Error(
+        'the slot ' +
+          s.id +
+          ' carries the adapter ' +
+          JSON.stringify(s.adapter) +
+          ', which the recipe does not pin for place ' +
+          s.member,
       );
   }
   const got = recipeSha256(r);
@@ -110,6 +133,11 @@ export function readSpec(from) {
   return spec;
 }
 
+// every slot of an arrangement: the one it starts from and each class's own
+const slotsOfBriefs = (b) => [
+  ...((b && b.slots) || []),
+  ...Object.values((b && b.kinds) || {}).flatMap((c) => (c && c.slots) || []),
+];
 const sha256Of = (file) => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 // the roles an adapter can be for (src/index.mjs ROLE_OF_STAGE: a drafter, also when it revises; a checker; the writer)
 export const ROLES = ['draft', 'check', 'write'];
@@ -122,7 +150,8 @@ export function fromSpec(spec, { adaptersDir, anyAdapters = false } = {}) {
   const pins = [];
   for (const [k, a] of Object.entries(r.adapters || {})) {
     if (a.roles) for (const [role, x] of Object.entries(a.roles)) pins.push({ k, role, a: x });
-    else pins.push({ k, role: '', a });
+    if (a.named) for (const [name, x] of Object.entries(a.named)) pins.push({ k, role: name, a: x });
+    if (!a.roles && !a.named) pins.push({ k, role: '', a });
   }
   for (const { k, role, a } of pins) {
     const file = dir ? path.join(dir, a.file) : '';

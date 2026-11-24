@@ -628,7 +628,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   // (the members served with adapters, each role's where a member has one for each role: training/roles.mjs)
   const served = process.env.SWARM_EVAL_SWARM_BASE
     ? { names: [], files: [], roles: [] }
-    : servedWith(CONFIG, MEMBERS, path.join(ROOT, '.work'), TARGET.id, B.modelsDir());
+    : servedWith(CONFIG, MEMBERS, path.join(ROOT, '.work'), TARGET.id, B.modelsDir(), readBriefs());
   const adapters = served.names;
   // (WHICH adapters, by their bytes: answers given with one adapter are not another's. They were kept under "-adapters" alone,
   // so a swarm pretrained again would have been handed the answers it gave before)

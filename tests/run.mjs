@@ -5345,6 +5345,37 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
         return a ? { ok: true, letter: pick, final: a.final, probs: {} } : { ok: false, why: 'none' };
       },
     });
+  // WHERE MOST DRAFTERS AGREE THEIR ANSWER STANDS (plan.draftsStand): three checkers and one drafter do not outvote three drafters
+  const standBriefs = (plan) => ({
+    marker: 'ANSWER:',
+    flow: [{ do: 'draft' }, { do: 'check' }, { do: 'decide' }],
+    plan: { decideBy: 'most', writeAs: 'settled', agreeSkipsChecks: false, ...plan },
+    slots: [
+      ...base.slots,
+      { id: 'c1', member: 'a', stage: 'check', brief: 'C.' },
+      { id: 'c2', member: 'b', stage: 'check', brief: 'C.' },
+      { id: 'c3', member: 'b', stage: 'check', brief: 'C.' },
+    ],
+  });
+  const standTexts = { a1: 'False', a2: 'True', b1: 'True', b2: 'True', c1: 'False', c2: 'False', c3: 'False' };
+  const standRun = (plan, texts = standTexts) =>
+    orchestrate(Q, {
+      briefs: standBriefs(plan),
+      ask: async (sl) => ({ text: 'ANSWER: ' + texts[sl.id] }),
+      decide: async () => ({ ok: false, why: 'none' }),
+    });
+  const outvoted = await standRun({});
+  const stood = await standRun({ draftsStand: true });
+  const split = await standRun({ draftsStand: true }, { ...standTexts, a2: 'False' });
+  check(
+    'where most of the drafters hold one answer it stands (plan.draftsStand): the answer most slots hold is then counted over the drafts alone, so three checkers and one drafter do not outvote three drafters; where the drafters have no majority the checkers are counted as before; and left off, every slot has one vote as it had',
+    outvoted.decided === 'False' && stood.decided === 'True' && split.decided === 'False',
+    {
+      outvoted: [outvoted.decided, outvoted.path],
+      stood: [stood.decided, stood.path],
+      split: [split.decided, split.path],
+    },
+  );
   const tie = await run(said);
   const tieAsked = asked.splice(0);
   const clear = await run({ ...said, b2: 'it can warp' });
@@ -11259,6 +11290,48 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       /roleLoras: S\.roleLoras/.test(fs.readFileSync(new URL('../src/index.mjs', import.meta.url), 'utf8')),
     { missing, other, got: got.roleLoras },
   );
+  // A MIXTURE IN A SPEC (S1.4.1): adapters pinned by name, and a slot that carries one names one pinned for its place
+  const M = Buffer.from('the adapter of one drafting slot');
+  const first = briefs.slots.find((x) => x.stage === 'draft');
+  const carrying = {
+    ...briefs,
+    slots: briefs.slots.map((x) => (x.id === first.id ? { ...x, adapter: first.id + '@1' } : x)),
+  };
+  const mixRecipe = {
+    ...recipe,
+    briefs: carrying,
+    adapters: {
+      [first.member]: { named: { [first.id + '@1']: { file: 'mix/' + first.id + '@1/m-lora.gguf', sha256: sha(M) } } },
+    },
+  };
+  const mixSpec = {
+    spec: { format: 'the-swarm/spec', version: 3, recipeSha256: recipeSha256(mixRecipe) },
+    recipe: mixRecipe,
+  };
+  const mixFile = path.join(dir, 'mix.json');
+  fs.writeFileSync(mixFile, JSON.stringify(mixSpec));
+  fs.mkdirSync(path.join(dir, 'mix.adapters', 'mix', first.id + '@1'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'mix.adapters', 'mix', first.id + '@1', 'm-lora.gguf'), M);
+  const mixed = fromSpec(mixFile);
+  const unpinned = why(() =>
+    readSpec({ spec: { format: 'the-swarm/spec', version: 3 }, recipe: { ...mixRecipe, adapters: {} } }),
+  );
+  const badName = why(() =>
+    readSpec({
+      spec: { format: 'the-swarm/spec', version: 3 },
+      recipe: { ...mixRecipe, adapters: { [first.member]: { named: { [first.id + '@1']: { file: 'x' } } } } },
+    }),
+  );
+  check(
+    'a spec carries a mixture of adapters: adapters are pinned by name for a place (named, each a file and its SHA-256), a slot of the arrangement names the one it carries, and a module made from the spec is loaded with it under that name, so the slot is served with it; a recipe whose slot names an adapter that is not pinned for its place is refused, and so is a named adapter with no SHA-256; which slot carries which is part of the arrangement, so it is part of the hash a result is tied to',
+    mixed.roleLoras[first.member][first.id + '@1'] ===
+      path.join(dir, 'mix.adapters', 'mix', first.id + '@1', 'm-lora.gguf') &&
+      mixed.briefs.slots.find((x) => x.id === first.id).adapter === first.id + '@1' &&
+      /carries the adapter .* which the recipe does not pin for place/.test(unpinned) &&
+      /is not pinned/.test(badName) &&
+      recipeSha256(mixRecipe) !== recipeSha256({ ...mixRecipe, briefs }),
+    { mixed: mixed.roleLoras, unpinned, badName },
+  );
 }
 // ---- AN ADAPTER FOR EACH ROLE (training/roles.mjs; src/index.mjs roleLoras): what a role's examples are, and which adapter a
 // request names
@@ -11350,6 +11423,114 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       R.forTemplate(toolEx[0].messages[0]) === toolEx[0].messages[0],
     { toolEx: JSON.stringify(toolEx).slice(0, 300) },
   );
+  // ---- A MIXTURE OF ADAPTERS: an adapter for a slot, loaded by name, carried by the slot the arrangement says; tried as a move
+  {
+    const MX = await import('../training/mixture.mjs');
+    const PV = await import('../training/prove.mjs');
+    const AR = await import('../training/arrange.mjs');
+    const ids = { 'a-direct@1': 0, 'b-direct@1': 1, draft: 2 };
+    const scales = (stage, adapter) =>
+      I.loraFor(ids, stage, adapter)
+        .map((x) => x.scale)
+        .join('');
+    const b0 = JSON.parse(fs.readFileSync(new URL('../src/briefs.json', import.meta.url), 'utf8'));
+    const have = [
+      { name: 'a-direct@1', slot: 'a-direct' },
+      { name: 'b-direct@1', slot: 'b-direct' },
+    ];
+    const moves = AR.adapterMoves(b0, have);
+    const all = moves[0].briefs;
+    const off = AR.adapterMoves(all, have);
+    const t0 = { id: 'q', kind: 'day' };
+    const u = (c) => [{ role: 'user', content: c }];
+    const made = await MX.rowsOf(
+      t0,
+      [
+        { slot: 'a-direct', messages: u('one'), text: 'ANSWER: right' },
+        { slot: 'a-direct', messages: u('one'), text: 'ANSWER: right' },
+        { slot: 'b-direct', messages: u('two'), text: 'ANSWER: wrong' },
+        { slot: 'a-steps', messages: [...u('x'), { role: 'tool', content: '1' }], text: 'ANSWER: right' },
+        { slot: 'b-other', messages: u('three'), text: '' },
+      ],
+      async (text) => /right/.test(text),
+    );
+    const rec = {
+      adapters: {
+        'a-direct@1': { slot: 'a-direct', gguf: '/x/a1', at: '2026-01-01' },
+        'a-direct@2': { slot: 'a-direct', gguf: '/x/a2', at: '2026-02-01' },
+        'b-direct@1': { slot: 'b-direct', gguf: '/gone', at: '2026-01-01' },
+      },
+    };
+    const there = (f) => f !== '/gone';
+    const asked = [
+      { id: 'q1', seed: 1, right: false, label: 'without' },
+      { id: 'q1', seed: 2, right: true, label: 'without' },
+      { id: 'q1', seed: 1, right: true, label: 'mix' },
+      { id: 'q1', seed: 2, right: true, label: 'mix' },
+      { id: 'q2', seed: 1, right: true, label: 'mix' },
+      { id: 'q1', seed: 1, right: false, label: 'mix' },
+    ];
+    const cmp = PV.comparedOf(asked, 'without', 'mix');
+    const row = PV.rowOf(
+      t0,
+      3,
+      true,
+      {
+        reply: 'Monday',
+        trace: [
+          { slot: 'a-direct', stage: 'draft', final: 'Monday' },
+          { slot: 'a-steps', stage: 'draft', final: '' },
+          { slot: 'a-writer', stage: 'write', final: 'Monday' },
+        ],
+      },
+      { reply: true, 0: true },
+    );
+    check(
+      "a mixture of adapters: adapters are loaded by name and each request names one at full strength, the one its SLOT carries where the arrangement names one (slot.adapter; 'none' for none) and its role's otherwise; which slot carries which is a move of the arrangement like any other (every slot that has an adapter carrying its own, each one alone, and a slot that carries one carrying none), so an adapter is on nowhere until training keeps it there; an adapter is made from each drafting slot's own requests, its own answer where that was right and the larger model asked where it was not, the same request once and none with a tool's result in it; the newest adapter of a slot is the one tried, and one whose file is gone is not; and a change is proved one question at a time, an asking beside another paired by question and seed",
+      scales('draft', 'a-direct@1') === '100' &&
+        scales('draft', undefined) === '001' &&
+        scales('draft', 'none') === '000' &&
+        scales('check', 'b-direct@1') === '010' &&
+        scales('write', undefined) === '000' &&
+        moves.map((m) => m.name).join('|') ===
+          'adapters: every slot that has one carries its adapter|adapters: a-direct carries its adapter|adapters: b-direct carries its adapter' &&
+        all.slots.find((x) => x.id === 'a-direct').adapter === 'a-direct@1' &&
+        all.slots.find((x) => x.id === 'a-steps').adapter === undefined &&
+        off.map((m) => m.name).join('|') ===
+          'adapters: a-direct carries no adapter|adapters: b-direct carries no adapter' &&
+        off[0].briefs.slots.find((x) => x.id === 'a-direct').adapter === undefined &&
+        AR.adapterMoves(b0, []).length === 0 &&
+        AR.steps(b0, { adapters: have }).filter((m) => /^adapters: /.test(m.name)).length === 3 &&
+        A.adaptersNamedIn({
+          slots: all.slots,
+          kinds: {
+            words: {
+              slots: [
+                { id: 'z', adapter: 'z@3' },
+                { id: 'y', adapter: 'none' },
+              ],
+            },
+          },
+        }).join() === 'a-direct@1,b-direct@1,z@3' &&
+        made.map((r) => r.slot + ':' + (r.own ? 'own' : 'ask')).join() === 'a-direct:own,b-direct:ask,b-other:ask' &&
+        MX.newestBySlot(rec, there)
+          .map((x) => x.name)
+          .join() === 'a-direct@2' &&
+        MX.mixFilesOf(rec, there)['a-direct@2'] === '/x/a2' &&
+        cmp.keys.join() === 'q1|1,q1|2' &&
+        cmp.a.map((x) => x.counted).join() === 'false,true' &&
+        cmp.b.map((x) => x.counted).join() === 'false,true' &&
+        row.right === true &&
+        JSON.stringify(row.slots) === '{"a-direct":true,"a-steps":null}' &&
+        PV.tallyOf([row, { ...row, right: false, slots: { 'a-direct': false } }]).slots['a-direct'].join() === '1,2' &&
+        PV.placedOf({ slots: [{ id: 'a' }], kinds: { words: { slots: [{ id: 'a' }, { id: 'b' }] } } }, { a: 'a@1' })
+          .kinds.words.slots[0].adapter === 'a@1' &&
+        JSON.parse(
+          fs.readFileSync(new URL('../training/policy.json', import.meta.url), 'utf8'),
+        ).classes.moves[0].startsWith('^adapters: '),
+      { moves: moves.map((m) => m.name), made, cmp, row },
+    );
+  }
   // ---- A ROLE IS TAUGHT WHERE IT FAILED: the requests of the slots whose answer was not right, for the larger model to answer
   {
     const u = (content) => [{ role: 'user', content }];
@@ -11458,7 +11639,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     const runSh = fs.readFileSync(new URL('../training/run.sh', import.meta.url), 'utf8');
     const stepsOf = (await import('../training/arrange.mjs')).steps;
     check(
-      "a stage does no worse than the one before: an adapter is served only where the module is better with it on held questions, by the rule any change is kept by (asked without adapters, then with each role's alone; the roles that gained are added best first, each kept only where the module is better again with it); a role that lowered the module is not served and not tried with the others; where none gains none is served and the pretrained module is the module as it was; a role judged and not served is not loaded, and every trained one is while they are judged; the arrangement is then trained on the module as pretrained (the whole run turns the adapters on for the class stage), so a change is kept against the module the third figure is of",
+      "a stage does no worse than the one before: an adapter is served only where the module is better with it on held questions, by the rule any change is kept by (asked without adapters, then with each role's alone; the roles that gained are added best first, each kept only where the module is better again with it); a role that lowered the module is not served and not tried with the others; where none gains none is served and the pretrained module is the module as it was; a role judged and not served is not loaded, and every trained one is while they are judged; and in the whole run an adapter is no longer served because it was made: one is made for each drafting slot and the class stage tries it as a move",
       v.served.join() === 'write,draft' &&
         asked.join() === ',check,draft,write,write+draft' &&
         v.single.find((x) => x.role === 'check').worth === false &&
@@ -11470,7 +11651,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
         flat.added.map((x) => x.kept).join() === 'true,false' &&
         Object.keys(live2.a).sort().join() === 'draft,write' &&
         Object.keys(judging.a).sort().join() === 'check,draft,write' &&
-        /SWARM_ADAPTERS=on PASSES=1 SESSION_STEPS=classes step 4-train-classes/.test(runSh),
+        /step 2-make-adapters pretrain "" \$MAKE/.test(runSh) &&
+        /PASSES=1 SESSION_STEPS=classes step 3-train-classes/.test(runSh),
       { served: v.served, asked, none: none.served, flat: flat.added, live2, judging },
     );
     // (and the candidates training had never tried are tried every round: they leave the arranged drafts as they were)
@@ -11529,7 +11711,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     path.join(dir, 'ev.sh'),
     'echo "eval $*" >> "$LOG"; case "$*" in *pretrained*) exit ${PRE_EXIT:-0};; *trained*) exit ${TRAINED_EXIT:-0};; esac; exit 0\n',
   );
-  fs.writeFileSync(path.join(dir, 'pre.sh'), 'echo pretrain >> "$LOG"\n');
+  fs.writeFileSync(path.join(dir, 'pre.sh'), 'echo make >> "$LOG"\n');
   fs.writeFileSync(path.join(dir, 'se.sh'), 'echo "session $PASSES $SESSION_STEPS" >> "$LOG"\n');
   const root = fileURLToPath(new URL('..', import.meta.url));
   const go = (args, env = {}) => {
@@ -11543,7 +11725,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           LOG: log,
           RUN_WORK: path.join(dir, 'work'),
           RUN_EVALUATE: 'sh ' + path.join(dir, 'ev.sh'),
-          RUN_PRETRAIN: 'sh ' + path.join(dir, 'pre.sh'),
+          RUN_MAKE: 'sh ' + path.join(dir, 'pre.sh'),
           RUN_SESSION: 'sh ' + path.join(dir, 'se.sh'),
           ...env,
         },
@@ -11552,8 +11734,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       return String(e.stdout || '') + String(e.stderr || '');
     }
   };
-  // the first start: no adapter can be measured (the pretrained evaluation refuses), and the last evaluation fails
-  const said = go(['--limit', '50', '--train-minutes', '1'], { PRE_EXIT: '3', TRAINED_EXIT: '1' });
+  // the first start: the last evaluation fails
+  const said = go(['--limit', '50', '--train-minutes', '1'], { TRAINED_EXIT: '1' });
   const first = fs.readFileSync(log, 'utf8').trim().split('\n');
   const keyDir = fs.readdirSync(path.join(dir, 'work', 'run'))[0];
   const statusFile = path.join(dir, 'work', 'run', keyDir, 'pass-1', 'status.txt');
@@ -11577,8 +11759,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   check(
     'the time given to the class stage ends the stage: the session is told to stop and so is the step it waits on (a shell acts on a signal only when what it waits on ends, and the stage ran 17 minutes past its 20), and the trained module is still evaluated after it',
     took < 15 &&
-      /END   4-train-classes exit 143/.test(slowStatus) &&
-      /END   5-evaluate-trained exit 0/.test(slowStatus) &&
+      /END   3-train-classes exit 143/.test(slowStatus) &&
+      /END   4-evaluate-trained exit 0/.test(slowStatus) &&
       /DONE\n$/.test(slowStatus),
     { took, slowStatus, late: late.slice(-300) },
   );
@@ -11588,17 +11770,15 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     .split('\n')
     .slice(first.length + second.length);
   check(
-    'the whole run is one start: the module as configured is evaluated, it is pretrained and evaluated, its arrangement is trained (the class stage and no more, one pass) and it is evaluated again, in that order and at the size asked; a step that refuses (no adapter to measure) is said and the run goes on; each step is written down where its card looks; a run stopped part way carries on, the steps that ended well passed over and the ones that did not taken again; and with training off the third figure is not taken, and a run at another size begins again',
-    first.join('|') ===
-      'eval --variant base --limit 50|pretrain|eval --variant pretrained --limit 50|session 1 classes|eval --variant trained --limit 50' &&
-      /No adapter is served: the pretrained figure is the first figure, and is not taken again/.test(said) &&
+    'the whole run is one start: the module as configured is evaluated; an adapter is made for each drafting slot and the module is trained (the class stage and no more, one pass, which tries the adapters among its moves); and it is evaluated again, in that order and at the size asked. Pretraining is no stage of it and has no figure of its own; each step is written down where its card looks; a run stopped part way carries on, the steps that ended well passed over and the ones that did not taken again; and with training off only the first figure is taken, and a run at another size begins again',
+    first.join('|') === 'eval --variant base --limit 50|make|session 1 classes|eval --variant trained --limit 50' &&
       /The trained module was not evaluated/.test(said) &&
-      second.join('|') === 'eval --variant pretrained --limit 50|eval --variant trained --limit 50' &&
+      second.join('|') === 'eval --variant trained --limit 50' &&
       evalJob.limit === 50 &&
       evalJob.whole === true &&
       evalJob.pid > 0 &&
-      third.join('|') === 'eval --variant base --limit 20|pretrain|eval --variant pretrained --limit 20' &&
-      /third figure is not taken/.test(off) &&
+      third.join('|') === 'eval --variant base --limit 20' &&
+      /second figure is not taken/.test(off) &&
       /SESSION_STEPS" = classes/.test(fs.readFileSync(new URL('../training/session.sh', import.meta.url), 'utf8')),
     { first, second, third },
   );

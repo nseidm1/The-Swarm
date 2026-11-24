@@ -59,8 +59,10 @@ does. It has three things to find, and each is kept only where it was measured t
   asked, how differing answers are settled and how the reply is written.
 - **Adapters, for each role.** A member is taught the requests of a role (drafting, checking, writing the reply) as
   the arrangement makes them, from the answers it gave that were right and, where it was not right, from the larger
-  model's answer to the same request; and a request is served with its role's adapter. An adapter is part of a module only where the module answers held questions better with it than without
-  it; one that does not is not served and not pinned.
+  model's answer to the same request; and a request is served with its role's adapter. A slot may instead carry an adapter of its own, by
+  name: a mixture, in which drafters differ and the steps after them settle between them. An adapter is part of a
+  module only where the module answers held questions better with it than without it; one that does not is not served
+  and not pinned.
 - **Instruments, for each class of input.** Where requests of a class are operations that code does exactly (a sum,
   words to put in order), the operation is done by code and no model is asked.
 
@@ -109,7 +111,7 @@ ignore members it does not know.
 | `engine` | object: the inference engine, with `name` and the build it was measured on |
 | `serving` | object: `slots` (concurrent requests each member serves), `contextPerSlot` (tokens), and `tools` (`"swarm"`: a request with tools is decided by the module; otherwise the place or id of the one member that takes it alone) |
 | `briefs` | object: the arrangement (section 4.3) |
-| `adapters` | object, optional, keyed by place: the adapter each member is served with. Either one adapter for the place, with `file` and `sha256`; or `roles`, an object keyed by role (`draft`, `check`, `write`), each with `file` and `sha256`: a request is then served with the adapter of its slot's role (a slot of stage `draft` or `revise`: `draft`; `check`: `check`; `write`: `write`), and a request of any other stage with none |
+| `adapters` | object, optional, keyed by place: the adapter each member is served with. Either one adapter for the place, with `file` and `sha256`; or `roles`, an object keyed by role (`draft`, `check`, `write`), each with `file` and `sha256`: a request is then served with the adapter of its slot's role (a slot of stage `draft` or `revise`: `draft`; `check`: `check`; `write`: `write`), and a request of any other stage with none. It MAY also carry `named`, an object keyed by a name of the recipe's own choosing, each with `file` and `sha256`: the adapters a slot can carry by name (the slot field `adapter`, S1.4.1) |
 
 A runtime MUST make the module from `recipe` exactly: these members, this decision model, this arrangement, these adapters.
 
@@ -382,6 +384,14 @@ S1.4 `recipe.adapters` (OPTIONAL) maps a place to `{file, sha256}` (and MAY carr
 the member in that place is served with. Every key MUST name a place present in `recipe.members`, and every entry MUST
 carry `file` and `sha256`; otherwise the recipe MUST be refused. A recipe that pins an adapter for a place whose member's
 `engine` is not `llama` MUST be refused (S2.8.4).
+
+S1.4.1 A MIXTURE OF ADAPTERS. An entry of `recipe.adapters` MAY carry `named`: an object whose keys are names and whose
+values each carry `file` and `sha256`. A slot of the arrangement MAY carry `adapter`: one of those names, pinned for the
+place the slot is asked of, or `"none"`. A request of a slot that carries a name MUST be served with that adapter and no
+other; one that carries `"none"`, with none; and one that carries neither, as S1.4 says for its role. A recipe whose slot
+names an adapter that is not pinned for its place MUST be refused. Which slot carries which adapter is part of the
+arrangement, and so of `arrangementSha256`: drafters may each carry a different one, and the steps after them settle
+between their answers.
 
 S1.5 `recipe.serving` (OPTIONAL) holds:
 
@@ -1307,6 +1317,10 @@ pool, or nothing.
 
 Let TABLE be distinct and TALLY be votes, both fixed at the start of the step.
 
+**Where most drafters agree** (`plan.draftsStand` is the boolean `true`): if one answer is held by more than half of
+the pool's answers that count (the drafts), votes is the tally of those alone, and no checking slot's answer is counted
+in it. Otherwise votes is the tally of the drafts and the checks together, as everywhere else.
+
 **How it is settled** (BY): if the step has `keep` or `sure`, BY is `decider`. Otherwise BY is
 `plan.decideBy`, or `decider` if absent/empty. Meaningful values: `decider`, `most`, `decider-if-confident`,
 `decider-unless-majority`. Any other value behaves as `decider`.
@@ -1710,6 +1724,7 @@ or amended. Notifications MUST NOT affect the procedure.
 | `examples` | number of worked examples, 0–4 (O.7) |
 | `sees` | `finals`: a checker is shown answers without their working; anything else: with |
 | `compute` | `true` on a `draft` slot: it answers by a program it writes, which is run (O.6.1a); it is left out of a draft step where it does not compute, and out of every revise step |
+| `adapter` | OPTIONAL: the name of the adapter this slot's requests are served with (S1.4.1), or `"none"` |
 | `maxTokens` | passed to the member call; the judge slot inherits it unless `plan.decideWith.maxTokens`; the ask-again calls override it (420/40 for drafts, 16 for checks) |
 | `temperature` and other sampling fields | passed to the member call; ask-again calls force `temperature` 0 |
 | `purpose` | not read by orchestration (descriptive only) |
@@ -1740,6 +1755,7 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `partChars` | integer | 6000 | the most characters of the text a part holds (O.13; falsy means 6000) |
 | `byBehaviour` | boolean | true | `false` turns off probe, try and everything that depends on tried |
 | `agreeSkipsChecks` | boolean | true | `false` stops dispute steps being passed over when settled |
+| `draftsStand` | boolean | false | `true`: where more than half of the drafting slots hold one answer, the answer most slots hold is counted over the drafts alone, and the checking slots' answers are counted only where the drafts have no such majority (O.6.6) |
 | `draftFirst` | integer | none | drafting slots called first; the rest are called only if those do not settle the matter (O.6.1 step 1a; ignored unless at least 2 and fewer than the drafting slots) |
 | `onePerAnswer` | boolean | false | sheet shows one row per distinct answer even when not tried |
 | `decideBy` | text | `decider` | O.6.6 BY |

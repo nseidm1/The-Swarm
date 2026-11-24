@@ -1810,17 +1810,17 @@ check("only the Run card starts and stops: the Evaluate, Pretrain and Train card
 import tempfile as _tf9
 _wr = Path(_tf9.mkdtemp())
 (_wr / ".work" / "run" / "k" / "pass-1").mkdir(parents=True)
-(_wr / ".work" / "run" / "k" / "pass-1" / "status.txt").write_text("10:00:00 START 1-evaluate-as-configured\n10:20:00 END   1-evaluate-as-configured exit 0 20 min\n10:20:00 START 2-pretrain\n10:21:00 END   2-pretrain exit 0 1 min\n"
-                                                                  "10:21:00 START 3-evaluate-pretrained\n10:21:00 END   3-evaluate-pretrained exit 3 0 min\n10:21:00 START 4-train-classes\n")
+(_wr / ".work" / "run" / "k" / "pass-1" / "status.txt").write_text("10:00:00 START 1-evaluate-as-configured\n10:20:00 END   1-evaluate-as-configured exit 0 20 min\n10:20:00 START 2-make-adapters\n10:21:00 END   2-make-adapters exit 3 1 min\n"
+                                                                  "10:21:00 START 3-train-classes\n")
 _ws, _wdone = swarm_ui.whole_steps(_wr, "k")
 _ws0, _ = swarm_ui.whole_steps(_wr, "none")
 _root9 = swarm_ui.ARGS.root
 swarm_ui.ARGS.root = str(_wr)
 _wb = swarm_ui.whole_block({"key": "k"})
 swarm_ui.ARGS.root = _root9
-check("the whole run has one button: Run is the first card, with the size of its three evaluations, whether the arrangement is trained too, and Start (Carry on where a run was stopped part way); under it its five steps in order, each done, running, not taken where it refused, failed or waiting, with how long it took; a step a stopped run left as running reads as stopped; and the page says the run has the models while it is between two steps",
-      [x["state"] for x in _ws] == ["done", "done", "not taken", "running", "waiting"] and _ws[0]["minutes"] == 20 and _wdone is False and all(x["state"] == "waiting" for x in _ws0)
-      and 'id="whole-go"' in _wb and "Carry on" in _wb and 'id="whole-size"' in _wb and 'id="whole-train"' in _wb and _wb.count('<li class="ws ') == 5 and "stopped here" in _wb and "not taken" in _wb
+check("the whole run has one button: Run is the first card, with the size of its evaluations, whether it is trained too, and Start (Carry on where a run was stopped part way); under it its four steps in order (the module as configured evaluated, an adapter made for each drafting slot, training, the trained module evaluated: pretraining is no stage of it), each done, running, not taken where it refused, failed or waiting, with how long it took; a step a stopped run left as running reads as stopped; and the page says the run has the models while it is between two steps",
+      [x["state"] for x in _ws] == ["done", "not taken", "running", "waiting"] and [x["id"] for x in _ws] == ["1-evaluate-as-configured", "2-make-adapters", "3-train-classes", "4-evaluate-trained"] and _ws[0]["minutes"] == 20 and _wdone is False and all(x["state"] == "waiting" for x in _ws0)
+      and 'id="whole-go"' in _wb and "Carry on" in _wb and 'id="whole-size"' in _wb and 'id="whole-train"' in _wb and _wb.count('<li class="ws ') == 4 and "pretrain" not in " ".join(x["name"].lower() for x in _ws) and "stopped here" in _wb and "not taken" in _wb
       and html.index("<h2>Run</h2>") < html.index("<h2>Memory saved</h2>") and '"whole": "training/run.sh"' in open(swarm_ui.__file__).read() and 'return "the run"' in open(swarm_ui.__file__).read(), [_ws, _wb[:300]])
 _card7k = swarm_ui.memory_card({"footprint": _m7_kept})
 _card7 = swarm_ui.memory_card({"footprint": _m7})
@@ -2251,10 +2251,10 @@ _ps = ("  501 /bin/bash -c source x.sh && bash training/run.sh --limit 20 --trai
 # THE SYSTEM PICTURE DRAWS THE WHOLE: the run, a request inside the module, what training keeps, and the judge, round the lanes
 # of the arrangement's training
 _vzw = swarm_ui.viz_block(data.load(swarm_ui.ARGS.root))
-check("the System picture draws the run in order (R1 to R5), a request inside the module (M1 to M4), what training keeps with how far each reaches (K1 to K3, instruments saying which are on), the arrangement's lanes after them, and the judge last (J1 to J4)",
-      all(">%s</span>" % c in _vzw for c in ("R1", "R5", "M1", "M2", "M4", "K1", "K2", "K3", "A1", "S5", "E1", "J1", "J4"))
+check("the System picture draws the run in order (R1 to R4: pretraining is no stage of it), a request inside the module (M1 to M4), what training keeps with how far each reaches (K1 to K3, instruments saying which are on), the arrangement's lanes after them, and the judge last (J1 to J4)",
+      all(">%s</span>" % c in _vzw for c in ("R1", "R4", "M1", "M2", "M4", "K1", "K2", "K3", "A1", "S5", "E1", "J1", "J4")) and ">R5</span>" not in _vzw and "Adapters, by slot" in _vzw
       and _vzw.index(">R1</span>") < _vzw.index(">M1</span>") < _vzw.index(">K1</span>") < _vzw.index(">A1</span>") < _vzw.index(">J1</span>")
-      and "None is on yet." in _vzw and "__VIZ_" not in _vzw and "R4 in detail" in _vzw,
+      and "None is on yet." in _vzw and "__VIZ_" not in _vzw and "R3 in detail" in _vzw,
       [c for c in ("R1", "M1", "K3", "J4") if ">%s</span>" % c not in _vzw])
 # THE SECOND BASELINE ON THE PAGE: beside a small model by itself, the same model with its reply laid out, as one more column
 _lo = [{"alone": {"a": {"name": "A", "value": 0.0}}, "aloneForm": {"a": {"name": "A", "value": 0.5, "unread": 1}}, "agree": {"of": 10}},
@@ -2276,7 +2276,7 @@ check("the Run card has the head every card has (the figure and what it is, what
       "and where it waits for something else it says so in a line of its own; a whole run started from a shell is found by its process (the shell whose script is training/run.sh, not a shell that only launched it), "
       "with the size and the training it was started with, so the card shows Stop for it; each evaluation dialog has ONE header, which names the view, then the three evaluations side by side, then the last evaluation "
       "in detail under a heading that says which it is, and with no comparison to show it is the view as it was; and a percentage is said one way (55, not 55.0 beside 60)",
-      'class="panel prep wholep"' in _wb and '<span class="memnum"><b class="pct">' in _wb and "of 5 steps<small>" in _wb and 'id="whole-go"' in _wb
+      'class="panel prep wholep"' in _wb and '<span class="memnum"><b class="pct">' in _wb and "of 4 steps<small>" in _wb and 'id="whole-go"' in _wb
       and ".prep>.proghead" in swarm_ui.CSS
       and _found == {"pid": 4242, "limit": 50, "train": "off", "adopted": True, "running": True}
       and swarm_ui._run_in(" 501 /bin/bash -c bash training/run.sh --limit 20\n") is None and swarm_ui._run_in("") is None
@@ -2397,6 +2397,29 @@ check("a stage does no worse than the one before: the Pretrain card says of each
       "<b>served</b>: 47 of 72 held questions right with it, 40 without" in _pre_served and "<b>not served</b>: 36 of 72 held questions right with it, 40 without" in _pre_served
       and _pre_served.count("served</b>") == 2 and _sk2 is not None and set(_spins2[_sk2]["roles"]) == {"draft"},
       [_pre_served[:400], _spins2])
+
+# A MIXTURE IN THE SPEC: the adapters the arrangement's slots carry by name are pinned, whatever the configuration says of adapters
+(_sdir / "mix" / "a-direct@1").mkdir(parents=True, exist_ok=True)
+(_sdir / "mix" / "a-direct@1" / "m-lora.gguf").write_bytes(b"one slot")
+_smix_was = (_sdir / "mix.json").read_text() if (_sdir / "mix.json").exists() else None
+(_sdir / "mix.json").write_text(json.dumps({"adapters": {"a-direct@1": {"slot": "a-direct", "gguf": str(_sdir / "mix" / "a-direct@1" / "m-lora.gguf"), "examples": 504, "own": 242, "larger": 262, "kinds": 25}}}))
+try:
+    _sd3 = data.load(str(_sr))
+    _first3 = next(x for x in _sd3["briefs"]["slots"] if x.get("stage") == "draft")
+    _sd3["briefs"] = dict(_sd3["briefs"], slots=[dict(x, adapter="a-direct@1") if x is _first3 else x for x in _sd3["briefs"]["slots"]])
+    _spins3, _smade3 = data.spec_adapters(_sd3)
+    _spins3_none, _ = data.spec_adapters(data.load(str(_sr)))
+finally:
+    if _smix_was is None:
+        (_sdir / "mix.json").unlink()
+    else:
+        (_sdir / "mix.json").write_text(_smix_was)
+_k3 = _first3.get("member")
+check("a spec pins a mixture: an adapter a slot of the arrangement carries by name is pinned for that slot's place under its name (its file under mix/<name>/, with its SHA-256), whether or not the configuration serves adapters, "
+      "with how it was made (the slot, its examples, how many were its own right answers and how many the larger model's); an arrangement whose slots carry none pins none",
+      (_spins3.get(_k3) or {}).get("named", {}).get("a-direct@1", {}).get("file") == "mix/a-direct@1/m-lora.gguf" and len(_spins3[_k3]["named"]["a-direct@1"]["sha256"]) == 64
+      and _smade3[_k3]["named"]["a-direct@1"]["own"] == 242 and "mixture.mjs" in _smade3[_k3]["makeNamed"] and not any("named" in (v or {}) for v in _spins3_none.values()),
+      [_spins3, _spins3_none])
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

@@ -111,12 +111,16 @@ export const roleFilesOf = (map) =>
   Object.entries(map || {})
     .filter(([, f]) => f)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-// the `lora` field of one request: every loaded adapter named, the one of this stage's role at 1 and the rest at 0
-export const loraFor = (ids, stage) => {
-  const role = ROLE_OF_STAGE[stage];
+// the `lora` field of one request: every loaded adapter named, one at 1 and the rest at 0. The one is the adapter the SLOT
+// carries where its brief names one (slot.adapter: the name it was loaded under; 'none' for none), else its stage's role's.
+// A MIXTURE OF ADAPTERS: adapters are loaded by name, and which slot carries which is part of the arrangement, so that
+// drafters can each be a specialist and the stages after them settle between them. One adapter on every drafter moved them
+// all together: taught one kind of question it gained 36 points there and lost 17 on other kinds (2026-11-23).
+export const loraFor = (ids, stage, adapter) => {
+  const name = adapter !== undefined && adapter !== null ? adapter : ROLE_OF_STAGE[stage];
   return Object.entries(ids)
     .sort(([, a], [, b]) => a - b)
-    .map(([r, id]) => ({ id, scale: r === role ? 1 : 0 }));
+    .map(([r, id]) => ({ id, scale: r === name ? 1 : 0 }));
 };
 export async function createSwarm(opts = {}) {
   // FROM A SPEC (spec.mjs): its members, its arrangement and its serving, exactly; nothing from this machine's configuration
@@ -265,7 +269,7 @@ export async function createSwarm(opts = {}) {
     const params = { maxTokens, timeoutMs: opts.timeoutMs, ...extra };
     // (the adapter of this slot's role, where its model is served with one for each role: every adapter named, one at full strength)
     const ids = roleIds[slot.member];
-    if (ids) params.lora = loraFor(ids, slot.stage);
+    if (ids) params.lora = loraFor(ids, slot.stage, slot.adapter);
     for (const [k, v] of Object.entries({ temperature, top_p, top_k })) if (v !== undefined) params[k] = v;
     // opts.seed: the same slot asked the same thing draws the same answer. A program that serves people leaves it off; the
     // trainers set it, because a measurement that changes by itself from one run to the next cannot say whether a change helped

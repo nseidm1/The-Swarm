@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { readMix, mixFilesOf } from './mixture.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -74,7 +75,15 @@ export function trainAdapter(
   m,
   dataset,
   out,
-  { work, iters = 100, maxTokens = 2048, perplexityBin = 'llama-perplexity', run = spawnSync } = {},
+  {
+    work,
+    iters = 100,
+    maxTokens = 2048,
+    perplexityBin = 'llama-perplexity',
+    run = spawnSync,
+    lr = null,
+    layers = null,
+  } = {},
 ) {
   const r0 = mlxReady(m, work);
   if (!r0.ok) return { ok: false, why: r0.why };
@@ -82,7 +91,21 @@ export function trainAdapter(
   fs.mkdirSync(out, { recursive: true });
   const t = run(
     p.python,
-    ['-I', p.script, 'train', r0.weights, dataset, out, '--iters', String(iters), '--max-tokens', String(maxTokens)],
+    [
+      '-I',
+      p.script,
+      'train',
+      r0.weights,
+      dataset,
+      out,
+      '--iters',
+      String(iters),
+      '--max-tokens',
+      String(maxTokens),
+      // (how fast and how deep it learns, where the caller says: the script's own otherwise)
+      ...(lr ? ['--lr', String(lr)] : []),
+      ...(layers ? ['--layers', String(layers)] : []),
+    ],
     { encoding: 'utf8', maxBuffer: 1 << 26 },
   );
   const trained = lastJson(t.stdout) || {
@@ -334,11 +357,36 @@ export function roleLorasFor(config, members, work, targetId, modelsDir, { judgi
   }
   return out;
 }
+// THE MIXTURE (training/mixture.mjs): the adapters an arrangement's slots carry, by name. An arrangement names them
+// (slot.adapter), in the arrangement it starts from or in a class's own.
+export const adaptersNamedIn = (b) => [
+  ...new Set(
+    [...((b && b.slots) || []), ...Object.values((b && b.kinds) || {}).flatMap((c) => (c && c.slots) || [])]
+      .map((s) => s.adapter)
+      .filter((a) => a && a !== 'none'),
+  ),
+];
+// what each member is loaded with for it: { key: { name: file } }, of the adapters its model's record has (names: only those)
+export function mixFor(members, work, targetId, modelsDir, names = null) {
+  const out = {};
+  for (const [key, m] of Object.entries(members)) {
+    if (m.engine && m.engine !== 'llama') continue;
+    const files = mixFilesOf(readMix(adapterDir(work, targetId, { name: m.name, file: path.join(modelsDir, m.file) })));
+    const mine = Object.fromEntries(Object.entries(files).filter(([n]) => !names || names.includes(n)));
+    if (Object.keys(mine).length) out[key] = mine;
+  }
+  return out;
+}
 // WHAT A SWARM IS SERVED WITH, for a measurement to say and to keep its answers by: the members that have adapters, and the
 // files (each role's where it has them, else its one). -> { names: [member names], files: [paths, sorted], roles: [role names] }
-export function servedWith(config, members, work, targetId, modelsDir) {
+// (briefs: the arrangement asked, whose slots may carry adapters of the mixture; those are part of what it is served with)
+export function servedWith(config, members, work, targetId, modelsDir, briefs = null) {
   const one = lorasFor(config, members, work, targetId, modelsDir);
   const by = roleLorasFor(config, members, work, targetId, modelsDir);
+  const named = briefs ? adaptersNamedIn(briefs) : [];
+  if (named.length)
+    for (const [k, files] of Object.entries(mixFor(members, work, targetId, modelsDir, named)))
+      by[k] = { ...(by[k] || {}), ...files };
   const keys = [...new Set([...Object.keys(one), ...Object.keys(by)])].sort();
   const files = [...new Set(keys.flatMap((k) => (by[k] ? Object.values(by[k]) : [one[k]])))].sort();
   const roles = [...new Set(keys.flatMap((k) => Object.keys(by[k] || {})))].sort();

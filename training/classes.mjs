@@ -175,7 +175,18 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     kinds: { ...(stored.kinds || {}), [K]: { slots: b.slots, plan: b.plan, flow: b.flow } },
   });
   const seed0 = Number(B.arg('seed', 1));
-  const swarm = await B.openSwarm(stored, { seed: seed0, reuse: true });
+  // THE MIXTURE'S ADAPTERS, as moves (arrange.mjs adapterMoves): the ones there are for this swarm's model, loaded and on no
+  // slot until a move puts one there
+  const { adapterDir } = await import('./adapters.mjs');
+  const { readMix, newestBySlot } = await import('./mixture.mjs');
+  const { MEMBERS: MEM0, TARGET: TGT0 } = await import('../src/catalog.mjs');
+  const m0 = Object.values(MEM0)[0];
+  const mixture = newestBySlot(
+    readMix(
+      adapterDir(path.join(B.REPO_ROOT, '.work'), TGT0.id, { name: m0.name, file: path.join(B.modelsDir(), m0.file) }),
+    ),
+  ).map(({ name, slot }) => ({ name, slot }));
+  const swarm = await B.openSwarm(stored, { seed: seed0, reuse: true, mix: mixture.length > 0 });
   // (what the swarm takes in memory, measured while this stage serves it: support/measure-memory.mjs watchMemory)
   const { watchMemory } = await import('./support/measure-memory.mjs');
   const { CONFIG_ID: MEM_CONFIG, footprintOf: memEstimate } = await import('../src/catalog.mjs');
@@ -302,7 +313,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
           if (g.gain > 0 && (!best || g.gain > best.g.gain)) best = { m, rows, g };
         };
         // (how many it has to try, for the page to say how far the stage has come: the round's, and one more for the two together)
-        const toTry = roundOf(steps(base), base, P.moves, tries, sweep);
+        const toTry = roundOf(steps(base, { adapters: mixture }), base, P.moves, tries, sweep);
         R.of = toTry.length + 1;
         for (const m of toTry) await tryOne(m);
         // (and the best two of the sweep together: two changes that each help may help more as one)

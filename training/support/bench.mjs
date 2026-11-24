@@ -237,7 +237,15 @@ export const finished = () => checkpoints.splice(0).forEach((c) => c.done());
 
 export async function openSwarm(
   briefs = readBriefs(),
-  { seed = Number(arg('seed', 1)), reuse = false, adapters, lorasWith = null, roleLorasWith = null, onAsk = null } = {},
+  {
+    seed = Number(arg('seed', 1)),
+    reuse = false,
+    adapters,
+    lorasWith = null,
+    roleLorasWith = null,
+    onAsk = null,
+    mix = undefined,
+  } = {},
 ) {
   const attach = {};
   if (arg('attach-a')) attach.a = arg('attach-a');
@@ -263,6 +271,17 @@ export async function openSwarm(
     targetOf().id,
     modelsDir(),
   );
+  // THE MIXTURE: the adapters the arrangement's slots carry by name (training/mixture.mjs), loaded beside the roles'. mix:
+  // true loads every one there is (the class stage, which tries them); false none; left out, the ones the arrangement names
+  if (mix !== false && !roleLorasWith && !lorasWith) {
+    const A = await import('../adapters.mjs');
+    const named = mix === true ? null : A.adaptersNamedIn(briefs);
+    if (mix === true || named.length)
+      for (const [k, files] of Object.entries(
+        A.mixFor(MEMBERS, path.join(REPO_ROOT, '.work'), targetOf().id, modelsDir(), named),
+      ))
+        roleLoras[k] = { ...(roleLoras[k] || {}), ...files };
+  }
   for (const [k, by] of Object.entries(roleLoras))
     console.log(
       MEMBERS[k].name +

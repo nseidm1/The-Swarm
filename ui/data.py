@@ -891,10 +891,32 @@ def spec_adapters(d):
     ({place: {file, sha256, bytes}} for the recipe, {place: how it was made} for the spec), both empty where none is served."""
     root = Path(d["root"])
     cfg = _json(root / "src" / "config.json", {}) or {}
-    if not cfg.get("adapters"):
-        return {}, {}
     orig = (_json(root / "training" / "originals.json", {}) or {}).get("models", {})
     tid = str((d.get("target") or {}).get("id", ""))
+    # A MIXTURE (SwOA S1.4.1): the adapters the arrangement's slots carry by name (training/mixture.mjs: mix.json beside the
+    # model's adapters). They are part of the arrangement, so they are pinned whatever the configuration says of adapters:
+    # each under `named`, its file under mix/<name>/, for the place its slot is asked of.
+    named, named_made = {}, {}
+    br = d.get("briefs") or {}
+    for s_ in list(br.get("slots") or []) + [x for c in (br.get("kinds") or {}).values() for x in ((c or {}).get("slots") or [])]:
+        nm, k = s_.get("adapter"), s_.get("member")
+        m = (d.get("members") or {}).get(k) or {}
+        if not nm or nm == "none" or not m or nm in named.get(k, {}):
+            continue
+        o = orig.get(m.get("file")) or {}
+        a = ((_json(root / ".work" / "library" / "adapters" / tid / (o.get("dir") or m.get("file", "")) / "mix.json", None) or {}).get("adapters") or {}).get(nm) or {}
+        f = Path(str(a.get("gguf") or ""))
+        if f.is_file():
+            named.setdefault(k, {})[nm] = {"file": "mix/%s/%s" % (nm, f.name), "sha256": _sha256(f), "bytes": f.stat().st_size}
+            named_made.setdefault(k, {})[nm] = {"slot": a.get("slot"), "examples": a.get("examples"), "own": a.get("own"), "larger": a.get("larger"), "kinds": a.get("kinds")}
+    def _with_named(pins, made):
+        for k, n in named.items():
+            pins[k] = dict(pins.get(k) or {}, named=n)
+            made[k] = dict(made.get(k) or {"model": ((d.get("members") or {}).get(k) or {}).get("id")}, named=named_made[k],
+                           makeNamed="node training/mixture.mjs make (for each drafting slot: its own requests on many questions of every kind, its own answer where that was right and the larger model's where it was not; MLX LoRA, converted to a GGUF LoRA for llama.cpp)")
+        return pins, made
+    if not cfg.get("adapters"):
+        return _with_named({}, {})
     pins, made = {}, {}
     for k, m in (d.get("members") or {}).items():
         if not m:
@@ -927,7 +949,7 @@ def spec_adapters(d):
                    "from": {"weights": o.get("repo"), "revision": o.get("revision")}, "iters": res.get("iters"), "at": res.get("at"),
                    "validationLoss": res.get("valLoss"), "perplexity": res.get("perplexity"),
                    "make": "node training/adapters.mjs train %s --iters %s (MLX LoRA from the original weights, converted to a GGUF LoRA for llama.cpp)" % (m.get("file"), res.get("iters"))}
-    return pins, made
+    return _with_named(pins, made)
 
 
 def bodies_asked(targets, state):
