@@ -138,6 +138,7 @@ As a server (`swarm.serve()`, or `node bin/swarm.mjs serve`) it answers what lla
 
 **From Python.** [`python/the_swarm.py`](python/the_swarm.py) is a thin client, standard library only: it starts that
 server, waits until it answers, asks it, and stops it with the models it loaded. Node is still what runs the module.
+Tried against the real module, tools included ([docs/api.md](docs/api.md#from-python)).
 
 ```python
 from the_swarm import Swarm
@@ -203,7 +204,8 @@ Read it with care:
 - Twenty a task is a check. A verdict needs at least a hundred, and no run of that size has finished.
 - The small model's figures on Logic and Reasoning are partly layout: asked plainly, 197 of its 220 replies there went
   unread. With the module's layout code on its reply and nothing else, 107 went unread and it scored 7.3% (from 2.3%)
-  where the module scored 44.1%. How much of the rest is the closing form and how much the arrangement is not told apart yet.
+  where the module scored 44.1%. How much of the rest is the closing form and how much the arrangement is not told apart yet. The dashboard shows
+  this baseline beside the model alone, as "(laid out)".
 - The same module pretrained, and pretrained and trained, has not been measured yet.
 - With every instrument on, four operation tasks read 20 of 20 where the small model alone had 0. The instruments were
   written after those tasks were read; they were then probed, with no model, on 104,520 questions by other authors and
@@ -221,7 +223,7 @@ npm test
 python3 ui/check.py
 ```
 
-235 checks of the module and the trainers and 160 of the dashboard, against stand-in servers: nothing is fetched,
+235 checks of the module and the trainers and 161 of the dashboard, against stand-in servers: nothing is fetched,
 started or installed. `npm test` deals its 115 blocks of checks out to every core (26 seconds on a 24-core Mac, 91 one
 after another); `npm run test:serial` runs them in one process, `npm run test:all` adds the dashboard's, and
 `npm run test:python` checks the Python client. How well the

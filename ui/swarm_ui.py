@@ -4142,9 +4142,26 @@ def _run_in(ps_text):
 def _run_elsewhere():
     """A whole run this page did not start (from a shell): it has the models all the same, and the page can stop it."""
     try:
-        return _run_in(subprocess.run(["ps", "-axo", "pid=,command="], capture_output=True, text=True, timeout=5).stdout)
+        found = _run_in(subprocess.run(["ps", "-axo", "pid=,command="], capture_output=True, text=True, timeout=5).stdout)
+        # (THIS folder's run, and no other's: a run of another checkout on the machine has other models, and is not this page's
+        # to stop or to wait for. The page's own checks, on a copy of the repository, failed while a real run was going,
+        # 2026-11-22. A run whose folder cannot be read is taken for this one's, as before.)
+        return found if found and _run_is_here(found["pid"]) else None
     except (OSError, subprocess.SubprocessError):
         return None
+
+
+def _run_is_here(pid):
+    """Whether a process works in this page's folder (its working directory, as lsof says it); True where that cannot be read."""
+    try:
+        out = subprocess.run(["lsof", "-a", "-p", str(pid), "-d", "cwd", "-Fn"], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return True
+    cwd = next((line[1:] for line in out.splitlines() if line.startswith("n")), "")
+    try:
+        return not cwd or Path(cwd).resolve() == Path(ARGS.root).resolve()
+    except OSError:
+        return True
 
 
 def _descendants(pid):
@@ -4628,7 +4645,7 @@ def eval_table(d, only=None, cfg=None):
     if unread_any:
         notes += " A task marked no answer in some of its replies is one where the harness found no answer in a quarter or more of one model&#39;s replies. Each such reply is marked wrong and the score is still of every question, so it says how replies were written more than what either model knew."
     return (head + boxes + '<p class="small muted" style="margin:10px 0 0">Each was put the same questions and marked by the benchmark&#39;s own checker. Swarm → target is the swarm&#39;s score as a share of %s&#39;s: '
-            '100%% or more is where the swarm is level or ahead.%s%s%s</p>' % (e(tname), when, notes, " Each small model of the swarm is also shown by itself: asked the same questions once, with no orchestration." if alone else "")
+            '100%% or more is where the swarm is level or ahead.%s%s%s</p>' % (e(tname), when, notes, (" Each small model of the swarm is also shown by itself: asked the same questions once, with no orchestration." + laid_note(done)) if alone else "")
             + '<div class="evt-wrap"><table class="spec evt%s"><thead><tr><th>Body of work</th>%s<th class="num">The swarm</th><th class="num evtg">%s</th><th class="num">Swarm → target</th>%s<th class="num evn">Questions</th></tr></thead>'
             '<tbody>%s</tbody></table></div>' % (" evt-m" if alone else "", "".join('<th class="num evm">%s alone</th>' % e(n_) for _, n_ in alone), e(tname), '<th class="num">Before</th>' if was else "", "".join(rows)))
 
@@ -4709,9 +4726,36 @@ def _ev_mean(rs):
     return sum(f[0][0] for f in figs) / len(figs), sum(f[1][0] for f in figs) / len(figs), sum(f[0][2] for f in figs)
 
 
+LAID = "~laid"
+LAID_NOTE = (" &quot;(laid out)&quot; is the same model with the module&#39;s layout code on its one reply and nothing else (no empty line where the "
+             "task&#39;s examples have none, the question not said again): what is left between it and the swarm is what the arrangement adds. "
+             "A test of calling tools has no layout, so its plain figure stands there.")
+
+
+def _laid_out(rs):
+    """Beside each small model by itself, the same model with its reply laid out (training/evaluate.mjs formOnly: aloneForm in a
+    task's result), as one more model of the same place, so that every view shows it as it shows the other. A test of calling
+    tools has no layout to mend: the plain figure stands for it there. Nothing is added where no task was asked so."""
+    if not any((r or {}).get("aloneForm") for r in rs):
+        return
+    for r in rs:
+        al = (r or {}).get("alone")
+        if not al:
+            continue
+        for k in [k for k in al if not k.endswith(LAID)]:
+            src = (r.get("aloneForm") or {}).get(k) or (al[k] if harness_key(r) == "bfcl" else None)
+            if src and k + LAID not in al:
+                al[k + LAID] = dict(src, name="%s (laid out)" % (src.get("name") or al[k].get("name") or k))
+
+
+def laid_note(rs):
+    return LAID_NOTE if any(k.endswith(LAID) for k, _ in alone_keys(rs)) else ""
+
+
 def alone_keys(rs):
     """The small models that answered every one of these tasks by themselves: [(key, name)] in the swarm's order of places.
     One that answered some and not others is left out: its score over them would be of other questions than the swarm's."""
+    _laid_out(rs)
     keys = None
     names = {}
     for r in rs:
@@ -4817,7 +4861,7 @@ def eval_paper(d, only=None, cfg=None):
     cap = ("Accuracy (%%) of the swarm of %s%s and of %s%s on the same questions, each marked by its benchmark&#39;s own checker (%s).%s ± is one standard error. "
            "<i>n</i> is the questions asked of each; Δ is the swarm&#39;s score less the larger model&#39;s, in points; the highest score is in bold. Evaluated %s UTC.%s"
            % (e(members), mem, e(tname), tmem, e("; ".join(x for x in [res.get("harness", "")] if x) or "its harness"),
-              (" Each small model is also shown by itself, asked the same questions once, with no orchestration." if alone else ""), e(_day(res.get("at"))),
+              ((" Each small model is also shown by itself, asked the same questions once, with no orchestration." + laid_note(every)) if alone else ""), e(_day(res.get("at"))),
               # (a quick look is said to be one: a line that rests on fewer than a hundred questions, and not the whole task, is not a result to cite)
               "" if all(proof_sized(r) for r in every) else " A line of fewer than 100 questions that is not the whole task is a quick look, not a result to cite: a proof run asks more."))
     plain = re.sub(r"<[^>]+>", "", cap).replace("&#39;", "'").replace("%", "\\%").replace("±", "$\\pm$").replace("Δ", "$\\Delta$").replace("&", "\\&")
@@ -4900,9 +4944,9 @@ def eval_chart(d, only=None, bench=None, cfg=None):
     shades = ["#0e6b62", "#c98a06", "#7b5ea7", "#b5533c"]
     alone_pts = []
     for i, (k, name) in enumerate(alone_keys(solo_of[2])):
-        if k in parts:
+        if k.replace(LAID, "") in parts:
             sc_ = alone_score(solo_of[2], k, mean=mean and len(solo_of[2]) > 1)
-            alone_pts.append({"name": name + " by itself", "gb": float(parts[k]["gb"]) + ctx / max(1, len(parts)), "pc": sc_[0], "col": shades[i % len(shades)],
+            alone_pts.append({"name": name + " by itself", "gb": float(parts[k.replace(LAID, "")]["gb"]) + ctx / max(1, len(parts)), "pc": sc_[0], "col": shades[i % len(shades)],
                               "of": sc_[2], "tasks": len(solo_of[2]), "same": sig(solo_of[2]) == sig(full[2]), "note": "one model of %s, with no orchestration" % lineup_name(solo_of[1])})
     pts += alone_pts
     lo = 2 ** math.floor(math.log2(min(p["gb"] for p in pts) / 1.4))

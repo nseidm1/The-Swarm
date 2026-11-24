@@ -2248,6 +2248,17 @@ _wb = swarm_ui.whole_block(_dr)
 _ps = ("  501 /bin/bash -c source x.sh && bash training/run.sh --limit 20 --train classes\n"
        " 4242 bash training/run.sh --limit 50 --items code,math --train off\n"
        " 4300 sh training/evaluate.sh --variant base\n")
+# THE SECOND BASELINE ON THE PAGE: beside a small model by itself, the same model with its reply laid out, as one more column
+_lo = [{"alone": {"a": {"name": "A", "value": 0.0}}, "aloneForm": {"a": {"name": "A", "value": 0.5, "unread": 1}}, "agree": {"of": 10}},
+       {"harness": "bfcl", "alone": {"a": {"name": "A", "value": 1.0}}, "agree": {"of": 10}}]
+_lo_keys = swarm_ui.alone_keys(_lo)
+check("the small model alone with its reply laid out is one more column wherever the model alone is shown: its own figure on a task that has a layout, the plain figure on a test of calling tools; none where no task was asked so; and the page counts only a run in its own folder as its run",
+      _lo_keys == [("a", "A"), ("a" + swarm_ui.LAID, "A (laid out)")]
+      and round(swarm_ui.alone_score(_lo, "a" + swarm_ui.LAID)[0]) == 75 and round(swarm_ui.alone_score(_lo, "a")[0]) == 50
+      and "laid out" in swarm_ui.laid_note(_lo) and swarm_ui.laid_note([{"alone": {"a": {"name": "A", "value": 0.5}}}]) == ""
+      and swarm_ui.alone_keys([{"alone": {"a": {"name": "A", "value": 0.5}}}]) == [("a", "A")]
+      and swarm_ui._run_is_here(os.getpid()) is (Path(os.getcwd()).resolve() == Path(swarm_ui.ARGS.root).resolve()),
+      _lo_keys)
 _found = swarm_ui._run_in(_ps)
 _detail = ('<div class="spec-head"><div><div class="kicker">Evaluate the swarm</div><h3>The swarm against X</h3></div>'
            '<button class="btn stop top" id="evd-close" type="button">Close</button></div><table id="detail"></table>')

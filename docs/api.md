@@ -66,8 +66,7 @@ with Swarm(spec="specs/<name>.swoa.json") as swarm:   # Swarm() serves the swarm
 | `swarm.base` | Its address. Any client of an OpenAI-compatible server can be given `swarm.base + "/v1"` instead |
 
 A failure is a `SwarmError` whose message carries what the server printed. A streamed reply is not read by the
-client's own methods: give the address to a client that streams. `python3 python/test_the_swarm.py` checks it against a
-stand-in server.
+client's own methods: give the address to a client that streams. `python3 python/test_the_swarm.py` checks it against a stand-in server. Tried against the real module on 2026-11-22 (LFM2.5 1.2B in both places): started and answering in a second with the models' files already on the machine, a reply in words, a function, a call to a tool offered, the trace of the last message, and nothing left running after it stopped.
 
 ## From its SwOA spec
 

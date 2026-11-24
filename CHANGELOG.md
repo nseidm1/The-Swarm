@@ -13,7 +13,11 @@ The first version.
 - **A second baseline in an evaluation: the small model alone, its reply laid out** (2026-11-22). The module's lead over
   its own small model asked plainly was partly layout: asked plainly the model leaves an empty line where a task stops
   reading. Each small model is now also asked with the module's own layout code on its one reply and nothing else
-  (`aloneForm` in a task's result), so what is left between that and the module is what the arrangement adds.
+  (`aloneForm` in a task's result), so what is left between that and the module is what the arrangement adds. The
+  page shows it as one more column, "(laid out)", in each view of an evaluation, once every task shown was asked so.
+- **The page counts only a run in its own folder as its run** (2026-11-22). A whole run was found by its process
+  alone, so a page served from another copy of the repository took a run elsewhere on the machine for its own and
+  would not start anything; the page's own checks failed while a real run was going.
 - **The README is short, and its detail is in pages of its own** (2026-11-22). It had grown to 1,170 lines. It is now
   about 260: what the module is, how to start, how it works, the API, training, today's results, with a link to each
   page under `docs/`: how it works, models and configuration, the API and the spec's parts, the dashboard, training,
