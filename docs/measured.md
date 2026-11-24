@@ -32,6 +32,22 @@ Python as well on its own held code questions (+29.6 points, error 5.4).
 Ten points lower, and eighteen on HumanEval. The adapters were taken off the code class. At 20 questions a task the
 same comparison read 21 and 20 of 40, which could not tell.
 
+**The same judge, the adapter carried only on like requests** (2026-11-24). Training was run again with the rule
+below it (a slot carries its adapter only where the request is at least 0.9 like one the adapter was taught). It kept
+the adapters for code by itself (+30.8 points on 60 held questions, error 5.5), tried them for plain questions and
+did not keep them (+1.1, error 2.7), and kept two kinds of plain question done by code (+8.0 on 132 held, error 2.3).
+
+| | HumanEval | MBPP | Of 200 |
+| --- | --- | --- | --- |
+| As configured | 60 | 35 | 95 (47.5%) |
+| Trained: adapters carried everywhere | 42 | 33 | 75 (37.5%) |
+| Trained: adapters carried on like requests | 57 | 35 | 92 (46.0%) |
+
+On all 23 tasks at 20 questions: 247 of 460 (53.7%) against 254 as configured (55.2%); 10 questions won and 17 lost,
+1.5 points with a paired error of 1.1, so no difference that can be told. Four of the seven are the live web search,
+which does not repeat from one day to the next. The harm is gone and no gain has come: a benchmark's requests are
+unlike anything the adapters were taught, so they are answered without them.
+
 What it says:
 
 - **An adapter must be taught broadly.** Six questions of a kind asked four ways were memorised; an adapter taught one

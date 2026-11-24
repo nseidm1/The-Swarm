@@ -66,7 +66,8 @@ What has not:
   and is now an arrangement training can keep; no run has shown whether it does.
 - **Training that betters the module on a benchmark.** Adapters made for each drafting slot gain 25 to 30 points on
   training's own held code questions, beyond error, and training keeps them by itself. On HumanEval and MBPP at 100
-  questions each the module with them read 75 of 200 against 95 without, so they were taken off. Training's own
+  questions each the module with them read 75 of 200 against 95 without. Carried only on requests like what they
+  were taught, they read 92 of 200, and 247 of 460 on all 23 tasks against 254: no harm and no gain. Training's own
   questions (eleven families of function) are not what the module is judged on, and its keep rule cannot see that:
   its held questions come from the same maker.
 - **Three figures on one code.** The run above was measured across two days of changes. No whole run has been made

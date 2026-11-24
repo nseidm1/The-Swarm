@@ -13,7 +13,9 @@ The first version.
   nearest request the adapter was taught (`src/like.mjs`; SwOA S1.4.2, S1.4.3), and a slot carries its adapter only at
   or above a least likeness (`adapterLeast`, 0.9 from the policy); under it the request is answered as the module
   without adapters answers it. An adapter may be applied at part strength (`adapterScale`). The larger model's own
-  tasks, held back, are the panel that showed the harm that training's held questions could not.
+  tasks, held back, are the panel that showed the harm that training's held questions could not. Judged from
+  outside with the rule on: 92 of 200 on two code benchmarks against 95 as configured (75 before it), and 247 of 460
+  on all tasks against 254, both within error.
 - **What the mixture replaced is taken out** (2026-11-24). The Pretrain card's code is gone from the page with its
   routes, and `training/roles.mjs` (an adapter for each role, made in a stage of its own) is retired; an adapter made
   for a role before is still loaded where a configuration serves one. A run asked for again trains again: the class

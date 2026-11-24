@@ -41,8 +41,9 @@ as one model, with the proof of what it does. The Swarm is not tied to one proje
 > **Status: pre-release; nothing proven yet.** The swarm configured now (2026-11-24) is LFM2.5 1.2B in both places against
 > Nemotron 3.5 Lightning 30B. As configured, before any training, it scored 55.2% on 460 questions of 23 standard tasks
 > where the larger model scored 77.6% and the small model by itself 30.0%. Twenty questions a task is a check, not a
-> proof. **Training has not yet bettered it on any benchmark**: what training kept so far read lower each time it was
-> judged from outside, most recently 75 of 200 on two code benchmarks against 95 as configured, and was taken off.
+> proof. **Training has not yet bettered it on any benchmark**: what training kept at first read lower when
+> judged from outside (75 of 200 on two code benchmarks against 95 as configured); what it keeps now reads the same as
+> configured (92 of 200; 247 of 460 on all tasks against 254), within error.
 > [Results](#results) · [Status and limits](docs/status.md)
 
 ## Requirements
@@ -219,8 +220,10 @@ Read it with care:
 - Training has not yet bettered the module on a benchmark. The first whole run read 50.7% and 49.6% after its two
   stages. Since then adapters are made for each drafting slot and tried by training like any other change; training
   kept a set of them for code on its own held questions (+29.6 points), and the code benchmarks at 100 questions each
-  read 75 of 200 with them against 95 without. They were taken off. Training's questions are not yet what the module
-  is judged on ([Measured, not claimed](docs/measured.md)).
+  read 75 of 200 with them against 95 without. An adapter is now carried only on a request like what it was taught:
+  training kept that for code too (+30.8 points), and the benchmarks read 92 of 200, and 247 of 460 on all 23 tasks
+  against 254, both within error of as configured. The harm is gone; the gain is not there yet, because training's
+  questions are not yet what the module is judged on ([Measured, not claimed](docs/measured.md)).
 - Search is the widest gap. A search is now a program of code that asks the module only to read: a made task of two
   chained facts went from 1 right of 30 to 30, but the live web test above, of three or four chained facts, did not
   improve.
