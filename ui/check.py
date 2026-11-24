@@ -2297,6 +2297,23 @@ check("the conversation run is a card of its own under Run, apart from the intel
       and all(k in swarm_ui.CHAT_KINDS.split(",") for k in ("chat-terse", "chat-doubt", "chat-reason", "chat-code")) and len(swarm_ui.CHAT_KINDS.split(",")) == 13,
       [_cv0[:200], _cv1[-400:]])
 
+# THE EXPORTED SPEC CARRIES THE SERVING TRAINING CHOSE
+_sv_d = data.load(swarm_ui.ARGS.root)
+_sv_small = [{"id": "m-std", "name": "M standard", "base": "maker/M", "file": "m.gguf", "bytes": 10, "sha256": "a" * 64, "repo": "r/m", "rev": "1" * 40, "architecture": "arch_x", "thinks": 600},
+             {"id": "m-fast", "name": "M fast", "base": "maker/M", "file": "m-fast.gguf", "bytes": 11, "sha256": "b" * 64, "repo": "r/mf", "rev": "2" * 40, "architecture": "arch_x", "thinks": 600, "program": "atomic",
+              "parts": [{"file": "draft.gguf", "bytes": 1, "sha256": "c" * 64}], "serve": ["-md", "{part:0}"]},
+             {"id": "other", "name": "Other", "base": "maker/O", "file": "o.gguf", "bytes": 9, "sha256": "d" * 64}]
+_sv_fake = {"members": {"a": _sv_small[0], "b": _sv_small[0]}, "registry": {"small": _sv_small}, "briefs": {"serving": {"a": "m-fast", "b": "m-fast"}}}
+_sv_got = data.served_members(_sv_fake)
+_sv_none = data.served_members({**_sv_fake, "briefs": {}})
+_sv_bad = data.served_members({**_sv_fake, "briefs": {"serving": {"a": "other", "b": "no-such"}}})
+_sv_src = Path(data.__file__).read_text()
+check("the exported spec carries the serving training chose: where the arrangement names another entry of the same model for a place, that entry is the place's member in the spec (with its parts, its flags, the architecture it is of, the room its reasoning is given and the other build of the engine that serves it), the spec says which configured model it stood in for, the builds its members name are pinned in the spec's engine, and the arrangement in the spec no longer names a serving, since its members are it; an entry of another model, or a name that is none, is passed over, and with no serving named the members are the configured ones",
+      _sv_got["a"]["id"] == "m-fast" and _sv_got["b"]["id"] == "m-fast" and _sv_got["a"]["program"] == "atomic" and _sv_got["a"]["parts"][0]["file"] == "draft.gguf"
+      and _sv_none["a"]["id"] == "m-std" and _sv_bad["a"]["id"] == "m-std" and _sv_bad["b"]["id"] == "m-std"
+      and all(w in _sv_src for w in ('"architecture", "thinks", "program"', '"chosenServing": chosen', 'engine["programs"]', 'if k not in ("about", "serving")', "served = served_members(d, b)")),
+      [_sv_got["a"].get("id"), _sv_bad["a"].get("id")])
+
 # THE PLAN SECTION IS THE PRESENT: what is training this moment, and the picture marks the step in use
 _tn_d = data.load(swarm_ui.ARGS.root)
 _tn_res = Path(_tn_d["root"]) / "training" / "results" / str(_tn_d.get("key", ""))

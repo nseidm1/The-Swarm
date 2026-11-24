@@ -368,6 +368,9 @@ S1.1 Each value of `recipe.members` is a member record. A runtime MUST read the 
 | `parts` | array of `{file, bytes, sha256}` | OPTIONAL | The second and later parts of a model split into several files, in order. Each part lives in the same `repo` at the same `rev`. |
 | `serve` | array of strings | OPTIONAL | Extra engine command-line arguments for this member, in order (e.g. `["--reasoning-budget","0"]` or `["--reasoning","off"]`). |
 | `sampling` | object | OPTIONAL | Request-body fields merged into every request to this member (S3.3). Observed keys: `temperature`, `top_p`, `top_k`, `min_p`, `repeat_penalty`, `presence_penalty`. Any key MUST be passed through unchanged. |
+| `architecture` | string | OPTIONAL | The architecture the model file is of, where not every build of the engine knows it. The engine used MUST be a build that does. |
+| `thinks` | integer | OPTIONAL | For a model that reasons before it answers: tokens of room added to every request's limit for that reasoning. Where present, an empty answer is empty: the member's reasoning is never taken for its answer. |
+| `program` | string | OPTIONAL | Another build of the engine this member is served by, named in `engine.programs`, where it is pinned to a commit. Absent, the member is served by the engine itself. |
 | `params` | number | OPTIONAL | Parameter count in billions. Used only to order members largest first where the arrangement asks for "the largest other member" (ties keep place order). A missing value counts as 0. |
 | `engine` | string | OPTIONAL | What serves the member: `llama` (the default: a GGUF file served by llama.cpp, S2.4) or `tensorfold` (S2.8). A runtime MUST refuse a record whose `engine` it cannot serve. |
 | `dir` | string | REQUIRED when `engine` is not `llama` | The directory, under the models directory, that holds the member's files (S2.8.1). |

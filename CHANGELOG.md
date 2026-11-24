@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The exported spec carries the serving training chose** (2026-11-24). Where training kept another serving of the
+  same model for a place, that entry is the place's member in the spec, with what it needs to be served that way
+  (`architecture`, `thinks`, `program`, its parts and flags), the build it names pinned under the spec's engine, and
+  a note of the configured model it stood in for (`chosenServing`). A spec is made again from its members alone.
 - **Time is the tie-breaker, and training chooses between engines by it** (2026-11-24). Correctness still decides: a
   change that gains beyond its error is kept whatever its time. After that, the class stage now times what would get
   the same answers sooner, against the swarm as it stands, on held questions and two draws: the same model served

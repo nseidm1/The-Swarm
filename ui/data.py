@@ -134,6 +134,19 @@ def _with_places(briefs, places):
 
 
 
+def served_members(d, briefs=None):
+    """THE MEMBERS AS THEY ARE SERVED (src/catalog.mjs servedAs): each place's configured model, or the other entry of the
+    same model the arrangement names for that place (`serving`), where there is such an entry. A name that is not an entry
+    of the same model is passed over."""
+    serving = (briefs if briefs is not None else (d.get("briefs") or {})).get("serving") or {}
+    small = ((d.get("registry") or {}).get("small")) or []
+    out = {}
+    for k, m in (d.get("members") or {}).items():
+        to = next((x for x in small if m and m.get("base") and x.get("base") == m.get("base") and x.get("id") == serving.get(k) and x.get("id") != m.get("id")), None)
+        out[k] = dict(to) if to else m
+    return out
+
+
 def platform_key():
     """This machine as the catalog names one: darwin-arm64, linux-x64."""
     import platform
@@ -1112,26 +1125,38 @@ def spec(d):
     gb = lambda n: round(n / 2**30, 2)  # noqa: E731
     # (engine and dir: only where a member is not a GGUF file served by llama.cpp, which is what a record that names neither
     # says. So a record written before a member could name its engine is the same record, and the same hash)
-    file_of = lambda m: {k: m.get(k) for k in ("id", "name", "by", "params", "license", "repo", "rev", "file", "bytes", "sha256", "parts", "serve", "sampling") + (("engine", "dir") if (m.get("engine") or "llama") != "llama" else ()) if m.get(k) not in (None, [], {})}  # noqa: E731
+    # (with what a member needs to be served as it was trained: the architecture it is of, the room its reasoning is given,
+    # and the other build of the engine that serves it, where it names one)
+    file_of = lambda m: {k: m.get(k) for k in ("id", "name", "by", "params", "license", "repo", "rev", "file", "bytes", "sha256", "parts", "serve", "sampling", "architecture", "thinks", "program") + (("engine", "dir") if (m.get("engine") or "llama") != "llama" else ()) if m.get(k) not in (None, [], {})}  # noqa: E731
     a, bb = d["members"]["a"] or {}, d["members"]["b"] or {}
     held = d["splits"]["held"]["swarm"]
     last = (d["state"].get("history") or [None])[-1]
-    members = {k: file_of(m or {}) for k, m in d["members"].items() if m}
+    # THE SPEC'S MEMBERS ARE THE ONES SERVED: where training chose another serving of the same model for a place (the
+    # arrangement's `serving`: no worse, and faster), that entry is the place's member, and the spec says which it stood in
+    # for. A spec is made again from its members alone, so the choice has to be in them.
+    served = served_members(d, b)
+    members = {k: file_of(m or {}) for k, m in served.items() if m}
+    chosen = {k: {"configured": (d["members"].get(k) or {}).get("id"), "served": m.get("id")} for k, m in served.items() if m and m.get("id") != (d["members"].get(k) or {}).get("id")}
     n_small = len(members)
     dec = {k: v for k, v in (d["decider"] or {}).items() if k not in ("index",) and v not in (None, [], {})}
     eng = d["registry"]["engine"]
     engine = {"name": eng.get("name"), "site": eng.get("site"), "version": eng.get("version"), "build": eng.get("tag"), "minBuild": eng.get("minBuild"), "builds": eng.get("builds")}
+    # (and the other builds of the engine its members name, each pinned to its commit: only the ones used)
+    used_programs = {m.get("program") for m in served.values() if m and m.get("program")}
+    if used_programs:
+        engine["programs"] = {k: {f: v.get(f) for f in ("name", "site", "repo", "rev", "license", "preview", "runsOn", "cmake") if v.get(f) not in (None, [], {})} for k, v in (eng.get("programs") or {}).items() if k in used_programs}
     fp = d.get("footprint") or {}
     serving = dict(SERVING, memoryGbEstimate=fp.get("swarm") or round(sum(gb((m or {}).get("bytes", 0)) for m in d["members"].values()) * 1.25 + 1, 1),
                    memoryIs="an estimate: the small models' files, their contexts and the decider; not measured")
-    run_briefs = {k: v for k, v in b.items() if k != "about"}  # what createSwarm runs, exactly
+    # (what createSwarm runs, exactly; less `serving`, which the members above already are)
+    run_briefs = {k: v for k, v in b.items() if k not in ("about", "serving")}
     # (a class's own arrangement is its slots, plan and flow, nothing else: SwOA specification 4.3; src/index.mjs kindsAsSpecified)
     if isinstance(run_briefs.get("kinds"), dict):
         run_briefs["kinds"] = {c: {p: k[p] for p in ("slots", "plan", "flow") if p in k} for c, k in run_briefs["kinds"].items() if isinstance(k, dict)}
     tools = d.get("tools") or "a"
     one = (members.get(tools) or {}) if tools != "swarm" else {}
     pins, made = spec_adapters(d)
-    recipe = {"members": members, "decider": dec, "engine": engine,
+    recipe = {"members": members, **({"chosenServing": chosen} if chosen else {}), "decider": dec, "engine": engine,
               "serving": {**{k: serving[k] for k in ("slots", "contextPerSlot")}, "tools": "swarm" if tools == "swarm" else one.get("id", tools)}, "briefs": run_briefs,
               **({"adapters": pins} if pins else {})}
     sha = recipe_sha256(recipe)
