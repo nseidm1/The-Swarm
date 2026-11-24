@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **What the mixture replaced is taken out** (2026-11-24). The Pretrain card's code is gone from the page with its
+  routes, and `training/roles.mjs` (an adapter for each role, made in a stage of its own) is retired; an adapter made
+  for a role before is still loaded where a configuration serves one. A run asked for again trains again: the class
+  stage was passed over as done on a second run of the same pass. The System picture says what the code does.
 - **The page shows what training decides, and asks for none of it** (2026-11-24). Run has no box for whether the
   arrangement is trained: it always is, and a change that does not better the module is not kept. Evaluate has no box
   for "the arrangement it started from" and sets two evaluations side by side, not three: the module as configured,

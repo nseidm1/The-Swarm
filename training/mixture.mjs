@@ -43,6 +43,35 @@ export async function rowsOf(t, calls, own) {
   }
   return out;
 }
+// A MESSAGE AS A CHAT TEMPLATE TAKES IT: a tool call's arguments as the thing they are, not as text. A request carries them as
+// text (JSON), and a template refuses that (found 2026-11-22: the drafters' adapter, the role with the most examples, was not
+// trained at all). Arguments that are not JSON are kept as text under one name, so the example is still one a template takes.
+export function forTemplate(m) {
+  if (!m || !Array.isArray(m.tool_calls)) return m;
+  const calls = m.tool_calls.map((t) => {
+    const f = t && t.function;
+    if (!f || typeof f.arguments !== 'string') return t;
+    let a;
+    try {
+      a = JSON.parse(f.arguments);
+    } catch {
+      a = null;
+    }
+    if (!a || typeof a !== 'object' || Array.isArray(a)) a = { text: f.arguments };
+    return { ...t, function: { ...f, arguments: a } };
+  });
+  return { ...m, tool_calls: calls };
+}
+// the last line of an answer that says anything, where it is short enough to be an answer and not an argument ('' otherwise)
+export function closingLine(text) {
+  const last =
+    String(text || '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .pop() || '';
+  return last.length <= 100 ? last : '';
+}
 // (the record itself is read in mix-record.mjs, which adapters.mjs reads too: this file runs adapters.mjs, and a file that
 // waits on one that waits on it never starts)
 export { newestBySlot, mixFilesOf, readMix };
@@ -50,7 +79,6 @@ export { newestBySlot, mixFilesOf, readMix };
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const B = await import('./support/bench.mjs');
   const A = await import('./adapters.mjs');
-  const R = await import('./roles.mjs');
   const { MEMBERS, TARGET, CONFIG_KEY } = await import('../src/catalog.mjs');
   const { readBriefs, ROLE_OF_STAGE } = await import('../src/index.mjs');
   const { finalOf } = await import('../src/read.mjs');
@@ -143,7 +171,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       id: r.id,
       kind: r.kind,
       from: 'own',
-      messages: [...r.messages.map(R.forTemplate), { role: 'assistant', content: r.own }],
+      messages: [...r.messages.map(forTemplate), { role: 'assistant', content: r.own }],
     }));
   if (need.length) {
     const big = await B.openAlone('target');
@@ -159,7 +187,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
         const final = text ? finalOf(text, marker, r.t.type === 'code') : '';
         let ok = await rightBy(r.t, final);
         if (!ok && !final) {
-          const last = R.closingLine(text);
+          const last = closingLine(text);
           if (last && (await rightBy(r.t, last))) {
             text = text.trimEnd() + '\n\n' + marker + ' ' + last;
             ok = true;
@@ -171,7 +199,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
             id: r.id,
             kind: r.kind,
             from: 'larger',
-            messages: [...r.messages.map(R.forTemplate), { role: 'assistant', content: text }],
+            messages: [...r.messages.map(forTemplate), { role: 'assistant', content: text }],
           });
       }
     } finally {

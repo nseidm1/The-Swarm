@@ -416,10 +416,6 @@ with tempfile.TemporaryDirectory() as tmp:
     # (this block is about Pretrain and Evaluate themselves: the configuration counts as evaluated here; the rule has its own check)
     _ne = swarm_ui.needs_eval
     swarm_ui.needs_eval = lambda d=None: ""
-    pre0 = get(base + "/fragment/pretrain")[1]
-    pre_btn = pre0.split('id="pre-go"')[1][:30] if 'id="pre-go"' in pre0 else ""
-    pre_ok = (("MLX, the trainer, is not installed yet: Pretrain installs it" in pre0 and "disabled" not in pre_btn) if apple
-              else ("runs on Apple silicon only: it is not available on this machine" in pre0 and "disabled" in pre_btn))
     (root / ".work" / "eval").mkdir(parents=True, exist_ok=True)
     ev_mine = {
         "at": "2026-11-17T12:00:00Z", "limit": 20, "harness": "lm-evaluation-harness 0.4.13", "configuration": data.load(root)["key"], "briefs": "abc", "seconds": 600, "adapters": [], "target": "the larger model",
@@ -499,19 +495,9 @@ with tempfile.TemporaryDirectory() as tmp:
     a_cfg2 = json.loads((root / "src" / "config.json").read_text())
     # while an evaluation runs (this process stands in for it), training and pretraining wait, and each says why
     (root / ".work" / "eval" / "ui-run.json").write_text(json.dumps({"pid": os.getpid(), "at": "now", "limit": 100, "items": ["instructions", "code"]}))
-    held_pre = send("/pretrain/start", {})
+    # (the page starts no pretraining: there is no such card, and the routes it had are gone)
+    gone_pre = [send("/pretrain/start", {})[0], get(base + "/fragment/pretrain")[0], get(base + "/fragment/adapt")[0], get(base + "/api/pretrain")[0]]
     a_member = d["members"]["a"]
-    a_orig = json.loads((REPO / "training" / "originals.json").read_text())["models"].get(a_member["file"]) or {}
-    ad = root / ".work" / "library" / "adapters" / d["target"]["id"] / (a_orig.get("dir") or a_member["file"])
-    ad.mkdir(parents=True, exist_ok=True)
-    (ad / "result.json").write_text(json.dumps({"ok": True, "gguf": str(ad / "x-lora.gguf"), "at": "2026-11-17T10:00:00Z", "examples": 72, "target": "the larger model", "items": ["crew"], "valLoss": [1.1, 0.7], "perplexity": {"without": 3.4, "with": 2.7}}))
-    (ad / "failed.json").write_text(json.dumps({"ok": False, "at": "2026-11-17T12:00:00Z", "why": "llama.cpp did not load it"}))
-    (root / ".work" / "pretrain").mkdir(parents=True, exist_ok=True)
-    (root / ".work" / "pretrain" / "ui-run.json").write_text(json.dumps({"pid": os.getpid(), "at": "now"}))
-    pre_run = get(base + "/fragment/pretrain")[1]
-    (root / ".work" / "pretrain" / "ui-run.json").unlink()
-    pre_stop = get(base + "/fragment/pretrain")[1]
-    shutil.rmtree(ad)
     held_by = swarm_ui.busy_with()
     held_ev = get(base + "/fragment/eval")[1]
     (root / ".work" / "eval" / "ui-run.json").unlink()
@@ -541,9 +527,6 @@ with tempfile.TemporaryDirectory() as tmp:
           # (a swarm training has kept nothing for is recommended to be trained before its evaluation is relied on, and the Evaluate
           # card says so by its button; where its last evaluation marked tasks unread on its side, that is what is said, by name)
           and "or swarm_unread({\"results\": mine_})" in open(swarm_ui.__file__).read() and "or no answer was found in many of its replies" in open(swarm_ui.__file__).read()
-          # (a member TensorFold serves says on the Pretrain card why it is not pretrained, and names its llama.cpp build)
-          and "Not pretrained: TensorFold serves it, and TensorFold loads no adapter.%s" in open(swarm_ui.__file__).read()
-          and "To pretrain it, choose the one llama.cpp serves in its place (the same model, listed beside it)." in swarm_ui.pretrain_block(dict(data.load(root), members={"a": dict(next(x for x in data.load(root)["registry"]["small"] if x["id"] == "qwen35-2b-mlx"), key="a")}))
           and swarm_ui.untrained({"learned": {"ledger": [], "passes": []}}) and not swarm_ui.untrained({"learned": {"ledger": [{"n": 1}]}})
           and swarm_ui.swarm_unread({"results": [{"name": "A", "agree": {"of": 20}, "unread": {"swarm": 5, "target": 0}}, {"name": "B", "agree": {"of": 20}, "unread": {"swarm": 4, "target": 19}}, {"name": "C"}]}) == [("A", 5, 20)]
           and "has not been trained" in swarm_ui.evaluation_caution({"learned": {}}, {}) and swarm_ui.evaluation_caution({"learned": {"ledger": [{"n": 1}]}}, {}) == ""
@@ -583,22 +566,21 @@ with tempfile.TemporaryDirectory() as tmp:
           and swarm_ui.harnesses_of([{"benchmarks": [{"task": "a"}, {"task": "b", "harness": "new-one"}]}]) == ["lm", "new-one"] and swarm_ui.harness_name("new-one") == "new-one" and 'data-ev-item="crew"' not in ev0 and 'data-ev-item="instructions" data-h="lm"' in ev0 and '<span class="cfgl">Asks</span>' in ev0
           and "items:its.filter(x=>x.checked&&" in swarm_ui.JS and "harnesses:hs.filter(x=>x.checked)" in swarm_ui.JS and "localStorage.setItem('swarm.eval.off'" in swarm_ui.JS and "function evAsk()" in swarm_ui.JS
           and bad_size == 400 and foreign == 403 and bad_items == [400, 400, 400, 400]
-          and 'id="pre-go"' in pre0 and pre_ok and pre0.count('class="prerow"') == len([k for k in ("a", "b", "c", "d") if k in d["members"]])
+          and gone_pre[0] in (403, 404) and gone_pre[1:] == [404, 404, 404] and not hasattr(swarm_ui, "pretrain_block") and not hasattr(swarm_ui, "adapters_toggle") and "preTick" not in swarm_ui.JS
           and "15 of 20 the same (75%)" in ev1 and '<b class="evpct">45%</b> <span>the swarm · ' in ev1 and "9 both right · 6 both wrong · 5 differ" in ev1 and "Last evaluated 2026-11-17 12:00 UTC" in ev1 and "without adapters" in ev1
           and a_on == 200 and a_cfg.get("adapters") is True and a_bad == 400 and a_off == 200 and "adapters" not in a_cfg2
-          and held_pre[0] == 409 and "Wait for an evaluation" in held_pre[1] and held_by == "an evaluation" and 'id="ev-stop"' in held_ev and 'id="ev-go"' not in held_ev
+          and held_by == "an evaluation" and 'id="ev-stop"' in held_ev and 'id="ev-go"' not in held_ev
           and 'class="pct busy"' in held_ev and 'class="busyn"' in held_ev
-          and 'class="pct busy"' in pre_run and "of %d adapted" % pre0.count('class="prerow"') in pre_run and "pct busy" not in pre_stop and '<b class="pct">1</b>' in pre_stop
-          and "Adapted</b> 2026-11-17" in pre_stop and "a later attempt was not kept: llama.cpp did not load it" in pre_stop and "of 300 questions" in held_ev and 'class="evask"' not in held_ev and 'id="ev-open"' not in held_ev and "&#39;s score<small><i class=\"busyn\"" in held_ev
+          and "of 300 questions" in held_ev and 'class="evask"' not in held_ev and 'id="ev-open"' not in held_ev and "&#39;s score<small><i class=\"busyn\"" in held_ev
           and 'id="ev-open" data-evd-view="table"' in ev_after and 'data-evd-view="paper"' in ev_after and 'data-evd-view="chart"' in ev_after and '<button type="button" class="evopen"' not in ev_after and '<b class="pct">75%</b><span>of the larger model&#39;s score<small>45% against 60% · 20 questions' in ev_after and "equivalent<" not in ev_after
           and '<tr class="evt-item"><th scope="row">' in ev_table and '<td class="num">45%</td><td class="num">60%</td><td class="num"><b class="down">75%</b></td><td class="num evn">20</td>' in ev_table
           and ev_table.count('<tr class="evt-task">') == 23 and "not evaluated" in ev_table and '<tr class="evt-all"><th scope="row">Every question</th><td class="num">45%</td>' in ev_table
           and swarm_ui._ev_share(5, 0) == "–" and "$('#evd').showModal()" in swarm_ui.JS and '<dialog id="evd">' in html and "pct busy" not in ev_after,
           {"order": html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2 id="arrangement">Train</h2>'),
            "ev0": ["lm-evaluation-harness 0.4.13" in ev0, 'id="ev-go"' in ev0, ev0.count("<option"), 'data-evt="ifeval"' in ev0, "not evaluated yet" in ev0, api0.get("running")],
-           "codes": [bad_size, foreign, a_on, a_bad, a_off, held_pre[0]], "pre": ['id="pre-go"' in pre0, apple, pre_ok, pre0.count('class="prerow"')],
+           "codes": [bad_size, foreign, a_on, a_bad, a_off], "gone": gone_pre,
            "ev1": ["15 of 20 the same (75%)" in ev1 and '<b class="evpct">45%</b> <span>the swarm · ' in ev1, "9 both right · 6 both wrong · 5 differ" in ev1, "Last evaluated 2026-11-17 12:00 UTC" in ev1, "without adapters" in ev1],
-           "cfg": [a_cfg.get("adapters"), "adapters" in a_cfg2], "held": [held_pre[1][:60], held_by, 'id="ev-stop"' in held_ev]})
+           "cfg": [a_cfg.get("adapters"), "adapters" in a_cfg2], "held": [held_by, 'id="ev-stop"' in held_ev]})
     swarm_ui.needs_eval = _ne
     # THE UNINSTALL HELPER LISTS WHAT EVALUATING AND PRETRAINING FETCH: the harness, MLX, each model's original weights (the ones the
     # swarm is made of marked in use), the adapters, and every answer an evaluation kept; and removes nothing while either runs
@@ -2121,7 +2103,6 @@ check("where a lineup has an evaluation of the arrangement it started from and a
       and 'id="ev-default"' not in _evb and "The arrangement it started from" not in _evb
       and "arrangement:'default'" not in swarm_ui.JS and '["--default"]' in open(os.path.join(os.path.dirname(os.path.abspath(swarm_ui.__file__)), "swarm_ui.py")).read(), [[k for k, _, _ in _both]])
 swarm_ui._eval_rows = lambda root: [_full11]
-_pre_full = swarm_ui.pretrain_block(_d11)
 swarm_ui._eval_rows = lambda root: [_full11, _other11, _narrow11]
 _v11 = swarm_ui.eval_view(swarm_ui.ARGS.root, _d11)
 _tab11 = swarm_ui.eval_table(_d11)
@@ -2134,37 +2115,17 @@ check("a second look asks only the bodies of work where the swarm scored under t
       "this configuration (never another's), marked and counted in the headline as from before; what it asked has its share before beside it in the table; with nothing short there is no button; and Pretrain is no longer aimed by it",
       _v_full["short"] == ["math"] and _v_full["carried"] == 0 and "The harness found no answer in 9 of the swarm&#39;s replies and 0 of Big&#39;s, of 20" in _blk_full and 'class="evt-unread"' in _tab_full
       and "A task marked no answer in some of its replies" in _tab_full and ">no answer in 9 of 20</b>" in _tab_full and ">unread<" not in _tab_full and ">no answer found</b>" not in _tab_full and 'class="evt-unread"' not in _tab11 and 'id="ev-narrow" type="button" data-items="math"' in _blk_full and "Asks only Math again" in _blk_full
-      and 'id="pre-aim"' not in _pre_full
       and _v11["by_task"]["he"]["carried"]["at"] == _full11["at"] and _v11["by_task"]["he"]["swarm"]["value"] == 0.75 and _v11["carried"] == 20
       and _v11["by_task"]["gsm"]["before"]["swarm"]["value"] == 0.4 and "carried" not in _v11["by_task"]["gsm"] and _v11["short"] == ["math"]
       and "· 20 from before</small>" in _blk11 and "Not asked again: from the evaluation of 2026-11-19 10:00" in _blk11 and "Before (2026-11-19 10:00): the swarm 40%" in _blk11
       and '<th class="num">Before</th>' in _tab11 and '<td class="num">50% <i class="up">up</i></td>' in _tab11 and 'class="evt-task evt-old"' in _tab11 and 'title="Not asked again">–</td>' in _tab11
       and '<tr class="evt-all"><th scope="row">Every question</th><td class="num">67.5%</td><td class="num">65%</td><td class="num"><b class="up">103.8%</b></td><td class="num">88.4% <i class="up">up</i></td>' in _tab11
       and _v_level["short"] == [] and 'id="ev-narrow"' not in _blk_level and swarm_ui._and(["a", "b", "c"]) == "a, b and c"
-      and "b.id==='ev-narrow'" in swarm_ui.JS and "a&&a.checked?{kinds:a.dataset.kinds.split(',')}:{}" in swarm_ui.JS,
+      and "b.id==='ev-narrow'" in swarm_ui.JS,
       [_v_full["short"], _v11["carried"], _v11["short"], _v_level["short"], [x for x in _tab11.split("<tr") if "evt-all" in x]])
 
 check("the table of the module beside the larger model, by family, fits a phone: its headings may wrap, a family's name breaks between words and not letter by letter, and under 760 px the columns share the width",
       ".fams table.spec th{white-space:normal}.fams table.spec td:first-child{overflow-wrap:break-word;word-break:normal}" in swarm_ui.CSS and ".fams table.spec{table-layout:fixed" in swarm_ui.CSS)
-
-# ---- PRETRAIN IS AIMED BY THE CLASS STAGE, AND ITS ADAPTERS ARE JUDGED: the kinds no slot had the answer to; the verdict on the card
-_r14 = Path(tempfile.mkdtemp())
-(_r14 / "training" / "results" / "k14").mkdir(parents=True)
-_d14 = {"root": str(_r14), "key": "k14"}
-_aim_none = swarm_ui.pretrain_aim(_d14)
-(_r14 / "training" / "results" / "k14" / "classes.json").write_text(json.dumps({"classes": {
-    "talk": {"asItStands": {"kinds": {"lies": {"n": 4, "anySlot": 4}, "date": {"n": 4, "anySlot": 2}}}},
-    "words": {"asItStands": {"kinds": {"date": {"n": 4, "anySlot": 3}, "dyck": {"n": 4, "anySlot": 0}, "one": {"n": 1, "anySlot": 0}}}}}}))
-_aim14 = swarm_ui.pretrain_aim(_d14)
-(_r14 / "training" / "results" / "k14" / "classes.json").write_text(json.dumps({"classes": {"talk": {"asItStands": {"kinds": {"lies": {"n": 4, "anySlot": 4}}}}}}))
-_aim_full = swarm_ui.pretrain_aim(_d14)
-shutil.rmtree(_r14, ignore_errors=True)
-check("Pretrain is aimed by what the class stage measured and by nothing of a benchmark: the kinds of question on a quarter or more of which no slot had a good answer, the furthest short first; with every kind "
-      "covered there is nothing to aim at and the card says why; the press sends those kinds; and the card says how the adapters were judged on held questions and whether they are served",
-      _aim_none == ([], False) and _aim14 == (["dyck", "date"], True) and _aim_full == ([], True)
-      and "kinds:a.dataset.kinds.split(',')" in swarm_ui.JS and '"--kinds"' in open(swarm_ui.__file__).read() and "Nothing to aim at" in open(swarm_ui.__file__).read()
-      and "<b>Judged</b>" in open(swarm_ui.__file__).read() and "eval_view(root, d)" not in open(swarm_ui.__file__).read().split("def pretrain_block")[1].split("\ndef ")[0],
-      [_aim_none, _aim14, _aim_full])
 
 # ---- EVERY QUESTION OF THE PASS HAS A PIP: the ones not asked yet too, with their line in the key
 _qt13 = swarm_ui.question_track({"root": tempfile.gettempdir(), "key": "none13", "loop": {"pass": 1, "of": 6, "list": [{"id": "q1", "kind": "chain", "state": "at parity"}, {"id": "q2", "kind": "fix", "state": "not reached"}]}})
@@ -2222,29 +2183,13 @@ check("the controls of a card's head stay inside the third column (a chooser as 
       and ".trainhead>.proghead>.evctl{min-width:0;max-width:100%}" in swarm_ui.CSS
       and ".trainhead>.proghead{display:grid;grid-template-columns:330px minmax(0,1fr) 300px;" in swarm_ui.CSS, "")
 
-# THE PRETRAIN CARD SAYS WHAT PRETRAINING IS NOW: an adapter for each role (training/roles.mjs writes roles.json)
+# (the lineup the page is served for, and where its small model's adapters are kept: used by the checks below)
 _rroot = Path(swarm_ui.ARGS.root)
 _dr = data.load(str(_rroot))
 _ra = next(m for m in _dr["members"].values() if m)
 _ro = (json.loads((REPO / "training" / "originals.json").read_text())["models"].get(_ra["file"]) or {})
 _rdir = _rroot / ".work" / "library" / "adapters" / _dr["target"]["id"] / (_ro.get("dir") or _ra["file"])
 _rdir.mkdir(parents=True, exist_ok=True)
-_had_roles = (_rdir / "roles.json").read_text() if (_rdir / "roles.json").exists() else None
-(_rdir / "roles.json").write_text(json.dumps({"roles": {
-    "draft": {"ok": False, "examples": 189, "why": "jinja2.exceptions.TemplateError: Tool call arguments must be a mapping"},
-    "check": {"ok": True, "examples": 55, "perplexity": {"without": 4.1579, "with": 3.8265}},
-    "write": {"ok": True, "examples": 90, "perplexity": {"without": 4.1476, "with": 3.9506}}}}))
-_pre_roles = swarm_ui.pretrain_block(_dr)
-if _had_roles is None:
-    (_rdir / "roles.json").unlink()
-else:
-    (_rdir / "roles.json").write_text(_had_roles)
-check("the Pretrain card says what pretraining is now: where a model has an adapter for each role its row names each role (draft, check, write the reply), what it was taught on and what llama.cpp found, "
-      "or why a role has none; the head counts the roles that have one of three and says the adapters are taught each role's own right answers in the arrangement and served by role; and the verdict on the one adapter of the old way is not shown beside them",
-      'data-roles="1"' in _pre_roles and "of 3 roles adapted" in _pre_roles and '<b class="pct">2</b>' in _pre_roles
-      and "<b>check</b> (checks): adapted on 55 of its own right answers" in _pre_roles and "perplexity on them 4.1579 → 3.8265" in _pre_roles
-      and "<b>draft</b> (drafts): not adapted on its 189 examples" in _pre_roles and "Tool call arguments must be a mapping" in _pre_roles
-      and "Pretraining knows the arrangement" in _pre_roles and "<b>Judged</b>" not in _pre_roles, [_pre_roles[:300]])
 
 # THE RUN CARD IS A CARD LIKE THE OTHERS, AND STOPS A RUN IT DID NOT START; THE EVALUATION DIALOGS HAVE ONE SHAPE
 _wb = swarm_ui.whole_block(_dr)
@@ -2366,21 +2311,7 @@ check("the count of questions finished never goes back: a task asked in two ways
       and swarm_ui._whole({"done": 7}) == 7 and open(swarm_ui.__file__).read().count("a.whole??a.done") == 2,
       _lin)
 
-# A STAGE DOES NO WORSE THAN THE ONE BEFORE: the Pretrain card says which role's adapter is served, and a spec pins only those
-_had_roles2 = (_rdir / "roles.json").read_text() if (_rdir / "roles.json").exists() else None
-(_rdir / "roles.json").write_text(json.dumps({"roles": {
-    "draft": {"ok": True, "examples": 228, "perplexity": {"without": 2.3, "with": 2.13}, "served": True},
-    "check": {"ok": True, "examples": 66, "perplexity": {"without": 4.0, "with": 3.8}, "served": False},
-    "write": {"ok": True, "examples": 100, "perplexity": {"without": 4.18, "with": 3.72}}},
-    "judged": {"questions": 72, "without": 40, "with": 47, "served": ["draft"],
-               "single": [{"role": "check", "without": 40, "with": 36}, {"role": "draft", "without": 40, "with": 47}]}}))
-try:
-    _pre_served = swarm_ui.pretrain_block(_dr)
-finally:
-    if _had_roles2 is None:
-        (_rdir / "roles.json").unlink()
-    else:
-        (_rdir / "roles.json").write_text(_had_roles2)
+# A SPEC PINS ONLY THE ADAPTERS THAT ARE SERVED: a role's adapter judged and found no better is no part of the module
 _sroles_was2 = (_sdir / "roles.json").read_text() if (_sdir / "roles.json").exists() else None
 (_sdir / "roles.json").write_text(json.dumps({"roles": {
     "draft": {"ok": True, "examples": 59, "gguf": str(_sdir / "roles" / "draft" / "m-lora.gguf"), "served": True},
@@ -2395,11 +2326,8 @@ finally:
     else:
         (_sdir / "roles.json").write_text(_sroles_was2)
 _sk2 = next(iter(_spins2), None)
-check("a stage does no worse than the one before: the Pretrain card says of each role's adapter whether it is served, with the held questions the module had right with it and without it; one that was not judged says neither; "
-      "and a spec pins only the adapters that are served, since one that was judged and found no better is no part of the module",
-      "<b>served</b>: 47 of 72 held questions right with it, 40 without" in _pre_served and "<b>not served</b>: 36 of 72 held questions right with it, 40 without" in _pre_served
-      and _pre_served.count("served</b>") == 2 and _sk2 is not None and set(_spins2[_sk2]["roles"]) == {"draft"},
-      [_pre_served[:400], _spins2])
+check("a spec pins only the adapters that are served: a role's adapter that was judged and found no better is no part of the module, and is not pinned",
+      _sk2 is not None and set(_spins2[_sk2]["roles"]) == {"draft"}, [_spins2])
 
 # A MIXTURE IN THE SPEC: the adapters the arrangement's slots carry by name are pinned, whatever the configuration says of adapters
 (_sdir / "mix" / "a-direct@1").mkdir(parents=True, exist_ok=True)

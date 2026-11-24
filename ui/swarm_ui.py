@@ -614,16 +614,16 @@ document.addEventListener('click',async(ev)=>{
 // A MODEL CHOSEN: written down, and everything that depends on it drawn again in place
 document.addEventListener('change',async(ev)=>{const s=ev.target.closest('[data-pick]');if(!s)return;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({[s.dataset.pick]:s.value})});
-  if(r.ok){$('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/adapt','#adapt');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');liveTick();}else{alert(await r.text());await swap('/fragment/picks','#picks');}});
+  if(r.ok){$('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');liveTick();}else{alert(await r.text());await swap('/fragment/picks','#picks');}});
 // ONE MODEL OR SEVERAL: the choice above the pills, saved as a pill's choice is
 document.addEventListener('click',async(ev)=>{const b=ev.target.closest('[data-mix]');if(!b||b.classList.contains('on'))return;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({mix:b.dataset.mix==='1'})});
-  if(r.ok){$('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/adapt','#adapt');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');liveTick();}else alert(await r.text());});
+  if(r.ok){$('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');liveTick();}else alert(await r.text());});
 // TURNS WITH TOOLS: who takes an agent's turn, saved as a pill's choice is, and the row and the folded line drawn again in place
 document.addEventListener('click',async(ev)=>{const b=ev.target.closest('[data-tools]');if(!b||b.classList.contains('on'))return;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({tools:b.dataset.tools})});
   if(!r.ok){alert(await r.text());return;}
-  await swap('/fragment/tools','#tools');await swap('/fragment/adapt','#adapt');await swap('/fragment/cfgmeta','#cfg-meta');});
+  await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');});
 // THE ARRANGEMENT'S FACES: choosing one opens that slot's card below the row (what it is told, its record, what is being tried
 // on it); choosing it again closes it. The card is painted live like the faces, since it carries the same data-live.
 document.addEventListener('click',(ev)=>{
@@ -671,7 +671,7 @@ document.addEventListener('click',async(ev)=>{
   const a=ev.target.closest('[data-rec-apply]');if(!a)return;a.disabled=true;
   const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:a.dataset.recApply});
   if(!r.ok){alert(await r.text());a.disabled=false;return;}
-  $('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/adapt','#adapt');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/recslot','#rec-slot');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');$('#recd').close();
+  $('#body').innerHTML=await r.text();await swap('/fragment/picks','#picks');await swap('/fragment/tools','#tools');await swap('/fragment/cfgmeta','#cfg-meta');await swap('/fragment/recslot','#rec-slot');await swap('/fragment/chips','#chips');await swap('/fragment/score','#score');$('#recd').close();
 });
 // STEER IT: focus an area, queue or skip a move, choose any move; each choice written down and the plan drawn again in place
 const steerPost=async(body)=>{const r=await fetch('/steer',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify(body)});if(!r.ok){alert(await r.text());return false;}$('#plan').innerHTML=await r.text();keepOpen($('#plan'));return true;};
@@ -878,20 +878,14 @@ document.addEventListener('change',async(ev)=>{
   evLeft();});
 document.addEventListener('DOMContentLoaded',evAsk);
 document.addEventListener('click',async(ev)=>{
-  const b=ev.target.closest('#ev-go,#ev-narrow,#ev-stop,#pre-go,#pre-stop');if(!b)return;b.disabled=true;
+  const b=ev.target.closest('#ev-go,#ev-narrow,#ev-stop');if(!b)return;b.disabled=true;
   if(b.id==='ev-go'){const its=[...document.querySelectorAll('[data-ev-item]')];
     const hs=[...document.querySelectorAll('[data-ev-harness]')];
     await evPost('/eval/start','#evalwrap',{limit:Number(($('#ev-size')||{}).value||0),...(its.length?{items:its.filter(x=>x.checked&&!x.closest('label').classList.contains('none')).map(x=>x.dataset.evItem)}:{}),...(hs.length?{harnesses:hs.filter(x=>x.checked).map(x=>x.dataset.evHarness)}:{}),});}
   else if(b.id==='ev-stop')await evPost('/eval/stop','#evalwrap');
   // A SECOND LOOK: only the bodies of work that fell short (the button carries them), at the size chosen
   else if(b.id==='ev-narrow')await evPost('/eval/start','#evalwrap',{limit:Number(($('#ev-size')||{}).value||0),items:b.dataset.items.split(',')});
-  // PRETRAIN, aimed where the box is ticked: the kinds of question no slot had the answer to (the box carries them)
-  else if(b.id==='pre-go'){const a=$('#pre-aim');await evPost('/pretrain/start','#prewrap',a&&a.checked?{kinds:a.dataset.kinds.split(',')}:{});}
-  else await evPost('/pretrain/stop','#prewrap');
   await swap('/fragment/score','#score');});
-document.addEventListener('change',async(ev)=>{const c=ev.target.closest('#pre-use');if(!c)return;
-  const r=await fetch('/config',{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify({adapters:c.checked})});
-  if(!r.ok){alert(await r.text());c.checked=!c.checked;}});
 const EVW={waiting:()=>'waiting',done:s=>s.done+' asked',kept:()=>'answers kept from before',failed:s=>'failed: '+(s.why||''),stopped:s=>'stopped at '+s.done,
   asking:s=>'asking '+Math.min(s.done+1,s.of||s.done+1)+(s.of?' of '+s.of:'')};
 const mins=x=>x<90?Math.round(x)+' s':x<5400?Math.round(x/60)+' min':(x/3600).toFixed(1)+' h';
@@ -936,17 +930,6 @@ const evMeta=(all,tn)=>{const na=t=>String((t.target||{}).why||'').startsWith('n
   const w=who=>{const done=ts.filter(t=>['done','kept'].includes((t[who]||{}).state)).length,a=ts.find(t=>(t[who]||{}).state==='asking');
     return done+' of '+ts.length+' task'+(ts.length===1?'':'s')+' asked'+(a?', asking '+a.name+' '+((a[who].done||0)+1)+(a[who].of?' of '+a[who].of:''):'');};
   return tn+': '+w('target')+' · the swarm: '+w('swarm')+(k?' · '+k+' not asked':'');};
-async function preTick(){const box=$('#prebox');if(!box||!box.dataset.running)return;
-  let s;try{s=await (await fetch('/api/pretrain')).json();}catch(e){return;}
-  const key=(s.models||[]).map(m=>m.state).join();
-  if(!s.running||(box.dataset.k&&box.dataset.k!==key)){box.dataset.k='';await swap('/fragment/pretrain','#prewrap');await swap('/fragment/adapt','#adapt');if(!s.running)await swap('/fragment/score','#score');return;}
-  box.dataset.k=key;const st=box.querySelector('[data-pre-step]');if(st&&st.textContent!==s.step)st.textContent=s.step||'';
-  for(const m of s.models||[]){const row=box.querySelector('[data-pre="'+m.file+'"]');if(!row)continue;
-    if(m.state==='fetching'){const t=row.querySelector('[data-pm]');if(t)t.textContent=t.textContent.replace(/ · [^·]* so far$/,' · '+m.got+' so far');continue;}
-    if(m.state!=='training')continue;
-    const i=row.querySelector('.evbar i'),t=row.querySelector('[data-pm]'),n=s.iters||100;
-    if(i)i.style.width=(100*(m.iter||0)/n).toFixed(1)+'%';
-    if(t)t.textContent='Training: step '+(m.iter||0)+' of '+n+(m.loss!=null?' · loss '+m.loss.toFixed(3):' · loading its weights');}}
 // WHO HOLDS THE MACHINE: training, an evaluation or pretraining, started or stopped anywhere (this page, another device, a script).
 // Each card was drawn again only when its OWN run ended, so a training run stopped left Evaluate and Pretrain saying they wait for it
 // until the page was reloaded. When the holder changes, the three cards are drawn again in place
@@ -954,7 +937,7 @@ async function busyTick(){const m=$('#busy');if(!m)return;let s;try{s=await (awa
   if(s.busy===m.dataset.busy)return;m.dataset.busy=s.busy;
   await swap('/fragment/eval','#evalwrap');await swap('/fragment/score','#score');
   if(s.busy==='training')watch();}
-trainAsk();setInterval(()=>{evTick();preTick();busyTick();},1500);
+trainAsk();setInterval(()=>{evTick();busyTick();},1500);
 // THE FACES DRAW THE ARRANGEMENT AS IT IS ASKED: while a try runs, the one it asks (the kept arrangement with the change on it); asked
 // again whenever the try changes (204 where the page already has it), and left alone while a slot's card is open below them
 async function facesTick(){const f=$('#faces');if(!f)return;const open=f.querySelector('#avdetail');if(open&&open.childElementCount)return;
@@ -2509,7 +2492,7 @@ def _ours(pid, marker):
 
 
 # what each kind of run this page starts is started as (start_run, start_job): looked for in the command line of its process
-RUN_MARKS = {"train": "training/session.sh", "eval": "training/evaluate.sh", "pretrain": ("training/adapters.mjs", "training/roles.mjs", "training/mixture.mjs"), "whole": "training/run.sh"}
+RUN_MARKS = {"train": "training/session.sh", "eval": "training/evaluate.sh", "pretrain": ("training/adapters.mjs", "training/mixture.mjs"), "whole": "training/run.sh"}
 
 
 def run_state():
@@ -3617,34 +3600,6 @@ def config_section(d):
             % (badge, e(cfg_meta(d)), pills(d), tools_toggle(d), own_questions(d)))
 
 
-def adapters_kept(d):
-    """How many of the configured swarm's small models have an adapter that was kept, for the larger model configured (Pretrain
-    writes .work/library/adapters/<larger model>/<model>/result.json)."""
-    root = Path(ARGS.root)
-    orig = _originals()
-    tgt = d.get("target") or {}
-    n = 0
-    for m in (d.get("members") or {}).values():
-        if not m:
-            continue
-        o = orig.get(m.get("file")) or {}
-        res = data._json(root / ".work" / "library" / "adapters" / str(tgt.get("id", "")) / (o.get("dir") or m.get("file", "")) / "result.json", None)
-        n += 1 if res and res.get("ok") else 0
-    return n
-
-
-def adapters_toggle(d, inner=False):
-    """WITH OR WITHOUT ITS ADAPTERS: a row of Configuration, since it is a fact of how the swarm is served, to training and to an
-    evaluation alike ("adapters" in src/config.json; an evaluation is kept apart for each). It stood under the Pretrain card,
-    as if it were Pretrain's alone. It cannot be ticked while no adapter has been kept, and says so."""
-    kept = adapters_kept(d)
-    on = bool((data._json(Path(ARGS.root) / "src" / "config.json", {}) or {}).get("adapters"))
-    body = ('<label class="preuse"><input type="checkbox" id="pre-use"%s%s> Serve the swarm with its adapters <small>%s</small></label>'
-            % (" checked" if on else "", "" if kept else " disabled",
-               "from the next time it is loaded: training, an evaluation" if kept else "none has been kept yet: Pretrain makes them"))
-    return body if inner else '<div id="adapt">%s</div>' % body
-
-
 def tools_toggle(d, inner=False):
     """TURNS WITH TOOLS: who takes a turn in an agent's work (a request that carries tools): the swarm, every drafter proposing the
     next step and the decider picking where they differ (src/tools.mjs), or the model in place a alone, as it came. It is part
@@ -4269,7 +4224,8 @@ def busy_with():
     # (the whole run first, where it was started from a shell: its steps are not this page's jobs, and it has the models)
     if (_run_elsewhere() or {}).get("running"):
         return "the run"
-    for name, what in (("eval", "an evaluation"), ("pretrain", "pretraining")):
+    # (the job called pretrain is what makes adapters: the whole run starts it as its second step)
+    for name, what in (("eval", "an evaluation"), ("pretrain", "making adapters")):
         if (job_state(name) or {}).get("running"):
             return what
     # (the whole run, between two of its steps: nothing of the three is running for a moment, and it still has the models)
@@ -5219,7 +5175,7 @@ def needs_eval(d=None):
     listed, lacking = _unevaluated(d)
     if not listed or len(lacking) < len(listed):
         return ""
-    return "Evaluate the swarm first: this configuration has not been evaluated. Training and Pretrain are judged against it."
+    return "Evaluate the swarm first: this configuration has not been evaluated. Training is judged against it."
 
 
 def eval_gaps(d=None):
@@ -5560,212 +5516,10 @@ def _du(p):
     return total
 
 
-def _iter_of(log):
-    """How far an MLX run is, from its log: (iteration, train loss) of the last report, or None."""
-    try:
-        text = Path(log).read_text(errors="replace")[-6000:]
-    except OSError:
-        return None
-    text = re.sub(r"\x1b\[[0-9;]*m", "", text)
-    hits = re.findall(r"^\s*(\d+)\s+([0-9]+\.[0-9]+)\s+[▼▲=]?", text, re.M)
-    return (int(hits[-1][0]), float(hits[-1][1])) if hits else None
-
-
-def pretrain_aim(d):
-    """THE KINDS OF QUESTION AN ADAPTER HAS SOMETHING TO TEACH (training/adapters.mjs aimOf): those on a quarter or more of which
-    no slot's draft had a good answer, by the class stage's record (classes.json), the furthest short first.
-    -> ([kinds], whether any class was measured)"""
-    rec = data._json(Path(d.get("root", ARGS.root)) / "training" / "results" / str(d.get("key", "")) / "classes.json", None) or {}
-    by = {}
-    for c in (rec.get("classes") or {}).values():
-        for k, v in (((c or {}).get("asItStands") or {}).get("kinds") or {}).items():
-            b = by.setdefault(k, [0, 0])
-            b[0] += v.get("n", 0)
-            b[1] += v.get("anySlot", 0)
-    short = sorted((k for k, (n, a) in by.items() if n >= 2 and (n - a) * 4 >= n), key=lambda k: by[k][1] / by[k][0])
-    return short, bool(by)
-
-
-def pretrain_block(d):
-    """PRETRAIN: a LoRA adapter for each small model of the swarm, trained with MLX on the larger model's answers to the train
-    questions of the pass (never a benchmark's, never a held one), and kept where llama.cpp finds those answers likelier with
-    it. Whether the swarm is served with them is a switch; Evaluate the swarm, before and after, says what they bought."""
-    root = Path(ARGS.root)
-    live = job_live("pretrain")
-    running = live.get("running")
-    orig = _originals()
-    tgt = d.get("target") or {}
-    cfg = data._json(root / "src" / "config.json", {}) or {}
-    held = busy_with()
-    mlx = (root / ".work" / "mlx" / "venv" / "bin" / "python").exists()
-    import platform
-    apple = sys.platform == "darwin" and platform.machine() == "arm64"  # (MLX runs on Apple silicon only)
-    rows, good = [], 0
-    by_role, role_good = False, 0  # (pretraining by role: an adapter for each role a slot can have)
-    lmod = {m.get("file"): m for m in live.get("models") or []}
-    names = {t["id"]: t["name"] for t in (d.get("equivalence") or {}).get("targets", [])}
-    for k in ("a", "b", "c", "d"):
-        m = (d.get("members") or {}).get(k)
-        if not m:
-            continue
-        o = orig.get(m.get("file")) or {}
-        adir = root / ".work" / "library" / "adapters" / str(tgt.get("id", "")) / (o.get("dir") or m.get("file", ""))
-        res = data._json(adir / "result.json", None)
-        # (an attempt that was not kept, beside the adapter that still stands, or in place of one that never was)
-        fail = data._json(adir / "failed.json", None)
-        if fail and res and str(fail.get("at", "")) < str(res.get("at", "")):
-            fail = None
-        lm = lmod.get(m.get("file")) if running or live.get("phase") in ("stopped", "failed") else None
-        # AN ADAPTER FOR EACH ROLE (training/roles.mjs writes roles.json beside the model's adapters; while it trains, what it has
-        # so far is in the job's own live file). Where there is one, it is what the swarm is served with, and the row says each
-        # role: what it was taught on, and what llama.cpp found, or why it has none
-        roles = ((data._json(adir / "roles.json", None) or {}).get("roles")) or ((live.get("roles") or {}) if running else {})
-        if roles and (m.get("engine") or "llama") == "llama":
-            parts = []
-            _judged = (data._json(adir / "roles.json", None) or {}).get("judged") or {}
-            for rname, does in (("draft", "drafts"), ("check", "checks"), ("write", "writes the reply")):
-                r = roles.get(rname)
-                if not r:
-                    parts.append('<span class="muted"><b>%s</b> (%s): too few right answers of its own to teach it from</span>' % (rname, does))
-                elif r.get("ok"):
-                    px = r.get("perplexity") or {}
-                    # (and whether it is SERVED: judged on held questions, with and without it, training/roles.mjs rolesServed)
-                    jd = next((x for x in (_judged.get("single") or []) if x.get("role") == rname), None)
-                    served_ = ("" if jd is None and r.get("served") is None else
-                               " · <b>%s</b>%s" % ("served" if r.get("served") else "not served",
-                                                   (": %d of %d held questions right with it, %d without" % (jd.get("with") or 0, _judged.get("questions") or 0, jd.get("without") or 0)) if jd else ""))
-                    parts.append('<span><b>%s</b> (%s): adapted on %d of its own right answers · llama.cpp perplexity on them %s → %s%s</span>'
-                                 % (rname, does, r.get("examples") or 0, px.get("without"), px.get("with"), served_))
-                else:
-                    parts.append('<span class="bad"><b>%s</b> (%s): not adapted on its %d examples: %s</span>' % (rname, does, r.get("examples") or 0, e(str(r.get("why") or "")[:160])))
-            if not by_role:
-                role_good = sum(1 for r in roles.values() if r and r.get("ok"))
-            by_role = True
-            rows.append('<div class="prerow" data-pre="%s" data-roles="1"><b>%s</b><div><small>%s</small></div></div>' % (e(m.get("file", "")), e(m.get("name", "")), "<br>".join(parts)))
-            continue
-        if res and res.get("ok"):
-            good += 1
-        if (m.get("engine") or "llama") != "llama":
-            # A MEMBER SERVED BY TENSORFOLD IS NOT PRETRAINED, and says so in its own words: TensorFold loads no adapter (spec
-            # S2.8), so there is nothing to train one for. It read "No original weights are named for it (training/originals.json)",
-            # which is true of it and is not the reason (console 2026-11-20). Where the catalog has the same model served by
-            # llama.cpp, that is the one that can be adapted, and it is named
-            twin = next((x for x in (d.get("registry") or {}).get("small", []) if x.get("id") == str(m.get("id", "")).replace("-mlx", "") and x.get("id") != m.get("id") and (x.get("engine") or "llama") == "llama"), None)
-            what = ('<small class="muted">Not pretrained: TensorFold serves it, and TensorFold loads no adapter.%s</small>'
-                    % (" To pretrain it, choose the one llama.cpp serves in its place (the same model, listed beside it)." if twin else ""))
-        elif lm and lm.get("state") == "training" and not running:
-            it = _iter_of(lm.get("log", ""))
-            what = '<small class="bad">Ended at step %d of %d, before it finished: not kept</small>' % (it[0] if it else 0, live.get("iters") or 100)
-        elif lm and lm.get("state") == "training":
-            it = _iter_of(lm.get("log", ""))
-            n = live.get("iters") or 100
-            pct = 100.0 * (it[0] if it else 0) / n
-            what = ('<span class="evbar on"><i style="width:%.1f%%"></i></span><small data-pm>Training: step %d of %d%s</small>'
-                    % (pct, it[0] if it else 0, n, (" · loss %.3f" % it[1]) if it else " · loading its weights"))
-        elif lm and lm.get("state") == "fetching" and running:
-            what = '<small data-pm>Fetching its original weights from %s · %s so far</small>' % (e(o.get("repo", "")), e(cleanup.gb(_du(lm.get("dir", "")))))
-        elif lm and lm.get("state") in ("waiting", "stopped", "failed", "not trained", "fetching"):
-            what = '<small>%s</small>' % e({"waiting": "Waiting its turn", "stopped": "Stopped"}.get(lm["state"], "Not adapted: " + str((lm.get("result") or {}).get("why") or lm.get("why") or "")))
-        elif res and res.get("ok"):
-            p = res.get("perplexity") or {}
-            later = (' <span class="bad">· a later attempt was not kept: %s</span>' % e(fail.get("why") or "")) if fail else ""
-            what = ('<small><b>Adapted</b> %s on %d of %s&#39;s answers (%s) · loss %s · llama.cpp perplexity on them %s → %s</small>'
-                    % (e(str(res.get("at", ""))[:10]), res.get("examples") or 0, e(res.get("target") or "the larger model"), e(", ".join(names.get(i, i) for i in res.get("items") or [])),
-                       e(" → ".join(str(x) for x in res.get("valLoss") or [])), p.get("without"), p.get("with")))
-            what = what.replace("</small>", later + "</small>", 1)
-        elif res or fail:
-            what = '<small class="bad">Not kept: %s</small>' % e((res or fail).get("why") or "")
-        elif o.get("cannot"):
-            what = '<small class="muted">Cannot be adapted here: %s</small>' % e(o["cannot"])
-        elif not o:
-            what = '<small class="muted">No original weights are named for it (training/originals.json)</small>'
-        elif not (root / ".work" / "mlx" / "hf" / o.get("dir", "-") / "config.json").exists():
-            what = '<small class="muted">Not adapted yet · Pretrain fetches its original weights from %s, then MLX trains it</small>' % e(o.get("repo", ""))
-        else:
-            what = '<small class="muted">Not adapted yet · MLX trains it from %s</small>' % e(o.get("repo", ""))
-        rows.append('<div class="prerow" data-pre="%s"><b>%s</b><div>%s</div></div>' % (e(m.get("file", "")), e(m.get("name", "")), what))
-    on = bool(cfg.get("adapters"))
-    if running:
-        ctl = '<button class="btn stop top" id="pre-stop" type="button">Stop pretraining</button>'
-    else:
-        # (none of the swarm's small models can be adapted here: nothing to press for, and the button says why)
-        none_can = not any((orig.get((m or {}).get("file")) or {}) and not (orig.get((m or {}).get("file")) or {}).get("cannot") for m in (d.get("members") or {}).values() if m)
-        ctl = ('<button class="btn top" id="pre-go" type="button"%s>Pretrain</button>'
-               % ((' disabled title="None of the swarm\'s small models can be adapted here: each says why"' if none_can and apple else "") or (" disabled" if held or not apple or needs_eval(d) else "")))
-    # (the bodies of work this pass's train questions cover: every one, unless its record is of a pass that asked fewer)
-    eqv = d.get("equivalence") or {}
-    asked = [t["name"] for t in eqv.get("targets", []) if t["id"] in (eqv.get("asked") or [])]
-    items = "every body of work" if asked and len(asked) == len(eqv.get("targets", [])) else ", ".join(asked)
-    out = ['<div class="panel prep" id="prebox"%s>' % (' data-running="1"' if running else ""),
-           '<div class="proghead"><span class="memnum"%s>%s<span>of %d %s<small>LoRA, with MLX</small></span></span>'
-           '<span class="progline">%s</span><span class="evctl">%s</span></div>'
-           # (while it runs, how many are adapted is not known until each model's run is checked: a bar that moves in place of the
-           # number; stopped or failed, the adapters that were there are there still, and the number comes back as it was)
-           # (by role, as the run pretrains: three roles, and how many have an adapter. Else the one adapter a model, as before)
-           % (' aria-busy="true"' if running else "", busy("0") if running else '<b class="pct">%d</b>' % (role_good if by_role else good),
-              3 if by_role or not good else len(rows), "roles adapted" if by_role or not good else "adapted",
-              ("Pretraining knows the arrangement: for each role a slot can have (draft, check, write the reply) a small model is taught that role&#39;s own requests on the train questions of %s, with the answers it gave that were right. "
-               "Each request is then served with the adapter of its slot&#39;s role. Evaluate the swarm, as configured and pretrained, says what they bought." % e(items or "this pass")) if by_role or not good else
-              ("Each small model is taught %s&#39;s right answers to the train questions of %s. An adapter is served only where it makes the swarm better on held questions." % (e(tgt.get("name", "the larger model")), e(items or "this pass"))),
-              _starts(ctl, ("pre-go", "pre-stop")))]
-    # (why Pretrain waits for an evaluation: one quiet line under the head, across the card, as the Train card says it; it stood
-    # in the head's narrow column under the button. Not said while something else has the models: that line says why it waits)
-    if needs_eval(d) and not running and not held:
-        out.append('<div class="trainbelow"><small class="evwhy" id="pre-first">%s</small></div>' % e(needs_eval(d)))
-    if held and not running:
-        out.append('<div class="state warn"><i></i><span>%s is running: pretraining waits for it.</span></div>' % e(held[0].upper() + held[1:]))
-    elif not apple and not running:
-        out.append('<div class="state warn"><i></i><span>Pretrain trains with MLX, which runs on Apple silicon only: it is not available on this machine. Evaluate the swarm and training are.</span></div>')
-    elif not mlx and not running:
-        out.append('<div class="state"><i></i><span>MLX, the trainer, is not installed yet: Pretrain installs it (once, into <code>.work/mlx</code>) and fetches what each model needs. The Uninstall Helper takes it out again.</span></div>')
-    if running or live.get("phase") in ("stopped", "failed"):
-        out.append('<div class="state %s"><i></i><span data-pre-step>%s</span></div>' % ("on" if running else "warn" if live.get("phase") == "failed" else "", e(live.get("step") or "")))
-    # WHAT IT IS AIMED AT: the kinds of question on which the class stage of training (training/classes.mjs) found that NO slot's
-    # draft had a good answer, on a quarter or more of them. Those are what rearranging cannot mend and an adapter may. It was
-    # aimed by a benchmark's verdict, which pointed it at Logic, Math and Reasoning on the day their whole gap was replies not
-    # being read. Nothing of a benchmark is read here now. (training/adapters.mjs aimOf, the same rule)
-    aim, measured = pretrain_aim(d)
-    if aim and not running:
-        out.append('<label class="preaim"><input type="checkbox" id="pre-aim" data-kinds="%s" checked%s><span>Aim it at %s'
-                   '<small>The kinds of question on which no slot of the swarm had a good answer, a quarter of the time or more, when training last took each class as a class. '
-                   'Each model learns from the train questions of these alone. Untick to learn from every kind.</small></span></label>'
-                   % (e(",".join(aim)), " disabled" if held else "", e(_and([KIND_WORDS.get(k, k) for k in aim]))))
-    elif measured and not running:
-        out.append('<p class="small muted preaim" style="display:block">Nothing to aim at: when training last took each class as a class, some slot of the swarm had a good answer on nearly every question of every kind. '
-                   'What is lost there is lost in choosing or in writing the reply out, which an adapter does not mend.</p>')
-    elif running and live.get("items") and len(live["items"]) < len(eqv.get("targets", [])):
-        out.append('<p class="small muted" style="margin:12px 0 0">Aimed at %s.</p>' % e(_and([names.get(i, i) for i in live["items"]])))
-    # HOW THE ADAPTERS WERE JUDGED (adapters.mjs judge): the held questions, the swarm without them and with them, and whether
-    # they are served for it. Pretrain ends with it; the box below still lets a person say otherwise
-    jd = data._json(root / ".work" / "library" / "adapters" / str(tgt.get("id", "")) / "judged.json", None)
-    if jd and not running and not by_role:
-        out.append('<p class="small %s" style="margin:12px 0 0"><b>Judged</b> %s UTC on %d held questions: %d right without the adapters, %d with them (%+.1f points, paired error %.1f). %s</p>'
-                   % ("" if jd.get("served") else "muted", e(_day(jd.get("at"))), jd.get("questions", 0), jd.get("without", 0), jd.get("with", 0), 100 * (jd.get("gain") or 0), 100 * (jd.get("error") or 0),
-                      ("The swarm would be served with them." if jd.get("served") else "They would not be served: not better by more than twice the error.") + " (A trial: the configuration was not changed.)" if jd.get("dry")
-                      else "The swarm is served with them." if jd.get("served") else "They are not served: not better by more than twice the error."))
-    out.append('<div class="prerows">%s</div>' % "".join(rows))
-    # (whether the swarm is served with them is asked in Configuration, where everything else about how it is served is: it
-    # bears on training and an evaluation alike, and under this card it read as Pretrain's own business. Console 2026-11-21)
-    out.append("</div>")
-    return "".join(out)
-
-
 def eval_api():
     """/api/eval: the evaluation's live state, for the page to paint in place."""
     live = job_live("eval")
     live.pop("log", None)
-    return live
-
-
-def pretrain_api():
-    """/api/pretrain: pretraining's live state, with how far the model in training is (from its MLX log)."""
-    live = job_live("pretrain")
-    for m in live.get("models") or []:
-        if m.get("state") == "training":
-            it = _iter_of(m.get("log", ""))
-            m["iter"], m["loss"] = (it if it else (0, None))
-        if m.get("state") == "fetching":
-            m["got"] = cleanup.gb(_du(m.get("dir", "")))
     return live
 
 
@@ -6085,8 +5839,6 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(main_body(d))
         if u.path == "/api/eval":
             return self._send(json.dumps(eval_api()), kind="application/json")
-        if u.path == "/api/pretrain":
-            return self._send(json.dumps(pretrain_api()), kind="application/json")
         if u.path == "/api/build":
             return self._send(json.dumps({"build": BUILD}), kind="application/json")
         if u.path == "/api/busy":
@@ -6112,8 +5864,6 @@ class Handler(BaseHTTPRequestHandler):
             if which == "chart":
                 return self._send(evd_shape(d, which, three, eval_chart(d, only or None, (parse_qs(u.query).get("b") or [""])[0] or None, cfg), cfg))
             return self._send(evd_shape(d, which, three, {"paper": eval_paper}.get(which, eval_table)(d, only or None, cfg), cfg))
-        if u.path == "/fragment/pretrain":
-            return self._send(pretrain_block(d))
         if u.path == "/fragment/spec":
             return self._send(spec_panel(d))
         if u.path == "/fragment/chips":
@@ -6137,8 +5887,6 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(own_questions(d, inner=True))
         if u.path == "/fragment/tools":
             return self._send(tools_toggle(d, inner=True))
-        if u.path == "/fragment/adapt":
-            return self._send(adapters_toggle(d, inner=True))
         if u.path == "/fragment/tidy":
             return self._send(tidy_panel(d))
         if u.path == "/fragment/questions":
@@ -6162,7 +5910,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         path = urlparse(self.path).path
         if path not in ("/run/start", "/run/stop", "/run/clear", "/config", "/questions", "/uninstall", "/steer", "/spec/publish",
-                        "/eval/start", "/eval/stop", "/pretrain/start", "/pretrain/stop", "/engine/update", "/whole/start", "/whole/stop"):
+                        "/eval/start", "/eval/stop", "/engine/update", "/whole/start", "/whole/stop"):
             return self._send("Not here.", 404, "text/plain; charset=utf-8")
         # only this page may start or stop a pass: another website can send a plain form to this address, but it cannot
         # send this header, and a request that names another origin is refused
@@ -6234,31 +5982,6 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(why, 409, "text/plain; charset=utf-8")
             time.sleep(0.3)
             return self._send(eval_block(data.load(ARGS.root)))
-        if path in ("/pretrain/start", "/pretrain/stop"):
-            if path == "/pretrain/stop":
-                stop_job("pretrain")
-            else:
-                # AIMED: the kinds of question the press names (those the class stage found no slot had the answer to, where
-                # the box on the card is ticked). Only kinds a pass asks; none named, every one
-                try:
-                    asked = json.loads(self.rfile.read(min(int(self.headers.get("content-length", 0)), 4000)) or b"{}")
-                except ValueError:
-                    asked = {}
-                # (what is running is said first: an evaluation in hand is the one this may be waiting for)
-                first = "" if busy_with() else needs_eval()
-                if first:
-                    return self._send(first, 409, "text/plain; charset=utf-8")
-                eqv = data.load(ARGS.root).get("equivalence") or {}
-                known = {k for t in eqv.get("targets", []) for k in t.get("kinds") or []}
-                aim = asked.get("kinds") if isinstance(asked, dict) else None
-                if aim is not None and (not isinstance(aim, list) or not aim or any(k not in known for k in aim)):
-                    return self._send("Not a kind of question.", 400, "text/plain; charset=utf-8")
-                why = start_job("pretrain", [node_for_training() or "node", "training/adapters.mjs", "train"] + (["--kinds", ",".join(aim)] if aim else []),
-                                keep={"kinds": aim} if aim else None)
-                if why:
-                    return self._send(why, 409, "text/plain; charset=utf-8")
-                time.sleep(0.3)
-            return self._send(pretrain_block(data.load(ARGS.root)))
         if path == "/run/clear":
             ok, said = clear_state()
             if not ok:

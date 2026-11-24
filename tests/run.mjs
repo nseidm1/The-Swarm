@@ -4025,7 +4025,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
 // every failure in 40 decisions was the fixed 8-second wait)
 {
   const { deciderAt } = await import('../src/decider.mjs');
-  let delay = 60;
+  // (the times here leave 40 ms and 70 ms to spare: with 20 ms to spare the check failed whenever the machine
+  // was busy with something else, 2026-11-24)
+  let delay = 150;
   let calls = 0;
   const slow = http.createServer((req, res) => {
     calls++;
@@ -4045,14 +4047,14 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { letter: 'A', final: '1', work: '' },
     { letter: 'B', final: '2', work: '' },
   ];
-  // a wait of 40 ms against a decider that takes 60: the first ask times out, the second (80 ms) is answered
-  const d1 = deciderAt({ base, timeoutMs: 40, maxTimeoutMs: 400 });
+  // a wait of 110 ms against a decider that takes 150: the first ask times out, the second (220 ms) is answered
+  const d1 = deciderAt({ base, timeoutMs: 110, maxTimeoutMs: 3000 });
   const r1 = await d1({ question: 'q', answers });
   const c1 = calls;
-  // after decisions that took about 60 ms, the next waits three times the slowest of them (at least 40)
+  // after decisions that took about 150 ms, the next waits three times the slowest of them
   const grown = d1.waitMs();
   // a decider that will not answer in time even when asked again decides nothing, and says it was asked again
-  delay = 1000;
+  delay = 2000;
   const d2 = deciderAt({ base, timeoutMs: 30, maxTimeoutMs: 60 });
   const r2 = await d2({ question: 'q', answers });
   // a decider that is down is not asked again: nothing to wait for
@@ -4065,8 +4067,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       r1.letter === 'A' &&
       r1.retried === true &&
       c1 === 2 &&
-      grown >= 150 &&
-      grown <= 400 &&
+      grown >= 400 &&
+      grown <= 3000 &&
       r2.ok === false &&
       r2.retried === true &&
       /did not answer/.test(r2.why) &&
@@ -11226,7 +11228,6 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       kept.members.a > 0 &&
       kept.target === 18 &&
       /watchMemory\(swarm/.test(src('classes.mjs')) &&
-      /watchMemory\(swarm/.test(src('roles.mjs')) &&
       /memStop\(\);\s*await swarm\.stop\(\)/.test(src('classes.mjs')),
     { kept },
   );
@@ -11335,10 +11336,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { mixed: mixed.roleLoras, unpinned, badName },
   );
 }
-// ---- AN ADAPTER FOR EACH ROLE (training/roles.mjs; src/index.mjs roleLoras): what a role's examples are, and which adapter a
-// request names
+// ---- WHICH ADAPTER A REQUEST NAMES (src/index.mjs roleLoras), and an example as a chat template takes it (training/mixture.mjs)
 {
-  const R = await import('../training/roles.mjs');
+  const R = await import('../training/mixture.mjs');
   const I = await import('../src/index.mjs');
   const A = await import('../training/adapters.mjs');
   const os8 = await import('node:os');
@@ -11373,8 +11373,6 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     call('probe', 'probe', 'x'),
     call('a-writer', 'write', 'It is 4.'),
   ];
-  const ex = R.examplesOf(row, calls);
-  const wrongReply = R.examplesOf({ ...row, grade: 'wrong' }, calls);
   const ids = { check: 0, draft: 1, write: 2 };
   // roles.json on disk: the roles that are ok and whose file is there are served; the swarm is then said to be served with them
   const work = fs.mkdtempSync(path.join(os8.tmpdir(), 'roles-'));
@@ -11402,18 +11400,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     content: '',
     tool_calls: [{ id: '1', type: 'function', function: { name: 'f', arguments: a } }],
   });
-  const toolEx = R.examplesOf(
-    { id: 'q2', kind: 'tools', grade: 'right', trace: [{ slot: 'a-steps', stage: 'draft', out: 'done', same: true }] },
-    [
-      {
-        slot: 'a-steps',
-        stage: 'draft',
-        member: 'a',
-        text: 'done',
-        messages: [{ role: 'user', content: 'do it' }, tc('{"n": 2}'), { role: 'tool', content: '4' }],
-      },
-    ],
-  );
+  const toolEx = [
+    {
+      messages: [{ role: 'user', content: 'do it' }, tc('{"n": 2}'), { role: 'tool', content: '4' }].map(R.forTemplate),
+    },
+  ];
   const argsOf = (m) => m.tool_calls[0].function.arguments;
   check(
     "an example is one a chat template takes: a tool call's arguments are given as the thing they are and not as text (as text, the template refused every example with a tool call and the drafters' adapter was not trained); arguments that are no JSON are kept under one name; a message with no tool call is the same message",
@@ -11422,7 +11413,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       argsOf(R.forTemplate(tc('not json'))).text === 'not json' &&
       argsOf(R.forTemplate(tc('[1]'))).text === '[1]' &&
       argsOf(R.forTemplate(tc({ n: 3 }))).n === 3 &&
-      R.forTemplate(toolEx[0].messages[0]) === toolEx[0].messages[0],
+      R.forTemplate(toolEx[0].messages[0]) === toolEx[0].messages[0] &&
+      R.closingLine('work\n\nSo the answer is 13.\n') === 'So the answer is 13.' &&
+      R.closingLine('a\n' + 'x'.repeat(120)) === '' &&
+      R.closingLine('') === '',
     { toolEx: JSON.stringify(toolEx).slice(0, 300) },
   );
   // ---- THE LARGER MODEL WRITES THE PYTHON TASKS (training/wide.mjs): read from what it wrote, kept where its two solutions agree
@@ -11696,93 +11690,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       { moves: moves.map((m) => m.name), made, cmp, row },
     );
   }
-  // ---- A ROLE IS TAUGHT WHERE IT FAILED: the requests of the slots whose answer was not right, for the larger model to answer
+  // ---- AN ADAPTER MADE FOR A ROLE IS LOADED ONLY WHERE IT WAS JUDGED BETTER; and what the run does
   {
-    const u = (content) => [{ role: 'user', content }];
-    const trow = {
-      id: 'q9',
-      kind: 'sorted',
-      grade: 'wrong',
-      trace: [
-        { slot: 'a-direct', stage: 'draft', out: 'ANSWER: b a', same: false },
-        { slot: 'b-direct', stage: 'draft', out: 'ANSWER: b a', same: false },
-        { slot: 'a-steps', stage: 'draft', out: 'ANSWER: a b', same: true },
-        { slot: 'b-other', stage: 'draft', out: '', same: null },
-        { slot: 'a-critic', stage: 'check', out: 'ANSWER: b a', same: false },
-        { slot: 'a-writer', stage: 'write', out: 'b a', same: false },
-        { slot: 'a-tool', stage: 'draft', out: 'x', same: false },
-      ],
-    };
-    const tcalls = [
-      { slot: 'a-direct', stage: 'draft', member: 'a', text: 'ANSWER: b a', messages: u('sort: b a') },
-      { slot: 'b-direct', stage: 'draft', member: 'b', text: 'ANSWER: b a', messages: u('sort: b a') },
-      { slot: 'a-steps', stage: 'draft', member: 'a', text: 'ANSWER: a b', messages: u('step by step, sort: b a') },
-      { slot: 'b-other', stage: 'draft', member: 'b', text: '', messages: u('another way, sort: b a') },
-      { slot: 'a-critic', stage: 'check', member: 'a', text: 'ANSWER: b a', messages: u('check these: b a') },
-      { slot: 'a-writer', stage: 'write', member: 'a', text: 'b a', messages: u('write it') },
-      {
-        slot: 'a-tool',
-        stage: 'draft',
-        member: 'a',
-        text: 'x',
-        messages: [...u('look'), { role: 'tool', content: '4' }],
-      },
-    ];
-    const ls = R.lessonsOf(trow, tcalls);
-    const many = [
-      ...[1, 2, 3, 4].map((i) => ({ kind: 'sorted', id: 's' + i })),
-      { kind: 'closed', id: 'c1' },
-      { kind: 'date', id: 'd1' },
-    ];
-    const ex1 = R.taughtBy(ls[0], 'a b\nANSWER: a b');
-    const src = fs.readFileSync(new URL('../training/roles.mjs', import.meta.url), 'utf8');
-    check(
-      "a role is taught where it failed: the larger model is asked the very request of each drafting or checking slot whose answer was not right (wrong, or none), once for requests that are the same, and its answer is an example for that role where it is right by the question's own standard; a slot that was right is not asked again, a writer's request is no lesson, nor one with a tool's result in it; the lessons are taken kind by kind in turn, so every kind the module is weak in gets some; and the example is the slot's own request with the larger model's answer",
-      ls.map((l) => l.role + ':' + l.slot).join() === 'draft:a-direct,draft:b-other,check:a-critic' &&
-        ls[0].kind === 'sorted' &&
-        ls[0].member === 'a' &&
-        R.lessonsOf({ ...trow, trace: trow.trace.map((x) => ({ ...x, same: true })) }, tcalls).length === 0 &&
-        R.pickLessons(many, 4)
-          .map((l) => l.id)
-          .join() === 's1,c1,d1,s2' &&
-        R.pickLessons(many, 0).length === 0 &&
-        R.closingLine('work\n\nSo the answer is 13.\n') === 'So the answer is 13.' &&
-        R.closingLine('a\n' + 'x'.repeat(120)) === '' &&
-        R.closingLine('') === '' &&
-        ex1.role === 'draft' &&
-        ex1.taught === true &&
-        ex1.messages.length === 2 &&
-        ex1.messages[1].role === 'assistant' &&
-        ex1.messages[1].content === 'a b\nANSWER: a b' &&
-        /grade === 'right'/.test(
-          src.slice(src.indexOf('3b  TAUGHT WHERE IT FAILED'), src.indexOf('const counts = countByRole')),
-        ) &&
-        /B\.openAlone\('target'\)/.test(src),
-      { ls, picked: R.pickLessons(many, 4) },
-    );
-  }
-  // ---- A STAGE DOES NO WORSE THAN THE ONE BEFORE: which roles' adapters are served (rolesServed), and what the run does with it
-  {
-    const rowsOf = (n) => Array.from({ length: 40 }, (_, i) => ({ counted: i < n }));
-    // (how many of 40 held questions the module has right with each set of adapters on)
-    const scores = { '': 20, check: 14, draft: 30, write: 31, 'write+draft': 38, 'draft+write': 38 };
-    const asked = [];
-    const ask = async (set) => (asked.push(set.join('+')), rowsOf(scores[set.join('+')]));
     const CL = await import('../training/classes.mjs');
-    const worth = (g) => CL.worthKeeping(g, 0.02);
-    const v = await R.rolesServed(['check', 'draft', 'write'], ask, CL.pairedGain, worth);
-    const none = await R.rolesServed(
-      ['check', 'draft'],
-      async (set) => rowsOf(set.length ? 20 - set.length : 20),
-      CL.pairedGain,
-      worth,
-    );
-    const flat = await R.rolesServed(
-      ['draft', 'write'],
-      async (set) => rowsOf({ '': 20, draft: 30, write: 31, 'write+draft': 31 }[set.join('+')]),
-      CL.pairedGain,
-      worth,
-    );
     // (a role judged and not served is not served; while it is being judged, every one that was trained is)
     const dir2 = fs.mkdtempSync(path.join(os8.tmpdir(), 'roles-served-'));
     const m2 = { name: 'Small', file: 'small.gguf', engine: 'llama' };
@@ -11804,21 +11714,12 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     const runSh = fs.readFileSync(new URL('../training/run.sh', import.meta.url), 'utf8');
     const stepsOf = (await import('../training/arrange.mjs')).steps;
     check(
-      "a stage does no worse than the one before: an adapter is served only where the module is better with it on held questions, by the rule any change is kept by (asked without adapters, then with each role's alone; the roles that gained are added best first, each kept only where the module is better again with it); a role that lowered the module is not served and not tried with the others; where none gains none is served and the pretrained module is the module as it was; a role judged and not served is not loaded, and every trained one is while they are judged; and in the whole run an adapter is no longer served because it was made: one is made for each drafting slot and the class stage tries it as a move",
-      v.served.join() === 'write,draft' &&
-        asked.join() === ',check,draft,write,write+draft' &&
-        v.single.find((x) => x.role === 'check').worth === false &&
-        v.single.find((x) => x.role === 'write').with === 31 &&
-        v.rows.filter((x) => x.counted).length === 38 &&
-        none.served.length === 0 &&
-        none.rows === none.base &&
-        flat.served.join() === 'write' &&
-        flat.added.map((x) => x.kept).join() === 'true,false' &&
-        Object.keys(live2.a).sort().join() === 'draft,write' &&
+      'an adapter made for a role is loaded only where it was judged better (one judged and not served is not loaded; all of them are while they are judged); and in the whole run no adapter is served because it was made: one is made for each drafting slot and the class stage tries it as a move',
+      Object.keys(live2.a).sort().join() === 'draft,write' &&
         Object.keys(judging.a).sort().join() === 'check,draft,write' &&
         /step 2-make-adapters pretrain "" \$MAKE/.test(runSh) &&
         /PASSES=1 SESSION_STEPS=classes step 3-train-classes/.test(runSh),
-      { served: v.served, asked, none: none.served, flat: flat.added, live2, judging },
+      { live2, judging },
     );
     // (and the candidates training had never tried are tried every round: they leave the arranged drafts as they were)
     const base2 = JSON.parse(fs.readFileSync(new URL('../src/briefs.json', import.meta.url), 'utf8'));
@@ -11838,17 +11739,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const off = A.roleLorasFor({}, { a: m, b: m }, work, 'big', '/models');
   const served = A.servedWith({ adapters: true }, { a: m, b: m }, work, 'big', '/models');
   check(
-    "pretraining knows the arrangement: a slot's request with the answer it gave is an example for its role where that answer was right (a drafter, also when it revises; a checker; a writer only where the reply itself was right), never a stage that has no role, and never a wrong answer; a request names every loaded adapter, its role's at full strength and the rest at none, and a stage with no role names them all at none; the adapters are loaded in one fixed order; a member is served with an adapter for each role that was trained and whose file is there, where the configuration serves adapters; and a measurement says which",
-    ex.map((e) => e.role).join() === 'draft,check,draft,write' &&
-      ex[0].messages.length === 3 &&
-      ex[0].messages[2].content === 'ANSWER: 4' &&
-      ex[2].messages[1].content === 'revise it' &&
-      wrongReply.map((e) => e.role).join() === 'draft,check,draft' &&
-      R.countByRole(ex).draft.examples === 2 &&
-      R.countByRole(ex).draft.questions === 1 &&
-      R.callOf(calls, { slot: 'a-steps', out: 'ANSWER: 5' }).stage === 'draft' &&
-      R.callOf(calls, { slot: 'a-steps', out: 'unknown' }) === null &&
-      JSON.stringify(I.loraFor(ids, 'draft')) === '[{"id":0,"scale":0},{"id":1,"scale":1},{"id":2,"scale":0}]' &&
+    "a request names the adapter of its slot's role where its model is served with one for each role: every adapter loaded is named, the one of this stage's role at full strength and the rest at none (a drafter asked to revise is still drafting; a stage with no role gets none); the roles that have a file are loaded in a fixed order; and a module is said to be served with the ones there are",
+    JSON.stringify(I.loraFor(ids, 'draft')) === '[{"id":0,"scale":0},{"id":1,"scale":1},{"id":2,"scale":0}]' &&
       JSON.stringify(I.loraFor(ids, 'revise')) === JSON.stringify(I.loraFor(ids, 'draft')) &&
       I.loraFor(ids, 'probe').every((x) => x.scale === 0) &&
       I.roleFilesOf({ write: 'w', draft: 'd', check: '' })
@@ -11861,7 +11753,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       served.roles.join() === 'draft' &&
       served.files.length === 1 &&
       served.names.join() === 'Small,Small',
-    { ex: ex.map((e) => e.role), on, served },
+    { on, served },
   );
 }
 
@@ -11944,7 +11836,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       evalJob.pid > 0 &&
       third.join('|') === 'eval --variant base --limit 20' &&
       /second figure is not taken/.test(off) &&
-      /SESSION_STEPS" = classes/.test(fs.readFileSync(new URL('../training/session.sh', import.meta.url), 'utf8')),
+      /SESSION_STEPS" = classes/.test(fs.readFileSync(new URL('../training/session.sh', import.meta.url), 'utf8')) &&
+      // (asked for the class stage alone, a session runs it each time: a second run of the same pass must train again)
+      /if \[ "\$SESSION_STEPS" = classes \]; then\n\s+run_each 08-classes/.test(
+        fs.readFileSync(new URL('../training/session.sh', import.meta.url), 'utf8'),
+      ),
     { first, second, third },
   );
 }

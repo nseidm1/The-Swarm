@@ -148,7 +148,13 @@ while [ "$PASSES" = 0 ] || [ "$N" -lt "$PASSES" ]; do
   [ -n "$NO_WORDINGS" ] || run 06-wordings training/wordings.mjs
   WORDINGS_FILE=$("$NODE" -e "import('./training/support/bench.mjs').then(B=>console.log(require('node:path').join(B.WORKC,'wordings.json')))" 2> /dev/null)
   [ -n "$WORDINGS_FILE" ] && [ -f "$WORDINGS_FILE" ] && export SWARM_WORDINGS="$WORDINGS_FILE"
-  run 08-classes      training/classes.mjs ${TRAIN_CLASSES:+--only "$TRAIN_CLASSES"}
+  # (a session asked for the class stage and no more runs it every time it is asked: the run that asks keeps its own record of
+  # whether its step ended (training/run.sh). Passed over as done, a second run of the same pass trained nothing, 2026-11-23)
+  if [ "$SESSION_STEPS" = classes ]; then
+    run_each 08-classes training/classes.mjs ${TRAIN_CLASSES:+--only "$TRAIN_CLASSES"}
+  else
+    run 08-classes      training/classes.mjs ${TRAIN_CLASSES:+--only "$TRAIN_CLASSES"}
+  fi
   # (SESSION_STEPS=classes: the class stage and no more, for the run that sets three evaluations side by side, training/run.sh.
   # The pass is left open: a session started after it carries on from here, the class stage passed over as done)
   if [ "$SESSION_STEPS" = classes ]; then echo "$(date +%H:%M:%S) The class stage is done: this session was asked for that and no more."; break; fi

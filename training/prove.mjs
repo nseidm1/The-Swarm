@@ -167,7 +167,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   // So more are made, from the same maker, the module is asked each once so that its slots' requests are had word for word,
   // and the larger model answers each request; what it got right is the examples.
   if (cmd === 'teach') {
-    const R = await import('./roles.mjs');
+    const R = await import('./mixture.mjs');
     const { ROLE_OF_STAGE } = await import('../src/index.mjs');
     const { finalOf } = await import('../src/read.mjs');
     const kinds = list('kinds');
