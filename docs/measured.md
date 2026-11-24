@@ -20,8 +20,25 @@ starts from, no adapters, no instrument on, on one Apple silicon Mac. Percent ri
 | All 460 | 54.1 | 30.0 | 77.6 |
 
 - **Twenty a task is a check, not a proof.** A verdict needs at least a hundred questions a task.
-- **The small model's figures on Logic and Reasoning are mostly form:** 217 of its 240 replies there were ones the harness
-  could not read (it leaves an empty line and the task stops reading). No reply of the module went unread.
+- **The small model alone, with the module's layout and nothing else** (Logic and Reasoning, 11 tasks, 220 questions,
+  asked again that evening). Asked plainly it leaves an empty line where a task stops reading: 197 of its 220 replies
+  went unread. Laid out by the module's own code (no empty line where the earlier replies have none, the question not
+  said again), on its one reply:
+
+  | | Right, of 220 | Unread |
+  | --- | --- | --- |
+  | The small model, asked plainly | 5 (2.3%) | 197 |
+  | The small model, its reply laid out | 16 (7.3%) | 107 |
+  | The module | 97 (44.1%) | 0 |
+  | Nemotron | 180 (81.8%) | 0 |
+
+  So layout is worth about five points, not the forty between the model and the module. Of the 107 still unread, many
+  give an answer in words of their own ("So the sorted list is: syndrome therefrom", which is right, where the task
+  reads only "So the answer is"). The module closes a reply in the task's own form because its drafters are told to
+  state what they settled on; that step cannot be put on a model asked plainly, so how much of the remaining gap is the
+  closing form and how much the arrangement is not told apart. A module of one slot would say. No reply of the module
+  went unread. (The module's 97 is the same total as in the table above, which was asked earlier that day; three
+  questions moved between Logic and Reasoning's counts of right answers: 45.0% and 43.3% this time.)
 - **What moved it that day was form, not models.** On nine of these tasks the same swarm scored 38.9% in the morning, then
   48.3%, then 53.9%, as each task was probed for replies a harness could not read and those were mended (code beside
   words, a reply already begun, closing forms, lettered options). Instructions went from 15 to 17 of 20 once a request

@@ -50,6 +50,7 @@ import {
   askAfterAt,
   roomLeft,
 } from './support/bfcl.mjs';
+import { laidOutAs, withoutRestating } from '../src/read.mjs';
 import {
   searchOf,
   PAGE_CHARS,
@@ -441,6 +442,23 @@ export const askAt = (base) => async (messages, body) => {
   }
   const j = await r.json();
   return String((j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '');
+};
+
+// THE SMALL MODEL BY ITSELF, ITS REPLY LAID OUT AS THE MODULE LAYS ONE OUT, and nothing more (the second baseline, 2026-11-22).
+// Asked plainly, a small model often leaves an empty line where the conversation's earlier replies have none, or says the
+// question again first; a task that stops reading at an empty line then reads nothing (217 of 240 replies on twelve tasks).
+// The module mends that by code, so its lead over the model asked plainly was partly layout. This baseline has the same code
+// on one model's one reply: what is left between it and the module is what the arrangement adds.
+//   formOnly(reply, messages) -> the reply without the question said again and with no empty line where the earlier replies
+//   have none (src/read.mjs withoutRestating, laidOutAs: the module's own). Nothing is settled, chosen or written again.
+export function formOnly(reply, messages) {
+  const user = [...(messages || [])].reverse().find((m) => m && m.role === 'user');
+  return laidOutAs(withoutRestating(reply, String((user && user.content) || '')), messages);
+}
+// (asked without the task's stop strings, as the module is: they are cut by the relay, after the reply is laid out)
+export const askFormAt = (base) => {
+  const ask = askAt(base);
+  return async (messages, body) => formOnly(await ask(messages, { ...body, stop: undefined }), messages);
 };
 
 // the files the harness wrote for one task: { results, samples } (paths), or null
@@ -863,7 +881,13 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     for (const b of tasks) {
       say(
         'Asking ' +
-          (who === 'target' ? TARGET.name : (live.alone || {})[who] ? live.alone[who] + ' by itself' : 'the swarm') +
+          (who === 'target'
+            ? TARGET.name
+            : (live.alone || {})[who]
+              ? live.alone[who] + ' by itself'
+              : /-form$/.test(who) && (live.alone || {})[who.replace(/-form$/, '')]
+                ? live.alone[who.replace(/-form$/, '')] + ' by itself, its reply laid out'
+                : 'the swarm') +
           ': ' +
           b.name +
           (WAY_SAID[wayIs(b)] || ''),
@@ -1089,8 +1113,13 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
             dayPart(b) +
             searchPart(b),
         );
-      aloneOf[k] = { who, m, keepM };
+      // (and the same model with its reply laid out and nothing more: formOnly. Not a test of calling tools, which has no layout)
+      const whoF = who + '-form';
+      const keepF = (b) => path.join(EVAL_DIR, 'alone-form', path.relative(path.join(EVAL_DIR, 'alone'), keepM(b)));
+      aloneOf[k] = { who, m, keepM, whoF, keepF };
       live.alone[who] = m.name;
+      for (const t of live.tasks) t[whoF] = { state: 'waiting', done: 0, of: null, seconds: 0 };
+      const needF = askable.filter((b) => !isToolTest(b) && !keptIn(keepF(b), b));
       for (const t of live.tasks)
         t[who] = blocked.has(t.task)
           ? { state: 'failed', why: blocked.get(t.task) }
@@ -1100,7 +1129,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         const sc = scoreIn(keepM(b), b);
         Object.assign(live.tasks.find((t) => t.task === b.task)[who], { state: 'kept', done: sc.n, of: sc.n });
       }
-      if (!need.length) continue;
+      if (!need.length && !needF.length) continue;
       live.phase = 'loading';
       say('Loading ' + m.name + ', by itself');
       const r = await startMember(
@@ -1120,7 +1149,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       stopping.push(r.stop);
       live.phase = 'asking';
       for (const b of need) fs.rmSync(keepM(b), { recursive: true, force: true });
-      await askAll(who, askAt(r.base), askToolsAt(r.base, { model: 'swarm-' + k }), need, keepM);
+      if (need.length) await askAll(who, askAt(r.base), askToolsAt(r.base, { model: 'swarm-' + k }), need, keepM);
+      if (needF.length) {
+        for (const b of needF) fs.rmSync(keepF(b), { recursive: true, force: true });
+        await askAll(whoF, askFormAt(r.base), askToolsAt(r.base, { model: 'swarm-' + k }), needF, keepF);
+      }
       await r.stop();
       if (halted) await never();
     }
@@ -1147,6 +1180,25 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       if (n !== null && n !== undefined) return { alone: n };
     }
     return {};
+  };
+  // (and laid out: each model's score and its unread replies, where those answers are kept)
+  const aloneFormFor = (b) => {
+    const got = {};
+    for (const [k, a] of Object.entries(aloneOf)) {
+      const kept = keptIn(a.keepF(b), b);
+      if (!kept) continue;
+      const sc = scoreIn(a.keepF(b), b);
+      got[k] = {
+        id: a.m.id,
+        name: a.m.name,
+        value: sc.value,
+        stderr: sc.stderr ?? null,
+        n: sc.n,
+        of: sc.of ?? null,
+        unread: kept.samples ? unreadIn(kept.samples, b.filter) : null,
+      };
+    }
+    return Object.keys(got).length ? { aloneForm: got } : {};
   };
   const aloneFor = (b) => {
     const got = {};
@@ -1274,6 +1326,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       target: scoreOf(tf.results, b),
       swarm: scoreOf(sf.results, b),
       ...aloneFor(b),
+      ...aloneFormFor(b),
       ...secondsFor(keep(b), swarmKeep(b)),
       agree,
       // (how many of each one's replies the harness could not read as an answer: unreadIn)

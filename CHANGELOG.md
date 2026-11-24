@@ -6,6 +6,14 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A Python client** (2026-11-22). `python/the_swarm.py`, one file with no dependencies: it starts the module's own
+  server, waits until it answers, asks it (`reply`, `chat`, `last`) and stops it with the models it loaded. The module
+  itself still runs on Node; nothing of it is written again in Python. Checked against a stand-in server
+  (`npm run test:python`).
+- **A second baseline in an evaluation: the small model alone, its reply laid out** (2026-11-22). The module's lead over
+  its own small model asked plainly was partly layout: asked plainly the model leaves an empty line where a task stops
+  reading. Each small model is now also asked with the module's own layout code on its one reply and nothing else
+  (`aloneForm` in a task's result), so what is left between that and the module is what the arrangement adds.
 - **The README is short, and its detail is in pages of its own** (2026-11-22). It had grown to 1,170 lines. It is now
   about 260: what the module is, how to start, how it works, the API, training, today's results, with a link to each
   page under `docs/`: how it works, models and configuration, the API and the spec's parts, the dashboard, training,

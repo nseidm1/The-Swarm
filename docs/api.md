@@ -38,6 +38,37 @@ const started = await serveSwarm(ENTRY, { file: llamaServerProgram }, { modelsDi
 // { ok: true, port, base, pid, args, loadMs, stop }   or   { ok: false, why }
 ```
 
+## From Python
+
+[`python/the_swarm.py`](../python/the_swarm.py) is a thin client: one file, standard library only, Python 3.9 or later.
+It does not run the module; it starts the module's own server with Node, waits until `/health` answers, and talks to
+it. So a Python program gets exactly the module a Node program gets, and Node 20 or later must be on the machine (it is
+looked for in `SWARM_NODE`, on the `PATH`, then under `~/.nvm`).
+
+```python
+import sys
+sys.path.insert(0, "/path/to/The-Swarm/python")
+from the_swarm import Swarm
+
+with Swarm(spec="specs/<name>.swoa.json") as swarm:   # Swarm() serves the swarm configured in the checkout
+    text = swarm.reply("What is 6 times 7?")          # the reply's text
+    whole = swarm.chat(messages, tools=tools)         # the chat completion as a dict, tool calls among it
+    trace = swarm.last()                              # what every slot did on that message
+```
+
+| | |
+| --- | --- |
+| `Swarm(spec, adapters, port, repo, node, llama, models, decider, wait)` | Every one optional. `spec`: a SwOA spec file; `adapters`: the folder of the adapters it pins; `port`: a free one where none is named; `wait`: seconds to wait for the models to load (600) |
+| `start()`, `stop()`, or a `with` block | The server is started in a process group of its own and stopped by an interrupt, as Ctrl+C stops it in a terminal, so the model servers it loaded are stopped with it |
+| `reply(messages)` | The reply's text. `messages` is a list of chat messages, or one string |
+| `chat(messages, **more)` | The whole chat completion. `more` goes into the request as it is (`tools`, `tool_choice`, `max_tokens`, `stop`) |
+| `last()`, `healthy()`, `said()` | What every slot did on the last message; whether it answers; what the server printed |
+| `swarm.base` | Its address. Any client of an OpenAI-compatible server can be given `swarm.base + "/v1"` instead |
+
+A failure is a `SwarmError` whose message carries what the server printed. A streamed reply is not read by the
+client's own methods: give the address to a client that streams. `python3 python/test_the_swarm.py` checks it against a
+stand-in server.
+
 ## From its SwOA spec
 
 **SwOA** (Swarm Orchestration Adaptation) is to a swarm module what LoRA is to a model: the spec applied to the module to tune it, with the proof of what it

@@ -8769,6 +8769,21 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const none = E.continuation('The best answer is', 'C');
   const cut = E.cutAt('42\n\nQuestion: next', ['Question:', '\n\n']);
   const prog = E.progressOf('Requesting API:   0%|  | 0/20\rRequesting API:  35%|###  | 7/20 [00:30<');
+  // the second baseline: a model's own reply laid out as the earlier replies are, and nothing else changed
+  {
+    const shown = [
+      { role: 'user', content: 'Q1' },
+      { role: 'assistant', content: 'Think.\nSo the answer is (A).' },
+      { role: 'user', content: 'Q2' },
+      { role: 'assistant', content: 'Think.\nSo the answer is (B).' },
+      { role: 'user', content: 'Q: which one?\nOptions:\n(A) x' },
+    ];
+    check(
+      'evaluate: the model alone, laid out: no empty line where the earlier replies have none, the question not said again',
+      E.formOnly('Q: which one?\n\nFirst.\n\nSo the answer is (A).', shown) === 'First.\nSo the answer is (A).' &&
+        E.formOnly('One.\n\nTwo.', [{ role: 'user', content: 'hi' }]) === 'One.\n\nTwo.',
+    );
+  }
   // the relay: the opening is taken off before the model is asked, and its reply comes back as the continuation, cut at the stops
   const asked = [];
   const r = await E.relay(

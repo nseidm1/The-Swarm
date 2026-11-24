@@ -50,9 +50,10 @@
     "train": "bash training/session.sh",
     "ui": "python3 ui/swarm_ui.py",
     "test:ui": "python3 ui/check.py",
+    "test:python": "python3 python/test_the_swarm.py",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run format:check && npm test && npm run test:ui"
+    "check": "npm run format:check && npm test && npm run test:ui && npm run test:python"
   },
   "devDependencies": {
     "prettier": "3.10.1"

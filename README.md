@@ -136,6 +136,16 @@ As a server (`swarm.serve()`, or `node bin/swarm.mjs serve`) it answers what lla
 | `POST /v1/chat/completions` | Messages in, one reply out; streamed with `"stream": true`; tools as `tool_calls` |
 | `GET /swarm/last` | What every slot did on the last message |
 
+**From Python.** [`python/the_swarm.py`](python/the_swarm.py) is a thin client, standard library only: it starts that
+server, waits until it answers, asks it, and stops it with the models it loaded. Node is still what runs the module.
+
+```python
+from the_swarm import Swarm
+
+with Swarm(spec="specs/<name>.swoa.json") as swarm:  # or Swarm() for the swarm configured in this checkout
+    print(swarm.reply("Write a function that reverses a string."))
+```
+
 **From its spec.** `node bin/swarm.mjs serve --spec specs/<name>.swoa.json` makes a trained swarm again from its SwOA
 spec: the pinned model files, the arrangement, the adapters by role and the instruments that are on, each checked
 against its hash. [The API and the spec's parts](docs/api.md) · [The SwOA specification](docs/swoa.md)
@@ -191,7 +201,9 @@ instrument on) against Nemotron 3.5 Lightning 30B, 20 questions of each of 23 st
 Read it with care:
 
 - Twenty a task is a check. A verdict needs at least a hundred, and no run of that size has finished.
-- The small model's low figures on Logic and Reasoning are mostly replies the harness could not read, not ability.
+- The small model's figures on Logic and Reasoning are partly layout: asked plainly, 197 of its 220 replies there went
+  unread. With the module's layout code on its reply and nothing else, 107 went unread and it scored 7.3% (from 2.3%)
+  where the module scored 44.1%. How much of the rest is the closing form and how much the arrangement is not told apart yet.
 - The same module pretrained, and pretrained and trained, has not been measured yet.
 - With every instrument on, four operation tasks read 20 of 20 where the small model alone had 0. The instruments were
   written after those tasks were read; they were then probed, with no model, on 104,520 questions by other authors and
@@ -209,9 +221,10 @@ npm test
 python3 ui/check.py
 ```
 
-234 checks of the module and the trainers and 160 of the dashboard, against stand-in servers: nothing is fetched,
+235 checks of the module and the trainers and 160 of the dashboard, against stand-in servers: nothing is fetched,
 started or installed. `npm test` deals its 115 blocks of checks out to every core (26 seconds on a 24-core Mac, 91 one
-after another); `npm run test:serial` runs them in one process and `npm run test:all` adds the dashboard's. How well the
+after another); `npm run test:serial` runs them in one process, `npm run test:all` adds the dashboard's, and
+`npm run test:python` checks the Python client. How well the
 models do is not a check. It is a measurement.
 
 ## Repository layout
@@ -219,7 +232,7 @@ models do is not a check. It is a measurement.
 | Path | What it holds |
 | --- | --- |
 | `src/` | The module: the server, the order of things, the models that can be chosen, the configuration, the briefs |
-| `bin/` | `swarm serve` and `swarm ask` |
+| `bin/`, `python/` | `swarm serve` and `swarm ask`; the Python client |
 | `training/` | The questions, the trainers, the policy they train by, the evaluator and pretraining |
 | `specs/` | Published SwOA specs, each with its card and its proof: the only thing training leaves that is committed |
 | `tests/`, `ui/` | The checks; the dashboard (Python, standard library only) with its sample data and checks |
