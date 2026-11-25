@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The Train card is simpler** (2026-11-24). Its title with chips (the briefs' version, slots and models, kept
+  changes, classes with an arrangement of their own), its line of what is happening now, and the question track with
+  its key of eleven marks are taken out: each is said elsewhere on the page. The card is its head, the adapters and
+  the slots.
 - **Every button that starts something agrees on what has the models** (2026-11-24). With a conversation pass
   started, Start on the intelligence run could still be pressed: its card had been drawn before and was not drawn
   again. When anything is started or stopped, every other card that starts something is now drawn again, and the page

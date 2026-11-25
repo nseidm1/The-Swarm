@@ -132,9 +132,9 @@ with tempfile.TemporaryDirectory() as tmp:
     plan_live = get(base + "/fragment/plan")[1]
     arr_live = swarm_ui.arrangement(data.load(root))
     swarm_ui.run_state = was_rs
-    check("a move a trainer marked as being measured says so only while a session runs: once the session has stopped, it says it was stopped partway, and the swarm's card says it through the question track alone: no line of moves marked running, and no label on a face",
-          "Being measured" in plan_live and "Stopped partway" not in plan_live and 'id="qtrack"' in arr_live and "Being tried now" not in arr_live
-          and "Stopped partway" in plan and ">Being measured<" not in plan and "stopped partway: " in plan and 'id="qtrack"' in arr_stopped and "Stopped while trying" not in arr_stopped and "Being tried now" not in arr_stopped and 'class="tb' not in arr_stopped, plan[:200])
+    check("a move a trainer marked as being measured says so only while a session runs: once the session has stopped, it says it was stopped partway, and the swarm's card has no line of moves marked running and no label on a face (and no question track: it was taken out of the card, what it said being said by the plan)",
+          "Being measured" in plan_live and "Stopped partway" not in plan_live and 'id="qtrack"' not in arr_live and "Being tried now" not in arr_live
+          and "Stopped partway" in plan and ">Being measured<" not in plan and "stopped partway: " in plan and 'id="qtrack"' not in arr_stopped and "Stopped while trying" not in arr_stopped and "Being tried now" not in arr_stopped and 'class="tb' not in arr_stopped, plan[:200])
     check("the plan of the pass in hand is on the page as it stands: what the measurement showed, each move in order with the slot, the model, the technique, the paper it came from and why it was chosen, and what became of it",
           "Pass 5, question by question" in html and "What the measurement showed" in plan and "no slot had the larger model" in plan.lower().replace("&#x27;", "'") and plan.count("<li class=") == 5 and "Stopped partway" in plan and ">Kept<" in plan and ">Not kept<" in plan
           and "arxiv.org/abs/2609.14412" in plan and "a-steps (draft, LFM2.5 2.6B)" in plan and "Chosen because of: no slot had the answer" in plan and "The measurement does not point at it" in plan
@@ -241,7 +241,9 @@ with tempfile.TemporaryDirectory() as tmp:
     faces = re.findall(r'class="av ([a-z]+)[^"]*" data-av="([^"]+)"', arr)
     slot_ids = [s["id"] for s in d["briefs"]["slots"]]
     check("the arrangement is one section, drawn as faces: a roster of the models (each small model, the decider, the larger model, whose chip carries its live dot and opens its card), then the flow as stations in order, each slot a face of its model in the step it stands in, with its record as a ring, its own live dot and its whole name; the sandbox, which no model fills, is a marker between two stations; choosing a face opens that slot's card, with what it is told, below the row",
-          'class="panel arr"' in arr and "The swarm as it stands" in arr and 'class="achips"' in arr and arr.count('class="mav ') == len(d["members"]) + 2
+          # (the card is its head, the adapters and the faces: its title with chips, its line of what is happening and the question
+          # track were taken out, each being said elsewhere on the page, console 2026-11-24)
+          'class="panel arr"' in arr and "<h3>The swarm as it stands</h3>" not in arr and 'class="achips"' not in arr and 'id="now"' not in arr and 'id="qtrack"' not in arr and 'class="qkey"' not in arr and 'id="score"' in arr and arr.count('class="mav ') == len(d["members"]) + 2
           and set(slot_ids) <= {k for _, k in faces} and all(m == next(s["member"] for s in d["briefs"]["slots"] if s["id"] == k) for m, k in faces if k in slot_ids)
           and "decide" in [k for _, k in faces] and "target" not in [k for _, k in faces] and 'class="st mk"' not in arr
           and re.search(r'<button type="button" class="mav tgt" data-av="target"[^>]*>.*?data-live="target"', arr) and re.search(r'class="via" data-av="run"', arr)
@@ -1179,10 +1181,10 @@ with tempfile.TemporaryDirectory() as tmp:
     trk_none = swarm_ui.question_track(dict(d, loop=None))
     arr_trk = swarm_ui.arrangement(dict(d, loop=trk_rec))
     swarm_ui.session_live = was_live
-    check("the swarm as it stands says where it is against each question: how many of the pass's questions are finished, good as it stood, made good by a change, or not good yet; a pip for each in order, with the changes tried on it; where the pass stopped; and before the loop has begun, how it works. The track takes the place of a line about moves being tried",
+    check("the question track (no longer drawn on the Train card) says where the swarm is against each question: how many of the pass's questions are finished, good as it stood, made good by a change, or not good yet; a pip for each in order, with the changes tried on it; where the pass stopped; and before the loop has begun, how it works. The track takes the place of a line about moves being tried",
           'id="qtrack"' in trk and "3 of 6 finished" in trk and "1 good as it stood" in trk and "1 made good by a change" in trk and "1 not good yet" in trk and "at parity" not in trk
           and trk.count('<i class="at"') == 1 and trk.count('<i class="re"') == 1 and trk.count('<i class="nr"') == 1 and "q3 · not good yet · day · 8 changes tried" in trk and "q2 · made good by a change · fix · 2 changes tried" in trk
-          and "Pass 2 stopped with 3 of 6 questions finished." in trk and "not begun" in trk_none and 'id="qtrack"' in arr_trk and "Being tried now" not in arr_trk and "Stopped while trying" not in arr_trk
+          and "Pass 2 stopped with 3 of 6 questions finished." in trk and "not begun" in trk_none and 'id="qtrack"' not in arr_trk and "Being tried now" not in arr_trk and "Stopped while trying" not in arr_trk
           and [x["s"] for x in swarm_ui.track_of(trk_rec)] == ["at", "re", "nr"], trk[:300])
     tl = swarm_ui.tries_list({"list": [
         {"id": "q-easy", "kind": "math", "state": "at parity", "attempts": [{"move": "", "grade": "right"}]},

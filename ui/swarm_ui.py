@@ -2695,24 +2695,12 @@ def faces_block(d):
 
 
 def arrangement(d):
-    b, t = d["briefs"], d["target"]
-    # the swarm as it stands, in a line of chips; then what is running; then what the plan is trying now
-    # (models, not places: one model in every place is one model)
-    models = len({((d.get("members") or {}).get(s["member"]) or {}).get("id", s["member"]) for s in b["slots"]})
-    kept = len(d["learned"]["ledger"])
-    head = ('<div class="arrh"><div><h3>The swarm as it stands</h3></div>'
-            '<div class="achips"><span>briefs <b>v%s</b></span><span><b>%d</b> slots on <b>%d</b> model%s</span><span><b>%d</b> kept change%s</span>%s</div></div>'
-            % (e(str(b.get("version", 1))), len(b["slots"]), models, "" if models == 1 else "s", kept, "" if kept == 1 else "s",
-               # a kind with its own arrangement (a change kept for questions asking for code, or in words, only): the chips above are
-               # the shared one
-               "".join('<span title="A change that lost only questions of the other kind was kept for these alone">questions %s: <b>their own</b> arrangement, %d slots</span>'
-                       % (CLASS_WORDS.get(k, k), len((v or {}).get("slots") or b["slots"])) for k, v in sorted((b.get("kinds") or {}).items()))))
-    # what is being tried, on which question, and where training stopped: the question track says it (a line here about moves
-    # marked running repeated it, from marks a stopped session leaves behind)
-    plan_line = ""
+    # THE TRAIN CARD IS ITS HEAD, THE ADAPTERS AND THE SLOTS. It also carried a title with chips (the briefs' version, slots
+    # and models, kept changes, which classes have an arrangement of their own), a line of what is happening now, and the
+    # question track with its key of eleven marks. Each is said elsewhere on the page (the configuration, the SwOA spec's
+    # count of kept changes, Training now, the plan being carried out), so they were taken out (console 2026-11-24).
     # (the training share, the line beside it, Train and Clear training state head the card: #score, drawn again in place)
-    one = ('<div class="panel arr"><div id="score">%s</div>%s<div class="now" id="now"><i></i><span>%s</span></div>%s%s%s%s</div>'
-           % (progress_strip(d), head, idle_words(), question_track(d), plan_line, adapters_line(d), faces_block(d)))
+    one = ('<div class="panel arr"><div id="score">%s</div>%s%s</div>' % (progress_strip(d), adapters_line(d), faces_block(d)))
     return ('%s<h2 id="strategy">The plan being carried out</h2><div id="plan">%s</div><h2 id="system">Visualizing the System</h2><div id="viz">%s</div>'
             % (one, plan_block(d), viz_block(d)))
 
