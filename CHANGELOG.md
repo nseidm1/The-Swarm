@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Every button that starts something agrees on what has the models** (2026-11-24). With a conversation pass
+  started, Start on the intelligence run could still be pressed: its card had been drawn before and was not drawn
+  again. When anything is started or stopped, every other card that starts something is now drawn again, and the page
+  asks every few seconds what has the models, so a run started from another window, a phone or a terminal is seen.
 - **The bar at the top of the dashboard is for what a person asked for** (2026-11-24). On a phone it never went away:
   the page's own readings of its state each took longer than a third of a second there. Those never show it now; a
   change that was sent does, and a reading begun within a moment of a press, a choice or a key.

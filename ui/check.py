@@ -2642,5 +2642,26 @@ check("the page arrives at once and says it is reading: a browser is first sent 
       and "#busybar" in swarm_ui.CSS and "busybar" in swarm_ui.JS and "setTimeout(show,330)" in swarm_ui.JS and "if(!mine)return real(url,opts);" in swarm_ui.JS and "Date.now()-asked<800" in swarm_ui.JS and "setTimeout(done,20000)" in swarm_ui.JS and ".loadbar" in swarm_ui.CSS and "prefers-reduced-motion:reduce){.loadbar" in swarm_ui.CSS,
       [_outside, _inside, _after_forget, len(_sh)])
 
+# ONE THING HAS THE MODELS, AND EVERY START BUTTON SAYS SO (console 2026-11-24)
+_bs_was = (swarm_ui._job_state, swarm_ui._run_elsewhere_now, swarm_ui._classes_alive)
+swarm_ui._run_elsewhere_now = lambda: None
+swarm_ui._classes_alive = lambda: False
+swarm_ui._job_state = lambda name: {"running": True, "pid": 1, "at": "2026-11-24 18:39:32"} if name == "converse" else None
+_bs_whole, _bs_conv, _bs_chip, _bs_busy = swarm_ui.whole_block(_cvd), swarm_ui.converse_block(_cvd), swarm_ui.serve_chip(), swarm_ui.busy_with()
+swarm_ui._job_state = lambda name: {"running": True, "pid": 1, "at": "x", "limit": 20} if name == "whole" else None
+_bs_whole2, _bs_conv2, _bs_chip2 = swarm_ui.whole_block(_cvd), swarm_ui.converse_block(_cvd), swarm_ui.serve_chip()
+swarm_ui._job_state = lambda name: None
+_bs_whole0, _bs_conv0 = swarm_ui.whole_block(_cvd), swarm_ui.converse_block(_cvd)
+swarm_ui._job_state, swarm_ui._run_elsewhere_now, swarm_ui._classes_alive = _bs_was
+_btn = lambda html, i: (re.search(r'<button[^>]*id="%s"[^>]*>' % i, html) or [""])[0]  # noqa: E731
+check("one thing has the models at a time and every button that starts something says so: while a conversation pass runs, Start on the intelligence run and Serve the module cannot be pressed and its own card offers Stop; while the intelligence run runs, Run a pass and Serve the module cannot be pressed; with nothing running each can; "
+      "and the page keeps them so: when anything is started or stopped every other such card is drawn again, and it asks every few seconds what has the models and draws them all again when the answer changes, so a run started from another window, a phone or a terminal is seen",
+      _bs_busy == "a conversation pass" and " disabled" in _btn(_bs_whole, "whole-go") and 'id="converse-stop"' in _bs_conv and " disabled" in _btn(_bs_chip, "serve-toggle")
+      and " disabled" in _btn(_bs_conv2, "converse-go") and 'id="whole-stop"' in _bs_whole2 and " disabled" in _btn(_bs_chip2, "serve-toggle")
+      and " disabled" not in _btn(_bs_whole0, "whole-go") and " disabled" not in _btn(_bs_conv0, "converse-go") and _btn(_bs_whole0, "whole-go") and _btn(_bs_conv0, "converse-go")
+      and "async function runsSync(except)" in swarm_ui.JS and "await runsSync(into);setTimeout(()=>runsSync(into),1500);" in swarm_ui.JS and "fetch('/now/busy')" in swarm_ui.JS and "t!==busyWas" in swarm_ui.JS
+      and 'u.path == "/now/busy"' in Path(swarm_ui.__file__).read_text(),
+      [_bs_busy, _btn(_bs_whole, "whole-go"), _btn(_bs_conv2, "converse-go"), _btn(_bs_chip, "serve-toggle")])
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

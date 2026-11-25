@@ -920,8 +920,22 @@ async function readyWatch(){let t='';try{const r=await fetch('/now/ready');if(r.
   if(!n){n=document.createElement('div');n.id='readybar';n.setAttribute('role','status');n.innerHTML='<i></i><span></span>';document.body.appendChild(n);}
   n.querySelector('span').textContent=t;n.classList.add('on');}
 readyWatch();setInterval(readyWatch,3000);
+// EVERY CONTROL THAT STARTS SOMETHING SAYS THE SAME THING. Only one of the runs, an evaluation and the served module can have
+// the models at a time, and each card draws its own button from that. A card drawn before another one started something
+// went on offering its button: the conversation run was started and Start, on the intelligence run, could still be pressed
+// (console 2026-11-24). So when anything is started or stopped here, every other card that starts something is drawn again;
+// and since a run may be started from another window, a phone or a terminal, the page asks every few seconds what has the
+// models (/now/busy) and draws them all again when the answer changes.
+async function runsSync(except){for(const [url,into] of [['/fragment/whole','#wholewrap'],['/fragment/converse','#conversewrap'],['/fragment/chips','#chips'],['/fragment/eval','#evalwrap']]){
+  if(into===except||!$(into))continue;if(into==='#evalwrap'&&$('#evalbox[data-running]'))continue;await swap(url,into);}
+  if($('#score')&&!$('#score [data-running]'))await swap('/fragment/score','#score');}
+let busyWas=null;
+setInterval(async()=>{let t=null;try{const r=await fetch('/now/busy');if(r.ok)t=await r.text();}catch(e){}
+  if(t===null)return;if(busyWas!==null&&t!==busyWas)await runsSync();busyWas=t;},4000);
 async function evPost(url,into,body){const r=await fetch(url,{method:'POST',headers:{'x-swarm':'1','content-type':'application/json'},body:JSON.stringify(body||{})});
-  if(!r.ok){snack(await r.text());evAsk();return;}$(into).innerHTML=await r.text();keepOpen($(into));evAsk();}
+  if(!r.ok){snack(await r.text());evAsk();await runsSync();return;}$(into).innerHTML=await r.text();keepOpen($(into));evAsk();
+  // (the others now, and once more shortly: a process that was stopped takes a moment to be gone)
+  await runsSync(into);setTimeout(()=>runsSync(into),1500);}
 // WHICH BODIES OF WORK AN EVALUATION ASKS: every one to begin with; a person unticks some for a quicker look, and the device keeps
 // which. It is a choice for one run, not a setting of the swarm: training asks every body of work whatever is ticked here. The
 // boxes are drawn ticked, and painted from what the device kept whenever the card is drawn again
@@ -6554,6 +6568,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(whole_block(d))
         if u.path == "/fragment/converse":
             return self._send(converse_block(d))
+        if u.path == "/now/busy":
+            return self._send(busy_with(), 200, "text/plain; charset=utf-8")
         if u.path == "/now/ready":
             return self._send(now_ready(), 200, "text/plain; charset=utf-8")
         if u.path == "/now/codes":
