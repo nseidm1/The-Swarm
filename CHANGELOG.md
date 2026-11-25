@@ -10,7 +10,7 @@ The first version.
   good, the pass's bar, the Questions button) is taken out. Run Intelligence Training and Run Conversation Training
   each lead with a ring filled to a share: the intelligence run by its four steps, the one running counted by how far
   it is itself; the conversation run by how far the pass has come, and by the held conversations when none runs.
-  **Questions** is a row of the configuration, View training questions, under Your own training questions.
+  **Questions** is a row of the configuration, View training questions, under Your own training questions. It is drawn as the buttons above it are, with an eye where they have a pencil.
 - **The pictures are of the dashboard as it is** (2026-11-24): the README's and all of `docs/dashboard.md`'s were
   taken again after the Swarm Viewer, the folding sections and the classes on the intelligence run's card. The
   folding sections' caret sits beside the heading as the configuration's does, and at the far side on a phone.

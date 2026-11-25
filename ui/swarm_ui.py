@@ -729,7 +729,7 @@ document.addEventListener('click',async(ev)=>{
   {const bb=ev.target.closest('[data-evd-bench]');if(bb){const dg=$('#evd');dg.dataset.bench=bb.dataset.evdBench;const on=[...document.querySelectorAll('[data-evd-harness]')].filter(x=>x.checked).map(x=>x.dataset.evdHarness);
     await evdShow();return;}}
   // THE QUESTIONS TRAINING ASKS (the Train card): opened, and narrowed by split, class, kind and words to find
-  if(ev.target.id==='tq-open'){await swap('/fragment/trainq','#tqd-body');$('#tqd').showModal();return;}
+  if(ev.target.closest('#tq-open')){await swap('/fragment/trainq','#tqd-body');$('#tqd').showModal();return;}
   if(ev.target.id==='tq-close'||ev.target.id==='tqd'){$('#tqd').close();return;}
   {const sg=ev.target.closest('[data-tq-split],[data-tq-cls]');if(sg){const c=$('.tqctl');if(sg.dataset.tqSplit!==undefined){c.dataset.split=sg.dataset.tqSplit;}else{c.dataset.cls=sg.dataset.tqCls;}c.dataset.kind='';await tqShow();return;}}
   if(ev.target.id==='evd-copy'){const ta=$('#evd-latex');try{await navigator.clipboard.writeText(ta.value);ev.target.textContent='Copied';}catch(e){ta.hidden=false;ta.select();}return;}
@@ -2902,7 +2902,9 @@ def cannot_run():
 
 
 TRAIN_CLASSES = ("tools", "talk", "code", "words")
-TQ_BUTTON = '<button class="btn top ghost" id="tq-open" type="button" title="Read the questions training asks, and see whether any is a benchmark&#39;s">Questions</button>'
+# (drawn as the buttons of the row above it are, with an eye where they have a pencil: these are read, those are written)
+TQ_BUTTON = ('<button class="ownb" id="tq-open" type="button" title="Read the questions training asks, and see whether any is a benchmark&#39;s">Questions'
+             '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M1.8 10s3-5.4 8.2-5.4S18.2 10 18.2 10s-3 5.4-8.2 5.4S1.8 10 1.8 10z"/><circle cx="10" cy="10" r="2.4"/></svg></button>')
 
 
 TRAIN_BELOW = "<!--below-->"  # (what follows it in run_controls goes under the card's head, across the card)
