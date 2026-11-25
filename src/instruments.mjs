@@ -64,6 +64,8 @@ function sumOf(text) {
 }
 // WORDS OF ASKING: what a question may hold beside the thing to work on and still be nothing but the operation. A word that
 // is not one of these (a name, a thing, a unit) means the question is about something, and is not ours.
+import { FORMS } from './forms.mjs';
+
 const ASKING = new Set(
   (
     'a an and answer as be calculate can come compute could determine do does equal equals evaluate evaluates expression ' +
@@ -418,6 +420,117 @@ function dateIn(q) {
   return o.length === 1 ? o[0].letter : null;
 }
 
+// FOUR MORE THAT READ A WHOLE QUESTION. Each reads the wordings it knows into a form, and the form is worked out by the code
+// that works out a form a model filled (forms.mjs): one way of working it out, however the question was read.
+// WHEN SOMEONE WAS FREE: woke at, seen from..to (several), closed after; lettered stretches of time
+function freeIn(q) {
+  const f = { awakeFrom: '', seen: [], closedAfter: '' };
+  const T = '(\\d{1,2}(?:am|pm))';
+  let asked = false;
+  for (const x of sentencesOf(q)) {
+    let m;
+    if (/^Today [A-Z][\w'-]* went to [a-z ]+\.$/.test(x) || /^We know that:$/.test(x) || /^Options:$/.test(x)) continue;
+    if (/^\([A-H]\) /.test(x) || /^Answer with the letter of the one option\.?$/.test(x)) continue;
+    if (/^Between what times could (?:they|he|she|[A-Z][\w'-]*) have gone(?: to [a-z ]+)?(?: today)?\?$/.test(x))
+      asked = true;
+    else if ((m = new RegExp("^[A-Z][\\w'-]* woke up at " + T + '\\.$').exec(x))) f.awakeFrom = m[1];
+    else if ((m = new RegExp("^[A-Z][\\w'-]* saw [A-Z][\\w'-]* [a-z ]+ from " + T + ' to ' + T + '\\.$').exec(x)))
+      f.seen.push({ from: m[1], to: m[2] });
+    else if ((m = new RegExp('^The [a-z ]+ was closed after ' + T + '\\.$').exec(x))) f.closedAfter = m[1];
+    else return null;
+  }
+  return asked && f.awakeFrom && f.closedAfter ? FORMS.free.answer(f, q) : null;
+}
+// WHO IS THE TALLEST: "Jon is shorter than Ada.", "Esme is taller than Ada."; "Who is the second tallest?"
+const LESS = { shorter: 1, younger: 1, lighter: 1, slower: 1, smaller: 1, cheaper: 1 };
+const MORE = { taller: 1, older: 1, heavier: 1, faster: 1, bigger: 1, larger: 1, dearer: 1 };
+const MOST = {
+  tallest: 'greatest',
+  oldest: 'greatest',
+  heaviest: 'greatest',
+  fastest: 'greatest',
+  biggest: 'greatest',
+  largest: 'greatest',
+  shortest: 'least',
+  youngest: 'least',
+  lightest: 'least',
+  slowest: 'least',
+  smallest: 'least',
+  cheapest: 'least',
+};
+function orderIn(q) {
+  const f = { comparisons: [], asked: null };
+  for (const x of sentencesOf(q)) {
+    let m;
+    if ((m = /^([A-Z][\w'-]*) is ([a-z]+er) than ([A-Z][\w'-]*)\.$/.exec(x))) {
+      if (LESS[m[2]]) f.comparisons.push({ lesser: m[1], greater: m[3] });
+      else if (MORE[m[2]]) f.comparisons.push({ lesser: m[3], greater: m[1] });
+      else return null;
+    } else if ((m = /^Who is the (?:(second|third|fourth|fifth) )?([a-z]+est)\?$/.exec(x))) {
+      if (f.asked || !MOST[m[2]]) return null;
+      f.asked = { rank: m[1] ? PLACE[m[1]] : 1, from: MOST[m[2]] };
+    } else return null;
+  }
+  return f.asked && f.comparisons.length ? FORMS.order.answer(f, q) : null;
+}
+// HOW MANY MORE IN ONE QUARTER THAN ANOTHER: "Ines sold 116 units in the first quarter, 749 in the second and 521 in the
+// third."; "How many more units did Ines sell in the third quarter than in the second quarter?"
+function moreIn(q) {
+  const Q = { first: 0, second: 1, third: 2 };
+  const sold = new Map();
+  let asked = null;
+  for (const x of sentencesOf(q)) {
+    let m;
+    if (
+      (m = /^([A-Z][\w'-]*) sold (\d+) units in the first quarter, (\d+) in the second and (\d+) in the third\.$/.exec(
+        x,
+      ))
+    ) {
+      if (sold.has(m[1])) return null;
+      sold.set(m[1], [m[2], m[3], m[4]].map(Number));
+    } else if (
+      (m =
+        /^How many more units did ([A-Z][\w'-]*) sell in the (first|second|third) quarter than in the (first|second|third) quarter\?$/.exec(
+          x,
+        ))
+    ) {
+      if (asked) return null;
+      asked = m;
+    } else if (!/^\(Give a negative number if fewer\.\)$/.test(x)) return null;
+  }
+  if (!asked || !sold.has(asked[1]) || asked[2] === asked[3]) return null;
+  const row = sold.get(asked[1]);
+  return FORMS.more.answer({ first: row[Q[asked[2]]], second: row[Q[asked[3]]] }, q);
+}
+// DOES THE ARGUMENT HOLD: "Consider this argument. All tovers are wugs. Ben is not a tover. Therefore, Ben is not a wug."
+function validIn(q) {
+  const read = (s) => {
+    let m;
+    if ((m = /^(All|No|Some) ([a-z]+) are (not )?([a-z]+)$/i.exec(s))) {
+      const w = m[1].toLowerCase();
+      if (m[3] && w !== 'some') return null;
+      return { says: m[3] ? 'someNot' : w, subject: m[2], predicate: m[4] };
+    }
+    if ((m = /^([A-Z][\w'-]*) is (not )?an? ([a-z]+)$/.exec(s)))
+      return { says: m[2] ? 'isNot' : 'is', subject: m[1], predicate: m[3] };
+    return null;
+  };
+  const f = { premises: [], conclusion: null };
+  let asked = false;
+  for (const x of sentencesOf(q)) {
+    if (/^Consider this argument\.$/.test(x) || /^Answer valid or invalid\.$/.test(x)) continue;
+    if (/^Is the argument deductively valid or invalid, given only what it states\?$/.test(x)) {
+      asked = true;
+      continue;
+    }
+    const m = /^Therefore, (.+)\.$/.exec(x);
+    const s = read(m ? m[1].replace(/^[a-z]/, (c) => c.toUpperCase()) : x.replace(/\.$/, ''));
+    if (!s || (m && f.conclusion) || (!m && f.conclusion)) return null;
+    if (m) f.conclusion = s;
+    else f.premises.push(s);
+  }
+  return asked && f.conclusion && f.premises.length ? FORMS.valid.answer(f, q) : null;
+}
 const INSTRUMENTS = [
   { id: 'sum', name: 'worked out as a sum', of: sumIn },
   { id: 'truth', name: 'worked out as an expression of true and false', of: truthIn },
@@ -427,6 +540,10 @@ const INSTRUMENTS = [
   { id: 'word', name: 'of a word and what is done to it in turn', of: wordIn, whole: true },
   { id: 'row', name: 'of things in a row, settled by trying every order', of: rowIn, whole: true },
   { id: 'date', name: 'of a date so many days on or back', of: dateIn, whole: true },
+  { id: 'free', name: 'of when someone was free, from where they were seen', of: freeIn, whole: true },
+  { id: 'order', name: 'of who is the tallest, from things compared two at a time', of: orderIn, whole: true },
+  { id: 'more', name: 'of how many more one figure is than another', of: moreIn, whole: true },
+  { id: 'valid', name: 'of whether an argument holds, by trying every world', of: validIn, whole: true },
 ];
 // THE QUESTION AS AN INSTRUMENT READS IT: what was asked, without what a form puts round it. A label before it ("Q:",
 // "Question:") is taken off, and so are the lines at its end that only say where the answer goes: a short label and a colon

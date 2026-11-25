@@ -17,12 +17,17 @@ What has been run:
   widened, 26 of a fresh 27; right on every one read. The larger model now writes such wordings in every pass, and an
   instrument is kept on ones its trying never saw.
 
-- **Four instruments that read a whole question (2026-11-25).** Who tells the truth, a word and what is done to it,
-  things in a row, a date so many days on or back. Each was written from training's own questions of that kind; no
-  benchmark was read. With no model: 40 of 40 train questions and 40 of 40 held ones right for each, none of 1,404
-  questions of other kinds answered, and near misses refused. **Limits, said plainly:** they read the wordings
-  training asks and little else, so a question put another way goes to the models as before; no pass has been run
-  with them on, so what they are worth to a module is not measured; and none is on until training keeps it.
+- **Eight instruments that read a whole question, and forms for questions put another way (2026-11-25).** Who tells
+  the truth, a word and what is done to it, things in a row, a date so many days on or back, when someone was free, who
+  is the tallest, how many more of one figure than another, whether an argument holds. Each instrument was written
+  from training's own questions; no benchmark was read. With no model: 40 of 40 held questions right for each. On 73
+  held questions reworded by the larger model the instruments read 5, which is what forms are for: a 1.7B model read
+  38 into forms, 35 rightly; on a second set of 71 that nothing was mended against it read 29, 25 rightly, and
+  the swarm with reading answered 55 of 71 where it answered 44 alone; a 30B model read 50 of those, 48 rightly
+  ([measured](measured.md#a-model-reads-code-works-it-out-2026-11-25)). **Limits, said plainly:** what reading is
+  worth depends on the models of the lineup; one form (how many more) was read wrongly too often and is left out
+  unless named; no pass has been run
+  with instruments or forms on, and none is on until training keeps it.
 
 - **The module as configured, on every task (2026-11-22).** LFM2.5 1.2B in both places against Nemotron 3.5 Lightning 30B,
   20 questions of each of 23 tasks: 55.2% against 77.6% that evening (54.1% in the afternoon), the small model by itself 30.0%

@@ -2,24 +2,78 @@
 
 Every measurement, dated, newest first. Each is of the swarm named in it; the lineup has changed over time.
 
-## Four kinds the models got wrong, done by code, 2026-11-25
+## A model reads, code works it out: 2026-11-25
 
-Of the kinds of plain question training asks, the swarm (LFM3 1.7B in every place) was short on held questions in
-four: a word and what is done to it (1 of 6), who tells the truth (2 of 6), things in a row (3 of 6) and a date so many
-days on or back (5 of 6). The larger model, asked to write a function for each, wrote none that passed. Each is a kind
-code can work out whole, so four instruments were written by hand, from training's own questions and no benchmark.
+Of the kinds of plain question training asks, eight are ones code can work out whole, and the larger model, asked to
+write a function for each, wrote none that passed. Two things were built and measured. No benchmark was read.
 
-| Instrument | Train questions right | Held questions right | Questions of other kinds answered |
-| --- | --- | --- | --- |
-| who tells the truth | 40 of 40 | 40 of 40 | 0 of 1,404 |
-| a word and what is done to it | 40 of 40 | 40 of 40 | 0 of 1,404 |
-| things in a row | 40 of 40 | 40 of 40 | 0 of 1,404 |
-| a date so many days on or back | 40 of 40 | 40 of 40 | 0 of 1,404 |
+**Instruments that read the wording training uses.** Eight, written by hand from training's own questions. With no
+model run, each is right on 40 of 40 train questions and 40 of 40 held ones of its kind:
 
-No model was run for this. **Not measured:** a class pass with them on, so whether training keeps them and what the
-class gains. **A limit:** each reads the wordings training asks; a question worded otherwise is refused and goes to
-the models. The kinds left without an instrument (putting steps in order, taking a thing out of a text, whether an
-argument holds, a free answer, what a program prints) are ones the swarm had 6 of 6 on held.
+| Instrument | Held questions right | The swarm on held before (LFM3 1.7B) |
+| --- | --- | --- |
+| who tells the truth | 40 of 40 | 2 of 6 |
+| a word and what is done to it | 40 of 40 | 1 of 6 |
+| things in a row | 40 of 40 | 3 of 6 |
+| a date so many days on or back | 40 of 40 | 5 of 6 |
+| when someone was free | 40 of 40 | 6 of 6 |
+| who is the tallest | 40 of 40 | 6 of 6 |
+| how many more of one figure than another | 40 of 40 | 6 of 6 |
+| whether an argument holds | 40 of 40 | 6 of 6 |
+
+Of 880 questions of other kinds, they answer 16: every one a question of who is the tallest asked in a
+conversation, and rightly. (What a program prints is the ninth such kind; the module already runs such a program.)
+
+**Forms, for questions put another way.** An instrument reads a wording, so held questions were reworded by the
+larger model (kept where every name and figure was still there): 73 questions, of which the instruments read 5. The
+small model then says which form a question is of and writes what it says into the form; code works the form out;
+an answer stands where two readings agree and none differs. Five measurements, each after mending what the one
+before showed (LFM3 1.7B as reader; the swarm asked the same questions beside it):
+
+| Measurement | Read and answered | Right | Wrong | The swarm alone | Reading where it answers, else the swarm |
+| --- | --- | --- | --- | --- | --- |
+| 1: forms picked by a few words, no example | 13 of 51 | 11 | 2 | 40 of 51 | not measured |
+| 2: the form picked by the model | 25 of 61 | 17 | 8 | 47 of 61 | 46 of 61 |
+| 3: an example of each kind shown; forms refused that repeat the conclusion | 26 of 73 | 24 | 2 | 52 of 73 | 57 of 73 |
+| 4: the nearby form tried too | 31 of 73 | 27 | 4 | 51 of 73 | 56 of 73 |
+| 5: sentences copied as written; a form may not say more than the question; two readings before a third | 38 of 73 | 35 | 3 | 50 of 73 | 57 of 73 |
+| 5, its stored readings worked out again after two more mends (no model run) | 42 of 73 | 40 | 2 | 50 of 73 | 62 of 73 |
+
+- **What it cost, measurement 5:** 290 calls and 124 seconds of reading over the 73 questions, beside 730 seconds for
+  the swarm to answer them. A question the reading answers is not put to the swarm.
+- **By kind, measurement 5:** a word and what is done to it 7 of 7 read and right (the swarm alone 4); who is the
+  tallest 10 of 12 read, all right; when someone was free 5 of 8, all right; a date 3 of 5, all right; things in a
+  row 3 of 12, all right (the swarm alone 3); whether an argument holds 6 of 12 read, 5 right; how many more 4 of 7
+  read, 2 right; who tells the truth none read (mended after: 5 read, all right, worked out again from the stored
+  readings).
+- **The larger model as reader** (Nemotron 3.5 Lightning 30B, one reading, nothing to agree with, the form picked as
+  in measurement 3): 44 of 73 answered, 36 right, 8 wrong. Arguments 12 of 12, dates 5 of 5, a word 6 of 6. Four of
+  the eight wrong are questions of how many more whose rewording had become unclear about which figure comes first.
+- **Limits of that set.** The mends were made against these 73 questions, so its last rows flatter them, and one
+  model reworded them. The swarm's own count moved between 50 and 52 from run to run on the same questions.
+
+**A second set, that nothing was mended against.** 71 other held questions, reworded in other voices (a message to a
+friend, a puzzle at a quiz night, a request to a colleague); the instruments read 3 of them. Read once, with the code
+as it stood after the first set:
+
+| Reader | Read and answered | Right | Wrong | The swarm alone | Reading where it answers, else the swarm |
+| --- | --- | --- | --- | --- | --- |
+| LFM3 1.7B, two readings agreeing | 34 of 71 | 27 | 7 | 44 of 71 | 52 of 71 |
+| The same, the form of how many more left out | 29 of 71 | 25 | 4 | 44 of 71 | 55 of 71 |
+| Nemotron 3.5 Lightning 30B, one reading | 61 of 71 | 55 | 6 | | |
+| The same, the form of how many more left out | 50 of 71 | 48 | 2 | | |
+
+- **How many more of one figure than another is not read reliably.** On this set the small reader answered 5 and was
+  right on 2; the larger answered 11 and was right on 7: both took the two figures the wrong way round. That form is
+  therefore not among the ones `plan.read: true` turns on; it is on only where it is named. The rows that leave it
+  out are worked out from the same readings, with no model run again.
+- **What it cost here:** 279 calls and 121 seconds of reading over the 71 questions, beside 675 seconds for the swarm
+  to answer them.
+- **What this says.** Reading a question into a form, and working the form out by code, answers questions put another
+  way that no instrument reads, with either reader; how many it answers and how often rightly goes with the model
+  that reads. That is why it is a change training tries and keeps for a lineup, not a thing that is on.
+- **Not measured.** A pass of training with reading on; a lineup of two different small models, whose readings would
+  differ in more than a draw; a set reworded by another model than the one the swarm is brought to.
 
 ## The same reading, of the classes the intelligence run trains: 2026-11-24 and 25
 

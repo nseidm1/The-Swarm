@@ -66,6 +66,9 @@ does. It has three things to find, and each is kept only where it was measured t
 - **Instruments, for each class of input.** Where requests of a class are operations that code does exactly (a sum,
   words to put in order) or questions of a fixed kind code can work out whole (who tells the truth, things in a
   row), the answer is worked out by code and no model is asked.
+- **Forms, for each class of input.** Where a question of such a kind is put in other words than an instrument
+  reads, the members read it into a fixed form and code works the form out; the answer stands only where their
+  readings agree.
 
 Training asks questions of its own making, each with a standard of its own, and never a harness's question. A change
 is tried on some of them and kept only where the class of input got better on others held back for the purpose, by
@@ -1830,6 +1833,9 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `goOn` | boolean | false | a drafting slot that gave no answer (cut off before it reached one) is asked once more with its own room to go on from where it stopped, before it is asked for its answer in one line. Not where code is asked for |
 | `computedStands` | boolean | false | a drafting slot that answers by a program (`compute`) is asked with the first drafters and has no vote; where its program printed one plain number and the settled answer holds exactly one figure, that number is the decided answer and `+computed` is appended to the path. An answer in words, or one that holds two figures, is not overruled |
 | `for` | `{ <facet>: { ...plan keys } }` | none | what was kept for one kind of request within the class: where the request is of that facet, these keys are laid over the plan, and every other request has the plan as it is. The facets, read from the conversation with no model asked: `closing` (the last message asks nothing: thanks, a closing word, in a conversation already begun), `code` (the last message asks for code, or goes on from code earlier in the conversation), `instructed` (an earlier message of the person's says how to answer). A request is of the first that applies, or of none |
+| `read` | list of form ids, or `true` | none | the forms that are on: a question is read into a form by the drafting slots and the form is worked out by code (R.7) |
+| `readBy` | integer | 3 | how many readings of a form are asked (R.7) |
+| `readLeast` | integer | 2 | how many readings must come to the answer for it to stand (R.7) |
 | `written` | list of `{ id, kind, name, code }` | none | functions training wrote and kept for the class: `code` declares `answer(question)` in ECMAScript, which returns the answer as text, or null where it does not read the whole question. Where the question does not want code, each is run in turn, after the instruments and before any model, with no access to files, programs, the network or the clock and a bound on its time; the first answer given is the decided answer and the path is `written`. Where none gives one, or none can be run, the request goes on as it would have |
 | `searchFirst` | boolean | true | a turn with a search tool offered and nothing yet looked up does not end without a call (T.13a) |
 | `searchThrough` | boolean | true | a turn with a search tool offered is taken by the search program (T.13b) |
@@ -2843,14 +2849,69 @@ determine, solve, work, out, how, much, please, help, tell, give, me, result, an
 | word | the first sentence is `Take the word "<letters>".` (or `Start with`, `Begin with`), the last asks what is left (or what you get, what remains, what the result is), and each sentence between, with or without `Then`, `Next`, `After that`, `Now`, `Finally`, is one of: `Reverse it.`; `Write it in capital letters.`; `Write it in lower case.`; `Remove its first letter.` or `last`, or so many letters up to four; `Double it.` | the word after each is done in turn. Does not apply where a removal would leave no letter |
 | row | a sentence says there are N things in a row and names them after a colon (two to seven, each named once, as many as it says); every sentence after is one of: `The <thing> is to the left of the <thing>.` or `right`; `The <thing> is the leftmost.`, `rightmost`, or `the <second..seventh> from the left` or `right`; one `Which <thing> is the <place>?`; `Options:`, lettered options that each name one of the things, and a line asking for a letter | every order of the things is tried against the statements. Where they leave exactly one thing in the place asked: the letter of the one option that names it, or `The <thing>` where no options are given. Otherwise it does not apply |
 | date | the first sentence is `Today is NN/NN/NNNN (month/day/year).` or `(day/month/year)`, a day that exists; the second asks the date so many days or weeks `ago`, `earlier`, `before today`, `from now`, `from today` or `later`; then nothing, or `Options:`, lettered dates and a line asking for a letter | the date, written as today's is with two digits for day and month; or the letter of the one option that is that date. Does not apply where no option or more than one is |
+| free | sentences of a person's day: that they went somewhere today; `<Name> woke up at <time>.`; `<Name> saw <Name> ... from <time> to <time>.`, any number; `The <place> was closed after <time>.`; one question asking between what times they could have gone; lettered stretches of time. Times are an hour with `am` or `pm` | the one stretch between waking and closing in which they were seen nowhere, as the letter of the option that is that stretch. Does not apply where there is no such stretch or more than one, or two sightings overlap |
+| order | every sentence is `<Name> is <shorter, taller, younger, older, lighter, heavier, slower, faster, ...> than <Name>.` or one `Who is the <tallest, shortest, second tallest, ...>?` | every order of those named is tried against the comparisons; the name, where they leave exactly one in the place asked |
+| more | sentences `<Name> sold N units in the first quarter, N in the second and N in the third.`, each name once; one `How many more units did <Name> sell in the <first, second, third> quarter than in the <...> quarter?`; optionally a line saying to give a negative number if fewer | the first figure less the second |
+| valid | `Consider this argument.`, then statements, the last of them after `Therefore,`, then a question whether the argument is valid. A statement is `All Xs are Ys`, `No Xs are Ys`, `Some Xs are Ys`, `Some Xs are not Ys`, `<Name> is a Y` or `<Name> is not a Y`; a kind is the same kind however its word ends (`tovers`, `tover`) | `invalid` where some world of up to four things, each of any mix of the kinds, makes every statement before the last so and the last not; otherwise `valid`. `All Xs are Ys` does not say there is an X |
 
-The last four do not go by the rule of operand and words of asking. Each reads the WHOLE question sentence by
+The last eight do not go by the rule of operand and words of asking. Each reads the WHOLE question sentence by
 sentence, where sentences are parted at line ends and after `.`, `?` or `!`, and applies only where every sentence is
 one it understands; one sentence it does not, and the question is answered as any other.
 
 A result is of the arrangement its `arrangementSha256` names (section 4), and so of the instruments that were on in it: a
 task that IS one of these operations is then answered by code, not by a model, and a card (section 7) SHOULD say which
 instruments its SwOA has on.
+
+### R.7 Forms: a model reads, code works it out
+
+An instrument (R.6) reads a question by its wording, so a question put another way is not read by it. A form parts the
+two: what the question SAYS is written into a fixed structure by a model, and the answer is worked out from the
+structure by code. `plan.read` is a list of the ids of the forms that are on, or `true`: every one but `more`,
+which is on only where it is named. It is absent from an arrangement as it starts.
+
+Where the question does not want code, at least one form is on, and neither an instrument (R.6) nor a function
+training wrote (`plan.written`) answered:
+
+1. **Which form.** The first drafting slot that does not answer by a program is shown the forms that are on, each
+   with one line saying what it is of and one example question, and the question, and is asked to say in a few words
+   what the question is about and then one id or `none`, at temperature 0 and at most 120 tokens. Where the engine can
+   hold a reply to a JSON schema, the reply is held to `{ "about": <text>, "kind": <one of the ids or "none"> }`.
+   The forms then tried, three at most, are: the one named; the ones a few words of the question point to (a cue
+   for each form, such as a date written in figures beside a length of time); and the ones often taken for the one
+   named (`row` and `order` for each other, `date` and `free` for each other). One that the words point to and that
+   is the one named, or often taken for it, comes first. Where there is none, the question is answered as any other.
+   Steps 2 to 4 are done for each in turn until one gives an answer.
+2. **The readings.** Up to `plan.readBy` readings are asked (3 where absent), of the drafting slots in turn. Each is
+   sent the form's description as the system text, one worked example (a question and its form) as a turn of the
+   conversation, and the question; the first at temperature 0, the others at 0.7; at most 700 tokens; the reply held
+   to the form's schema where the engine can. A reading is the first `{` to the last `}` of the reply, parsed as
+   JSON. As many as have to agree (`plan.readLeast`) are asked first, together; the rest are asked only where they
+   could still settle it: not where those already agree, not where two differ, and not where even all the rest
+   agreeing would be too few.
+3. **Worked out by code.** Each reading is worked out as the instrument of the same id works out a question (R.6: the
+   same rules for what settles an answer and what does not), from the fields below. A reading gives no answer where
+   it names a person, a thing, a word or a figure the question does not hold, or where it holds more statements than
+   the question has clauses (its sentences, and the parts of them joined by `and`, `but`, `while`, `whereas`,
+   `however`): such a reading was worked out or made up, not read.
+4. **Agreement.** The answer stands only where at least `plan.readLeast` readings (2 where absent, and never more than
+   were asked) gave it and no reading gave another. It is then the decided answer, the reply is that answer (closed in
+   the form the earlier replies show, O.8.7, where `plan.closeAs` is `shown` and a form is shown), and the path is
+   `read`. Otherwise the question is answered as any other. Every call made is recorded, with stage `read`.
+
+| Form | Fields |
+| --- | --- |
+| lies | `statements`: one for each sentence, `{ speaker, about, says }`, `says` one of `tellsTruth`, `lies`, and `speaker` empty where the text itself says it; `asked`: a name; `askedWhether`: `truthful` or `lies` (the answer is `Yes` where the one asked of is as asked) |
+| word | `word`; `steps`: list of `{ do, count }`, `do` one of `reverse`, `capitals`, `small`, `removeFirst`, `removeLast`, `double` |
+| row | `items`: list of names; `facts`: list of `{ thing, is, other, place, from }`, `is` one of `leftOf`, `rightOf`, `place`, `from` one of `left`, `right`, `place` counted from 1; `asked`: `{ place, from }`. A thing named a little otherwise than in `items` is the one item whose name holds it or is held by it |
+| date | `today`: `{ year, month, day }`; `amount`; `unit`: `day`, `week`, `month` or `year`; `direction`: `back` or `on`. A month or a year on or back gives no answer where that month has no such day |
+| free | `awakeFrom`, `closedAfter` and `seen`: list of `{ from, to }`, each a time as the question writes it |
+| order | `comparisons`: one for each sentence, `{ a, is, b }`, `is` one of `more`, `less`: `a` has more, or less, of the measure than `b`; `asked`: `{ rank, from }`, `from` one of `greatest`, `least` |
+| more | `first`, `second`: two figures of the question; the answer is the first less the second |
+| valid | `premises`: list of statements; `conclusion`: a statement. A statement is `{ says, subject, predicate }`, `says` one of `all`, `no`, `some`, `someNot`, `is`, `isNot` |
+
+Lettered options are read from the question by code, not by the model: `(A) text`, several on a line or one a line,
+or `A. text` one a line. Where the question has them the answer is the letter of the one option that is what was
+worked out, and no answer where none or several are.
 
 ---
 

@@ -63,6 +63,18 @@ import {
 import { probeBriefFor, expectBriefFor, langOfQuestion, expectedIn, programOf } from './behave.mjs';
 import { answerPiece, setsRules, roomFor } from './piece.mjs';
 import { instrumentFor } from './instruments.mjs';
+import {
+  FORMS,
+  formAnswer,
+  formAsk,
+  formParams,
+  formsOn,
+  formsToTry,
+  readingsLeft,
+  routeAsk,
+  routeIn,
+  routeParams,
+} from './forms.mjs';
 import { writtenFor, writtenOn } from './written.mjs';
 import { facetOf, planFor } from './facets.mjs';
 
@@ -543,6 +555,103 @@ async function answerWhole(
         tried: null,
         written: it.id,
       };
+    }
+  }
+  // A MODEL READS, CODE WORKS IT OUT (forms.mjs; plan.read: the forms training turned on, or true). An instrument reads a
+  // question by its wording; this reads it by a model. One drafter says which form the question is of, if any. Where it is
+  // one, the drafters each write what the question says into that form (the reply held to the form's schema where the
+  // engine can), code works each form out, and the answer stands only where at least plan.readLeast of them (2) came to it
+  // and none came to another. Otherwise the question goes on as it would have, the cost being the calls made.
+  if (!wantsCode && formsOn(plan.read).length) {
+    const readers = stage('draft').filter((s) => !s.compute);
+    const said = async (slot, id, messages, extra) => {
+      const at = Date.now();
+      const row = { slot: id, member: slot.member, stage: 'read', ms: 0, out: '', final: '', ok: false };
+      onStart({ slot: id, member: slot.member, stage: 'read' });
+      try {
+        const r = await ask({ ...slot, id, stage: 'read', ...extra.slot }, messages, extra.params);
+        row.out = String((r && r.text) || '').trim();
+        row.ok = !!row.out;
+        if (r && r.tokens) row.tokens = r.tokens;
+      } catch (e) {
+        row.why = String((e && e.message) || e).slice(0, 200);
+      }
+      row.ms = Date.now() - at;
+      return row;
+    };
+    if (readers.length) {
+      const first = await said(readers[0], readers[0].id + '-kind', routeAsk(question, plan.read), {
+        slot: { maxTokens: 120, temperature: 0 },
+        params: routeParams(plan.read),
+      });
+      const named = routeIn(first.out, plan.read);
+      first.final = named || '';
+      onStep(first);
+      trace.push(first); // (what was asked on the way is on the record, whatever answers in the end)
+      // (the form it named, then the ones the question's words point to and the ones often taken for it: forms.mjs)
+      for (const id of formsToTry(question, named, plan.read)) {
+        const many = Math.max(1, Number(plan.readBy) || 3);
+        const least = Math.min(many, Math.max(1, Number(plan.readLeast) || 2));
+        const reading = (n) => {
+          const slot = readers[n % readers.length];
+          // (the first reading is the likeliest one; the others are drawn, so that agreement means something)
+          return said(slot, slot.id + '-read' + (n < readers.length ? '' : '-' + n), formAsk(id, question), {
+            slot: { maxTokens: 700, temperature: n === 0 ? 0 : 0.7 },
+            params: formParams(id),
+          });
+        };
+        // AS MANY AS HAVE TO AGREE ARE ASKED FIRST, together; the rest only where they could still settle it (forms.mjs
+        // readingsLeft): two that agree need no third, and two that both read nothing cannot be mended by one more
+        const rows = await Promise.all(Array.from({ length: least }, (_, n) => reading(n)));
+        const more = readingsLeft(
+          id,
+          question,
+          rows.map((r) => r.out),
+          many,
+          least,
+        );
+        if (more > 0) rows.push(...(await Promise.all(Array.from({ length: more }, (_, n) => reading(least + n)))));
+        const got = formAnswer(
+          id,
+          question,
+          rows.map((r) => r.out),
+          least,
+        );
+        for (const r of rows) (onStep(r), trace.push(r));
+        if (got) {
+          const form = plan.closeAs === 'shown' ? closingForm(talk.slice(0, -1)) : null;
+          const reply = form ? closedAs('', got.answer, form, question) : got.answer;
+          const row = {
+            slot: 'read',
+            member: 'code',
+            stage: 'run',
+            ms: Date.now() - t0,
+            out:
+              'The question was read as one ' +
+              FORMS[id].label +
+              ', by ' +
+              got.agreed +
+              ' of ' +
+              got.of +
+              ', and worked out by code.',
+            final: got.answer,
+            ok: true,
+            form: id,
+          };
+          onStart({ slot: 'read', member: 'code', stage: 'run' });
+          onStep(row);
+          return {
+            reply: reply || got.answer,
+            decided: got.answer,
+            path: 'read',
+            ms: Date.now() - t0,
+            trace: [...trace, row],
+            ok: true,
+            tried: null,
+            form: id,
+          };
+        }
+      }
     }
   }
   // ONE MODEL, ASKED AS THE REQUEST CAME (plan.plain: true, every request of the class; plan.pieceBy: 'plain', a request for a

@@ -1151,7 +1151,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       all.some((c) => /b-recompute drafts instead of checking/.test(c.name)) &&
       // (an instrument turned on comes first of all: it costs nothing to try; then the flow)
       /^plan: a question .* is done by code$/.test(all[0].name) &&
-      all.filter((c) => / is done by code$/.test(c.name)).length === 8 &&
+      all.filter((c) => / is done by code$/.test(c.name)).length === 12 &&
       // (then one model asked as the request came, for a piece of writing and for the whole class; then the flow)
       /a piece of writing is written by one model, asked as it came$/.test(all[4].name) &&
       /^plan: one model answers, asked as it came$/.test(all[5].name) &&
@@ -12478,6 +12478,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const W = await import('../src/written.mjs');
   const WC = await import('../training/write-code.mjs');
   const AR = await import('../training/arrange.mjs');
+  const I0 = await import('../src/instruments.mjs');
   const CL = await import('../training/classes.mjs');
   const { startBriefs } = await import('../src/index.mjs');
   const { answer: orchestrate } = await import('../src/orchestrate.mjs');
@@ -12600,7 +12601,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       AR.steps(startBriefs()).filter((m) => m.name === 'plan: every instrument is on').length === 1 &&
       AR.steps({
         ...startBriefs(),
-        plan: { ...startBriefs().plan, instruments: ['sum', 'truth', 'sorted', 'closed', 'lies', 'word', 'row'] },
+        plan: { ...startBriefs().plan, instruments: I0.INSTRUMENT_IDS.slice(0, -1) },
       }).every((m) => m.name !== 'plan: every instrument is on') &&
       rotated.join('|') === 'q0?,q1?,q2?,q3?,q4?,q5?|q0?,q1?,q2?,q3?,q4?,q5?|q6?,q7?,q8?,q9?,q10?,q11?' &&
       gave.join('|') === 'it returned null at this line: `if (lines.length < 2) return null;`|' &&
@@ -13086,14 +13087,174 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       of('Today is 02/28/2020 (month/day/year). What is the date 1 week from now?') === '03/06/2020' &&
       of('Today is 02/30/2017 (month/day/year). What is the date 4 days ago?') === null &&
       of('What is the capital of France?') === null &&
-      I.INSTRUMENT_IDS.join() === 'sum,truth,sorted,closed,lies,word,row,date' &&
-      I.INSTRUMENT_WHOLE.join() === 'lies,word,row,date' &&
+      I.INSTRUMENT_IDS.join() === 'sum,truth,sorted,closed,lies,word,row,date,free,order,more,valid' &&
+      I.INSTRUMENT_WHOLE.join() === 'lies,word,row,date,free,order,more,valid' &&
       I.instrumentFor('Ada tells the truth. Milo says Ada lies. Does Milo tell the truth?', ['sum']) === null &&
-      moves.filter((n) => / is done by code$/.test(n)).length === 8 &&
+      moves.filter((n) => / is done by code$/.test(n)).length === 12 &&
       moves.indexOf('plan: a question ' + I.INSTRUMENT_NAMES.lies + ' is done by code') >
         moves.findIndex((n) => /^flow: /.test(n)) &&
       !('instruments' in (startBriefs().plan || {})),
     { tally, stray },
+  );
+}
+
+{
+  // FIVE MORE THAT READ A WHOLE QUESTION, AND THE FORMS: a question is read into a form (by an instrument's own reading, or
+  // by a model) and the form is worked out by code (src/forms.mjs)
+  const I = await import('../src/instruments.mjs');
+  const F = await import('../src/forms.mjs');
+  const TK = await import('../training/tasks.mjs');
+  const KIND = { free: 'free', order: 'order', more: 'extract', valid: 'valid' };
+  const tally = {};
+  for (const [id, kind] of Object.entries(KIND)) {
+    const list = TK.tasks({ split: 'held', each: 12, kinds: [kind] });
+    let right = 0;
+    for (const t of list) {
+      const r = I.instrumentFor(t.ask, [id]);
+      if (r && (await t.good(r.answer)).grade === 'right') right++;
+    }
+    tally[id] = right + ' of ' + list.length;
+  }
+  const run = async (q, on) => (I.instrumentFor(q, on) || {}).answer ?? null;
+  const A = (id, form, q) => F.FORMS[id].answer(form, q);
+  const day =
+    'Today Cleo went to the cinema. Between what times could they have gone?\nWe know that:\nCleo woke up at 5am.\nFinn saw Cleo working at the office from 11am to 2pm.\nAda saw Cleo at a class from 8am to 11am.\nThe cinema was closed after 2pm.\nOptions:\n(A) 11am to 2pm\n(B) 8am to 11am\n(C) 5am to 8am\nAnswer with the letter of the one option.';
+  const arg = (s) =>
+    'Consider this argument. ' +
+    s +
+    '\nIs the argument deductively valid or invalid, given only what it states? Answer valid or invalid.';
+  const tall = 'Jon is shorter than Ada. Esme is taller than Ada. Who is the tallest?';
+  const liesQ = 'Ada always speaks truly. According to Milo, Ada is a liar. Is Milo lying?';
+  const liesF = {
+    stated: [{ name: 'Ada', truthful: true }],
+    claims: [{ speaker: 'Milo', about: 'Ada', saysTruthful: false }],
+    asked: 'Milo',
+    askedWhether: 'lies',
+  };
+  const J = JSON.stringify;
+  const got = {
+    free: await run(day, ['free']),
+    freeTwo: await run(day.replace('8am to 11am.', '9am to 11am.'), ['free']),
+    order: await run(tall, ['order']),
+    orderOpen: await run('Jon is shorter than Ada. Esme is taller than Jon. Who is the tallest?', ['order']),
+    valid: await run(arg('All tovers are wugs. Ben is a tover. Therefore, Ben is a wug.'), ['valid']),
+    invalid: await run(arg('All tovers are wugs. Ben is not a tover. Therefore, Ben is not a wug.'), ['valid']),
+    some: await run(arg('No daxes are wugs. Some wugs are gorps. Therefore, some gorps are not daxes.'), ['valid']),
+    unread: await run(arg('All tovers are wugs. Ben is tall. Therefore, Ben is a wug.'), ['valid']),
+    lies: A('lies', liesF, liesQ),
+    liesTruth: A('lies', { ...liesF, askedWhether: 'truthful' }, liesQ),
+    liesOther: A('lies', { ...liesF, asked: 'Jon' }, liesQ),
+    word: A(
+      'word',
+      {
+        word: 'silver',
+        steps: [
+          { do: 'reverse', count: 1 },
+          { do: 'removeLast', count: 2 },
+        ],
+      },
+      'Flip "silver" round, then drop two letters off the end.',
+    ),
+    wordOther: A('word', { word: 'golden', steps: [{ do: 'reverse', count: 1 }] }, 'Flip "silver" round.'),
+    second: A(
+      'order',
+      {
+        comparisons: [
+          { lesser: 'Jon', greater: 'Ada' },
+          { lesser: 'Ada', greater: 'Esme' },
+        ],
+        asked: { rank: 2, from: 'greatest' },
+      },
+      'Ada towers over Jon but Esme towers over Ada. Second tallest?',
+    ),
+    more: A('more', { first: 521, second: 749 }, 'Ines moved 749 units, then 521. How many more the second time?'),
+    moreOther: A('more', { first: 521, second: 750 }, 'Ines moved 749 units, then 521.'),
+    date: A(
+      'date',
+      { today: { year: 2017, month: 4, day: 13 }, amount: 2, unit: 'week', direction: 'on' },
+      'It is 04/13/2017. A fortnight on?',
+    ),
+    dateNone: A(
+      'date',
+      { today: { year: 2017, month: 1, day: 31 }, amount: 1, unit: 'month', direction: 'on' },
+      'It is 01/31/2017.',
+    ),
+  };
+  check(
+    'four more instruments read a whole question (when someone was free, who is the tallest, how many more of one figure than another, whether an argument holds), each right on every held question of its kind; and reading is parted from working out: a form says what a question states, an instrument fills it from the wordings it knows or a model fills it held to its schema, and code works the form out; a form that names what the question does not hold, or that does not settle one answer, gives none; a model is asked more than once and an answer stands only where its readings agree',
+    Object.values(tally).every((v) => v === '12 of 12') &&
+      J(got) ===
+        J({
+          free: 'C',
+          freeTwo: null,
+          order: 'Esme',
+          orderOpen: null,
+          valid: 'valid',
+          invalid: 'invalid',
+          some: 'valid',
+          unread: null,
+          lies: 'Yes',
+          liesTruth: 'No',
+          liesOther: null,
+          word: 'revl',
+          wordOther: null,
+          second: 'Ada',
+          more: '-228',
+          moreOther: null,
+          date: '04/27/2017',
+          dateNone: null,
+        }) &&
+      F.hourOf('12pm') === 12 &&
+      F.hourOf('12am') === 0 &&
+      F.hourOf('2 pm') === 14 &&
+      F.hourOf('25:00') === -1 &&
+      J(F.optionsOf('x? Options: (A) one (B) two.')) ===
+        J([
+          { letter: 'A', text: 'one' },
+          { letter: 'B', text: 'two' },
+        ]) &&
+      F.formsFor(liesQ).join() === 'lies' &&
+      F.formsFor('What is the capital of France?').length === 0 &&
+      F.formsFor(liesQ, ['word']).length === 0 &&
+      F.formAsk('lies', liesQ).at(-1).content === liesQ &&
+      F.formAsk('lies', liesQ).length === 4 &&
+      F.FORM_IDS.every((id) => F.FORMS[id].answer(F.FORMS[id].example.form, F.FORMS[id].example.question) !== null) &&
+      F.routeIn('{"kind":"lies"}') === 'lies' &&
+      F.routeIn('{"kind":"none"}') === null &&
+      F.routeIn('{"kind":"lies"}', ['word']) === null &&
+      F.routeParams(['word']).response_format.json_schema.schema.properties.kind.enum.join() === 'word,none' &&
+      F.formsToTry('Ada towers over Jon. Who stands highest?', 'row').join() === 'row,order' &&
+      F.formsToTry('Ada is taller than Jon. Who is the tallest?', 'row').join() === 'order,row' &&
+      // (two that agree need no third; two that read nothing cannot be mended by one; one of two is worth a third)
+      F.readingsLeft('lies', liesQ, [J(liesF), J(liesF)], 3, 2) === 0 &&
+      F.readingsLeft('lies', liesQ, ['nothing', 'nothing'], 3, 2) === 0 &&
+      F.readingsLeft('lies', liesQ, [J(liesF), 'nothing'], 3, 2) === 1 &&
+      F.readingsLeft('lies', liesQ, [J(liesF), J({ ...liesF, askedWhether: 'truthful' })], 3, 2) === 0 &&
+      // (a form that says more than the question has clauses to say it in was not read from it)
+      A(
+        'lies',
+        {
+          ...liesF,
+          statements: undefined,
+          stated: [1, 2, 3].map(() => ({ name: 'Ada', truthful: true })),
+          claims: liesF.claims || [{ speaker: 'Milo', about: 'Ada', saysTruthful: false }],
+        },
+        liesQ,
+      ) === null &&
+      F.clausesOf(liesQ) === 3 &&
+      F.formsToTry(liesQ, null).join() === 'lies' &&
+      // (a form read wrongly too often is on only where it is named)
+      F.formsOn(true).join() === 'lies,word,row,date,free,order,valid' &&
+      F.formsOn(['more', 'word']).join() === 'word,more' &&
+      F.formsOn(undefined).length === 0 &&
+      F.formsToTry(liesQ, 'word', ['lies']).join() === 'lies' &&
+      F.formParams('lies').response_format.json_schema.schema.required.join() === 'statements,asked,askedWhether' &&
+      F.formIn('here: ' + J(liesF) + ' done').asked === 'Milo' &&
+      F.formIn('no form') === null &&
+      F.formAnswer('lies', liesQ, [J(liesF), J(liesF), 'nothing']).answer === 'Yes' &&
+      F.formAnswer('lies', liesQ, [J(liesF), J({ ...liesF, askedWhether: 'truthful' }), J(liesF)]) === null &&
+      F.formAnswer('lies', liesQ, [J(liesF), 'nothing', 'nothing']) === null,
+    { tally, got },
   );
 }
 

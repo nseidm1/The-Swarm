@@ -600,6 +600,13 @@ export function steps(
       name: 'plan: a question ' + INSTRUMENT_NAMES[id] + ' is done by code',
       briefs: { ...b, plan: { ...b.plan, instruments: [...instrOn, id] } },
     });
+  // A MODEL READS, CODE WORKS IT OUT (src/forms.mjs): the kinds of question code can work out whole, read by the drafters
+  // into a form however they are worded. One change, for every form: which form a question is of is told by a model
+  if (!(b.plan || {}).read)
+    out.push({
+      name: 'plan: a question of a kind code can work out is read into a form by the drafters, and worked out by code',
+      briefs: { ...b, plan: { ...b.plan, read: true } },
+    });
   // EVERY INSTRUMENT AT ONCE, where two or more are off: each alone moves one kind of question, and a round keeps one
   // change. Of the kinds a model could write no function for, four are these operations, and the instruments answer every
   // question of them rightly (128 of 128, measured 2026-11-25).

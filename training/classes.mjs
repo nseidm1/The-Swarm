@@ -99,6 +99,10 @@ const AFTER_DRAFTS = [
   'instruments',
   // (code training wrote: asked before any model, where it reads the question; every other question is drafted as it was)
   'written',
+  // (a question read into a form by the drafters and worked out by code: every other question is drafted as it was)
+  'read',
+  'readBy',
+  'readLeast',
   'plain',
   'pieceBy',
 ];
