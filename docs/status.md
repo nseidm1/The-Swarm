@@ -17,6 +17,13 @@ What has been run:
   widened, 26 of a fresh 27; right on every one read. The larger model now writes such wordings in every pass, and an
   instrument is kept on ones its trying never saw.
 
+- **Four instruments that read a whole question (2026-11-25).** Who tells the truth, a word and what is done to it,
+  things in a row, a date so many days on or back. Each was written from training's own questions of that kind; no
+  benchmark was read. With no model: 40 of 40 train questions and 40 of 40 held ones right for each, none of 1,404
+  questions of other kinds answered, and near misses refused. **Limits, said plainly:** they read the wordings
+  training asks and little else, so a question put another way goes to the models as before; no pass has been run
+  with them on, so what they are worth to a module is not measured; and none is on until training keeps it.
+
 - **The module as configured, on every task (2026-11-22).** LFM2.5 1.2B in both places against Nemotron 3.5 Lightning 30B,
   20 questions of each of 23 tasks: 55.2% against 77.6% that evening (54.1% in the afternoon), the small model by itself 30.0%
   ([Measured, not claimed](measured.md#the-module-as-configured-on-23-tasks-2026-11-22)). Trained, the same module has not yet read higher on any benchmark (below).

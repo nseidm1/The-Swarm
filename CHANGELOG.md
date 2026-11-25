@@ -24,6 +24,11 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **Four more things code does** (2026-11-25). Four kinds of plain question the small models were mostly wrong on,
+  and the larger model wrote no working function for, are now instruments: who tells the truth, a word and what is
+  done to it, things in a row, and a date so many days on or back. Each reads the whole question and answers only
+  where it understands every sentence. Written from training's own questions: 40 of 40 held ones right for each, no
+  question of another kind answered. None is on until training keeps it, and no pass has been run with them yet.
 - **How the writer of functions is asked, measured** (2026-11-25). A function that returned nothing for every
   question it was shown: three changes to the asking were measured on 21 kinds (the example shown as a call; the line
   the function gave up at; fresh tries shown other questions) and none made such a function pass (9 of 21 before, 5,

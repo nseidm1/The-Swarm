@@ -13,7 +13,7 @@
 //             narrows before the one that settles, a second writer with the decider picking the reply, a step taken out
 //   plan      one worked answer for each different answer; the checks passed over when the drafts agree; drafts of code
 //             compared by what they do, or as text
-import { INSTRUMENT_IDS, INSTRUMENT_NAMES, instrumentsOn } from '../src/instruments.mjs';
+import { INSTRUMENT_IDS, INSTRUMENT_NAMES, INSTRUMENT_WHOLE, instrumentsOn } from '../src/instruments.mjs';
 import { briefHash } from './state.mjs';
 import { SERVING } from '../src/index.mjs';
 import { MANNER_FIXES, MANNER_NAMES, mannersOn } from '../src/manners.mjs';
@@ -181,7 +181,7 @@ export function steps(
   // all, since it costs nothing to try (no model is asked where it applies) and is exact where it does
   const instrOn = instrumentsOn((b.plan || {}).instruments);
   const out = [
-    ...INSTRUMENT_IDS.filter((id) => !instrOn.includes(id)).map((id) => ({
+    ...INSTRUMENT_IDS.filter((id) => !instrOn.includes(id) && !INSTRUMENT_WHOLE.includes(id)).map((id) => ({
       name: 'plan: a question ' + INSTRUMENT_NAMES[id] + ' is done by code',
       briefs: { ...b, plan: { ...b.plan, instruments: [...instrOn, id] } },
     })),
@@ -593,6 +593,13 @@ export function steps(
         briefs: { ...b, slots: b.slots.map((x) => ({ ...x, member: m })) },
       })),
   );
+  // (the instruments that read a whole question of a fixed kind come here, after everything else: put first of all with the
+  // other four they filled the head of the list that question-by-question training plans from)
+  for (const id of INSTRUMENT_WHOLE.filter((x) => !instrOn.includes(x)))
+    out.push({
+      name: 'plan: a question ' + INSTRUMENT_NAMES[id] + ' is done by code',
+      briefs: { ...b, plan: { ...b.plan, instruments: [...instrOn, id] } },
+    });
   // EVERY INSTRUMENT AT ONCE, where two or more are off: each alone moves one kind of question, and a round keeps one
   // change. Of the kinds a model could write no function for, four are these operations, and the instruments answer every
   // question of them rightly (128 of 128, measured 2026-11-25).

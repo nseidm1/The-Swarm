@@ -1151,7 +1151,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       all.some((c) => /b-recompute drafts instead of checking/.test(c.name)) &&
       // (an instrument turned on comes first of all: it costs nothing to try; then the flow)
       /^plan: a question .* is done by code$/.test(all[0].name) &&
-      all.filter((c) => / is done by code$/.test(c.name)).length === 4 &&
+      all.filter((c) => / is done by code$/.test(c.name)).length === 8 &&
       // (then one model asked as the request came, for a piece of writing and for the whole class; then the flow)
       /a piece of writing is written by one model, asked as it came$/.test(all[4].name) &&
       /^plan: one model answers, asked as it came$/.test(all[5].name) &&
@@ -12598,9 +12598,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       ) &&
       /It is called with ONE string/.test(asks[0][1].content) &&
       AR.steps(startBriefs()).filter((m) => m.name === 'plan: every instrument is on').length === 1 &&
-      AR.steps({ ...startBriefs(), plan: { ...startBriefs().plan, instruments: ['sum', 'truth', 'sorted'] } }).every(
-        (m) => m.name !== 'plan: every instrument is on',
-      ) &&
+      AR.steps({
+        ...startBriefs(),
+        plan: { ...startBriefs().plan, instruments: ['sum', 'truth', 'sorted', 'closed', 'lies', 'word', 'row'] },
+      }).every((m) => m.name !== 'plan: every instrument is on') &&
       rotated.join('|') === 'q0?,q1?,q2?,q3?,q4?,q5?|q0?,q1?,q2?,q3?,q4?,q5?|q6?,q7?,q8?,q9?,q10?,q11?' &&
       gave.join('|') === 'it returned null at this line: `if (lines.length < 2) return null;`|' &&
       threw[0].startsWith('it threw an error') &&
@@ -13022,6 +13023,77 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       fm: fm.map((m) => m.name),
       sm: sm && sm.name,
     },
+  );
+}
+
+{
+  // FOUR INSTRUMENTS THAT READ A WHOLE QUESTION, SENTENCE BY SENTENCE (src/instruments.mjs: who tells the truth, a word and
+  // what is done to it, things in a row, a date so many days on or back)
+  const I = await import('../src/instruments.mjs');
+  const TK = await import('../training/tasks.mjs');
+  const AR = await import('../training/arrange.mjs');
+  const { startBriefs } = await import('../src/index.mjs');
+  const NEW = ['lies', 'word', 'row', 'date'];
+  const KIND = { lies: 'lies', word: 'string', row: 'deduce', date: 'date' };
+  const of = (q) => (I.instrumentFor(q, NEW) || {}).answer ?? null;
+  // every held question of its kind answered, and rightly; every question of another kind left alone
+  const tally = {};
+  for (const id of NEW) {
+    const list = TK.tasks({ split: 'held', each: 12, kinds: [KIND[id]] });
+    let right = 0;
+    for (const t of list) {
+      const r = I.instrumentFor(t.ask, [id]);
+      if (r && (await t.good(r.answer)).grade === 'right') right++;
+    }
+    tally[id] = right + ' of ' + list.length;
+  }
+  let stray = 0;
+  for (const t of TK.tasks({ split: 'held', each: 4 })) {
+    const r = I.instrumentFor(t.ask || '', NEW);
+    if (r && KIND[r.id] !== t.kind) stray++;
+  }
+  const row3 = 'On a shelf there are 3 books in a row: a red book, a blue book, a green book.\n';
+  const moves = AR.steps(startBriefs()).map((m) => m.name);
+  check(
+    'four more instruments, each reading a whole question of a fixed kind sentence by sentence and giving nothing where one sentence is not understood: who tells the truth (each person settled from the one they speak of), a word and what is done to it in turn, things in a row (every order tried, and an answer only where the statements leave one thing in the place asked), and a date so many days or weeks on or back, with lettered options or without; each answers every held question of its kind rightly and no question of another kind; none is on as a module starts, and each is a change training can try, offered after the others',
+    Object.values(tally).every((v) => v === '12 of 12') &&
+      stray === 0 &&
+      of('Ada tells the truth. Milo says Ada lies. Jon says Milo lies. Does Jon tell the truth? Answer Yes or No.') ===
+        'Yes' &&
+      of('Nora lies. Gia says Nora tells the truth. Does Gia tell the truth?') === 'No' &&
+      of('Ada tells the truth. Milo says Ada lies. Milo is tall. Does Milo tell the truth?') === null &&
+      of('Ada tells the truth. Ada says Ada lies. Does Ada tell the truth?') === null &&
+      of('Take the word "silver". Reverse it. Then remove its last letter. What is left?') === 'revli' &&
+      of(
+        'Take the word "planet". Write it in capital letters. Reverse it. Then remove its last letter. What is left?',
+      ) === 'TENAL' &&
+      of('Take the word "silver". Reverse it. Then translate it. What is left?') === null &&
+      of('Take the word "ab". Remove its last two letters. What is left?') === null &&
+      of(
+        row3 +
+          'The red book is to the left of the blue book. The green book is the rightmost.\nWhich book is the leftmost?',
+      ) === 'The red book' &&
+      of(row3 + 'The red book is to the left of the blue book.\nWhich book is the leftmost?') === null &&
+      of(
+        row3 +
+          'The blue book is the second from the left. The green book is to the left of the blue book.\nWhich book is the rightmost?\nOptions:\n(A) The red book\n(B) The blue book\n(C) The green book\nAnswer with the letter of the one option.',
+      ) === 'A' &&
+      of(row3 + 'The red book is the leftmost. The red book is the rightmost.\nWhich book is the leftmost?') === null &&
+      of(
+        'Today is 04/13/2017 (month/day/year). What is the date 44 days ago?\nOptions:\n(A) 02/28/2017\n(B) 05/27/2017\n(C) 02/27/2017\n(D) 03/01/2017\nAnswer with the letter of the one option.',
+      ) === 'A' &&
+      of('Today is 31/12/2019 (day/month/year). What is the date 2 days from now?') === '02/01/2020' &&
+      of('Today is 02/28/2020 (month/day/year). What is the date 1 week from now?') === '03/06/2020' &&
+      of('Today is 02/30/2017 (month/day/year). What is the date 4 days ago?') === null &&
+      of('What is the capital of France?') === null &&
+      I.INSTRUMENT_IDS.join() === 'sum,truth,sorted,closed,lies,word,row,date' &&
+      I.INSTRUMENT_WHOLE.join() === 'lies,word,row,date' &&
+      I.instrumentFor('Ada tells the truth. Milo says Ada lies. Does Milo tell the truth?', ['sum']) === null &&
+      moves.filter((n) => / is done by code$/.test(n)).length === 8 &&
+      moves.indexOf('plan: a question ' + I.INSTRUMENT_NAMES.lies + ' is done by code') >
+        moves.findIndex((n) => /^flow: /.test(n)) &&
+      !('instruments' in (startBriefs().plan || {})),
+    { tally, stray },
   );
 }
 

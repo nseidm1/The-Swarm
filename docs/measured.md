@@ -2,6 +2,25 @@
 
 Every measurement, dated, newest first. Each is of the swarm named in it; the lineup has changed over time.
 
+## Four kinds the models got wrong, done by code, 2026-11-25
+
+Of the kinds of plain question training asks, the swarm (LFM3 1.7B in every place) was short on held questions in
+four: a word and what is done to it (1 of 6), who tells the truth (2 of 6), things in a row (3 of 6) and a date so many
+days on or back (5 of 6). The larger model, asked to write a function for each, wrote none that passed. Each is a kind
+code can work out whole, so four instruments were written by hand, from training's own questions and no benchmark.
+
+| Instrument | Train questions right | Held questions right | Questions of other kinds answered |
+| --- | --- | --- | --- |
+| who tells the truth | 40 of 40 | 40 of 40 | 0 of 1,404 |
+| a word and what is done to it | 40 of 40 | 40 of 40 | 0 of 1,404 |
+| things in a row | 40 of 40 | 40 of 40 | 0 of 1,404 |
+| a date so many days on or back | 40 of 40 | 40 of 40 | 0 of 1,404 |
+
+No model was run for this. **Not measured:** a class pass with them on, so whether training keeps them and what the
+class gains. **A limit:** each reads the wordings training asks; a question worded otherwise is refused and goes to
+the models. The kinds left without an instrument (putting steps in order, taking a thing out of a text, whether an
+argument holds, a free answer, what a program prints) are ones the swarm had 6 of 6 on held.
+
 ## The same reading, of the classes the intelligence run trains: 2026-11-24 and 25
 
 Does what was learned on conversations carry to plain questions and code? LFM3 1.7B in both places, as it stands for

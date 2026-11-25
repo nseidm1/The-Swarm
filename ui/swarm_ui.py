@@ -1526,7 +1526,7 @@ def viz_block(d):
     rbox = lambda i, x: ('<div class="vbox%s" data-code="R%d"><b><span class="vcode">R%d</span>%s</b><small>%s%s</small></div>'  # noqa: E731
                          % (" on" if (going and x["state"] == "running") or ("R%d" % (i + 1)) in now_ else "", i + 1, i + 1, e(x["name"]),
                             ("<b>%s.</b> " % said_[x["state"]]) if said_.get(x["state"]) else "", r_words[i] if i < len(r_words) else ""))
-    on_ = lambda pl: list(data.__dict__.get("INSTRUMENT_IDS") or ["sum", "truth", "sorted", "closed"]) if (pl or {}).get("instruments") is True else list((pl or {}).get("instruments") or [])  # noqa: E731
+    on_ = lambda pl: list(data.__dict__.get("INSTRUMENT_IDS") or ["sum", "truth", "sorted", "closed", "lies", "word", "row", "date"]) if (pl or {}).get("instruments") is True else list((pl or {}).get("instruments") or [])  # noqa: E731
     br_ = d.get("briefs") or {}
     inst_ = ([("every class", on_(br_.get("plan")))] if on_(br_.get("plan")) else []) + [(c, on_((k or {}).get("plan"))) for c, k in (br_.get("kinds") or {}).items() if on_((k or {}).get("plan"))]
     inst_words = ("On now: %s." % "; ".join("%s (%s)" % (", ".join(v), c) for c, v in inst_)) if inst_ else "None is on yet."
@@ -4203,7 +4203,7 @@ def loop_changes(d):
 def _spec_instruments_words(sp):
     """The instruments a spec's arrangement has on, by class of input (plan.instruments; none until training turns one on)."""
     b = (sp.get("recipe") or {}).get("briefs") or {}
-    on = lambda p: (data.__dict__.get("INSTRUMENT_IDS") or ["sum", "truth", "sorted", "closed"]) if (p or {}).get("instruments") is True else list((p or {}).get("instruments") or [])  # noqa: E731
+    on = lambda p: (data.__dict__.get("INSTRUMENT_IDS") or ["sum", "truth", "sorted", "closed", "lies", "word", "row", "date"]) if (p or {}).get("instruments") is True else list((p or {}).get("instruments") or [])  # noqa: E731
     said = []
     if on(b.get("plan")):
         said.append("every class: %s" % e(", ".join(on(b.get("plan")))))

@@ -242,11 +242,191 @@ function closedIn(q) {
     .join(' ');
 }
 
+// ---- four more, each a whole question read sentence by sentence -------------------------------------------------------------
+// The four above read one operand beside words of asking. These read a question that is nothing but statements of a fixed
+// kind and what is asked of them, every sentence of it: one sentence that is not understood, and the question is not ours.
+// They were written from training's own questions (measured 2026-11-25: of the kinds no model here could write a function
+// for, these are the ones the swarm was wrong on, 12 of 24 held questions), and no benchmark's question was read for them.
+const sentencesOf = (q) =>
+  String(q)
+    .split(/\n+|(?<=[.?!])\s+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+// WHO TELLS THE TRUTH: "Ada tells the truth." or "Ada lies."; then "Milo says Ada tells the truth." or "... says Ada lies.";
+// asked "Does Nora tell the truth?". Each person is settled from the one they speak of; Yes or No.
+function liesIn(q) {
+  const truth = new Map();
+  const says = [];
+  let asked = null;
+  for (const x of sentencesOf(q)) {
+    let m;
+    if ((m = /^([A-Z][\w'-]*) (tells the truth|lies)\.$/.exec(x))) truth.set(m[1], m[2] !== 'lies');
+    else if ((m = /^([A-Z][\w'-]*) says (?:that )?([A-Z][\w'-]*) (tells the truth|lies)\.$/.exec(x)))
+      says.push({ who: m[1], of: m[2], honest: m[3] !== 'lies' });
+    else if ((m = /^Does ([A-Z][\w'-]*) tell the truth\?$/.exec(x))) {
+      if (asked) return null;
+      asked = m[1];
+    } else if (!/^(?:Answer|Reply|Say) (?:with )?(?:Yes or No|yes or no)\.?$/.test(x)) return null;
+  }
+  if (!asked || !truth.size || !says.length) return null;
+  for (let turn = 0; turn <= says.length; turn++)
+    for (const c of says) {
+      if (!truth.has(c.of)) continue;
+      // (who says a true thing tells the truth: saying "lies" of a liar, or "tells the truth" of one who does)
+      const v = truth.get(c.of) === c.honest;
+      if (truth.has(c.who) && truth.get(c.who) !== v) return null; // the statements do not agree: not ours to settle
+      truth.set(c.who, v);
+    }
+  return truth.has(asked) ? (truth.get(asked) ? 'Yes' : 'No') : null;
+}
+
+// A WORD, AND WHAT IS DONE TO IT IN TURN: 'Take the word "silver". Reverse it. Then remove its last letter. What is left?'
+function wordIn(q) {
+  const ss = sentencesOf(q);
+  const first = /^(?:Take|Start with|Begin with) the word ["“']([A-Za-z]+)["”']\.$/.exec(ss[0] || '');
+  if (!first || ss.length < 3) return null;
+  if (!/^(?:What is left|What do you (?:get|have)|What is the result|What remains)\?$/.test(ss[ss.length - 1]))
+    return null;
+  const N = { one: 1, two: 2, three: 3, four: 4 };
+  let w = first[1];
+  for (const x of ss.slice(1, -1)) {
+    const t = x.replace(/^(?:Then|Next|After that|Now|Finally),? /i, '').replace(/^./, (c) => c.toUpperCase());
+    let m;
+    if (/^Reverse it\.$/.test(t)) w = [...w].reverse().join('');
+    else if (/^(?:Write|Put) it in (?:capital letters|capitals|upper ?case(?: letters)?)\.$/.test(t))
+      w = w.toUpperCase();
+    else if (/^(?:Write|Put) it in (?:small letters|lower ?case(?: letters)?)\.$/.test(t)) w = w.toLowerCase();
+    else if ((m = /^Remove its (first|last) (?:(one|two|three|four|\d) )?letters?\.$/.exec(t))) {
+      const n = m[2] ? N[m[2]] || Number(m[2]) : 1;
+      if (!(n >= 1) || n >= w.length) return null;
+      w = m[1] === 'first' ? w.slice(n) : w.slice(0, -n);
+    } else if (/^Double it\.$/.test(t)) w = w + w;
+    else return null;
+  }
+  return w || null;
+}
+
+// THINGS IN A ROW, AND WHERE EACH STANDS: "On a shelf there are 5 books in a row: a black book, a green book, ...", then
+// "The green book is to the right of the white book.", "The red book is the leftmost.", "The yellow book is the third from
+// the left."; asked "Which book is the second from the left?", with lettered options or without. Every way of ordering them
+// is tried; where the statements leave one thing only in the place asked, that is the answer.
+const PLACE = { second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7 };
+function rowIn(q) {
+  const head = /^[\s\S]*?\bthere are (\d+|three|four|five|six|seven) ([a-z]+) in a row: ([^.\n]+)\./i.exec(String(q));
+  if (!head) return null;
+  const items = head[3].split(/,\s*(?:and\s+)?|\s+and\s+/).map((x) =>
+    x
+      .trim()
+      .replace(/^(?:an?|the) /i, '')
+      .toLowerCase(),
+  );
+  const n = items.length;
+  const said = { three: 3, four: 4, five: 5, six: 6, seven: 7 }[head[1].toLowerCase()] || Number(head[1]);
+  if (n < 2 || n > 7 || n !== said || new Set(items).size !== n) return null;
+  const at = (name) => items.indexOf(String(name).trim().replace(/^the /i, '').toLowerCase());
+  // (a place as it is said: the leftmost, the rightmost, the third from the left, the second from the right) -> index, or -1
+  const placeOf = (t) => {
+    const x = t.toLowerCase();
+    if (x === 'leftmost' || x === 'first from the left') return 0;
+    if (x === 'rightmost' || x === 'first from the right') return n - 1;
+    const m = /^(second|third|fourth|fifth|sixth|seventh) from the (left|right)$/.exec(x);
+    if (!m || PLACE[m[1]] > n) return -1;
+    return m[2] === 'left' ? PLACE[m[1]] - 1 : n - PLACE[m[1]];
+  };
+  const rules = [];
+  let asked = -1;
+  const options = [];
+  for (const x of sentencesOf(String(q).slice(head[0].length))) {
+    let m;
+    if ((m = /^The ([a-z ]+?) is (?:somewhere )?to the (left|right) of the ([a-z ]+?)\.$/i.exec(x))) {
+      const a = at(m[1]);
+      const b = at(m[3]);
+      if (a < 0 || b < 0) return null;
+      rules.push(m[2].toLowerCase() === 'left' ? (pos) => pos[a] < pos[b] : (pos) => pos[a] > pos[b]);
+    } else if ((m = /^The ([a-z ]+?) is the ([a-z ]+)\.$/i.exec(x))) {
+      const a = at(m[1]);
+      const k = placeOf(m[2]);
+      if (a < 0 || k < 0) return null;
+      rules.push((pos) => pos[a] === k);
+    } else if ((m = /^Which [a-z]+ is the ([a-z ]+)\?$/i.exec(x))) {
+      asked = placeOf(m[1]);
+      if (asked < 0) return null;
+    } else if ((m = /^\(([A-H])\) (?:The )?([a-z ]+?)\.?$/i.exec(x)))
+      options.push({ letter: m[1].toUpperCase(), item: at(m[2]) });
+    else if (!/^Options:$/i.test(x) && !/^Answer with the letter of the one option\.?$/i.test(x)) return null;
+  }
+  if (asked < 0 || options.some((o) => o.item < 0)) return null;
+  const found = new Set();
+  const pos = new Array(n).fill(-1);
+  const used = new Array(n).fill(false);
+  const place = (i) => {
+    if (i === n) {
+      if (rules.every((r) => r(pos))) found.add(pos.indexOf(asked));
+      return;
+    }
+    for (let k = 0; k < n; k++) {
+      if (used[k]) continue;
+      used[k] = true;
+      pos[i] = k;
+      place(i + 1);
+      used[k] = false;
+    }
+    pos[i] = -1;
+  };
+  place(0);
+  if (found.size !== 1) return null; // (none, or more than one: the statements do not settle it)
+  const it = [...found][0];
+  if (!options.length) return 'The ' + items[it];
+  const o = options.filter((x) => x.item === it);
+  return o.length === 1 ? o[0].letter : null;
+}
+
+// A DATE, SO MANY DAYS OR WEEKS ON OR BACK: "Today is 04/13/2017 (month/day/year). What is the date 44 days ago?", with
+// lettered options (the letter of the one that is that date) or without (the date, written as today's is).
+function dateIn(q) {
+  const ss = sentencesOf(q);
+  const t = /^Today is (\d{1,2})\/(\d{1,2})\/(\d{4}) \((month\/day\/year|day\/month\/year)\)\.$/.exec(ss[0] || '');
+  const w =
+    /^What (?:is the date|date (?:is|was|will it be)) (\d+) (day|week)s? (ago|from now|from today|later|earlier|before today)\?$/i.exec(
+      ss[1] || '',
+    );
+  if (!t || !w) return null;
+  const mdy = t[4] === 'month/day/year';
+  const [mo, da] = mdy ? [Number(t[1]), Number(t[2])] : [Number(t[2]), Number(t[1])];
+  const start = new Date(Date.UTC(Number(t[3]), mo - 1, da));
+  if (start.getUTCMonth() !== mo - 1 || start.getUTCDate() !== da) return null; // (no such day)
+  const back = /ago|earlier|before/i.test(w[3]);
+  const days = Number(w[1]) * (/week/i.test(w[2]) ? 7 : 1) * (back ? -1 : 1);
+  const d = new Date(start.getTime() + days * 86400000);
+  const two = (v) => String(v).padStart(2, '0');
+  const write = (x) =>
+    (mdy
+      ? two(x.getUTCMonth() + 1) + '/' + two(x.getUTCDate())
+      : two(x.getUTCDate()) + '/' + two(x.getUTCMonth() + 1)) +
+    '/' +
+    x.getUTCFullYear();
+  const want = write(d);
+  const options = [];
+  for (const x of ss.slice(2)) {
+    const m = /^\(([A-H])\) (\d{1,2})\/(\d{1,2})\/(\d{4})\.?$/.exec(x);
+    if (m) options.push({ letter: m[1], date: two(m[2]) + '/' + two(m[3]) + '/' + m[4] });
+    else if (!/^Options:$/i.test(x) && !/^Answer with the letter of the one option\.?$/i.test(x)) return null;
+  }
+  if (!options.length) return want;
+  const o = options.filter((x) => x.date === want);
+  return o.length === 1 ? o[0].letter : null;
+}
+
 const INSTRUMENTS = [
   { id: 'sum', name: 'worked out as a sum', of: sumIn },
   { id: 'truth', name: 'worked out as an expression of true and false', of: truthIn },
   { id: 'sorted', name: 'put in order by the alphabet', of: sortedIn },
   { id: 'closed', name: 'each bracket left open closed, the last opened first', of: closedIn },
+  { id: 'lies', name: 'of who tells the truth, each settled from the one they speak of', of: liesIn, whole: true },
+  { id: 'word', name: 'of a word and what is done to it in turn', of: wordIn, whole: true },
+  { id: 'row', name: 'of things in a row, settled by trying every order', of: rowIn, whole: true },
+  { id: 'date', name: 'of a date so many days on or back', of: dateIn, whole: true },
 ];
 // THE QUESTION AS AN INSTRUMENT READS IT: what was asked, without what a form puts round it. A label before it ("Q:",
 // "Question:") is taken off, and so are the lines at its end that only say where the answer goes: a short label and a colon
@@ -269,6 +449,8 @@ export const bare = (question) => {
 };
 // which are on: true (every one), or a list of their ids (plan.instruments, as training kept them); nothing, and none is
 export const INSTRUMENT_IDS = INSTRUMENTS.map((it) => it.id);
+// (the ones that read a whole question of a fixed kind, sentence by sentence: the later four)
+export const INSTRUMENT_WHOLE = INSTRUMENTS.filter((it) => it.whole).map((it) => it.id);
 export const INSTRUMENT_NAMES = Object.fromEntries(INSTRUMENTS.map((it) => [it.id, it.name]));
 export const instrumentsOn = (on) =>
   on === true ? INSTRUMENT_IDS : Array.isArray(on) ? INSTRUMENT_IDS.filter((id) => on.includes(id)) : [];
