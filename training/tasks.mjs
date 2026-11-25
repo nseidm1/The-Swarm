@@ -781,6 +781,10 @@ export function tasks({
           turns: made.turns,
           person: made.person,
           again: made.again || null,
+          // (what the conversation says the right answer is, where it asks for one: for the code training writes, which is
+          // shown examples with their answers. Never sent to a model that answers)
+          answers: Array.isArray(made.answer) ? made.answer.map(String) : null,
+          answers2: Array.isArray(made.answer2) ? made.answer2.map(String) : null,
           conventions: made.conventions.map((id) => ({ id, says: CONVENTIONS[id].says })),
           good: async (reply) => {
             if (!String(reply || '').trim()) return { grade: 'unsure', score: 0, missed: [...made.conventions] };

@@ -12659,6 +12659,31 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     u('9 tickets at 5 pounds each?'),
   ];
   const plainTurn = [u('hi'), a('Hello.'), u('25% of 80?')];
+  const MN = await import('../src/manners.mjs');
+  const IN = await import('../src/instruments.mjs');
+  const WC = await import('../training/write-code.mjs');
+  const sumOfQ = (q) => (IN.instrumentFor(q, ['sum']) || {}).answer ?? null;
+  const chatQ = (ask, want) => ({
+    kind: 'chat-x',
+    type: 'chat',
+    ask,
+    turns: [u('bare numbers please'), a('ok'), u(ask)],
+    answers: [want],
+    good: async (r) => ({ grade: String(r).trim() === want ? 'right' : 'wrong' }),
+  });
+  const chatT = chatQ('15% of 60?', '9');
+  // (a function that reads one form of a kind and is silent on the rest, the ones it was shown among them)
+  const pct =
+    'function answer(q){const m=/^(\\d+)% of (\\d+)\\?$/.exec(q.trim());return m?String(Number(m[1])*Number(m[2])/100):null;}';
+  const silentOk = await WC.vet(
+    pct,
+    {
+      seen: [chatT, chatQ('days in 9 weeks?', '63')],
+      unseen: [chatQ('10% of 60?', '6'), chatQ('27 plus 17?', '44'), chatQ('days in 6 weeks?', '42')],
+      others: [],
+    },
+    { cover: 0.3 },
+  );
   const base = startBriefs();
   const draftSays = async () => ({ text: '9 * 5 = 45\nANSWER: 45' });
   const settled = await orchestrate(told, {
@@ -12711,6 +12736,40 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       bare.reply === '45' &&
       bare.decided === '45' &&
       /\+bare/.test(bare.path) &&
+      // (and what was still wrong after that: an offer of more help put as a question is an offer; a share of a number
+      // is a sum; a turn of a conversation can have code written for it, shown its last message and the answer the
+      // conversation says is right, and a function may be silent on what it was shown)
+      MN.tidy("You're welcome! Anything else you need?", ['offer']) === "You're welcome!" &&
+      MN.tidy('No problem at all. What else can I do for you?', ['offer']) === 'No problem at all.' &&
+      MN.tidy('It is 24. Is that what you needed?', ['offer']) === 'It is 24. Is that what you needed?' &&
+      MN.tidy('Anything else you need?', ['offer']) === 'Anything else you need?' &&
+      sumOfQ('15% of 60?') === '9' &&
+      sumOfQ('What is 12.5 per cent of 80?') === '10' &&
+      sumOfQ('Quick, I have two minutes: 20% of 120?') === null &&
+      sumOfQ('15% of the 60 people left') === null &&
+      WC.writable(chatT) &&
+      WC.wantOf(chatT) === '9' &&
+      !WC.writable({ ...chatT, answers2: ['7'] }) &&
+      !WC.writable({ ...chatT, ask: 'something else' }) &&
+      silentOk.ok === true &&
+      silentOk.right === 1 &&
+      // (a change that moved few kinds of question is confirmed on more held questions of those kinds)
+      CL.kindsMoved(
+        [
+          { kind: 'a', counted: true },
+          { kind: 'b', counted: false },
+          { kind: 'c', counted: false },
+        ],
+        [
+          { kind: 'a', counted: false },
+          { kind: 'b', counted: false },
+          { kind: 'c', counted: true },
+        ],
+      ).join() === 'a,c' &&
+      CL.kindsMoved([{ kind: 'a', counted: true }], [{ kind: 'a', counted: true }]).length === 0 &&
+      /moved\.length <= \(P\.narrowKinds \?\? 3\) \? moved : \[\]/.test(
+        fs.readFileSync(new URL('../training/classes.mjs', import.meta.url), 'utf8'),
+      ) &&
       F.facetOf(thanks) === 'closing' &&
       F.facetOf(code) === 'code' &&
       F.facetOf(told) === 'instructed' &&

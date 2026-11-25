@@ -31,6 +31,11 @@ export const PRAISE =
   /^\s*(?:(?:that(?:'s| is)|what)\s+an?\s+)?(?:great|good|excellent|fantastic|wonderful|interesting|awesome|nice|lovely)\s+(?:question|point|idea|choice|thought)\b[^.!?\n]*[.!?]+\s*|^\s*(?:certainly|absolutely|of course|sure thing|sure|definitely)\s*[!.]+\s*/i;
 export const OFFER =
   /^(?:please\s+)?(?:let me know|feel free to|don'?t hesitate to|do not hesitate to|i hope (?:this|that) helps|hope (?:this|that) helps|is there anything else|if you (?:have|need|want|would like)\b[^.!?]*\b(?:let me know|just ask|feel free|i(?:'m| am) (?:here|happy)|reach out)|i(?:'m| am) (?:here|happy) (?:to help|if you)|happy to help|just ask|reach out (?:if|any ?time))\b[^.!?\n]*[.!?]*$/i;
+// AN OFFER OF MORE HELP PUT AS A QUESTION ("Anything else you need?", "What else can I do for you?"): a closing that only
+// offers, as much as "Let me know if you need anything else." is. They were left on, and a reply to thanks that ended with
+// one was a question where a few words were wanted (measured 2026-11-24: three of six such replies).
+export const OFFER_ASKED =
+  /^(?:(?:is|was) there |do you need |need |would you like |want )?(?:anything|something) (?:else|more)\b[^.!?\n]*\?+$|^what (?:else|more) (?:can|could|may|shall|would you like|do you need)\b[^.!?\n]*\?+$|^(?:can|could|may|shall) i (?:help|assist|do)\b[^.!?\n]*\b(?:else|more|further|other)\b[^.!?\n]*\?+$|^how else (?:can|could|may) i\b[^.!?\n]*\?+$/i;
 export const GREETING =
   /^\s*(?:hello|hi|hey|good (?:morning|afternoon|evening)|greetings)(?:\s+(?:again|there))?\b[^.!?\n]{0,24}[.!,]+\s*/i;
 const isCode = (reply) => /```|^\s*(?:def |function |class |import |const |let |#include)/m.test(String(reply || ''));
@@ -65,7 +70,8 @@ export function tidy(reply, fixes, { messages = [] } = {}) {
   }
   if (on.includes('offer')) {
     const ss = sentencesOf(out);
-    while (ss.length > 1 && OFFER.test(ss[ss.length - 1].trim())) ss.pop();
+    while (ss.length > 1 && (OFFER.test(ss[ss.length - 1].trim()) || OFFER_ASKED.test(ss[ss.length - 1].trim())))
+      ss.pop();
     keep(ss.join(''));
   }
   out = out.trim();

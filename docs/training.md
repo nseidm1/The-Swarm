@@ -22,7 +22,9 @@ and keeps each only where held questions say it helped:
   and asked again (`writeTries`, three). One that passes is a move of the round: the class's arrangement with that
   function asked before any model. It is scored on the train questions and kept only where held questions gain, as
   every change is. **It is judged where it acts:** a function answers one kind and a class has six held questions of a kind, so a change that puts a function on is confirmed on the class's held questions and on more held questions of that kind (`writeHeld`, eighteen), made from the held seed as the others are and asked of the swarm as it stands and of the change alike. The rule is not changed. Held questions are never shown to the writer and never used to vet. What was written or refused,
-  with the code, is in `<record>-written.json`. `--no-write` leaves the step out. Not built: the larger model as the
+  with the code (a refused function's too), is in `<record>-written.json`. A turn of a conversation can have code
+  written for it as a single question can: the function is given the last message and vetted by the conversation's
+  own reading of the reply. `--no-write` leaves the step out. Not built: the larger model as the
   writer, and code written for anything but the answer to a single question (a reply's wording, a turn with tools).
   The first trial is under [Measured](measured.md#training-writes-code-the-first-trial-2026-11-24);
 - **for one kind of request**: a class is wide, and a change that mends one kind of request in it and spoils the

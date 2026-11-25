@@ -84,13 +84,18 @@ const onlyAsking = (rest, also = []) =>
 // that works out; a date written with strokes or dashes is no sum.
 function sumIn(q0) {
   // (operators said in words: "98 plus 45", "95 times 45", "6 divided by 3")
-  const q = /\d\s+(?:plus|minus|times|multiplied by|divided by)\s+-?\d/i.test(q0)
-    ? q0
-        .replace(/\bplus\b/gi, '+')
-        .replace(/\bminus\b/gi, '-')
-        .replace(/\b(?:times|multiplied by)\b/gi, '*')
-        .replace(/\bdivided by\b/gi, '/')
-    : q0;
+  const q = (
+    /\d\s+(?:plus|minus|times|multiplied by|divided by)\s+-?\d/i.test(q0)
+      ? q0
+          .replace(/\bplus\b/gi, '+')
+          .replace(/\bminus\b/gi, '-')
+          .replace(/\b(?:times|multiplied by)\b/gi, '*')
+          .replace(/\bdivided by\b/gi, '/')
+      : q0
+  )
+    // (a share of a number, as it is written: "15% of 60", "15 per cent of 60". It is the sum 15 / 100 * 60, and a small
+    // model asked it after other talk worked 15 * 0.15: measured 2026-11-24, three of twelve such turns)
+    .replace(/(\d+(?:\.\d+)?)\s*(?:%|per ?cent)\s+of\s+(\d+(?:\.\d+)?)/gi, '($1 / 100 * $2)');
   // (a date, as dates are written: 3/4/2020, 2020-11-22; with no space in it. A sum of the same numbers has its spaces or its brackets)
   if (/(?:^|[^\d/])\d{1,2}\/\d{1,2}\/\d{2,4}(?![\d/])|(?:^|[^\d-])\d{4}-\d{1,2}-\d{1,2}(?![\d-])/.test(q)) return null;
   const runs = [...q.matchAll(/[-+(\d][-+*/().\d\s]*/g)]

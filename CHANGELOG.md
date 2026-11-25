@@ -16,6 +16,14 @@ The first version.
   - **A turn that asks nothing** can so be answered by one slot, tidied, while every other turn is drafted as before.
   - **What a class is short on makes candidates:** the changes worth keeping for a kind of request it is wrong on,
     and the round's own best change for that kind, kept for it alone.
+- **What was still wrong after that** (2026-11-24), read from the replies again:
+  - An offer of more help put as a question ("Anything else you need?", "What else can I do for you?") is tidied
+    off as "Let me know if you need anything else." is.
+  - A share of a number ("15% of 60", "15 per cent of 60") is read by the instrument that works out a sum, where it
+    is the whole of the question.
+  - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
+    conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
+    it was shown, and a refused function's code is kept with the refusal.
 - **The intelligence run's ring is held to the same** (2026-11-24). While the run goes, the ring is the step in hand
   and moves with its questions (an evaluation by the questions asked of both models, training by the question in
   hand), with the step and how far the whole run has come beside it. A step just begun is not read from what the

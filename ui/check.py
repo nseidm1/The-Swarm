@@ -2629,7 +2629,7 @@ check("code that training writes is said where training is said: among what trai
       any(n == "Written code" for n, _ in swarm_ui.TRAINS) and "training wrote and kept a function for" in Path(swarm_ui.__file__).read_text()
       and "for <b>day</b> (wrong on 4 of 6), a function right on 3 of 3 questions it was not shown, in 2 tries" in _ww and "for <b>li&lt;es</b> (wrong on 2 of 6), none passed: it gave a wrong answer" in _ww
       and 'R.get("written")' in Path(swarm_ui.__file__).read_text()
-      and swarm_ui.held_more_words({"more": {"kinds": ["count"], "questions": 18}}) == " and 18 more of count, where the function acts" and swarm_ui.held_more_words({}) == "" and "held_more_words(h)" in Path(swarm_ui.__file__).read_text(), _ww)
+      and swarm_ui.held_more_words({"more": {"kinds": ["count"], "questions": 18}}) == " and 18 more of count, where the change acts" and swarm_ui.held_more_words({}) == "" and "held_more_words(h)" in Path(swarm_ui.__file__).read_text(), _ww)
 
 # THE PAGE ARRIVES AT ONCE AND SAYS IT IS READING (console 2026-11-24)
 _sh = swarm_ui.shell()

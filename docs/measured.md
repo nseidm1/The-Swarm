@@ -37,13 +37,33 @@ slot and tidied, and after the person has said how to answer the settled answer 
 78 train conversations, and on the held ones, two draws, 12.8 points with a paired error of 3.8, so by the one rule it
 would be kept. Round 2 kept nothing (2.6 points, error 1.8).
 
+**What was still wrong after that, and the pass again.** Read from the replies once more: a reply to thanks that ended
+"Anything else you need?" (an offer of help put as a question was not tidied off); "15% of 60?" worked as 15 × 0.15 by
+every drafter, after a first message about how to answer; and a person in a hurry given the work before the answer.
+Three mends (the tidy takes an offer put as a question; the sum instrument reads a share of a number; a change that
+moved few kinds of question is confirmed on more held questions of those kinds), and the same pass, keeping nothing:
+
+| | Train, of 78 | Held, of 78 |
+| --- | --- | --- |
+| As the pass begins | 65 | 64 |
+| After round 1 (the two changes kept for a kind of request) | 75 | 74 |
+| After round 2 (the sum instrument on, and the settled answer alone) | 78 | 77 |
+
+Each round confirmed on 114 held conversations, the class's 78 and 18 more of each of the two kinds it moved, two
+draws: round 1, 37.7 points with a paired error of 4.6; round 2, 7.0 with 2.4. Both would be kept. Without the wider
+confirmation round 2's three conversations were 3.8 points with an error of 2.2, and it was not kept. The one held
+conversation still wrong is a standing-instruction turn.
+
+The swarm's own model was also asked to write a function for the standing-instruction turns, which are five forms of
+sum. It wrote one that returned nothing for every question, three times, and was refused: a 1.7B model does not write
+that function. A larger model as the writer is not built.
+
 - **What this shows:** the passes stalled on the module and on how wide a class is, not on the model. With those
   mended, one pass moved held conversations from 64 to 74 of 78.
 - **What it does not show:** anything beyond these conversations. The three facets were written after reading these
   three kinds, and they read training's own kinds exactly (each of the three is one facet, the other ten none), so
   how they read conversations nobody here wrote is not measured. No benchmark was asked.
-- **Left wrong:** two standing-instruction turns where no slot had the right figure, and on the train questions three
-  thanks out of six still over the bar.
+- **Left wrong:** one held standing-instruction turn, after the mends above.
 
 ## Training writes code: the first trial, 2026-11-24
 

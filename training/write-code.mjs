@@ -22,13 +22,28 @@ import { answersOf, WRITTEN_NAME } from '../src/written.mjs';
 
 // A QUESTION CODE CAN BE WRITTEN FOR: one message, no tools, and a right answer that is a short text (so that the writer can
 // be shown what right looks like). A conversation, a request for code and a turn with tools are not.
+// (and A TURN OF A CONVERSATION where the last message is the person's and the conversation says what the right answer is,
+// one answer: the function is given that last message, as the module gives it, and is vetted by the conversation's own
+// reading of the reply. A turn that cannot be answered from its last message alone ("and double that?") is one the
+// function must be silent on, which vetting holds it to.)
+export const wantOf = (t) =>
+  typeof (t || {}).want === 'string'
+    ? t.want
+    : typeof (t || {}).want === 'number' && Number.isFinite(t.want)
+      ? String(t.want)
+      : Array.isArray((t || {}).answers) && t.answers.length === 1 && !(t.answers2 || []).length
+        ? String(t.answers[0])
+        : null;
 export const writable = (t) =>
   !!t &&
-  !t.turns &&
   !t.tools &&
   typeof t.ask === 'string' &&
-  (typeof t.want === 'string' || (typeof t.want === 'number' && Number.isFinite(t.want))) &&
-  typeof t.good === 'function';
+  typeof t.good === 'function' &&
+  wantOf(t) !== null &&
+  (!t.turns ||
+    (t.turns.length > 0 &&
+      t.turns[t.turns.length - 1].role === 'user' &&
+      t.turns[t.turns.length - 1].content === t.ask));
 
 // the kinds of a class the swarm was wrong on, the most wrong first: [{ kind, wrong, n }], at most `most`
 export function kindsShort(rows, tasks, most = 2, skip = []) {
@@ -54,7 +69,7 @@ const RULES =
   '- It returns the answer as a string, written exactly as the right answers below are written.\n' +
   '- Plain JavaScript only: no require, no import, no console, no clock, no random numbers.\n' +
   '- Reply with the whole function in one ```js block and nothing else.';
-const exampleOf = (t) => 'Question:\n' + t.ask + '\nRight answer: ' + t.want;
+const exampleOf = (t) => 'Question:\n' + t.ask + '\nRight answer: ' + wantOf(t);
 export const writeAsk = (kind, shown) => [
   { role: 'system', content: 'You write small, exact JavaScript functions.' },
   {
@@ -143,7 +158,7 @@ export async function vet(code, { seen = [], unseen = [], others = [] } = {}, { 
   const count = (m, w) => m.filter((x) => x === w).length;
   // (what the writer may be told: only what it was shown)
   const failed = seen
-    .map((t, i) => ({ ask: t.ask, want: t.want, got: got[i], mark: mSeen[i] }))
+    .map((t, i) => ({ ask: t.ask, want: wantOf(t), got: got[i], mark: mSeen[i] }))
     .filter((f) => f.mark !== 'right');
   const out = {
     right: count(mUnseen, 'right'),
@@ -161,7 +176,8 @@ export async function vet(code, { seen = [], unseen = [], others = [] } = {}, { 
     return { ok: false, why: 'it gave a wrong answer to a question of this kind it had not been shown', ...out };
   if (out.elsewhere)
     return { ok: false, why: 'it answered a question of another kind, wrongly, where it should return null', ...out };
-  if (out.seenRight < seen.length) return { ok: false, why: 'it returned null for a question it was shown', ...out };
+  // (silent on a question it was shown is not a fault: a function that reads some of a kind and is silent on the rest
+  // is wrong nowhere. It is told which, where it is asked again for answering too few.)
   if (out.right < need)
     return {
       ok: false,
@@ -189,6 +205,7 @@ export async function writeFor(kind, own, others, ask, { tries = 3, show = 4, co
   if (unseen.length < 2)
     return { ...out, why: 'too few questions of this kind to vet a function on ones it was not shown' };
   let messages = writeAsk(kind, seen);
+  let lastCode = '';
   for (let i = 0; i < tries; i++) {
     say('writing code for the kind "' + kind + '", try ' + (i + 1) + ' of ' + tries);
     let text = '';
@@ -199,6 +216,7 @@ export async function writeFor(kind, own, others, ask, { tries = 3, show = 4, co
       continue;
     }
     const code = codeIn(text);
+    if (code) lastCode = code;
     const v = await vet(code, { seen, unseen, others }, { cover });
     const { failed, ...kept } = v;
     out.tries.push(kept);
@@ -206,7 +224,12 @@ export async function writeFor(kind, own, others, ask, { tries = 3, show = 4, co
     if (!code) messages = writeAsk(kind, seen);
     else messages = againAsk(kind, seen, code, v);
   }
-  return { ...out, why: (out.tries[out.tries.length - 1] || {}).why || 'nothing was written' };
+  // (what it last wrote is kept with the refusal: read, it says why a function came to nothing)
+  return {
+    ...out,
+    why: (out.tries[out.tries.length - 1] || {}).why || 'nothing was written',
+    ...(lastCode ? { refused: lastCode.slice(0, 6000) } : {}),
+  };
 }
 
 // JUDGED WHERE IT ACTS. A function answers one kind of question and is silent on every other, and a class has only a few held

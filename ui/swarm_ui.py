@@ -1673,7 +1673,7 @@ def held_more_words(h):
     """Where a change put a function on, the held questions it was confirmed on were the class's and more of that function's
     kind (training/write-code.mjs moreHeldOf): said beside the verdict. '' otherwise."""
     m = (h or {}).get("more") or {}
-    return (" and %d more of %s, where the function acts" % (m.get("questions") or 0, e(", ".join(m.get("kinds") or [])))) if m.get("questions") else ""
+    return (" and %d more of %s, where the change acts" % (m.get("questions") or 0, e(", ".join(m.get("kinds") or [])))) if m.get("questions") else ""
 
 
 def written_words(written):

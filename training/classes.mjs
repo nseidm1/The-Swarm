@@ -234,6 +234,16 @@ export function togetherOf(scored, stepsOf) {
     ? { name: two[0].m.name + ' + ' + two[1].m.name, briefs: again.briefs, sweep: true, together: true }
     : null;
 }
+// THE KINDS OF QUESTION A CHANGE MOVED on the train questions: those where some answer is good with it and was not, or the
+// other way. A change that moved few kinds acts on few questions (classes.mjs asks more held questions of those kinds)
+export const kindsMoved = (rows, baseRows) => [
+  ...new Set(
+    (rows || [])
+      .filter((r, i) => baseRows[i] && !!r.counted !== !!baseRows[i].counted)
+      .map((r) => r.kind)
+      .filter(Boolean),
+  ),
+];
 // kept or not: better on the held questions by more than twice the paired error, and by at least the least gain
 export const worthKeeping = (g, least = 0) => !!g && g.gain > 0 && g.gain > 2 * g.error && g.gain >= least;
 
@@ -673,7 +683,13 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         // ON THE HELD QUESTIONS, which it was not chosen on: the swarm as it stands and the best, the same questions for both.
         // Where the best puts a function on, more held questions of that function's kind are asked with them
         // (write-code.mjs moreHeldOf): a function is judged where it acts
-        const wroteFor = kindsAdded(base, best.m.briefs);
+        // (and so is any change that moved only a few kinds of question on the train questions: one that mends three
+        // questions of 78 is 3.8 points with an error of 2.2, which no rule tells from chance, measured 2026-11-24. The
+        // kinds it moved are asked more of on the held side, with it and without; the rule is not changed.)
+        const moved = kindsMoved(best.rows, baseRows);
+        const wroteFor = [
+          ...new Set([...kindsAdded(base, best.m.briefs), ...(moved.length <= (P.narrowKinds ?? 3) ? moved : [])]),
+        ];
         const heMore = moreHeldOf(
           wroteFor,
           held.filter((t) => classIs(t) === K),
@@ -684,7 +700,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         const heAll = [...he, ...heMore];
         if (heMore.length)
           console.log(
-            '  and ' + heMore.length + ' more held questions of ' + wroteFor.join(', ') + ', where the function acts',
+            '  and ' + heMore.length + ' more held questions of ' + wroteFor.join(', ') + ', where the change acts',
           );
         const heldBase = await onDraws(
           heAll,
