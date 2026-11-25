@@ -265,7 +265,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const { messagesOf, ownStandard } = await import('./tasks.mjs');
   const { steps, writtenMoves, facetMoves, scopedMove } = await import('./arrange.mjs');
   const { facetOf } = await import('../src/facets.mjs');
-  const { kindsShort, writeFor, writable, kindsAdded, moreHeldOf } = await import('./write-code.mjs');
+  const { kindsShort, writeFor, writable, kindsAdded, moreHeldOf, poolFor } = await import('./write-code.mjs');
   const policy = JSON.parse(fs.readFileSync(path.join(HERE, 'policy.json'), 'utf8'));
   const P = policy.classes || {};
   const { keepOf } = await import('./keep.mjs');
@@ -552,49 +552,88 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
             ...made.map((w) => w.kind),
             ...refused,
           ];
-          for (const k of kindsShort(baseRows, tr, P.writeKinds ?? 2, have)) {
-            const own = codeable.filter((t) => t.kind === k.kind);
-            const got = await writeFor(
-              k.kind,
-              own,
-              codeable.filter((t) => t.kind !== k.kind),
-              async (messages) => (await swarm.alone(writer, messages, { maxTokens: P.writeTokens ?? 1500 })).text,
-              {
-                tries: P.writeTries ?? 3,
-                cover: P.writeCover ?? 0.5,
-                say: (what) => B.live({ trainer: 'classes', step: said(K) + ': ' + what }),
-              },
-            );
-            const id = k.kind + '@' + record.pass;
-            (R.written = R.written || []).push({
-              kind: k.kind,
-              wrong: k.wrong,
-              of: k.n,
-              ok: got.ok,
-              why: got.why || '',
-              tries: got.tries,
-            });
-            writtenLog.push({ at: new Date().toISOString(), pass: record.pass, class: K, id, by: writerName, ...got });
-            saveWritten();
-            console.log(
-              '  code for "' +
-                k.kind +
-                '" (wrong on ' +
-                k.wrong +
-                ' of ' +
-                k.n +
-                '): ' +
-                (got.ok
-                  ? 'written, right on ' +
-                    got.tries[got.tries.length - 1].right +
-                    ' of ' +
-                    got.tries[got.tries.length - 1].n +
-                    ' it was not shown'
-                  : 'none kept (' + got.why + ')'),
-            );
-            if (got.ok) made.push({ id, kind: k.kind, code: got.code });
-            else refused.push(k.kind);
-            save();
+          const toWrite = kindsShort(baseRows, tr, P.writeKinds ?? 2, have);
+          // WHO WRITES IT: THE LARGER MODEL, WHERE IT CAN BE SERVED HERE (policy writer: 'target'; 'self': the swarm's own
+          // model; --writer names one for a run). A 1.7B model wrote one function that passed and was refused for three
+          // other kinds, and a function is written once and vetted before it is trusted, so who writes it is only a
+          // matter of how often it passes (measured 2026-11-25). The larger model is loaded for the writing of a round and
+          // stopped again before anything else is asked; the function it writes is in the module, which needs no larger
+          // model to run it. Where it cannot be served, the swarm's own model writes, and that is said.
+          let teacher = null;
+          let by = writerName;
+          if (toWrite.length && String(B.arg('writer', P.writer || 'target')) === 'target') {
+            try {
+              B.live({ trainer: 'classes', step: said(K) + ': loading the larger model, to write code' });
+              teacher = await B.openAlone('target');
+              by = 'the larger model (' + teacher.label + ')';
+            } catch (e) {
+              console.log(
+                '  the larger model could not be served to write code (' +
+                  String((e && e.message) || e).slice(0, 140) +
+                  "): the swarm's own model writes",
+              );
+              teacher = null;
+            }
+          }
+          const writerAsk = async (messages) =>
+            teacher
+              ? String(((await teacher.ask(messages, { maxTokens: P.writeTokens ?? 1500 })) || {}).text || '')
+              : (await swarm.alone(writer, messages, { maxTokens: P.writeTokens ?? 1500 })).text;
+          try {
+            for (const k of toWrite) {
+              // (and more train questions of the kind, made for the writing: more wordings to be shown and vetted on)
+              const own = poolFor(
+                k.kind,
+                codeable.filter((t) => t.kind === k.kind),
+                makeTasks,
+                P.writePool ?? 16,
+              );
+              const got = await writeFor(
+                k.kind,
+                own,
+                codeable.filter((t) => t.kind !== k.kind),
+                writerAsk,
+                {
+                  tries: P.writeTries ?? 3,
+                  cover: P.writeCover ?? 0.5,
+                  say: (what) => B.live({ trainer: 'classes', step: said(K) + ': ' + what }),
+                },
+              );
+              const id = k.kind + '@' + record.pass;
+              (R.written = R.written || []).push({
+                kind: k.kind,
+                wrong: k.wrong,
+                of: k.n,
+                ok: got.ok,
+                why: got.why || '',
+                tries: got.tries,
+              });
+              writtenLog.push({ at: new Date().toISOString(), pass: record.pass, class: K, id, by, ...got });
+              saveWritten();
+              console.log(
+                '  code for "' +
+                  k.kind +
+                  '" (wrong on ' +
+                  k.wrong +
+                  ' of ' +
+                  k.n +
+                  '): ' +
+                  (got.ok
+                    ? 'written, right on ' +
+                      got.tries[got.tries.length - 1].right +
+                      ' of ' +
+                      got.tries[got.tries.length - 1].n +
+                      ' it was not shown'
+                    : 'none kept (' + got.why + ')'),
+              );
+              if (got.ok) made.push({ id, kind: k.kind, code: got.code });
+              else refused.push(k.kind);
+              R.written[R.written.length - 1].by = by;
+              save();
+            }
+          } finally {
+            // (the larger model is stopped before anything else is asked: it and the swarm are not kept loaded together)
+            if (teacher) await teacher.stop();
           }
         }
         // WHERE THE CLASS IS SHORT, BY KIND OF REQUEST (src/facets.mjs): the facets it has wrong answers of. For each, the

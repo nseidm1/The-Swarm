@@ -24,6 +24,12 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **Four ways for code to fill what the model cannot work out** (2026-11-25). The larger model writes the functions
+  training vets (9 of 21 kinds of plain question passed, 53 of 53 held answers right; the swarm's own 1.7B model
+  passed for one), from more train questions of a kind. A program's answer stands where the slots settled on none.
+  Where a program differs from drafters that agree, the others are asked. A slot cut off before its answer goes on
+  once. Each is a change training tries; a program written for one question never outvotes the slots, because at
+  this size it is wrong more often than they are (`docs/measured.md`).
 - **Three more faults of the module, read from plain questions and code** (2026-11-25): an answer line that goes on
   to doubt itself ("... violet? Wait need correct order.") is cut at the afterthought; a line that only opens a block
   of code is no answer, where it was read as the word "javascript" and had a vote; and the question's own lines come

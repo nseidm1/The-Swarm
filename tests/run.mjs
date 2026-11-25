@@ -12728,6 +12728,63 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     print: printOf,
     ask: async (slot) => ({ text: slot.compute ? '```js\nconsole.log("Dev");\n```' : 'ANSWER: Esme' }),
   });
+  const clSrc2 = fs.readFileSync(new URL('../training/classes.mjs', import.meta.url), 'utf8');
+  const optQ = [u('hi'), a('Hello.'), u('When could they have gone? Options: (A) 1pm (B) 5pm')];
+  const withFills = { ...progMoves[2].briefs, plan: { ...progMoves[2].briefs.plan, writeAs: 'bare' } };
+  // (every slot cut off with no answer: the program printed one, and it stands; with no such plan, nothing is settled)
+  const cutOff = (letter) => async (slot) => ({
+    text: slot.compute ? '```js\nconsole.log("' + letter + '");\n```' : slot.stage === 'draft' ? '' : 'ANSWER: ',
+  });
+  const printWord = async (code) => ({ text: (/console\.log\("?([^")]*)"?\)/.exec(code) || [, ''])[1] });
+  const fills = await orchestrate(optQ, { briefs: withFills, print: printWord, ask: cutOff('B') });
+  const noFill = await orchestrate(optQ, {
+    briefs: { ...progMoves[0].briefs, plan: { ...progMoves[0].briefs.plan, writeAs: 'bare' } },
+    print: printWord,
+    ask: cutOff('B'),
+  });
+  const keepsSlots = await orchestrate(optQ, {
+    briefs: withFills,
+    print: printWord,
+    ask: async (slot) => ({ text: slot.compute ? '```js\nconsole.log("B");\n```' : 'ANSWER: A' }),
+  });
+  // (the program differs from two drafters that agree: the other drafters are asked, and the slots settle it)
+  const withDoubts = { ...progMoves[3].briefs, plan: { ...progMoves[3].briefs.plan, writeAs: 'bare' } };
+  const doubtAsked = [];
+  const doubts = await orchestrate(sums, {
+    briefs: withDoubts,
+    print: printOf,
+    ask: async (slot) => (
+      slot.stage === 'draft' && doubtAsked.push(slot.id),
+      { text: slot.compute ? '```js\nconsole.log(7 * 4);\n```' : 'ANSWER: 32' }
+    ),
+  });
+  const agreeAsked = [];
+  const agrees = await orchestrate(sums, {
+    briefs: withDoubts,
+    print: printOf,
+    ask: async (slot) => (
+      slot.stage === 'draft' && agreeAsked.push(slot.id),
+      { text: slot.compute ? '```js\nconsole.log(7 * 4);\n```' : 'ANSWER: 28' }
+    ),
+  });
+  // (a drafter cut off before its answer goes on once, with its room again, before it is asked for one line)
+  const goOnCalls = [];
+  const cutThenGo = (calls) => async (slot, msgs) => {
+    const last = String((msgs[msgs.length - 1] || {}).content || '');
+    calls.push(last);
+    if (/Go on from exactly where you stopped/.test(last)) return { text: 'so Kai lies, and Nora lies.\nANSWER: No' };
+    if (/You ran out of room/.test(last)) return { text: 'ANSWER: Yes' };
+    return { text: slot.stage === 'draft' ? 'Ada tells the truth, so Milo does, so Jon does, so' : 'ANSWER: A' };
+  };
+  const wentOn = await orchestrate([u('Does Nora tell the truth? Answer Yes or No.')], {
+    briefs: { ...base, plan: { ...base.plan, goOn: true, writeAs: 'bare' } },
+    ask: cutThenGo(goOnCalls),
+  });
+  const noGoOnCalls = [];
+  await orchestrate([u('Does Nora tell the truth? Answer Yes or No.')], {
+    briefs: { ...base, plan: { ...base.plan, writeAs: 'bare' } },
+    ask: cutThenGo(noGoOnCalls),
+  });
   const offAsked = [];
   const offNoProgram = await orchestrate(sums, {
     briefs: { ...progMoves[0].briefs, plan: { ...progMoves[0].briefs.plan, writeAs: 'bare' } },
@@ -12834,7 +12891,6 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       !/computed/.test(wordsKept.path) &&
       offNoProgram.decided === '32' &&
       !offAsked.includes('a-program') &&
-      progMoves.length === 2 &&
       progMoves[1].briefs.plan.computedStands === true &&
       progMoves[0].briefs.plan.computedStands === undefined &&
       // (a kind right on every train question and still wrong on the held side is asked more of next pass: its count only)
@@ -12863,6 +12919,30 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       R.settledPart('Monday') === 'Monday' &&
       restated.reply.startsWith('Saturday') &&
       !restated.reply.includes('What day of the week') &&
+      // (the four additions that fill what the model cannot work out: the program's answer where the slots settle on none;
+      // where it differs from the first drafters, the others asked; a slot cut off goes on once; who writes a function)
+      fills.decided === 'B' &&
+      /computed-fill/.test(fills.path) &&
+      !/computed-fill/.test(noFill.path) &&
+      !/computed/.test(keepsSlots.path) &&
+      keepsSlots.decided === 'A' &&
+      doubtAsked.length === 5 &&
+      /doubted/.test(doubts.path) &&
+      doubts.decided === '32' &&
+      agreeAsked.length === 3 &&
+      !/doubted/.test(agrees.path) &&
+      wentOn.decided === 'No' &&
+      wentOn.trace.some((r) => r.wentOn) &&
+      goOnCalls.some((m) => /Go on from exactly where you stopped/.test(m)) &&
+      !noGoOnCalls.some((m) => /Go on from exactly where you stopped/.test(m)) &&
+      progMoves.length === 4 &&
+      progMoves[2].briefs.plan.computedFills === true &&
+      progMoves[3].briefs.plan.computedDoubts === true &&
+      AR.steps(base).some((m) => m.name === 'plan: goOn true') &&
+      /teacher = await B\.openAlone\('target'\)/.test(clSrc2) &&
+      /if \(teacher\) await teacher\.stop\(\)/.test(clSrc2) &&
+      JSON.parse(fs.readFileSync(new URL('../training/policy.json', import.meta.url), 'utf8')).classes.writer ===
+        'target' &&
       F.facetOf(thanks) === 'closing' &&
       F.facetOf(code) === 'code' &&
       F.facetOf(told) === 'instructed' &&

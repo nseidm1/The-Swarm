@@ -88,6 +88,34 @@ argument is valid (2), a rate, a word, an ordering. Let stand wherever the two d
 - **Not measured:** the same on a larger small model, whose programs should be better; a larger model writing the
   per-kind functions; whether a function written from training's wordings reads a benchmark's.
 
+## The larger model writes the functions: 2026-11-25
+
+A function is written once and vetted before it is trusted, so who writes it is a matter of how often it passes.
+Every kind of plain question training asks (21), the larger model (Nemotron 3.5 Lightning 30B) asked for a function
+for each, with sixteen train questions of the kind to work from (six shown, ten to vet on), five tries, vetted as the
+class stage vets. Seven minutes in all.
+
+| | |
+| --- | --- |
+| Kinds a function passed for | 9 of 21: what a program prints, a chain of sums, a shop sum, a rate, a day of the week, a letter counted, a doubling, a unit, numbers in a range |
+| Held questions of those kinds | 54 |
+| Answered by the functions | 53 |
+| Right | 53 |
+| Wrong, on its own kind or any other | 0 |
+
+The swarm's own 1.7B model had passed for one kind of those and been refused for three.
+
+- **What it is worth here:** on these nine kinds the swarm as it stood already had 53 of the 54 held questions right
+  (42 of 54 train questions), so the class's held figure moves by one, 113 to 114 of 132. What changes is that 53
+  of 132 questions are answered by code, exactly, in milliseconds where the swarm takes about five seconds each, and
+  none can be wrong by a slip.
+- **Where the swarm is weak the writer was too:** a word reversed and cut (the swarm 1 of 6 held), who tells the
+  truth, a row of books, closing brackets. For sorting and brackets it wrote the same fault five times over (a
+  function that wanted two lines of a one-line question); those two have instruments a person wrote.
+- **What made nine of seven:** more train questions of a kind for the writing. With six, three shown, a function read
+  the three wordings it saw and none of the others.
+- **Not run:** a pass of the class stage with the larger model writing, which is where a function is kept or not.
+
 ## What three conversation passes could not mend, and what did: 2026-11-24
 
 LFM3 1.7B in both places, the conversation run: 13 kinds of conversation, 78 held, each reply read by code against the

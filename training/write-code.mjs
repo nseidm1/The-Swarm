@@ -110,7 +110,7 @@ export const againAsk = (kind, shown, code, verdict) => [
             )
             .join('\n\n')
         : '') +
-      '\n\nWrite it again, the whole function, in one ```js block. It is also run on questions of this kind you have not been shown, so it must read the question, not remember these.',
+      '\n\nWrite it again, the whole function, in one ```js block. It is also run on questions of this kind you have not been shown, so it must read the question, not remember these. Questions of this kind are worded in several ways: do not depend on the exact sentence. Find what the question gives (the numbers, the words, the names) by pattern wherever it stands in the sentence, and return null only where it cannot be found.',
   },
 ];
 
@@ -178,6 +178,32 @@ export async function vet(code, { seen = [], unseen = [], others = [] } = {}, { 
     return { ok: false, why: 'it answered a question of another kind, wrongly, where it should return null', ...out };
   // (silent on a question it was shown is not a fault: a function that reads some of a kind and is silent on the rest
   // is wrong nowhere. It is told which, where it is asked again for answering too few.)
+  // (what it is told matters: a function that answered none of what it was SHOWN does not read the questions at all, and
+  // "too few of the unseen ones" sent the writer looking for other wordings when its function read none. Measured
+  // 2026-11-25: a sorting function that wanted two lines of a one-line question, refused three times for the wrong reason)
+  if (seen.length && out.seenRight === 0)
+    return {
+      ok: false,
+      why: 'it returned null for every question it was shown, so it does not read them: run it in your head on the first one and find where it gives up',
+      ...out,
+    };
+  if (out.seenRight < seen.length && out.right < need)
+    return {
+      ok: false,
+      why:
+        'it returned null for ' +
+        (seen.length - out.seenRight) +
+        ' of the ' +
+        seen.length +
+        ' questions it was shown (listed below) and answered ' +
+        out.right +
+        ' of ' +
+        unseen.length +
+        ' it was not shown; at least ' +
+        need +
+        ' are needed',
+      ...out,
+    };
   if (out.right < need)
     return {
       ok: false,
@@ -197,7 +223,7 @@ export async function vet(code, { seen = [], unseen = [], others = [] } = {}, { 
 // ONE KIND, THE WHOLE OF IT: shown half of its train questions (at least two, at most `show`), vetted on the rest and on the
 // class's other questions, asked again where refused. ask(messages) -> text is the writer.
 //   -> { kind, ok, code?, id?, shown, tries: [{ ok, why, right, wrong, silent, n, elsewhere }] }
-export async function writeFor(kind, own, others, ask, { tries = 3, show = 4, cover = 0.5, say = () => {} } = {}) {
+export async function writeFor(kind, own, others, ask, { tries = 3, show = 6, cover = 0.5, say = () => {} } = {}) {
   const nShown = Math.max(2, Math.min(show, Math.floor(own.length / 2)));
   const seen = own.slice(0, nShown);
   const unseen = own.slice(nShown);
@@ -254,4 +280,18 @@ export function moreHeldOf(kinds, held, make, extra = 18, ok = () => true) {
       .filter((t) => ok(t) && !(held || []).some((x) => x.id === t.id))
       .slice(0, extra);
   });
+}
+
+// MORE TRAIN QUESTIONS OF A KIND, FOR THE WRITING. A kind is asked in several wordings, and of six train questions the writer
+// was shown three: a function that read those three wordings answered none of the others and was refused (measured
+// 2026-11-25, the larger model: sorting, closing brackets, a sum and six more kinds, each "0 of 3 it had not been shown").
+// Train questions are made from a seed, so more of the kind are made for the writing alone: more to be shown, more to be
+// vetted on. They are train questions; the held ones are not touched.
+//   poolFor(kind, own, make, size) -> own and further train questions of the kind, `size` in all where so many can be made
+export function poolFor(kind, own, make, size = 16) {
+  if (!own.length || !(size > own.length)) return own;
+  const more = make({ split: 'train', each: size, kinds: [kind], seed: own[0].seed }).filter(
+    (t) => writable(t) && !own.some((x) => x.id === t.id || x.ask === t.ask),
+  );
+  return [...own, ...more].slice(0, size);
 }

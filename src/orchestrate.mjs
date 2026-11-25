@@ -469,6 +469,9 @@ async function answerWhole(
   // these, and their plan is the class's
   const plan = planFor(briefs.plan || {}, facetOf(messages));
   const stage = (name) => briefs.slots.filter((s) => s.stage === name);
+  // (a drafter that answers by a program is asked with the first drafters, and has no vote, where the plan gives its answer
+  // any of three uses: a figure of it stands, it fills where the slots settle nothing, or its differing asks the others)
+  const programFirst = !!(plan.computedStands || plan.computedFills || plan.computedDoubts);
   // where code is asked for, the code a slot wrote is its answer, whatever it wrote after it
   const wantsCode = asksForCode(question);
   const finalOf = (text, m) => readFinal(text, m, wantsCode);
@@ -686,6 +689,38 @@ async function answerWhole(
   const askAgain = async (row, slot, msgs) => {
     if (row.ok || row.why || !row.out.trim() || isToolCall(row.out) || row.computed !== undefined) return;
     const at = Date.now();
+    // A SLOT CUT OFF IN THE MIDDLE OF ITS WORK GOES ON, ONCE (plan.goOn). Asked for its answer in one line, it has forty
+    // words to give one it had not reached: a guess. On 10 of 29 plain questions answered wrongly some drafter had no
+    // answer at all, cut off part way through a chain of who tells the truth or a row of books (measured 2026-11-25).
+    // With this on it is first given its room again to finish what it began; only then asked for the one line.
+    if (plan.goOn && !wantsCode) {
+      try {
+        const r = await ask({ ...slot, temperature: 0 }, [
+          ...msgs,
+          { role: 'assistant', content: row.out.slice(-3000) },
+          {
+            role: 'user',
+            content:
+              'You ran out of room. Go on from exactly where you stopped and finish the work. Do not start again. End with one line: ' +
+              marker +
+              ' and your answer.',
+          },
+        ]);
+        const text = String((r && r.text) || '');
+        const final = finalOf(text, marker);
+        if (text.trim() && !isToolCall(text)) row.out += '\n\n(Went on.)\n' + text.trim();
+        if (final && !isToolCall(text)) {
+          row.final = final;
+          row.ok = true;
+          row.wentOn = true;
+          row.ms += Date.now() - at;
+          onStep(row);
+          return;
+        }
+      } catch {
+        /* asked for its answer in one line, as before */
+      }
+    }
     try {
       const r = await ask({ ...slot, maxTokens: wantsCode ? 420 : 40, temperature: 0 }, [
         ...msgs,
@@ -995,7 +1030,7 @@ async function answerWhole(
         for (const r of rows.filter((d) => d.ok)) {
           // (with plan.computedStands a program's figure is a check on what the slots settle, not a draft among them: it
           // has no vote, so it cannot make two slots that differ look settled, or outvote them)
-          if (plan.computedStands && r.computed !== undefined) continue;
+          if (programFirst && r.computed !== undefined) continue;
           const at = S.pool.findIndex((d) => d.slot === r.slot);
           if (at >= 0) S.pool[at] = r;
           else S.pool.push(r);
@@ -1010,12 +1045,26 @@ async function answerWhole(
       const slots = drafting(step);
       // (with plan.computedStands the drafter that answers by a program is asked with the first drafters, whoever they are:
       // asked only where they differ, it was never asked where slots of one model shared a slip)
-      const programs = plan.computedStands ? slots.filter((s) => computing(s)) : [];
+      const programs = programFirst ? slots.filter((s) => computing(s)) : [];
       const voters = slots.filter((s) => !programs.includes(s));
       const first = firstDrafters(voters, plan.draftFirst);
       if (!first || S.pool.length) return round(slots);
       await round([...first, ...programs]);
-      if (settled()) return;
+      // 4. WHERE THE PROGRAM DIFFERS, THE OTHER DRAFTERS ARE ASKED (plan.computedDoubts). Two slots of one model that agree
+      // settle the matter and nobody else is asked; a program that came to something else is a reason to ask. It still
+      // has no vote: the slots settle it, more of them.
+      if (settled()) {
+        const ran = trace.find((r) => r.stage === 'draft' && r.computed === true && String(r.final || '').trim());
+        const same = (a, b) =>
+          plain(String(a))
+            .toLowerCase()
+            .replace(/[^a-z0-9.-]+/g, '') ===
+          plain(String(b))
+            .toLowerCase()
+            .replace(/[^a-z0-9.-]+/g, '');
+        if (!(plan.computedDoubts && ran && !same(ran.final, distinct()[0].final))) return;
+        S.doubted = true;
+      }
       await round(voters.filter((s) => !first.includes(s)));
     },
     try: tryPool,
@@ -1528,6 +1577,17 @@ async function answerWhole(
   // where the first two agree no other slot is asked (measured 2026-11-24: the last conversations still wrong were all
   // such sums). A drafter that answers by a program writes the sum down and the sandbox works it; where that came to a
   // plain number, and this is on, the number stands over the one figure the slots held. Words are not overruled by it.
+  // 2. AND WHERE THE SLOTS SETTLED ON NOTHING, WHAT THE PROGRAM PRINTED STANDS (plan.computedFills): any short answer, not a
+  // figure only. Nothing of the slots' is overruled by it: there is nothing. Measured 2026-11-25, 132 plain questions: three
+  // such, the program right on all three; let stand wherever it differed it would have lost 28.
+  if (plan.computedFills && !String(S.decided || '').trim()) {
+    const ran = trace.find((r) => r.stage === 'draft' && r.computed === true && String(r.final || '').trim());
+    if (ran && String(ran.final).trim().length <= 120) {
+      S.decided = String(ran.final).trim();
+      S.path = (S.path ? S.path + '+' : '') + 'computed-fill';
+    }
+  }
+  if (S.doubted && S.path) S.path += '+doubted';
   if (plan.computedStands) {
     const ran = trace.find(
       (r) => r.stage === 'draft' && r.computed === true && /^-?\d[\d,]*(?:\.\d+)?$/.test(String(r.final || '').trim()),

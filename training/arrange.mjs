@@ -262,6 +262,24 @@ export function steps(
           plan: { ...b.plan, computedStands: true },
         },
       });
+      // (and the two uses of it that overrule nothing the slots hold: its answer where they settle on none; and where it
+      // differs from the first drafters, the other drafters asked. A program a small model writes for one question is
+      // wrong more often than its slots are, measured 2026-11-25, so neither lets it outvote them)
+      out.push({
+        name:
+          'add a drafter on ' + m + ' that answers by a program, and its answer stands where the slots settle on none',
+        briefs: {
+          ...withSlots([...b.slots.slice(0, at), slot, ...b.slots.slice(at)]),
+          plan: { ...b.plan, computedFills: true },
+        },
+      });
+      out.push({
+        name: 'add a drafter on ' + m + ' that answers by a program, and where it differs the other drafters are asked',
+        briefs: {
+          ...withSlots([...b.slots.slice(0, at), slot, ...b.slots.slice(at)]),
+          plan: { ...b.plan, computedDoubts: true },
+        },
+      });
     }
   if (drafts.length > 2)
     for (const s of drafts) out.push({ name: 'drop ' + s.id, briefs: withSlots(b.slots.filter((x) => x.id !== s.id)) });
@@ -463,6 +481,7 @@ export function steps(
     ['agreeSkipsChecks', true],
     ['draftsStand', false], // where most drafters agree their answer stands, and the checkers have no vote in it
     ['byBehaviour', true], // drafts of code agree by what they do (run on the same calls), or by how they read
+    ['goOn', false], // a slot cut off before its answer is given its room again to finish, before it is asked for one line
   ]) {
     const now = b.plan && b.plan[key] !== undefined ? b.plan[key] : dflt;
     out.push({ name: 'plan: ' + key + ' ' + !now, briefs: { ...b, plan: { ...b.plan, [key]: !now } } });

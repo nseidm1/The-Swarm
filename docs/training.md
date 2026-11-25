@@ -40,6 +40,14 @@ and keeps each only where held questions say it helped:
   (`computedStands`). It is asked with the first drafters and has no vote; where its program prints one plain number
   and the slots settled on one figure, the number stands. Slots of one model that agree are asked nothing further, so
   a slip they share went out; a program writes the sum down and code works it;
+- **what fills where the model cannot work it out** (measured 2026-11-25, `docs/measured.md`): a program a small model
+  writes for the question in hand is wrong more often than its own slots are, so it never outvotes them. It is used
+  three ways, each a change of its own: its figure stands over the one figure the slots settled on
+  (`computedStands`); its answer stands where the slots settled on none (`computedFills`); and where it differs from
+  the first drafters, the other drafters are asked (`computedDoubts`). A slot cut off before its answer can be given
+  its room again to finish (`goOn`). And the functions training writes are written by the larger model where it can
+  be served (`writer: 'target'`; it is loaded for the writing of a round and stopped after), from sixteen train
+  questions of the kind (`writePool`), in up to five tries;
 - **the answer alone**: the settled answer goes out with no work before it (`writeAs: 'bare'`), beside going out with
   its work;
 - **how many slots and models**: a slot added, dropped or moved to another model, every slot on one model, one slot
