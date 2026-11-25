@@ -911,7 +911,7 @@ document.addEventListener('keydown',ev=>{if(ev.key!=='Enter'&&ev.key!==' ')retur
 // THE CONVERSATION RUN'S BUTTON (converse_block): one press is one pass; drawn again while a pass runs, and the plan with it
 document.addEventListener('click',async ev=>{const b=ev.target;if(b.id!=='converse-go'&&b.id!=='converse-stop')return;b.disabled=true;
   await evPost(b.id==='converse-go'?'/converse/start':'/converse/stop','#conversewrap',{});});
-setInterval(async()=>{if($('#conversebox[data-running]')){await swap('/fragment/converse','#conversewrap');}},4000);
+setInterval(async()=>{if($('#conversebox[data-running]')){await swap('/fragment/converse','#conversewrap');}},2000);
 // WHAT IS BEING TRAINED NOW, AND WHERE IN THE PICTURE: while anything trains, the plan is drawn again and the boxes in use are marked
 setInterval(async()=>{const going=$('#conversebox[data-running]')||$('#wholebox[data-running]')||$('#plan [data-training]')||$('#score [data-stage]');
   if(!going&&!document.querySelector('#viz .vbox.on[data-code]'))return;
@@ -6270,8 +6270,20 @@ def converse_block(d):
     # question in hand: classes_share); otherwise where the held conversations stand after the last pass
     if running:
         rec = stage_record(d)
-        figure = ring(100.0 * classes_share(rec, 1, stage_step()), True, "How far the conversation pass has come")
-        what = "of pass %d" % (len(hist) + 1)
+        # THE RING MOVES WITH THE QUESTION IN HAND (console 2026-11-24). A pass tries some sixty changes on ninety questions each,
+        # so its own share moves a hundredth of a point for a question and the ring stood still while "question 53 of 90"
+        # went by. The ring is the step in hand, by its question; how far the pass has come is said beside it.
+        step_now = stage_step()
+        of_pass = 100.0 * classes_share(rec, 1, step_now)
+        qm = re.search(r"question (\d+) of (\d+)", step_now or "")
+        if qm and int(qm.group(2)):
+            figure = ring(100.0 * int(qm.group(1)) / int(qm.group(2)), True, "How far the step in hand has come, by its question")
+            what = "of this step"
+            running_word = "pass %d · %d%% of the pass" % (len(hist) + 1, round(of_pass))
+        else:
+            figure = ring(of_pass, True, "How far the conversation pass has come")
+            what = "of pass %d" % (len(hist) + 1)
+            running_word = "running"
     else:
         la = (last or {}).get("heldAfter") or {}
         figure = ring((100.0 * la["counted"] / la["n"]) if la.get("n") else None, False, "Held conversations the swarm answers well")
@@ -6280,7 +6292,7 @@ def converse_block(d):
             '<span class="progline">One press is one pass: made-up people write over several turns, each reply is read by code against the conventions of that conversation, '
             'and a change is kept only where held conversations gain. Each pass asks more of what the last was short on. No benchmark is asked.%s</span><span class="evctl">%s</span></div>%s%s</div>'
             % (' data-running="1"' if running else "", figure, what,
-               "running" if running else ("after pass %d" % (last.get("pass") or len(hist))) if last else "no pass yet", now, ctl, waits,
+               running_word if running else ("after pass %d" % (last.get("pass") or len(hist))) if last else "no pass yet", now, ctl, waits,
                ('<ol class="wsl">%s</ol>' % rows) if rows else ""))
 
 

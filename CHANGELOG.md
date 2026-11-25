@@ -6,6 +6,9 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The conversation run's ring moves with the question in hand** (2026-11-24). A pass tries some sixty changes on
+  ninety questions each, so its own share stood still while the questions went by. The ring is now the step in hand
+  by its question, drawn again every two seconds, and how far the pass has come is said beside it.
 - **A pass just started is not read as finished** (2026-11-24). The conversation run's ring read 100% in the first
   minutes of a pass: until the pass first writes its record, the file is the pass before, which says it is done. A
   record that says done while a pass says what it is asking is now taken as the last pass's, and the ring is as far

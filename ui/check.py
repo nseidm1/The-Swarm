@@ -2705,7 +2705,7 @@ swarm_ui.stage_step = lambda: 'Class 1 of 1, a conversation: trying "x" · quest
 _cv_run = swarm_ui.converse_block(_cvd)
 swarm_ui._job_state, swarm_ui._run_elsewhere_now, swarm_ui._classes_alive, swarm_ui.stage_record, swarm_ui.stage_step = _rjs, _rre, _rca, _rsr, _rss
 _now_pct = int((re.search(r'aria-valuenow="(\d+)"', _cv_run) or [0, -1])[1])
-check("how far a run has come is a ring on the run's own card, filled to a share with the share written in it: the intelligence run by its four steps, each a quarter, the one running counted by how far it is itself (an evaluation by its questions, training by the session's share), and a step that was stopped not counted as running; the conversation run by how far the pass has come while it runs, and by where the held conversations stand when it does not, with a dash before any pass; "
+check("how far a run has come is a ring on the run's own card, filled to a share with the share written in it: the intelligence run by its four steps, each a quarter, the one running counted by how far it is itself (an evaluation by its questions, training by the session's share), and a step that was stopped not counted as running; the conversation run, while it runs, by the question in hand of the step in hand (so that it moves as the questions go by: the pass's own share moves too slowly to see, and is said beside it), and by where the held conversations stand when it does not, with a dash before any pass; "
       "the Swarm Viewer no longer has a head of its own (the share of answers good, the pass's bar, the Questions button): the questions training asks are opened from the configuration, under Your own training questions",
       'role="progressbar"' in _rg0 and 'aria-valuenow="0"' in _rg0 and "<b>0%</b>" in _rg0 and 'stroke-dasharray="0.00 ' in _rg0
       and 'class="ring on"' in _rg40 and 'aria-valuenow="40"' in _rg40 and "<b>40%</b>" in _rg40 and "aria-valuenow" not in _rgn and "<b>–</b>" in _rgn
@@ -2714,7 +2714,7 @@ check("how far a run has come is a ring on the run's own card, filled to a share
       and abs(swarm_ui.classes_share({"done": "2026-11-24", "classes": {"talk": {"asItStands": {}, "rounds": [{"kept": True}]}}}, 1, "Class 1 of 1, a conversation: how the swarm stands · question 53 of 90") - 0.15 * 52 / 90) < 1e-9
       and abs(swarm_ui.classes_share(None, 1, "how the swarm stands · question 46 of 90") - 0.075) < 1e-9 and swarm_ui.classes_share({"done": "x", "classes": {}}, 1, "") == 1.0 and swarm_ui.classes_share(None, 1, "") == 0.0
       and "\"starting\": True" in Path(swarm_ui.__file__).read_text()
-      and 'class="ring on"' in _cv_run and 0 < _now_pct < 100 and "of pass" in _cv_run and 'id="converse-stop"' in _cv_run
+      and 'class="ring on"' in _cv_run and _now_pct == 25 and "of this step" in _cv_run and re.search(r"pass \d+ · \d+% of the pass", _cv_run) and 'id="converse-stop"' in _cv_run
       and 'id="score"' not in swarm_ui.arrangement(_cvd) and 'id="tq-open"' not in swarm_ui.arrangement(_cvd) and 'id="tq-open"' in swarm_ui.config_section(_cvd)
       and "View training questions" in swarm_ui.config_section(_cvd) and "Your own training questions" in swarm_ui.config_section(_cvd) and ".ring .rv" in swarm_ui.CSS,
       [_sh_none, _sh_one, _sh_train, _sh_stopped, _now_pct, _rg40[:160]])
