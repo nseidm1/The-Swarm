@@ -6177,24 +6177,51 @@ def whole_block(d):
     only = st.get("classes") or []
     waits += ((('<small class="evwhy" id="whole-only">Training requests %s only, as chosen.</small>' % e(_and([CLASS_NAMES.get(c, c) for c in only]).lower())) if only else "")
               if running else train_options(bool(held and held != "the run"), held))
-    n_done = sum(1 for x in steps if x["state"] in ("done", "not taken"))
     at = next((i + 1 for i, x in enumerate(steps) if x["state"] == "running"), None) if running else None
     # (by its steps alone: a run that ended after one step, as one asked not to train does, is a quarter of the way and not whole)
     share = whole_share(d, steps, running)
-    # THE RING MOVES WITH WHAT THE STEP IN HAND IS DOING: while the run goes, it is that step, by its questions, and how far
-    # the run has come is said beside it; a step that does not say how far it is leaves the ring as the run's share
-    figure, label, word = ring(share, running, "How far the intelligence run has come"), None, None
-    if at:
-        part = whole_step_share(d, steps[at - 1]["id"])
+    # THE RING AND THE TWO LINES BESIDE IT ARE THE CONVERSATION RUN'S, SHAPE FOR SHAPE (console 2026-11-25; converse_block):
+    #   while it runs   the ring is the step in hand, by its questions ("of this step"), and under it the pass and how far
+    #                   the run has come ("pass 3 · 24% of the run"); a step that does not say how far it is leaves the
+    #                   ring as the run's own share ("of the run", "pass 3 · running")
+    #   otherwise       the ring is where the module stands: its score in the last evaluation, of every benchmark question
+    #                   it and the larger model were both put ("benchmark questions", "after pass 2"); an empty ring and
+    #                   "no run yet" before there is one. A run stopped part way says the step it stopped in.
+    n_pass = int(((d.get("state") or {}).get("pass")) or 0)
+    if running:
+        rec = stage_record(d) or {}
+        now_pass = int(rec.get("pass") or (n_pass + 1))
+        figure, label, word = ring(share, True, "How far the intelligence run has come"), "of the run", "pass %d · running" % now_pass
+        part = whole_step_share(d, steps[at - 1]["id"]) if at else None
         if part is not None:
-            figure = ring(100.0 * part, True, "How far the step in hand has come")
-            label, word = "of step %d of 4" % at, "%d%% of the run" % round(share)
+            figure = ring(100.0 * part, True, "How far the step in hand has come, by its questions")
+            label, word = "of this step", "pass %d · %d%% of the run" % (now_pass, round(share))
+    else:
+        score, _of = whole_score(d)
+        figure, label = ring(score, False, "Benchmark questions the swarm answered rightly in its last evaluation"), "benchmark questions"
+        stopped_at = next((i + 1 for i, x in enumerate(steps) if x["state"] == "stopped"), None)
+        word = (("stopped at step %d of 4" % stopped_at) if stopped_at and not done
+                else "a run waits" if held and held != "the run" and score is None
+                else ("after pass %d" % n_pass) if score is not None and n_pass else "after the last run" if score is not None else "no run yet")
     return ('<div class="panel prep wholep" id="wholebox"%s><div class="proghead"><span class="memnum" data-ring="1">%s<span>%s<small>%s</small></span></span>'
             '<span class="progline">One run, two figures: the module as configured is evaluated, which is the baseline; it is trained (pure code, adapters, breakdown, cascade, slots and models, arrangement); and it is evaluated again, '
             'on the same questions. Stop is safe at any step; Start carries on from the step it stopped in.</span><span class="evctl">%s</span></div>%s<ol class="wsl">%s</ol></div>'
             % (' data-running="1"' if running else "", figure,
-               label or (("step %d of 4" % at) if at else ("%d of 4 steps done" % n_done)),
-               word if word else "running" if running else ("done" if done else ("waiting" if held and held != "the run" else "not started" if not any(x["state"] != "waiting" for x in steps) else "stopped")), ctl, waits, rows))
+               label, word, ctl, waits, rows))
+
+
+def whole_score(d):
+    """WHERE THE MODULE STANDS, for the intelligence run's ring when nothing runs: of every benchmark question the swarm and
+    the larger model were both put in the last evaluation, the share the swarm had right, 0 to 100 (the figure under the
+    Evaluate card's headline: eval_block). -> (share or None where nothing has been evaluated, the questions)."""
+    try:
+        view = eval_view(ARGS.root, d)
+        listed = [t for t in (d.get("equivalence") or {}).get("targets", []) if t.get("benchmarks")]
+        comp = [view["by_task"][b["task"]] for t in listed for b in t.get("benchmarks", []) if b["task"] in view["by_task"] and view["by_task"][b["task"]].get("agree")]
+        right, _tg, of = _ev_right(comp)
+        return ((data.percent(right, of) if of else None), of)
+    except (OSError, TypeError, ValueError, KeyError):
+        return None, 0
 
 
 def ring(pct, running=False, word=""):

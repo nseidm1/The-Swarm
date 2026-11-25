@@ -2424,7 +2424,7 @@ check("the Run card has the head every card has (the figure and what it is, what
       "and where it waits for something else it says so in a line of its own; a whole run started from a shell is found by its process (the shell whose script is training/run.sh, not a shell that only launched it), "
       "with the size and the training it was started with, so the card shows Stop for it; each evaluation dialog has ONE header, which names the view, then the three evaluations side by side, then the last evaluation "
       "in detail under a heading that says which it is, and with no comparison to show it is the view as it was; and a percentage is said one way (55, not 55.0 beside 60)",
-      'class="panel prep wholep"' in _wb and '<span class="memnum" data-ring="1"><span class="ring"' in _wb and "of 4 steps done<small>" in _wb and 'id="whole-go"' in _wb
+      'class="panel prep wholep"' in _wb and '<span class="memnum" data-ring="1"><span class="ring"' in _wb and "benchmark questions<small>" in _wb and 'id="whole-go"' in _wb
       and ".prep>.proghead" in swarm_ui.CSS
       and _found == {"pid": 4242, "limit": 50, "train": "off", "adopted": True, "running": True}
       and swarm_ui._run_in(" 501 /bin/bash -c bash training/run.sh --limit 20\n") is None and swarm_ui._run_in("") is None
@@ -2765,9 +2765,32 @@ check("the intelligence run's ring is held to what the conversation run's was: a
       "with the step and how far the whole run has come said beside it; a step that does not say how far it is (making adapters) leaves the ring as the run's own share; and the run's share counts training by the session's share, not by the question in hand, which starts again with every change",
       _wq_ev_fresh == 0.375 and _wq_ev_last == 0.0 and _wq_ev_old == 0.0 and _wq_ev_none == 0.0
       and _wq_tr_q == 0.5 and _wq_tr_stale == 0.0 and _wq_tr_pp == 0.4 and _wq_ad is None and _wq_run_stale == 50.0
-      and _vn(_wq_card_train) == 50 and "of step 3 of 4" in _wq_card_train and "60% of the run" in _wq_card_train and 'class="ring on"' in _wq_card_train
-      and _vn(_wq_card_ad) == 25 and ">step 2 of 4<" in _wq_card_ad and "of step 2 of 4" not in _wq_card_ad,
+      and _vn(_wq_card_train) == 50 and ">of this step<small>pass " in _wq_card_train and " · 60% of the run</small>" in _wq_card_train and 'class="ring on"' in _wq_card_train
+      and _vn(_wq_card_ad) == 25 and ">of the run<small>pass " in _wq_card_ad and " · running</small>" in _wq_card_ad and "of this step" not in _wq_card_ad
+      # (and the same shape as the conversation run's card, line for line: the ring, what it is of, and under it the pass)
+      and re.search(r'<span>of this step<small>pass \d+ · \d+% of the (run|pass)</small>', _wq_card_train) is not None,
       [_wq_ev_fresh, _wq_ev_last, _wq_ev_old, _wq_tr_q, _wq_tr_stale, _wq_tr_pp, _wq_ad, _wq_run_stale, _vn(_wq_card_train), _vn(_wq_card_ad)])
+
+# ---- the intelligence run's card has the conversation run's shape when nothing runs too
+_wi_was = (swarm_ui._job_state, swarm_ui._run_elsewhere_now, swarm_ui._classes_alive, swarm_ui.whole_steps, swarm_ui.whole_score, swarm_ui.busy_with)
+swarm_ui._run_elsewhere_now, swarm_ui._classes_alive, swarm_ui.busy_with = (lambda: None), (lambda: False), (lambda: "")
+swarm_ui._job_state = lambda name: None
+_wi_d = dict(_wq_d, state={"pass": 2})
+swarm_ui.whole_steps = lambda root, key: (_st("done", "done", "done", "done"), True)
+swarm_ui.whole_score = lambda d: (62.5, 400)
+_wi_done = swarm_ui.whole_block(_wi_d)
+swarm_ui.whole_steps = lambda root, key: (_st("done", "stopped", "waiting", "waiting"), False)
+_wi_stopped = swarm_ui.whole_block(_wi_d)
+swarm_ui.whole_steps = lambda root, key: (_st("waiting", "waiting", "waiting", "waiting"), False)
+swarm_ui.whole_score = lambda d: (None, 0)
+_wi_none = swarm_ui.whole_block(dict(_wq_d, state={}))
+swarm_ui._job_state, swarm_ui._run_elsewhere_now, swarm_ui._classes_alive, swarm_ui.whole_steps, swarm_ui.whole_score, swarm_ui.busy_with = _wi_was
+check("when nothing runs, the intelligence run's ring is where the module stands, as the conversation run's is: its score in the last evaluation, with what it is of and the pass it is after under it "
+      "(the conversation run: held conversations, after pass 5); a run stopped part way says the step it stopped in; and before any run the ring is empty and says so",
+      _vn(_wi_done) == 62 and ">benchmark questions<small>after pass 2</small>" in _wi_done and 'class="ring"' in _wi_done and 'id="whole-go"' in _wi_done
+      and ">benchmark questions<small>stopped at step 2 of 4</small>" in _wi_stopped and "Carry on" in _wi_stopped
+      and ">benchmark questions<small>no run yet</small>" in _wi_none and "<b>–</b>" in _wi_none and "aria-valuenow" not in _wi_none.split('id="wholebox"')[1].split("</span></span>")[0],
+      [_vn(_wi_done), _wi_done[:400], _wi_stopped[:300], _wi_none[:300]])
 
 # ---- a class's figure is told twice from the day a kind of question is added
 _sf_two = swarm_ui.stage_figure({"pass": 3, "classes": {"words": {"asItStands": {"n": 144, "counted": 120, "earlier": {"n": 132, "counted": 109, "since": "2026-11-25", "added": ["swap", "path"]}}},

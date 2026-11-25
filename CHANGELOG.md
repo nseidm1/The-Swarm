@@ -24,6 +24,11 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **The two run cards say how far they are the same way** (2026-11-25). The intelligence run's ring and the two
+  lines beside it now have the conversation run's shape: while it runs, the step in hand ("of this step") with the pass
+  and the share of the run under it ("pass 3 · 24% of the run"); with nothing running, where the module stands (its
+  score on the benchmark questions of the last evaluation, "after pass 2"), as the conversation run shows its held
+  conversations.
 - **Code does more outside plain questions** (2026-11-25).
   - **A small sum asked in passing** is an instrument: a share of a number, so many things at a price each, days in
     weeks, hours and minutes, two numbers added, with the courtesies people put round one and two asked at once.
