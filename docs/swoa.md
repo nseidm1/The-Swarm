@@ -1836,6 +1836,7 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `read` | list of form ids, or `true` | none | the forms that are on: a question is read into a form by the drafting slots and the form is worked out by code (R.7) |
 | `readBy` | integer | 3 | how many readings of a form are asked (R.7) |
 | `readLeast` | integer | 2 | how many readings must come to the answer for it to stand (R.7) |
+| `readings` | list of `{ id, form, label, about, example }` | none | kinds of question training laid onto a form: each is read as that form is, told as the reading says (R.7.1) |
 | `written` | list of `{ id, kind, name, code }` | none | functions training wrote and kept for the class: `code` declares `answer(question)` in ECMAScript, which returns the answer as text, or null where it does not read the whole question. Where the question does not want code, each is run in turn, after the instruments and before any model, with no access to files, programs, the network or the clock and a bound on its time; the first answer given is the decided answer and the path is `written`. Where none gives one, or none can be run, the request goes on as it would have |
 | `searchFirst` | boolean | true | a turn with a search tool offered and nothing yet looked up does not end without a call (T.13a) |
 | `searchThrough` | boolean | true | a turn with a search tool offered is taken by the search program (T.13b) |
@@ -2853,8 +2854,12 @@ determine, solve, work, out, how, much, please, help, tell, give, me, result, an
 | order | every sentence is `<Name> is <shorter, taller, younger, older, lighter, heavier, slower, faster, ...> than <Name>.` or one `Who is the <tallest, shortest, second tallest, ...>?` | every order of those named is tried against the comparisons; the name, where they leave exactly one in the place asked |
 | more | sentences `<Name> sold N units in the first quarter, N in the second and N in the third.`, each name once; one `How many more units did <Name> sell in the <first, second, third> quarter than in the <...> quarter?`; optionally a line saying to give a negative number if fewer | the first figure less the second |
 | valid | `Consider this argument.`, then statements, the last of them after `Therefore,`, then a question whether the argument is valid. A statement is `All Xs are Ys`, `No Xs are Ys`, `Some Xs are Ys`, `Some Xs are not Ys`, `<Name> is a Y` or `<Name> is not a Y`; a kind is the same kind however its word ends (`tovers`, `tover`) | `invalid` where some world of up to four things, each of any mix of the kinds, makes every statement before the last so and the last not; otherwise `valid`. `All Xs are Ys` does not say there is an X |
+| number | the first sentence is `Start with N.` (or `Begin with`), the last asks what number you have, and each sentence between is `Multiply it by N.`, `Divide it by N.`, `Add N.` or `Subtract N.`, of `it` or `the result`, with or without `Then`, `Next`, `Finally` | the number after each is done in turn; division by zero does not apply |
+| weekday | two sentences: `Today is <day of the week>.` and a question what day of the week it will be, or was, so many days or weeks `from now`, `later`, `ago` or `earlier` | the day of the week |
+| letters | one question: how many times the letter `"x"` appears in the word `"letters"` | the count, letters compared without regard to capitals |
+| range | one question: how many whole numbers from A to B, counting both ends, can be divided by K with nothing left over | the count |
 
-The last eight do not go by the rule of operand and words of asking. Each reads the WHOLE question sentence by
+The last twelve do not go by the rule of operand and words of asking. Each reads the WHOLE question sentence by
 sentence, where sentences are parted at line ends and after `.`, `?` or `!`, and applies only where every sentence is
 one it understands; one sentence it does not, and the question is answered as any other.
 
@@ -2908,10 +2913,31 @@ training wrote (`plan.written`) answered:
 | order | `comparisons`: one for each sentence, `{ a, is, b }`, `is` one of `more`, `less`: `a` has more, or less, of the measure than `b`; `asked`: `{ rank, from }`, `from` one of `greatest`, `least` |
 | more | `first`, `second`: two figures of the question; the answer is the first less the second |
 | valid | `premises`: list of statements; `conclusion`: a statement. A statement is `{ says, subject, predicate }`, `says` one of `all`, `no`, `some`, `someNot`, `is`, `isNot` |
+| number | `start`: a number; `steps`: list of `{ do, by }`, `do` one of `add`, `subtract`, `multiply`, `divide`. `by` is a figure of the question, or 2, 3 or 4 where the question says doubled, trebled, quartered and the like |
+| weekday | `today`: a day of the week; `amount`; `unit`: `day` or `week`; `direction`: `back` or `on` |
+| letters | `word`; `letter`: one letter, which the question names by itself |
+| range | `from`, `to`: whole numbers; `ends`: `both`, `neither`, `first` or `last` (which of the two are counted); `dividedBy` |
 
 Lettered options are read from the question by code, not by the model: `(A) text`, several on a line or one a line,
 or `A. text` one a line. Where the question has them the answer is the letter of the one option that is what was
 worked out, and no answer where none or several are.
+
+#### R.7.1 Readings: a kind of question laid onto a form
+
+A form's fields and the code that works it out are fixed. What is written for one kind of question is how a model is
+told to fill it. `plan.readings` is a list of at most twelve READINGS, each `{ id, form, label, about, example }`:
+
+- `id`: lower-case letters, digits and hyphens, beginning with a letter, at most 41 characters, not the id of a form
+  and not that of a reading before it;
+- `form`: the id of a form of the table above, whose schema and whose working out the reading has;
+- `label`: one line saying what the kind is (at most 200 characters), shown where a model is asked which form;
+- `about`: what goes in each field for this kind (at most 1,500 characters), sent as the form's description;
+- `example`: `{ question, form }`, sent as the worked example.
+
+A reading is part of the arrangement only where its own example, worked out by its form's code, gives an answer; one
+that does not, or that is malformed, is left out as if it were not there. A reading is on wherever it is in the plan,
+whether or not `plan.read` names any form, and it is tried, read and agreed on exactly as a form is (R.7 steps 1 to 4),
+under its own id. No form is tried in its place for being near it.
 
 ---
 

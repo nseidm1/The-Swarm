@@ -17,9 +17,17 @@ What has been run:
   widened, 26 of a fresh 27; right on every one read. The larger model now writes such wordings in every pass, and an
   instrument is kept on ones its trying never saw.
 
-- **Eight instruments that read a whole question, and forms for questions put another way (2026-11-25).** Who tells
+- **What training's writer can be trusted with (2026-11-25).** Measured for the 30B model, a rung at a time: it
+  fills the module's forms (11 of 12 kinds), it lays a kind no form was made for onto a form that fits (5 of 6), it
+  does not reliably write a function for a kind (4 of 12), and it does not design a form with its code (1 of 8 at
+  best). So forms and their code are the module's own, and training asks its writer for readings: a kind laid onto a
+  form ([measured](measured.md#what-the-writer-can-be-trusted-with-a-rung-at-a-time-2026-11-25)). **Limits, said
+  plainly:** one writer was measured; the six kinds made for the rung are ours; no class has yet kept a reading.
+
+- **Twelve instruments that read a whole question, and forms for questions put another way (2026-11-25).** Who tells
   the truth, a word and what is done to it, things in a row, a date so many days on or back, when someone was free, who
-  is the tallest, how many more of one figure than another, whether an argument holds. Each instrument was written
+  is the tallest, how many more of one figure than another, whether an argument holds, a number and what is done to
+  it, a day of the week, a count of letters, a count in a stretch of numbers. Each instrument was written
   from training's own questions; no benchmark was read. With no model: 40 of 40 held questions right for each. On 73
   held questions reworded by the larger model the instruments read 5, which is what forms are for: a 1.7B model read
   38 into forms, 35 rightly; on a second set of 71 that nothing was mended against it read 29, 25 rightly, and

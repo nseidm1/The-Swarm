@@ -531,6 +531,59 @@ function validIn(q) {
   }
   return asked && f.conclusion && f.premises.length ? FORMS.valid.answer(f, q) : null;
 }
+// FOUR MORE, of figures: each reads the wordings it knows into a form (forms.mjs) and the form is worked out there
+// A NUMBER, AND WHAT IS DONE TO IT IN TURN: "Start with 30. Multiply it by 9. Subtract 83. ... What number do you have?"
+function numberIn(q) {
+  const ss = sentencesOf(q);
+  const first = /^(?:Start|Begin) with (-?\d+(?:\.\d+)?)\.$/.exec(ss[0] || '');
+  if (!first || ss.length < 3 || !/^What (?:number do you have|is the result|do you get)\?$/.test(ss[ss.length - 1]))
+    return null;
+  const f = { start: Number(first[1]), steps: [] };
+  for (const x of ss.slice(1, -1)) {
+    const t = x.replace(/^(?:Then|Next|After that|Now|Finally),? /i, '').replace(/^./, (c) => c.toUpperCase());
+    let m;
+    if ((m = /^(Multiply|Divide) (?:it|the result) by (-?\d+(?:\.\d+)?)\.$/.exec(t)))
+      f.steps.push({ do: m[1].toLowerCase(), by: Number(m[2]) });
+    else if ((m = /^(Add|Subtract) (-?\d+(?:\.\d+)?)(?: (?:to|from) (?:it|the result))?\.$/.exec(t)))
+      f.steps.push({ do: m[1].toLowerCase(), by: Number(m[2]) });
+    else return null;
+  }
+  return FORMS.number.answer(f, q);
+}
+// A DAY OF THE WEEK, SO MANY DAYS ON OR BACK: "Today is Thursday. What day of the week will it be 179 days from now?"
+function weekdayIn(q) {
+  const ss = sentencesOf(q);
+  const t = /^Today is (Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\.$/.exec(ss[0] || '');
+  const w =
+    /^What day of the week (?:will it be|was it|is it) (\d+) (day|week)s? (from now|from today|later|ago|earlier|before today)\?$/.exec(
+      ss[1] || '',
+    );
+  if (!t || !w || ss.length !== 2) return null;
+  return FORMS.weekday.answer(
+    { today: t[1], amount: Number(w[1]), unit: w[2], direction: /ago|earlier|before/.test(w[3]) ? 'back' : 'on' },
+    q,
+  );
+}
+// HOW MANY TIMES A LETTER STANDS IN A WORD: 'How many times does the letter "o" appear in the word "bookkeeper"?'
+function lettersIn(q) {
+  const m =
+    /^How many times does the letter ["“']([A-Za-z])["”'] (?:appear|occur) in the word ["“']([A-Za-z]+)["”']\?$/.exec(
+      String(q).trim(),
+    );
+  return m ? FORMS.letters.answer({ word: m[2], letter: m[1] }, q) : null;
+}
+// HOW MANY OF A STRETCH CAN BE DIVIDED: "How many whole numbers from 15 to 62, counting both ends, can be divided by 4 with
+// nothing left over?"
+function rangeIn(q) {
+  const m =
+    /^How many whole numbers from (-?\d+) to (-?\d+), counting both ends, can be divided by (\d+) with nothing left over\?$/.exec(
+      String(q).trim(),
+    );
+  return m
+    ? FORMS.range.answer({ from: Number(m[1]), to: Number(m[2]), ends: 'both', dividedBy: Number(m[3]) }, q)
+    : null;
+}
+
 const INSTRUMENTS = [
   { id: 'sum', name: 'worked out as a sum', of: sumIn },
   { id: 'truth', name: 'worked out as an expression of true and false', of: truthIn },
@@ -544,6 +597,10 @@ const INSTRUMENTS = [
   { id: 'order', name: 'of who is the tallest, from things compared two at a time', of: orderIn, whole: true },
   { id: 'more', name: 'of how many more one figure is than another', of: moreIn, whole: true },
   { id: 'valid', name: 'of whether an argument holds, by trying every world', of: validIn, whole: true },
+  { id: 'number', name: 'of a number and what is done to it in turn', of: numberIn, whole: true },
+  { id: 'weekday', name: 'of a day of the week so many days on or back', of: weekdayIn, whole: true },
+  { id: 'letters', name: 'of how many times a letter stands in a word', of: lettersIn, whole: true },
+  { id: 'range', name: 'of how many numbers of a stretch can be divided by one', of: rangeIn, whole: true },
 ];
 // THE QUESTION AS AN INSTRUMENT READS IT: what was asked, without what a form puts round it. A label before it ("Q:",
 // "Question:") is taken off, and so are the lines at its end that only say where the answer goes: a short label and a colon

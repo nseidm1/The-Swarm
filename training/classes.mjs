@@ -103,6 +103,8 @@ const AFTER_DRAFTS = [
   'read',
   'readBy',
   'readLeast',
+  // (a reading training wrote, for one kind of question: every other question is drafted as it was)
+  'readings',
   'plain',
   'pieceBy',
 ];
@@ -267,7 +269,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const { readBriefs, saveLearned } = await import('../src/index.mjs');
   const { briefsFor, classOf, CLASSES } = await import('../src/orchestrate.mjs');
   const { messagesOf, ownStandard } = await import('./tasks.mjs');
-  const { steps, writtenMoves, facetMoves, scopedMove } = await import('./arrange.mjs');
+  const { steps, writtenMoves, readingMoves, facetMoves, scopedMove } = await import('./arrange.mjs');
+  const { writeReadingFor } = await import('./write-reading.mjs');
+  const { readLadder, holds } = await import('./ladder.mjs');
   const { facetOf } = await import('../src/facets.mjs');
   const { kindsShort, writeFor, writable, kindsAdded, moreHeldOf, poolFor } = await import('./write-code.mjs');
   const policy = JSON.parse(fs.readFileSync(path.join(HERE, 'policy.json'), 'utf8'));
@@ -492,6 +496,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       // (the functions written for this class in this pass that passed, and the kinds one was refused for: not asked twice)
       const made = [];
       const refused = [];
+      // (readings training wrote this pass, for this class, and the kinds one was refused for)
+      const madeReadings = [];
+      const refusedReadings = [];
       let baseRows = await all(tr, asClass(K, base), said(K) + ': how the swarm stands');
       C.asItStands = figuresOf(baseRows);
       lastRows[K] = baseRows;
@@ -563,9 +570,33 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
           // matter of how often it passes (measured 2026-11-25). The larger model is loaded for the writing of a round and
           // stopped again before anything else is asked; the function it writes is in the module, which needs no larger
           // model to run it. Where it cannot be served, the swarm's own model writes, and that is said.
+          // A READING IS WRITTEN FOR THEM TOO (write-reading.mjs): the kind laid onto a form the module ships, where one
+          // fits. No code is written: the form's own code works the answer out. Asked only of a writer that was shown to do
+          // it (training/ladder.mjs: the rung `lays` held), or one not yet measured: what it writes is vetted either way.
+          // policy readKinds: for how many kinds a round asks (0: none).
+          const ladder = readLadder(B.WORKC);
+          // (a kind that has a reading in the arrangement, by the reading's name, or had one made or refused this pass)
+          const slug = (k) =>
+            String(k)
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-');
+          const kept = ((base.plan || {}).readings || []).map((r) => String(r.id || '').replace(/-p\d+$/, ''));
+          const haveRead = [
+            ...[...new Set(tr.map((t) => t.kind))].filter((k) => kept.includes(slug(k))),
+            ...madeReadings.map((r) => r.kind),
+            ...refusedReadings,
+          ];
+          const toRead =
+            (P.readKinds ?? 2) > 0 && holds(ladder, 'lays') !== false
+              ? kindsShort(baseRows, tr, P.readKinds ?? 2, haveRead)
+              : [];
+          if ((P.readKinds ?? 2) > 0 && holds(ladder, 'lays') === false)
+            console.log(
+              '  no reading is asked for: the writer was measured and does not lay a kind onto a form reliably (training/ladder.mjs)',
+            );
           let teacher = null;
           let by = writerName;
-          if (toWrite.length && String(B.arg('writer', P.writer || 'target')) === 'target') {
+          if ((toWrite.length || toRead.length) && String(B.arg('writer', P.writer || 'target')) === 'target') {
             try {
               B.live({ trainer: 'classes', step: said(K) + ': loading the larger model, to write code' });
               teacher = await B.openAlone('target');
@@ -635,6 +666,73 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
               R.written[R.written.length - 1].by = by;
               save();
             }
+            for (const k of toRead) {
+              const own = poolFor(
+                k.kind,
+                codeable.filter((t) => t.kind === k.kind),
+                makeTasks,
+                P.writePool ?? 16,
+              );
+              if (own.length < 8) continue;
+              B.live({ trainer: 'classes', step: said(K) + ': writing a reading for the kind "' + k.kind + '"' });
+              const format = (o) => (o && o.format ? o.format : null);
+              const got = await writeReadingFor({
+                kind: k.kind,
+                id: slug(k.kind) + '-p' + record.pass,
+                shown: own.slice(0, 5),
+                unseen: own.slice(5),
+                tries: P.readTries ?? 3,
+                ask: async (messages, o = {}) =>
+                  teacher
+                    ? String(
+                        (
+                          (await teacher.ask(messages, {
+                            maxTokens: o.maxTokens || 1500,
+                            ...(format(o) ? { format: format(o) } : {}),
+                          })) || {}
+                        ).text || '',
+                      )
+                    : (await swarm.alone(writer, messages, { maxTokens: o.maxTokens || 1500, ...(format(o) || {}) }))
+                        .text,
+              }).catch((e) => ({ ok: false, why: String((e && e.message) || e).slice(0, 200), tries: [] }));
+              (R.readings = R.readings || []).push({
+                kind: k.kind,
+                wrong: k.wrong,
+                of: k.n,
+                ok: got.ok,
+                form: got.form || null,
+                why: got.why || '',
+                tries: got.tries,
+                by,
+              });
+              writtenLog.push({ at: new Date().toISOString(), pass: record.pass, class: K, reading: true, by, ...got });
+              saveWritten();
+              const last = (got.tries || []).at(-1) || {};
+              console.log(
+                '  a reading for "' +
+                  k.kind +
+                  '" (wrong on ' +
+                  k.wrong +
+                  ' of ' +
+                  k.n +
+                  '): ' +
+                  (got.ok
+                    ? 'laid onto the form "' +
+                      got.form +
+                      '", right on ' +
+                      last.right +
+                      ' of ' +
+                      (own.length - 5) +
+                      ' it was not shown'
+                    : 'none kept (' +
+                      (got.form ? 'the form "' + got.form + '": ' : '') +
+                      String(got.why || '').split('\n')[0] +
+                      ')'),
+              );
+              if (got.ok) madeReadings.push({ ...got.reading, kind: k.kind });
+              else refusedReadings.push(k.kind);
+              save();
+            }
           } finally {
             // (the larger model is stopped before anything else is asked: it and the swarm are not kept loaded together)
             if (teacher) await teacher.stop();
@@ -664,7 +762,12 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
           );
         }
         // (how many it has to try, for the page to say how far the stage has come: the round's, and one more for the two together)
-        const stepsWith = (b, o) => [...writtenMoves(b, made), ...facetMoves(b, facetsShort), ...steps(b, o)];
+        const stepsWith = (b, o) => [
+          ...writtenMoves(b, made),
+          ...readingMoves(b, madeReadings),
+          ...facetMoves(b, facetsShort),
+          ...steps(b, o),
+        ];
         const toTry = roundOf(
           stepsWith(base, { adapters: mixture, adapterLeast: P.adapterLeast ?? 0.9 }),
           base,

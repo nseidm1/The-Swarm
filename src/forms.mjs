@@ -158,7 +158,11 @@ function rowAnswer(f, q) {
   const it = placed(n, rules, asked);
   if (it < 0) return null;
   const options = optionsOf(q);
-  if (!options.length) return 'The ' + items[it];
+  if (!options.length) {
+    // (said as the question writes it: a name with its capital stands by itself, a thing is "The red book")
+    const as = new RegExp('\\b' + items[it].replace(/[^a-z0-9 ]/g, '.') + '\\b', 'i').exec(q);
+    return as && /^[A-Z]/.test(as[0]) ? as[0] : 'The ' + items[it];
+  }
   // (the option that names this thing and no other of them)
   return letterOf(options, (text) => {
     const named = items.filter((x) => low(text).includes(x));
@@ -369,6 +373,70 @@ function validAnswer(f, q) {
   return 'valid';
 }
 
+// ---- a number, and what is done to it in turn
+function numberAnswer(f, q) {
+  let v = Number(f.start);
+  if (!Number.isFinite(v) || !Array.isArray(f.steps) || !f.steps.length || f.steps.length > clausesOf(q)) return null;
+  const has = (n) =>
+    new RegExp('(^|[^\\d.])' + String(Math.abs(n)).replace('.', '\\.') + '($|[^\\d])').test(
+      String(q).replace(/,(?=\d{3})/g, ''),
+    );
+  if (!has(v)) return null;
+  for (const s of f.steps) {
+    const by = Number(s.by);
+    // (a figure of the question; or one a word of it stands for: doubled, trebled, halved, quartered)
+    const worded =
+      (by === 2 && /\b(?:doubl|twice|halv|half)/i.test(q)) ||
+      (by === 3 && /\b(?:trebl|tripl|thrice|third)/i.test(q)) ||
+      (by === 4 && /\b(?:quadrupl|quarter)/i.test(q));
+    if (!Number.isFinite(by) || !(has(by) || worded)) return null;
+    if (s.do === 'add') v += by;
+    else if (s.do === 'subtract') v -= by;
+    else if (s.do === 'multiply') v *= by;
+    else if (s.do === 'divide') {
+      if (by === 0) return null;
+      v /= by;
+    } else return null;
+  }
+  return Number.isFinite(v) ? String(Math.round(v * 1e6) / 1e6) : null;
+}
+
+// ---- a day of the week, so many days or weeks on or back
+const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+function weekdayAnswer(f, q) {
+  const at = DAYS.indexOf(low(f.today));
+  const amount = Number(f.amount);
+  if (at < 0 || !Number.isInteger(amount) || amount < 0 || !within(q, f.today)) return null;
+  const sign = f.direction === 'back' ? -1 : f.direction === 'on' ? 1 : 0;
+  if (!sign || (f.unit !== 'day' && f.unit !== 'week')) return null;
+  const day = DAYS[(((at + sign * amount * (f.unit === 'week' ? 7 : 1)) % 7) + 7) % 7];
+  const name = day[0].toUpperCase() + day.slice(1);
+  const options = optionsOf(q);
+  return options.length ? letterOf(options, (text) => low(text) === day) : name;
+}
+
+// ---- how many times a letter stands in a word
+function lettersAnswer(f, q) {
+  const word = String(f.word || '');
+  const letter = String(f.letter || '');
+  if (!/^[A-Za-z]+$/.test(word) || !/^[A-Za-z]$/.test(letter) || !within(q, word)) return null;
+  // (the letter has to be named in the question by itself: in quotes, or as a word of one letter)
+  if (!new RegExp('(^|[^A-Za-z])' + letter + '($|[^A-Za-z])', 'i').test(String(q))) return null;
+  return String([...word.toLowerCase()].filter((c) => c === letter.toLowerCase()).length);
+}
+
+// ---- how many whole numbers of a stretch can be divided by one
+function rangeAnswer(f, q) {
+  const [a, b, k] = [Number(f.from), Number(f.to), Number(f.dividedBy)];
+  if (![a, b, k].every(Number.isInteger) || k < 1 || b < a || b - a > 1e7) return null;
+  const has = (n) => new RegExp('(^|[^\\d.])' + Math.abs(n) + '($|[^\\d])').test(String(q).replace(/,(?=\d{3})/g, ''));
+  if (![a, b, k].every(has)) return null;
+  const lo = f.ends === 'neither' || f.ends === 'last' ? a + 1 : a;
+  const hi = f.ends === 'neither' || f.ends === 'first' ? b - 1 : b;
+  if (!['both', 'neither', 'first', 'last'].includes(f.ends) || hi < lo) return null;
+  return String(Math.floor(hi / k) - Math.floor((lo - 1) / k));
+}
+
 const statement = obj({ says: one('all', 'no', 'some', 'someNot', 'is', 'isNot'), subject: str, predicate: str });
 export const FORMS = {
   lies: {
@@ -539,72 +607,183 @@ export const FORMS = {
     schema: obj({ premises: arr(statement), conclusion: statement }),
     answer: validAnswer,
   },
+  number: {
+    label: 'a number, and sums done to it one after another (add, subtract, multiply, divide)',
+    example: {
+      question: 'Begin at 12. Take away 5, then times it by 3. What have you got?',
+      form: {
+        start: 12,
+        steps: [
+          { do: 'subtract', by: 5 },
+          { do: 'multiply', by: 3 },
+        ],
+      },
+    },
+    cue: (q) =>
+      /\b(?:start|begin)\w* (?:with|at|from) -?\d/i.test(q) &&
+      /\b(?:multiply|add|subtract|divide|times|plus|minus)\b/i.test(q),
+    about:
+      'A number and things done to it one after another. "start": the number begun with. "steps": each thing done, in the order it is done: do is "add", "subtract", "multiply" or "divide", and by is the number it is done with, copied from the text. Do not work anything out.',
+    schema: obj({
+      start: { type: 'number' },
+      steps: arr(obj({ do: one('add', 'subtract', 'multiply', 'divide'), by: { type: 'number' } })),
+    }),
+    answer: numberAnswer,
+  },
+  weekday: {
+    label: 'a day of the week, and the day of the week some days or weeks before or after it',
+    example: {
+      question: 'It is Tuesday. Which day of the week was it 10 days ago?',
+      form: { today: 'Tuesday', amount: 10, unit: 'day', direction: 'back' },
+    },
+    cue: (q) =>
+      /\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(q) &&
+      /\b(?:days?|weeks?)\b/i.test(q) &&
+      !/\d\/\d/.test(q),
+    about:
+      'A day of the week and a length of time from it. "today": the day of the week the text starts from. "amount" and "unit": the length of time, copied from the text. "direction": "back" where the day asked for is earlier (ago, before, earlier), "on" where it is later (from now, later, after).',
+    schema: obj({
+      today: one('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'),
+      amount: int,
+      unit: one('day', 'week'),
+      direction: one('back', 'on'),
+    }),
+    answer: weekdayAnswer,
+  },
+  letters: {
+    label: 'one word, and how many times one letter stands in it',
+    example: {
+      question: 'Count the letter "s" in "mississippi". How many are there?',
+      form: { word: 'mississippi', letter: 's' },
+    },
+    cue: (q) => /\bletter\b/i.test(q) && /\bhow many\b|\bcount\b/i.test(q) && /["“'‘][A-Za-z]+["”'’]/.test(q),
+    about:
+      'A word and one letter to count in it. "word": the word, as written. "letter": the one letter that is counted.',
+    schema: obj({ word: str, letter: { type: 'string', maxLength: 1 } }),
+    answer: lettersAnswer,
+  },
+  range: {
+    label: 'a stretch of whole numbers, and how many of them can be divided by a given number',
+    example: {
+      question: 'Between 10 and 40, including both, how many whole numbers are multiples of 6?',
+      form: { from: 10, to: 40, ends: 'both', dividedBy: 6 },
+    },
+    cue: (q) =>
+      /\bhow many\b/i.test(q) &&
+      /\b(?:whole numbers|integers|numbers)\b/i.test(q) &&
+      /\b(?:divi\w+|multiples?)\b/i.test(q),
+    about:
+      'A stretch of whole numbers and a number to divide by. "from" and "to": the first and the last number of the stretch, copied from the text. "ends": "both" where both of them are counted (inclusive, counting both ends), "neither" where neither is (strictly between), "first" or "last" where only that one is. "dividedBy": the number they must be divisible by.',
+    schema: obj({ from: int, to: int, ends: one('both', 'neither', 'first', 'last'), dividedBy: int }),
+    answer: rangeAnswer,
+  },
 };
 export const FORM_IDS = Object.keys(FORMS);
+// A READING TRAINING WROTE (plan.readings; training/write-reading.mjs): a kind of question laid onto one of the forms above.
+// The form's fields and the code that works it out are the form's own; what is written for the kind is how a model is told to
+// fill it: one line saying what the kind is, what goes in each field for this kind, and one worked example.
+//   { id, form, label, about, example: { question, form } }
+// None is trusted: one is kept only where it names a form there is, its texts are of a size, and its own example is worked out
+// by the form's code. Twelve at most.
+export const READINGS_MOST = 12;
+export function readingsIn(list) {
+  const out = [];
+  for (const r of Array.isArray(list) ? list : []) {
+    if (out.length >= READINGS_MOST) break;
+    if (!r || typeof r !== 'object' || !/^[a-z][a-z0-9-]{1,40}$/.test(String(r.id || ''))) continue;
+    if (FORMS[r.id] || out.some((o) => o.id === r.id) || !FORMS[r.form]) continue;
+    const text = (v, most) => typeof v === 'string' && v.trim().length > 0 && v.length <= most;
+    if (!text(r.label, 200) || !text(r.about, 1500) || !r.example || !text(r.example.question, 1500)) continue;
+    if (!r.example.form || typeof r.example.form !== 'object') continue;
+    let own = null;
+    try {
+      own = FORMS[r.form].answer(r.example.form, r.example.question);
+    } catch {
+      own = null;
+    }
+    if (own === null || own === undefined || own === '') continue;
+    out.push({ id: r.id, form: r.form, label: r.label.trim(), about: r.about.trim(), example: r.example });
+  }
+  return out;
+}
+// THE FORMS AND THE READINGS TOGETHER, as one table: what every function below reads. With no readings it is FORMS itself
+export function formsWith(readings) {
+  const kept = readingsIn(readings);
+  if (!kept.length) return FORMS;
+  const T = { ...FORMS };
+  for (const r of kept) T[r.id] = { ...FORMS[r.form], ...r, cue: () => false, unsure: false, reading: true };
+  return T;
+}
 // THE FORMS THAT ARE ON: the ones named; or, for `true`, every one that has been read reliably. A form marked `unsure` is on
 // only where it is named: of how many more one figure is than another, both a small and a large reader took the two figures
-// the wrong way round too often (measured 2026-11-25, on questions no form was mended against: 9 right of 16 answered)
-export const formsOn = (on) =>
-  on === true
-    ? FORM_IDS.filter((id) => !FORMS[id].unsure)
-    : Array.isArray(on)
-      ? FORM_IDS.filter((id) => on.includes(id))
-      : [];
-// THE FORMS A QUESTION MIGHT BE OF, among the ones that are on (true: every one)
-export const formsFor = (question, on = true) => formsOn(on).filter((id) => FORMS[id].cue(String(question || '')));
+// the wrong way round too often (measured 2026-11-25, on questions no form was mended against: 9 right of 16 answered).
+// A reading training kept is on wherever it is in the table: it was kept for this class.
+export const formsOn = (on, T = FORMS) =>
+  Object.keys(T).filter((id) => T[id].reading || (on === true ? !T[id].unsure : Array.isArray(on) && on.includes(id)));
+// THE FORMS A QUESTION MIGHT BE OF, by a few of its words, among the ones that are on
+export const formsFor = (question, on = true, T = FORMS) =>
+  formsOn(on, T).filter((id) => T[id].cue(String(question || '')));
 // THE FORMS TO TRY, in turn: the one a model named, then the ones a few words of the question point to, then the ones often
 // taken for the one named (things in a row, and things in order of a measure). Three at most: each costs its readings
-const NEAR = { row: ['order'], order: ['row'], date: ['free'], free: ['date'] };
-export const formsToTry = (question, named, on = true) => {
-  const cued = formsFor(question, on);
+const NEAR = {
+  row: ['order'],
+  order: ['row'],
+  date: ['free', 'weekday'],
+  free: ['date'],
+  weekday: ['date'],
+  word: ['letters'],
+  letters: ['word'],
+};
+export const formsToTry = (question, named, on = true, T = FORMS) => {
+  const cued = formsFor(question, on, T);
   const all = [named, ...cued, ...(NEAR[named] || [])];
   // (a form both named, or near the one named, and pointed to by the words comes first)
   const both = cued.filter((id) => id === named || (NEAR[named] || []).includes(id));
-  return [...new Set([...both, ...all])].filter((id) => formsOn(on).includes(id)).slice(0, 3);
+  return [...new Set([...both, ...all])].filter((id) => formsOn(on, T).includes(id)).slice(0, 3);
 };
 // WHAT A MODEL IS ASKED, to fill a form: it reads, it does not answer
-export const formAsk = (id, question) => [
+export const formAsk = (id, question, T = FORMS) => [
   {
     role: 'system',
     content:
       'You read a question and write down what it says, as JSON. You do not answer the question and you do not work anything out. Write only what the text states, in the words of the text.\n\n' +
-      FORMS[id].about,
+      T[id].about,
   },
-  { role: 'user', content: FORMS[id].example.question },
-  { role: 'assistant', content: JSON.stringify(FORMS[id].example.form) },
+  { role: 'user', content: T[id].example.question },
+  { role: 'assistant', content: JSON.stringify(T[id].example.form) },
   { role: 'user', content: String(question).trim() },
 ];
 // WHICH FORM, IF ANY: told by a model too, since a cue of words is a wording. It is shown what each form is of and answers
 // with one name, or none
-export const routeAsk = (question, on = true) => [
+export const routeAsk = (question, on = true, T = FORMS) => [
   {
     role: 'system',
     content:
       'You are shown a question. Say which ONE of these kinds it is, or "none" where it is none of them. Do not answer the question.\n' +
-      formsOn(on)
-        .map((id) => '- ' + id + ': ' + FORMS[id].label + '. Such as: ' + FORMS[id].example.question)
+      formsOn(on, T)
+        .map((id) => '- ' + id + ': ' + T[id].label + '. Such as: ' + T[id].example.question)
         .join('\n') +
       '\n- none: anything else\nReply as JSON: {"about": "<what the question is about, in a few words>", "kind": "<one of the names>"}',
   },
   { role: 'user', content: String(question).trim() },
 ];
-export const routeParams = (on = true) => ({
+export const routeParams = (on = true, T = FORMS) => ({
   response_format: {
     type: 'json_schema',
     json_schema: {
       name: 'kind',
       strict: true,
-      schema: obj({ about: { type: 'string', maxLength: 90 }, kind: one(...formsOn(on), 'none') }),
+      schema: obj({ about: { type: 'string', maxLength: 90 }, kind: one(...formsOn(on, T), 'none') }),
     },
   },
 });
-export const routeIn = (text, on = true) => {
+export const routeIn = (text, on = true, T = FORMS) => {
   const k = (formIn(text) || {}).kind;
-  return formsOn(on).includes(k) ? k : null;
+  return formsOn(on, T).includes(k) ? k : null;
 };
 // (what an engine that holds a reply to a schema is sent beside the messages; one that does not is told by the ask alone)
-export const formParams = (id) => ({
-  response_format: { type: 'json_schema', json_schema: { name: id, strict: true, schema: FORMS[id].schema } },
+export const formParams = (id, T = FORMS) => ({
+  response_format: { type: 'json_schema', json_schema: { name: id, strict: true, schema: T[id].schema } },
 });
 // A REPLY -> the form in it, or null
 export function formIn(text) {
@@ -619,35 +798,28 @@ export function formIn(text) {
     return null;
   }
 }
+// ONE REPLY, worked out: the form in it, by the code of its form; null where there is none or it settles nothing
+export function formWorked(id, question, reply, T = FORMS) {
+  const f = formIn(reply);
+  try {
+    const v = f && T[id] ? T[id].answer(f, String(question)) : null;
+    return v === undefined || v === '' ? null : v;
+  } catch {
+    return null;
+  }
+}
 // HOW MANY READINGS ARE STILL WORTH ASKING, given the ones in hand: none where `least` of them already agree with none
 // differing, where two differ, or where even all the rest agreeing could not reach `least`; else the rest
-export function readingsLeft(id, question, replies, many, least = 2) {
-  const said = replies
-    .map((r) => {
-      const f = formIn(r);
-      try {
-        return f ? FORMS[id].answer(f, String(question)) : null;
-      } catch {
-        return null;
-      }
-    })
-    .filter((x) => x !== null && x !== undefined && x !== '');
+export function readingsLeft(id, question, replies, many, least = 2, T = FORMS) {
+  const said = replies.map((r) => formWorked(id, question, r, T)).filter((x) => x !== null);
   if (new Set(said).size > 1 || said.length >= least) return 0;
   const left = many - replies.length;
   return said.length + left >= least ? left : 0;
 }
 // THE ANSWER OF SEVERAL READINGS: each reply is read as a form and worked out; an answer stands only where at least `least`
 // readings came to it and none came to another. -> { answer, agreed, of } or null
-export function formAnswer(id, question, replies, least = 2) {
-  const got = replies.map((r) => {
-    const f = formIn(r);
-    try {
-      return f ? FORMS[id].answer(f, String(question)) : null;
-    } catch {
-      return null;
-    }
-  });
-  const said = got.filter((x) => x !== null && x !== undefined && x !== '');
+export function formAnswer(id, question, replies, least = 2, T = FORMS) {
+  const said = replies.map((r) => formWorked(id, question, r, T)).filter((x) => x !== null);
   if (said.length < least || new Set(said).size !== 1) return null;
   return { answer: said[0], agreed: said.length, of: replies.length };
 }

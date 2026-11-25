@@ -177,7 +177,8 @@ export async function openTarget(
       await start();
     }
   }
-  const once = async (messages, maxTokens, draw, tools) => {
+  // (format: what a reply is held to, where the caller gives it: { response_format } as the engine takes it)
+  const once = async (messages, maxTokens, draw, tools, format) => {
     const r = await fetch(base + '/v1/chat/completions', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -191,6 +192,7 @@ export async function openTarget(
         stream: false,
         stop: ['<unk>'], // some servers run on into <unk> after the answer has ended: stopped there
         ...(tools ? { tools } : {}),
+        ...(format || {}),
       }),
     });
     if (!r.ok) throw new Error(rung.name + ' answered ' + r.status + ': ' + (await r.text()).slice(0, 160));
@@ -216,14 +218,17 @@ export async function openTarget(
     // not is asked for again the same way an empty one is.
     // firstDraw: where its draws begin (0: asked plainly first). The larger model against itself (baseline.mjs --self) begins at 3,
     // so that its second answer is another draw than any its first could have been
-    async ask(messages, { maxTokens = 4096, usable = (t) => t.length > 0, tools = null, firstDraw = 0 } = {}) {
+    async ask(
+      messages,
+      { maxTokens = 4096, usable = (t) => t.length > 0, tools = null, firstDraw = 0, format = null } = {},
+    ) {
       let text = '';
       let first = '';
       let revived = 0;
       let waited = 0;
       for (let draw = firstDraw; draw <= firstDraw + 2; draw++) {
         try {
-          text = await once(messages, maxTokens, draw, tools);
+          text = await once(messages, maxTokens, draw, tools, format);
         } catch (e) {
           const why = String((e && e.message) || e);
           // THE SERVER SAYS IT IS BUSY PUTTING ITSELF RIGHT (TensorFold: 500 "server restarting: retry shortly"; any server:

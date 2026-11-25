@@ -12,14 +12,21 @@ and keeps each only where held questions say it helped:
   mixture of adapters is part of the arrangement, and each request is served with the adapter its slot carries;
 - **instruments**: where a class of input holds operations code does exactly, the class stage turns that instrument
   on (`src/instruments.mjs`). None is on in a module as it starts. Training asks such operations in questions of its
-  own (`training/tasks-exact.mjs`), so what an instrument is worth is measured before a benchmark sees it. Eight
-  more read a whole question of a fixed kind (who tells the truth, a word and what is done to it, things in a row, a
-  date so many days on or back, when someone was free, who is the tallest, how many more of one figure than another,
-  whether an argument holds); the class stage offers them after its other changes, one at a time;
-- **forms**: the same eight kinds, read by a model where the wording is one no instrument knows
+  own (`training/tasks-exact.mjs`), so what an instrument is worth is measured before a benchmark sees it. Twelve
+  more read a whole question of a fixed kind (who tells the truth, things in a row, a date so many days on or back,
+  whether an argument holds, a number and what is done to it, a day of the week, and others); the class stage offers
+  them after its other changes, one at a time;
+- **forms**: the same twelve kinds, read by a model where the wording is one no instrument knows
   (`src/forms.mjs`). The drafters write what the question says into a fixed form and code works it out; the answer
   stands only where their readings agree. One change the class stage can try, kept like any other, so a swarm whose
   models read well keeps it and one whose models do not is left as it was;
+- **readings**: a kind of question the class is short on, laid onto a form the module ships
+  (`training/write-reading.mjs`). The larger model says which form fits and how a model is to be told to fill it for
+  this kind; it writes no code, since the form's own code works the answer out. The reading is vetted on questions
+  it was not shown and refused on one wrong answer; kept, it is a change of the round like any other;
+- **the ladder**: what this swarm's writer can be trusted with, measured (`training/ladder.mjs`): whether it fills
+  the forms, whether it lays a kind onto a form, whether it writes a function. The class stage asks for a reading
+  only where its writer was shown to lay kinds reliably, or has not been measured;
 - **written code**: the code itself is found by training (`training/write-code.mjs`). Each round, for the kinds of
   question the class was most wrong on (`writeKinds`, two), the model in the swarm's first place is asked alone for
   one function, `answer(question)`, shown half of the train questions of that kind with their right answers. What it

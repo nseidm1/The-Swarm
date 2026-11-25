@@ -24,6 +24,17 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **Training lays a kind of question onto a form, and knows what its writer can do** (2026-11-25).
+  - **Four more forms and instruments**, of figures: a number and what is done to it, a day of the week so many days
+    on or back, how many times a letter stands in a word, how many numbers of a stretch can be divided. Twelve in
+    all; each instrument is right on 40 of 40 held questions of its kind.
+  - **Readings** (`plan.readings`): a kind of question the class is short on can be laid onto a form the module
+    ships. The larger model says which form fits and how a model is to be told to fill it for this kind; it writes
+    no code. The reading is vetted on questions it was not shown and kept by training's usual rule.
+  - **The ladder** (`node training/ladder.mjs`): what a swarm's writer can be trusted with, measured. For the 30B
+    model: it fills the forms (11 of 12 kinds) and lays kinds onto them (5 of 6), and does not reliably write a
+    function (4 of 12). The class stage asks for a reading only where its writer was shown to lay kinds, or was not
+    measured.
 - **A fix: a model's code ran in training's own process in one place** (2026-11-25). A conversation's check of a
   function a reply gave ran it in the trainer's process, in a bare context with a time limit: no wall. It is now run
   in the sandbox like every other function a model writes. A test now fails if any file but the runner inside the

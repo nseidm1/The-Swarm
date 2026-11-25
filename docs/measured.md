@@ -2,12 +2,44 @@
 
 Every measurement, dated, newest first. Each is of the swarm named in it; the lineup has changed over time.
 
+## What the writer can be trusted with, a rung at a time: 2026-11-25
+
+Training asks the larger model to write things that go into the module. How far that can go was measured for one
+writer (Nemotron 3.5 Lightning 30B), on questions training makes itself; no benchmark was read.
+
+| Rung | What the writer does | Kinds passed | Held (75% of kinds) |
+| --- | --- | --- | --- |
+| fills | fills the module's forms for held questions of the kinds they were made for; the form's code answers | 11 of 12 | yes |
+| lays | lays a kind no form was made for onto a form that fits, saying how a model is to fill it; vetted on 9 questions it was not shown, refused on one wrong answer | 5 of 6 | yes |
+| writes | writes a function that works a kind out from the question, vetted on questions it was not shown | 4 of 12 | no |
+| designs | designs a new form and writes its code together (tried apart, four ways) | 1 of 8 at best | no |
+
+- **Fills.** Every kind 8 of 8 or close, none wrong, but things in a row: 4 right, 1 wrong, 3 with no answer.
+- **Lays.** Six kinds made for this, each a thing a form can record about something else than the form's own
+  questions: ages (an ordering), a queue (a row), money in an account (a number and what is done to it), a meeting
+  moved (a day of the week), machines that report (who tells the truth), a book that is due (a date). The writer
+  named the right form for all six. Five readings were kept on the first try, 43 right of 45 questions unseen, none
+  wrong; the one for ages was refused three times, its own example not worked out by the form's code.
+- **Writes.** Kept for a number and what is done to it, a day of the week, a count of letters, a count in a stretch;
+  refused for the other eight, most for returning nothing on every question shown.
+- **Designs.** Asked cold, nothing was kept of eight kinds; shown two whole worked replies for other kinds, one (a
+  word and what is done to it), and the small model read 10 of 10 reworded questions with it as with the form
+  written by hand; the form first and the function after, twice, nothing. What came back wrong was the writer's own:
+  forms that held the answer (a field `result`, `valid`), functions that returned the first option's letter.
+- **What follows.** For this writer the line is between laying and writing: it can be asked to lay a kind onto a
+  form, not to write the code that works one out. So the forms and their code are the module's own, written and
+  tested here, and training asks its writer for readings. The class stage reads the ladder and asks for a reading
+  only where `lays` is held or was never measured (`training/ladder.mjs`, `training/write-reading.mjs`).
+- **Not measured.** Another writer; whether a reading laid by the writer is kept by a class on held questions read by
+  the swarm's own models (one dry round was started for that).
+
 ## A model reads, code works it out: 2026-11-25
 
 Of the kinds of plain question training asks, eight are ones code can work out whole, and the larger model, asked to
 write a function for each, wrote none that passed. Two things were built and measured. No benchmark was read.
 
-**Instruments that read the wording training uses.** Eight, written by hand from training's own questions. With no
+**Instruments that read the wording training uses.** Twelve, written by hand from training's own questions (the
+last four of the table were added after the measurements of forms below). With no
 model run, each is right on 40 of 40 train questions and 40 of 40 held ones of its kind:
 
 | Instrument | Held questions right | The swarm on held before (LFM3 1.7B) |
@@ -20,6 +52,10 @@ model run, each is right on 40 of 40 train questions and 40 of 40 held ones of i
 | who is the tallest | 40 of 40 | 6 of 6 |
 | how many more of one figure than another | 40 of 40 | 6 of 6 |
 | whether an argument holds | 40 of 40 | 6 of 6 |
+| a number and what is done to it | 40 of 40 | not measured |
+| a day of the week so many days on or back | 40 of 40 | not measured |
+| how many times a letter stands in a word | 40 of 40 | not measured |
+| how many numbers of a stretch can be divided | 40 of 40 | not measured |
 
 Of 880 questions of other kinds, they answer 16: every one a question of who is the tallest asked in a
 conversation, and rightly. (What a program prints is the ninth such kind; the module already runs such a program.)

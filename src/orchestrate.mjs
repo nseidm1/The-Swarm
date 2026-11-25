@@ -64,12 +64,12 @@ import { probeBriefFor, expectBriefFor, langOfQuestion, expectedIn, programOf } 
 import { answerPiece, setsRules, roomFor } from './piece.mjs';
 import { instrumentFor } from './instruments.mjs';
 import {
-  FORMS,
   formAnswer,
   formAsk,
   formParams,
   formsOn,
   formsToTry,
+  formsWith,
   readingsLeft,
   routeAsk,
   routeIn,
@@ -562,7 +562,11 @@ async function answerWhole(
   // one, the drafters each write what the question says into that form (the reply held to the form's schema where the
   // engine can), code works each form out, and the answer stands only where at least plan.readLeast of them (2) came to it
   // and none came to another. Otherwise the question goes on as it would have, the cost being the calls made.
-  if (!wantsCode && formsOn(plan.read).length) {
+  // (plan.readings: the kinds training laid onto a form for this class; they are read with the forms, as one table)
+  const forms = formsWith(plan.readings);
+  // (which of the module's own forms are on; none where the plan names none: a reading alone turns none of them on)
+  const formsAsked = plan.read === true ? true : Array.isArray(plan.read) ? plan.read : [];
+  if (!wantsCode && formsOn(formsAsked, forms).length) {
     const readers = stage('draft').filter((s) => !s.compute);
     const said = async (slot, id, messages, extra) => {
       const at = Date.now();
@@ -580,24 +584,24 @@ async function answerWhole(
       return row;
     };
     if (readers.length) {
-      const first = await said(readers[0], readers[0].id + '-kind', routeAsk(question, plan.read), {
+      const first = await said(readers[0], readers[0].id + '-kind', routeAsk(question, formsAsked, forms), {
         slot: { maxTokens: 120, temperature: 0 },
-        params: routeParams(plan.read),
+        params: routeParams(formsAsked, forms),
       });
-      const named = routeIn(first.out, plan.read);
+      const named = routeIn(first.out, formsAsked, forms);
       first.final = named || '';
       onStep(first);
       trace.push(first); // (what was asked on the way is on the record, whatever answers in the end)
       // (the form it named, then the ones the question's words point to and the ones often taken for it: forms.mjs)
-      for (const id of formsToTry(question, named, plan.read)) {
+      for (const id of formsToTry(question, named, formsAsked, forms)) {
         const many = Math.max(1, Number(plan.readBy) || 3);
         const least = Math.min(many, Math.max(1, Number(plan.readLeast) || 2));
         const reading = (n) => {
           const slot = readers[n % readers.length];
           // (the first reading is the likeliest one; the others are drawn, so that agreement means something)
-          return said(slot, slot.id + '-read' + (n < readers.length ? '' : '-' + n), formAsk(id, question), {
+          return said(slot, slot.id + '-read' + (n < readers.length ? '' : '-' + n), formAsk(id, question, forms), {
             slot: { maxTokens: 700, temperature: n === 0 ? 0 : 0.7 },
-            params: formParams(id),
+            params: formParams(id, forms),
           });
         };
         // AS MANY AS HAVE TO AGREE ARE ASKED FIRST, together; the rest only where they could still settle it (forms.mjs
@@ -609,6 +613,7 @@ async function answerWhole(
           rows.map((r) => r.out),
           many,
           least,
+          forms,
         );
         if (more > 0) rows.push(...(await Promise.all(Array.from({ length: more }, (_, n) => reading(least + n)))));
         const got = formAnswer(
@@ -616,6 +621,7 @@ async function answerWhole(
           question,
           rows.map((r) => r.out),
           least,
+          forms,
         );
         for (const r of rows) (onStep(r), trace.push(r));
         if (got) {
@@ -628,7 +634,7 @@ async function answerWhole(
             ms: Date.now() - t0,
             out:
               'The question was read as one ' +
-              FORMS[id].label +
+              forms[id].label +
               ', by ' +
               got.agreed +
               ' of ' +

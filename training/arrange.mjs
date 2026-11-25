@@ -94,6 +94,30 @@ export function adapterMoves(b, adapters = [], least = null) {
 // arrangement with that function asked before any model. It leaves every draft as it was, so it is tried for the cost of
 // the questions it answers. made: [{ id, kind, code }]
 export const writtenName = (kind) => 'code: a question of the kind "' + kind + '" is answered by code training wrote';
+// A READING TRAINING WROTE IS A CHANGE LIKE ANY OTHER (training/write-reading.mjs; src/forms.mjs plan.readings): a kind of
+// question laid onto a form the module ships. One move for each reading made that the arrangement does not have: it is on,
+// and the questions of its kind are read into the form by the drafters and worked out by the form's code
+export const readingName = (r) =>
+  'reading: a question of the kind "' +
+  r.kind +
+  '" is read into the form "' +
+  r.form +
+  '" as training wrote, and worked out by code';
+export function readingMoves(b, made = []) {
+  const on = Array.isArray((b.plan || {}).readings) ? b.plan.readings : [];
+  return (made || [])
+    .filter((r) => r && r.id && r.form && !on.some((x) => x.id === r.id))
+    .map((r) => ({
+      name: readingName(r),
+      briefs: {
+        ...b,
+        plan: {
+          ...b.plan,
+          readings: [...on, { id: r.id, form: r.form, label: r.label, about: r.about, example: r.example }],
+        },
+      },
+    }));
+}
 export function writtenMoves(b, made = []) {
   const on = Array.isArray((b.plan || {}).written) ? b.plan.written : [];
   return (made || [])

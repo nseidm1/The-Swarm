@@ -1151,7 +1151,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       all.some((c) => /b-recompute drafts instead of checking/.test(c.name)) &&
       // (an instrument turned on comes first of all: it costs nothing to try; then the flow)
       /^plan: a question .* is done by code$/.test(all[0].name) &&
-      all.filter((c) => / is done by code$/.test(c.name)).length === 12 &&
+      all.filter((c) => / is done by code$/.test(c.name)).length === 16 &&
       // (then one model asked as the request came, for a piece of writing and for the whole class; then the flow)
       /a piece of writing is written by one model, asked as it came$/.test(all[4].name) &&
       /^plan: one model answers, asked as it came$/.test(all[5].name) &&
@@ -13087,10 +13087,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       of('Today is 02/28/2020 (month/day/year). What is the date 1 week from now?') === '03/06/2020' &&
       of('Today is 02/30/2017 (month/day/year). What is the date 4 days ago?') === null &&
       of('What is the capital of France?') === null &&
-      I.INSTRUMENT_IDS.join() === 'sum,truth,sorted,closed,lies,word,row,date,free,order,more,valid' &&
-      I.INSTRUMENT_WHOLE.join() === 'lies,word,row,date,free,order,more,valid' &&
+      I.INSTRUMENT_IDS.join() ===
+        'sum,truth,sorted,closed,lies,word,row,date,free,order,more,valid,number,weekday,letters,range' &&
+      I.INSTRUMENT_WHOLE.join() === 'lies,word,row,date,free,order,more,valid,number,weekday,letters,range' &&
       I.instrumentFor('Ada tells the truth. Milo says Ada lies. Does Milo tell the truth?', ['sum']) === null &&
-      moves.filter((n) => / is done by code$/.test(n)).length === 12 &&
+      moves.filter((n) => / is done by code$/.test(n)).length === 16 &&
       moves.indexOf('plan: a question ' + I.INSTRUMENT_NAMES.lies + ' is done by code') >
         moves.findIndex((n) => /^flow: /.test(n)) &&
       !('instruments' in (startBriefs().plan || {})),
@@ -13244,8 +13245,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       F.clausesOf(liesQ) === 3 &&
       F.formsToTry(liesQ, null).join() === 'lies' &&
       // (a form read wrongly too often is on only where it is named)
-      F.formsOn(true).join() === 'lies,word,row,date,free,order,valid' &&
+      F.formsOn(true).join() === 'lies,word,row,date,free,order,valid,number,weekday,letters,range' &&
       F.formsOn(['more', 'word']).join() === 'word,more' &&
+      F.formWorked('lies', liesQ, J(liesF)) === 'Yes' &&
+      F.formWorked('lies', liesQ, 'nothing') === null &&
       F.formsOn(undefined).length === 0 &&
       F.formsToTry(liesQ, 'word', ['lies']).join() === 'lies' &&
       F.formParams('lies').response_format.json_schema.schema.required.join() === 'statements,asked,askedWhether' &&
@@ -13302,6 +13305,282 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       !RUNS.test('evaluate(x); retrieval(x)'),
     { files: files.length, found },
   );
+}
+
+{
+  // FOUR MORE FORMS OF FIGURES, AND A READING TRAINING WROTE: a kind of question laid onto a form the module ships
+  const I = await import('../src/instruments.mjs');
+  const F = await import('../src/forms.mjs');
+  const TK = await import('../training/tasks.mjs');
+  const KIND = { number: 'chain', weekday: 'day', letters: 'letters', range: 'count' };
+  const tally = {};
+  for (const [id, kind] of Object.entries(KIND)) {
+    const list = TK.tasks({ split: 'held', each: 12, kinds: [kind] });
+    let right = 0;
+    for (const t of list) {
+      const r = I.instrumentFor(t.ask, [id]);
+      if (r && (await t.good(r.answer)).grade === 'right') right++;
+    }
+    tally[id] = right + ' of ' + list.length;
+  }
+  const A = (id, form, q) => F.FORMS[id].answer(form, q);
+  const J = JSON.stringify;
+  const ageQ = 'Pat was born before Lee. Kim was born after Lee. Who is the youngest?';
+  const age = {
+    id: 'age-order',
+    form: 'order',
+    label: 'people compared by when they were born, and who is the oldest or the youngest',
+    about:
+      'People compared by age. "comparisons": a is the one named first, b the second; is is "more" where a is older (born before), "less" where a is younger (born after). "asked": rank 1 from "greatest" is the oldest, rank 1 from "least" the youngest.',
+    example: {
+      question: 'Sam was born before Tess. Who is the oldest?',
+      form: {
+        comparisons: [
+          { a: 'Sam', is: 'more', b: 'Tess' },
+          { a: 'Tess', is: 'less', b: 'Sam' },
+        ],
+        asked: { rank: 1, from: 'greatest' },
+      },
+    },
+  };
+  const T = F.formsWith([age]);
+  const filled = J({
+    comparisons: [
+      { a: 'Pat', is: 'more', b: 'Lee' },
+      { a: 'Kim', is: 'less', b: 'Lee' },
+    ],
+    asked: { rank: 1, from: 'least' },
+  });
+  const got = {
+    number: A(
+      'number',
+      {
+        start: 12,
+        steps: [
+          { do: 'subtract', by: 5 },
+          { do: 'multiply', by: 3 },
+        ],
+      },
+      'Begin at 12. Take away 5, then times it by 3.',
+    ),
+    numberOther: A('number', { start: 12, steps: [{ do: 'subtract', by: 6 }] }, 'Begin at 12. Take away 5.'),
+    numberZero: A('number', { start: 12, steps: [{ do: 'divide', by: 0 }] }, 'Begin at 12. Divide by 0.'),
+    weekday: A(
+      'weekday',
+      { today: 'Thursday', amount: 179, unit: 'day', direction: 'on' },
+      'It is Thursday. And 179 days on?',
+    ),
+    weekdayBack: A(
+      'weekday',
+      { today: 'Monday', amount: 2, unit: 'week', direction: 'back' },
+      'It is Monday. A fortnight back?',
+    ),
+    weekdayOther: A('weekday', { today: 'Friday', amount: 1, unit: 'day', direction: 'on' }, 'It is Monday.'),
+    letters: A('letters', { word: 'bookkeeper', letter: 'o' }, 'Count the "o" in "bookkeeper".'),
+    lettersOther: A('letters', { word: 'bookkeeper', letter: 'z' }, 'Count the "o" in "bookkeeper".'),
+    range: A(
+      'range',
+      { from: 15, to: 62, ends: 'both', dividedBy: 4 },
+      'From 15 to 62 inclusive, how many divide by 4?',
+    ),
+    rangeNeither: A(
+      'range',
+      { from: 16, to: 24, ends: 'neither', dividedBy: 4 },
+      'Strictly between 16 and 24, how many multiples of 4?',
+    ),
+    rangeOther: A('range', { from: 15, to: 63, ends: 'both', dividedBy: 4 }, 'From 15 to 62, how many divide by 4?'),
+  };
+  check(
+    "four more forms, of figures, each with an instrument that reads the wording training uses and is right on every held question of its kind: a number and what is done to it in turn, a day of the week so many days on or back, how many times a letter stands in a word, how many whole numbers of a stretch can be divided by one; and a reading training wrote lays a kind of question onto a form the module ships: the form's fields and its working out are the form's own, the reading says how a model is told to fill it; one is kept only where it names a form there is and its own example is worked out by that form's code; kept, it is read with the forms as one table, on wherever it is",
+    Object.values(tally).every((v) => v === '12 of 12') &&
+      J(got) ===
+        J({
+          number: '21',
+          numberOther: null,
+          numberZero: null,
+          weekday: 'Monday',
+          weekdayBack: 'Monday',
+          weekdayOther: null,
+          letters: '2',
+          lettersOther: null,
+          range: '12',
+          rangeNeither: '1',
+          rangeOther: null,
+        }) &&
+      F.readingsIn([
+        age,
+        { ...age, id: 'other', form: 'nothing' },
+        { ...age, id: 'lies' },
+        { ...age, id: 'empty', example: { question: 'q', form: {} } },
+        { ...age, id: 'Bad Id' },
+        age,
+      ])
+        .map((r) => r.id)
+        .join() === 'age-order' &&
+      F.readingsIn(Array.from({ length: 20 }, (_, n) => ({ ...age, id: 'age-' + n }))).length === F.READINGS_MOST &&
+      F.formsWith([]) === F.FORMS &&
+      F.formsWith(undefined) === F.FORMS &&
+      T['age-order'].schema === F.FORMS.order.schema &&
+      F.formsOn(undefined, T).join() === 'age-order' &&
+      F.formsOn(true, T).includes('order') &&
+      F.formsOn(true, T).includes('age-order') &&
+      F.routeAsk(ageQ, [], T)[0].content.includes('- age-order: people compared by when they were born') &&
+      F.routeIn('{"about":"ages","kind":"age-order"}', [], T) === 'age-order' &&
+      F.routeIn('{"about":"ages","kind":"age-order"}') === null &&
+      F.formAsk('age-order', ageQ, T)[0].content.includes('born before') &&
+      F.formAsk('age-order', ageQ, T)[1].content === age.example.question &&
+      F.formParams('age-order', T).response_format.json_schema.schema === F.FORMS.order.schema &&
+      F.formAnswer('age-order', ageQ, [filled, filled], 2, T).answer === 'Kim' &&
+      F.formsToTry(ageQ, 'age-order', [], T).join() === 'age-order' &&
+      F.readingsLeft('age-order', ageQ, [filled, 'nothing'], 3, 2, T) === 1,
+    { tally, got },
+  );
+}
+
+{
+  // TRAINING LAYS A KIND ONTO A FORM, AND MEASURES WHAT ITS WRITER CAN BE TRUSTED WITH (training/write-reading.mjs,
+  // training/ladder.mjs, training/ladder-kinds.mjs). The writer here answers from a script: no model is asked.
+  const WR = await import('../training/write-reading.mjs');
+  const LD = await import('../training/ladder.mjs');
+  const LK = await import('../training/ladder-kinds.mjs');
+  const AR = await import('../training/arrange.mjs');
+  const CL = await import('../training/classes.mjs');
+  const F = await import('../src/forms.mjs');
+  const TK = await import('../training/tasks.mjs');
+  const { startBriefs } = await import('../src/index.mjs');
+  const J = JSON.stringify;
+  // (a writer that reads ages as an ordering: "X was born before Y" -> X is more; "after" -> less)
+  const ageForm = (q) => ({
+    comparisons: [...q.matchAll(/(\w+) was born (before|after) (\w+)\./g)].map((m) => ({
+      a: m[1],
+      is: m[2] === 'before' ? 'more' : 'less',
+      b: m[3],
+    })),
+    asked: { rank: /second/.test(q) ? 2 : 1, from: /youngest/.test(q) ? 'least' : 'greatest' },
+  });
+  const asked = [];
+  const writer =
+    (how) =>
+    async (messages, o = {}) => {
+      const name = o.format.response_format.json_schema.name;
+      asked.push(name);
+      const q = messages.at(-1).content;
+      if (name === 'pick') return J({ why: 'ages are an ordering', form: how.pick || 'order' });
+      if (name === 'reading')
+        return J({
+          label: 'people compared by when they were born',
+          about: 'a is named first, b second; is is "more" where a was born before b, "less" where after.',
+          example: how.badExample
+            ? {
+                question: 'Sam was born before Tess. Who is the oldest?',
+                form: { comparisons: [], asked: { rank: 1, from: 'greatest' } },
+              }
+            : {
+                question: 'Sam was born before Tess. Tess was born before Una. Who is the oldest?',
+                form: ageForm('Sam was born before Tess. Tess was born before Una. Who is the oldest?'),
+              },
+        });
+      const f = ageForm(q);
+      if (how.flip) f.comparisons = f.comparisons.map((c) => ({ ...c, is: c.is === 'more' ? 'less' : 'more' }));
+      return J(f);
+    };
+  const ages = LK.ladderTasks('ages', 14);
+  const good = await WR.writeReadingFor({
+    kind: 'ages',
+    shown: ages.slice(0, 5),
+    unseen: ages.slice(5),
+    ask: writer({}),
+  });
+  const nAsked = asked.length;
+  const flipped = await WR.writeReadingFor({
+    kind: 'ages',
+    shown: ages.slice(0, 5),
+    unseen: ages.slice(5),
+    ask: writer({ flip: true }),
+    tries: 2,
+  });
+  const noExample = await WR.writeReadingFor({
+    kind: 'ages',
+    shown: ages.slice(0, 5),
+    unseen: ages.slice(5),
+    ask: writer({ badExample: true }),
+    tries: 1,
+  });
+  const none = await WR.writeReadingFor({
+    kind: 'ages',
+    shown: ages.slice(0, 5),
+    unseen: ages.slice(5),
+    ask: writer({ pick: 'none' }),
+  });
+  // every kind of the ladder: made from a seed, the same each time, and its answer is what the form it fits works out
+  const again = LK.ladderTasks('ages', 14);
+  const lays = await LD.rungLays({ ask: writer({}), only: ['ages'] });
+  const fills = await LD.rungFills({
+    ask: async (messages) => {
+      const q = messages.at(-1).content;
+      const m = /Today is (\w+)\. What day of the week will it be (\d+) days from now\?/.exec(q);
+      return J({ today: m[1], amount: Number(m[2]), unit: 'day', direction: 'on' });
+    },
+    make: (kind, n) => TK.tasks({ split: 'held', each: n, kinds: [kind] }),
+    each: 6,
+    only: ['weekday'],
+  });
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-ladder-'));
+  fs.writeFileSync(
+    LD.ladderFile(dir),
+    J({ bar: 0.75, rungs: { fills: { passed: 11, of: 12, held: true }, lays: { passed: 1, of: 6, held: false } } }),
+  );
+  const ladder = LD.readLadder(dir);
+  const b = startBriefs();
+  const moves = AR.readingMoves(b, [{ ...good.reading, kind: 'ages' }]);
+  check(
+    "training lays a kind of question onto a form the module ships, and writes no code for it: the writer says which form, then how a model is to be told to fill it for this kind (each reply held to a schema); the reading is refused where its own example is not worked out by the form's code, or where, filled as it says for questions the writer was not shown, the form gives one wrong answer; refused, it is asked again and told why; kept, it is a change of the round that leaves the drafts as they are; and what a writer can be trusted with is measured a rung at a time (it fills the forms, it lays a kind onto one, it writes a function), a rung held where enough kinds passed, so that the class stage asks only for what its writer was shown to do",
+    good.ok === true &&
+      good.form === 'order' &&
+      good.reading.id === 'ages-as-order' &&
+      good.tries.length === 1 &&
+      good.tries[0].right === 9 &&
+      good.tries[0].wrong === 0 &&
+      asked.slice(0, nAsked).join() === 'pick,reading,' + Array(9).fill('form').join() &&
+      flipped.ok === false &&
+      flipped.tries.length === 2 &&
+      /wrong answer for a question you were not shown/.test(flipped.why) &&
+      noExample.ok === false &&
+      /own example/.test(noExample.why) &&
+      none.ok === false &&
+      none.form === null &&
+      /no form/.test(none.why) &&
+      J(again.map((t) => [t.ask, t.want])) === J(ages.map((t) => [t.ask, t.want])) &&
+      LK.LADDER_KIND_NAMES.join() === 'ages,queue,account,moved,units,due' &&
+      LK.LADDER_KIND_NAMES.every((k) =>
+        LK.ladderTasks(k, 6).every((t) => F.FORMS[t.fits] && t.want && t.ask.length > 20),
+      ) &&
+      lays.ages.ok === true &&
+      lays.ages.form === 'order' &&
+      lays.ages.fits === 'order' &&
+      fills.weekday.ok === true &&
+      fills.weekday.right === 6 &&
+      Object.keys(LD.FORM_KIND).join() === F.FORM_IDS.join() &&
+      LD.holds(ladder, 'fills') === true &&
+      LD.holds(ladder, 'lays') === false &&
+      LD.holds(ladder, 'writes') === null &&
+      LD.holds(LD.readLadder(path.join(dir, 'nowhere')), 'lays') === null &&
+      moves.length === 1 &&
+      moves[0].name === AR.readingName({ kind: 'ages', form: 'order' }) &&
+      moves[0].briefs.plan.readings[0].id === 'ages-as-order' &&
+      !('kind' in moves[0].briefs.plan.readings[0]) &&
+      CL.keepsDrafts(b, moves[0].briefs) === true &&
+      AR.readingMoves(moves[0].briefs, [{ ...good.reading, kind: 'ages' }]).length === 0 &&
+      F.formsOn([], F.formsWith(moves[0].briefs.plan.readings)).join() === 'ages-as-order',
+    {
+      good: { ok: good.ok, why: good.why, tries: good.tries },
+      flipped: flipped.why,
+      noExample: noExample.why,
+      lays,
+      fills,
+    },
+  );
+  fs.rmSync(dir, { recursive: true, force: true });
 }
 
 await swarm.stop();

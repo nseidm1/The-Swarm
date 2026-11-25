@@ -15,7 +15,7 @@ wiring, and part of the wiring is code that decides, with no model, how a reques
 
 | What the request is | What is done | Where |
 | --- | --- | --- |
-| An operation code does exactly (a sum, an expression of true and false, words to put in alphabetical order, brackets to close; and eight kinds of question it can read whole, such as who tells the truth, things in a row, a date so many days on or back, whether an argument holds) | Done by code; no model is asked. **Only where training turned that instrument on** for the class of input | `src/instruments.mjs` |
+| An operation code does exactly (a sum, an expression of true and false, words to put in alphabetical order, brackets to close; and twelve kinds of question it can read whole, such as who tells the truth, things in a row, a date so many days on or back, whether an argument holds) | Done by code; no model is asked. **Only where training turned that instrument on** for the class of input | `src/instruments.mjs` |
 | A request that sets rules that can be counted (so many words, no comma, every letter a capital, labelled parts, placeholders) | The first drafters each write the whole reply, and one more is written to the request as it came, with no brief; each is counted against the rules, the one that keeps the most goes out, and its writer is told once what it broke | `src/piece.mjs` |
 | A conversation that ends with the start of the reply | The conversation before it is answered and the reply follows the start (for a Python function, its body) | `src/read.mjs` |
 | A function, in JavaScript, TypeScript, Python, Go, Swift, Dart, Flutter or Kotlin | The drafts are run on the same calls, boxed, and drafts that do the same are one answer | `src/behave.mjs`, `src/langs.mjs` |
