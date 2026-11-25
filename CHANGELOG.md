@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A pass just started is not read as finished** (2026-11-24). The conversation run's ring read 100% in the first
+  minutes of a pass: until the pass first writes its record, the file is the pass before, which says it is done. A
+  record that says done while a pass says what it is asking is now taken as the last pass's, and the ring is as far
+  as the question in hand.
 - **A dialog opens at once and says it is reading** (2026-11-24). The questions training asks took three and a half
   seconds to appear, with nothing on the screen until they did. Every dialog (the questions, the spec, a body of
   work's questions, an evaluation's table, the recommendations, the Uninstall Helper, steering) is now shown the

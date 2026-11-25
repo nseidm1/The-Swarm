@@ -2710,6 +2710,10 @@ check("how far a run has come is a ring on the run's own card, filled to a share
       'role="progressbar"' in _rg0 and 'aria-valuenow="0"' in _rg0 and "<b>0%</b>" in _rg0 and 'stroke-dasharray="0.00 ' in _rg0
       and 'class="ring on"' in _rg40 and 'aria-valuenow="40"' in _rg40 and "<b>40%</b>" in _rg40 and "aria-valuenow" not in _rgn and "<b>–</b>" in _rgn
       and _sh_none == 0 and _sh_one == 25 and abs(_sh_train - 62.5) < 0.01 and _sh_stopped == 50
+      # (a pass just begun, its record still the last pass's and saying done, or no record at all: as far as its question, not whole)
+      and abs(swarm_ui.classes_share({"done": "2026-11-24", "classes": {"talk": {"asItStands": {}, "rounds": [{"kept": True}]}}}, 1, "Class 1 of 1, a conversation: how the swarm stands · question 53 of 90") - 0.15 * 52 / 90) < 1e-9
+      and abs(swarm_ui.classes_share(None, 1, "how the swarm stands · question 46 of 90") - 0.075) < 1e-9 and swarm_ui.classes_share({"done": "x", "classes": {}}, 1, "") == 1.0 and swarm_ui.classes_share(None, 1, "") == 0.0
+      and "\"starting\": True" in Path(swarm_ui.__file__).read_text()
       and 'class="ring on"' in _cv_run and 0 < _now_pct < 100 and "of pass" in _cv_run and 'id="converse-stop"' in _cv_run
       and 'id="score"' not in swarm_ui.arrangement(_cvd) and 'id="tq-open"' not in swarm_ui.arrangement(_cvd) and 'id="tq-open"' in swarm_ui.config_section(_cvd)
       and "View training questions" in swarm_ui.config_section(_cvd) and "Your own training questions" in swarm_ui.config_section(_cvd) and ".ring .rv" in swarm_ui.CSS,

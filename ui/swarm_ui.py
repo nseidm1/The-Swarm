@@ -4377,6 +4377,12 @@ def classes_share(rec, asked=4, step=""):
     on), then each round by the changes tried of those it has to try, the one being tried counted by the question it is on,
     and the held questions by the draw and the question. Where a record does not say how many changes a round has (one
     written before it did), the round before it, or the class before it, is taken to say; else thirty."""
+    # A RECORD THAT SAYS DONE WHILE THE STAGE SAYS WHAT IT IS ASKING IS THE LAST PASS'S. The stage writes its record first when
+    # it has asked every train question as the swarm stands, so until then the file is the pass before, finished: a pass
+    # just started read 100% (console 2026-11-24). With a step in hand, such a record, or none, is a pass that has begun:
+    # it is as far as the question it is on.
+    if step and (not rec or rec.get("done")):
+        rec = {"classes": {}}
     if not rec:
         return 0.0
     if rec.get("done"):
@@ -4386,6 +4392,8 @@ def classes_share(rec, asked=4, step=""):
     dr = re.search(r"draw (\d+) of (\d+)", step or "")
     held_now = "held question" in (step or "")
     cs = list((rec.get("classes") or {}).values())
+    if not cs and step:
+        cs = [{}]  # (nothing written yet: the first class, being asked as it stands)
     seen = [len(r.get("candidates") or []) for c in cs for r in c.get("rounds") or [] if "kept" in r or c is not cs[-1]]
     total = 0.0
     for i, c in enumerate(cs):
@@ -4702,7 +4710,11 @@ def stage_record(d):
     try:
         f = Path(str(live.get("record") or "")).resolve()
         if root in f.parents and f.is_file():
-            return data._json(f, None)
+            rec = data._json(f, None)
+            # (not yet written by this pass: the file is the pass before, which says it is done. This one has begun)
+            if rec and rec.get("done"):
+                return {"pass": (rec.get("pass") or 0) + 1, "classes": {}, "sample": rec.get("sample"), "rounds": rec.get("rounds"), "starting": True}
+            return rec
     except (OSError, ValueError):
         pass
     return None
@@ -6258,7 +6270,7 @@ def converse_block(d):
     # question in hand: classes_share); otherwise where the held conversations stand after the last pass
     if running:
         rec = stage_record(d)
-        figure = ring(100.0 * classes_share(rec, 1, stage_step()) if rec else 0.0, True, "How far the conversation pass has come")
+        figure = ring(100.0 * classes_share(rec, 1, stage_step()), True, "How far the conversation pass has come")
         what = "of pass %d" % (len(hist) + 1)
     else:
         la = (last or {}).get("heldAfter") or {}
