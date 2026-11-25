@@ -215,6 +215,26 @@ function pythonBodyFor(tail, code) {
   const outer = beside.some((l) => l.trim()) ? set(beside) : [];
   return [...outer, ...set(body)].join('\n').replace(/\s+$/, '') + '\n';
 }
+// WHAT IS SAID ON THE ANSWER LINE, WITHOUT THE MARKS A MODEL PUTS ROUND IT FOR EMPHASIS. Every *, _ and ` was taken off, which
+// is right for "**42**" and wrong for code: a draft that gave a function on its answer line had `return n * 5` read as
+// `return n  5`, and a name like sum_list read as sumlist, so every conversation turn asking for code was wrong whatever
+// was drafted (measured 2026-11-24: 0 of 10, where one model asked alone had 9). Marks that wrap the whole answer come off;
+// what reads as code is then left as it is; elsewhere * and ` come off, and _ only where it is not inside a name.
+const READS_AS_CODE =
+  /\bfunction\b|=>|\bdef\s|\breturn\b|\b(?:const|let|var)\s|[;{}]|\w\s*\([^)]*\)\s*[{:]|[\w)\]]\s*[*/%]\s*[\w(]|[A-Za-z0-9]_[A-Za-z0-9]/;
+export function unmarked(text) {
+  let s = String(text || '').trim();
+  for (let i = 0; i < 4; i++) {
+    const m = /^(\*\*|__|\*|_|`+)([\s\S]+?)\1$/.exec(s);
+    if (!m) break;
+    s = m[2].trim();
+  }
+  if (READS_AS_CODE.test(s)) return s;
+  return s
+    .replace(/[*`]/g, '')
+    .replace(/(^|[^A-Za-z0-9])_+|_+(?=$|[^A-Za-z0-9])/g, '$1')
+    .trim();
+}
 export function finalOf(text, marker = MARKER, wantsCode = false) {
   const block = lastBlock(text, marker, wantsCode);
   if (block) return block.code;
@@ -222,14 +242,12 @@ export function finalOf(text, marker = MARKER, wantsCode = false) {
   for (let i = lines.length - 1; i >= 0; i--) {
     const at = lines[i].toUpperCase().lastIndexOf(marker.toUpperCase());
     if (at < 0) continue;
-    const said = lines[i]
-      .slice(at + marker.length)
-      .replace(/[*_`]/g, '')
-      .trim();
+    // (the marker itself may be in bold, "**ANSWER:** 42": the marks that closed it are left at the start of what follows)
+    const said = unmarked(lines[i].slice(at + marker.length).replace(/^\s*(?:\*+|_+)(?=\s|$)/, ''));
     if (said) return said;
     // the marker alone on a line: the answer is the next line that says anything
     const next = lines.slice(i + 1).find((l) => l.trim());
-    if (next) return next.replace(/[*_`]/g, '').trim();
+    if (next) return unmarked(next);
   }
   return '';
 }

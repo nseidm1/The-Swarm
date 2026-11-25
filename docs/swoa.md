@@ -1547,7 +1547,8 @@ or `let` followed by a whitespace character; otherwise empty. No writer is calle
 
 #### O.8.3 Settled answers not rewritten
 
-PASS-OVER holds when decided is non-empty, AS-IS does not hold, and `plan.writeAs` is `settled`.
+PASS-OVER holds when decided is non-empty, AS-IS does not hold, and `plan.writeAs` is `settled` or `bare`. With `bare`
+the reply is the decided answer alone, with no work before it, and the path carries `+bare`.
 Then `+as-settled` is appended to path and no writer is called (the reply comes from O.8.6).
 
 FULL holds when neither AS-IS nor PASS-OVER holds, `plan.writeAs` is `full`, and the question does not ask for
@@ -1823,6 +1824,7 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `piece` | boolean | true | a reply the request sets countable rules on is written whole and kept to them (R.5.1) |
 | `piecePlain` | boolean | true | among those replies, one is written to the conversation as it came, with no brief (R.5.1 step 1a) |
 | `instruments` | list of ids, or `true` | none | the instruments that are on: a question that is one of their operations is done by code and no model is asked (R.6) |
+| `for` | `{ <facet>: { ...plan keys } }` | none | what was kept for one kind of request within the class: where the request is of that facet, these keys are laid over the plan, and every other request has the plan as it is. The facets, read from the conversation with no model asked: `closing` (the last message asks nothing: thanks, a closing word, in a conversation already begun), `code` (the last message asks for code, or goes on from code earlier in the conversation), `instructed` (an earlier message of the person's says how to answer). A request is of the first that applies, or of none |
 | `written` | list of `{ id, kind, name, code }` | none | functions training wrote and kept for the class: `code` declares `answer(question)` in ECMAScript, which returns the answer as text, or null where it does not read the whole question. Where the question does not want code, each is run in turn, after the instruments and before any model, with no access to files, programs, the network or the clock and a bound on its time; the first answer given is the decided answer and the path is `written`. Where none gives one, or none can be run, the request goes on as it would have |
 | `searchFirst` | boolean | true | a turn with a search tool offered and nothing yet looked up does not end without a call (T.13a) |
 | `searchThrough` | boolean | true | a turn with a search tool offered is taken by the search program (T.13b) |
@@ -1847,7 +1849,7 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `probe` | object | none | `{member, brief, maxTokens}` for the probe slot |
 | `expect` | object | none | `{member, brief, maxTokens}` for the expectation slot |
 | `writeCode` | boolean | false | `true` sends code answers through the writers |
-| `writeAs` | text | none | `settled`: no writer for non-code answers; `full`: the writers are told the FULL BRIEF in place of their own, except where a piece of writing is asked for (O.8.3, O.8.4, R.5) |
+| `writeAs` | text | none | `settled`: no writer for non-code answers, which go out with the work behind them; `bare`: no writer, and the answer alone; `full`: the writers are told the FULL BRIEF in place of their own, except where a piece of writing is asked for (O.8.3, O.8.4, R.5) |
 | `runPrograms` | boolean | true | `false`: a program the question asks the output of is not run (R.4) |
 | `toolReply` | text | none | read from the arrangement for class `tools`: `proposed` keeps a proposed reply as the turn's reply (T.9) |
 | `toolFit` | integer | 8000 | read from the arrangement for class `tools`: the most characters of tool results a proposer is sent before the earlier ones are cut (T.11) |

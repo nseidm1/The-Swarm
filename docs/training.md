@@ -25,6 +25,17 @@ and keeps each only where held questions say it helped:
   with the code, is in `<record>-written.json`. `--no-write` leaves the step out. Not built: the larger model as the
   writer, and code written for anything but the answer to a single question (a reply's wording, a turn with tools).
   The first trial is under [Measured](measured.md#training-writes-code-the-first-trial-2026-11-24);
+- **for one kind of request**: a class is wide, and a change that mends one kind of request in it and spoils the
+  others cannot be kept for the class. So a kind of request within a class is told by code (`src/facets.mjs`: a turn
+  that asks nothing, one asking for code or going on from code, one after the person said how to answer), and a change
+  can be kept for that kind alone (`plan.for`). Each round, for the facets the class has wrong answers of, the changes
+  worth keeping for that facet are tried (`arrange.mjs` `facetMoves`: one model asked as the request came; the same
+  with the reply tidied, for a turn that asks nothing; the settled answer alone); then the change of the round that
+  did most for that facet's questions, whatever it did to the class, is tried kept for the facet alone
+  (`scopedMove`); then what gained for different facets, together. So what a pass is short on makes the next thing
+  tried, and not only more questions of it;
+- **the answer alone**: the settled answer goes out with no work before it (`writeAs: 'bare'`), beside going out with
+  its work;
 - **how many slots and models**: a slot added, dropped or moved to another model, every slot on one model, one slot
   asked as the request came;
 - **breakdown and cascade**: code takes the question apart, with no model asked. With the breakdown every drafter is

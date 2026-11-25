@@ -242,7 +242,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const { readBriefs, saveLearned } = await import('../src/index.mjs');
   const { briefsFor, classOf, CLASSES } = await import('../src/orchestrate.mjs');
   const { messagesOf, ownStandard } = await import('./tasks.mjs');
-  const { steps, writtenMoves } = await import('./arrange.mjs');
+  const { steps, writtenMoves, facetMoves, scopedMove } = await import('./arrange.mjs');
+  const { facetOf } = await import('../src/facets.mjs');
   const { kindsShort, writeFor, writable, kindsAdded, moreHeldOf } = await import('./write-code.mjs');
   const policy = JSON.parse(fs.readFileSync(path.join(HERE, 'policy.json'), 'utf8'));
   const P = policy.classes || {};
@@ -293,6 +294,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const lastRows = {};
   // (for each class, a leaner arrangement that was no worse on its train questions: timed at the end, timeTrials)
   const leanBy = {};
+  // (each class's arrangement as this pass leaves it: what a pass that keeps nothing on disk, --dry, still found)
+  const leftBy = {};
 
   let stored = readBriefs();
   const record = {
@@ -573,8 +576,31 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
             save();
           }
         }
+        // WHERE THE CLASS IS SHORT, BY KIND OF REQUEST (src/facets.mjs): the facets it has wrong answers of. For each, the
+        // changes worth keeping for that facet alone are tried with the rest (arrange.mjs facetMoves); and after the round,
+        // the change that did most FOR THAT FACET'S QUESTIONS, whatever it did to the class, is tried kept for the facet
+        // alone (scopedMove). So what a pass is short on makes the next thing tried, not only more questions of it.
+        const facetAt = tr.map((t) => facetOf(messagesOf(t)));
+        const facetsShort = [...new Set(facetAt.filter(Boolean))].filter(
+          (f) => facetAt.filter((x, i) => x === f && !baseRows[i].counted).length >= 2,
+        );
+        if (facetsShort.length) {
+          R.facets = Object.fromEntries(
+            facetsShort.map((f) => [
+              f,
+              {
+                n: facetAt.filter((x) => x === f).length,
+                wrong: facetAt.filter((x, i) => x === f && !baseRows[i].counted).length,
+              },
+            ]),
+          );
+          console.log(
+            '  short by kind of request: ' +
+              facetsShort.map((f) => f + ' ' + R.facets[f].wrong + ' of ' + R.facets[f].n).join(', '),
+          );
+        }
         // (how many it has to try, for the page to say how far the stage has come: the round's, and one more for the two together)
-        const stepsWith = (b, o) => [...writtenMoves(b, made), ...steps(b, o)];
+        const stepsWith = (b, o) => [...writtenMoves(b, made), ...facetMoves(b, facetsShort), ...steps(b, o)];
         const toTry = roundOf(
           stepsWith(base, { adapters: mixture, adapterLeast: P.adapterLeast ?? 0.9 }),
           base,
@@ -590,6 +616,56 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         // (and the best two of the sweep together: two changes that each help may help more as one)
         const both = togetherOf(scored, stepsWith);
         if (both) await tryOne(both);
+        // (for each facet it is short on: the change that made most of that facet's questions good, kept for the facet alone)
+        const facetGain = (c, f) =>
+          facetAt.reduce(
+            (n, x, i) => n + (x === f ? (c.rows[i].counted ? 1 : 0) - (baseRows[i].counted ? 1 : 0) : 0),
+            0,
+          );
+        for (const f of facetsShort) {
+          const from = scored
+            .filter((c) => !/^for requests /.test(c.m.name) && !c.m.together && facetGain(c, f) > 0)
+            .sort((a, b) => facetGain(b, f) - facetGain(a, f) || b.g.gain - a.g.gain)[0];
+          const sm = from && scopedMove(base, f, from.m);
+          if (sm && !scored.some((c) => c.m.name === sm.name)) {
+            R.of += 1;
+            await tryOne(sm);
+          }
+        }
+        // (and what gained for different facets, together: they touch different requests, so one does not undo another)
+        const perFacet = facetsShort
+          .map(
+            (f) =>
+              scored
+                .filter(
+                  (c) =>
+                    c.m.name.startsWith('for requests ') &&
+                    !c.m.several &&
+                    c.g.gain > 0 &&
+                    Object.keys((c.m.briefs.plan || {}).for || {}).includes(f) &&
+                    facetGain(c, f) > 0,
+                )
+                .sort((a, b) => b.g.gain - a.g.gain)[0],
+          )
+          .filter(Boolean)
+          .filter((c, i, a) => a.indexOf(c) === i);
+        if (perFacet.length > 1) {
+          const forAll = Object.assign(
+            {},
+            (base.plan || {}).for || {},
+            ...perFacet.map((c) =>
+              Object.fromEntries(
+                Object.entries(c.m.briefs.plan.for).filter(([k]) => facetsShort.includes(k) && facetGain(c, k) > 0),
+              ),
+            ),
+          );
+          R.of += 1;
+          await tryOne({
+            name: perFacet.map((c) => c.m.name).join(' + '),
+            briefs: { ...base, plan: { ...base.plan, for: forAll } },
+            several: true,
+          });
+        }
         if (!best) {
           leanBy[K] = leanOf(scored, base);
           break;
@@ -665,6 +741,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         }
         leanBy[K] = null;
         base = best.m.briefs;
+        leftBy[K] = base;
         baseRows = best.rows;
         lastRows[K] = baseRows;
         C.kept.push(best.m.name);
@@ -853,7 +930,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       );
       C.heldAfter = (C.kept || []).length
         ? figuresOf(
-            await all(he, asClass(K, briefsFor(stored, '', K)), said(K) + ': the held questions, after the pass'),
+            await all(
+              he,
+              asClass(K, leftBy[K] || briefsFor(stored, '', K)),
+              said(K) + ': the held questions, after the pass',
+            ),
           )
         : C.heldBefore;
     }

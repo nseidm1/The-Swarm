@@ -2,6 +2,49 @@
 
 Every measurement, dated, newest first. Each is of the swarm named in it; the lineup has changed over time.
 
+## What three conversation passes could not mend, and what did: 2026-11-24
+
+LFM3 1.7B in both places, the conversation run: 13 kinds of conversation, 78 held, each reply read by code against the
+conventions of its conversation.
+
+| Pass | Held before | Held after | Kept |
+| --- | --- | --- | --- |
+| 1 | 24 | 58 | The settled answer goes out as it is (+44.9 points, error 5.4) |
+| 2 | 57 | 57 | nothing |
+| 3 | 56 | 56 | nothing |
+
+After pass 1 three kinds were wrong on every train question, in every pass, and the other ten nearly all right. Each
+pass asked four more questions of each and tried the same sixty-odd changes. Read from the replies:
+
+| Kind | The reply | Why |
+| --- | --- | --- |
+| A turn asking for code | `function times5(n) { return n  5; }` | The module took every `*` and `_` off a draft's answer line. One model asked alone had 9 of 10 |
+| After "bare numbers, no units" | `9 * 5 = 45`, a blank line, `45` | The kept change sends the work with the answer. The answer alone was right on about 8 of 10 |
+| "Thank you, that settles it." | `You're welcome.`, a blank line, `56` | The drafters answered the question before it again |
+
+Then five changes (the fix to the answer line; the answer alone; a change kept for one kind of request; a turn that
+asks nothing answered by one slot; candidates made from where the class is short), and one pass of two rounds on the
+same swarm, keeping nothing (`--dry`):
+
+| The 78 held conversations, first draw | Right | Thanks | Standing instruction | Code |
+| --- | --- | --- | --- | --- |
+| As the three passes left it | 56 to 58 | 0 of 6 | 0 of 6 | 0 of 6 |
+| With the fix to the answer line alone | 64 | 0 | 0 | 6 |
+| With what round 1 found | 74 | 6 | 4 | 6 |
+
+Round 1 found, for the two kinds of request the class was still wrong on: a turn that asks nothing is answered by one
+slot and tidied, and after the person has said how to answer the settled answer goes out alone. Together: 65 to 72 of
+78 train conversations, and on the held ones, two draws, 12.8 points with a paired error of 3.8, so by the one rule it
+would be kept. Round 2 kept nothing (2.6 points, error 1.8).
+
+- **What this shows:** the passes stalled on the module and on how wide a class is, not on the model. With those
+  mended, one pass moved held conversations from 64 to 74 of 78.
+- **What it does not show:** anything beyond these conversations. The three facets were written after reading these
+  three kinds, and they read training's own kinds exactly (each of the three is one facet, the other ten none), so
+  how they read conversations nobody here wrote is not measured. No benchmark was asked.
+- **Left wrong:** two standing-instruction turns where no slot had the right figure, and on the train questions three
+  thanks out of six still over the bar.
+
 ## Training writes code: the first trial, 2026-11-24
 
 LFM3 1.7B in both places, the class of plain questions, six kinds of training's own questions (day, order, string,

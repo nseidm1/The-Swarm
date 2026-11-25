@@ -1701,6 +1701,8 @@ TRAINS = [("Pure code", "a kind of question that is an operation is done by code
           ("Settling", "how the drafts are settled: by most, by the drafters alone, by a model"),
           ("The reply", "how the reply is written and closed"),
           ("Time, as the tie-breaker", "the same model served another way (another file of it, another build of the engine), or a leaner arrangement: kept where answers are no worse and come at least 15% sooner"),
+          ("For one kind of request", "a change kept for requests of one kind within a class and no others: a turn that asks nothing, one asking for code inside a conversation, one after the person said how to answer"),
+          ("The answer alone", "the settled answer goes out with no work before it"),
           ("Conversation", "a reply tidied by code: an opening that only praises, a closing that only offers help, a sentence said again, a greeting given twice")]
 GAP_WORDS = {"none": "no slot had the answer, so what is drafted is tried first", "lost": "a slot had the answer and settling lost it, so settling is tried first",
              "spoiled": "the answer was settled and the reply spoiled it, so the reply is tried first"}

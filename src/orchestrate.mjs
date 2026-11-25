@@ -64,6 +64,7 @@ import { probeBriefFor, expectBriefFor, langOfQuestion, expectedIn, programOf } 
 import { answerPiece, setsRules, roomFor } from './piece.mjs';
 import { instrumentFor } from './instruments.mjs';
 import { writtenFor, writtenOn } from './written.mjs';
+import { facetOf, planFor } from './facets.mjs';
 
 // an answer as it is shown to another slot or to the person: code in a block of its own, anything else as it is
 const fenced = (final) => (isCode(final) ? '\n```\n' + final + '\n```' : ' ' + final);
@@ -314,7 +315,7 @@ export async function answer(messages, opts) {
 // that only offers more help, a sentence said again, a greeting given twice. Never code, never a reply begun by the caller,
 // never a turn that calls a tool.
 function tidied(got, messages, opts) {
-  const plan = (briefsFor(opts.briefs, '', classOf(messages)) || {}).plan || {};
+  const plan = planFor((briefsFor(opts.briefs, '', classOf(messages)) || {}).plan || {}, facetOf(messages));
   if (!mannersOn(plan.manners).length || !got || !got.ok || !got.reply || got.tool_calls) return got;
   if (isCode(got.decided || got.reply)) return got;
   const reply = tidy(got.reply, plan.manners, { messages });
@@ -324,7 +325,7 @@ function tidied(got, messages, opts) {
 // conversation's system text gives the reply's form as a template of two keys, what was settled is written into it by code.
 // Not code, and not a reply already begun (that one follows what was begun)
 function inFormSet(got, messages, opts) {
-  const plan = (briefsFor(opts.briefs, '', classOf(messages)) || {}).plan || {};
+  const plan = planFor((briefsFor(opts.briefs, '', classOf(messages)) || {}).plan || {}, facetOf(messages));
   if (plan.setForm === false || !got || !got.ok || !got.reply || isCode(got.decided || got.reply)) return got;
   const form = setFormOf(messages);
   if (!form) return got;
@@ -463,7 +464,10 @@ async function answerWhole(
   const kept = talk.slice(-((given.plan || {}).keepTurns || 6));
   const question = kept.length ? kept[kept.length - 1].content : '';
   const briefs = briefsFor(given, question, classOf(messages));
-  const plan = briefs.plan || {};
+  // WHAT WAS KEPT FOR THIS KIND OF REQUEST ALONE is laid over the class's plan (facets.mjs: a turn that asks nothing, one
+  // asking for code inside a conversation, one after the person said how to answer; plan.for). Most requests are none of
+  // these, and their plan is the class's
+  const plan = planFor(briefs.plan || {}, facetOf(messages));
   const stage = (name) => briefs.slots.filter((s) => s.stage === name);
   // where code is asked for, the code a slot wrote is its answer, whatever it wrote after it
   const wantsCode = asksForCode(question);
@@ -1535,8 +1539,12 @@ async function answerWhole(
   // AND WITH plan.writeAs 'settled' NO ANSWER IS REWRITTEN: the writer is passed over and the settled answer goes out with the work
   // behind it (measured, 2026-11-16: the writer changed the settled answer on 6 of 70 questions, and it was then not the larger
   // model's). Whether this is better is the trainer's to find, like any other setting.
-  const passOver = decided && !asIs && plan.writeAs === 'settled';
-  if (passOver) path += '+as-settled';
+  // AND WITH plan.writeAs 'bare' THE SETTLED ANSWER GOES OUT ALONE: no writer, and no work before it. 'settled' sends the work
+  // and then the answer ("9 * 5 = 45", a blank line, "45"), which is no bare number to a person who asked for one
+  // (measured 2026-11-24: 0 of 10 such turns, with the right answer settled on 8).
+  const bare = decided && !asIs && plan.writeAs === 'bare';
+  const passOver = decided && !asIs && (plan.writeAs === 'settled' || bare);
+  if (passOver) path += bare ? '+bare' : '+as-settled';
   // AND WITH plan.writeAs 'full' THE WRITER WRITES THE REPLY IN FULL: the answer, why, and what to do, where every draft is told to
   // be brief and the writer to add nothing (measured 2026-11-18: of 36 questions short of parity, about 19 had the larger model's
   // answer and lost it by being thin: "Yes, rabbits can eat celery." against the answer, how to give it and how much). Whether it
@@ -1650,9 +1658,11 @@ async function answerWhole(
     if (decided)
       reply = isCode(decided)
         ? '```' + fenceOf(decided) + '\n' + decided + '\n```'
-        : /\+described/.test(path) && work
-          ? work
-          : (work ? work + '\n\n' : '') + decided;
+        : bare
+          ? decided
+          : /\+described/.test(path) && work
+            ? work
+            : (work ? work + '\n\n' : '') + decided;
     else if (trace.find((r) => r.out))
       reply = workOf(trace.find((r) => r.out).out, marker) || trace.find((r) => r.out).out;
     path = path ? (/code-restored/.test(path) ? path : path + '+unwritten') : 'fallback';

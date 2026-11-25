@@ -17,6 +17,7 @@ import { INSTRUMENT_IDS, INSTRUMENT_NAMES, instrumentsOn } from '../src/instrume
 import { briefHash } from './state.mjs';
 import { SERVING } from '../src/index.mjs';
 import { MANNER_FIXES, MANNER_NAMES, mannersOn } from '../src/manners.mjs';
+import { FACETS, FACET_NAMES } from '../src/facets.mjs';
 import { flowOf, decideByOf, COMPUTE_BRIEF } from '../src/orchestrate.mjs';
 
 // an arrangement is known by its shape, not its words: who is where, at what stage, seeing what, how hot; and the plan
@@ -115,6 +116,57 @@ export function writtenMoves(b, made = []) {
         },
       },
     }));
+}
+// A CHANGE KEPT FOR ONE KIND OF REQUEST (src/facets.mjs; plan.for). The class's arrangement with a change that holds only for
+// requests of one facet: the rest of the class goes on as it did, so a change that mends one kind and spoils the others can
+// be kept where it mends.
+//   facetMoves(b, facets)          the changes worth trying for each facet the class has questions of
+//   scopedMove(b, facet, move)     a change the round already tried, kept for that facet alone (where it changed the plan
+//                                  and nothing else); null where it changed a slot or the flow
+const facetName = (f) => 'for requests ' + (FACET_NAMES[f] || f) + ': ';
+const withFor = (b, f, over) => ({
+  ...b,
+  plan: {
+    ...b.plan,
+    for: { ...((b.plan || {}).for || {}), [f]: { ...(((b.plan || {}).for || {})[f] || {}), ...over } },
+  },
+});
+export function facetMoves(b, facets = []) {
+  const has = (f, k, v) => JSON.stringify((((b.plan || {}).for || {})[f] || {})[k]) === JSON.stringify(v);
+  const out = [];
+  for (const f of facets.filter((x) => FACETS.includes(x))) {
+    if (!has(f, 'plain', true))
+      out.push({ name: facetName(f) + 'one model answers, asked as it came', briefs: withFor(b, f, { plain: true }) });
+    if (f === 'closing' && !(has(f, 'plain', true) && has(f, 'manners', MANNER_FIXES)))
+      out.push({
+        name: facetName(f) + 'one model answers, and the reply is tidied',
+        briefs: withFor(b, f, { plain: true, manners: MANNER_FIXES }),
+      });
+    if (f !== 'code' && !has(f, 'writeAs', 'bare'))
+      out.push({
+        name: facetName(f) + 'the settled answer goes out alone, with no working',
+        briefs: withFor(b, f, { writeAs: 'bare' }),
+      });
+  }
+  return out;
+}
+export function scopedMove(b, facet, move) {
+  if (!move || !move.briefs || !FACETS.includes(facet) || /^for requests /.test(move.name)) return null;
+  const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  if (!same(move.briefs.slots, b.slots) || !same(move.briefs.flow || null, b.flow || null)) return null;
+  const keys = [...new Set([...Object.keys(b.plan || {}), ...Object.keys(move.briefs.plan || {})])].filter(
+    (k) => k !== 'for' && !same((b.plan || {})[k], (move.briefs.plan || {})[k]),
+  );
+  if (!keys.length) return null;
+  // (a key the change took off is said as off: null does not stand for "as the class has it")
+  const over = Object.fromEntries(
+    keys.map((k) => [k, (move.briefs.plan || {})[k] === undefined ? false : move.briefs.plan[k]]),
+  );
+  return {
+    name: facetName(facet) + String(move.name).replace(/^plan: /, ''),
+    briefs: withFor(b, facet, over),
+    scoped: true,
+  };
 }
 export function steps(
   b,
@@ -330,6 +382,12 @@ export function steps(
       ),
     },
   });
+  // THE SETTLED ANSWER ALONE (writeAs 'bare'): no writer and no work before it
+  if ((b.plan || {}).writeAs !== 'bare')
+    out.push({
+      name: 'plan: the settled answer goes out alone, with no working',
+      briefs: { ...b, plan: { ...b.plan, writeAs: 'bare' } },
+    });
   // THE REPLY IN FULL, OR AS DRAFTED: the writer told to give the answer, why, and what to do (src/orchestrate.mjs: writeAs 'full')
   if ((b.plan || {}).writeAs !== 'settled')
     out.push({

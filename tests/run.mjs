@@ -12635,6 +12635,129 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+{
+  // WHAT THREE CONVERSATION PASSES COULD NOT MEND (2026-11-24): the answer line, the answer alone, a change kept for one kind
+  // of request, and candidates made from where a class is short
+  const R = await import('../src/read.mjs');
+  const F = await import('../src/facets.mjs');
+  const AR = await import('../training/arrange.mjs');
+  const CL = await import('../training/classes.mjs');
+  const { startBriefs } = await import('../src/index.mjs');
+  const { answer: orchestrate } = await import('../src/orchestrate.mjs');
+  const u = (c) => ({ role: 'user', content: c });
+  const a = (c) => ({ role: 'assistant', content: c });
+  const fin = (t) => R.finalOf(t);
+  const thanks = [u('25% of 80?'), a('20'), u('Thank you, that settles it.')];
+  const code = [
+    u('Write a JavaScript function `double(n)`.'),
+    a('```js\nfunction double(n) { return n * 2; }\n```'),
+    u('Now make one that multiplies by 5 instead, and call it `times5`.'),
+  ];
+  const told = [
+    u('One thing first: please give me figures as a bare number, no units or currency signs.'),
+    a('Understood.'),
+    u('9 tickets at 5 pounds each?'),
+  ];
+  const plainTurn = [u('hi'), a('Hello.'), u('25% of 80?')];
+  const base = startBriefs();
+  const draftSays = async () => ({ text: '9 * 5 = 45\nANSWER: 45' });
+  const settled = await orchestrate(told, {
+    briefs: { ...base, plan: { ...base.plan, writeAs: 'settled' } },
+    ask: draftSays,
+  });
+  const bare = await orchestrate(told, {
+    briefs: { ...base, plan: { ...base.plan, writeAs: 'bare' } },
+    ask: draftSays,
+  });
+  // (kept for one facet: the class's plan for every other request, the facet's for its own)
+  const scoped = {
+    ...base,
+    plan: { ...base.plan, writeAs: 'settled', for: { instructed: { writeAs: 'bare' }, closing: { plain: true } } },
+  };
+  const forTold = await orchestrate(told, { briefs: scoped, ask: draftSays });
+  const forOther = await orchestrate(plainTurn, {
+    briefs: scoped,
+    ask: async () => ({ text: '80 / 4 = 20\nANSWER: 20' }),
+  });
+  const asked = [];
+  const forThanks = await orchestrate(thanks, {
+    briefs: scoped,
+    ask: async (slot) => (asked.push(slot.id), { text: 'Glad that helped.' }),
+  });
+  const fm = AR.facetMoves(base, ['closing', 'code', 'instructed', 'nothing']);
+  const again = AR.facetMoves(fm[0].briefs, ['closing']);
+  const sm = AR.scopedMove(base, 'instructed', {
+    name: 'plan: the settled answer goes out alone, with no working',
+    briefs: { ...base, plan: { ...base.plan, writeAs: 'bare' } },
+  });
+  const smOff = AR.scopedMove({ ...base, plan: { ...base.plan, draftsStand: true } }, 'code', {
+    name: 'plan: x',
+    briefs: { ...base, plan: { ...base.plan } },
+  });
+  check(
+    "what three conversation passes could not mend: (1) the marks a model puts round an answer for emphasis come off the answer line and code is left as it is, where every * and _ was taken off and a function given there lost its multiplication and its names; (2) the settled answer can go out alone, with no work before it, beside going out with its work; (3) and (4) a kind of request within a class is told by code (a turn that asks nothing, one asking for code or going on from code, one after the person said how to answer; most requests are none), and a change can be kept for that kind alone, laid over the class's plan for those requests and no others, so a turn that asks nothing is answered by one slot while every other turn is drafted as it was; (5) where a class is short by kind of request, the changes worth keeping for that kind are candidates, and a change the round tried for the whole class can be tried kept for the kind alone, where it changed the plan and nothing else",
+    fin('ANSWER: function times5(n) { return n * 5; }') === 'function times5(n) { return n * 5; }' &&
+      fin('ANSWER: def sum_list(a_b): return a_b * 2') === 'def sum_list(a_b): return a_b * 2' &&
+      fin('ANSWER: **42**') === '42' &&
+      fin('**ANSWER:** 42') === '42' &&
+      fin('ANSWER: `sum_list`') === 'sum_list' &&
+      fin('ANSWER: *Monday*') === 'Monday' &&
+      fin('ANSWER: _yes_') === 'yes' &&
+      fin('ANSWER: 2 * 3 = 6') === '2 * 3 = 6' &&
+      fin('ANSWER:\n**No**') === 'No' &&
+      R.unmarked('`x`') === 'x' &&
+      settled.reply === '9 * 5 = 45\n\n45' &&
+      /\+as-settled/.test(settled.path) &&
+      bare.reply === '45' &&
+      bare.decided === '45' &&
+      /\+bare/.test(bare.path) &&
+      F.facetOf(thanks) === 'closing' &&
+      F.facetOf(code) === 'code' &&
+      F.facetOf(told) === 'instructed' &&
+      F.facetOf(plainTurn) === '' &&
+      F.facetOf([u('Thanks')]) === '' &&
+      F.facetOf([u('hi'), a('x'), u('Thanks, and what is 2 + 2?')]) === '' &&
+      F.facetOf([u('hi'), a('x'), u('Write a JavaScript function `f(n)` that returns n.')]) === 'code' &&
+      F.asksNothing('Cheers, got it.') &&
+      !F.asksNothing('Thanks. Can you also do 12?') &&
+      F.planFor({ a: 1, for: { code: { plain: true } } }, 'code').plain === true &&
+      F.planFor({ a: 1, for: { code: { plain: true } } }, '').plain === undefined &&
+      forTold.reply === '45' &&
+      forOther.reply === '80 / 4 = 20\n\n20' &&
+      forThanks.path === 'plain' &&
+      forThanks.reply === 'Glad that helped.' &&
+      asked.length === 1 &&
+      fm.map((m) => m.name).join('|') ===
+        'for requests that ask nothing (thanks, a closing word): one model answers, asked as it came|for requests that ask nothing (thanks, a closing word): one model answers, and the reply is tidied|for requests that ask nothing (thanks, a closing word): the settled answer goes out alone, with no working|for requests asking for code: one model answers, asked as it came|for requests after the person has said how to answer: one model answers, asked as it came|for requests after the person has said how to answer: the settled answer goes out alone, with no working' &&
+      fm[0].briefs.plan.for.closing.plain === true &&
+      fm[0].briefs.slots === base.slots &&
+      !again.some((m) => m.name === fm[0].name) &&
+      sm.name ===
+        'for requests after the person has said how to answer: the settled answer goes out alone, with no working' &&
+      sm.briefs.plan.for.instructed.writeAs === 'bare' &&
+      sm.briefs.plan.writeAs === base.plan.writeAs &&
+      smOff.briefs.plan.for.code.draftsStand === false &&
+      AR.scopedMove(base, 'code', { name: 'drop a-critic', briefs: { ...base, slots: base.slots.slice(1) } }) ===
+        null &&
+      AR.scopedMove(base, 'code', sm) === null &&
+      AR.steps(base).some((m) => m.name === 'plan: the settled answer goes out alone, with no working') &&
+      CL.keepsDrafts(base, { ...base, plan: { ...base.plan, writeAs: 'bare' } }) === true &&
+      JSON.parse(fs.readFileSync(new URL('../training/policy.json', import.meta.url), 'utf8')).classes.moves.includes(
+        '^for requests ',
+      ) &&
+      !('for' in (startBriefs().plan || {})),
+    {
+      settled: [settled.path, settled.reply],
+      bare: [bare.path, bare.reply],
+      forTold: forTold.reply,
+      forOther: forOther.reply,
+      forThanks: [forThanks.path, forThanks.reply, asked],
+      fm: fm.map((m) => m.name),
+      sm: sm && sm.name,
+    },
+  );
+}
+
 await swarm.stop();
 lfm.close();
 bonsai.close();

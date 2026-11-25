@@ -6,6 +6,16 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **What three conversation passes could not mend** (2026-11-24). One swarm's passes kept one change and then
+  nothing: everything still wrong sat in three kinds of turn. Five things came of reading its replies:
+  - **A fix.** The answer line lost every `*` and `_`, so a function given there read `return n  5` and a name like
+    `sum_list` read `sumlist`. Marks of emphasis round an answer still come off; code is left as it is.
+  - **The answer alone** is a change training can try: the settled answer with no work before it.
+  - **A change can be kept for one kind of request** within a class (`plan.for`): a turn that asks nothing, one
+    asking for code inside a conversation, one after the person said how to answer. Each is told by code.
+  - **A turn that asks nothing** can so be answered by one slot, tidied, while every other turn is drafted as before.
+  - **What a class is short on makes candidates:** the changes worth keeping for a kind of request it is wrong on,
+    and the round's own best change for that kind, kept for it alone.
 - **The intelligence run's ring is held to the same** (2026-11-24). While the run goes, the ring is the step in hand
   and moves with its questions (an evaluation by the questions asked of both models, training by the question in
   hand), with the step and how far the whole run has come beside it. A step just begun is not read from what the

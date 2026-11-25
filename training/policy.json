@@ -20,6 +20,7 @@
     "writeHeld": 18,
     "moves": [
       "^adapters: every slot that has one carries its adapter$",
+      "^for requests ",
       "^adapters: .* carries its adapter$",
       "^adapters: .* carries no adapter$",
       "^breakdown: ",
