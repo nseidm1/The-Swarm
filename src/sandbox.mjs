@@ -6,8 +6,10 @@
 //   outputsOf(code, name, inputs)  -> [{ v } | { e }] for each list of arguments, or null when it cannot be run at all
 //   callsOf(code, name, calls)     -> the same, for calls written out as text ("rotate([1, 2])"), which are read inside the sandbox
 //   printedBy(code)                -> { text } the lines a whole program printed, or null (behave.mjs programOf)
+//   outputsNow(code, name, inputs) -> the same as outputsOf, for a caller that cannot wait (a check that is not async): the
+//                                     process is started and waited for
 //   sandboxReady()                 -> can a function be run here at all? (Node 20 or later)
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const RUNNER = fileURLToPath(new URL('./sandbox-runner.mjs', import.meta.url));
@@ -53,6 +55,24 @@ function runIn(job, count, timeoutMs) {
 export function outputsOf(code, name, inputs, { timeoutMs = 8000 } = {}) {
   const key = name + '\n' + code + '\n' + JSON.stringify(inputs);
   return seen.get(key) || remember(key, runIn({ code: bare(code), name, inputs }, inputs.length, timeoutMs));
+}
+// THE SAME, WAITED FOR: for a check that must say yes or no before it returns (a convention of a conversation, which is asked
+// with no promise: training/tasks-chat.mjs). The same process, the same permissions, the same runner
+export function outputsNow(code, name, inputs, { timeoutMs = 4000 } = {}) {
+  if (!code) return null;
+  try {
+    const r = spawnSync(process.execPath, [FLAG, '--allow-fs-read=' + RUNNER, '--max-old-space-size=128', RUNNER], {
+      input: JSON.stringify({ code: bare(code), name, inputs }),
+      encoding: 'utf8',
+      timeout: timeoutMs,
+      killSignal: 'SIGKILL',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    });
+    const j = JSON.parse(r.stdout || 'null');
+    return j && j.ok && Array.isArray(j.out) && j.out.length === inputs.length ? j.out : null;
+  } catch {
+    return null;
+  }
 }
 export function callsOf(code, name, calls, { timeoutMs = 8000 } = {}) {
   const key = name + '\n' + code + '\ncalls\n' + calls.join('\n');

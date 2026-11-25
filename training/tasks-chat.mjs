@@ -10,7 +10,7 @@
 // A reply must also ANSWER: every person asks something with an answer code knows, and a reply without it is wrong whatever its
 // manners (so that saying nothing politely is never the best arrangement). Manners do not fix what a model knows; they are
 // read beside it.
-import vm from 'node:vm';
+import { outputsNow } from '../src/sandbox.mjs';
 
 const words = (s) => (String(s || '').match(/[A-Za-z0-9'’%.-]+/g) || []).length;
 const sentences = (s) => (String(s || '').match(/[^.!?\n]+[.!?]*/g) || []).map((x) => x.trim()).filter(Boolean);
@@ -387,21 +387,29 @@ Object.assign(CHAT_KINDS, {
 // earlier reply is of the class that is a conversation, a coding or reasoning exchange among them. So that an arrangement
 // kept for its manners is not one that reasons or codes worse, two people ask for exactly that part way through.
 const NAMES = ['Ada', 'Ben', 'Cleo', 'Dev', 'Esme', 'Finn', 'Gia', 'Hugo'];
-// the function a reply gives, run on inputs: true where name(x) === want(x) for every x. Run with no access to anything
-// (node:vm, a bare context, 200 ms), and anything that throws is not working code.
+// the function a reply gives, run on inputs: true where name(x) === want(x) for every x. Run where it can reach nothing
+// (src/sandbox.mjs: a process of its own with Node's permissions on, each call stopped after a moment), never in this
+// process: a reply is text a model wrote. Anything that throws, never ends or cannot be run is not working code.
+// (It was run in this process, in a bare context of node:vm, until 2026-11-25: that is no wall, and the one place left
+// where a model's code ran outside the sandbox.)
 export function jsWorks(reply, name, want, inputs) {
   const text = String(reply || '');
   const block = (text.match(/```(?:js|javascript|typescript|ts)?\s*\n([\s\S]*?)```/) || [])[1] || text;
-  try {
-    const got = vm.runInNewContext(
-      `${block}\n;(${JSON.stringify(inputs)}).map((x) => ${name}(x))`,
-      Object.create(null),
-      { timeout: 200 },
-    );
-    return Array.isArray(got) && got.length === inputs.length && got.every((v, k) => v === want(inputs[k]));
-  } catch {
-    return false;
-  }
+  if (!new RegExp('\\b' + name + '\\b').test(block)) return false; // (nothing of that name: not worth a process)
+  const out = outputsNow(
+    block,
+    name,
+    inputs.map((x) => [x]),
+  );
+  if (!out) return false;
+  return out.every((o, k) => {
+    if (!o || o.e || typeof o.v !== 'string') return false;
+    try {
+      return JSON.parse(o.v) === want(inputs[k]);
+    } catch {
+      return false;
+    }
+  });
 }
 Object.assign(CHAT_KINDS, {
   'chat-reason'(t) {

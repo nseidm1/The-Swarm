@@ -24,6 +24,10 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **A fix: a model's code ran in training's own process in one place** (2026-11-25). A conversation's check of a
+  function a reply gave ran it in the trainer's process, in a bare context with a time limit: no wall. It is now run
+  in the sandbox like every other function a model writes. A test now fails if any file but the runner inside the
+  sandbox turns text into running code. The served module was never affected: this was in training's grader.
 - **A model reads, code works it out** (2026-11-25). Eight kinds of plain question code can work out whole, which
   the small models were often wrong on and the larger model wrote no working function for:
   - **Eight instruments** read them as training words them: who tells the truth, a word and what is done to it,

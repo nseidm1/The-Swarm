@@ -13258,6 +13258,52 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+{
+  // CODE A MODEL WROTE IS RUN IN ONE PLACE (src/sandbox-runner.mjs, started by src/sandbox.mjs where it can reach nothing).
+  // Nothing else in the repository turns text into running code: no eval, no Function made of text, no vm. A probe once ran
+  // a refused function outside the box and hung on a loop that never ended (2026-11-25); this keeps the product from it.
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const walk = (dir) =>
+    fs
+      .readdirSync(dir, { withFileTypes: true })
+      .flatMap((e) =>
+        e.isDirectory()
+          ? /^(?:node_modules|\.work|\.git|__pycache__|learned|questions)$/.test(e.name)
+            ? []
+            : walk(path.join(dir, e.name))
+          : /\.(?:mjs|cjs|js)$/.test(e.name)
+            ? [path.join(dir, e.name)]
+            : [],
+      );
+  const RUNS = /\beval\s*\(|\bnew\s+Function\s*\(|\bFunction\s*\(\s*['"`]|['"](?:node:)?vm['"]/;
+  const files = ['src', 'training', 'bin', 'tools', 'ui']
+    .filter((d) => fs.existsSync(path.join(root, d)))
+    .flatMap((d) => walk(path.join(root, d)));
+  const found = files.filter((f) => RUNS.test(fs.readFileSync(f, 'utf8'))).map((f) => path.relative(root, f));
+  // (the files that may, each with why: nothing a model wrote is run by them in this process)
+  const MAY = {
+    'src/sandbox-runner.mjs':
+      "the runner inside the sandbox: where a model's code IS run, in a process that can reach nothing",
+    'src/langs.mjs':
+      "the eval is a line of the Python program that is run inside the system's box, not of this process",
+    'training/support/equivalent.mjs': 'a Script is made to see whether code parses; it is never run',
+  };
+  check(
+    'code a model wrote is run in one place, where it can reach nothing: no file of the module, of training, of the tools or of the page turns text into running code (eval, a Function made of text, the vm module) but the runner inside the sandbox, and the two that only write such a line for the box or only parse',
+    files.length > 40 &&
+      found.sort().join() === Object.keys(MAY).sort().join() &&
+      !/runIn(?:New|This)?Context|\.runIn/.test(
+        fs.readFileSync(path.join(root, 'training/support/equivalent.mjs'), 'utf8'),
+      ) &&
+      RUNS.test('const f = new Function(code);') &&
+      RUNS.test("import vm from 'node:vm';") &&
+      RUNS.test('eval (x)') &&
+      !RUNS.test('// evaluates the form; a function of the form') &&
+      !RUNS.test('evaluate(x); retrieval(x)'),
+    { files: files.length, found },
+  );
+}
+
 await swarm.stop();
 lfm.close();
 bonsai.close();
