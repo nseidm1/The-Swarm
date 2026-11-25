@@ -587,22 +587,19 @@ details.fold:not([open])>summary::after,details.fold.shutting>summary::after{tra
 
 JS = """
 const $=(s,r=document)=>r.querySelector(s);
-// SOMETHING A PERSON ASKED FOR IS ON ITS WAY: a thin bar moves across the top of the page. Only what a person asked for
-// counts: a change that was sent, or a reading begun within a moment of a press, a choice or a key, once it has taken longer
-// than a third of a second. The page reads its own state every second or two by itself, and those readings never show
-// the bar: on a phone, or from another machine, each takes longer than a third of a second and the bar never went away
-// (console 2026-11-24). The button that was pressed is marked as waiting until its answer comes. A bar is never left on:
-// it goes after twenty seconds whatever became of what it waited for.
-(()=>{const real=window.fetch.bind(window);let n=0,pressed=null,asked=0;
+// A CHANGE THAT WAS SENT IS ON ITS WAY: a thin bar moves across the top of the page from the moment a person starts, stops
+// or sets something until its answer comes, and the button pressed is marked as waiting. Nothing else shows it: not the
+// page's own readings of its state (on a phone each is slow, and the bar never went away), and not a reading a person
+// began (it was shown for those too, and a phone still showed it with nothing going on: console 2026-11-24). It is never
+// left on: it goes after twenty seconds whatever became of the change, and whenever the page is shown again.
+(()=>{const real=window.fetch.bind(window);let n=0,pressed=null;
   const bar=()=>{let b=$('#busybar');if(!b){b=document.createElement('div');b.id='busybar';b.setAttribute('role','progressbar');b.setAttribute('aria-label','Working');b.innerHTML='<i></i>';document.body.appendChild(b);}return b;};
-  const gesture=(ev)=>{asked=Date.now();if(ev.type==='click'){pressed=ev.target.closest&&ev.target.closest('button');setTimeout(()=>{pressed=null;},0);}};
-  for(const t of ['click','change','submit','keydown'])document.addEventListener(t,gesture,true);
-  window.fetch=(url,opts)=>{const change=!!(opts&&opts.method&&opts.method!=='GET');const mine=change||Date.now()-asked<800;
-    if(!mine)return real(url,opts);
-    const btn=change?pressed:null;let shown=false,over=false;
-    const show=()=>{if(over)return;shown=true;n++;bar().classList.add('on');};const t=change?(show(),0):setTimeout(show,330);
-    if(btn)btn.classList.add('waiting');
-    const done=()=>{if(over)return;over=true;clearTimeout(t);clearTimeout(cap);if(btn)btn.classList.remove('waiting');if(shown&&--n<=0){n=0;bar().classList.remove('on');}};
+  const clear=()=>{n=0;const b=$('#busybar');if(b)b.classList.remove('on');document.querySelectorAll('.waiting').forEach(x=>x.classList.remove('waiting'));};
+  document.addEventListener('click',(ev)=>{pressed=ev.target.closest&&ev.target.closest('button');setTimeout(()=>{pressed=null;},0);},true);
+  window.addEventListener('pageshow',clear);document.addEventListener('visibilitychange',()=>{if(!document.hidden)clear();});
+  window.fetch=(url,opts)=>{if(!(opts&&opts.method&&opts.method!=='GET'))return real(url,opts);
+    const btn=pressed;let over=false;n++;bar().classList.add('on');if(btn)btn.classList.add('waiting');
+    const done=()=>{if(over)return;over=true;clearTimeout(cap);if(btn)btn.classList.remove('waiting');if(--n<=0){n=0;bar().classList.remove('on');}};
     const cap=setTimeout(done,20000);
     return real(url,opts).then((r)=>{done();return r;},(e)=>{done();throw e;});};})();
 // A SECTION FOLDED STAYS FOLDED: open or closed is kept on this device, and put back each time a part of the page is drawn again
@@ -883,7 +880,7 @@ setInterval(liveTick,1500);liveTick();
 // THE WHOLE RUN'S ONE BUTTON (whole_block): Start or Carry on with the size and whether to train; Stop. Its steps are drawn again
 // every three seconds while it runs, and the cards under it follow their own steps as they always do
 document.addEventListener('click',async ev=>{const b=ev.target;if(b.id!=='whole-go'&&b.id!=='whole-stop')return;b.disabled=true;
-  await evPost(b.id==='whole-go'?'/whole/start':'/whole/stop','#wholewrap',b.id==='whole-go'?{limit:Number(($('#whole-size')||{}).value||20)}:{});});
+  await evPost(b.id==='whole-go'?'/whole/start':'/whole/stop','#wholewrap',b.id==='whole-go'?{limit:Number(($('#whole-size')||{}).value||20),classes:[...document.querySelectorAll('[data-train-class]')].filter(x=>x.checked).map(x=>x.dataset.trainClass)}:{});});
 setInterval(async()=>{if($('#wholebox[data-running]')||$('#busy[data-busy="the run"]'))await swap('/fragment/whole','#wholewrap');},3000);
 // THE CHART'S LIST SCOPES THE CHART: a line pressed (or Enter, or the space bar, on it) turns its point off, and on again
 const chartLine=li=>{const off=li.classList.toggle('off');li.setAttribute('aria-pressed',off?'false':'true');
@@ -946,7 +943,8 @@ function evHOff(){try{const v=JSON.parse(localStorage.getItem('swarm.eval.hoff')
 // WHICH CLASSES A SESSION TRAINS: the boxes are as they were left on this device; with none ticked Train waits
 function trainAsk(){const bs=[...document.querySelectorAll('[data-train-class]')];if(!bs.length)return;let off=[];try{off=JSON.parse(localStorage.getItem('swarm.train.off')||'[]');}catch(e){}
   bs.forEach(x=>{x.checked=!off.includes(x.dataset.trainClass);});if(!bs.some(x=>x.checked))bs.forEach(x=>{x.checked=true;});trainLeft();}
-function trainLeft(){const bs=[...document.querySelectorAll('[data-train-class]')],g=$('#run-go');if(g&&bs.length&&!bs[0].disabled)g.disabled=!bs.some(x=>x.checked);}
+function trainLeft(){const bs=[...document.querySelectorAll('[data-train-class]')];if(!bs.length||bs[0].disabled)return;
+  for(const g of [$('#whole-go'),$('#run-go')])if(g&&!g.dataset.held)g.disabled=!bs.some(x=>x.checked);}
 async function evdShow(){const dg=$('#evd'),on=[...document.querySelectorAll('[data-evd-harness]')].filter(x=>x.checked).map(x=>x.dataset.evdHarness);
   await swap('/fragment/evtable?view='+(dg.dataset.view||'table')+'&b='+encodeURIComponent(dg.dataset.bench||'')+'&cfg='+encodeURIComponent(dg.dataset.cfg||'')+'&h='+encodeURIComponent(on.join(',')),'#evd-body');}
 document.addEventListener('change',async(ev)=>{if(ev.target.id==='evd-cfg'){const dg=$('#evd');dg.dataset.cfg=ev.target.value;dg.dataset.bench='';await evdShow();}});
@@ -3132,17 +3130,12 @@ def _run_controls():
     # card (after TRAIN_BELOW, which progress_strip splits at): why Train waits, in a line; then which classes this session
     # trains, with Clear training state, the lesser action, small at the end of that row. They were all in the head's narrow
     # column, where the boxes broke over three ragged rows and the reason stood as loud as the buttons.
-    # WHICH CLASSES OF INPUT THIS SESSION TRAINS: a box for each, every one ticked to begin with, kept on the device and sent
-    # with the press of Train (the page's trainAsk). An arrangement is kept class by class, so a class left out stays as
-    # it is. With none ticked there is nothing to train, and Train waits
-    return ('<button class="btn top" id="run-go" type="button"%s title="Train question by question, pass after pass, until Stop training is pressed">Train</button>' % (" disabled" if why else "")
+    # (which classes of input are trained, and Clear training state, are on the intelligence run's card: train_options. Train
+    # here sends the same choice)
+    return ('<button class="btn top" id="run-go" type="button"%s title="Train question by question, pass after pass, until Stop training is pressed">Train</button>' % (' disabled data-held="1"' if why else "")
             + TQ_BUTTON + TRAIN_BELOW
             # (one reason at a time: while something else has the models, the line under the card says so, and that is why Train waits)
-            + (('<small class="evwhy" id="run-first">%s</small>' % e(first)) if first and not held else "")
-            + '<div class="trainopts"><div class="evask trainask" role="group" aria-label="Which classes of input this session trains"><span class="cfgl">Trains</span>%s</div>'
-            % "".join('<label title="%s"><input type="checkbox" data-train-class="%s" checked%s>%s</label>' % (e(CLASS_WORDS.get(c, c)), c, " disabled" if why else "", e(CLASS_NAMES.get(c, c))) for c in TRAIN_CLASSES)
-            + '<button class="btn top quiet" id="run-clear" type="button"%s title="Start training again from pass 1: what it has tried, measured and kept is moved aside (to .work/archive), and each model&#39;s own answers are kept">Clear training state</button></div>'
-            % (" disabled" if held else ""))
+            + (('<small class="evwhy" id="run-first">%s</small>' % e(first)) if first and not held else ""))
 
 
 def _making_ready(st):
@@ -6113,7 +6106,7 @@ def whole_block(d):
                # (no box to tick for training: whether a change to the module betters it is what training finds, and a change
                # that does not is not kept. A person once chose whether the arrangement was trained at all)
                '<button class="btn top" id="whole-go" type="button"%s>%s</button>'
-               % (" disabled" if blocked else "", opts, " disabled" if blocked else "",
+               % (" disabled" if blocked else "", opts, ' disabled data-held="1"' if blocked else "",
                   "Carry on" if any(x["state"] in ("done", "stopped") for x in steps) and not done else "Start"))
     word = {"done": "done", "running": "running", "stopped": "stopped here", "not taken": "not taken", "failed": "failed", "waiting": "waiting"}
     rows = "".join('<li class="ws %s"><i></i><span>%s</span><small>%s%s</small></li>'
@@ -6122,11 +6115,27 @@ def whole_block(d):
     # else says so in a line of its own under the head, as Pretrain and Train do)
     waits = ('<div class="state warn"><i></i><span>%s is running: the run waits for it.</span></div>' % e(held[0].upper() + held[1:])) if held and held != "the run" and not running else ""
     waits += _making_ready(st) if running else failed_line("whole", "The run")
+    # (which classes the run trains: chosen here while nothing runs; said, where fewer than all were chosen, while it does)
+    only = st.get("classes") or []
+    waits += ((('<small class="evwhy" id="whole-only">Training requests %s only, as chosen.</small>' % e(_and([CLASS_NAMES.get(c, c) for c in only]).lower())) if only else "")
+              if running else train_options(bool(held and held != "the run"), held))
     return ('<div class="panel prep wholep" id="wholebox"%s><div class="proghead"><span class="memnum"><b class="pct">%d</b><span>of 4 steps<small>%s</small></span></span>'
             '<span class="progline">One run, two figures: the module as configured is evaluated, which is the baseline; it is trained (pure code, adapters, breakdown, cascade, slots and models, arrangement); and it is evaluated again, '
             'on the same questions. Stop is safe at any step; Start carries on from the step it stopped in.</span><span class="evctl">%s</span></div>%s<ol class="wsl">%s</ol></div>'
             % (' data-running="1"' if running else "", sum(1 for x in steps if x["state"] == "done"),
                "running" if running else ("done" if done else ("waiting" if held and held != "the run" else "not started" if not any(x["state"] != "waiting" for x in steps) else "stopped")), ctl, waits, rows))
+
+
+def train_options(blocked, held):
+    """WHICH CLASSES OF INPUT ARE TRAINED, AND CLEAR TRAINING STATE, on the intelligence run's card (they were on the Train card,
+    console 2026-11-24). A box for each class a request can be (with tools, a conversation, asking for code, a plain
+    question), every one ticked to begin with, kept on the device and sent with the press of Start (the page's trainAsk):
+    the run's training step trains those and leaves the others as they are. With none ticked there is nothing to train,
+    and Start waits. Clear training state, the lesser action, is small at the end of the row."""
+    return ('<div class="trainopts"><div class="evask trainask" role="group" aria-label="Which classes of input the run trains"><span class="cfgl">Trains requests</span>%s</div>'
+            '<button class="btn top quiet" id="run-clear" type="button"%s title="Start training again from pass 1: what it has tried, measured and kept is moved aside (to .work/archive), and each model&#39;s own answers are kept">Clear training state</button></div>'
+            % ("".join('<label title="%s"><input type="checkbox" data-train-class="%s" checked%s>%s</label>' % (e(CLASS_WORDS.get(c, c)), c, " disabled" if blocked else "", e(CLASS_NAMES.get(c, c))) for c in TRAIN_CLASSES),
+               " disabled" if held else ""))
 
 
 CHAT_KINDS = "chat-terse,chat-formal,chat-hurry,chat-heavy,chat-thanks,chat-back,chat-refer,chat-correct,chat-two,chat-doubt,chat-remember,chat-reason,chat-code"
@@ -6670,8 +6679,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send("Choose how many questions of each task.", 400, "text/plain; charset=utf-8")
             # (a run from the page always trains: training/run.sh --train off is still there for a terminal)
             train = "classes"
-            argv = ["bash", "training/run.sh"] + (["--proof"] if limit == PROOF_SIZE else ["--limit", str(limit)]) + ["--train", train]
-            why = start_job("whole", argv, {"limit": limit, "train": train})
+            # (the classes ticked on the card, where fewer than all: the run's training step trains those only)
+            only = classes_asked(asked.get("classes") if isinstance(asked, dict) else None)
+            argv = ["bash", "training/run.sh"] + (["--proof"] if limit == PROOF_SIZE else ["--limit", str(limit)]) + ["--train", train] + (["--classes", ",".join(only)] if only else [])
+            why = start_job("whole", argv, dict({"limit": limit, "train": train}, **({"classes": only} if only else {})))
             if why:
                 return self._send(why, 409, "text/plain; charset=utf-8")
             return self._send(whole_block(data.load(ARGS.root)))

@@ -2,7 +2,8 @@
 # run.sh - THE WHOLE RUN: ONE START, TWO FIGURES. The module as configured is evaluated; an adapter is made for each drafting
 # slot and the module is trained (the arrangement, which slot carries its adapter, the instruments: where asked); and it is
 # evaluated again; each on the same questions, so that the two can be set side by side (training/evaluate.mjs --variant; the Evaluate card). Started and stopped by the page's one button, or:
-#   bash training/run.sh [--limit N | --proof] [--train classes|off] [--train-minutes M] [--items a,b]
+#   bash training/run.sh [--limit N | --proof] [--train classes|off] [--train-minutes M] [--items a,b] [--classes words,code]
+#   --classes: only those classes of input are trained (tools, talk, code, words); every one where it is not said
 # A STEP WHOSE RESULT IS ON RECORD IS PASSED OVER: the run is opened where it was left (.work/run/<configuration>/status.txt,
 # as a pass is), so Stop and Start carry on. A run asked for at another size, or of another configuration, begins again.
 # A STEP THAT CANNOT BE TAKEN IS SAID AND THE RUN GOES ON: a model that no adapter can be made for here is trained without
@@ -12,7 +13,7 @@
 # (The adapters are made by mixture.mjs, which the page follows where it follows adapters.mjs: the same live.json.)
 cd "$(dirname "$0")/.." || exit 1
 ROOT=$(pwd)
-LIMIT=20; PROOF=; TRAIN=classes; MINUTES=120; ITEMS=
+LIMIT=20; PROOF=; TRAIN=classes; MINUTES=120; ITEMS=; CLASSES=
 while [ $# -gt 0 ]; do
   case "$1" in
     --limit) LIMIT=$2; shift 2 ;;
@@ -20,6 +21,7 @@ while [ $# -gt 0 ]; do
     --train) TRAIN=$2; shift 2 ;;
     --train-minutes) MINUTES=$2; shift 2 ;;
     --items) ITEMS=$2; shift 2 ;;
+    --classes) CLASSES=$2; shift 2 ;;
     *) echo "run.sh: not understood: $1"; exit 2 ;;
   esac
 done
@@ -43,7 +45,9 @@ EVALUATE=${RUN_EVALUATE:-sh training/evaluate.sh}
 MAKE=${RUN_MAKE:-$NODE training/mixture.mjs make}
 SESSION=${RUN_SESSION:-bash training/session.sh}
 WORK=${RUN_WORK:-.work}
-WHAT="$KEY | $ASK | train $TRAIN"
+# (the classes a person chose are the session's to train: training/session.sh TRAIN_CLASSES. Another choice is another run)
+[ -n "$CLASSES" ] && export TRAIN_CLASSES="$CLASSES"
+WHAT="$KEY | $ASK | train $TRAIN${CLASSES:+ ($CLASSES)}"
 . training/support/steps.sh
 open_pass "$WORK/run/$KEY" 1 "$WHAT"
 say() { echo "$(date +%H:%M:%S) $1"; }

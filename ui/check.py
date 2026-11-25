@@ -917,10 +917,10 @@ with tempfile.TemporaryDirectory() as tmp:
     # TRAINING LIVES ON ITS PROGRESS CARD: no column beside the page and no tile for one on a phone; the card carries Train (or Stop
     # training), Clear training state, what the session is doing, and the ideas waiting to be tried; the passes are not listed again
     card = get(base + "/fragment/score")[1]
-    check("training lives at the head of the Train card, as Evaluate and Pretrain have theirs: no column beside the page, no tile or sheet for one on a phone, and no list of passes; the card's head has Train and Clear training state (or Stop training), and under it what the session is doing; the ideas waiting to be tried are not there (taken out)",
+    check("training lives at the head of the Train card, as Evaluate and Pretrain have theirs: no column beside the page, no tile or sheet for one on a phone, and no list of passes; the card's head has Train (or Stop training), and under it what the session is doing (which classes are trained and Clear training state are on the intelligence run's card); the ideas waiting to be tried are not there (taken out)",
           'class="rail"' not in tg0 and 'id="mtile"' not in tg0 and 'id="mtrain"' not in tg0 and "<h2>Passes</h2>" not in tg0 and "Ideas waiting to be tried</h2>" not in tg0
           and card.startswith('<div class="trainprog trainhead">') and '<span class="evctl">' in card and ('id="run-go"' in card) != ('id="run-stop"' in card)
-          and ('id="run-clear"' in card or 'id="run-stop"' in card) and "Ideas waiting to be tried:" not in card and "/fragment/mtile" not in tg0,
+          and 'id="run-clear"' not in card and "data-train-class" not in card and "Ideas waiting to be tried:" not in card and "/fragment/mtile" not in tg0,
           card[:300])
     # EVERYTHING NEEDED TO MAKE IT AGAIN, AND TO OFFER IT AS A MODEL: every slot with what it is told, the decider's recipe, the
     # engine's pinned builds, a card a model chooser can list, what it needs of a machine, what it can and
@@ -1082,11 +1082,11 @@ with tempfile.TemporaryDirectory() as tmp:
     arch = sorted((root / ".work" / "archive").glob("clear-*"))
     gone = [rel for rel in made_c if not (root / rel).exists()]
     kept_c = [rel for rel in made_c if (root / rel).exists()]
-    check("Clear training state starts training again from pass 1: training's records (its state, each configuration's record, what it kept, its measurements and loop) are moved aside to .work/archive, nothing deleted; each model's own answers and their summaries are kept, and so are the found arrangements and the loop's policy (tried first after); the training card says so; it is refused while training runs; and the button sits beside Train",
+    check("Clear training state starts training again from pass 1: training's records (its state, each configuration's record, what it kept, its measurements and loop) are moved aside to .work/archive, nothing deleted; each model's own answers and their summaries are kept, and so are the found arrangements and the loop's policy (tried first after); the training card says so; it is refused while training runs; and the button is on the intelligence run's card, with the classes it trains",
           busy_code == 409 and len(arch) == 1 and "Cleared: training starts again from pass 1" in clear_html
           and sorted(kept_c) == sorted([".work/train/baseline-runs.jsonl", "training/results/%s/%s-held.json" % (d["key"], tgt_id), "training/results/%s/m-alone-vs-%s-held.json" % (d["key"], tgt_id),
                                         ".work/library/%s.json" % d["key"], ".work/library/%s-policy.json" % d["key"]]) and "the 1 found arrangement" in clear_html
-          and all((arch[0] / rel).exists() for rel in gone) and 'id="run-clear"' in swarm_ui.progress_strip(data.load(root)), [busy_code, kept_c, gone])
+          and all((arch[0] / rel).exists() for rel in gone) and 'id="run-clear"' in swarm_ui.train_options(False, "") and 'id="run-clear"' not in swarm_ui.progress_strip(data.load(root)), [busy_code, kept_c, gone])
     srv.shutdown()
     srv, base = serve(fake)
 
@@ -1160,10 +1160,24 @@ with tempfile.TemporaryDirectory() as tmp:
     # (the card's head holds Train and Questions only; the class boxes, the reason and Clear training state go under it, across the card)
     _ctl_head, _, _ctl_below = _part_ctl.partition(swarm_ui.TRAIN_BELOW)
     _strip_tr = swarm_ui.progress_strip(_fd)
-    check("the Train card's head holds its two actions, Train and Questions; which classes it trains, why it waits and Clear training state are under the head, across the card",
+    _topts, _topts_held = swarm_ui.train_options(False, ""), swarm_ui.train_options(True, "an evaluation")
+    _tsrc, _rsh = Path(swarm_ui.__file__).read_text(), (_HERE / "training" / "run.sh").read_text()
+    _wjs, _wre, _wca = swarm_ui._job_state, swarm_ui._run_elsewhere_now, swarm_ui._classes_alive
+    swarm_ui._run_elsewhere_now, swarm_ui._classes_alive = (lambda: None), (lambda: False)
+    swarm_ui._job_state = lambda name: None
+    _wb_idle = swarm_ui.whole_block(_fd)
+    swarm_ui._job_state = lambda name: {"running": True, "pid": 1, "at": "x", "limit": 20, "classes": ["code", "words"]} if name == "whole" else None
+    _wb_run = swarm_ui.whole_block(_fd)
+    swarm_ui._job_state, swarm_ui._run_elsewhere_now, swarm_ui._classes_alive = _wjs, _wre, _wca
+    check("the Train card's head holds its two actions, Train and Questions, and why it waits is under the head; which classes of input are trained and Clear training state are on the intelligence run's card: a box for each class a request can be, every one ticked to begin with, sent with the press of Start, so that the run trains those classes only and says which while it runs; fewer than all is said to the run (--classes), all of them is not; the boxes cannot be changed while something else has the models",
           'id="run-go"' in _ctl_head and 'id="tq-open"' in _ctl_head and "data-train-class" not in _ctl_head and 'id="run-clear"' not in _ctl_head
-          and _ctl_below.count("data-train-class") == 4 and 'id="run-clear"' in _ctl_below and swarm_ui.TRAIN_BELOW not in _strip_tr
-          and _strip_tr.index('class="trainbelow"') > _strip_tr.index('class="evctl"') and '.trainopts' in swarm_ui.CSS, [_ctl_head[:200], _ctl_below[:200]])
+          and "data-train-class" not in _ctl_below and 'id="run-clear"' not in _ctl_below and swarm_ui.TRAIN_BELOW not in _strip_tr
+          and _topts.count("data-train-class") == 4 and 'id="run-clear"' in _topts and " disabled" not in _topts and _topts_held.count(" disabled") == 5 and "Trains requests" in _topts
+          and 'class="trainopts"' in _wb_idle and 'id="whole-only"' not in _wb_idle and 'class="trainopts"' not in _wb_run and "Training requests asking for code and a plain question only, as chosen." in _wb_run
+          and swarm_ui.classes_asked(["words", "code"]) == ["code", "words"] and swarm_ui.classes_asked(list(swarm_ui.TRAIN_CLASSES)) == [] and swarm_ui.classes_asked([]) == []
+          and '["--classes", ",".join(only)] if only else []' in _tsrc and "classes:[...document.querySelectorAll('[data-train-class]')]" in swarm_ui.JS and "$('#whole-go'),$('#run-go')" in swarm_ui.JS
+          and "--classes) CLASSES=$2" in _rsh and 'export TRAIN_CLASSES="$CLASSES"' in _rsh
+          and '.trainopts' in swarm_ui.CSS, [_ctl_head[:200], _ctl_below[:200], _topts[:200], _wb_run[-400:]])
     _hist.write_text(_full_hist)
     check("evaluated with one harness only, Train can be pressed, and says beside it which bodies of work have no figure from before, the harness that measures them and where to tick it; evaluated on all, it says nothing",
           _part_need == "" and _part_gap == "Tools and Search have no figure from before: to see them move, evaluate with BFCL (function calling) ticked (under With on the Evaluate card) before training."
@@ -2635,13 +2649,13 @@ swarm_ui._run_elsewhere_now = _was_now
 _fsrc2 = Path(swarm_ui.__file__).read_text()
 check("the page arrives at once and says it is reading: a browser is first sent a shell that reads nothing (the styles, the title, a bar that moves and the shape of what is coming), which then asks for the dashboard and starts the page's script on it, and says so where the dashboard cannot be read, with a way to try again; "
       "the whole page made at once is still there for the checks; what is running is asked of the system once for each request and not once for each card, and asked again after something is started or stopped; "
-      "and while something asked for is on its way a bar moves across the top of the page: from the moment a change is sent, and for a reading a person began once it has taken longer than a third of a second; the page's own readings of its state never show it (on a phone each is slow, and the bar never went away), and it is never left on",
+      "and while something asked for is on its way a bar moves across the top of the page: from the moment a change is sent, and for nothing else: no reading shows it, the page's own or one a person began (on a phone the bar never went away); it is never left on for more than twenty seconds, and is cleared whenever the page is shown again",
       'id="apploading"' in _sh and 'class="loadbar"' in _sh and 'role="status"' in _sh and "/fragment/app" in _sh and "/app.js" in _sh and "Try again" in _sh and 'id="body"' not in _sh and 'id="spec"' in _sh
       and len(_sh) < len(swarm_ui.CSS) + 6000 and 'id="conversebox"' not in _sh
       and 'id="body"' in swarm_ui.page(_cvd) and "<script>" in swarm_ui.page(_cvd) and 'id="body"' in swarm_ui.app_inner(_cvd) and "<html" not in swarm_ui.app_inner(_cvd)
       and _outside == 2 and _inside == 1 and _after_forget == 2
       and 'if u.path == "/":\n            return self._send(shell())' in _fsrc2 and 'u.path == "/fragment/app"' in _fsrc2 and 'u.path == "/app.js"' in _fsrc2
-      and "#busybar" in swarm_ui.CSS and "busybar" in swarm_ui.JS and "setTimeout(show,330)" in swarm_ui.JS and "if(!mine)return real(url,opts);" in swarm_ui.JS and "Date.now()-asked<800" in swarm_ui.JS and "setTimeout(done,20000)" in swarm_ui.JS and ".loadbar" in swarm_ui.CSS and "prefers-reduced-motion:reduce){.loadbar" in swarm_ui.CSS,
+      and "#busybar" in swarm_ui.CSS and "busybar" in swarm_ui.JS and "if(!(opts&&opts.method&&opts.method!=='GET'))return real(url,opts);" in swarm_ui.JS and "setTimeout(done,20000)" in swarm_ui.JS and "addEventListener('pageshow',clear)" in swarm_ui.JS and "setTimeout(show" not in swarm_ui.JS and ".loadbar" in swarm_ui.CSS and "prefers-reduced-motion:reduce){.loadbar" in swarm_ui.CSS,
       [_outside, _inside, _after_forget, len(_sh)])
 
 # ONE THING HAS THE MODELS, AND EVERY START BUTTON SAYS SO (console 2026-11-24)

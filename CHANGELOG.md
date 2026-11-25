@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Which classes are trained is chosen on the intelligence run's card** (2026-11-24). The four boxes (with tools, a
+  conversation, asking for code, a plain question) and Clear training state moved there from the Train card. Start
+  sends the choice and the run trains those classes only (`training/run.sh --classes`). The bar at the top of the
+  page now shows for a change that was sent and nothing else, and is cleared whenever the page is shown again.
 - **The Train card is simpler** (2026-11-24). Its title with chips (the briefs' version, slots and models, kept
   changes, classes with an arrangement of their own), its line of what is happening now, and the question track with
   its key of eleven marks are taken out: each is said elsewhere on the page. The card is its head, the adapters and
