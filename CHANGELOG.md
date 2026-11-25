@@ -24,6 +24,14 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **A kind still wrong on the held side is asked more of** (2026-11-24). What a pass leaves for the next was read
+  from its train questions alone, so a pass that ended with every train question right left nothing, and a held
+  conversation still wrong stayed so. The count of each kind still wrong on the held side is carried too (the count
+  only), and the next pass asks two more train questions of that kind.
+- **A program checks the figure** (2026-11-24). The last conversations still wrong were sums that every slot got
+  wrong the same way (7 tickets at 4 pounds as 32): slots of one model that agree are not asked further. A drafter
+  that answers by a program can now be added with its figure standing: asked with the first drafters, no vote, and
+  where it prints one plain number and the slots settled on one figure, the number stands.
 - **The intelligence run's ring is held to the same** (2026-11-24). While the run goes, the ring is the step in hand
   and moves with its questions (an evaluation by the questions asked of both models, training by the question in
   hand), with the step and how far the whole run has come beside it. A step just begun is not read from what the

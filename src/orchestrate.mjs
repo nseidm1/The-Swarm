@@ -993,6 +993,9 @@ async function answerWhole(
           );
         }
         for (const r of rows.filter((d) => d.ok)) {
+          // (with plan.computedStands a program's figure is a check on what the slots settle, not a draft among them: it
+          // has no vote, so it cannot make two slots that differ look settled, or outvote them)
+          if (plan.computedStands && r.computed !== undefined) continue;
           const at = S.pool.findIndex((d) => d.slot === r.slot);
           if (at >= 0) S.pool[at] = r;
           else S.pool.push(r);
@@ -1005,11 +1008,15 @@ async function answerWhole(
       // the speed of one by itself, and two that agreed were the whole answer on most questions), so the further drafts are
       // asked for where there is something for them to settle. Only on the first drafting of a request: a loop drafts whole.
       const slots = drafting(step);
-      const first = firstDrafters(slots, plan.draftFirst);
+      // (with plan.computedStands the drafter that answers by a program is asked with the first drafters, whoever they are:
+      // asked only where they differ, it was never asked where slots of one model shared a slip)
+      const programs = plan.computedStands ? slots.filter((s) => computing(s)) : [];
+      const voters = slots.filter((s) => !programs.includes(s));
+      const first = firstDrafters(voters, plan.draftFirst);
       if (!first || S.pool.length) return round(slots);
-      await round(first);
+      await round([...first, ...programs]);
       if (settled()) return;
-      await round(slots.filter((s) => !first.includes(s)));
+      await round(voters.filter((s) => !first.includes(s)));
     },
     try: tryPool,
     // slots that are shown the answers and look for what is wrong with them, all at once
@@ -1514,6 +1521,23 @@ async function answerWhole(
     } else if (tally.length) {
       S.decided = tally[0].final;
       S.path = 'most';
+    }
+  }
+  // A FIGURE A PROGRAM WORKED OUT STANDS (plan.computedStands). Slots of one model that agree on a figure may agree on the
+  // same slip: "7 tickets at 4 pounds each" came to 32 from every drafter, "3 hours 30 minutes in minutes" to 1830, and
+  // where the first two agree no other slot is asked (measured 2026-11-24: the last conversations still wrong were all
+  // such sums). A drafter that answers by a program writes the sum down and the sandbox works it; where that came to a
+  // plain number, and this is on, the number stands over the one figure the slots held. Words are not overruled by it.
+  if (plan.computedStands) {
+    const ran = trace.find(
+      (r) => r.stage === 'draft' && r.computed === true && /^-?\d[\d,]*(?:\.\d+)?$/.test(String(r.final || '').trim()),
+    );
+    // (only where what the slots settled is itself ONE figure: asked two things, a program that printed one number has
+    // not answered, and it does not overrule an answer that holds both. Measured 2026-11-24: 10 of 16 such turns lost.)
+    const figures = String(S.decided || '').match(/\d[\d,]*(?:\.\d+)?/g) || [];
+    if (ran && figures.length === 1 && String(ran.final).trim() !== String(S.decided || '').trim()) {
+      S.decided = String(ran.final).trim();
+      S.path = (S.path ? S.path + '+' : '') + 'computed';
     }
   }
   if (S.narrowed && S.path) S.path += '+narrowed';

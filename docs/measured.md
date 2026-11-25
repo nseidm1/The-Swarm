@@ -54,6 +54,22 @@ draws: round 1, 37.7 points with a paired error of 4.6; round 2, 7.0 with 2.4. B
 confirmation round 2's three conversations were 3.8 points with an error of 2.2, and it was not kept. The one held
 conversation still wrong is a standing-instruction turn.
 
+**The last ones, on a wider draw.** Sixteen held conversations of each kind (208), with what the pass found:
+
+| The 208 | Right | Wrong |
+| --- | --- | --- |
+| With what the pass found | 203 | "7 tickets at 4 pounds" as 32, "5 tickets at 8 pounds" as 35, "3 hours 30 minutes in minutes" as 1830, "days in 4 weeks" as 4, and one "who is the tallest" |
+| And a drafter that answers by a program, its figure standing | 207 | the one "who is the tallest" |
+
+The four sums were wrong the same way from every drafter: slots of one model that agree are asked nothing further. A
+drafter that answers by a program writes the sum down and code works it; asked with the first drafters, with no vote,
+its one plain number stands over the one figure the slots settled on. First made as a drafter among the others it
+lost 10 of 16 turns that ask two things (it printed one number and was counted): so it has no vote, and overrules
+only an answer that holds one figure. This was read directly, not by the keep rule: the pass ends with every train
+conversation right (78 of 78; held 77 of 78), so nothing on the train side shows the change, and it was not chosen.
+What a pass leaves for the next now counts the kinds still wrong on the held side too, so the next pass asks more
+train conversations of that kind and has something to find it by. That next pass was not run.
+
 The swarm's own model was also asked to write a function for the standing-instruction turns, which are five forms of
 sum. It wrote one that returned nothing for every question, three times, and was refused: a 1.7B model does not write
 that function. A larger model as the writer is not built.

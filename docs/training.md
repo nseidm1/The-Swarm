@@ -36,6 +36,10 @@ and keeps each only where held questions say it helped:
   did most for that facet's questions, whatever it did to the class, is tried kept for the facet alone
   (`scopedMove`); then what gained for different facets, together. So what a pass is short on makes the next thing
   tried, and not only more questions of it;
+- **a program checks the figure**: a drafter that answers by a program, added with its figure standing
+  (`computedStands`). It is asked with the first drafters and has no vote; where its program prints one plain number
+  and the slots settled on one figure, the number stands. Slots of one model that agree are asked nothing further, so
+  a slip they share went out; a program writes the sum down and code works it;
 - **the answer alone**: the settled answer goes out with no work before it (`writeAs: 'bare'`), beside going out with
   its work;
 - **how many slots and models**: a slot added, dropped or moved to another model, every slot on one model, one slot

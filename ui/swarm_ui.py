@@ -1623,6 +1623,8 @@ def training_now(d):
         for which, label in (("conversation", "The next conversation pass"), ("classes", "The next intelligence run")):
             g = data._json(res / (which + "-gaps.json"), None) or {}
             short = [k for k, v in (g.get("kinds") or {}).items() if v.get("n") and v.get("wrong", 0) * 3 >= v["n"]]
+            # (and the kinds right on the train questions and still wrong on the held side: asked more of too, classes.mjs gapsOf)
+            short += [k for k, v in (g.get("kinds") or {}).items() if k not in short and (v.get("held") or {}).get("wrong")]
             miss = ", ".join("%s (%d of %d)" % (e(k), v.get("missed") or 0, v.get("asked") or 0) for k, v in (g.get("conventions") or {}).items() if v.get("missed"))
             nxt.append("<li><b>%s</b> %s</li>" % (label, ("is pass %d. It begins from what pass %d left: %s%s." % ((g.get("pass") or 0) + 1, g.get("pass") or 0, ("more questions of %s" % ", ".join(e(k) for k in short)) if short else "no kind a third wrong",
                                                                     ("; conventions still missed: %s" % miss) if miss else "")) if g else "is the first: nothing is carried into it."))
@@ -1703,6 +1705,7 @@ TRAINS = [("Pure code", "a kind of question that is an operation is done by code
           ("Time, as the tie-breaker", "the same model served another way (another file of it, another build of the engine), or a leaner arrangement: kept where answers are no worse and come at least 15% sooner"),
           ("For one kind of request", "a change kept for requests of one kind within a class and no others: a turn that asks nothing, one asking for code inside a conversation, one after the person said how to answer"),
           ("The answer alone", "the settled answer goes out with no work before it"),
+          ("A program checks the figure", "a drafter writes the sum as a program and code works it; its figure stands over the one the slots settled on"),
           ("Conversation", "a reply tidied by code: an opening that only praises, a closing that only offers help, a sentence said again, a greeting given twice")]
 GAP_WORDS = {"none": "no slot had the answer, so what is drafted is tried first", "lost": "a slot had the answer and settling lost it, so settling is tried first",
              "spoiled": "the answer was settled and the reply spoiled it, so the reply is tried first"}

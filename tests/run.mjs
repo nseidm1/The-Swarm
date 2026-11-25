@@ -12686,6 +12686,47 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
   const base = startBriefs();
   const draftSays = async () => ({ text: '9 * 5 = 45\nANSWER: 45' });
+  // (a drafter that answers by a program, its figure standing: the program is run by a stand-in for the sandbox)
+  const progMoves = AR.steps(base).filter((m) => / on a that answers by a program/.test(m.name));
+  const withProg = { ...progMoves[1].briefs, plan: { ...progMoves[1].briefs.plan, writeAs: 'bare' } };
+  const sums = [u('hi'), a('Hello.'), u('7 tickets at 4 pounds each?')];
+  const printOf = async (code) => ({
+    text:
+      (/console\.log\(([^)]*)\)/.exec(code) || [])[1] === '7 * 4'
+        ? '28'
+        : (/console\.log\("?([^")]*)"?\)/.exec(code) || [, ''])[1],
+  });
+  const standsAsked = [];
+  const sayFor = (slipped, program) => async (slot) => (
+    standsAsked.push(slot.id),
+    { text: slot.compute ? '```js\nconsole.log(' + program + ');\n```' : slipped }
+  );
+  const stands = await orchestrate(sums, {
+    briefs: withProg,
+    print: printOf,
+    ask: sayFor('Four times seven is 32.\nANSWER: 32', '7 * 4'),
+  });
+  const two = await orchestrate([u('hi'), a('Hello.'), u('What is days in 8 weeks, and 46 plus 30?')], {
+    briefs: withProg,
+    print: printOf,
+    ask: async (slot) => ({
+      text: slot.compute ? '```js\nconsole.log(132);\n```' : '8 x 7 = 56. 46 + 30 = 76.\nANSWER: 56 and 76',
+    }),
+  });
+  const wordsKept = await orchestrate([u('hi'), a('Hello.'), u('Dev is taller than Esme. Who is the tallest?')], {
+    briefs: withProg,
+    print: printOf,
+    ask: async (slot) => ({ text: slot.compute ? '```js\nconsole.log("Dev");\n```' : 'ANSWER: Esme' }),
+  });
+  const offAsked = [];
+  const offNoProgram = await orchestrate(sums, {
+    briefs: { ...progMoves[0].briefs, plan: { ...progMoves[0].briefs.plan, writeAs: 'bare' } },
+    print: printOf,
+    ask: async (slot) => (
+      offAsked.push(slot.id),
+      { text: slot.compute ? '```js\nconsole.log(7 * 4);\n```' : 'ANSWER: 32' }
+    ),
+  });
   const settled = await orchestrate(told, {
     briefs: { ...base, plan: { ...base.plan, writeAs: 'settled' } },
     ask: draftSays,
@@ -12770,6 +12811,36 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       /moved\.length <= \(P\.narrowKinds \?\? 3\) \? moved : \[\]/.test(
         fs.readFileSync(new URL('../training/classes.mjs', import.meta.url), 'utf8'),
       ) &&
+      // (a figure a program worked out stands over the one figure the slots settled on; it is asked with the first
+      // drafters and has no vote; words and an answer that holds two figures are not overruled)
+      stands.decided === '28' &&
+      /computed/.test(stands.path) &&
+      stands.reply === '28' &&
+      standsAsked.includes('a-program') &&
+      standsAsked.length === 3 &&
+      two.decided === '56 and 76' &&
+      !/computed/.test(two.path) &&
+      wordsKept.decided === 'Esme' &&
+      !/computed/.test(wordsKept.path) &&
+      offNoProgram.decided === '32' &&
+      !offAsked.includes('a-program') &&
+      progMoves.length === 2 &&
+      progMoves[1].briefs.plan.computedStands === true &&
+      progMoves[0].briefs.plan.computedStands === undefined &&
+      // (a kind right on every train question and still wrong on the held side is asked more of next pass: its count only)
+      JSON.stringify(
+        CL.focusOf(
+          CL.gapsOf(
+            [
+              { kind: 'a', counted: true },
+              { kind: 'b', counted: true },
+            ],
+            { a: { n: 6, counted: 5 }, b: { n: 6, counted: 6 }, c: { n: 6, counted: 2 } },
+          ),
+        ),
+      ) === '{"a":2,"c":4}' &&
+      JSON.stringify(CL.focusOf(CL.gapsOf([{ kind: 'a', counted: true }]))) === '{}' &&
+      CL.gapsOf([{ kind: 'a', counted: true }], { a: { n: 6, counted: 5 } }).kinds.a.held.wrong === 1 &&
       F.facetOf(thanks) === 'closing' &&
       F.facetOf(code) === 'code' &&
       F.facetOf(told) === 'instructed' &&

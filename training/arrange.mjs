@@ -252,6 +252,16 @@ export function steps(
         name: 'add a drafter on ' + m + ' that answers by a program',
         briefs: withSlots([...b.slots.slice(0, at), slot, ...b.slots.slice(at)]),
       });
+      // (and its figure standing: added so, it is asked with the first drafters and has no vote; where it prints one plain
+      // number and the slots settled on one figure, the number stands. Added as above it is asked only where the first
+      // drafters differ, and slots of one model that share a slip do not differ. src/orchestrate.mjs plan.computedStands)
+      out.push({
+        name: 'add a drafter on ' + m + ' that answers by a program, and a figure it works out stands',
+        briefs: {
+          ...withSlots([...b.slots.slice(0, at), slot, ...b.slots.slice(at)]),
+          plan: { ...b.plan, computedStands: true },
+        },
+      });
     }
   if (drafts.length > 2)
     for (const s of drafts) out.push({ name: 'drop ' + s.id, briefs: withSlots(b.slots.filter((x) => x.id !== s.id)) });

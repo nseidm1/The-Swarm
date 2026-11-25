@@ -166,9 +166,19 @@ export function orderedFor(patterns, gap) {
 //   conventions  { id: { asked, missed } }       in conversation, each convention and how often a reply missed it
 // focusOf(gaps) -> { kind: so many more train questions of it }: a kind a third wrong gets two more, two thirds wrong four
 // (tasks.mjs focus: train only, added after the questions it already had, so none it was right on is lost).
-export function gapsOf(rows) {
+// AND WHERE THE HELD QUESTIONS ARE STILL SHORT, BY KIND (heldKinds: a class's held figures as the pass leaves it, kind by
+// kind). A pass that ends with every train question right leaves nothing by the rule above, and a kind still wrong on
+// the held side was then never asked more of: one held conversation stayed wrong pass after pass with nothing to find
+// it by (measured 2026-11-24). Only the count for each kind is carried, as the question-by-question stage carries it:
+// which held question was wrong, and what was replied, steer nothing. focusOf asks two more train questions of such a
+// kind (four where half its held questions are wrong).
+export function gapsOf(rows, heldKinds = null) {
   const kinds = {};
   const conventions = {};
+  for (const [kind, h] of Object.entries(heldKinds || {})) {
+    const wrong = Math.max(0, (h.n || 0) - (h.counted || 0));
+    if (wrong > 0) (kinds[kind] ||= { n: 0, wrong: 0 }).held = { n: h.n || 0, wrong };
+  }
   for (const r of rows || []) {
     const k = (kinds[r.kind] ||= { n: 0, wrong: 0 });
     k.n++;
@@ -187,6 +197,7 @@ export function focusOf(gaps) {
     const share = g.n ? g.wrong / g.n : 0;
     if (share >= 2 / 3) out[kind] = 4;
     else if (share >= 1 / 3) out[kind] = 2;
+    else if (g.held && g.held.wrong > 0) out[kind] = g.held.n && g.held.wrong / g.held.n >= 0.5 ? 4 : 2;
   }
   return out;
 }
@@ -956,7 +967,12 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     }
   // WHAT THIS PASS LEAVES FOR THE NEXT: every class as the pass left it, on its train questions (gapsOf)
   {
-    const g = gapsOf(Object.values(lastRows).flat());
+    // (and each class's held figures as the pass leaves it, kind by kind, where they were asked: --figures)
+    const heldKinds = Object.assign(
+      {},
+      ...Object.values(record.classes).map((C) => (C && C.heldAfter && C.heldAfter.kinds) || {}),
+    );
+    const g = gapsOf(Object.values(lastRows).flat(), heldKinds);
     record.gaps = { ...g, next: focusOf(g) };
     if (!B.has('dry')) {
       fs.mkdirSync(path.dirname(GAPS), { recursive: true });
