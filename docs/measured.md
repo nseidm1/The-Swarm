@@ -47,8 +47,15 @@ does not reach these benchmarks, whose answers are blocks of code and never sat 
 - **What does not carry by itself:** the gain. What was mended here was read from training's own questions, and the
   benchmarks did not move. That is the difference from conversations, which are judged on the questions they are
   trained beside.
-- **Not run:** a pass of the class stage on these two classes. One was begun and stopped: a full search of the
-  plain-question class is some hours on this machine.
+- **A pass of the class stage on plain questions, keeping nothing** (four and a half hours, 70 changes tried in each of
+  two rounds). The module's mends alone took the class from 103 to 106 of 132 train questions. Round 1 kept one thing:
+  a function the model wrote for one kind of question (how many numbers in a range divide by another: right on 3 of
+  3 it was not shown), 6.3 points on 150 held questions with a paired error of 1.9. Round 2's best, the question put
+  to the drafters in numbered lines, was 3.0 points with an error of 2.0 and was not kept. Train 106 to 111 of 132;
+  held 113 to 115 of 132. "The settled answer goes out as it is" gained 3.0 points on the train questions and was
+  not the round's best. Written for three other kinds, the model's functions were refused.
+- **Not run:** a pass on the class asking for code (begun and stopped: over an hour for one round), and any benchmark
+  after this pass.
 
 ## What three conversation passes could not mend, and what did: 2026-11-24
 
