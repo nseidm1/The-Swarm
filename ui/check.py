@@ -114,7 +114,7 @@ with tempfile.TemporaryDirectory() as tmp:
     strip = get(base + "/fragment/score")[1]
     check("the page says how far training has come, question by question: a percentage of answers good at the head of the Train card (no bar, legend, spec line or ideas line under it: taken out), and no parity verdict, held-question card or whole-measurement dialog any more",
           '<h2 id="arrangement">Swarm Viewer</h2>' in html and "<h2>Training progress</h2>" not in html and 'class="trainprog trainhead"' in strip and "answers good" in strip and "training complete" not in strip
-          and html.index('<h2 id="arrangement">Swarm Viewer</h2>') < html.index('<div id="score">') and 'class="mbar stack"' not in strip and 'class="memleg"' not in strip and "Ideas waiting to be tried" not in strip
+          and '<div id="score">' not in html and 'class="mbar stack"' not in strip and 'class="memleg"' not in strip and "Ideas waiting to be tried" not in strip
           and 'id="score-open"' not in html and 'id="big"' not in html and "/fragment/scorefull" not in html and get(base + "/fragment/scorefull")[0] == 404 and "Parity with the larger model" not in html, strip[:300])
     fp = data.footprint({"a": {"bytes": 2**30}, "b": {"bytes": 2**30}}, {"memGb": 5}, {"memGb": 18})
     mp = swarm_ui.memory_card(data.load(root))
@@ -243,7 +243,7 @@ with tempfile.TemporaryDirectory() as tmp:
     check("the arrangement is one section, drawn as faces: a roster of the models (each small model, the decider, the larger model, whose chip carries its live dot and opens its card), then the flow as stations in order, each slot a face of its model in the step it stands in, with its record as a ring, its own live dot and its whole name; the sandbox, which no model fills, is a marker between two stations; choosing a face opens that slot's card, with what it is told, below the row",
           # (the card is its head, the adapters and the faces: its title with chips, its line of what is happening and the question
           # track were taken out, each being said elsewhere on the page, console 2026-11-24)
-          'class="panel arr"' in arr and "<h3>The swarm as it stands</h3>" not in arr and 'class="achips"' not in arr and 'id="now"' not in arr and 'id="qtrack"' not in arr and 'class="qkey"' not in arr and 'id="score"' in arr and arr.count('class="mav ') == len(d["members"]) + 2
+          'class="panel arr"' in arr and "<h3>The swarm as it stands</h3>" not in arr and 'class="achips"' not in arr and 'id="now"' not in arr and 'id="qtrack"' not in arr and 'class="qkey"' not in arr and 'id="score"' not in arr and "answers good" not in arr and 'id="tq-open"' not in arr and arr.count('class="mav ') == len(d["members"]) + 2
           and set(slot_ids) <= {k for _, k in faces} and all(m == next(s["member"] for s in d["briefs"]["slots"] if s["id"] == k) for m, k in faces if k in slot_ids)
           and "decide" in [k for _, k in faces] and "target" not in [k for _, k in faces] and 'class="st mk"' not in arr
           and re.search(r'<button type="button" class="mav tgt" data-av="target"[^>]*>.*?data-live="target"', arr) and re.search(r'class="via" data-av="run"', arr)
@@ -304,7 +304,7 @@ with tempfile.TemporaryDirectory() as tmp:
     code_ok, drawn = send("/config", {"a": other["id"]})
     after = json.loads((root / "src" / "config.json").read_text())
     check("choosing a model writes it down and draws again everything that depends on it, in place: the slots in that place carry the new model's name, and results of another arrangement are not shown as this one's",
-          code_ok == 200 and after["a"] == other["id"] and other["name"] in drawn and "answers good" in drawn and "At parity with" not in drawn and "Not at parity with" not in drawn and after["b"] == d["members"]["b"]["id"], after)
+          code_ok == 200 and after["a"] == other["id"] and other["name"] in drawn and 'class="panel arr"' in drawn and "At parity with" not in drawn and "Not at parity with" not in drawn and after["b"] == d["members"]["b"]["id"], after)
     check("a model that is not one of those that can be chosen is refused, and so is a choice that does not come from this page",
           send("/config", {"a": "no-such-model"})[0] == 400 and send("/config", {"a": d["members"]["a"]["id"]}, {"content-type": "application/json"})[0] == 403 and json.loads((root / "src" / "config.json").read_text())["a"] == other["id"])
     send("/config", {"a": d["members"]["a"]["id"]})
@@ -363,7 +363,7 @@ with tempfile.TemporaryDirectory() as tmp:
     tg = eq_all["targets"]
     parts_nc = {
         "no boxes": "Equivalent on" not in html and "data-equiv" not in html and 'class="equiv"' not in html and 'class="tick"' not in html and 'class="tick on"' not in html and "data-qedit" in html and "{equivalence:" not in html and "/fragment/equiv" not in html,
-        "two rows": cfg_html.count('class="cfgrow"') == 2 and 'id="pre-use"' not in cfg_html and '<span class="cfgl">Adapters</span>' not in cfg_html and '<span class="cfgl">Turns with tools</span><div class="tools" id="tools">' in cfg_html and '<span class="cfgl">Your own questions</span><div class="ownq" id="ownq">' in cfg_html,
+        "two rows": cfg_html.count('class="cfgrow"') == 3 and '<span class="cfgl">View training questions</span><button class="btn top ghost" id="tq-open"' in cfg_html and 'id="pre-use"' not in cfg_html and '<span class="cfgl">Adapters</span>' not in cfg_html and '<span class="cfgl">Turns with tools</span><div class="tools" id="tools">' in cfg_html and '<span class="cfgl">Your own training questions</span><div class="ownq" id="ownq">' in cfg_html,
         # (a swarm of one model, its turns decided by the swarm, is not asked who takes turns with tools; set to one model alone,
         # or made of several, the row is there. And One model says nothing under the choice.)
         "one model": swarm_ui.tools_row({"members": {"a": {"id": "x", "name": "X"}, "b": {"id": "x", "name": "X"}}, "tools": "swarm", "mix": False}) == ""
@@ -957,7 +957,7 @@ with tempfile.TemporaryDirectory() as tmp:
         rd = __import__("subprocess").run([node_, "-e", "import(process.argv[1]).then(m=>{const s=m.readSpec(process.argv[2]);console.log(s.swoa.recipeSha256===m.recipeSha256(s.recipe)&&s.swoa.baseModuleSha256===m.recipeSha256(m.baseModuleOf(s.recipe))?'same':'differs')}).catch(e=>console.log('refused: '+e.message))",
                                             (Path(swarm_ui.__file__).resolve().parent.parent / "src" / "spec.mjs").as_uri(), str(sp_file)], capture_output=True, text=True)
         check("the module reads the SwOA spec the page writes, and computes its recipe and base module hashes the same way", rd.stdout.strip() == "same", rd.stdout + rd.stderr[:300])
-    check("the ideas waiting to be tried are no longer on the Train card's head (taken out, console instruction 2026-11-17)", "Ideas waiting to be tried:" not in html.split('<div id="score">')[1].split('</div></div>')[0])
+    check("the ideas waiting to be tried are no longer on the Train card's head (taken out, console instruction 2026-11-17)", "Ideas waiting to be tried:" not in html)
     node = swarm_ui.node_for_training()
     if node:
         parsed = __import__("subprocess").run([node, "--check", "-"], input="async function page(){\n" + swarm_ui.JS + "\n}", capture_output=True, text=True)
@@ -980,7 +980,7 @@ with tempfile.TemporaryDirectory() as tmp:
     srv.shutdown()
     # ---- the Train button, with a stand-in for the session (it writes its steps and waits): no model is started
     srv, base = serve(empty)
-    check("on a folder with no trainers the button is there but cannot be pressed, and says why", 'id="run-go" type="button" disabled' in get(base + "/page")[1] and "no trainers" in get(base + "/page")[1])
+    check("on a folder with no trainers the session's button cannot be pressed, and says why (it is on the session's own strip: the Swarm Viewer no longer carries it)", 'id="run-go" type="button" disabled' in get(base + "/fragment/score")[1] and "no trainers" in get(base + "/fragment/score")[1])
     srv.shutdown()
     fake = Path(tmp) / "repo"
     (fake / "training").mkdir(parents=True)
@@ -1101,7 +1101,7 @@ with tempfile.TemporaryDirectory() as tmp:
     # (a configuration is evaluated before it is trained: this one has been, on every body of work that has a standard task)
     _fd = data.load(str(fake))
     first_said = swarm_ui.needs_eval(_fd)
-    blocked_page = get(base + "/page")[1]
+    blocked_page = get(base + "/fragment/score")[1]
     post("/run/start")
     blocked_ran = (fake / ".work" / "train" / "ui-run.json").exists()
     (fake / ".work" / "eval").mkdir(parents=True, exist_ok=True)
@@ -1184,7 +1184,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and 'id="run-go" type="button" title=' in _part_ctl and "Tools and Search have no figure from before" in _part_ctl and swarm_ui.eval_gaps(_fd) == "" and swarm_ui.needs_eval(_fd) == "", [_part_need, _part_gap, _part_ctl[:200]])
     page0 = get(base + "/page")[1]
     check("where training can be started the Train card has a Train button that can be pressed, no count of passes to choose, and says it goes on until it is stopped",
-          'id="run-go" type="button" title="Train question by question, pass after pass, until Stop training is pressed">Train</button>' in page0 and 'id="run-stop"' not in page0 and 'id="run-passes"' not in page0 and 'class="facts"' not in page0
+          'id="run-go" type="button" title="Train question by question, pass after pass, until Stop training is pressed">Train</button>' in get(base + "/fragment/score")[1] and 'id="run-go"' not in page0 and 'id="run-stop"' not in page0 and 'id="run-passes"' not in page0 and 'class="facts"' not in page0
           and swarm_ui.step_label("10-questions") == "Train, question by question" and swarm_ui.step_label("07-plan") == "Plan what to try" and swarm_ui.step_label("99-new") == "new")
     # THE SWARM AGAINST EACH QUESTION, on the swarm's own card: a pip for each finished question, the counts, and where a pass stopped
     trk_rec = {"pass": 2, "of": 6, "questions": 3, "list": [{"id": "q1", "kind": "math", "state": "at parity", "attempts": [{}]},
@@ -1813,7 +1813,7 @@ swarm_ui.CARD_STARTS = True
 _full = swarm_ui.main_body(_d)
 check("only the Run card starts and stops: the Evaluate and Train cards are drawn without their own Start buttons, the chooser of a size and the button that asked again what fell short, and with them where the page is started to draw them; what else the cards hold is as it was",
       all('id="%s"' % i not in _bare for i in ("ev-go", "ev-size", "ev-narrow", "pre-go", "run-go", "ev-stop", "pre-stop", "run-stop")) and 'id="whole-go"' in _bare
-      and all('id="%s"' % i in _full for i in ("ev-go", "ev-size", "run-go")) and "<h2>Evaluate the swarm</h2>" in _bare and "<h2>Pretrain</h2>" not in _bare and "<h2>Pretrain</h2>" not in _full, [len(_bare), len(_full)])
+      and all('id="%s"' % i in _full for i in ("ev-go", "ev-size")) and 'id="run-go"' not in _full and "<h2>Evaluate the swarm</h2>" in _bare and "<h2>Pretrain</h2>" not in _bare and "<h2>Pretrain</h2>" not in _full, [len(_bare), len(_full)])
 import tempfile as _tf9
 _wr = Path(_tf9.mkdtemp())
 (_wr / ".work" / "run" / "k" / "pass-1").mkdir(parents=True)
@@ -2306,7 +2306,7 @@ else:
 _cvsrc = Path(swarm_ui.__file__).read_text()
 check("the conversation run is a card of its own under Run, apart from the intelligence run: one press is one pass, and its figures are its own (the held conversations before a pass and after it, the passes side by side, what each kept and what it left for the next); before any pass it says so and offers one; it cannot be started while something else has the models, saying what; no benchmark is asked; and a pass is what the class stage does for the class that is a conversation, on the made-up people's kinds, with a record, gaps and history of its own",
       "no pass yet" in _cv0 and ">Run a pass<" in _cv0 and "No benchmark is asked" in _cv0 and 'id="conversebox"' in _cv0
-      and "after pass 2" in _cv1 and '<b class="pct">85%</b>' in _cv1 and ">Run the next pass<" in _cv1
+      and "after pass 2" in _cv1 and '<b>85%</b>' in _cv1 and 'aria-valuenow="85"' in _cv1 and 'class="ring"' in _cv1 and "<b>–</b>" in _cv0 and "aria-valuenow" not in _cv0 and ">Run the next pass<" in _cv1
       and "held 77% &rarr; 85% · kept: manners: a closing that only offers more help is taken off · left for the next: chat-thanks +2" in _cv1
       and "held 85% &rarr; 85% · nothing kept" in _cv1
       and "disabled" in _cv2 and "The module being served is running: a pass waits for it." in _cv2
@@ -2424,7 +2424,7 @@ check("the Run card has the head every card has (the figure and what it is, what
       "and where it waits for something else it says so in a line of its own; a whole run started from a shell is found by its process (the shell whose script is training/run.sh, not a shell that only launched it), "
       "with the size and the training it was started with, so the card shows Stop for it; each evaluation dialog has ONE header, which names the view, then the three evaluations side by side, then the last evaluation "
       "in detail under a heading that says which it is, and with no comparison to show it is the view as it was; and a percentage is said one way (55, not 55.0 beside 60)",
-      'class="panel prep wholep"' in _wb and '<span class="memnum"><b class="pct">' in _wb and "of 4 steps<small>" in _wb and 'id="whole-go"' in _wb
+      'class="panel prep wholep"' in _wb and '<span class="memnum" data-ring="1"><span class="ring"' in _wb and "of 4 steps done<small>" in _wb and 'id="whole-go"' in _wb
       and ".prep>.proghead" in swarm_ui.CSS
       and _found == {"pid": 4242, "limit": 50, "train": "off", "adopted": True, "running": True}
       and swarm_ui._run_in(" 501 /bin/bash -c bash training/run.sh --limit 20\n") is None and swarm_ui._run_in("") is None
@@ -2685,6 +2685,35 @@ check("the plan being carried out and the picture of the system fold, and start 
       and re.search(r'<details class="fold secfold" data-keep="sec-system"><summary><h2 id="system">Visualizing the System</h2></summary><div id="viz">', _arrf)
       and 'data-keep="sec-plan" open' not in _arrf and 'data-keep="sec-system" open' not in _arrf and "details.secfold" in swarm_ui.CSS and "details[data-keep]" in swarm_ui.JS,
       _arrf[-300:])
+
+# HOW FAR A RUN HAS COME, AS A RING ON ITS OWN CARD (console 2026-11-24)
+_rg0, _rg40, _rgn = swarm_ui.ring(0), swarm_ui.ring(40.4, True, "How far"), swarm_ui.ring(None)
+_ws = [{"id": k, "name": n, "state": "waiting"} for k, n in swarm_ui.WHOLE_STEPS]
+_st = lambda *states: [dict(x, state=s_) for x, s_ in zip(_ws, states)]  # noqa: E731
+_pp_was = swarm_ui.pass_progress
+swarm_ui.pass_progress = lambda d: {"pct": 50.0}
+_sh_none = swarm_ui.whole_share(_cvd, _st("waiting", "waiting", "waiting", "waiting"), False)
+_sh_one = swarm_ui.whole_share(_cvd, _st("done", "waiting", "waiting", "waiting"), False)
+_sh_train = swarm_ui.whole_share(_cvd, _st("done", "not taken", "running", "waiting"), True)
+_sh_stopped = swarm_ui.whole_share(_cvd, _st("done", "done", "running", "waiting"), False)
+swarm_ui.pass_progress = _pp_was
+_rjs, _rre, _rca, _rsr, _rss = swarm_ui._job_state, swarm_ui._run_elsewhere_now, swarm_ui._classes_alive, swarm_ui.stage_record, swarm_ui.stage_step
+swarm_ui._run_elsewhere_now, swarm_ui._classes_alive = (lambda: None), (lambda: False)
+swarm_ui._job_state = lambda name: {"running": True, "pid": 1, "at": "x"} if name == "converse" else None
+swarm_ui.stage_record = lambda d: {"rounds": 2, "classes": {"talk": {"asItStands": {"n": 4, "counted": 1}, "rounds": [{"of": 10, "candidates": [{}] * 5}]}}}
+swarm_ui.stage_step = lambda: 'Class 1 of 1, a conversation: trying "x" · question 1 of 4'
+_cv_run = swarm_ui.converse_block(_cvd)
+swarm_ui._job_state, swarm_ui._run_elsewhere_now, swarm_ui._classes_alive, swarm_ui.stage_record, swarm_ui.stage_step = _rjs, _rre, _rca, _rsr, _rss
+_now_pct = int((re.search(r'aria-valuenow="(\d+)"', _cv_run) or [0, -1])[1])
+check("how far a run has come is a ring on the run's own card, filled to a share with the share written in it: the intelligence run by its four steps, each a quarter, the one running counted by how far it is itself (an evaluation by its questions, training by the session's share), and a step that was stopped not counted as running; the conversation run by how far the pass has come while it runs, and by where the held conversations stand when it does not, with a dash before any pass; "
+      "the Swarm Viewer no longer has a head of its own (the share of answers good, the pass's bar, the Questions button): the questions training asks are opened from the configuration, under Your own training questions",
+      'role="progressbar"' in _rg0 and 'aria-valuenow="0"' in _rg0 and "<b>0%</b>" in _rg0 and 'stroke-dasharray="0.00 ' in _rg0
+      and 'class="ring on"' in _rg40 and 'aria-valuenow="40"' in _rg40 and "<b>40%</b>" in _rg40 and "aria-valuenow" not in _rgn and "<b>–</b>" in _rgn
+      and _sh_none == 0 and _sh_one == 25 and abs(_sh_train - 62.5) < 0.01 and _sh_stopped == 50
+      and 'class="ring on"' in _cv_run and 0 < _now_pct < 100 and "of pass" in _cv_run and 'id="converse-stop"' in _cv_run
+      and 'id="score"' not in swarm_ui.arrangement(_cvd) and 'id="tq-open"' not in swarm_ui.arrangement(_cvd) and 'id="tq-open"' in swarm_ui.config_section(_cvd)
+      and "View training questions" in swarm_ui.config_section(_cvd) and "Your own training questions" in swarm_ui.config_section(_cvd) and ".ring .rv" in swarm_ui.CSS,
+      [_sh_none, _sh_one, _sh_train, _sh_stopped, _now_pct, _rg40[:160]])
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

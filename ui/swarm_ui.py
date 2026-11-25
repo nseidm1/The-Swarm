@@ -134,7 +134,8 @@ details.cfg[open]>summary{margin-bottom:0}details.cfg .picks{margin-top:10px}
 .ownb{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);font:inherit;font-size:13px;font-weight:700;color:var(--fog);padding:6px 10px;cursor:pointer}
 .ownb em{font-style:normal;color:var(--teal)}.ownb svg{width:13px;height:13px;fill:none;stroke:var(--mist);stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round}
 .ownb:hover,.ownb:focus-visible{border-color:var(--teal2);color:var(--teal)}.ownb:hover svg,.ownb:focus-visible svg{stroke:var(--teal)}
-@media (max-width:560px){.cfgl{flex-basis:100%}}
+.cfgrows .cfgl{flex-basis:232px}
+@media (max-width:560px){.cfgl,.cfgrows .cfgl{flex-basis:100%}}
 dialog#qedit{border:0;border-radius:var(--r);padding:26px;max-width:min(760px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}
 dialog#qedit::backdrop{background:rgba(11,40,38,.45)}dialog#qedit h4{margin:22px 0 6px}
 .qlist{list-style:none;margin:0;padding:0;display:grid;gap:8px}.qrow{display:flex;gap:8px;align-items:flex-start;min-width:0}
@@ -527,6 +528,12 @@ padding:11px 14px;font-size:13px;line-height:1.45;box-shadow:0 10px 30px rgba(0,
 #busybar i{display:block;height:100%;width:30%;background:var(--teal2);animation:slide 1s ease-in-out infinite}
 .btn.waiting,.specbtn.waiting{position:relative;opacity:.75;cursor:progress}
 @media (prefers-reduced-motion:reduce){.loadbar i,.skel,#busybar i{animation-duration:3s}}
+/* (the Swarm Viewer has no head now: what comes first in it has no rule above it) */
+.panel.arr>:first-child{border-top:0!important;margin-top:0!important;padding-top:0!important}
+.memnum[data-ring]{display:flex;align-items:center;gap:14px;text-align:left}.ring{position:relative;display:inline-block;width:64px;height:64px;flex:none}
+.ring svg{width:64px;height:64px;display:block}.ring circle{fill:none;stroke-width:6}.ring .rt{stroke:rgba(0,0,0,.08)}.ring .rv{stroke:var(--teal2);stroke-linecap:round;transition:stroke-dasharray .6s ease}
+.ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:var(--teal);font-variant-numeric:tabular-nums;line-height:1}
+.memnum[data-ring] .ring b{font-size:14px;display:flex;letter-spacing:-.02em}.ring.on .rv{stroke:var(--sun)}
 #snack.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}#snack button{background:none;border:0;color:#ffd2cd;font-weight:700;cursor:pointer;font-size:13px;padding:0;flex:none}
 .panel.run{display:grid;gap:14px;padding:18px}.panel.run>*{margin:0}
 .run .meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--mist);font-weight:600}.run .meta b{color:var(--fog);font-weight:800}
@@ -2703,7 +2710,9 @@ def arrangement(d):
     # question track with its key of eleven marks. Each is said elsewhere on the page (the configuration, the SwOA spec's
     # count of kept changes, Training now, the plan being carried out), so they were taken out (console 2026-11-24).
     # (the training share, the line beside it, Train and Clear training state head the card: #score, drawn again in place)
-    one = ('<div class="panel arr"><div id="score">%s</div>%s%s</div>' % (progress_strip(d), adapters_line(d), faces_block(d)))
+    # (and its head, the share of answers good with the pass's bar and the Questions button, was taken out too: how far a run
+    # has come is said on the run's own card, as a ring, and the questions are opened from the configuration)
+    one = '<div class="panel arr">%s%s</div>' % (adapters_line(d), faces_block(d))
     # THE PLAN AND THE PICTURE FOLD, AND START FOLDED (console 2026-11-24): each is long and is looked at on purpose, so the page
     # opens on what a person acts on. Open or shut is kept on the device (data-keep), and what is inside is still drawn again
     # in place while it is shut, so opening one shows it as it stands.
@@ -3984,8 +3993,10 @@ def config_section(d):
     return ('<details class="cfg fold" data-keep="cfg" open><summary><span class="cfgh">Configuration</span><span id="rec-slot">%s</span><span class="fmeta" id="cfg-meta">%s</span></summary>'
             '<div class="foldb">%s<div class="cfgrows">%s'
             # (no row for adapters: whether a slot carries one is training's to find, and is shown with the arrangement)
-            '<div class="cfgrow"><span class="cfgl">Your own questions</span>%s</div></div></div></details>'
-            % (badge, e(cfg_meta(d)), pills(d), tools_row(d), own_questions(d)))
+            '<div class="cfgrow"><span class="cfgl">Your own training questions</span>%s</div>'
+            # (the questions training asks, read from here: the button was at the head of the Swarm Viewer, console 2026-11-24)
+            '<div class="cfgrow"><span class="cfgl">View training questions</span>%s</div></div></div></details>'
+            % (badge, e(cfg_meta(d)), pills(d), tools_row(d), own_questions(d), TQ_BUTTON))
 
 
 def tools_row(d):
@@ -6128,11 +6139,54 @@ def whole_block(d):
     only = st.get("classes") or []
     waits += ((('<small class="evwhy" id="whole-only">Training requests %s only, as chosen.</small>' % e(_and([CLASS_NAMES.get(c, c) for c in only]).lower())) if only else "")
               if running else train_options(bool(held and held != "the run"), held))
-    return ('<div class="panel prep wholep" id="wholebox"%s><div class="proghead"><span class="memnum"><b class="pct">%d</b><span>of 4 steps<small>%s</small></span></span>'
+    n_done = sum(1 for x in steps if x["state"] in ("done", "not taken"))
+    at = next((i + 1 for i, x in enumerate(steps) if x["state"] == "running"), None) if running else None
+    # (by its steps alone: a run that ended after one step, as one asked not to train does, is a quarter of the way and not whole)
+    share = whole_share(d, steps, running)
+    return ('<div class="panel prep wholep" id="wholebox"%s><div class="proghead"><span class="memnum" data-ring="1">%s<span>%s<small>%s</small></span></span>'
             '<span class="progline">One run, two figures: the module as configured is evaluated, which is the baseline; it is trained (pure code, adapters, breakdown, cascade, slots and models, arrangement); and it is evaluated again, '
             'on the same questions. Stop is safe at any step; Start carries on from the step it stopped in.</span><span class="evctl">%s</span></div>%s<ol class="wsl">%s</ol></div>'
-            % (' data-running="1"' if running else "", sum(1 for x in steps if x["state"] == "done"),
+            % (' data-running="1"' if running else "", ring(share, running, "How far the intelligence run has come"),
+               ("step %d of 4" % at) if at else ("%d of 4 steps done" % n_done),
                "running" if running else ("done" if done else ("waiting" if held and held != "the run" else "not started" if not any(x["state"] != "waiting" for x in steps) else "stopped")), ctl, waits, rows))
+
+
+def ring(pct, running=False, word=""):
+    """HOW FAR, AS A RING: a circle filled to a share, with the share written in it. It is what each run card leads with: how
+    far the run has come while it runs, and where it stands when it does not. pct: 0 to 100, or None where there is nothing
+    to say yet (an empty ring with a dash)."""
+    known = pct is not None
+    v = max(0.0, min(100.0, float(pct or 0)))
+    r, c = 24.0, 2 * 3.14159265 * 24.0
+    return ('<span class="ring%s" role="progressbar" aria-valuemin="0" aria-valuemax="100"%s aria-label="%s">'
+            '<svg viewBox="0 0 60 60" aria-hidden="true"><circle class="rt" cx="30" cy="30" r="24"></circle>'
+            '<circle class="rv" cx="30" cy="30" r="24" stroke-dasharray="%.2f %.2f" transform="rotate(-90 30 30)"%s></circle></svg><b>%s</b></span>'
+            % (" on" if running else "", (' aria-valuenow="%d"' % round(v)) if known else "", e(word or "How far"), c * v / 100.0, c, "" if v > 0 else ' visibility="hidden"', ("%d%%" % round(v)) if known else "–"))
+
+
+def whole_share(d, steps, running):
+    """How far the intelligence run has come, 0 to 100: each of its four steps is a quarter; one that is done (or was not
+    taken) is whole, and the one running counts by how far it is itself: an evaluation by the questions asked of those it
+    has to ask (.work/eval/live.json), training by the session's own share (pass_progress). A step whose share cannot be
+    read counts as begun and no more."""
+    total = 0.0
+    for x in steps:
+        if x["state"] in ("done", "not taken"):
+            total += 1
+        elif x["state"] == "running" and running:
+            part = 0.0
+            try:
+                if x["id"] in ("1-evaluate-as-configured", "4-evaluate-trained"):
+                    live = data._json(Path(d.get("root", ARGS.root)) / ".work" / "eval" / "live.json", {}) or {}
+                    sides = [t.get(k) or {} for t in live.get("tasks") or [] for k in ("swarm", "target")]
+                    of = sum(int(y.get("of") or 0) for y in sides)
+                    part = (sum(min(int(y.get("done") or 0), int(y.get("of") or 0)) for y in sides) / of) if of else 0.0
+                elif x["id"] == "3-train-classes":
+                    part = float((pass_progress(d) or {}).get("pct") or 0) / 100.0
+            except (TypeError, ValueError, KeyError):
+                part = 0.0
+            total += max(0.0, min(0.99, part))
+    return 100.0 * total / max(1, len(steps))
 
 
 def train_options(blocked, held):
@@ -6189,11 +6243,21 @@ def converse_block(d):
     waits = ('<div class="state warn"><i></i><span>%s is running: a pass waits for it.</span></div>' % e(held[0].upper() + held[1:])) if held and held != "a conversation pass" and not running else ""
     # (what the lineup needs is fetched first, and the card says how far that is; a pass that ended on an error says why)
     waits += (_making_ready(st) if running else failed_line("converse", "The conversation pass"))
-    return ('<div class="panel prep wholep" id="conversebox"%s><div class="proghead"><span class="memnum"><b class="pct">%s</b><span>held conversations<small>%s</small></span></span>'
+    # THE RING: while a pass runs, how far the pass has come (the class stage's own share, by the changes tried and the
+    # question in hand: classes_share); otherwise where the held conversations stand after the last pass
+    if running:
+        rec = stage_record(d)
+        figure = ring(100.0 * classes_share(rec, 1, stage_step()) if rec else 0.0, True, "How far the conversation pass has come")
+        what = "of pass %d" % (len(hist) + 1)
+    else:
+        la = (last or {}).get("heldAfter") or {}
+        figure = ring((100.0 * la["counted"] / la["n"]) if la.get("n") else None, False, "Held conversations the swarm answers well")
+        what = "held conversations"
+    return ('<div class="panel prep wholep" id="conversebox"%s><div class="proghead"><span class="memnum" data-ring="1">%s<span>%s<small>%s</small></span></span>'
             '<span class="progline">One press is one pass: made-up people write over several turns, each reply is read by code against the conventions of that conversation, '
             'and a change is kept only where held conversations gain. Each pass asks more of what the last was short on. No benchmark is asked.%s</span><span class="evctl">%s</span></div>%s%s</div>'
-            % (' data-running="1"' if running else "", pc((last or {}).get("heldAfter")) if last else "–",
-               ("pass %d running" % (len(hist) + 1)) if running else ("after pass %d" % (last.get("pass") or len(hist))) if last else "no pass yet", now, ctl, waits,
+            % (' data-running="1"' if running else "", figure, what,
+               "running" if running else ("after pass %d" % (last.get("pass") or len(hist))) if last else "no pass yet", now, ctl, waits,
                ('<ol class="wsl">%s</ol>' % rows) if rows else ""))
 
 
