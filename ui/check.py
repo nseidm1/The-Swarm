@@ -2724,5 +2724,50 @@ check("a dialog opens at once and says it is reading: the questions training ask
       and "await swap('/fragment/trainq','#tqd-body');$('#tqd').showModal()" not in swarm_ui.JS and "if(!dg.open)dg.showModal();" in swarm_ui.JS and "data-dlg-close" in swarm_ui.JS and ".dlgload" in swarm_ui.CSS,
       swarm_ui.JS.count("dlgLoad('#"))
 
+# THE INTELLIGENCE RUN'S RING, PUT THROUGH WHAT THE CONVERSATION RUN'S WAS (console 2026-11-24): a step just begun is not read
+# from what the run before left, and the ring moves with the questions of the step in hand
+_wq_root = Path(tempfile.mkdtemp(prefix="swarm-check-wring-"))
+(_wq_root / ".work" / "eval").mkdir(parents=True)
+_wq_d = dict(_cvd, root=str(_wq_root))
+_wq_live = _wq_root / ".work" / "eval" / "live.json"
+_side = lambda done, of: {"done": done, "of": of}  # noqa: E731
+_wq_tasks = [{"swarm": _side(10, 20), "target": _side(20, 20)}, {"swarm": _side(0, 20), "target": _side(0, 20)}]
+_wq_live.write_text(json.dumps({"phase": "asking", "tasks": _wq_tasks}))
+_wq_ev_fresh = swarm_ui.whole_step_share(_wq_d, "1-evaluate-as-configured")
+_wq_live.write_text(json.dumps({"phase": "done", "tasks": [{"swarm": _side(20, 20), "target": _side(20, 20)}]}))
+_wq_ev_last = swarm_ui.whole_step_share(_wq_d, "4-evaluate-trained")
+_wq_live.write_text(json.dumps({"phase": "asking", "tasks": _wq_tasks}))
+os.utime(_wq_live, (time.time() - 3600, time.time() - 3600))
+_wq_ev_old = swarm_ui.whole_step_share(_wq_d, "1-evaluate-as-configured")
+_wq_live.unlink()
+_wq_ev_none = swarm_ui.whole_step_share(_wq_d, "1-evaluate-as-configured")
+_wq_was = (swarm_ui.stage_step, swarm_ui.pass_progress, swarm_ui._job_state, swarm_ui._run_elsewhere_now, swarm_ui._classes_alive, swarm_ui.whole_steps)
+swarm_ui.stage_step = lambda: 'Class 2 of 4, asking for code: trying "x" · question 45 of 90'
+swarm_ui.pass_progress = lambda d: {"pct": 100.0, "done": True}
+_wq_tr_q = swarm_ui.whole_step_share(_wq_d, "3-train-classes")
+_wq_run_stale = swarm_ui.whole_share(_wq_d, _st("done", "done", "running", "waiting"), True)
+swarm_ui.stage_step = lambda: ""
+_wq_tr_stale = swarm_ui.whole_step_share(_wq_d, "3-train-classes")
+swarm_ui.pass_progress = lambda d: {"pct": 40.0, "done": False}
+_wq_tr_pp = swarm_ui.whole_step_share(_wq_d, "3-train-classes")
+_wq_ad = swarm_ui.whole_step_share(_wq_d, "2-make-adapters")
+# (and on the card: the step in hand in the ring, the run beside it; a step that does not say, the run in the ring)
+swarm_ui._run_elsewhere_now, swarm_ui._classes_alive = (lambda: None), (lambda: False)
+swarm_ui._job_state = lambda name: {"running": True, "pid": 1, "at": "x", "limit": 20} if name == "whole" else None
+swarm_ui.stage_step = lambda: 'Class 2 of 4, asking for code: trying "x" · question 45 of 90'
+swarm_ui.whole_steps = lambda root, key: (_st("done", "done", "running", "waiting"), False)
+_wq_card_train = swarm_ui.whole_block(_wq_d)
+swarm_ui.whole_steps = lambda root, key: (_st("done", "running", "waiting", "waiting"), False)
+_wq_card_ad = swarm_ui.whole_block(_wq_d)
+swarm_ui.stage_step, swarm_ui.pass_progress, swarm_ui._job_state, swarm_ui._run_elsewhere_now, swarm_ui._classes_alive, swarm_ui.whole_steps = _wq_was
+_vn = lambda h: int((re.search(r'aria-valuenow="(\d+)"', h) or [0, -1])[1])  # noqa: E731
+check("the intelligence run's ring is held to what the conversation run's was: a step just begun is not read from what the run before left (an evaluation that says it is done or stopped, or was written long ago, or a session's pass already ended, is nothing asked yet, not a step finished); while the run goes the ring is the step in hand and moves with its questions (an evaluation by the questions asked of both models, training by the question in hand), "
+      "with the step and how far the whole run has come said beside it; a step that does not say how far it is (making adapters) leaves the ring as the run's own share; and the run's share counts training by the session's share, not by the question in hand, which starts again with every change",
+      _wq_ev_fresh == 0.375 and _wq_ev_last == 0.0 and _wq_ev_old == 0.0 and _wq_ev_none == 0.0
+      and _wq_tr_q == 0.5 and _wq_tr_stale == 0.0 and _wq_tr_pp == 0.4 and _wq_ad is None and _wq_run_stale == 50.0
+      and _vn(_wq_card_train) == 50 and "of step 3 of 4" in _wq_card_train and "60% of the run" in _wq_card_train and 'class="ring on"' in _wq_card_train
+      and _vn(_wq_card_ad) == 25 and ">step 2 of 4<" in _wq_card_ad and "of step 2 of 4" not in _wq_card_ad,
+      [_wq_ev_fresh, _wq_ev_last, _wq_ev_old, _wq_tr_q, _wq_tr_stale, _wq_tr_pp, _wq_ad, _wq_run_stale, _vn(_wq_card_train), _vn(_wq_card_ad)])
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

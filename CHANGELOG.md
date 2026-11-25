@@ -6,6 +6,11 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The intelligence run's ring is held to the same** (2026-11-24). While the run goes, the ring is the step in hand
+  and moves with its questions (an evaluation by the questions asked of both models, training by the question in
+  hand), with the step and how far the whole run has come beside it. A step just begun is not read from what the
+  run before left: an evaluation that says it is done or stopped, or a session's pass already ended, is nothing asked
+  yet. Making adapters does not say how far it is, so there the ring is the run's own share.
 - **The conversation run's ring moves with the question in hand** (2026-11-24). A pass tries some sixty changes on
   ninety questions each, so its own share stood still while the questions went by. The ring is now the step in hand
   by its question, drawn again every two seconds, and how far the pass has come is said beside it.

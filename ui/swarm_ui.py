@@ -6166,12 +6166,20 @@ def whole_block(d):
     at = next((i + 1 for i, x in enumerate(steps) if x["state"] == "running"), None) if running else None
     # (by its steps alone: a run that ended after one step, as one asked not to train does, is a quarter of the way and not whole)
     share = whole_share(d, steps, running)
+    # THE RING MOVES WITH WHAT THE STEP IN HAND IS DOING: while the run goes, it is that step, by its questions, and how far
+    # the run has come is said beside it; a step that does not say how far it is leaves the ring as the run's share
+    figure, label, word = ring(share, running, "How far the intelligence run has come"), None, None
+    if at:
+        part = whole_step_share(d, steps[at - 1]["id"])
+        if part is not None:
+            figure = ring(100.0 * part, True, "How far the step in hand has come")
+            label, word = "of step %d of 4" % at, "%d%% of the run" % round(share)
     return ('<div class="panel prep wholep" id="wholebox"%s><div class="proghead"><span class="memnum" data-ring="1">%s<span>%s<small>%s</small></span></span>'
             '<span class="progline">One run, two figures: the module as configured is evaluated, which is the baseline; it is trained (pure code, adapters, breakdown, cascade, slots and models, arrangement); and it is evaluated again, '
             'on the same questions. Stop is safe at any step; Start carries on from the step it stopped in.</span><span class="evctl">%s</span></div>%s<ol class="wsl">%s</ol></div>'
-            % (' data-running="1"' if running else "", ring(share, running, "How far the intelligence run has come"),
-               ("step %d of 4" % at) if at else ("%d of 4 steps done" % n_done),
-               "running" if running else ("done" if done else ("waiting" if held and held != "the run" else "not started" if not any(x["state"] != "waiting" for x in steps) else "stopped")), ctl, waits, rows))
+            % (' data-running="1"' if running else "", figure,
+               label or (("step %d of 4" % at) if at else ("%d of 4 steps done" % n_done)),
+               word if word else "running" if running else ("done" if done else ("waiting" if held and held != "the run" else "not started" if not any(x["state"] != "waiting" for x in steps) else "stopped")), ctl, waits, rows))
 
 
 def ring(pct, running=False, word=""):
@@ -6187,27 +6195,55 @@ def ring(pct, running=False, word=""):
             % (" on" if running else "", (' aria-valuenow="%d"' % round(v)) if known else "", e(word or "How far"), c * v / 100.0, c, "" if v > 0 else ' visibility="hidden"', ("%d%%" % round(v)) if known else "–"))
 
 
+def whole_step_share(d, step_id):
+    """HOW FAR THE STEP OF THE INTELLIGENCE RUN THAT IS RUNNING HAS COME, 0 to 1, or None where the step does not say.
+    Only what THIS step wrote is read: each of these files is left by the run before, saying it is finished or stopped,
+    until the step in hand first writes it, and a step just begun must not read as done (the conversation run did, console
+    2026-11-24).
+      an evaluation   the questions asked of those it has to ask, the module's and the larger model's
+                      (.work/eval/live.json), while that file says an evaluation is going and was written lately
+      training        the question in hand of the step in hand, where the class stage names one (so that it moves as the
+                      questions go by); else the session's own share (pass_progress), unless that is a pass already ended
+      adapters        nothing says how far: None"""
+    root = Path(d.get("root", ARGS.root))
+    try:
+        if step_id in ("1-evaluate-as-configured", "4-evaluate-trained"):
+            f = root / ".work" / "eval" / "live.json"
+            live = data._json(f, {}) or {}
+            if live.get("phase") in ("done", "stopped", "failed") or time.time() - f.stat().st_mtime > 900:
+                return 0.0
+            sides = [t.get(k) or {} for t in live.get("tasks") or [] for k in ("swarm", "target")]
+            of = sum(int(y.get("of") or 0) for y in sides)
+            return (sum(min(int(y.get("done") or 0), int(y.get("of") or 0)) for y in sides) / of) if of else 0.0
+        if step_id == "3-train-classes":
+            qm = re.search(r"question (\d+) of (\d+)", stage_step() or "")
+            if qm and int(qm.group(2)):
+                return min(1.0, int(qm.group(1)) / int(qm.group(2)))
+            pp = pass_progress(d) or {}
+            return 0.0 if pp.get("done") else float(pp.get("pct") or 0) / 100.0
+    except (OSError, TypeError, ValueError, KeyError):
+        return 0.0
+    return None
+
+
 def whole_share(d, steps, running):
     """How far the intelligence run has come, 0 to 100: each of its four steps is a quarter; one that is done (or was not
-    taken) is whole, and the one running counts by how far it is itself: an evaluation by the questions asked of those it
-    has to ask (.work/eval/live.json), training by the session's own share (pass_progress). A step whose share cannot be
-    read counts as begun and no more."""
+    taken) is whole, and the one running counts by how far the run's training or evaluation has come as a whole (an
+    evaluation by its questions, training by the session's own share and not by the question in hand, which starts again
+    with every change tried). A step whose share cannot be read counts as begun and no more."""
     total = 0.0
     for x in steps:
         if x["state"] in ("done", "not taken"):
             total += 1
         elif x["state"] == "running" and running:
-            part = 0.0
-            try:
-                if x["id"] in ("1-evaluate-as-configured", "4-evaluate-trained"):
-                    live = data._json(Path(d.get("root", ARGS.root)) / ".work" / "eval" / "live.json", {}) or {}
-                    sides = [t.get(k) or {} for t in live.get("tasks") or [] for k in ("swarm", "target")]
-                    of = sum(int(y.get("of") or 0) for y in sides)
-                    part = (sum(min(int(y.get("done") or 0), int(y.get("of") or 0)) for y in sides) / of) if of else 0.0
-                elif x["id"] == "3-train-classes":
-                    part = float((pass_progress(d) or {}).get("pct") or 0) / 100.0
-            except (TypeError, ValueError, KeyError):
-                part = 0.0
+            if x["id"] == "3-train-classes":
+                try:
+                    pp = pass_progress(d) or {}
+                    part = 0.0 if pp.get("done") else float(pp.get("pct") or 0) / 100.0
+                except (TypeError, ValueError):
+                    part = 0.0
+            else:
+                part = whole_step_share(d, x["id"]) or 0.0
             total += max(0.0, min(0.99, part))
     return 100.0 * total / max(1, len(steps))
 
