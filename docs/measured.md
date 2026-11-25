@@ -57,6 +57,37 @@ does not reach these benchmarks, whose answers are blocks of code and never sat 
 - **Not run:** a pass on the class asking for code (begun and stopped: over an hour for one round), and any benchmark
   after this pass.
 
+## What code can fill where the model cannot work it out: 2026-11-25
+
+Of the plain questions no slot had right, most are operations on symbols a small model does badly by reading and a few
+lines of code do exactly: counting a letter in a word ("referee" has one r), reversing a word, putting words in order,
+closing brackets, a rate worked to the minute. So: can a program the model writes for the question in hand fill them?
+Every train question of the class (132), LFM3 1.7B, a drafter that answers by a program asked beside the slots, with
+no vote:
+
+| | Of 132 |
+| --- | --- |
+| The slots settled on the right answer | 107 |
+| The program ran and printed something | 115 |
+| What the program printed was right | 65 |
+| The program right where the slots were wrong | 9 |
+| The program wrong where the slots were right | 37 |
+
+A program written for one question by a 1.7B model is right less often than the model's own slots. Six of six chains
+of sums were worked wrongly by the program and rightly by the slots; so were five of six counts, five of six days of
+the week, three of six letters. Where it filled: who tells the truth (2), when someone could have gone (2), whether an
+argument is valid (2), a rate, a word, an ordering. Let stand wherever the two differ, it would lose 28 questions.
+
+- **What does not work at this size:** code written unseen for each question. It is not checked against anything.
+- **What does:** code that is checked before it is trusted. The function the same model wrote for counting numbers in
+  a range was run on questions it had not been shown, kept by the held questions, and is then right every time; the
+  instruments a person wrote are exact. The difference is the vetting, not who wrote it.
+- **Three fills cost nothing:** where the slots settled on no answer at all and the program printed one, it was right
+  three times of three. And on 10 of the 29 wrong plain questions some drafter had given no answer, cut off before it
+  reached one.
+- **Not measured:** the same on a larger small model, whose programs should be better; a larger model writing the
+  per-kind functions; whether a function written from training's wordings reads a benchmark's.
+
 ## What three conversation passes could not mend, and what did: 2026-11-24
 
 LFM3 1.7B in both places, the conversation run: 13 kinds of conversation, 78 held, each reply read by code against the
