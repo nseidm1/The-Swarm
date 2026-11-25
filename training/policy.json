@@ -11,7 +11,7 @@
     "tries": 28,
     "rounds": 2,
     "draws": 2,
-    "sweep": 60,
+    "sweep": 80,
     "adapterLeast": 0.9,
     "writer": "target",
     "writeKinds": 4,

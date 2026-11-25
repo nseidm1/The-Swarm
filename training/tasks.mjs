@@ -32,6 +32,7 @@ import { CHAT_KINDS, CHAT_KIND_NAMES, CONVENTIONS, conventionsHeld } from './tas
 import { CALL_KINDS } from './tasks-calls.mjs';
 import { SEARCH_KINDS } from './tasks-search.mjs';
 import { LOGIC_KINDS, logicTask, asShown } from './tasks-logic.mjs';
+import { LATER_KINDS } from './tasks-later.mjs';
 import { EXACT_KINDS, setWordings } from './tasks-exact.mjs';
 // (the wordings the larger model wrote in this pass, where a session names their file: training/wordings.mjs)
 if (process.env.SWARM_WORDINGS) {
@@ -485,6 +486,9 @@ const ALL = {
   // (made-up people in conversation, each reply read against conventions: tasks-chat.mjs. After every other, for the same
   // reason: no earlier kind's questions change)
   ...CHAT_KINDS,
+  // (kinds added after passes had been measured: tasks-later.mjs. After EVERY other, always: no earlier kind's questions
+  // change, which tests/run.mjs holds by their hash)
+  ...LATER_KINDS,
 };
 // the programming kinds, and with them the conversation a seat on a team carries: what a pass asks, unless its record says otherwise
 export const CODE_KIND_NAMES = [...Object.keys(CODE_KINDS), 'trace', ...Object.keys(PY_KINDS)];

@@ -437,6 +437,83 @@ function rangeAnswer(f, q) {
   return String(Math.floor(hi / k) - Math.floor((lo - 1) / k));
 }
 
+// ---- who holds what, after things have changed hands
+function trackAnswer(f, q) {
+  const start = f.holds || [];
+  const swaps = f.swaps || [];
+  if (start.length < 2 || start.length > 8 || !swaps.length || swaps.length > clausesOf(q)) return null;
+  const who = start.map((h) => low(h.who));
+  const what = start.map((h) => low(h.has));
+  if (new Set(who).size !== who.length || new Set(what).size !== what.length) return null;
+  if (![...start.flatMap((h) => [h.who, h.has])].every((n) => begins(q, n))) return null;
+  const has = [...what];
+  for (const s of swaps) {
+    const a = who.indexOf(low(s.a));
+    const b = who.indexOf(low(s.b));
+    if (a < 0 || b < 0 || a === b) return null;
+    [has[a], has[b]] = [has[b], has[a]];
+  }
+  const asked = f.asked || {};
+  // (said as the question writes it)
+  const as = (x) => {
+    const m = new RegExp('(^|[^a-z0-9])(' + x.replace(/[^a-z0-9 ]/g, '.') + ')', 'i').exec(q);
+    return m ? m[2] : x;
+  };
+  let got = null;
+  if (asked.wants === 'who') {
+    const i = has.indexOf(low(asked.of));
+    got = i < 0 ? null : as(who[i]);
+  } else if (asked.wants === 'what') {
+    const i = who.indexOf(low(asked.of));
+    got = i < 0 ? null : as(has[i]);
+  }
+  if (got === null) return null;
+  const options = optionsOf(q);
+  return options.length ? letterOf(options, (text) => low(text).includes(low(got))) : got;
+}
+
+// ---- steps and turns, and where they lead
+function pathAnswer(f, q) {
+  const moves = f.moves || [];
+  // (a walk is often told in one sentence, its parts set off by commas and "then": each of those may be a move)
+  const parts = (String(q).match(/[.;?!\n,]|\bthen\b|\band\b/gi) || []).length + 1;
+  if (!moves.length || moves.length > parts) return null;
+  const dir = [
+    [0, 1],
+    [1, 0],
+    [0, -1],
+    [-1, 0],
+  ];
+  let face = ['north', 'east', 'south', 'west'].indexOf(low(f.facing || 'north'));
+  if (face < 0) return null;
+  let x = 0;
+  let y = 0;
+  for (const m of moves) {
+    const n = Number(m.steps) || 0;
+    const step = (d) => {
+      if (!(n >= 1) || !Number.isInteger(n)) return false;
+      x += dir[d][0] * n;
+      y += dir[d][1] * n;
+      return true;
+    };
+    if (m.do === 'forward') {
+      if (!step(face)) return null;
+    } else if (m.do === 'backward') {
+      if (!step((face + 2) % 4)) return null;
+    } else if (m.do === 'stepRight') {
+      if (!step((face + 1) % 4)) return null;
+    } else if (m.do === 'stepLeft') {
+      if (!step((face + 3) % 4)) return null;
+    } else if (m.do === 'turnRight') face = (face + 1) % 4;
+    else if (m.do === 'turnLeft') face = (face + 3) % 4;
+    else if (m.do === 'turnAround') face = (face + 2) % 4;
+    else return null;
+  }
+  if (f.asked === 'backAtStart') return x === 0 && y === 0 ? 'Yes' : 'No';
+  if (f.asked === 'howFar') return String(Math.abs(x) + Math.abs(y));
+  return null;
+}
+
 const statement = obj({ says: one('all', 'no', 'some', 'someNot', 'is', 'isNot'), subject: str, predicate: str });
 export const FORMS = {
   lies: {
@@ -676,6 +753,67 @@ export const FORMS = {
       'A stretch of whole numbers and a number to divide by. "from" and "to": the first and the last number of the stretch, copied from the text. "ends": "both" where both of them are counted (inclusive, counting both ends), "neither" where neither is (strictly between), "first" or "last" where only that one is. "dividedBy": the number they must be divisible by.',
     schema: obj({ from: int, to: int, ends: one('both', 'neither', 'first', 'last'), dividedBy: int }),
     answer: rangeAnswer,
+  },
+  track: {
+    label: 'people who each hold a thing and swap them, and who holds what at the end',
+    example: {
+      question:
+        'Tom holds a key, Sue a coin and Rob a ring. Tom and Rob trade. After that Sue and Tom trade. Who ends up with the ring?',
+      form: {
+        holds: [
+          { who: 'Tom', has: 'key' },
+          { who: 'Sue', has: 'coin' },
+          { who: 'Rob', has: 'ring' },
+        ],
+        swaps: [
+          { a: 'Tom', b: 'Rob' },
+          { a: 'Sue', b: 'Tom' },
+        ],
+        asked: { wants: 'who', of: 'ring' },
+      },
+    },
+    cue: (q) =>
+      /\b(?:swap|swaps|trade|trades|exchange|exchanges|switch)\b/i.test(q) &&
+      /\b(?:has|have|holds?|ends? up)\b/i.test(q),
+    about:
+      'People who each hold one thing, and swaps between two of them. "holds": who has what at the start, each person once. "swaps": each swap in the order it happens: a and b are the two people who swap. "asked": wants is "who" where the question asks who has a thing at the end (of is the thing), "what" where it asks what a person has at the end (of is the person). Do not work out who has what: copy the start and the swaps.',
+    schema: obj({
+      holds: arr(obj({ who: str, has: str })),
+      swaps: arr(obj({ a: str, b: str })),
+      asked: obj({ wants: one('who', 'what'), of: str }),
+    }),
+    answer: trackAnswer,
+  },
+  path: {
+    label: 'steps and turns taken from a point, and whether they lead back to it',
+    example: {
+      question:
+        'Facing north, walk 4 paces ahead, turn to your left, walk 2 paces, then turn round. Have you returned to where you began?',
+      form: {
+        facing: 'north',
+        moves: [
+          { do: 'forward', steps: 4 },
+          { do: 'turnLeft', steps: 0 },
+          { do: 'forward', steps: 2 },
+          { do: 'turnAround', steps: 0 },
+        ],
+        asked: 'backAtStart',
+      },
+    },
+    cue: (q) => /\bsteps?\b|\bpaces?\b/i.test(q) && /\bturn\b/i.test(q),
+    about:
+      'A walk of steps and turns. "facing": the way faced at the start (north where none is said). "moves": each thing done, in order: do is "forward", "backward", "stepLeft" or "stepRight" for steps taken (steps says how many), or "turnLeft", "turnRight", "turnAround" for a turn on the spot (steps is 0). "asked": "backAtStart" where the question asks whether the walk ends where it began, "howFar" where it asks how many steps from the start it ends. Do not work out where the walk ends.',
+    schema: obj({
+      facing: one('north', 'east', 'south', 'west'),
+      moves: arr(
+        obj({
+          do: one('forward', 'backward', 'stepLeft', 'stepRight', 'turnLeft', 'turnRight', 'turnAround'),
+          steps: int,
+        }),
+      ),
+      asked: one('backAtStart', 'howFar'),
+    }),
+    answer: pathAnswer,
   },
 };
 export const FORM_IDS = Object.keys(FORMS);

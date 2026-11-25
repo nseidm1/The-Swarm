@@ -1526,7 +1526,7 @@ def viz_block(d):
     rbox = lambda i, x: ('<div class="vbox%s" data-code="R%d"><b><span class="vcode">R%d</span>%s</b><small>%s%s</small></div>'  # noqa: E731
                          % (" on" if (going and x["state"] == "running") or ("R%d" % (i + 1)) in now_ else "", i + 1, i + 1, e(x["name"]),
                             ("<b>%s.</b> " % said_[x["state"]]) if said_.get(x["state"]) else "", r_words[i] if i < len(r_words) else ""))
-    on_ = lambda pl: list(data.__dict__.get("INSTRUMENT_IDS") or ["sum", "truth", "sorted", "closed", "lies", "word", "row", "date", "free", "order", "more", "valid", "number", "weekday", "letters", "range"]) if (pl or {}).get("instruments") is True else list((pl or {}).get("instruments") or [])  # noqa: E731
+    on_ = lambda pl: list(data.__dict__.get("INSTRUMENT_IDS") or ["sum", "truth", "sorted", "closed", "lies", "word", "row", "date", "free", "order", "more", "valid", "number", "weekday", "letters", "range", "track", "path"]) if (pl or {}).get("instruments") is True else list((pl or {}).get("instruments") or [])  # noqa: E731
     br_ = d.get("briefs") or {}
     inst_ = ([("every class", on_(br_.get("plan")))] if on_(br_.get("plan")) else []) + [(c, on_((k or {}).get("plan"))) for c, k in (br_.get("kinds") or {}).items() if on_((k or {}).get("plan"))]
     inst_words = ("On now: %s." % "; ".join("%s (%s)" % (", ".join(v), c) for c, v in inst_)) if inst_ else "None is on yet."
@@ -4203,7 +4203,7 @@ def loop_changes(d):
 def _spec_instruments_words(sp):
     """The instruments a spec's arrangement has on, by class of input (plan.instruments; none until training turns one on)."""
     b = (sp.get("recipe") or {}).get("briefs") or {}
-    on = lambda p: (data.__dict__.get("INSTRUMENT_IDS") or ["sum", "truth", "sorted", "closed", "lies", "word", "row", "date", "free", "order", "more", "valid", "number", "weekday", "letters", "range"]) if (p or {}).get("instruments") is True else list((p or {}).get("instruments") or [])  # noqa: E731
+    on = lambda p: (data.__dict__.get("INSTRUMENT_IDS") or ["sum", "truth", "sorted", "closed", "lies", "word", "row", "date", "free", "order", "more", "valid", "number", "weekday", "letters", "range", "track", "path"]) if (p or {}).get("instruments") is True else list((p or {}).get("instruments") or [])  # noqa: E731
     said = []
     if on(b.get("plan")):
         said.append("every class: %s" % e(", ".join(on(b.get("plan")))))
@@ -4536,7 +4536,9 @@ def progress_strip(d, cleared=""):
                 '<span class="progline">%s</span><span class="evctl">%s</span></div>%s%s</div>'
                 % (("%s%%" % fmt_pct(data.percent(sf["right"], sf["of"]))) if sf and sf["of"] else "&ndash;",
                    ("the class stage, pass %d" % sf["pass"]) if sf else "the class stage, starting",
-                   (("<b>%d</b> of %d train answers good as the swarm stands in this stage. " % (sf["right"], sf["of"])) if sf else "") + "<b>Now:</b> " + e(stage_step()),
+                   (("<b>%d</b> of %d train answers good as the swarm stands in this stage. " % (sf["right"], sf["of"])) if sf else "")
+                   + (("Of the kinds of question as they were before %s, when kinds were added: <b>%d</b> of %d. " % (e(sf["earlier"]["since"]), sf["earlier"]["right"], sf["earlier"]["of"])) if sf and sf.get("earlier") else "")
+                   + "<b>Now:</b> " + e(stage_step()),
                    _ctl[0], ('<div class="trainbelow">%s</div>' % _ctl[2]) if _ctl[2] else "", run_lines(cleared)))
     return ('<div class="trainprog trainhead"><div class="proghead"><span class="memnum"' + (' aria-busy="true">' + busy() if running_now else '><b class="pct">%s%%</b>' % fmt_pct(pct)) + '<span>answers good<small>pass %s</small></span></span>'
             '<span class="progline">%s %s</span><span class="evctl">%s</span></div>%s%s%s</div>'
@@ -4733,7 +4735,14 @@ def stage_figure(rec):
     got = [(C.get("after") or C.get("asItStands")) for C in cs if (C.get("after") or C.get("asItStands"))]
     if not got:
         return None
-    return {"right": sum(x.get("counted") or 0 for x in got), "of": sum(x.get("n") or 0 for x in got), "pass": (rec or {}).get("pass") or 1}
+    out = {"right": sum(x.get("counted") or 0 for x in got), "of": sum(x.get("n") or 0 for x in got), "pass": (rec or {}).get("pass") or 1}
+    # OF THE KINDS AS THEY WERE (training/classes.mjs figuresOf `earlier`): where a kind of question was added after passes had
+    # been measured, the same figure without the kinds added, so that it can be set beside a figure of an earlier pass
+    if any(x.get("earlier") for x in got):
+        was = [(x.get("earlier") or {"n": x.get("n") or 0, "counted": x.get("counted") or 0}) for x in got]
+        out["earlier"] = {"right": sum(w.get("counted") or 0 for w in was), "of": sum(w.get("n") or 0 for w in was),
+                          "since": min(x["earlier"]["since"] for x in got if x.get("earlier") and x["earlier"].get("since"))}
+    return out
 
 
 def idle_words():

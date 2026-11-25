@@ -24,10 +24,18 @@ What has been run:
   form ([measured](measured.md#what-the-writer-can-be-trusted-with-a-rung-at-a-time-2026-11-25)). **Limits, said
   plainly:** one writer was measured; the six kinds made for the rung are ours; no class has yet kept a reading.
 
-- **Twelve instruments that read a whole question, and forms for questions put another way (2026-11-25).** Who tells
+- **Two kinds of question were added to training (2026-11-25), and no earlier figure was changed by it.** Who holds
+  what after things have changed hands, and whether steps and turns lead back. They stand after every other kind, so
+  every earlier question is what it was (held by hash), and a class's figures are told twice from that day: of every
+  kind, and of the kinds as they were. **Said plainly:** both are well-known families of problem, and standard tests
+  hold tasks of the same families. They were written here, in our own wording, and no benchmark was read; they will
+  resemble such tasks because the families are general.
+
+- **Fourteen instruments that read a whole question, and forms for questions put another way (2026-11-25).** Who tells
   the truth, a word and what is done to it, things in a row, a date so many days on or back, when someone was free, who
   is the tallest, how many more of one figure than another, whether an argument holds, a number and what is done to
-  it, a day of the week, a count of letters, a count in a stretch of numbers. Each instrument was written
+  it, a day of the week, a count of letters, a count in a stretch of numbers, who holds what after swaps, whether a
+  walk leads back. Each instrument was written
   from training's own questions; no benchmark was read. With no model: 40 of 40 held questions right for each. On 73
   held questions reworded by the larger model the instruments read 5, which is what forms are for: a 1.7B model read
   38 into forms, 35 rightly; on a second set of 71 that nothing was mended against it read 29, 25 rightly, and

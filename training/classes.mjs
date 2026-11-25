@@ -36,6 +36,7 @@ export function sampleOf(list, most) {
     for (const q of by.values()) if (q[i] && out.length < most) out.push(q[i]);
   return out;
 }
+const SINCE = JSON.parse(fs.readFileSync(new URL('./equivalence.json', import.meta.url), 'utf8')).since || {};
 // what a list of rows comes to: { n, anySlot, settled, counted, unread (null where no question says what a reader reads) }
 export function figuresOf(rows) {
   const sum = (f) => rows.reduce((a, x) => a + (f(x) ? 1 : 0), 0);
@@ -57,6 +58,23 @@ export function figuresOf(rows) {
       }),
     ),
     seconds: Math.round(rows.reduce((a, x) => a + (x.ms || 0), 0) / 1000),
+    ...earlierOf(rows),
+  };
+}
+// OF THE KINDS AS THEY WERE (equivalence.json `since`: the day a kind was added, for kinds added after passes had been
+// measured): the same figures without the rows of those kinds, where there are any. A figure of an earlier pass is of these
+// kinds, and is set beside this one; `n` and `counted` above are of every kind asked. -> { earlier: { n, counted, since } } | {}
+export function earlierOf(rows, since = SINCE) {
+  const later = rows.filter((x) => x.kind && since[x.kind]);
+  if (!later.length) return {};
+  const were = rows.filter((x) => !(x.kind && since[x.kind]));
+  return {
+    earlier: {
+      n: were.length,
+      counted: were.filter((x) => x.counted).length,
+      since: [...new Set(later.map((x) => since[x.kind]))].sort()[0],
+      added: [...new Set(later.map((x) => x.kind))],
+    },
   };
 }
 // the gain of one arrangement over another on the same questions, and its paired error: { gain, error }

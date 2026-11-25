@@ -375,7 +375,7 @@ with tempfile.TemporaryDirectory() as tmp:
         "refused": e_no == 400 and "every body of work" in e_why and "equivalence" not in json.loads(cfg_was) and get(base + "/fragment/equiv")[0] == 404,
         "leftover": asked_old == eq_all["asked"] and t_ok == 200 and "equivalence" not in cfg_after and cfg_after["tools"] == "swarm",
         "asked": "chosen" not in eq_all and eq_all["asked"] == data.bodies_asked(tg, data.load(root)["state"]) == [t["id"] for t in tg] and len(tg) == 8
-                 and "A pass asks every body of work: <b>55</b> kinds of question" in swarm_ui.main_body(data.load(root)),
+                 and "A pass asks every body of work: <b>57</b> kinds of question" in swarm_ui.main_body(data.load(root)),
         "record": data.bodies_asked(tg, {"kinds": next(t["kinds"] for t in tg if t["id"] == "crew"), "history": [{"pass": 1}]}) == ["crew", "code"]
                   and data.bodies_asked(tg, {"history": [{"pass": 1}]}) == ["code"] and data.bodies_asked(tg, {"kinds": ["chain"]}) == [] and data.bodies_asked(tg, {}) == [t["id"] for t in tg],
         # (and a SwOA says what its training asked from the questions of the pass in hand, where it has asked any)
@@ -2768,6 +2768,14 @@ check("the intelligence run's ring is held to what the conversation run's was: a
       and _vn(_wq_card_train) == 50 and "of step 3 of 4" in _wq_card_train and "60% of the run" in _wq_card_train and 'class="ring on"' in _wq_card_train
       and _vn(_wq_card_ad) == 25 and ">step 2 of 4<" in _wq_card_ad and "of step 2 of 4" not in _wq_card_ad,
       [_wq_ev_fresh, _wq_ev_last, _wq_ev_old, _wq_tr_q, _wq_tr_stale, _wq_tr_pp, _wq_ad, _wq_run_stale, _vn(_wq_card_train), _vn(_wq_card_ad)])
+
+# ---- a class's figure is told twice from the day a kind of question is added
+_sf_two = swarm_ui.stage_figure({"pass": 3, "classes": {"words": {"asItStands": {"n": 144, "counted": 120, "earlier": {"n": 132, "counted": 109, "since": "2026-11-25", "added": ["swap", "path"]}}},
+                                                        "code": {"asItStands": {"n": 60, "counted": 30}}}})
+_sf_one = swarm_ui.stage_figure({"pass": 3, "classes": {"words": {"asItStands": {"n": 132, "counted": 109}}}})
+check("where a kind of question was added after passes had been measured, the class stage's figure is told twice: of every kind, and of the kinds as they were (a class that has none of the kinds added counts as it stands), with the day; where none was added there is one figure",
+      _sf_two["right"] == 150 and _sf_two["of"] == 204 and _sf_two["earlier"] == {"right": 139, "of": 192, "since": "2026-11-25"} and "earlier" not in _sf_one,
+      [_sf_two, _sf_one])
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

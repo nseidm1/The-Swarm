@@ -1151,7 +1151,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       all.some((c) => /b-recompute drafts instead of checking/.test(c.name)) &&
       // (an instrument turned on comes first of all: it costs nothing to try; then the flow)
       /^plan: a question .* is done by code$/.test(all[0].name) &&
-      all.filter((c) => / is done by code$/.test(c.name)).length === 16 &&
+      all.filter((c) => / is done by code$/.test(c.name)).length === 18 &&
       // (then one model asked as the request came, for a piece of writing and for the whole class; then the flow)
       /a piece of writing is written by one model, asked as it came$/.test(all[4].name) &&
       /^plan: one model answers, asked as it came$/.test(all[5].name) &&
@@ -1798,8 +1798,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   check(
     "every kind of held question has a second wording that changes how it is put and nothing of what it asks, and is compared with the larger model's answer to the first: a programming question by its form, every other kind from its own draw, with every number and quoted word of the first in the second, every rule word for word and in the same order, every argument a call needs said outright, and the same answer good for both; a step that is followed by a search and what it returned keeps them as they were and puts only the question another way; the only questions without one are a message there is no other way to put and an agent's steps that end on what a tool returned (4 of 222); and a kind that is asked more of keeps the questions it had and adds to them",
     second.length === held.length &&
-      others.length === 138 &&
-      others2.length === 138 &&
+      others.length === 150 &&
+      others2.length === 150 &&
       others2.every(
         (t) =>
           t.ask &&
@@ -1809,7 +1809,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           digits(t.ask) === digits(firstOf(t).ask) &&
           quoted(t.ask) === quoted(firstOf(t).ask),
       ) &&
-      rightBoth.length === 120 &&
+      rightBoth.length === 132 &&
       rightBoth.every(Boolean) &&
       // a request with rules: every rule word for word, in the same order, after the request
       others2
@@ -1841,8 +1841,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
             t.turns.slice(1).every((m, i) => m === firstOf(t).turns[i + 1]),
         ) &&
       others2.filter((t) => t.kind === 'search' && t.turns.length === 3).length >= 3 &&
-      everyKind.length === 330 &&
-      everyKind2.length === 326 &&
+      everyKind.length === 342 &&
+      everyKind2.length === 338 &&
       without.sort().join() === 'agent,agent,agent,answer' &&
       second.every(
         (t, i) =>
@@ -2166,8 +2166,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     "what the swarm is trained on is every body of work of a list kept as data (The Crew, Code, Math, Logic, Reasoning, Instructions, Tools, Search), and nothing is chosen: a pass asks the kinds of them all, each once (Code's are among The Crew's); the list has no default, since there is nothing to fall back to; the kinds of some can still be named (a record, a check), a name that is not one is passed over, and with none left it is every one; what a list of kinds covers is said from the kinds (a pass that asked The Crew's covered Code too); and every kind of every body makes a question",
     BODIES.join() === 'crew,code,math,logic,reasoning,instructions,tools,search' &&
       EQUIVALENCE.default === undefined &&
-      NAMES.length === 55 &&
-      new Set(NAMES).size === 55 &&
+      NAMES.length === 57 &&
+      new Set(NAMES).size === 57 &&
       NAMES.join() === kindsFor(BODIES).join() &&
       kindsFor().join() === NAMES.join() &&
       kindsFor([]).join() === NAMES.join() &&
@@ -2177,10 +2177,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       kindsFor(['crew']).join() === CREW_NAMES.join() &&
       kindsFor(['math']).slice().sort().join() === 'chain,count,rate,shop,sum,units' &&
       kindsFor(['math', 'crew']).length === CREW_NAMES.length + 6 &&
-      kindsFor(['logic', 'reasoning']).length === 14 &&
-      make({ split: 'held', each: 2, kinds: kindsFor(['math', 'logic', 'reasoning']) }).length === 40 &&
-      make({ split: 'train', each: 6 }).length === 330 &&
-      make({ split: 'held', each: 6 }).length === 330 &&
+      kindsFor(['logic', 'reasoning']).length === 16 &&
+      make({ split: 'held', each: 2, kinds: kindsFor(['math', 'logic', 'reasoning']) }).length === 44 &&
+      make({ split: 'train', each: 6 }).length === 342 &&
+      make({ split: 'held', each: 6 }).length === 342 &&
       bodiesOf(NAMES).join() === BODIES.join() &&
       bodiesOf(CREW_NAMES).join() === 'crew,code' &&
       bodiesOf(CODE_KIND_NAMES).join() === 'code' &&
@@ -2410,7 +2410,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     byRecord === 'chain,order' &&
       before === CODE_KIND_NAMES.join() &&
       first === NAMES.join() &&
-      NAMES.length === 55 &&
+      NAMES.length === 57 &&
       withOldChoice === first &&
       readOld === undefined &&
       writtenOld === undefined,
@@ -12089,8 +12089,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
         ) &&
         again.length === py.length &&
         again.every((t) => /^I need a function in Python, `/.test(t.ask)) &&
-        TK.KIND_NAMES.slice(-18, -13).join() === 'py-arrays,py-strings,py-numbers,py-parsing,py-wide' &&
-        TK.KIND_NAMES.slice(-13, -7).join() === 'chat-terse,chat-formal,chat-hurry,chat-heavy,chat-thanks,chat-back' &&
+        TK.KIND_NAMES.slice(-20, -15).join() === 'py-arrays,py-strings,py-numbers,py-parsing,py-wide' &&
+        TK.KIND_NAMES.slice(-15, -9).join() === 'chat-terse,chat-formal,chat-hurry,chat-heavy,chat-thanks,chat-back' &&
         before.ask === 'Today is Tuesday. What day of the week will it be 158 days from now?' &&
         (!marks || marks.join() === 'right,wrong,unsure'),
       { forms: forms.map((f) => f.slice(0, 80)), marks, canRun },
@@ -13088,10 +13088,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       of('Today is 02/30/2017 (month/day/year). What is the date 4 days ago?') === null &&
       of('What is the capital of France?') === null &&
       I.INSTRUMENT_IDS.join() ===
-        'sum,truth,sorted,closed,lies,word,row,date,free,order,more,valid,number,weekday,letters,range' &&
-      I.INSTRUMENT_WHOLE.join() === 'lies,word,row,date,free,order,more,valid,number,weekday,letters,range' &&
+        'sum,truth,sorted,closed,lies,word,row,date,free,order,more,valid,number,weekday,letters,range,track,path' &&
+      I.INSTRUMENT_WHOLE.join() ===
+        'lies,word,row,date,free,order,more,valid,number,weekday,letters,range,track,path' &&
       I.instrumentFor('Ada tells the truth. Milo says Ada lies. Does Milo tell the truth?', ['sum']) === null &&
-      moves.filter((n) => / is done by code$/.test(n)).length === 16 &&
+      moves.filter((n) => / is done by code$/.test(n)).length === 18 &&
       moves.indexOf('plan: a question ' + I.INSTRUMENT_NAMES.lies + ' is done by code') >
         moves.findIndex((n) => /^flow: /.test(n)) &&
       !('instruments' in (startBriefs().plan || {})),
@@ -13245,7 +13246,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       F.clausesOf(liesQ) === 3 &&
       F.formsToTry(liesQ, null).join() === 'lies' &&
       // (a form read wrongly too often is on only where it is named)
-      F.formsOn(true).join() === 'lies,word,row,date,free,order,valid,number,weekday,letters,range' &&
+      F.formsOn(true).join() === 'lies,word,row,date,free,order,valid,number,weekday,letters,range,track,path' &&
       F.formsOn(['more', 'word']).join() === 'word,more' &&
       F.formWorked('lies', liesQ, J(liesF)) === 'Yes' &&
       F.formWorked('lies', liesQ, 'nothing') === null &&
@@ -13581,6 +13582,90 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     },
   );
   fs.rmSync(dir, { recursive: true, force: true });
+}
+
+{
+  // A KIND ADDED AFTER PASSES HAD BEEN MEASURED CHANGES NO EARLIER QUESTION, and a class's figures are told twice from then on
+  const TK = await import('../training/tasks.mjs');
+  const CL = await import('../training/classes.mjs');
+  const LT = await import('../training/tasks-later.mjs');
+  const I = await import('../src/instruments.mjs');
+  const F = await import('../src/forms.mjs');
+  const crypto = await import('node:crypto');
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const were = JSON.parse(fs.readFileSync(path.join(root, 'training', 'kinds-as-they-were.json'), 'utf8'));
+  const hash = (v) => crypto.createHash('sha256').update(JSON.stringify(v)).digest('hex').slice(0, 12);
+  const J = JSON.stringify;
+  const now = (split, k) => hash(TK.tasks({ split, each: 6, kinds: [k] }).map((t) => [t.id, t.ask || t.turns, t.want]));
+  const moved = were.names.filter((k) => now('train', k) !== were.train[k] || now('held', k) !== were.held[k]);
+  const tally = {};
+  for (const [id, kind] of Object.entries({ track: 'swap', path: 'path' })) {
+    const list = TK.tasks({ split: 'held', each: 12, kinds: [kind] });
+    let right = 0;
+    for (const t of list) {
+      const r = I.instrumentFor(t.ask, [id]);
+      if (r && (await t.good(r.answer)).grade === 'right') right++;
+    }
+    tally[id] = right + ' of ' + list.length;
+  }
+  const walks = TK.tasks({ split: 'train', each: 40, kinds: ['path'] }).filter((t) => t.want === 'Yes').length;
+  const rows = [
+    { kind: 'chain', counted: true },
+    { kind: 'chain', counted: false },
+    { kind: 'lies', counted: true },
+    { kind: 'swap', counted: true },
+    { kind: 'path', counted: false },
+  ];
+  const A = (id, form, q) => F.FORMS[id].answer(form, q);
+  const trade =
+    'Tom holds a key, Sue a coin and Rob a ring. Tom and Rob trade. After that Sue and Tom trade. Who ends up with the ring?';
+  check(
+    "a kind of question added after passes had been measured stands after every other, so that no earlier kind's questions change by a letter: each is held to the hash it had the day before; and from that day a class's figures are told twice, of every kind and of the kinds as they were, so that a figure of an earlier pass is set beside one of its own measure; the two added (who holds what after things have changed hands, whether steps and turns lead back) have a form and an instrument each, right on every held question of its kind",
+    were.names.length === 55 &&
+      moved.length === 0 &&
+      TK.KIND_NAMES.slice(-2).join() === 'swap,path' &&
+      LT.LATER_KIND_NAMES.join() === 'swap,path' &&
+      Object.keys(TK.EQUIVALENCE.since).join() === 'swap,path' &&
+      TK.KIND_NAMES.filter((k) => !were.names.includes(k)).every((k) => TK.EQUIVALENCE.since[k]) &&
+      Object.values(tally).every((v) => v === '12 of 12') &&
+      walks >= 12 &&
+      walks <= 28 &&
+      J(CL.figuresOf(rows.map((r) => ({ ...r, any: r.counted, settled: r.counted, unread: null }))).earlier) ===
+        J({ n: 3, counted: 2, since: '2026-11-25', added: ['swap', 'path'] }) &&
+      CL.figuresOf(rows.map((r) => ({ ...r, any: r.counted, settled: r.counted, unread: null }))).counted === 3 &&
+      !('earlier' in CL.figuresOf(rows.slice(0, 3).map((r) => ({ ...r, any: true, settled: true, unread: null })))) &&
+      J(CL.earlierOf(rows, {})) === '{}' &&
+      A('track', F.FORMS.track.example.form, trade) === 'Sue' &&
+      A('track', { ...F.FORMS.track.example.form, asked: { wants: 'what', of: 'Sue' } }, trade) === 'ring' &&
+      A('track', { ...F.FORMS.track.example.form, swaps: [{ a: 'Tom', b: 'Una' }] }, trade) === null &&
+      A('path', F.FORMS.path.example.form, F.FORMS.path.example.question) === 'No' &&
+      A(
+        'path',
+        {
+          facing: 'north',
+          moves: [
+            { do: 'forward', steps: 3 },
+            { do: 'turnAround', steps: 0 },
+            { do: 'forward', steps: 3 },
+          ],
+          asked: 'backAtStart',
+        },
+        'Go 3 steps, turn round, go 3 steps. Back where you began?',
+      ) === 'Yes' &&
+      A(
+        'path',
+        {
+          facing: 'north',
+          moves: [
+            { do: 'forward', steps: 3 },
+            { do: 'stepLeft', steps: 4 },
+          ],
+          asked: 'howFar',
+        },
+        'Go 3 steps ahead, then 4 steps to the left. How far are you?',
+      ) === '7',
+    { moved, tally, walks },
+  );
 }
 
 await swarm.stop();

@@ -32,6 +32,8 @@ export const FORM_KIND = {
   weekday: 'day',
   letters: 'letters',
   range: 'count',
+  track: 'swap',
+  path: 'path',
 };
 export const RUNGS = ['fills', 'lays', 'writes'];
 export const ladderFile = (work) => path.join(work, 'ladder.json');

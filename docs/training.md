@@ -27,6 +27,12 @@ and keeps each only where held questions say it helped:
 - **the ladder**: what this swarm's writer can be trusted with, measured (`training/ladder.mjs`): whether it fills
   the forms, whether it lays a kind onto a form, whether it writes a function. The class stage asks for a reading
   only where its writer was shown to lay kinds reliably, or has not been measured;
+- **a kind of question added later** stands after every other (`training/tasks-later.mjs`), because a kind's
+  questions are seeded by where it stands: no earlier kind's questions change, and a test holds each to the hash it
+  had before (`training/kinds-as-they-were.json`). From the day one is added (`equivalence.json` `since`), a class's
+  figures are recorded twice: of every kind, and of the kinds as they were (`earlier`), so that a figure of an
+  earlier pass is always set beside one of its own measure. Two were added on 2026-11-25: who holds what after
+  things have changed hands, and whether steps and turns lead back to where they began;
 - **written code**: the code itself is found by training (`training/write-code.mjs`). Each round, for the kinds of
   question the class was most wrong on (`writeKinds`, two), the model in the swarm's first place is asked alone for
   one function, `answer(question)`, shown half of the train questions of that kind with their right answers. What it

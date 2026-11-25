@@ -2858,8 +2858,10 @@ determine, solve, work, out, how, much, please, help, tell, give, me, result, an
 | weekday | two sentences: `Today is <day of the week>.` and a question what day of the week it will be, or was, so many days or weeks `from now`, `later`, `ago` or `earlier` | the day of the week |
 | letters | one question: how many times the letter `"x"` appears in the word `"letters"` | the count, letters compared without regard to capitals |
 | range | one question: how many whole numbers from A to B, counting both ends, can be divided by K with nothing left over | the count |
+| track | the first sentence says who has what, `<Name> has the <thing>` for each, parted by commas; then `<Name> and <Name> swap.`, any number, with or without `Then`; then one question: `Who has the <thing> now?` or `What does <Name> have now?` | who has the thing, or what the person has, after every swap in turn |
+| path | `You start at a point, facing north.`; then `Take N steps forward.` (or `backward`) and `Turn left.`, `Turn right.`, `Turn around.`, any number; then a question whether you are back at the point you started from | `Yes` or `No` |
 
-The last twelve do not go by the rule of operand and words of asking. Each reads the WHOLE question sentence by
+The last fourteen do not go by the rule of operand and words of asking. Each reads the WHOLE question sentence by
 sentence, where sentences are parted at line ends and after `.`, `?` or `!`, and applies only where every sentence is
 one it understands; one sentence it does not, and the question is answered as any other.
 
@@ -2917,6 +2919,8 @@ training wrote (`plan.written`) answered:
 | weekday | `today`: a day of the week; `amount`; `unit`: `day` or `week`; `direction`: `back` or `on` |
 | letters | `word`; `letter`: one letter, which the question names by itself |
 | range | `from`, `to`: whole numbers; `ends`: `both`, `neither`, `first` or `last` (which of the two are counted); `dividedBy` |
+| track | `holds`: list of `{ who, has }`, each person and each thing once; `swaps`: list of `{ a, b }`, in order; `asked`: `{ wants, of }`, `wants` one of `who` (who has the thing `of`), `what` (what the person `of` has) |
+| path | `facing`: `north`, `east`, `south` or `west`; `moves`: list of `{ do, steps }`, `do` one of `forward`, `backward`, `stepLeft`, `stepRight` (steps taken, `steps` at least 1) or `turnLeft`, `turnRight`, `turnAround` (a turn on the spot); `asked`: `backAtStart` (`Yes` or `No`) or `howFar` (the steps from the start, counted along the two directions) |
 
 Lettered options are read from the question by code, not by the model: `(A) text`, several on a line or one a line,
 or `A. text` one a line. Where the question has them the answer is the letter of the one option that is what was

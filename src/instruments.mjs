@@ -584,6 +584,45 @@ function rangeIn(q) {
     : null;
 }
 
+// WHO HOLDS WHAT, AFTER SWAPS: "Ada has the red ball, Ben has the blue ball. Ada and Ben swap. Then ... Who has the red ball now?"
+function trackIn(q) {
+  const ss = sentencesOf(q);
+  const f = { holds: [], swaps: [], asked: null };
+  for (const part of String(ss[0] || '')
+    .replace(/\.$/, '')
+    .split(/,\s*(?:and\s+)?/)) {
+    const m = /^([A-Z][\w'-]*) has the ([a-z ]+)$/.exec(part.trim());
+    if (!m) return null;
+    f.holds.push({ who: m[1], has: m[2] });
+  }
+  for (const x of ss.slice(1)) {
+    let m;
+    if ((m = /^(?:Then )?([A-Z][\w'-]*) and ([A-Z][\w'-]*) swap\.$/.exec(x))) f.swaps.push({ a: m[1], b: m[2] });
+    else if ((m = /^Who has the ([a-z ]+) now\?$/.exec(x)) && !f.asked) f.asked = { wants: 'who', of: m[1] };
+    else if ((m = /^What does ([A-Z][\w'-]*) have now\?$/.exec(x)) && !f.asked) f.asked = { wants: 'what', of: m[1] };
+    else return null;
+  }
+  const got = f.asked ? FORMS.track.answer(f, q) : null;
+  // (a thing is answered as the question's maker has it: "red", of "the red ball")
+  return got && f.asked.wants === 'what' ? got.replace(/ ball$/, '') : got;
+}
+// STEPS AND TURNS: "You start at a point, facing north. Take 3 steps forward. Turn left. ... Are you back at the point you
+// started from? Answer Yes or No."
+function pathIn(q) {
+  const ss = sentencesOf(q);
+  if (!/^You start at a point, facing north\.$/.test(ss[0] || '')) return null;
+  const f = { facing: 'north', moves: [], asked: null };
+  for (const x of ss.slice(1)) {
+    let m;
+    if ((m = /^Take (\d+) steps? (forward|backward)\.$/.exec(x))) f.moves.push({ do: m[2], steps: Number(m[1]) });
+    else if ((m = /^Turn (left|right|around)\.$/.exec(x)))
+      f.moves.push({ do: 'turn' + m[1][0].toUpperCase() + m[1].slice(1), steps: 0 });
+    else if (/^Are you back at the point you started from\?$/.test(x) && !f.asked) f.asked = 'backAtStart';
+    else if (!/^Answer Yes or No\.$/.test(x)) return null;
+  }
+  return f.asked ? FORMS.path.answer(f, q) : null;
+}
+
 const INSTRUMENTS = [
   { id: 'sum', name: 'worked out as a sum', of: sumIn },
   { id: 'truth', name: 'worked out as an expression of true and false', of: truthIn },
@@ -601,6 +640,8 @@ const INSTRUMENTS = [
   { id: 'weekday', name: 'of a day of the week so many days on or back', of: weekdayIn, whole: true },
   { id: 'letters', name: 'of how many times a letter stands in a word', of: lettersIn, whole: true },
   { id: 'range', name: 'of how many numbers of a stretch can be divided by one', of: rangeIn, whole: true },
+  { id: 'track', name: 'of who holds what after things have changed hands', of: trackIn, whole: true },
+  { id: 'path', name: 'of steps and turns, and whether they lead back', of: pathIn, whole: true },
 ];
 // THE QUESTION AS AN INSTRUMENT READS IT: what was asked, without what a form puts round it. A label before it ("Q:",
 // "Question:") is taken off, and so are the lines at its end that only say where the answer goes: a short label and a colon

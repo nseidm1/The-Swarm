@@ -24,6 +24,11 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **Two kinds of question added, with every earlier figure left as it was** (2026-11-25). Who holds what after
+  things have changed hands, and whether steps and turns lead back to where they began: each with a form, the code
+  that works it out, and an instrument (fourteen in all). They stand after every other kind, so no earlier question
+  changed (a test holds each kind to its hash), and a class's figures are now recorded twice, of every kind and of
+  the kinds as they were, so an earlier pass is always compared on its own measure. The dashboard says both.
 - **Training lays a kind of question onto a form, and knows what its writer can do** (2026-11-25).
   - **Four more forms and instruments**, of figures: a number and what is done to it, a day of the week so many days
     on or back, how many times a letter stands in a word, how many numbers of a stretch can be divided. Twelve in
