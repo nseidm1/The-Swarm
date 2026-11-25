@@ -2,6 +2,34 @@
 
 Every measurement, dated, newest first. Each is of the swarm named in it; the lineup has changed over time.
 
+## Where the other classes stand, and what code does there: 2026-11-25
+
+The classes that are not plain questions, on training's held questions (LFM3 1.7B in every place). No benchmark was
+read.
+
+| Class | As the swarm stands | What was found | What was done |
+| --- | --- | --- | --- |
+| Requests for code | 45 of 60 | wrong where the function fails a case the question does not show: equal counts, a missing part, the way round | nothing: no check that code can make from the question alone was found |
+| Turns with tools | 15 of 18 | one searched for "What is 12 times 15?"; one called with a date nobody gave; one path written another way | the first: an instrument that is on now answers such a turn, and nothing is called |
+| Conversation | 77 of 78 (measured earlier) | no shortfall to mend; but with every instrument on, code answered 58 of 202 held conversation questions | a reader for the small sums people ask in passing: 132 of 202 by code |
+
+- **Conversation, with no model run.** Through the module, every instrument on in that class: 58 of the 202 held
+  questions were answered by code before, all 58 good by the conversation's own standard (a plain question asked in
+  a conversation 36 of 46, who is the tallest 12 of 12, a share of a number 10 of 24). With the reader added, 132,
+  all good: seven kinds of turn, 12 of 12 each. Not read, and a model's: a turn that leans on the one before ("and
+  double that?", "Sorry, I meant 12 tickets, not 10."), a doubt, a thanks, a request for code.
+- **Turns with tools, with no model run.** Of 36 held turns, 3 are sums asked with a search tool offered: all 3 are
+  now answered by code, rightly, and no slot is asked.
+- **Requests for code: by kind.** A function on numbers 6 of 6 and 5 of 6 (JavaScript, Python); on arrays 5 and 6; on
+  strings 4 and 6; one that parses text 3 and 4; correcting a function 3 of 6; the larger model's own Python tasks 3
+  of 6. The replies that were wrong ran and gave an answer; they were wrong on inputs the question describes in
+  words and does not show.
+- **A number and what is done to it, guarded.** Two questions of buying and selling had been read as one and
+  answered wrongly. Such a reading now has to use every figure of the question; with one left over it gives no
+  answer, and the slots answer as before.
+- **Not measured.** Any of this with models in a pass: the reader and the tool-turn rule are measured as code, on
+  whether what they give is good, not on what a class gains by having them on.
+
 ## What each layer is worth, on one lineup: 2026-11-25
 
 The held plain questions of training (LFM3 1.7B in every place, no decision model), each answered five ways. Six

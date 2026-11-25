@@ -17,6 +17,12 @@ What has been run:
   widened, 26 of a fresh 27; right on every one read. The larger model now writes such wordings in every pass, and an
   instrument is kept on ones its trying never saw.
 
+- **Where the other classes stand (2026-11-25).** Requests for code 45 of 60 held, turns with tools 15 of 18,
+  conversation 77 of 78. Code now answers the small sums of a conversation and a sum asked in a turn with tools
+  ([measured](measured.md#where-the-other-classes-stand-and-what-code-does-there-2026-11-25)). **Limits, said
+  plainly:** nothing mechanical was found for requests for code, which is where the swarm is furthest short; the two
+  additions are measured as code, not yet as a gain to a class in a pass.
+
 - **What each layer is worth, on one lineup (2026-11-25).** On training's held plain questions, a 1.7B model alone
   answered 87 of 132; the swarm as a module starts, 115; with what training had kept, 115 still; with every
   instrument on, 131; with the forms read as well, 129

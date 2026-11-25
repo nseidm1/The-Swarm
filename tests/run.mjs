@@ -1151,7 +1151,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       all.some((c) => /b-recompute drafts instead of checking/.test(c.name)) &&
       // (an instrument turned on comes first of all: it costs nothing to try; then the flow)
       /^plan: a question .* is done by code$/.test(all[0].name) &&
-      all.filter((c) => / is done by code$/.test(c.name)).length === 18 &&
+      all.filter((c) => / is done by code$/.test(c.name)).length === 19 &&
       // (then one model asked as the request came, for a piece of writing and for the whole class; then the flow)
       /a piece of writing is written by one model, asked as it came$/.test(all[4].name) &&
       /^plan: one model answers, asked as it came$/.test(all[5].name) &&
@@ -13088,11 +13088,11 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       of('Today is 02/30/2017 (month/day/year). What is the date 4 days ago?') === null &&
       of('What is the capital of France?') === null &&
       I.INSTRUMENT_IDS.join() ===
-        'sum,truth,sorted,closed,lies,word,row,date,free,order,more,valid,number,weekday,letters,range,track,path' &&
+        'sum,truth,sorted,closed,lies,word,row,date,free,order,more,valid,number,weekday,letters,range,track,path,quantity' &&
       I.INSTRUMENT_WHOLE.join() ===
-        'lies,word,row,date,free,order,more,valid,number,weekday,letters,range,track,path' &&
+        'lies,word,row,date,free,order,more,valid,number,weekday,letters,range,track,path,quantity' &&
       I.instrumentFor('Ada tells the truth. Milo says Ada lies. Does Milo tell the truth?', ['sum']) === null &&
-      moves.filter((n) => / is done by code$/.test(n)).length === 18 &&
+      moves.filter((n) => / is done by code$/.test(n)).length === 19 &&
       moves.indexOf('plan: a question ' + I.INSTRUMENT_NAMES.lies + ' is done by code') >
         moves.findIndex((n) => /^flow: /.test(n)) &&
       !('instruments' in (startBriefs().plan || {})),
@@ -13366,6 +13366,30 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     ),
     numberOther: A('number', { start: 12, steps: [{ do: 'subtract', by: 6 }] }, 'Begin at 12. Take away 5.'),
     numberZero: A('number', { start: 12, steps: [{ do: 'divide', by: 0 }] }, 'Begin at 12. Divide by 0.'),
+    // (a figure of the question that is neither the start nor a step: the question is about more than that)
+    numberLeft: A(
+      'number',
+      {
+        start: 3,
+        steps: [
+          { do: 'multiply', by: 23 },
+          { do: 'subtract', by: 27 },
+          { do: 'multiply', by: 8 },
+        ],
+      },
+      'Ben, who is 28, buys 3 boxes of bolts with 23 in each box, gives 27 of them away, and sells every one that is left for $8 each.',
+    ),
+    numberWorded: A(
+      'number',
+      {
+        start: 132,
+        steps: [
+          { do: 'add', by: 12 },
+          { do: 'multiply', by: 3 },
+        ],
+      },
+      'An account holds 132 dollars. 12 dollars are paid in. The balance is trebled.',
+    ),
     weekday: A(
       'weekday',
       { today: 'Thursday', amount: 179, unit: 'day', direction: 'on' },
@@ -13399,6 +13423,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           number: '21',
           numberOther: null,
           numberZero: null,
+          numberLeft: null,
+          numberWorded: '432',
           weekday: 'Monday',
           weekdayBack: 'Monday',
           weekdayOther: null,
@@ -13597,7 +13623,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const hash = (v) => crypto.createHash('sha256').update(JSON.stringify(v)).digest('hex').slice(0, 12);
   const J = JSON.stringify;
   const now = (split, k) => hash(TK.tasks({ split, each: 6, kinds: [k] }).map((t) => [t.id, t.ask || t.turns, t.want]));
-  const moved = were.names.filter((k) => now('train', k) !== were.train[k] || now('held', k) !== were.held[k]);
+  // (but the kinds the record sets apart, with why: their questions are not made from the seed alone)
+  const moved = were.names.filter(
+    (k) => !were.apart[k] && (now('train', k) !== were.train[k] || now('held', k) !== were.held[k]),
+  );
   const tally = {};
   for (const [id, kind] of Object.entries({ track: 'swap', path: 'path' })) {
     const list = TK.tasks({ split: 'held', each: 12, kinds: [kind] });
@@ -13623,6 +13652,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     "a kind of question added after passes had been measured stands after every other, so that no earlier kind's questions change by a letter: each is held to the hash it had the day before; and from that day a class's figures are told twice, of every kind and of the kinds as they were, so that a figure of an earlier pass is set beside one of its own measure; the two added (who holds what after things have changed hands, whether steps and turns lead back) have a form and an instrument each, right on every held question of its kind",
     were.names.length === 55 &&
       moved.length === 0 &&
+      Object.keys(were.apart).join() === 'py-wide' &&
       TK.KIND_NAMES.slice(-2).join() === 'swap,path' &&
       LT.LATER_KIND_NAMES.join() === 'swap,path' &&
       Object.keys(TK.EQUIVALENCE.since).join() === 'swap,path' &&
@@ -13665,6 +13695,106 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
         'Go 3 steps ahead, then 4 steps to the left. How far are you?',
       ) === '7',
     { moved, tally, walks },
+  );
+}
+
+{
+  // A SMALL SUM ASKED IN PASSING, AND AN OPERATION IN A TURN WITH TOOLS
+  const I = await import('../src/instruments.mjs');
+  const { answerTools } = await import('../src/tools.mjs');
+  const { startBriefs } = await import('../src/index.mjs');
+  const TK = await import('../training/tasks.mjs');
+  const J = JSON.stringify;
+  const of = (q) => (I.instrumentFor(q, ['quantity']) || {}).answer ?? null;
+  const got = {
+    share: of('30% of 80?'),
+    formal: of('Thank you. Could you tell me what 30 per cent of 200 comes to?'),
+    hurry: of('Quick, I have two minutes: 9 tickets at 3 pounds each?'),
+    back: of('Hello again, one more: days in 9 weeks?'),
+    heavy: of('Thank you. I need to know how many minutes 2 hours and 15 minutes come to.'),
+    sum: of('Thank you. Could you tell me the sum of 14 and 9?'),
+    plus: of('7 plus 8?'),
+    two: of('What is 15% of 200, and days in 9 weeks?'),
+    twoSums: of('What is 4 plus 9, and 6 tickets at 4 pounds each?'),
+    // (not one of these, whole: a turn for a model)
+    and: of('What is the difference between 14 and 9?'),
+    more: of('Thank you. Could you tell me what 30 per cent of 200 comes to, and why?'),
+    thanks: of('Thank you, that settles it.'),
+    refer: of('and double that?'),
+    meant: of('Sorry, I meant 12 tickets, not 10.'),
+    about: of('My 3 friends each paid 9 pounds for tickets at the door. Was that fair?'),
+    courtesyWithFigure: of('I have 2 minutes. 9 tickets at 3 pounds each?'),
+  };
+  // every conversation turn of training's that is such a sum is read, and rightly; no other kind's question is
+  let read = 0;
+  let right = 0;
+  let stray = 0;
+  for (const t of TK.tasks({ split: 'held', each: 6 })) {
+    const m = TK.messagesOf(t);
+    const last = [...m].reverse().find((x) => x.role === 'user');
+    const r = I.instrumentFor(typeof last.content === 'string' ? last.content : '', ['quantity']);
+    if (!r) continue;
+    if (!/^chat-(?:terse|formal|hurry|heavy|back|two|remember)$/.test(t.kind)) stray++;
+    read++;
+    if ((await t.good(r.answer)).grade === 'right') right++;
+  }
+  // a turn with tools: where an instrument that is on reads the message whole, it is the reply and nothing is called
+  const base = startBriefs();
+  const on = { ...base, plan: { ...base.plan, instruments: ['sum'] } };
+  const tools = [
+    {
+      type: 'function',
+      function: {
+        name: 'search',
+        description: 'Search the web.',
+        parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
+      },
+    },
+  ];
+  let asked = 0;
+  const ask = async () => (asked++, { text: 'CALL search {"query":"x"}' });
+  const turn = (messages, briefs, more = {}) =>
+    answerTools(messages, { tools, briefs, ask, answerReply: async () => ({ ok: false }), ...more });
+  const sum = await turn([{ role: 'user', content: 'What is 12 times 15?' }], on);
+  const askedFor = asked;
+  const off = await turn([{ role: 'user', content: 'What is 12 times 15?' }], base);
+  const required = await turn([{ role: 'user', content: 'What is 12 times 15?' }], on, { tool_choice: 'required' });
+  const other = await turn([{ role: 'user', content: 'Who founded the Brellow Brewing Company?' }], on);
+  check(
+    "a small sum asked in passing is done by code, with the courtesies people put round it and two asked at once (a share of a number, so many things at a price each, days in weeks, hours and minutes as minutes, two numbers added); what is left when the courtesies are off has to be one of these whole, so a turn that asks anything more, or leans on the turn before, is a model's; and in a turn with tools, where an instrument that is on reads the person's message whole, what it gives is the reply and nothing is called, unless a call is required",
+    J(got) ===
+      J({
+        share: '24',
+        formal: '60',
+        hurry: '27',
+        back: '63',
+        heavy: '135',
+        sum: '23',
+        plus: '15',
+        two: '30 and 63',
+        twoSums: '13 and 24',
+        and: null,
+        more: null,
+        thanks: null,
+        refer: null,
+        meant: null,
+        about: null,
+        courtesyWithFigure: null,
+      }) &&
+      read === 42 &&
+      right === 42 &&
+      stray === 0 &&
+      sum.ok === true &&
+      sum.path === 'tools-instrument' &&
+      sum.reply === '180' &&
+      sum.calls.length === 0 &&
+      sum.trace.length === 1 &&
+      sum.trace[0].member === 'code' &&
+      askedFor === 0 &&
+      off.path !== 'tools-instrument' &&
+      required.path !== 'tools-instrument' &&
+      other.path !== 'tools-instrument',
+    { got, read, right, stray, sum: sum.path, off: off.path, required: required.path, other: other.path },
   );
 }
 

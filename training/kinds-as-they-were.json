@@ -170,5 +170,8 @@
     "chat-remember": "892d54291cdf",
     "chat-reason": "510c472cc62e",
     "chat-code": "9c9e644f9ee0"
+  },
+  "apart": {
+    "py-wide": "its questions are the ones the larger model wrote for this target where it has (training/wide.mjs; .work/library/wide), and the families written here where it has not: they are not made from the seed alone, so they are not held to a hash"
   }
 }

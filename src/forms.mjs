@@ -382,6 +382,20 @@ function numberAnswer(f, q) {
       String(q).replace(/,(?=\d{3})/g, ''),
     );
   if (!has(v)) return null;
+  // EVERY FIGURE OF THE QUESTION IS THE START OR A STEP, each once: a question with a figure left over is about more than a
+  // number and what is done to it (someone's age, so many in each box), and reading it as one gave a wrong answer said with
+  // certainty (measured 2026-11-25: two of six questions of buying and selling, read so by two readings that agreed)
+  const figures = (
+    String(q)
+      .replace(/,(?=\d{3})/g, '')
+      .match(/\d+(?:\.\d+)?/g) || []
+  )
+    .map(Number)
+    .sort((a, b) => a - b);
+  const used = [Math.abs(v), ...f.steps.map((s) => Math.abs(Number(s.by))).filter((n) => figures.includes(n))].sort(
+    (a, b) => a - b,
+  );
+  if (figures.join() !== used.join()) return null;
   for (const s of f.steps) {
     const by = Number(s.by);
     // (a figure of the question; or one a word of it stands for: doubled, trebled, halved, quartered)

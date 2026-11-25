@@ -623,6 +623,55 @@ function pathIn(q) {
   return f.asked ? FORMS.path.answer(f, q) : null;
 }
 
+// A SMALL SUM ASKED IN PASSING, as people ask one in a conversation: a share of a number, so many things at a price each,
+// days in so many weeks, hours and minutes as minutes, two numbers added; with the courtesies people put round it ("Thank
+// you. Could you tell me what ... comes to?", "Quick, I have two minutes: ...", "Hello again, one more: ..."), and two of
+// them asked at once ("What is 15% of 200, and days in 9 weeks?"). What is left when the courtesies are taken off has to BE
+// one of these, whole: a turn that says anything else is a turn for a model.
+const SMALL = [
+  [/^(\d+(?:\.\d+)?) ?(?:%|per ?cent) of (\d+(?:\.\d+)?)$/, (a, b) => (a * b) / 100],
+  [/^(?:the cost of )?(\d+) [a-z]+ at (\d+(?:\.\d+)?) [a-z]+ each$/, (a, b) => a * b],
+  [/^(?:how many )?days (?:there are )?in (\d+) weeks?$/, (a) => a * 7],
+  [/^(?:how many minutes )?(\d+) hours? (?:and )?(\d+) minutes?(?: in minutes)?$/, (a, b) => a * 60 + b],
+  [/^(?:the sum of )?(\d+) (?:plus|and) (\d+)$/, (a, b) => a + b, /plus|sum of/],
+];
+const smallOf = (text) => {
+  for (const [re, f, must] of SMALL) {
+    const m = re.exec(text);
+    if (m && (!must || must.test(text))) {
+      const v = f(...m.slice(1).map(Number));
+      return Number.isFinite(v) ? String(Math.round(v * 1e6) / 1e6) : null;
+    }
+  }
+  return null;
+};
+function quantityIn(q) {
+  let t = String(q).trim();
+  if (t.length > 200 || /\n/.test(t)) return null;
+  // (a sentence or a lead-in before the asking that holds no figure is a courtesy: "Thank you.", "Hello again, one more:")
+  for (let i = 0; i < 3; i++) {
+    const m = /^([^.!:?]*[.!:])\s+(\S.*)$/.exec(t);
+    if (!m || /\d/.test(m[1])) break;
+    t = m[2];
+  }
+  t = t
+    .toLowerCase()
+    .replace(/[?.!]+$/, '')
+    .replace(
+      /^(?:(?:could|can|would|will) you (?:please )?tell me|i (?:need|would like|want) to know|please tell me|tell me)\s+/,
+      '',
+    )
+    .replace(/^(?:what is|what's|what are|what)\s+/, '')
+    .replace(/\s+(?:comes? to|is|are|there are)$/, '')
+    .trim();
+  const parts = t.split(/, and | and (?=(?:how many |the cost of |the sum of |days )|\d+ ?(?:%|per ?cent|hours?\b))/);
+  if (parts.length > 2) return null;
+  const got = parts.map((p) => smallOf(p.trim()));
+  // (two numbers joined by "and" are one sum, not two questions: "the sum of 4 and 9")
+  if (got.length === 2 && got.some((x) => x === null)) return smallOf(t);
+  return got.every((x) => x !== null) ? got.join(' and ') : null;
+}
+
 const INSTRUMENTS = [
   { id: 'sum', name: 'worked out as a sum', of: sumIn },
   { id: 'truth', name: 'worked out as an expression of true and false', of: truthIn },
@@ -642,6 +691,7 @@ const INSTRUMENTS = [
   { id: 'range', name: 'of how many numbers of a stretch can be divided by one', of: rangeIn, whole: true },
   { id: 'track', name: 'of who holds what after things have changed hands', of: trackIn, whole: true },
   { id: 'path', name: 'of steps and turns, and whether they lead back', of: pathIn, whole: true },
+  { id: 'quantity', name: 'that is a small sum asked in passing', of: quantityIn, whole: true },
 ];
 // THE QUESTION AS AN INSTRUMENT READS IT: what was asked, without what a form puts round it. A label before it ("Q:",
 // "Question:") is taken off, and so are the lines at its end that only say where the answer goes: a short label and a colon

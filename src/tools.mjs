@@ -12,6 +12,7 @@
 //                                written into the request they were called for (SwOA specification T.9)
 import { briefsFor } from './orchestrate.mjs';
 import { textOf, setFormOf, inSetForm } from './read.mjs';
+import { instrumentFor } from './instruments.mjs';
 
 const canon = (x) =>
   Array.isArray(x)
@@ -609,6 +610,40 @@ export async function answerTools(
   const who = drafters.length ? drafters : [{ id: 'lead', member: lead, stage: 'draft', maxTokens: 700 }];
   const trace = [];
   const plan = briefs.plan || {};
+  // WHAT CODE DOES EXACTLY NEEDS NO TOOL (instruments.mjs; plan.instruments: the ones training turned on for turns with tools).
+  // Where the turn is a person's message, no call is required of it, and the message IS an operation an instrument that is
+  // on reads whole, what the instrument gives is the reply and nothing is called: no drafter is asked, nothing is searched.
+  // (Measured 2026-11-25: "What is 12 times 15?", asked with a search tool offered, was searched for.)
+  const lastOne = messages[messages.length - 1] || {};
+  if (plan.instruments && tool_choice === undefined && lastOne.role === 'user') {
+    const it = instrumentFor(textOf(lastOne.content), plan.instruments);
+    if (it) {
+      const form = plan.setForm !== false ? setFormOf(messages) : null;
+      const action = { reply: form ? inSetForm(it.answer, it.answer, form) : it.answer };
+      const row = {
+        slot: 'instrument',
+        member: 'code',
+        stage: 'run',
+        ms: Date.now() - t0,
+        out: 'The question is ' + it.name + ', by code.',
+        final: it.answer,
+        ok: true,
+        instrument: it.id,
+      };
+      return {
+        ok: true,
+        action,
+        calls: [],
+        reply: action.reply,
+        text: actionText(action),
+        decided: it.answer,
+        path: 'tools-instrument',
+        trace: [row],
+        ms: Date.now() - t0,
+        instrument: it.id,
+      };
+    }
+  }
   // WHERE NOTHING IS OFFERED BUT TOOLS THAT SEARCH AND TOOLS THAT OPEN A PAGE, THE PROGRAM TAKES THE TURN (T.13b): no drafter is
   // asked for a step. What such a turn needs of a model is reading, and that is asked of the answer procedure; the step is
   // code's. Where the program has no step, the reply is the answer procedure's, shown what was found (T.9)

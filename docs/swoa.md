@@ -2860,10 +2860,16 @@ determine, solve, work, out, how, much, please, help, tell, give, me, result, an
 | range | one question: how many whole numbers from A to B, counting both ends, can be divided by K with nothing left over | the count |
 | track | the first sentence says who has what, `<Name> has the <thing>` for each, parted by commas; then `<Name> and <Name> swap.`, any number, with or without `Then`; then one question: `Who has the <thing> now?` or `What does <Name> have now?` | who has the thing, or what the person has, after every swap in turn |
 | path | `You start at a point, facing north.`; then `Take N steps forward.` (or `backward`) and `Turn left.`, `Turn right.`, `Turn around.`, any number; then a question whether you are back at the point you started from | `Yes` or `No` |
+| quantity | one line of at most 200 characters. Sentences and lead-ins before the asking that hold no figure are taken off (`Thank you.`, `Quick, I have two minutes:`, `Hello again, one more:`), and so are `could you tell me`, `I need to know`, `what is` and a closing `comes to`. What is left is, whole, one of: `N% of M` (or `per cent`); `N things at M pounds each`, with or without `the cost of`; `days in N weeks`; `N hours M minutes`, with or without `in minutes`; `N plus M` or `the sum of N and M`; or two of these joined by `, and` | the value; for two, `<the first> and <the second>` |
 
-The last fourteen do not go by the rule of operand and words of asking. Each reads the WHOLE question sentence by
+The last fifteen do not go by the rule of operand and words of asking. Each reads the WHOLE question sentence by
 sentence, where sentences are parted at line ends and after `.`, `?` or `!`, and applies only where every sentence is
 one it understands; one sentence it does not, and the question is answered as any other.
+
+**In a turn with tools** (Part III T), the plan is that of the class of such turns. Where its `plan.instruments` has
+an instrument on, the last message is the person's, no call is required of the turn (`tool_choice` is absent), and
+that instrument applies to the message, what it gives is the reply and nothing is called: no slot is asked and nothing
+is searched. The path is `tools-instrument`.
 
 A result is of the arrangement its `arrangementSha256` names (section 4), and so of the instruments that were on in it: a
 task that IS one of these operations is then answered by code, not by a model, and a card (section 7) SHOULD say which
@@ -2915,7 +2921,7 @@ training wrote (`plan.written`) answered:
 | order | `comparisons`: one for each sentence, `{ a, is, b }`, `is` one of `more`, `less`: `a` has more, or less, of the measure than `b`; `asked`: `{ rank, from }`, `from` one of `greatest`, `least` |
 | more | `first`, `second`: two figures of the question; the answer is the first less the second |
 | valid | `premises`: list of statements; `conclusion`: a statement. A statement is `{ says, subject, predicate }`, `says` one of `all`, `no`, `some`, `someNot`, `is`, `isNot` |
-| number | `start`: a number; `steps`: list of `{ do, by }`, `do` one of `add`, `subtract`, `multiply`, `divide`. `by` is a figure of the question, or 2, 3 or 4 where the question says doubled, trebled, quartered and the like |
+| number | `start`: a number; `steps`: list of `{ do, by }`, `do` one of `add`, `subtract`, `multiply`, `divide`. `by` is a figure of the question, or 2, 3 or 4 where the question says doubled, trebled, quartered and the like. Every figure of the question has to be the start or a step, each once: with one left over the reading gives no answer |
 | weekday | `today`: a day of the week; `amount`; `unit`: `day` or `week`; `direction`: `back` or `on` |
 | letters | `word`; `letter`: one letter, which the question names by itself |
 | range | `from`, `to`: whole numbers; `ends`: `both`, `neither`, `first` or `last` (which of the two are counted); `dividedBy` |

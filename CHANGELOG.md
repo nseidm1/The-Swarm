@@ -24,6 +24,14 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **Code does more outside plain questions** (2026-11-25).
+  - **A small sum asked in passing** is an instrument: a share of a number, so many things at a price each, days in
+    weeks, hours and minutes, two numbers added, with the courtesies people put round one and two asked at once.
+    With every instrument on, code now answers 132 of 202 held conversation questions where it answered 58, all good.
+  - **In a turn with tools**, an instrument that is on answers a message that is its operation, and nothing is
+    called: "What is 12 times 15?" was being searched for.
+  - **A fix:** a question read as a number and what is done to it has to use every figure of the question. Two
+    questions of buying and selling had been read so, and answered wrongly.
 - **Two kinds of question added, with every earlier figure left as it was** (2026-11-25). Who holds what after
   things have changed hands, and whether steps and turns lead back to where they began: each with a form, the code
   that works it out, and an instrument (fourteen in all). They stand after every other kind, so no earlier question
