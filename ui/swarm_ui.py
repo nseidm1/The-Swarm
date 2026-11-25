@@ -543,7 +543,11 @@ padding:11px 14px;font-size:13px;line-height:1.45;box-shadow:0 10px 30px rgba(0,
 .run .smeta{margin:3px 0 0;font-size:12.5px;line-height:1.4;color:var(--mist);font-weight:600;overflow-wrap:anywhere}.run details.sec[open] .smeta{display:none}.run details.sec.shutting .smeta{display:block}
 .run details.sec:not([open])>summary{margin-bottom:0}
 details.fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;border-radius:var(--r)}details.fold>summary::-webkit-details-marker{display:none}
-details.secfold{margin-top:36px}details.secfold>summary{justify-content:space-between}details.secfold>summary h2{margin:0}details.secfold[open]>summary{margin-bottom:12px}
+/* (the caret sits where the configuration's does: beside the heading, and at the far side on a phone) */
+details.secfold{margin-top:36px}details.secfold>summary{justify-content:flex-start;gap:12px;padding:4px 0}details.secfold>summary h2{margin:0}details.secfold[open]>summary{margin-bottom:12px}
+details.secfold>summary::after{width:8px;height:8px;border-color:var(--teal2);margin-top:-3px}details.secfold:not([open])>summary::after{margin-top:0}
+@media (max-width:560px){details.secfold>summary{justify-content:space-between}}
+.wholep .trainopts{margin-top:12px}
 details.fold>summary:focus-visible{outline:2px solid var(--teal2);outline-offset:3px}.fmeta{flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--fog);overflow-wrap:anywhere}
 details.fold>summary::after{content:'';flex:none;width:7px;height:7px;margin-right:4px;border-right:2px solid var(--mist);border-bottom:2px solid var(--mist);transform:rotate(45deg);transition:transform .15s}
 details.fold:not([open])>summary::after,details.fold.shutting>summary::after{transform:rotate(-45deg)}details.fold[open]>summary{margin-bottom:10px}

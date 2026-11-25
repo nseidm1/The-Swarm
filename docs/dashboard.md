@@ -17,22 +17,22 @@ is kept on the device.
 <p align="center"><em>Evaluate the swarm: the module&#39;s score as a share of the larger model&#39;s on the same questions, and the two evaluations Run sets side by side: as configured, which is the baseline, and trained. The three buttons open the same results as a line for every task, as a paper sets them out, and drawn.</em></p>
 
 <p align="center">
-  <img src="images/dashboard-arrangement.png" alt="The Swarm Viewer card, as it was when it was called Train: 0% answers good in pass 1; the classes of input a session trains (with tools, a conversation, asking for code, a plain question); Clear training state; the swarm as it stands (briefs v5, 7 slots on 2 models, 4 kept changes, and an arrangement of their own for questions asking for code and for questions in words); nothing running; Question by question, not begun, with the key to its pips; Adapters: carried now by no slot, and the four that have been made, one for each drafting slot, with what each was taught on; and the plain flow as faces: draft, try, check, decide, write" width="860">
+  <img src="images/dashboard-arrangement.png" alt="The Swarm Viewer card: 0% answers good in pass 1, 33.0% of the pass complete, and Questions; Adapters: which slots carry one for requests asking for code, and the four that have been made with what each was taught on; the models (LFM2.5 1.2B in every role, no decision model, Nemotron 3.5 Lightning 30B as the target); and the plain flow as faces: draft, try, check, decide, write" width="860">
 </p>
 
-<p align="center"><em>The Swarm Viewer card (pictured when it was called Train, before its title, chips and question track were taken out): the share of answers good, the classes of input a session trains, the adapters there are and which slots carry one, and every slot as a face of its model, in the step of the flow it stands in. Choosing one opens what it is told.</em></p>
+<p align="center"><em>The Swarm Viewer: how far the pass has come, the adapters there are and which slots carry one, and every slot as a face in the step it stands in. Choose a face to read what that slot is told.</em></p>
 
 <p align="center">
   <img src="images/dashboard-plan.png" alt="The plan being carried out: Training now, nothing is training, and what the next conversation pass and the next intelligence run begin from" width="860">
 </p>
 
-<p align="center"><em>The plan being carried out, with nothing training: what the next run of each kind begins from. While a run is going it holds the present state of training; earlier runs are folded under it.</em></p>
+<p align="center"><em>The plan being carried out (a section that starts folded), with nothing training: what the next run of each kind begins from. While a run is going it holds the present state of training; earlier runs are folded under it.</em></p>
 
 <p align="center">
   <img src="images/dashboard-system.png" alt="Visualizing the System: how a module is made and judged, as coded boxes in lanes: R the run in order (evaluate the module as configured, make an adapter for each drafting slot, train, evaluate it trained), each saying where it stands; M a request inside the module (read, code first, arrangement, form), each marked code or models; K what training keeps and how far each can reach (arrangement, adapters by slot, instruments); then R3 in detail, the lanes of training (A once a pass, S each class as a class, B each question, C inside one try, D how the search improves, E the end of a pass); and J the judge, apart from training (the harness, two figures, what stands beside them, the verdict)" width="860">
 </p>
 
-<p align="center"><em>Visualizing the System: the run, a request inside the module, what training keeps, the training of the arrangement in detail, and the judge. Every part has a code to name it by, and the box the run or the loop is in is marked.</em></p>
+<p align="center"><em>Visualizing the System (a section that starts folded): the run, a request inside the module, what training keeps, the training of the arrangement in detail, and the judge. Every part has a code to name it by, and the box the run or the loop is in is marked.</em></p>
 
 <p align="center">
   <img src="images/dashboard-spec.png" alt="The head of the SwOA spec of one configuration: its name; Copy as JSON, Save as a file, and Publish to specs/ greyed out; not yet measured by training against Nemotron 3.5 Lightning 30B; and the proof: its rule, and a verdict for each capability with its questions and its gap (Code short, Instructions open, Logic short, Math open, Reasoning short, Search open, Tools at parity), each a check and not yet proof" width="860">

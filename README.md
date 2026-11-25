@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/dashboard.png" alt="The top of the training dashboard: the SwOA spec and Uninstall Helper buttons; Configuration, with one small model in every role (LFM2.5 1.2B), a small model of the swarm deciding, Jeffan 4B judging equivalence, against Nemotron 3.5 Lightning 30B; who takes turns with tools; Your own questions, a button for each body of work; and the Run card: the size of each evaluation, Start, and its four steps (evaluate the module as configured, make an adapter for each drafting slot, train, evaluate it trained)" width="860">
+  <img src="docs/images/dashboard.png" alt="The top of the dashboard: Serve the module, SwOA spec and Uninstall Helper; the configuration, with one small model in every role (LFM2.5 1.2B), a small model of the swarm deciding, Jeffan 4B judging, and Nemotron 3.5 Lightning 30B as the larger model; your own questions; Run Intelligence Training, with the size of each evaluation, Start, which classes of request it trains, Clear training state and its four steps; and Run Conversation Training, with Run a pass" width="860">
 </p>
 
 <p align="center"><em>The dashboard: choose the models, serve the swarm, train it. <a href="docs/dashboard.md">Every part of it, pictured</a>.</em></p>
