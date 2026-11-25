@@ -6,6 +6,9 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The bar at the top of the dashboard is for what a person asked for** (2026-11-24). On a phone it never went away:
+  the page's own readings of its state each took longer than a third of a second there. Those never show it now; a
+  change that was sent does, and a reading begun within a moment of a press, a choice or a key.
 - **The dashboard arrives at once and says when it is working** (2026-11-24). The page was made whole before any of
   it was sent: 2.3 seconds of a blank window. A browser is now sent a shell at once (the title, a bar that moves, the
   shape of what is coming), which reads the dashboard and then starts on it; where it cannot be read it says so, with

@@ -2633,13 +2633,13 @@ swarm_ui._run_elsewhere_now = _was_now
 _fsrc2 = Path(swarm_ui.__file__).read_text()
 check("the page arrives at once and says it is reading: a browser is first sent a shell that reads nothing (the styles, the title, a bar that moves and the shape of what is coming), which then asks for the dashboard and starts the page's script on it, and says so where the dashboard cannot be read, with a way to try again; "
       "the whole page made at once is still there for the checks; what is running is asked of the system once for each request and not once for each card, and asked again after something is started or stopped; "
-      "and while something asked for is on its way a bar moves across the top of the page: from the moment a change is sent, and for a reading once it has taken longer than a third of a second",
+      "and while something asked for is on its way a bar moves across the top of the page: from the moment a change is sent, and for a reading a person began once it has taken longer than a third of a second; the page's own readings of its state never show it (on a phone each is slow, and the bar never went away), and it is never left on",
       'id="apploading"' in _sh and 'class="loadbar"' in _sh and 'role="status"' in _sh and "/fragment/app" in _sh and "/app.js" in _sh and "Try again" in _sh and 'id="body"' not in _sh and 'id="spec"' in _sh
       and len(_sh) < len(swarm_ui.CSS) + 6000 and 'id="conversebox"' not in _sh
       and 'id="body"' in swarm_ui.page(_cvd) and "<script>" in swarm_ui.page(_cvd) and 'id="body"' in swarm_ui.app_inner(_cvd) and "<html" not in swarm_ui.app_inner(_cvd)
       and _outside == 2 and _inside == 1 and _after_forget == 2
       and 'if u.path == "/":\n            return self._send(shell())' in _fsrc2 and 'u.path == "/fragment/app"' in _fsrc2 and 'u.path == "/app.js"' in _fsrc2
-      and "#busybar" in swarm_ui.CSS and "busybar" in swarm_ui.JS and "setTimeout(show,330)" in swarm_ui.JS and ".loadbar" in swarm_ui.CSS and "prefers-reduced-motion:reduce){.loadbar" in swarm_ui.CSS,
+      and "#busybar" in swarm_ui.CSS and "busybar" in swarm_ui.JS and "setTimeout(show,330)" in swarm_ui.JS and "if(!mine)return real(url,opts);" in swarm_ui.JS and "Date.now()-asked<800" in swarm_ui.JS and "setTimeout(done,20000)" in swarm_ui.JS and ".loadbar" in swarm_ui.CSS and "prefers-reduced-motion:reduce){.loadbar" in swarm_ui.CSS,
       [_outside, _inside, _after_forget, len(_sh)])
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)

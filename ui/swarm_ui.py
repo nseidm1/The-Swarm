@@ -587,17 +587,23 @@ details.fold:not([open])>summary::after,details.fold.shutting>summary::after{tra
 
 JS = """
 const $=(s,r=document)=>r.querySelector(s);
-// SOMETHING ASKED FOR IS ON ITS WAY: a thin bar moves across the top of the page from the moment a change is sent (anything
-// that is not a plain reading), and for a reading once it has taken longer than a third of a second. The page reads its
-// own state every few seconds and those readings are quick, so the bar is there only when there is something to wait for.
-// The button that was pressed is marked as waiting until its answer comes.
-(()=>{const real=window.fetch.bind(window);let n=0,pressed=null;
+// SOMETHING A PERSON ASKED FOR IS ON ITS WAY: a thin bar moves across the top of the page. Only what a person asked for
+// counts: a change that was sent, or a reading begun within a moment of a press, a choice or a key, once it has taken longer
+// than a third of a second. The page reads its own state every second or two by itself, and those readings never show
+// the bar: on a phone, or from another machine, each takes longer than a third of a second and the bar never went away
+// (console 2026-11-24). The button that was pressed is marked as waiting until its answer comes. A bar is never left on:
+// it goes after twenty seconds whatever became of what it waited for.
+(()=>{const real=window.fetch.bind(window);let n=0,pressed=null,asked=0;
   const bar=()=>{let b=$('#busybar');if(!b){b=document.createElement('div');b.id='busybar';b.setAttribute('role','progressbar');b.setAttribute('aria-label','Working');b.innerHTML='<i></i>';document.body.appendChild(b);}return b;};
-  document.addEventListener('click',(ev)=>{pressed=ev.target.closest('button');setTimeout(()=>{pressed=null;},0);},true);
-  window.fetch=(url,opts)=>{const change=opts&&opts.method&&opts.method!=='GET';const btn=change?pressed:null;let shown=false;
-    const show=()=>{shown=true;n++;bar().classList.add('on');};const t=change?(show(),0):setTimeout(show,330);
+  const gesture=(ev)=>{asked=Date.now();if(ev.type==='click'){pressed=ev.target.closest&&ev.target.closest('button');setTimeout(()=>{pressed=null;},0);}};
+  for(const t of ['click','change','submit','keydown'])document.addEventListener(t,gesture,true);
+  window.fetch=(url,opts)=>{const change=!!(opts&&opts.method&&opts.method!=='GET');const mine=change||Date.now()-asked<800;
+    if(!mine)return real(url,opts);
+    const btn=change?pressed:null;let shown=false,over=false;
+    const show=()=>{if(over)return;shown=true;n++;bar().classList.add('on');};const t=change?(show(),0):setTimeout(show,330);
     if(btn)btn.classList.add('waiting');
-    const done=()=>{clearTimeout(t);if(btn)btn.classList.remove('waiting');if(shown&&--n<=0){n=0;bar().classList.remove('on');}};
+    const done=()=>{if(over)return;over=true;clearTimeout(t);clearTimeout(cap);if(btn)btn.classList.remove('waiting');if(shown&&--n<=0){n=0;bar().classList.remove('on');}};
+    const cap=setTimeout(done,20000);
     return real(url,opts).then((r)=>{done();return r;},(e)=>{done();throw e;});};})();
 // A SECTION FOLDED STAYS FOLDED: open or closed is kept on this device, and put back each time a part of the page is drawn again
 const keepOpen=(root)=>{try{(root||document).querySelectorAll('details[data-keep]').forEach(d=>{const v=localStorage.getItem('swarm.open.'+d.dataset.keep);if(v!==null)d.open=v==='1';});}catch(e){}};
