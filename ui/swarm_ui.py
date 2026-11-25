@@ -530,6 +530,7 @@ padding:11px 14px;font-size:13px;line-height:1.45;box-shadow:0 10px 30px rgba(0,
 @media (prefers-reduced-motion:reduce){.loadbar i,.skel,#busybar i{animation-duration:3s}}
 /* (the Swarm Viewer has no head now: what comes first in it has no rule above it) */
 .panel.arr>:first-child{border-top:0!important;margin-top:0!important;padding-top:0!important}
+.dlgload{min-width:min(520px,80vw);padding:2px 0 14px}.dlgload .loadbar{margin:18px 0 6px}
 .memnum[data-ring]{display:flex;align-items:center;gap:14px;text-align:left}.ring{position:relative;display:inline-block;width:64px;height:64px;flex:none}
 .ring svg{width:64px;height:64px;display:block}.ring circle{fill:none;stroke-width:6}.ring .rt{stroke:rgba(0,0,0,.08)}.ring .rv{stroke:var(--teal2);stroke-linecap:round;transition:stroke-dasharray .6s ease}
 .ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:var(--teal);font-variant-numeric:tabular-nums;line-height:1}
@@ -632,6 +633,14 @@ document.addEventListener('click',(ev)=>{const sm=ev.target.closest('details[dat
 document.addEventListener('DOMContentLoaded',()=>keepOpen());
 // (a part that is no longer on the page is not fetched: the adapters row and the Pretrain card went, 2026-11-24, and a
 // change of model drew them again in place and stopped there)
+// A DIALOG OPENS AT ONCE AND SAYS IT IS READING. Each one was opened only when what goes in it had arrived, which for the
+// questions training asks is three and a half seconds of a button that seemed to do nothing (console 2026-11-24). The
+// dialog is shown the moment it is asked for, with a bar that moves and what is being read, and a way to close it; what
+// it holds is put in when it comes. Closed while it reads, it stays closed.
+function dlgLoad(d,b,what){const dg=$(d),body=$(b);if(!dg||!body)return;
+  body.innerHTML='<div class="dlgload" role="status" aria-live="polite"><div class="spec-head"><div><h3>'+(what||'Reading')+'…</h3></div><button class="btn stop top" type="button" data-dlg-close>Close</button></div><div class="loadbar"><i></i></div></div>';
+  if(!dg.open)dg.showModal();}
+document.addEventListener('click',(ev)=>{const c=ev.target.closest('[data-dlg-close]');if(c){const dg=c.closest('dialog');if(dg)dg.close();}});
 async function swap(url,into,opts){if(!$(into))return;const r=await fetch(url,opts);$(into).innerHTML=await r.text();keepOpen($(into));if(typeof sinceTick==='function')sinceTick();if(typeof evAsk==='function')evAsk();if(typeof trainAsk==='function')trainAsk();}
 document.addEventListener('click',async(ev)=>{
   const q=ev.target.closest('.q');
@@ -679,7 +688,7 @@ document.addEventListener('click',(ev)=>{
 });
 // RECOMMENDED CONFIGURATION CHANGES: the note beside Configuration opens them; a change is made as a pill makes one
 document.addEventListener('click',async(ev)=>{
-  if(ev.target.closest('#rec-open,[data-rec-open]')){ev.preventDefault();ev.stopPropagation();await swap('/fragment/recs','#recd-body');$('#recd').showModal();
+  if(ev.target.closest('#rec-open,[data-rec-open]')){ev.preventDefault();ev.stopPropagation();dlgLoad('#recd','#recd-body','Reading what is recommended');await swap('/fragment/recs','#recd-body');
     document.querySelectorAll('#recd-body [data-engine-update].busy').forEach(engineWatch);
     // (and the count beside the heading, from the same evidence at the same moment: it had been drawn when the page was, and
     // said "1 recommendation" over a dialog that had none)
@@ -722,14 +731,14 @@ const steerPost=async(body)=>{const r=await fetch('/steer',{method:'POST',header
 document.addEventListener('click',async(ev)=>{
   const f=ev.target.closest('[data-steer-focus]');if(f){await steerPost({op:'focus',area:f.dataset.steerFocus,value:f.dataset.v});return;}
   const s=ev.target.closest('[data-steer]');if(s){s.disabled=true;const ok=await steerPost({op:s.dataset.steer,id:s.dataset.id});if(ok&&$('#steerd').open)await swap('/fragment/steer','#steerd-body');return;}
-  if(ev.target.closest('#steer-open')){await swap('/fragment/steer','#steerd-body');$('#steerd').showModal();return;}
+  if(ev.target.closest('#steer-open')){dlgLoad('#steerd','#steerd-body','Reading');await swap('/fragment/steer','#steerd-body');return;}
   if(ev.target.id==='steer-close'||ev.target.id==='steerd'){$('#steerd').close();return;}
   // THE EVALUATION, BENCHMARK BY BENCHMARK: the Evaluate card's headline opens the table of every body of work and task
-  {const vb=ev.target.closest('[data-evd-view]');if(vb){const dg=$('#evd');dg.dataset.view=vb.dataset.evdView;dg.dataset.cfg='';dg.dataset.bench='';await swap('/fragment/evtable?view='+dg.dataset.view,'#evd-body');$('#evd').showModal();return;}}
+  {const vb=ev.target.closest('[data-evd-view]');if(vb){const dg=$('#evd');dg.dataset.view=vb.dataset.evdView;dg.dataset.cfg='';dg.dataset.bench='';dlgLoad('#evd','#evd-body','Reading the evaluation');await swap('/fragment/evtable?view='+dg.dataset.view,'#evd-body');return;}}
   {const bb=ev.target.closest('[data-evd-bench]');if(bb){const dg=$('#evd');dg.dataset.bench=bb.dataset.evdBench;const on=[...document.querySelectorAll('[data-evd-harness]')].filter(x=>x.checked).map(x=>x.dataset.evdHarness);
     await evdShow();return;}}
   // THE QUESTIONS TRAINING ASKS (the Train card): opened, and narrowed by split, class, kind and words to find
-  if(ev.target.closest('#tq-open')){await swap('/fragment/trainq','#tqd-body');$('#tqd').showModal();return;}
+  if(ev.target.closest('#tq-open')){dlgLoad('#tqd','#tqd-body','Reading the questions training asks');await swap('/fragment/trainq','#tqd-body');return;}
   if(ev.target.id==='tq-close'||ev.target.id==='tqd'){$('#tqd').close();return;}
   {const sg=ev.target.closest('[data-tq-split],[data-tq-cls]');if(sg){const c=$('.tqctl');if(sg.dataset.tqSplit!==undefined){c.dataset.split=sg.dataset.tqSplit;}else{c.dataset.cls=sg.dataset.tqCls;}c.dataset.kind='';await tqShow();return;}}
   if(ev.target.id==='evd-copy'){const ta=$('#evd-latex');try{await navigator.clipboard.writeText(ta.value);ev.target.textContent='Copied';}catch(e){ta.hidden=false;ta.select();}return;}
@@ -738,7 +747,7 @@ document.addEventListener('click',async(ev)=>{
 document.addEventListener('input',(ev)=>{if(ev.target.id!=='steer-find')return;const q=ev.target.value.toLowerCase().trim();document.querySelectorAll('#steerd .movepick li').forEach(li=>{li.style.display=!q||li.dataset.q.includes(q)?'':'none';});});
 // THE UNINSTALL HELPER: what is installed here, and a piece removed only once its removal has been confirmed
 document.addEventListener('click',async(ev)=>{
-  if(ev.target.closest('#tidy-open')){$('#tidy-body').innerHTML='<p class="muted">Measuring what is installed here...</p>';$('#tidy').showModal();await swap('/fragment/tidy','#tidy-body');return;}
+  if(ev.target.closest('#tidy-open')){dlgLoad('#tidy','#tidy-body','Measuring what is installed here');await swap('/fragment/tidy','#tidy-body');return;}
   if(ev.target.id==='tidy-close'||ev.target.id==='tidy'){$('#tidy').close();return;}
   const b=ev.target.closest('[data-tidy]');if(!b)return;
   const again=b.dataset.used==='1'?' It is part of the swarm as configured: Train fetches it again.':'';
@@ -753,7 +762,7 @@ document.addEventListener('click',async(ev)=>{
 const qCount=()=>{const n=document.querySelectorAll('#qlist .qrow').length;const c=$('#qcount');if(c)c.textContent=n+' of 200';const a=$('#qadd');if(a)a.disabled=n>=200;};
 document.addEventListener('click',async(ev)=>{
   const pen=ev.target.closest('[data-qedit]');
-  if(pen){await swap('/fragment/questions?id='+encodeURIComponent(pen.dataset.qedit),'#qedit-body');qCount();$('#qedit').showModal();return;}
+  if(pen){dlgLoad('#qedit','#qedit-body','Reading its questions');await swap('/fragment/questions?id='+encodeURIComponent(pen.dataset.qedit),'#qedit-body');qCount();return;}
   if(ev.target.id==='qedit-close'||ev.target.id==='qedit'){$('#qedit').close();return;}
   if(ev.target.id==='qadd'){const li=$('#qrow').content.firstElementChild.cloneNode(true);$('#qlist').appendChild(li);li.querySelector('textarea').focus();qCount();return;}
   if(ev.target.closest('[data-q-del]')){ev.target.closest('.qrow').remove();qCount();return;}
@@ -765,7 +774,7 @@ document.addEventListener('click',async(ev)=>{
 });
 // THE SwOA SPEC: what the swarm module as it stands is, in one document
 document.addEventListener('click',async(ev)=>{
-  if(ev.target.closest('#spec-open')){await swap('/fragment/spec','#spec-body');$('#spec').showModal();return;}
+  if(ev.target.closest('#spec-open')){dlgLoad('#spec','#spec-body','Reading the spec');await swap('/fragment/spec','#spec-body');return;}
   if(ev.target.id==='spec-close'||ev.target.id==='spec'){$('#spec').close();return;}
   if(ev.target.id==='spec-publish'){const r=await fetch('/spec/publish',{method:'POST',headers:{'x-swarm':'1'}});if(r.ok){$('#spec-body').innerHTML=await r.text();}else{ev.target.title=await r.text();}return;}
   if(ev.target.id==='spec-save'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([$('#spec-json').textContent],{type:'application/json'}));a.download=($('#spec-json').dataset.name||'swarm')+'.swoa.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);return;}

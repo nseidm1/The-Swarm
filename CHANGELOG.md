@@ -6,6 +6,10 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A dialog opens at once and says it is reading** (2026-11-24). The questions training asks took three and a half
+  seconds to appear, with nothing on the screen until they did. Every dialog (the questions, the spec, a body of
+  work's questions, an evaluation's table, the recommendations, the Uninstall Helper, steering) is now shown the
+  moment it is asked for, with a bar that moves and Close, and filled when what it holds arrives.
 - **How far a run has come is a ring on its own card** (2026-11-24). The Swarm Viewer's head (the share of answers
   good, the pass's bar, the Questions button) is taken out. Run Intelligence Training and Run Conversation Training
   each lead with a ring filled to a share: the intelligence run by its four steps, the one running counted by how far

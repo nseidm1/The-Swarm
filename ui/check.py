@@ -583,7 +583,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and 'id="ev-open" data-evd-view="table"' in ev_after and 'data-evd-view="paper"' in ev_after and 'data-evd-view="chart"' in ev_after and '<button type="button" class="evopen"' not in ev_after and '<b class="pct">75%</b><span>of the larger model&#39;s score<small>45% against 60% · 20 questions' in ev_after and "equivalent<" not in ev_after
           and '<tr class="evt-item"><th scope="row">' in ev_table and '<td class="num">45%</td><td class="num">60%</td><td class="num"><b class="down">75%</b></td><td class="num evn">20</td>' in ev_table
           and ev_table.count('<tr class="evt-task">') == 23 and "not evaluated" in ev_table and '<tr class="evt-all"><th scope="row">Every question</th><td class="num">45%</td>' in ev_table
-          and swarm_ui._ev_share(5, 0) == "–" and "$('#evd').showModal()" in swarm_ui.JS and '<dialog id="evd">' in html and "pct busy" not in ev_after,
+          and swarm_ui._ev_share(5, 0) == "–" and "dlgLoad('#evd','#evd-body'" in swarm_ui.JS and '<dialog id="evd">' in html and "pct busy" not in ev_after,
           {"order": html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2 id="arrangement">Swarm Viewer</h2>'),
            "ev0": ["lm-evaluation-harness 0.4.13" in ev0, 'id="ev-go"' in ev0, ev0.count("<option"), 'data-evt="ifeval"' in ev0, "not evaluated yet" in ev0, api0.get("running")],
            "codes": [bad_size, foreign, a_on, a_bad, a_off], "gone": gone_pre,
@@ -1850,7 +1850,7 @@ check("every memory figure on the page has one source: the newest measurement th
 
 # ---- THE RECOMMENDATION COUNT IS NOT LEFT STALE: asked again when the dialog opens, and every half minute
 check("the count of recommendations beside Configuration is asked for again when the dialog is opened and every half minute while it is closed, so it cannot say one over a dialog that has none",
-      "$('#recd').showModal();" in swarm_ui.JS and swarm_ui.JS.count("swap('/fragment/recslot','#rec-slot')") >= 3
+      "dlgLoad('#recd','#recd-body'" in swarm_ui.JS and swarm_ui.JS.count("swap('/fragment/recslot','#rec-slot')") >= 3
       and "setInterval(()=>{if(!$('#recd')||!$('#recd').open)swap('/fragment/recslot','#rec-slot');},30000);" in swarm_ui.JS, "")
 
 # ---- STOP UNLOCKS THE PILLS: the page redraws them itself when Train or Stop training is pressed
@@ -2714,6 +2714,11 @@ check("how far a run has come is a ring on the run's own card, filled to a share
       and 'id="score"' not in swarm_ui.arrangement(_cvd) and 'id="tq-open"' not in swarm_ui.arrangement(_cvd) and 'id="tq-open"' in swarm_ui.config_section(_cvd)
       and "View training questions" in swarm_ui.config_section(_cvd) and "Your own training questions" in swarm_ui.config_section(_cvd) and ".ring .rv" in swarm_ui.CSS,
       [_sh_none, _sh_one, _sh_train, _sh_stopped, _now_pct, _rg40[:160]])
+
+check("a dialog opens at once and says it is reading: the questions training asks, the spec, a body of work's questions, an evaluation's table, the recommendations, the uninstall helper and the steering are each shown the moment they are asked for, with a bar that moves, what is being read and a way to close, and filled when what they hold arrives; none waits for it with nothing on the screen",
+      "function dlgLoad(d,b,what)" in swarm_ui.JS and swarm_ui.JS.count("dlgLoad('#") == 7 and all("dlgLoad('#%s'" % i in swarm_ui.JS for i in ("tqd", "spec", "qedit", "evd", "recd", "tidy", "steerd"))
+      and "await swap('/fragment/trainq','#tqd-body');$('#tqd').showModal()" not in swarm_ui.JS and "if(!dg.open)dg.showModal();" in swarm_ui.JS and "data-dlg-close" in swarm_ui.JS and ".dlgload" in swarm_ui.CSS,
+      swarm_ui.JS.count("dlgLoad('#"))
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)
