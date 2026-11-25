@@ -113,8 +113,8 @@ with tempfile.TemporaryDirectory() as tmp:
           and swarm_ui.fmt_pct(75.0) == "75" and swarm_ui.fmt_pct(62.5) == "62.5")
     strip = get(base + "/fragment/score")[1]
     check("the page says how far training has come, question by question: a percentage of answers good at the head of the Train card (no bar, legend, spec line or ideas line under it: taken out), and no parity verdict, held-question card or whole-measurement dialog any more",
-          '<h2 id="arrangement">Train</h2>' in html and "<h2>Training progress</h2>" not in html and 'class="trainprog trainhead"' in strip and "answers good" in strip and "training complete" not in strip
-          and html.index('<h2 id="arrangement">Train</h2>') < html.index('<div id="score">') and 'class="mbar stack"' not in strip and 'class="memleg"' not in strip and "Ideas waiting to be tried" not in strip
+          '<h2 id="arrangement">Swarm Viewer</h2>' in html and "<h2>Training progress</h2>" not in html and 'class="trainprog trainhead"' in strip and "answers good" in strip and "training complete" not in strip
+          and html.index('<h2 id="arrangement">Swarm Viewer</h2>') < html.index('<div id="score">') and 'class="mbar stack"' not in strip and 'class="memleg"' not in strip and "Ideas waiting to be tried" not in strip
           and 'id="score-open"' not in html and 'id="big"' not in html and "/fragment/scorefull" not in html and get(base + "/fragment/scorefull")[0] == 404 and "Parity with the larger model" not in html, strip[:300])
     fp = data.footprint({"a": {"bytes": 2**30}, "b": {"bytes": 2**30}}, {"memGb": 5}, {"memGb": 18})
     mp = swarm_ui.memory_card(data.load(root))
@@ -281,7 +281,7 @@ with tempfile.TemporaryDirectory() as tmp:
     check("the page ends with a footer: whose product it is, its licence, and that the page is served from this machine",
           '<footer class="foot">' in html and "A Family Office product" in html and "apache.org/licenses/LICENSE-2.0" in html and "github.com/nseidm1/The-Swarm" in html and "Copyright 2026 Family Office" in html and "<svg" in html.split('<footer class="foot">')[1].split("</footer>")[0])
     check("it shows the arrangement being trained: every slot of both models by stage, what each is told, what is being tried, and the larger model alongside",
-          all(s["id"] in html for s in d["briefs"]["slots"]) and html.count('class="slot a"') >= 4 and html.count('class="slot b"') >= 3 and '<h2 id="arrangement">Train</h2>' in html and "under test" not in html and "Trained every pass" not in html and 'class="side"' not in html and "Ask both" not in html and "What it is told" in html and "Being tried" in html and "arXiv 2610.21290" in html and "The larger model" in html and "tensorfold serve" in html)
+          all(s["id"] in html for s in d["briefs"]["slots"]) and html.count('class="slot a"') >= 4 and html.count('class="slot b"') >= 3 and '<h2 id="arrangement">Swarm Viewer</h2>' in html and "under test" not in html and "Trained every pass" not in html and 'class="side"' not in html and "Ask both" not in html and "What it is told" in html and "Being tried" in html and "arXiv 2610.21290" in html and "The larger model" in html and "tensorfold serve" in html)
     krow = next((r for sp in d["splits"].values() for r in sp["swarm"] if any(t["slot"] == "decide" for t in r["trace"])), None)
     kfrag = get(base + "/fragment/question?split=%s&id=%s" % (krow["split"], urllib.request.quote(krow["id"])))[1] if krow else ""
     check("every slot is shown by the model that fills it and what it is for, with a line for what it is doing now; the decision model is in the decide step, and on a question shows what it picked and the probability it gave each answer",
@@ -517,7 +517,7 @@ with tempfile.TemporaryDirectory() as tmp:
     ev_table_l = get(base + "/fragment/evtable?h=lm")[1]
     (root / ".work" / "eval" / "results.json").unlink()
     check("Memory saved first, its share at the top left as the cards after it have theirs; then, above Train, Evaluate the swarm and Pretrain: Evaluate says what it does (standard benchmarks of lm-evaluation-harness, asked of the larger model and the swarm, kept apart from training), has a box for each harness beside the boxes for the bodies of work (a task is asked where both are ticked; a harness the page has no name for has its box all the same) and the same boxes over its table of scores, which is summed again over the harnesses ticked, has a size to choose (a proof run among them) and a button, names each harness a body of work is measured by, has a row for every task of every body of work that has a standard test, and a box for each of those bodies, ticked to begin with, that says which of them this run asks (kept on the device and sent with the press: a choice for one run, never of what the swarm is trained on); an unknown size, no body of work, one that is not listed, or a request from elsewhere is refused; once evaluated its headline is one figure, benchmark against benchmark, the swarm's score as a share of the larger model's on the same questions with the two scores under it, and it is a button that opens a table of every body of work and task with the two scores side by side (the share that had the SAME answer, called equivalent, marked the swarm down for being right where the larger model was wrong), each task leads with the two scores, and how many had the same answer is said under them, split by whether both were right, with when; Pretrain lists each small model and, where MLX is not installed, says Pretrain installs it and can be pressed on Apple silicon, or that it is not available on any other machine; the adapters switch is written beside the models and refuses anything but on or off; and while an evaluation runs, its headline shows moving bars where the share and the count will be and the questions chosen, the last result returning as it was when the run ends unfinished (Pretrain the same, the adapter that stood still standing beside an attempt that was not kept), it can be stopped from its section, and training and pretraining wait for it and say so",
-          html.index('<h2>Memory saved</h2>') < html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2 id="arrangement">Train</h2>') and '<h2>Pretrain</h2>' not in html
+          html.index('<h2>Memory saved</h2>') < html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2 id="arrangement">Swarm Viewer</h2>') and '<h2>Pretrain</h2>' not in html
           and '<div id="memwrap"><h2>Memory saved</h2><div class="panel memcard" id="memcard"><div class="proghead"><span class="memnum"><b class="pct">' in html and 'class="memh"' not in html.split('<h2>Memory saved</h2>')[1].split('<h2>')[0]
           and "lm-evaluation-harness 0.4.13" in ev0 and 'id="ev-go"' in ev0 and ev0.count("<option") == 4 and "a proof run" in ev0 and "Function-Calling" in ev0 and 'data-evt="ifeval"' in ev0 and 'data-evt="gsm8k"' in ev0 and ev0.count('data-evt="') == 23 and "not evaluated yet" in ev0 and api0.get("running") is False
           and 'class="evask"' in ev0 and ev0.count('data-ev-item="') == 7 and ev0.count('" checked>') == 9 and bad_harness == [400, 400, 400, 400]
@@ -584,7 +584,7 @@ with tempfile.TemporaryDirectory() as tmp:
           and '<tr class="evt-item"><th scope="row">' in ev_table and '<td class="num">45%</td><td class="num">60%</td><td class="num"><b class="down">75%</b></td><td class="num evn">20</td>' in ev_table
           and ev_table.count('<tr class="evt-task">') == 23 and "not evaluated" in ev_table and '<tr class="evt-all"><th scope="row">Every question</th><td class="num">45%</td>' in ev_table
           and swarm_ui._ev_share(5, 0) == "–" and "$('#evd').showModal()" in swarm_ui.JS and '<dialog id="evd">' in html and "pct busy" not in ev_after,
-          {"order": html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2 id="arrangement">Train</h2>'),
+          {"order": html.index('<h2>Evaluate the swarm</h2>') < html.index('<h2 id="arrangement">Swarm Viewer</h2>'),
            "ev0": ["lm-evaluation-harness 0.4.13" in ev0, 'id="ev-go"' in ev0, ev0.count("<option"), 'data-evt="ifeval"' in ev0, "not evaluated yet" in ev0, api0.get("running")],
            "codes": [bad_size, foreign, a_on, a_bad, a_off], "gone": gone_pre,
            "ev1": ["15 of 20 the same (75%)" in ev1 and '<b class="evpct">45%</b> <span>the swarm · ' in ev1, "9 both right · 6 both wrong · 5 differ" in ev1, "Last evaluated 2026-11-17 12:00 UTC" in ev1, "without adapters" in ev1],
@@ -2678,6 +2678,13 @@ check("one thing has the models at a time and every button that starts something
       and "async function runsSync(except)" in swarm_ui.JS and "await runsSync(into);setTimeout(()=>runsSync(into),1500);" in swarm_ui.JS and "fetch('/now/busy')" in swarm_ui.JS and "t!==busyWas" in swarm_ui.JS
       and 'u.path == "/now/busy"' in Path(swarm_ui.__file__).read_text(),
       [_bs_busy, _btn(_bs_whole, "whole-go"), _btn(_bs_conv2, "converse-go"), _btn(_bs_chip, "serve-toggle")])
+
+_arrf = swarm_ui.arrangement(_cvd)
+check("the plan being carried out and the picture of the system fold, and start folded: each is a section a person opens, its heading the thing pressed, shut until then; open or shut is kept on the device; what is inside keeps its place in the page, so it is still drawn again while shut",
+      re.search(r'<details class="fold secfold" data-keep="sec-plan"><summary><h2 id="strategy">The plan being carried out</h2></summary><div id="plan">', _arrf)
+      and re.search(r'<details class="fold secfold" data-keep="sec-system"><summary><h2 id="system">Visualizing the System</h2></summary><div id="viz">', _arrf)
+      and 'data-keep="sec-plan" open' not in _arrf and 'data-keep="sec-system" open' not in _arrf and "details.secfold" in swarm_ui.CSS and "details[data-keep]" in swarm_ui.JS,
+      _arrf[-300:])
 
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

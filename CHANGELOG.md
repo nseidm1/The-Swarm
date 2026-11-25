@@ -6,6 +6,9 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **The Train card is the Swarm Viewer, and two long sections fold** (2026-11-24). The card that shows the slots is
+  named for what it is. The plan being carried out and Visualizing the System fold and start folded; open or shut
+  is kept on the device.
 - **Which classes are trained is chosen on the intelligence run's card** (2026-11-24). The four boxes (with tools, a
   conversation, asking for code, a plain question) and Clear training state moved there from the Train card. Start
   sends the choice and the run trains those classes only (`training/run.sh --classes`). The bar at the top of the

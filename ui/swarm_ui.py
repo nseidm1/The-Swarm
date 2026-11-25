@@ -543,6 +543,7 @@ padding:11px 14px;font-size:13px;line-height:1.45;box-shadow:0 10px 30px rgba(0,
 .run .smeta{margin:3px 0 0;font-size:12.5px;line-height:1.4;color:var(--mist);font-weight:600;overflow-wrap:anywhere}.run details.sec[open] .smeta{display:none}.run details.sec.shutting .smeta{display:block}
 .run details.sec:not([open])>summary{margin-bottom:0}
 details.fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;border-radius:var(--r)}details.fold>summary::-webkit-details-marker{display:none}
+details.secfold{margin-top:36px}details.secfold>summary{justify-content:space-between}details.secfold>summary h2{margin:0}details.secfold[open]>summary{margin-bottom:12px}
 details.fold>summary:focus-visible{outline:2px solid var(--teal2);outline-offset:3px}.fmeta{flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--fog);overflow-wrap:anywhere}
 details.fold>summary::after{content:'';flex:none;width:7px;height:7px;margin-right:4px;border-right:2px solid var(--mist);border-bottom:2px solid var(--mist);transform:rotate(45deg);transition:transform .15s}
 details.fold:not([open])>summary::after,details.fold.shutting>summary::after{transform:rotate(-45deg)}details.fold[open]>summary{margin-bottom:10px}
@@ -2699,8 +2700,12 @@ def arrangement(d):
     # count of kept changes, Training now, the plan being carried out), so they were taken out (console 2026-11-24).
     # (the training share, the line beside it, Train and Clear training state head the card: #score, drawn again in place)
     one = ('<div class="panel arr"><div id="score">%s</div>%s%s</div>' % (progress_strip(d), adapters_line(d), faces_block(d)))
-    return ('%s<h2 id="strategy">The plan being carried out</h2><div id="plan">%s</div><h2 id="system">Visualizing the System</h2><div id="viz">%s</div>'
-            % (one, plan_block(d), viz_block(d)))
+    # THE PLAN AND THE PICTURE FOLD, AND START FOLDED (console 2026-11-24): each is long and is looked at on purpose, so the page
+    # opens on what a person acts on. Open or shut is kept on the device (data-keep), and what is inside is still drawn again
+    # in place while it is shut, so opening one shows it as it stands.
+    fold = lambda key, hid, title, inner_id, inner: ('<details class="fold secfold" data-keep="%s"><summary><h2 id="%s">%s</h2></summary><div id="%s">%s</div></details>'  # noqa: E731
+                                                       % (key, hid, title, inner_id, inner))
+    return one + fold("sec-plan", "strategy", "The plan being carried out", "plan", plan_block(d)) + fold("sec-system", "system", "Visualizing the System", "viz", viz_block(d))
 
 
 def _old_target_panel(d, t, serve, ladder):
@@ -6216,7 +6221,7 @@ def main_body(d):
         '%s'
         '<h2>Evaluate the swarm</h2><div id="evalwrap">%s</div>'
         # (no Pretrain card: an adapter is made for a slot and tried by training, and is shown with the arrangement, below)
-        '<h2 id="arrangement">Train</h2>%s'
+        '<h2 id="arrangement">Swarm Viewer</h2>%s'
         % (e(busy_with()), whole_block(d), converse_block(d), '<div id="memwrap">%s</div>' % memory_card(d), eval_block(d), arrangement(d))
     )
 
