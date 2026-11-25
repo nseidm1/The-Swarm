@@ -2,6 +2,54 @@
 
 Every measurement, dated, newest first. Each is of the swarm named in it; the lineup has changed over time.
 
+## The same reading, of the classes the intelligence run trains: 2026-11-24 and 25
+
+Does what was learned on conversations carry to plain questions and code? LFM3 1.7B in both places, as it stands for
+those two classes (no intelligence pass has trained it), asked every train question of them once, 192, and each wrong
+reply read. The held questions were not read.
+
+| | Right | Wrong | Of the wrong: no slot had it | A slot had it, settling lost it | Settled right, the reply spoiled it |
+| --- | --- | --- | --- | --- | --- |
+| Plain questions (132) | 103 | 29 | 15 | 3 | 11 |
+| Asking for code (60) | 42 | 18 | 9 | 9 | 0 |
+| Both (192) | 145 | 47 | 24 | 12 | 11 |
+
+What the 47 were:
+
+- **Spoiled, 11:** the answer was settled rightly and the reply was read wrong. The writer wrote the work out again
+  and closed on a sentence with several figures in it ("Thus there are 12 whole numbers between 15 and 62 inclusive
+  that are divisible by 4", read as 4), or began with the question word for word ("Today is Thursday. What day ...",
+  read as Thursday). The first is what "the settled answer goes out as it is" or "alone" mends, a change the class
+  stage already tries and kept for conversations; the second is mended in the module (below).
+- **Lost, 12:** an answer line that went on to doubt itself was read whole ("... velvet violet? Wait need correct
+  order."), so a right answer was no slot's; a block of code begun on the answer line and not closed was read as the
+  word "javascript" and had a vote; and for code, the behaviour most drafts shared was the wrong one.
+- **None, 24:** no slot had it. Four of six chains of who tells the truth, where every drafter ran out of room before
+  answering; the harder code kinds; some reasoning.
+
+Three mends to the module came of it (an afterthought on the answer line is cut off; a line that only opens a block of
+code is no answer; the question's own lines come off the head of every written reply), and the class of code then
+stood at 44 of 60 train questions where it had 42.
+
+**Do such mends reach a benchmark?** The two code benchmarks, 100 questions each, the module as configured with no
+training, on the lineup they were first read on (LFM2.5 1.2B), with every mend of these days in the code:
+
+| | HumanEval | MBPP | Both |
+| --- | --- | --- | --- |
+| 2026-11-23 | 60 | 35 | 95 of 200 |
+| 2026-11-25, the same arrangement | 57 | 38 | 95 of 200 |
+
+Eight answers changed, four each way: no gain, with a paired error of about 1.4 points. The fix to the answer line
+does not reach these benchmarks, whose answers are blocks of code and never sat on an answer line.
+
+- **What carries:** the machinery (it is one stage for every class) and the way of looking. Reading wrong replies
+  found three more faults of the module in an hour.
+- **What does not carry by itself:** the gain. What was mended here was read from training's own questions, and the
+  benchmarks did not move. That is the difference from conversations, which are judged on the questions they are
+  trained beside.
+- **Not run:** a pass of the class stage on these two classes. One was begun and stopped: a full search of the
+  plain-question class is some hours on this machine.
+
 ## What three conversation passes could not mend, and what did: 2026-11-24
 
 LFM3 1.7B in both places, the conversation run: 13 kinds of conversation, 78 held, each reply read by code against the

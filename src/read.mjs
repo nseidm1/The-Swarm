@@ -235,6 +235,21 @@ export function unmarked(text) {
     .replace(/(^|[^A-Za-z0-9])_+|_+(?=$|[^A-Za-z0-9])/g, '$1')
     .trim();
 }
+// AN ANSWER LINE THAT GOES ON TO DOUBT ITSELF, AND ONE THAT ONLY OPENS A BLOCK OF CODE (measured 2026-11-24, one 1.7B model on
+// training's own questions: "ANSWER: cinder copper ... velvet violet? Wait need correct order." was read whole, afterthought
+// and all, so a right answer was no slot's; and a block of code begun on the answer line and never closed was read as the
+// one word "javascript", which then had a vote).
+//   - what follows a "?", a "//" or a full stop and begins "wait", "but we need", "hmm", "actually", "not sure", "let me check" is
+//     an afterthought: the answer is what stood before it
+//   - a line that is only a fence and a language's name is no answer
+const AFTERTHOUGHT =
+  /(?:\?+|\s\/\/|\.)\s+(?:wait\b|but (?:we|i) (?:need|should|must)\b|hmm+\b|actually\b|not sure\b|let me (?:check|recheck|re-check|verify|think|recount|correct|redo)\b|need to (?:check|verify|correct)\b)[\s\S]*$/i;
+export const settledPart = (said) => {
+  const s = String(said || '').trim();
+  if (/^`{3,}\s*[A-Za-z0-9+#-]*\s*$/.test(s)) return '';
+  const cut = s.replace(AFTERTHOUGHT, '').trim();
+  return cut && cut !== s ? cut.replace(/[\s,;:]+$/, '') : s;
+};
 export function finalOf(text, marker = MARKER, wantsCode = false) {
   const block = lastBlock(text, marker, wantsCode);
   if (block) return block.code;
@@ -243,11 +258,11 @@ export function finalOf(text, marker = MARKER, wantsCode = false) {
     const at = lines[i].toUpperCase().lastIndexOf(marker.toUpperCase());
     if (at < 0) continue;
     // (the marker itself may be in bold, "**ANSWER:** 42": the marks that closed it are left at the start of what follows)
-    const said = unmarked(lines[i].slice(at + marker.length).replace(/^\s*(?:\*+|_+)(?=\s|$)/, ''));
+    const said = unmarked(settledPart(lines[i].slice(at + marker.length).replace(/^\s*(?:\*+|_+)(?=\s|$)/, '')));
     if (said) return said;
     // the marker alone on a line: the answer is the next line that says anything
     const next = lines.slice(i + 1).find((l) => l.trim());
-    if (next) return unmarked(next);
+    if (next) return unmarked(settledPart(next));
   }
   return '';
 }

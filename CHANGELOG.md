@@ -24,6 +24,11 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **Three more faults of the module, read from plain questions and code** (2026-11-25): an answer line that goes on
+  to doubt itself ("... violet? Wait need correct order.") is cut at the afterthought; a line that only opens a block
+  of code is no answer, where it was read as the word "javascript" and had a vote; and the question's own lines come
+  off the head of every written reply, not only one closed in a form. The two code benchmarks read 95 of 200 with
+  these as without (`docs/measured.md`).
 - **A kind still wrong on the held side is asked more of** (2026-11-24). What a pass leaves for the next was read
   from its train questions alone, so a pass that ended with every train question right left nothing, and a held
   conversation still wrong stayed so. The count of each kind still wrong on the held side is carried too (the count

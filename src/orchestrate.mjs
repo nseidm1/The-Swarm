@@ -1694,6 +1694,15 @@ async function answerWhole(
   // THE REPLY CLOSES AS THE EARLIER REPLIES DO (plan.closeAs 'shown'; read.mjs closingForm says why): where the conversation's
   // earlier replies all end with the same words and then their answer, this one ends that way around what was settled. Not code,
   // and not where there is no such form to follow. Whether it is better is the trainer's to find, class by class
+  // A REPLY DOES NOT OPEN BY SAYING THE QUESTION AGAIN. A writer given the question and the settled answer began its reply
+  // with the question, word for word ("Today is Thursday. What day of the week will it be 128 days from now?" and then
+  // "Saturday"), and a reader that takes the first thing a reply settles on took Thursday (measured 2026-11-24: three of
+  // six such replies read wrong with the right answer in them). The question's own lines at the head of a reply come off,
+  // as they already did where the reply was closed in a form. Not code.
+  if (reply && !isCode(decided || reply)) {
+    const cut = withoutRestating(reply, question);
+    if (cut !== reply && String(cut).trim()) reply = cut;
+  }
   if (plan.closeAs === 'shown' && reply && decided && !isCode(decided)) {
     const form = closingForm(talk);
     // (it does not open by saying the question again, and it is laid out as they are: with no empty line where they have none)

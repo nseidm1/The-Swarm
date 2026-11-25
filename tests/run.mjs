@@ -12686,6 +12686,16 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
   const base = startBriefs();
   const draftSays = async () => ({ text: '9 * 5 = 45\nANSWER: 45' });
+  const dayQ = 'Today is Thursday. What day of the week will it be 128 days from now?';
+  const restated = await orchestrate([u(dayQ)], {
+    briefs: base,
+    ask: async (slot) => ({
+      text:
+        slot.stage === 'write'
+          ? dayQ + '\n\nSaturday\n\n128 days is 18 weeks and 2 days.'
+          : '18 weeks and 2 days on.\nANSWER: Saturday',
+    }),
+  });
   // (a drafter that answers by a program, its figure standing: the program is run by a stand-in for the sandbox)
   const progMoves = AR.steps(base).filter((m) => / on a that answers by a program/.test(m.name));
   const withProg = { ...progMoves[1].briefs, plan: { ...progMoves[1].briefs.plan, writeAs: 'bare' } };
@@ -12841,6 +12851,18 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       ) === '{"a":2,"c":4}' &&
       JSON.stringify(CL.focusOf(CL.gapsOf([{ kind: 'a', counted: true }]))) === '{}' &&
       CL.gapsOf([{ kind: 'a', counted: true }], { a: { n: 6, counted: 5 } }).kinds.a.held.wrong === 1 &&
+      // (read from the intelligence classes' wrong replies: an afterthought on the answer line, a fence that only opens,
+      // and a reply that begins with the question)
+      fin('ANSWER: cinder copper garnet violet? Wait need correct order.') === 'cinder copper garnet violet' &&
+      fin('ANSWER: [ ( { } ) ]  // Wait need to close all parentheses properly.') === '[ ( { } ) ]' &&
+      fin('ANSWER: 42. Actually let me recheck') === '42' &&
+      fin('ANSWER: It is 4. Let me know if you need anything else!') ===
+        'It is 4. Let me know if you need anything else!' &&
+      fin('ANSWER: ```javascript') === '' &&
+      fin('ANSWER: 3.5') === '3.5' &&
+      R.settledPart('Monday') === 'Monday' &&
+      restated.reply.startsWith('Saturday') &&
+      !restated.reply.includes('What day of the week') &&
       F.facetOf(thanks) === 'closing' &&
       F.facetOf(code) === 'code' &&
       F.facetOf(told) === 'instructed' &&
