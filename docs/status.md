@@ -17,6 +17,13 @@ What has been run:
   widened, 26 of a fresh 27; right on every one read. The larger model now writes such wordings in every pass, and an
   instrument is kept on ones its trying never saw.
 
+- **What each layer is worth, on one lineup (2026-11-25).** On training's held plain questions, a 1.7B model alone
+  answered 87 of 132; the swarm as a module starts, 115; with what training had kept, 115 still; with every
+  instrument on, 131; with the forms read as well, 129
+  ([measured](measured.md#what-each-layer-is-worth-on-one-lineup-2026-11-25)). **Limits, said plainly:** the
+  instruments' part is on questions worded as training words them; the arrangement's part is the only one measured
+  outside training, and there on another lineup; training's own kept changes added nothing on this class.
+
 - **What training's writer can be trusted with (2026-11-25).** Measured for the 30B model, a rung at a time: it
   fills the module's forms (11 of 12 kinds), it lays a kind no form was made for onto a form that fits (5 of 6), it
   does not reliably write a function for a kind (4 of 12), and it does not design a form with its code (1 of 8 at

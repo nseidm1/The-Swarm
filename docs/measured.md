@@ -2,6 +2,42 @@
 
 Every measurement, dated, newest first. Each is of the swarm named in it; the lineup has changed over time.
 
+## What each layer is worth, on one lineup: 2026-11-25
+
+The held plain questions of training (LFM3 1.7B in every place, no decision model), each answered five ways. Six
+questions of each of 24 kinds: the 22 kinds as they were, and the two added that day, which the arrangement as it
+stands met here for the first time. No benchmark was read.
+
+| How it was answered | Of the kinds as they were (132) | Of every kind (144) | The two kinds added (12) | Seconds for all |
+| --- | --- | --- | --- | --- |
+| The small model alone, asked as the question came | 87 (65.9%) | 90 | 3 | 315 |
+| The swarm as a module starts: slots, briefs, deciding | 115 (87.1%) | 126 | 11 | 834 |
+| The swarm as it stands, with what training kept | 115 (87.1%) | 126 | 11 | 849 |
+| With every instrument on | 131 (99.2%) | 143 | 12 | 162 |
+| With every instrument on, and the forms read by the drafters | 129 (97.7%) | 141 | 12 | 194 |
+
+- **The arrangement is the largest single step.** Slots, briefs and deciding took the model from 87 to 115 of 132
+  with nothing learned, and from 3 to 11 of 12 on two kinds they had never been arranged for. Of the 28 questions
+  gained, 24 are of kinds an instrument also reads as worded here, and 4 of kinds none does (what a program prints,
+  rates, and the like): so on these wordings code could have had most of that gain by itself, and the arrangement's
+  own part is clearest where no instrument reads.
+- **What training had kept changed nothing here.** The stored arrangement differs from the starting one and answered
+  exactly as it did.
+- **The instruments took what was left, on these wordings.** 108 of the 144 questions were answered by code with no
+  model asked, and all but one question of the 132 was right. It also cost a fifth of the time. **A limit, said
+  plainly:** these are questions worded as training words them, which is what the instruments were written to read;
+  on questions put another way they read few (5 of 73 and 3 of 71, measured above), and there the arrangement and
+  the forms are what answers.
+- **The forms cost two questions here.** With the instruments on there was little left for them: three questions
+  were answered by reading, and two were wrong, both of the kind "buys so many boxes, gives some away, sells the
+  rest", which two readings agreed to write down as a number and what is done to it, wrongly. On this class as
+  worded, a round would not keep them; on questions put another way they gained 11 of 71. Which it is for a swarm is
+  what training measures.
+- **By kind, where the arrangement left most:** a word and what is done to it 1 of 6, who tells the truth 2 of 6,
+  things in a row and brackets to close 4 of 6; every one 6 of 6 with its instrument on.
+- **Not measured.** Another lineup; another class (conversation, tools and requests for code have no instruments or
+  forms, and there the arrangement is the only thing that answers); how much each kind of arrangement change adds.
+
 ## What the writer can be trusted with, a rung at a time: 2026-11-25
 
 Training asks the larger model to write things that go into the module. How far that can go was measured for one
