@@ -88,6 +88,40 @@ argument is valid (2), a rate, a word, an ordering. Let stand wherever the two d
 - **Not measured:** the same on a larger small model, whose programs should be better; a larger model writing the
   per-kind functions; whether a function written from training's wordings reads a benchmark's.
 
+## A function that returns nothing for every question it was shown: 2026-11-25
+
+Of the twelve kinds of plain question the larger model was refused for, most were refused because the function
+returned null for every question it had been shown. Is that how it is asked, or what it can write? Three changes to
+how it is asked, each measured on all 21 kinds (nine passed before any of them):
+
+| What was changed | Kinds that passed, of 21 |
+| --- | --- |
+| Nothing | 9 |
+| Each example shown as the call it is, `answer("...")` and what it must return | 5 |
+| The writer told the line its function gave up at ("it returned null at: `if (lines.length < 2) return null;`") | 8 |
+| That, and every other try a fresh one shown other questions of the kind | 9 |
+
+None made a function pass that had returned nothing. In every run a function passed on its first try or, with two
+exceptions in 84 kinds asked, not at all: told what was wrong, and where, this writer writes the same fault again.
+Showing the call made it worse (chains of sums, shop sums and rates, written rightly at once before, were written
+wrongly). So for this writer it is what it can write, not how it is asked.
+
+What fills those kinds is code that is already in the module:
+
+| Kind the writer was refused for | Questions (16 train, 16 held) | An instrument answers | Rightly |
+| --- | --- | --- | --- |
+| A sum | 32 | 32 | 32 |
+| An expression of true and false | 32 | 32 | 32 |
+| Words put in order | 32 | 32 | 32 |
+| Brackets closed | 32 | 32 | 32 |
+| What a program prints, who tells the truth, when someone was free, a row of books, an ordering, a figure picked out, a valid argument, a date | 32 each | 0 | |
+
+- **Kept:** the line a function gave up at is told (it costs nothing and is what a person would look at); every other
+  try starts again with other questions; "every instrument is on" is one change a round can try, where each alone
+  was one change and a round keeps one. The call form is there and is not the one used.
+- **Left unfilled:** the eight kinds in the last row. No instrument reads them and this writer cannot write one.
+- **Not measured:** another model as the writer.
+
 ## The larger model writes the functions: 2026-11-25
 
 A function is written once and vetted before it is trusted, so who writes it is a matter of how often it passes.

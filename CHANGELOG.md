@@ -24,6 +24,12 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **How the writer of functions is asked, measured** (2026-11-25). A function that returned nothing for every
+  question it was shown: three changes to the asking were measured on 21 kinds (the example shown as a call; the line
+  the function gave up at; fresh tries shown other questions) and none made such a function pass (9 of 21 before, 5,
+  8 and 9 after). The line it gave up at and the fresh tries are kept; the call form is not used. Four of the kinds
+  it could not write for are answered by the instruments, every question rightly, and "every instrument is on" is
+  now one change a round can try.
 - **Four ways for code to fill what the model cannot work out** (2026-11-25). The larger model writes the functions
   training vets (9 of 21 kinds of plain question passed, 53 of 53 held answers right; the swarm's own 1.7B model
   passed for one), from more train questions of a kind. A program's answer stands where the slots settled on none.

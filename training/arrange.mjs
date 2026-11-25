@@ -593,6 +593,14 @@ export function steps(
         briefs: { ...b, slots: b.slots.map((x) => ({ ...x, member: m })) },
       })),
   );
+  // EVERY INSTRUMENT AT ONCE, where two or more are off: each alone moves one kind of question, and a round keeps one
+  // change. Of the kinds a model could write no function for, four are these operations, and the instruments answer every
+  // question of them rightly (128 of 128, measured 2026-11-25).
+  if (INSTRUMENT_IDS.filter((id) => !instrOn.includes(id)).length > 1)
+    out.push({
+      name: 'plan: every instrument is on',
+      briefs: { ...b, plan: { ...b.plan, instruments: [...INSTRUMENT_IDS] } },
+    });
   return out
     .filter(
       (c) =>

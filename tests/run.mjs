@@ -12520,10 +12520,32 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   const asks = [];
   const got = await WC.writeFor('day', own, others, async (m) => (asks.push(m), replies[asks.length - 1]), {
     tries: 4,
+    fresh: 'chain',
   });
   const never = await WC.writeFor('day', own, others, async () => fence(guess), { tries: 2 });
   const vGreedy = await WC.vet(greedy, { seen: own.slice(0, 3), unseen: own.slice(3), others });
   const few = await WC.writeFor('day', own.slice(0, 3), others, async () => fence(real));
+  // (every other try starts again, shown other questions of the kind)
+  const mkQ = (i) => ({
+    kind: 'k',
+    ask: 'q' + i + '?',
+    want: String(i),
+    good: async (r) => ({ grade: r === String(i) ? 'right' : 'wrong' }),
+  });
+  const rotated = [];
+  await WC.writeFor(
+    'k',
+    Array.from({ length: 12 }, (_, i) => mkQ(i)),
+    [],
+    async (m) => (rotated.push((m[1].content.match(/q\d+\?/g) || []).join(',')), 'no code'),
+    { tries: 3 },
+  );
+  const gave = await WC.gaveUpAt(
+    'function answer(q){\n  const lines = q.split("\\n");\n  if (lines.length < 2) return null;\n  return lines[1];\n}',
+    ['one line', 'two\nlines'],
+  );
+  const threw = await WC.gaveUpAt('function answer(q){ const m = /(\\d+)/.exec(q); return m[1]; }', ['no digits']);
+  const fellOff = await WC.gaveUpAt('function answer(q){ if (q) { } }', ['x']);
   const asked = [];
   const base = startBriefs();
   const moves = AR.writtenMoves(base, [{ id: 'day@1', kind: 'day', code: real }]);
@@ -12570,6 +12592,19 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       // (asked again with what it wrote and where it failed on what it was shown; an unseen question is never said)
       asks[1].length === 4 &&
       /It returned: Monday/.test(asks[1][3].content) &&
+      // (an example is shown as the call it is, and a function that gave nothing is told the line it gave up at)
+      /Question:\nToday is Thursday\. What day of the week will it be 179 days from now\?\nRight answer: Monday/.test(
+        asks[0][1].content,
+      ) &&
+      /It is called with ONE string/.test(asks[0][1].content) &&
+      AR.steps(startBriefs()).filter((m) => m.name === 'plan: every instrument is on').length === 1 &&
+      AR.steps({ ...startBriefs(), plan: { ...startBriefs().plan, instruments: ['sum', 'truth', 'sorted'] } }).every(
+        (m) => m.name !== 'plan: every instrument is on',
+      ) &&
+      rotated.join('|') === 'q0?,q1?,q2?,q3?,q4?,q5?|q0?,q1?,q2?,q3?,q4?,q5?|q6?,q7?,q8?,q9?,q10?,q11?' &&
+      gave.join('|') === 'it returned null at this line: `if (lines.length < 2) return null;`|' &&
+      threw[0].startsWith('it threw an error') &&
+      fellOff[0].startsWith('it reached its end') &&
       !own.slice(3).some((t) => asks.some((m) => m.some((x) => x.content.includes(t.ask)))) &&
       asks[2].length === 2 &&
       never.ok === false &&

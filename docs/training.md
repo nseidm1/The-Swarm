@@ -47,7 +47,8 @@ and keeps each only where held questions say it helped:
   the first drafters, the other drafters are asked (`computedDoubts`). A slot cut off before its answer can be given
   its room again to finish (`goOn`). And the functions training writes are written by the larger model where it can
   be served (`writer: 'target'`; it is loaded for the writing of a round and stopped after), from sixteen train
-  questions of the kind (`writePool`), in up to five tries;
+  questions of the kind (`writePool`), in up to five tries: every other try starts again, shown other questions of
+  the kind, and a function that gave nothing is told the line it gave up at;
 - **the answer alone**: the settled answer goes out with no work before it (`writeAs: 'bare'`), beside going out with
   its work;
 - **how many slots and models**: a slot added, dropped or moved to another model, every slot on one model, one slot

@@ -19,6 +19,8 @@
 //   vet(code, { seen, unseen, others }) -> { ok, why, right, wrong, silent, n, failed: [...] }
 //   writeFor(kind, tasks, others, ask)  the whole of it for one kind -> { kind, ok, code?, tries: [...] }
 import { answersOf, WRITTEN_NAME } from '../src/written.mjs';
+import { outputsOf } from '../src/sandbox.mjs';
+import { bare } from '../src/instruments.mjs';
 
 // A QUESTION CODE CAN BE WRITTEN FOR: one message, no tools, and a right answer that is a short text (so that the writer can
 // be shown what right looks like). A conversation, a request for code and a turn with tools are not.
@@ -66,10 +68,19 @@ const RULES =
   'Rules:\n' +
   '- It must work the answer out from what the question says. Other questions of this kind have other names, numbers and details, so nothing from these examples may be written into it.\n' +
   '- Where a question is not of this kind, or any part of it cannot be read, it must return null. It must never guess.\n' +
-  '- It returns the answer as a string, written exactly as the right answers below are written.\n' +
+  '- It returns the answer as a string, written exactly as the answers below are written.\n' +
+  '- It is called with ONE string, the text of the question: often a single line, not several.\n' +
   '- Plain JavaScript only: no require, no import, no console, no clock, no random numbers.\n' +
   '- Reply with the whole function in one ```js block and nothing else.';
-const exampleOf = (t) => 'Question:\n' + t.ask + '\nRight answer: ' + wantOf(t);
+// AN EXAMPLE IS SHOWN AS THE CALL IT IS: the string the function is given, as a string, and what it must return. It was shown as
+// "Question:", a line break, the text, and a function written from that wanted two lines of a question that has one, and
+// returned null for every question it was shown (measured 2026-11-25: sorting, five tries, the same first check each time).
+const FORM = { now: process.env.SWARM_WRITE_FORM || 'plain' };
+export const setExampleForm = (f) => (FORM.now = f === 'call' ? 'call' : 'plain');
+const exampleOf = (t) =>
+  FORM.now === 'call'
+    ? WRITTEN_NAME + '(' + JSON.stringify(bare(t.ask)) + ')\n// must return ' + JSON.stringify(wantOf(t))
+    : 'Question:\n' + bare(t.ask) + '\nRight answer: ' + wantOf(t);
 export const writeAsk = (kind, shown) => [
   { role: 'system', content: 'You write small, exact JavaScript functions.' },
   {
@@ -77,9 +88,9 @@ export const writeAsk = (kind, shown) => [
     content:
       'Below are ' +
       shown.length +
-      ' questions of one kind, each with its right answer. Write one JavaScript function `' +
+      ' questions of one kind, each with the answer the function must return for it. Write that JavaScript function, `' +
       WRITTEN_NAME +
-      '(question)` that takes the text of any question of this kind and returns its answer, worked out by code.\n\n' +
+      '(question)`: it takes the text of any question of this kind and returns its answer, worked out by code.\n\n' +
       RULES +
       '\n\n' +
       shown.map(exampleOf).join('\n\n'),
@@ -99,20 +110,64 @@ export const againAsk = (kind, shown, code, verdict) => [
         ? '\n\n' +
           verdict.failed
             .slice(0, 4)
-            .map(
-              (f) =>
-                'Question:\n' +
-                f.ask +
-                '\nIt returned: ' +
-                (f.got === null ? 'null' : f.got) +
-                '\nRight answer: ' +
-                f.want,
+            .map((f) =>
+              FORM.now === 'call'
+                ? WRITTEN_NAME +
+                  '(' +
+                  JSON.stringify(bare(f.ask)) +
+                  ')\n// returned ' +
+                  (f.got === null ? 'null' : JSON.stringify(f.got)) +
+                  (f.at ? ': ' + f.at : '') +
+                  '\n// must return ' +
+                  JSON.stringify(f.want)
+                : 'Question:\n' +
+                  bare(f.ask) +
+                  '\nIt returned: ' +
+                  (f.got === null ? 'null' : f.got) +
+                  (f.at ? ' (' + f.at + ')' : '') +
+                  '\nRight answer: ' +
+                  f.want,
             )
             .join('\n\n')
         : '') +
       '\n\nWrite it again, the whole function, in one ```js block. It is also run on questions of this kind you have not been shown, so it must read the question, not remember these. Questions of this kind are worded in several ways: do not depend on the exact sentence. Find what the question gives (the numbers, the words, the names) by pattern wherever it stands in the sentence, and return null only where it cannot be found.',
   },
 ];
+
+// WHERE A FUNCTION GAVE UP, for each question it returned nothing for. A writer told only "it returned null" wrote the same
+// fault again, five times: it cannot see its function run. So the function is run once more with every `return null` made
+// to say which line it is, and the writer is shown that line: "it gave up at: if (lines.length < 2) return null;". Also
+// said: that it threw, or that it reached its end with nothing returned.
+//   gaveUpAt(code, questions) -> [ '' | 'the line it returned null at' | 'it threw an error' | ... ] one for each question
+export async function gaveUpAt(code, questions, { timeoutMs = 20000 } = {}) {
+  const lines = String(code || '').split('\n');
+  const marked = lines.map((l, i) => l.replace(/\breturn\s+null\b/g, 'return "__gaveup_' + (i + 1) + '__"')).join('\n');
+  const out = await outputsOf(
+    marked,
+    WRITTEN_NAME,
+    questions.map((q) => [bare(q)]),
+    { timeoutMs },
+  );
+  if (!out) return questions.map(() => 'it could not be run');
+  return out.map((o) => {
+    if (!o || o.e)
+      return 'it threw an error while it ran (a value it used was not there, or a pattern did not match and was used all the same)';
+    let v;
+    try {
+      v = JSON.parse(o.v);
+    } catch {
+      return '';
+    }
+    const m = typeof v === 'string' && /^__gaveup_(\d+)__$/.exec(v);
+    if (m) return 'it returned null at this line: `' + (lines[Number(m[1]) - 1] || '').trim().slice(0, 160) + '`';
+    if (v === '__undefined__' || v === undefined)
+      return 'it reached its end, or a bare `return`, with nothing returned';
+    if (v === null) return 'it returned a null that is not written as `return null`';
+    if (typeof v !== 'string' && typeof v !== 'number')
+      return 'it returned something that is neither a string nor a number';
+    return '';
+  });
+}
 
 // the function in a reply: the first fenced block that declares `answer`, else the reply itself where it does; '' otherwise
 export function codeIn(text) {
@@ -160,6 +215,16 @@ export async function vet(code, { seen = [], unseen = [], others = [] } = {}, { 
   const failed = seen
     .map((t, i) => ({ ask: t.ask, want: wantOf(t), got: got[i], mark: mSeen[i] }))
     .filter((f) => f.mark !== 'right');
+  // (and for each it gave nothing for, where it gave up)
+  if (failed.some((f) => f.got === null)) {
+    const silent = failed.filter((f) => f.got === null);
+    const at = await gaveUpAt(
+      code,
+      silent.map((f) => f.ask),
+      { timeoutMs },
+    );
+    silent.forEach((f, i) => (f.at = at[i] || ''));
+  }
   const out = {
     right: count(mUnseen, 'right'),
     wrong: count(mUnseen, 'wrong'),
@@ -223,16 +288,35 @@ export async function vet(code, { seen = [], unseen = [], others = [] } = {}, { 
 // ONE KIND, THE WHOLE OF IT: shown half of its train questions (at least two, at most `show`), vetted on the rest and on the
 // class's other questions, asked again where refused. ask(messages) -> text is the writer.
 //   -> { kind, ok, code?, id?, shown, tries: [{ ok, why, right, wrong, silent, n, elsewhere }] }
-export async function writeFor(kind, own, others, ask, { tries = 3, show = 6, cover = 0.5, say = () => {} } = {}) {
+//
+// A FRESH TRY IS SHOWN OTHER QUESTIONS. A function passed on its first try or, almost always, not at all: told what was wrong,
+// the writer wrote the same fault again (measured 2026-11-25, 21 kinds, three ways of telling it: 8, 9 and 5 passed, one of
+// them on a second try). So tries are not one long correction. Every other try starts again, shown a different part of the
+// kind's train questions (`fresh`: 'rotate'), so that it is another function and not the last one mended; the try after
+// each is told what was wrong with that one. 'chain' is the one long correction, as it was.
+export async function writeFor(
+  kind,
+  own,
+  others,
+  ask,
+  { tries = 3, show = 6, cover = 0.5, say = () => {}, fresh = 'rotate' } = {},
+) {
   const nShown = Math.max(2, Math.min(show, Math.floor(own.length / 2)));
-  const seen = own.slice(0, nShown);
-  const unseen = own.slice(nShown);
+  // (which questions a try is shown: the first nShown; a fresh try, the next nShown round the list)
+  const shownFor = (k) => own.map((_, i) => own[(i + k * nShown) % own.length]).slice(0, nShown);
+  let seen = shownFor(0);
+  let unseen = own.filter((t) => !seen.includes(t));
   const out = { kind, ok: false, shown: seen.length, tries: [] };
   if (unseen.length < 2)
     return { ...out, why: 'too few questions of this kind to vet a function on ones it was not shown' };
   let messages = writeAsk(kind, seen);
   let lastCode = '';
   for (let i = 0; i < tries; i++) {
+    if (fresh === 'rotate' && i > 0 && i % 2 === 0) {
+      seen = shownFor(i / 2);
+      unseen = own.filter((t) => !seen.includes(t));
+      messages = writeAsk(kind, seen);
+    }
     say('writing code for the kind "' + kind + '", try ' + (i + 1) + ' of ' + tries);
     let text = '';
     try {
