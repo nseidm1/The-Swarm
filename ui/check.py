@@ -489,7 +489,7 @@ with tempfile.TemporaryDirectory() as tmp:
           '<details class="psec evitem" data-keep="eval-tools" open>' in ev_run and '<details class="psec evitem" data-keep="eval-instructions">' in ev_run
           and ('<span class="pmeta" data-evm="tools">%s: 1 of 2 tasks asked, asking BFCL one of several functions 12 of 100 · the swarm: 0 of 2 tasks asked</span>' % tn_) in ev_run
           and ('<span class="pmeta" data-evm="instructions">%s: 1 of 1 task asked · the swarm: 0 of 1 task asked</span>' % tn_) in ev_run
-          and "const evMeta=(all,tn)=>" in swarm_ui.JS and "box.querySelectorAll('[data-evm]')" in swarm_ui.JS and "localStorage.getItem('swarm.open.eval-'+at.item)" in swarm_ui.JS
+          and "const evMeta=(all,tn,alone)=>" in swarm_ui.JS and "box.querySelectorAll('[data-evm]')" in swarm_ui.JS and "localStorage.getItem('swarm.open.eval-'+at.item)" in swarm_ui.JS
           # (the whole breakdown folded to begin with, its line counting every task; a folded body inside an open breakdown keeps its own line)
           and '<details class="psec evall" data-keep="eval-all"><summary>' in ev_run and ('<span class="pmeta" data-evm="*">%s: 2 of 3 tasks asked, asking BFCL one of several functions 12 of 100 · the swarm: 0 of 3 tasks asked</span>' % tn_) in ev_run
           and "m.dataset.evm==='*'||t.item===m.dataset.evm" in swarm_ui.JS
@@ -2082,7 +2082,7 @@ check("the evaluation's results as a paper sets them out, and as score against m
       and swarm_ui.alone_keys([{"alone": {"a": {"name": "A", "value": 0.5}, "b": {"name": "B", "value": 0.2}}}, {"alone": {"a": {"name": "A", "value": 0.7}}}]) == [("a", "A")]
       and swarm_ui.alone_keys([{"alone": {"a": {"name": "A", "value": 0.5}}}, {}]) == []
       and [round(x, 1) for x in swarm_ui.alone_score([{"alone": {"a": {"value": 0.5, "stderr": 0.1}}, "agree": {"of": 10}}, {"alone": {"a": {"value": 1.0, "stderr": 0}}, "agree": {"of": 30}}], "a")] == [87.5, 5.2, 40]
-      and "live.alone[who] + ' by itself'" in (Path(swarm_ui.__file__).resolve().parent.parent / "training" / "evaluate.mjs").read_text() and "s.alone[n.who]+' by itself'" in swarm_ui.JS, [_pap11[-600:], _cht11[-400:]])
+      and "live.alone[who] + ' by itself'" in (Path(swarm_ui.__file__).resolve().parent.parent / "training" / "evaluate.mjs").read_text() and "evWho(n.who||'target'" in swarm_ui.JS and "+' by itself'+(/-form$/.test(w)?', its reply laid out':'')" in swarm_ui.JS, [_pap11[-600:], _cht11[-400:]])
 # (the same fixture where each of two small models answered by itself)
 import copy as _copy
 _al11 = _copy.deepcopy(_full11)
@@ -2508,7 +2508,7 @@ _lin = [swarm_ui.ev_progress(_two(x)) for x in ({"state": "done", "done": 20, "o
 check("the count of questions finished never goes back: a task asked in two ways (the web search test) starts its own count again at the second asking, and the page counts the task by how far it is over both (it read 460 of 460 and then 420); "
       "the page's own script counts the same way, in the line and in the bar",
       _lin == ["30 of 40 questions finished · 75%", "30 of 40 questions finished · 75%", "36 of 40 questions finished · 90%", "40 of 40 questions finished · 100%"]
-      and swarm_ui._whole({"done": 7}) == 7 and open(swarm_ui.__file__).read().count("a.whole??a.done") == 2,
+      and swarm_ui._whole({"done": 7}) == 7 and open(swarm_ui.__file__).read().count("x.whole??x.done") == 2,
       _lin)
 
 # A SPEC PINS ONLY THE ADAPTERS THAT ARE SERVED: a role's adapter judged and found no better is no part of the module
@@ -2770,6 +2770,29 @@ check("the intelligence run's ring is held to what the conversation run's was: a
       # (and the same shape as the conversation run's card, line for line: the ring, what it is of, and under it the pass)
       and re.search(r'<span>of this step<small>pass \d+ · \d+% of the (run|pass)</small>', _wq_card_train) is not None,
       [_wq_ev_fresh, _wq_ev_last, _wq_ev_old, _wq_tr_q, _wq_tr_stale, _wq_tr_pp, _wq_ad, _wq_run_stale, _vn(_wq_card_train), _vn(_wq_card_ad)])
+
+# ---- an evaluation's card counts and names EVERY model it asks, the small model by itself among them
+_sd_rows = [{"task": "t1", "name": "Task one", "item": "logic", "target": {"state": "kept", "done": 20, "of": 20}, "swarm": {"state": "done", "done": 20, "of": 20},
+             "alone-a": {"state": "done", "done": 20, "of": 20}, "alone-a-form": {"state": "asking", "done": 10, "of": 20}},
+            {"task": "t2", "name": "Task two", "item": "logic", "target": {"state": "kept", "done": 20, "of": 20}, "swarm": {"state": "done", "done": 20, "of": 20},
+             "alone-a": {"state": "done", "done": 20, "of": 20}, "alone-a-form": {"state": "waiting", "done": 0, "of": None}}]
+_sd_alone = {"alone-a": "Mini A"}
+_sd_meta = swarm_ui._ev_meta_live(_sd_rows, "Big", _sd_alone)
+_sd_two = swarm_ui._ev_meta_live([{k: v for k, v in r.items() if not k.startswith("alone-")} for r in _sd_rows], "Big")
+check("an evaluation asks the larger model, the swarm, and each small model by itself (and so with its reply laid out): the card's line of tasks, its bar, its count of questions finished and the run's ring count every one of them, "
+      "and the one answering now is named for what it is (a run that had finished the first two read 23 of 23 tasks asked, and named the larger model, while the small model was still being asked); "
+      "and a task with no comparison yet says nothing under its bars",
+      swarm_ui._ev_sides(_sd_rows) == ["target", "swarm", "alone-a", "alone-a-form"] and swarm_ui._ev_sides([{"target": {}, "swarm": {}}]) == ["target", "swarm"]
+      and swarm_ui._ev_who("alone-a", "Big", _sd_alone) == "Mini A by itself" and swarm_ui._ev_who("alone-a-form", "Big", _sd_alone) == "Mini A by itself, its reply laid out"
+      and swarm_ui._ev_who("target", "Big") == "Big" and swarm_ui._ev_who("swarm", "Big") == "the swarm" and swarm_ui._ev_who("alone-b", "Big", {}) == "a small model by itself"
+      and _sd_meta == "Big: 2 of 2 tasks asked · the swarm: 2 of 2 tasks asked · Mini A by itself: 2 of 2 tasks asked · Mini A by itself, its reply laid out: 0 of 2 tasks asked, asking Task one 11 of 20"
+      and _sd_two == "Big: 2 of 2 tasks asked · the swarm: 2 of 2 tasks asked"
+      and swarm_ui.ev_progress({"tasks": _sd_rows}) == "10 of 40 questions finished · 25%"
+      and swarm_ui._ev_through(_sd_rows) == (25.0, True)
+      and swarm_ui._ev_agree({}) == "" and swarm_ui._ev_agree(None) == "" and swarm_ui._ev_agree({"failed": "not asked: x"}) == "<small>not asked: x</small>"
+      and "compared when both have answered" not in open(swarm_ui.__file__).read().replace('"compared when both have answered" stood', "")
+      and "const evSides=ts=>['target','swarm'," in swarm_ui.JS and "evMeta(ts,s.target||'the larger model',s.alone)" in swarm_ui.JS,
+      [_sd_meta, swarm_ui.ev_progress({"tasks": _sd_rows}), swarm_ui._ev_through(_sd_rows)])
 
 # ---- the intelligence run's card has the conversation run's shape when nothing runs too
 _wi_was = (swarm_ui._job_state, swarm_ui._run_elsewhere_now, swarm_ui._classes_alive, swarm_ui.whole_steps, swarm_ui.whole_score, swarm_ui.busy_with)

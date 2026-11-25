@@ -24,6 +24,11 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **A fix: an evaluation's cards count every model it asks** (2026-11-25). An evaluation asks the larger model, the
+  swarm, and then each small model by itself, twice. The cards counted the first two: for the hour after, they read
+  "23 of 23 tasks asked" and 100%, and named the larger model as the one answering. The line of tasks, the bar, the
+  count of questions finished, the run's ring and the name of the one answering now take every one of them. And the
+  words "compared when both have answered" are gone from under each task.
 - **The two run cards say how far they are the same way** (2026-11-25). The intelligence run's ring and the two
   lines beside it now have the conversation run's shape: while it runs, the step in hand ("of this step") with the pass
   and the share of the run under it ("pass 3 · 24% of the run"); with nothing running, where the module stands (its
