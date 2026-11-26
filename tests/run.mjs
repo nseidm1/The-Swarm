@@ -10313,7 +10313,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       drawn === '1|draw2' &&
       s2.seed === 1 &&
       !/swarm\.seed\s*=[^=]/.test(src) &&
-      /swarm\.setSeed\(k \? seed0 \+ '\|draw'/.test(src) &&
+      /seedNow = k \? seed0 \+ '\|draw'/.test(src) &&
+      /swarm\.setSeed\(seedNow\);/.test(src) &&
       /swarm\.setSeed\(seed0\);/.test(src),
     { threw, drawn },
   );
@@ -13795,6 +13796,63 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       required.path !== 'tools-instrument' &&
       other.path !== 'tools-instrument',
     { got, read, right, stray, sum: sum.path, off: off.path, required: required.path, other: other.path },
+  );
+}
+
+// A STAGE THAT WAS STOPPED CARRIES ON (training/carry.mjs)
+{
+  const { openCarry, keyOf } = await import('../training/carry.mjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'swarm-carry-'));
+  const file = path.join(dir, 'carry.jsonl');
+  const same = { code: 'abc', tries: 4 };
+  let askedCount = 0;
+  const answer = async (q) => {
+    askedCount++;
+    return { reply: 'to ' + q, n: askedCount };
+  };
+  const first = openCarry(file, same, { version: 3 });
+  const a1 = await first.memo(keyOf('ask', 'q1'), () => answer('q1'));
+  await first.memo(keyOf('ask', 'q2'), () => answer('q2'));
+  first.note('saved|x', 1);
+  // (the stop came while a line was being written)
+  fs.appendFileSync(file, '{"k":"torn","v":{"rep');
+  const again = openCarry(file, same, { version: 9 });
+  const a2 = await again.memo(keyOf('ask', 'q1'), () => answer('q1'));
+  const a3 = await again.memo(keyOf('ask', 'q3'), () => answer('q3'));
+  const askedBy = askedCount;
+  // (answers of something else: other settings begin again, and so does --fresh)
+  const other = openCarry(file, { code: 'abc', tries: 5 }, { version: 1 });
+  const sizeOther = other.size;
+  await other.memo(keyOf('ask', 'q1'), () => answer('q1'));
+  const fresh = openCarry(file, { code: 'abc', tries: 5 }, { version: 2 }, { fresh: true });
+  fresh.done();
+  const classesSrc = fs.readFileSync(new URL('../training/classes.mjs', import.meta.url), 'utf8');
+  check(
+    "a stage that was stopped carries on: every answer is written down as it comes, and a stage begun again takes each from there and asks only what it had not reached, from the arrangement the stopped one began from; a line cut short by the stop is passed over; answers of another thing (other settings, or --fresh) are not taken; a stage that finishes leaves nothing to carry on; and the class stage keeps the swarm's answers and what a model wrote this way, loading the larger model only when it is first asked",
+    first.resumed === false &&
+      again.resumed === true &&
+      again.size === 3 &&
+      again.start.version === 3 &&
+      a2.n === a1.n &&
+      a3.n === 3 &&
+      askedBy === 3 &&
+      again.taken === 1 &&
+      again.has('note|saved|x') &&
+      other.resumed === false &&
+      sizeOther === 0 &&
+      other.start.version === 1 &&
+      askedCount === 4 &&
+      fresh.resumed === false &&
+      !fs.existsSync(file) &&
+      keyOf('a', { b: 1 }) === keyOf('a', { b: 1 }) &&
+      keyOf('a', { b: 1 }) !== keyOf('a', { b: 2 }) &&
+      /carry\.memo\(keyOf\('ask', briefs, t\.id, messagesOf\(t\), t\.tools \|\| null, String\(seedNow\)\)/.test(
+        classesSrc,
+      ) &&
+      /carry\.memo\(keyOf\('write'/.test(classesSrc) &&
+      /carry\.done\(\);/.test(classesSrc) &&
+      !/teacher = await B\.openAlone\('target'\);\n\s+by = /.test(classesSrc),
+    { askedCount, size: again.size, taken: again.taken },
   );
 }
 

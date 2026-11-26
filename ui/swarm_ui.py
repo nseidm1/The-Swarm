@@ -1697,7 +1697,7 @@ def run_stages(d, running):
         elif x["state"] == "stopped":
             more = '<p class="small">%s</p>' % ("The run was stopped in this stage. Carry on begins it again: every task a model had finished is kept and not asked again, so it goes on from the task it was in."
                                                if x["id"] != "3-train-classes" and x["id"] != "2-make-adapters" else
-                                               "The run was stopped in this stage. Carry on begins it again from what it had written down.")
+                                               "The run was stopped in this stage. Carry on goes on from where it stopped: every answer it had is kept and not asked again, so it passes through what it had done in a moment and tries the change it was on.")
         elif x["state"] == "done" and x["id"] in ("1-evaluate-as-configured", "4-evaluate-trained"):
             # (the figure of the last evaluation finished: the first stage's, until the fourth has run)
             score, of = whole_score(d)

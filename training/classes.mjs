@@ -345,6 +345,60 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const leftBy = {};
 
   let stored = readBriefs();
+  // A STAGE THAT WAS STOPPED CARRIES ON (carry.mjs): every answer it gets is written down as it comes, and begun again it
+  // takes each from there until the one it was stopped on, so it goes through what it had done in a moment and goes on.
+  // It carries on only where the answers are answers of the same thing (the module's programs, the lineup, the settings, the
+  // classes asked), and from the arrangement the stopped stage began from, where what is stored now is that or something
+  // the stopped stage itself kept. Anything else (a conversation pass in between, another lineup) begins again. --fresh
+  // begins again whatever is there; a trial with a record of its own (--out) has its own.
+  const { openCarry, keyOf } = await import('./carry.mjs');
+  const { createHash } = await import('node:crypto');
+  const srcDir = path.join(B.REPO_ROOT, 'src');
+  const codeKey = createHash('sha256');
+  for (const f of fs
+    .readdirSync(srcDir)
+    .filter((n) => n.endsWith('.mjs'))
+    .sort())
+    codeKey.update(f).update(fs.readFileSync(path.join(srcDir, f)));
+  const carryFile = B.arg('out')
+    ? OUT0.replace(/\.json$/, '') + '-carry.jsonl'
+    : path.join(B.WORKC, 'classes-carry.jsonl');
+  let carry = openCarry(
+    carryFile,
+    {
+      code: codeKey.digest('hex'),
+      policy,
+      key: path.basename(B.WORKC),
+      sample,
+      tries,
+      rounds,
+      draws,
+      sweep,
+      only,
+      dry: B.has('dry'),
+      seed: Number(B.arg('seed', 1)),
+      bars,
+    },
+    stored,
+    { fresh: B.has('fresh') },
+  );
+  if (carry.resumed) {
+    const now = keyOf(stored);
+    if (now === keyOf(carry.start) || carry.has('note|saved|' + now)) {
+      stored = carry.start;
+      console.log(
+        'carrying on from the stage stopped before (begun ' +
+          carry.at +
+          '): ' +
+          carry.size +
+          ' answers are kept and not asked again',
+      );
+    } else {
+      // (what is stored was changed by something else since: the answers kept are of another arrangement)
+      console.log('what is stored was changed since the stage that was stopped: this one begins again');
+      carry = openCarry(carryFile, { again: new Date().toISOString() }, stored, { fresh: true });
+    }
+  }
   const record = {
     at: new Date().toISOString(),
     sample,
@@ -425,7 +479,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     target: (memEstimate() || {}).target,
   });
   // one question under one arrangement: what was drafted, settled and replied, each marked by the question's own standard
-  const ask = async (t, briefs) => {
+  // (the seed the swarm is asked with now: a draw of the held questions is asked with another, onDraws)
+  let seedNow = seed0;
+  const ask = (t, briefs) =>
+    carry.memo(keyOf('ask', briefs, t.id, messagesOf(t), t.tools || null, String(seedNow)), () => askNow(t, briefs));
+  const askNow = async (t, briefs) => {
     swarm.setBriefs(briefs);
     const got = await B.askSwarm(swarm, t, messagesOf(t));
     // (a draft's answer and the settled one are marked for what they hold, however they are put: the question as it is plainly
@@ -479,10 +537,12 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     try {
       for (let k = 0; k < draws; k++) {
         // (another draw is another seed: setSeed, as loop.mjs asks its second draw; the first is the seed all else is asked with)
-        swarm.setSeed(k ? seed0 + '|draw' + (k + 1) : seed0);
+        seedNow = k ? seed0 + '|draw' + (k + 1) : seed0;
+        swarm.setSeed(seedNow);
         out.push(await all(list, briefs, what + ', draw ' + (k + 1) + ' of ' + draws));
       }
     } finally {
+      seedNow = seed0;
       swarm.setSeed(seed0);
     }
     return out;
@@ -621,11 +681,18 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
             );
           let teacher = null;
           let by = writerName;
-          if ((toWrite.length || toRead.length) && String(B.arg('writer', P.writer || 'target')) === 'target') {
+          // (THE LARGER MODEL IS LOADED WHEN IT IS FIRST ASKED, not before: a stage that carries on has what it wrote
+          // already, and loading eighteen gigabytes to be asked nothing was most of a minute for each class)
+          const byTarget =
+            (toWrite.length || toRead.length) && String(B.arg('writer', P.writer || 'target')) === 'target';
+          let teacherTried = false;
+          if (byTarget) by = 'the larger model (' + TGT0.id + ')';
+          const teach = async () => {
+            if (!byTarget || teacherTried) return teacher;
+            teacherTried = true;
             try {
               B.live({ trainer: 'classes', step: said(K) + ': loading the larger model, to write code' });
               teacher = await B.openAlone('target');
-              by = 'the larger model (' + teacher.label + ')';
             } catch (e) {
               console.log(
                 '  the larger model could not be served to write code (' +
@@ -634,11 +701,18 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
               );
               teacher = null;
             }
-          }
-          const writerAsk = async (messages) =>
-            teacher
-              ? String(((await teacher.ask(messages, { maxTokens: P.writeTokens ?? 1500 })) || {}).text || '')
-              : (await swarm.alone(writer, messages, { maxTokens: P.writeTokens ?? 1500 })).text;
+            return teacher;
+          };
+          // (what a model wrote when asked is an answer as any other: kept, and not asked for again)
+          const wrote = (messages, o) =>
+            carry.memo(keyOf('write', byTarget ? 'target' : writer, messages, o), async () =>
+              (await teach())
+                ? String(((await teacher.ask(messages, o)) || {}).text || '')
+                : String(
+                    (await swarm.alone(writer, messages, { maxTokens: o.maxTokens, ...(o.format || {}) })).text || '',
+                  ),
+            );
+          const writerAsk = (messages) => wrote(messages, { maxTokens: P.writeTokens ?? 1500 });
           try {
             for (const k of toWrite) {
               // (and more train questions of the kind, made for the writing: more wordings to be shown and vetted on)
@@ -707,18 +781,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
                 shown: own.slice(0, 5),
                 unseen: own.slice(5),
                 tries: P.readTries ?? 3,
-                ask: async (messages, o = {}) =>
-                  teacher
-                    ? String(
-                        (
-                          (await teacher.ask(messages, {
-                            maxTokens: o.maxTokens || 1500,
-                            ...(format(o) ? { format: format(o) } : {}),
-                          })) || {}
-                        ).text || '',
-                      )
-                    : (await swarm.alone(writer, messages, { maxTokens: o.maxTokens || 1500, ...(format(o) || {}) }))
-                        .text,
+                ask: (messages, o = {}) =>
+                  wrote(messages, { maxTokens: o.maxTokens || 1500, ...(format(o) ? { format: format(o) } : {}) }),
               }).catch((e) => ({ ok: false, why: String((e && e.message) || e).slice(0, 200), tries: [] }));
               (R.readings = R.readings || []).push({
                 kind: k.kind,
@@ -956,6 +1020,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
             questions: heAll.length,
             draws: verdict.draws,
           });
+          // (what is stored now is this stage's own doing: carrying on from it is carrying on, carry.mjs)
+          carry.note('saved|' + keyOf(readBriefs()), 1);
         }
         save();
       }
@@ -1091,6 +1157,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
             questions: asked.length,
             draws: verdict.draws,
           });
+          // (what is stored now is this stage's own doing: carrying on from it is carrying on, carry.mjs)
+          carry.note('saved|' + keyOf(readBriefs()), 1);
           base = got;
         }
         save();
@@ -1178,6 +1246,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   }
   record.done = new Date().toISOString();
   save();
+  // (finished: there is nothing left to carry on, and the next stage is asked afresh)
+  carry.done();
   B.live({ trainer: 'classes', step: 'Each class trained as a class' });
   console.log('written: ' + OUT);
 }

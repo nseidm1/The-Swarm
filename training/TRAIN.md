@@ -36,7 +36,8 @@ question at hand, benchmarks by other contributors, and questions and near misse
 [--items a,b]`. It evaluates the module as configured, pretrains it by role and evaluates it, trains its arrangement
 (the class stage) and evaluates it again, each on the same questions, and writes the three figures side by side
 (`.work/eval/compare.json`). A run that stopped carries on from the step it stopped in. Training runs to its end
-unless `--train-minutes M` gives it a most: then it is ended there with what it kept, and that is what is evaluated.
+unless `--train-minutes M` gives it a most (a stage that was stopped carries on from the answers it had, `training/carry.mjs`;
+`classes.mjs --fresh` begins it again): then it is ended there with what it kept, and that is what is evaluated.
 The classes are trained plain questions first, then turns with tools, requests for code and conversations, so a run
 ended early has trained what most requests are.
 

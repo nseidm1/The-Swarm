@@ -24,6 +24,13 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **Training that was stopped carries on** (2026-11-26). Stop during training used to cost everything the step had done:
+  started again, it asked every question as the swarm stood and tried every change again (half an hour of one class was
+  lost to one Stop and Start). The step now writes down every answer as it comes, the swarm's and what a model wrote when
+  asked for code, and started again it takes each from there until the one it was stopped on. It passes through what it
+  had done in a moment and goes on. It begins again only where the answers would be of something else: another lineup,
+  other settings, a change to the module, or an arrangement something else changed in between. A step that finishes
+  leaves nothing to carry on. The larger model is now loaded only when it is first asked to write.
 - **A fix: a run carried on shows the step it is in** (2026-11-26). Carried on into training after a stop in the last
   evaluation, the card showed the evaluation running beside the training, the training as "running · 120 min" from its
   end before, and the ring at 62%, read from the record of the training that had ended. A step the run was stopped in
