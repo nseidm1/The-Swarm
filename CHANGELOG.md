@@ -24,6 +24,11 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **A fix: training that ends at its time limit is not called a failure** (2026-11-25). A run gives training two hours
+  unless told otherwise, ends it there with what it kept, and goes on to measure that. The dashboard read
+  "failed · 120 min" of a run doing exactly this. It now reads "ended at its time limit", counts the step as taken, and
+  the plan says how far training had come: the classes trained to the end and what each kept, the one in hand, and any
+  class not reached.
 - **A fix: the intelligence run's ring during training** (2026-11-25). While the run trained, the ring showed the
   question in hand of the one change being tried, so it ran to 100% and fell back with every change, about ninety times
   a round; and the share of the run beside it counted training as a small part of a full pass, most of which this run

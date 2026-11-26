@@ -2686,6 +2686,30 @@ check("the plan being carried out and the picture of the system fold, and start 
       and 'data-keep="sec-plan" open' not in _arrf and 'data-keep="sec-system" open' not in _arrf and "details.secfold" in swarm_ui.CSS and "details[data-keep]" in swarm_ui.JS,
       _arrf[-300:])
 
+# TRAINING ENDED BY ITS OWN TIME IS NOT A FAILURE (console 2026-11-25)
+_tu_root = Path(tempfile.mkdtemp(prefix="swarm-check-timeup-"))
+(_tu_root / ".work" / "run" / "k" / "pass-1").mkdir(parents=True)
+_tu_status = _tu_root / ".work" / "run" / "k" / "pass-1" / "status.txt"
+_tu_status.write_text("21:09:00 START 3-train-classes\n23:09:01 END   3-train-classes exit 143 120 min\n23:09:01 START 4-evaluate-trained\n")
+_tu_steps, _ = swarm_ui.whole_steps(str(_tu_root), "k")
+_tu_status.write_text("21:09:00 START 3-train-classes\n21:19:01 END   3-train-classes exit 1 10 min\n21:09:00 START 1-evaluate-as-configured\n21:19:01 END   1-evaluate-as-configured exit 143 10 min\n")
+_tu_bad, _ = swarm_ui.whole_steps(str(_tu_root), "k")
+(_tu_root / "training" / "results" / "k").mkdir(parents=True)
+(_tu_root / "training" / "results" / "k" / "classes.json").write_text(json.dumps({"rounds": 2, "classes": {
+    "tools": {"kept": ["plan: x"], "rounds": [{"candidates": [1] * 9, "of": 9, "kept": True}, {"candidates": [1] * 8, "of": 9}]},
+    "code": {"kept": [], "rounds": [{"candidates": [1] * 88, "of": 91}]}}}))
+_tu_was = swarm_ui.run_state
+swarm_ui.run_state = lambda: {"classes": []}
+_tu_said = swarm_ui.train_reached({"root": str(_tu_root), "key": "k"})
+swarm_ui.run_state = _tu_was
+check("the training step of a run that ended by its own time is said to have ended at its time limit, not to have failed, and counts as taken (the card read failed · 120 min of a run that went on to measure what training kept); any other end that is not clean, and the same end of another step, is still a failure; and the plan says how far training had come: the classes trained to the end and what each kept, the one in hand, and the ones not reached",
+      [x["state"] for x in _tu_steps] == ["waiting", "waiting", "time up", "running"] and _tu_steps[2]["minutes"] == 120
+      and [x["state"] for x in _tu_bad][0] == "failed" and [x["state"] for x in _tu_bad][2] == "failed"
+      and swarm_ui.whole_share({}, _tu_steps, False) == 25.0
+      and "Trained to the end: with tools (1 change kept)." in _tu_said and "In hand when the time ended: asking for code, 88 of 91 changes tried in round 1 of 2, nothing kept." in _tu_said
+      and "Not reached, and so left as they were: a conversation and a plain question." in _tu_said,
+      [[x["state"] for x in _tu_steps], [x["state"] for x in _tu_bad], _tu_said])
+
 # HOW FAR A RUN HAS COME, AS A RING ON ITS OWN CARD (console 2026-11-24)
 _rg0, _rg40, _rgn = swarm_ui.ring(0), swarm_ui.ring(40.4, True, "How far"), swarm_ui.ring(None)
 _ws = [{"id": k, "name": n, "state": "waiting"} for k, n in swarm_ui.WHOLE_STEPS]

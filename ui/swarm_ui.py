@@ -373,7 +373,7 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 dialog#evd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#evd::backdrop{background:rgba(11,40,38,.45)}
 /* THE EVALUATE CARD'S HEADLINE IS A BUTTON (it opens the table, score beside score): it keeps the look of a headline, and says it can be pressed */
 .adline{display:flex;gap:14px;align-items:flex-start;margin:14px 0 4px;padding-top:12px;border-top:1px solid var(--line,#e6ecea)}.adline small{display:block;color:var(--mist);font-size:12.5px;line-height:1.45}.adline p{margin:6px 0 0}
-.stgs{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:8px}.stg{border:1px solid var(--line,#d9e4e1);border-radius:10px;padding:10px 12px;min-width:0}.stg.running{border-color:#c98a0b;background:rgba(201,138,11,.05)}.stg.waiting{opacity:.78}.stgh{display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:space-between;align-items:baseline;font-size:14px}.stgh i{display:inline-block;width:10px;height:10px;border-radius:50%;background:#c8d4d0;margin-right:8px}.stg.done .stgh i{background:#0f6b5a}.stg.running .stgh i{background:#c98a0b}.stg.failed .stgh i{background:#a23b2a}.stg.stopped .stgh i,.stg.not-taken .stgh i{background:#7a8a86}.stgh small{font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:10.5px;opacity:.8}.stg p{margin:6px 0 0}.stgw{margin:4px 0 0;padding-left:20px}.stgw li{margin:2px 0}.stgw li[data-s=on]{font-weight:600}.stgw li[data-s=done]{opacity:.72}.stgt{font-size:10.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;margin:14px 0 0;opacity:.8}.wsl{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px}.ws{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--line,#d9e4e1);border-radius:10px;font-size:13px;min-width:0}.ws i{width:10px;height:10px;border-radius:50%;background:#c8d4d0}.ws.done i{background:#0f6b5a}.ws.running i{background:#c98a0b}.ws.failed i{background:#a23b2a}.ws.not-taken i,.ws.stopped i{background:#7a8a86}.ws small{opacity:.75}.wholet{display:flex;gap:6px;align-items:center;font-size:13px}@media(max-width:760px){.wsl{grid-template-columns:1fr}}
+.stgs{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:8px}.stg{border:1px solid var(--line,#d9e4e1);border-radius:10px;padding:10px 12px;min-width:0}.stg.running{border-color:#c98a0b;background:rgba(201,138,11,.05)}.stg.waiting{opacity:.78}.stgh{display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:space-between;align-items:baseline;font-size:14px}.stgh i{display:inline-block;width:10px;height:10px;border-radius:50%;background:#c8d4d0;margin-right:8px}.stg.done .stgh i,.stg.time-up .stgh i{background:#0f6b5a}.stg.running .stgh i{background:#c98a0b}.stg.failed .stgh i{background:#a23b2a}.stg.stopped .stgh i,.stg.not-taken .stgh i{background:#7a8a86}.stgh small{font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:10.5px;opacity:.8}.stg p{margin:6px 0 0}.stgw{margin:4px 0 0;padding-left:20px}.stgw li{margin:2px 0}.stgw li[data-s=on]{font-weight:600}.stgw li[data-s=done]{opacity:.72}.stgt{font-size:10.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;margin:14px 0 0;opacity:.8}.wsl{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px}.ws{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--line,#d9e4e1);border-radius:10px;font-size:13px;min-width:0}.ws i{width:10px;height:10px;border-radius:50%;background:#c8d4d0}.ws.done i,.ws.time-up i{background:#0f6b5a}.ws.running i{background:#c98a0b}.ws.failed i{background:#a23b2a}.ws.not-taken i,.ws.stopped i{background:#7a8a86}.ws small{opacity:.75}.wholet{display:flex;gap:6px;align-items:center;font-size:13px}@media(max-width:760px){.wsl{grid-template-columns:1fr}}
 .cmph{margin:0 0 8px;font-size:15px}#evd{overflow-x:hidden}.evdsec{margin:14px 0 0}.evdsec+.evdsec{margin-top:22px;padding-top:16px;border-top:1px solid var(--line,#d9e4e1)}.cmpt{margin:0 0 6px}.cmpt tr.sum td{font-weight:700;border-top:2px solid var(--line,#d9e4e1)}.cmpbars{display:flex;flex-direction:column;gap:8px;margin:0 0 6px}.cmpbar{display:grid;grid-template-columns:minmax(120px,190px) 1fr minmax(110px,auto);gap:10px;align-items:center;font-size:13px}.cmpbar .mbar{position:relative;height:14px;background:#e4eeeb;border-radius:7px}.cmpbar .mbar i{position:absolute;left:0;top:0;bottom:0;background:#0f6b5a;border-radius:7px}.cmpbar .mbar u{position:absolute;top:-3px;bottom:-3px;border-left:2px solid #1d2b27;border-right:2px solid #1d2b27;background:rgba(29,43,39,.18)}.cmpbar .mbar s{position:absolute;top:-6px;bottom:-6px;border-left:2px dashed #3d4a8f}.cmpbar.none{opacity:.5}
 .cmp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 4px}.cmpc{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid var(--line,#d9e4e1);border-radius:10px;min-width:0}.cmpc b{font-size:13px}.cmpv{font-size:22px;font-weight:700}.cmpv i{font-style:normal;font-size:12px;font-weight:400;margin-left:6px;opacity:.7}.cmpc small{font-size:12px;opacity:.8}.cmpc.none .cmpv{opacity:.4}.cmpc small b.up{color:#0b6b57}.cmpc small b.down{color:#a23b2a}@media(max-width:640px){.cmp{grid-template-columns:1fr}}
 .evhead{display:flex;flex-direction:column;gap:10px;align-items:flex-start;min-width:0}.evviews{display:flex;gap:8px;flex-wrap:wrap}.evviews .btn{padding:8px 14px;font-size:13px;white-space:nowrap}.ptab{font-family:Georgia,'Times New Roman',serif;color:var(--fog)}.ptab caption{caption-side:top;text-align:left;font-size:13.5px;line-height:1.5;padding:0 0 10px}.ptab caption b{font-weight:700}.ptab table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums;border-top:2px solid var(--fog);border-bottom:2px solid var(--fog)}.ptab th,.ptab td{padding:5px 10px;text-align:right;border:0;white-space:nowrap}.ptab th:first-child,.ptab td:first-child{text-align:left;white-space:normal}.ptab thead th{font-weight:400;border-bottom:1px solid var(--fog)}.ptab tr.pg td{font-style:italic;padding-top:10px;text-align:left}.ptab tr.pall td{border-top:1px solid var(--fog);padding-top:7px}.ptab td small{color:var(--mist);font-size:.82em}.ptab-wrap{overflow-x:auto;margin-top:12px}.ptab-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}#evd-latex{width:100%;min-height:160px;margin-top:10px;font:12px ui-monospace,Menlo,monospace}dialog#tqd{border:0;border-radius:var(--r);padding:26px;max-width:min(900px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#tqd::backdrop{background:rgba(11,40,38,.45)}.tqctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}.tqctl select,.tqctl input{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel)}.tqctl input{flex:1 1 160px;min-width:0}.tql{list-style:none;margin:0;padding:0;display:grid;gap:10px}.tql li{border:1px solid var(--line2);border-radius:var(--r);padding:12px 14px}.tqh{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}.tqh small{color:var(--mist);font-size:12px;font-weight:600}.tqa{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.5}.tqb{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.45;color:var(--mist)}.tqb b{color:var(--fog)}.tqw{display:block;margin-top:6px;color:var(--mist);overflow-wrap:anywhere}@media (max-width:760px){dialog#tqd{padding:18px 12px}}.evbench select{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel);max-width:100%}.evbench{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}.evbench .seg small{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#9a5b00;margin-left:4px}.evbench .seg:disabled{opacity:.45;cursor:default}.evchart{margin-top:12px}.evchart svg{display:block;width:100%;height:auto;max-width:720px}.evchart .ax{stroke:var(--line);stroke-width:1}.evchart .tk{fill:var(--mist);font-size:11px}.evchart .lb{fill:var(--fog);font-size:12.5px;font-weight:700}.evchart .sb{fill:var(--mist);font-size:11.5px}.evchart .at{fill:var(--mist);font-size:11.5px;font-weight:700;letter-spacing:.04em}.evchart .pn{fill:#fff;font-size:11px;font-weight:800}.evchart .lgl{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px;font-size:13px;color:var(--fog)}.evchart .lgl li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.evchart .lgl i{flex:none;display:inline-block;min-width:20px;height:20px;line-height:20px;border-radius:50%;text-align:center;color:#fff;font-style:normal;font-size:11px;font-weight:800}.evchart .lgl span{color:var(--mist);font-variant-numeric:tabular-nums}.evchart .lgl i.hollow{background:var(--panel)}.evchart .lgl em{font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mist)}.evchart .lgl li.mine{background:var(--soft);border-radius:var(--r);padding:6px 8px;margin:0 -8px}.evchart .lgl li.mine em{color:var(--teal)}.lgl li.mine.tgt em{color:var(--tgt)}.evchart .pn.hollow{font-weight:800}.evopen{appearance:none;border:0;background:none;padding:6px 10px;margin:-6px -10px;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:12px;max-width:100%}
@@ -1527,7 +1527,7 @@ def viz_block(d):
     # three things training keeps and how far each can reach; then the lanes there were (R3 in detail); then J, the judge.
     steps_, _ = whole_steps(ARGS.root, d.get("key") or "")
     going = bool((job_state("whole") or {}).get("running"))
-    said_ = {"done": "Done", "running": "Running now" if going else "Stopped here", "failed": "Failed", "not taken": "Not taken", "waiting": ""}
+    said_ = {"done": "Done", "running": "Running now" if going else "Stopped here", "failed": "Failed", "time up": "Ended at its time limit", "not taken": "Not taken", "waiting": ""}
     r_words = ["A third party&#39;s harness asks the module as it starts: no adapter, no instrument on.",
                "One for each drafting slot: its own right answers, and the larger model&#39;s where it was wrong. On no slot yet: K2.",
                "Each class of input as a class: lanes S to E below. Where the class falls short decides what is tried first; a change (code for a kind of question, a slot&#39;s adapter, the question taken apart, a slot working by facts, how many slots and models, how drafts are settled) is kept only where held questions gain: K1 to K4.",
@@ -1627,7 +1627,7 @@ STAGE_WORDS = {
         "The same benchmark questions as the first stage, asked of the module as training left it.",
         "It leaves the second figure, set beside the first on the Evaluate card: what this run&#39;s training was worth on questions training never saw."),
 }
-STAGE_STATE = {"done": "done", "running": "in hand now", "stopped": "stopped here", "not taken": "not taken", "failed": "failed", "waiting": "to come"}
+STAGE_STATE = {"done": "done", "running": "in hand now", "stopped": "stopped here", "not taken": "not taken", "failed": "failed", "time up": "ended at its time limit", "waiting": "to come"}
 
 
 def _stage_eval_now(d, tname):
@@ -1701,6 +1701,8 @@ def run_stages(d, running):
             more = ('<p class="small">The swarm had <b>%s%%</b> of %d benchmark questions right. Every task, beside the larger model, is on the Evaluate card.</p>' % (fmt_pct(score), of)) if score is not None and mine else ""
         elif x["state"] == "not taken":
             more = '<p class="small">Not taken: no adapter can be made for this model here, so training goes on without any to try.</p>'
+        elif x["state"] == "time up":
+            more = '<p class="small">Training is given a set time in a run, two hours unless it is told otherwise, and this is where it ended. Nothing went wrong: what it had kept by then is kept, and the next stage measures it.%s</p>' % train_reached(d)
         # (a row of the list is told by data-stage: the plan's own rows are the ones counted as <li class=...>, ui/check.py)
         items.append('<li data-stage="%d" class="stg %s"><div class="stgh"><span><i></i><b>Stage %d of 4</b> %s</span><small>%s%s</small></div><p class="small stgd">%s</p><p class="small stgl muted">%s</p>%s</li>'
                      % (i + 1, x["state"].replace(" ", "-"), i + 1, e(x["name"]), STAGE_STATE.get(x["state"], x["state"]), (" · %d min" % x["minutes"]) if x.get("minutes") else "", does, leaves, more))
@@ -6281,9 +6283,44 @@ WHOLE_STEPS = (("1-evaluate-as-configured", "Evaluate the module as configured")
                ("3-train-classes", "Train: the arrangement, the adapters and the instruments"), ("4-evaluate-trained", "Evaluate it trained"))
 
 
+def train_reached(d):
+    """HOW FAR THE CLASS STAGE HAD COME WHEN ITS TIME ENDED, in a sentence or two, from its record (classes.json): the classes
+    it trained to the end and what it kept in each, the one it was in and how far through, and the classes it never
+    reached, which stay as they were. '' where there is no record."""
+    try:
+        rec = data._json(Path(d.get("root", ARGS.root)) / "training" / "results" / str(d.get("key", "")) / "classes.json", None) or {}
+        cs = rec.get("classes") or {}
+        if not cs:
+            return ""
+        nm = lambda k: CLASS_NAMES.get(k, k).lower()  # noqa: E731
+        of_rounds = max(1, int(rec.get("rounds") or 2))
+        ended = lambda c: c.get("skipped") or (c.get("rounds") and all(len(r.get("candidates") or []) >= (r.get("of") or 0) - 1 or "kept" in r for r in c["rounds"])  # noqa: E731
+                                               and (len(c["rounds"]) >= of_rounds or c["rounds"][-1].get("kept") is False))
+        # (what a class kept is a list of the changes by name in the stage's record; a count is taken too)
+        kept_n = lambda c: len(c.get("kept")) if isinstance(c.get("kept"), (list, tuple)) else int(c.get("kept") or 0)  # noqa: E731
+        keys = list(cs)
+        full = [k for k in keys[:-1]] + ([keys[-1]] if ended(cs[keys[-1]]) else [])
+        out = []
+        if full:
+            out.append("Trained to the end: %s." % "; ".join("%s (%s)" % (nm(k), ("%d change%s kept" % (kept_n(cs[k]), "" if kept_n(cs[k]) == 1 else "s")) if kept_n(cs[k]) else "nothing kept") for k in full))
+        if keys[-1] not in full:
+            c = cs[keys[-1]]
+            r = (c.get("rounds") or [{}])[-1]
+            out.append("In hand when the time ended: %s, %d of %d changes tried in round %d of %d, %s." % (
+                nm(keys[-1]), len(r.get("candidates") or []), r.get("of") or 0, max(1, len(c.get("rounds") or [])), of_rounds,
+                ("%d kept" % kept_n(c)) if kept_n(c) else "nothing kept"))
+        asked = (run_state() or {}).get("classes") or list(CLASS_NAMES)
+        left = [k for k in asked if k not in cs]
+        if left:
+            out.append("Not reached, and so left as %s: %s." % ("it was" if len(left) == 1 else "they were", _and([nm(k) for k in left])))
+        return " " + " ".join(e(x) for x in out)
+    except (OSError, TypeError, ValueError, KeyError, AttributeError):
+        return ""
+
+
 def whole_steps(root, key):
     """WHERE THE WHOLE RUN IS, step by step, from what it wrote down (training/run.sh: .work/run/<configuration>/pass-1/status.txt):
-    each of its four steps as done, running, not taken (it refused: no adapter could be made), failed, or
+    each of its four steps as done, running, not taken (it refused: no adapter could be made), time up (training ended by its own time), failed, or
     waiting; and whether the run is done. -> ([{id, name, state, minutes}], done)"""
     try:
         lines = (Path(root) / ".work" / "run" / key / "pass-1" / "status.txt").read_text().splitlines()
@@ -6300,7 +6337,11 @@ def whole_steps(root, key):
         elif what == "SKIP":
             state[name] = "done"
         else:
-            state[name] = "done" if code == "0" else ("not taken" if code == "3" else "failed")
+            # (THE TRAINING STEP ENDED BY ITS OWN TIME IS NOT A FAILURE: the run gives it so many minutes, two hours unless told
+            # otherwise, ends it there with what it kept, and goes on to measure that (training/run.sh; the step then ends at
+            # 143). The card said "failed · 120 min" of a run doing what it is made to do, console 2026-11-25. A person's
+            # Stop does not come here: it ends the run, and the step has no END line)
+            state[name] = "done" if code == "0" else ("not taken" if code == "3" else "time up" if code == "143" and name == "3-train-classes" else "failed")
             mins[name] = int(took or 0)
     return [{"id": k, "name": n, "state": state.get(k, "waiting"), "minutes": mins.get(k)} for k, n in WHOLE_STEPS], any(ln.endswith(" DONE") for ln in lines[-1:])
 
@@ -6329,7 +6370,7 @@ def whole_block(d):
                '<button class="btn top" id="whole-go" type="button"%s>%s</button>'
                % (" disabled" if blocked else "", opts, ' disabled data-held="1"' if blocked else "",
                   "Carry on" if any(x["state"] in ("done", "stopped") for x in steps) and not done else "Start"))
-    word = {"done": "done", "running": "running", "stopped": "stopped here", "not taken": "not taken", "failed": "failed", "waiting": "waiting"}
+    word = {"done": "done", "running": "running", "stopped": "stopped here", "not taken": "not taken", "failed": "failed", "time up": "ended at its time limit", "waiting": "waiting"}
     rows = "".join('<li class="ws %s"><i></i><span>%s</span><small>%s%s</small></li>'
                    % (x["state"].replace(" ", "-"), e(x["name"]), word[x["state"]], (" · %d min" % x["minutes"]) if x.get("minutes") else "") for x in steps)
     # (the head every card has: the figure and what it is, what the card does, its controls. A run that waits for something
@@ -6471,7 +6512,7 @@ def whole_share(d, steps, running):
     begun and no more."""
     total = 0.0
     for x in steps:
-        if x["state"] in ("done", "not taken"):
+        if x["state"] in ("done", "not taken", "time up"):
             total += 1
         elif x["state"] == "running" and running:
             part = whole_step_share(d, x["id"]) or 0.0
