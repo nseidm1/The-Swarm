@@ -1742,7 +1742,13 @@ async function answerWhole(
   // and then the answer ("9 * 5 = 45", a blank line, "45"), which is no bare number to a person who asked for one
   // (measured 2026-11-24: 0 of 10 such turns, with the right answer settled on 8).
   const bare = decided && !asIs && plan.writeAs === 'bare';
-  const passOver = decided && !asIs && (plan.writeAs === 'settled' || bare);
+  // AND WITH plan.writeAs 'agreed' THE WRITER IS PASSED OVER ONLY WHERE EVERY DRAFT CAME TO THE ONE ANSWER (the path is `agreed`):
+  // the drafts that differed, and what was decided between them, are still written out by the writer. Where they agree there
+  // is a draft that says the answer and its work already, and a writer on a slow model spends as long again saying it
+  // (measured 2026-11-26, Bonsai 2.5 27B on one question: two drafts of 450 tokens that agreed, then a writer's 440 tokens
+  // that were nearly one of the drafts, 21 of 52 seconds). Whether it costs answers is the trainer's to find.
+  const agreedOnly = plan.writeAs === 'agreed' && String(path || '').split('+')[0] === 'agreed';
+  const passOver = decided && !asIs && (plan.writeAs === 'settled' || bare || agreedOnly);
   if (passOver) path += bare ? '+bare' : '+as-settled';
   // AND WITH plan.writeAs 'full' THE WRITER WRITES THE REPLY IN FULL: the answer, why, and what to do, where every draft is told to
   // be brief and the writer to add nothing (measured 2026-11-18: of 36 questions short of parity, about 19 had the larger model's

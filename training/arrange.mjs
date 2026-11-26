@@ -192,6 +192,14 @@ export function scopedMove(b, facet, move) {
     scoped: true,
   };
 }
+// THE WRITER PASSED OVER WHERE EVERY DRAFT AGREES (src/orchestrate.mjs: writeAs 'agreed'), as a change to an arrangement, or
+// null where its writer is already passed over, it has none, or one model answers as the request came
+export const WRITER_WHERE_DIFFER = 'plan: where every draft agrees the answer goes out as it is, with no writer';
+export function writerWhereDraftsDiffer(b) {
+  const plan = (b && b.plan) || {};
+  if (!b || plan.writeAs || plan.plain === true || !(b.slots || []).some((s) => s.stage === 'write')) return null;
+  return { name: WRITER_WHERE_DIFFER, briefs: { ...b, plan: { ...plan, writeAs: 'agreed' } } };
+}
 export function steps(
   b,
   {
@@ -434,6 +442,13 @@ export function steps(
       ),
     },
   });
+  // WHERE THE WRITER IS PASSED OVER ON AGREEING DRAFTS (writeAs 'agreed'), the writer for every reply again. Turning it on is not
+  // offered here: it changes what a question costs, not what is answered, and is tried on the clock (classes.mjs, the time
+  // stage; writerWhereDraftsDiffer). One more change that keeps the drafts also put another out of a class's sweep
+  if ((b.plan || {}).writeAs === 'agreed') {
+    const { writeAs: _w, ...rest } = b.plan || {};
+    out.push({ name: 'plan: the writer writes every reply again', briefs: { ...b, plan: rest } });
+  }
   // THE SETTLED ANSWER ALONE (writeAs 'bare'): no writer and no work before it
   if ((b.plan || {}).writeAs !== 'bare')
     out.push({

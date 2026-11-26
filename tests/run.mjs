@@ -2533,6 +2533,41 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       ),
     { asked: asked.reply, path: asked.path },
   );
+  // 1b: the writer passed over only where every draft agrees
+  {
+    const { writerWhereDraftsDiffer, WRITER_WHERE_DIFFER } = await import('../training/arrange.mjs');
+    const lean = writerWhereDraftsDiffer(briefs);
+    reset();
+    lfm.s.script = (b) => (roleOf(b).stage === 'write' ? 'Rewritten: it is 41.' : 'six sevens\nANSWER: 42');
+    bonsai.s.script = () => 'because\nANSWER: 42';
+    const same = await swarm.answer(Q, { briefs: lean.briefs });
+    reset();
+    lfm.s.script = (b) => (roleOf(b).stage === 'write' ? 'Written: it is 42.' : 'six sevens\nANSWER: 42');
+    bonsai.s.script = (b) => (roleOf(b).stage === 'draft' ? 'because\nANSWER: 41' : 'because\nANSWER: 42');
+    const differ = await swarm.answer(Q, { briefs: lean.briefs });
+    check(
+      'with writeAs "agreed" the writer is passed over where every draft came to the one answer, and still writes the reply where they differed; it is a change the time stage can try (the rounds of a class are not offered it), and a round can undo it; an arrangement whose writer is already passed over, or that has no writer, is offered none',
+      lean.name === WRITER_WHERE_DIFFER &&
+        lean.briefs.plan.writeAs === 'agreed' &&
+        !same.trace.some((r) => r.stage === 'write') &&
+        /^agreed\+as-settled/.test(same.path) &&
+        /\b42\b/.test(same.reply) &&
+        !/41/.test(same.reply) &&
+        !/^agreed/.test(differ.path) &&
+        differ.trace.some((r) => r.stage === 'write') &&
+        !steps(briefs).some((c) => c.name === WRITER_WHERE_DIFFER) &&
+        steps(lean.briefs).some((c) => c.name === 'plan: the writer writes every reply again') &&
+        !steps(lean.briefs).some((c) => c.name === WRITER_WHERE_DIFFER) &&
+        writerWhereDraftsDiffer({ ...briefs, plan: { ...briefs.plan, writeAs: 'settled' } }) === null &&
+        writerWhereDraftsDiffer({ ...briefs, slots: briefs.slots.filter((x) => x.stage !== 'write') }) === null,
+      {
+        same: same.path,
+        sameReply: same.reply,
+        differ: differ.path,
+        wrote: differ.trace.filter((r) => r.stage === 'write').length,
+      },
+    );
+  }
   // 3: worked examples
   const pool = [
     {

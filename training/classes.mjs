@@ -1036,6 +1036,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   //   - ANOTHER SERVING OF THE SAME MODEL (catalog.mjs servingsOf): another file of it, served by another build of the
   //     engine, where both are on this machine already. Training fetches nothing to try one.
   //   - A LEANER ARRANGEMENT for a class (leanOf), where the class kept nothing else in its last round.
+  //   - NO WRITER WHERE EVERY DRAFT AGREES, for each class that has a writer (arrange.mjs writerWhereDraftsDiffer): it
+  //     asks one call fewer on such a question, and nothing in a class's own rounds weighs that.
   // --no-time leaves it out; --time-sample N asks so many held questions (24 where nothing is said).
   if (!B.has('no-time') && !B.has('dry')) {
     const { keepOnTime } = await import('./keep.mjs');
@@ -1064,6 +1066,22 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     for (const K of trained)
       if (leanBy[K])
         trials.push({ kind: 'lean', class: K, what: leanBy[K].name, briefs: (b) => asClass(K, leanBy[K].briefs, b) });
+    {
+      const { writerWhereDraftsDiffer } = await import('./arrange.mjs');
+      // (a class's arrangement as it stands when its turn comes: what an earlier trial kept is what this one starts from)
+      const ownOf = (K, b) => (b.kinds || {})[K] || { slots: b.slots, plan: b.plan, flow: b.flow };
+      for (const K of trained)
+        if (writerWhereDraftsDiffer(ownOf(K, stored)))
+          trials.push({
+            kind: 'writer',
+            class: K,
+            what: writerWhereDraftsDiffer(ownOf(K, stored)).name,
+            briefs: (b) => {
+              const w = writerWhereDraftsDiffer(ownOf(K, b));
+              return w ? asClass(K, w.briefs, b) : b;
+            },
+          });
+    }
     const asked = sampleOf(
       held.filter((t) => trained.includes(classIs(t))),
       Number(B.arg('time-sample', P.timeSample ?? 24)),

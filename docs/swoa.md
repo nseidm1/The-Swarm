@@ -323,7 +323,7 @@ Before SwOA, the same document was the **output spec** (header `spec`, format `"
 
 - **1** (2026-11-18): the first.
 - **1**, amended 2026-11-26: a member's context is for what works together, in one pool (S2.4.6, S2.7.1); a request whose
-  server slot is in use goes to a free one (S3.2.3). No field of a SwOA spec changed.
+  server slot is in use goes to a free one (S3.2.3). `plan.writeAs` may be `agreed` (O.8.3). No other field changed.
 
 ### 10. Conformance
 
@@ -1583,7 +1583,8 @@ or `let` followed by a whitespace character; otherwise empty. No writer is calle
 
 #### O.8.3 Settled answers not rewritten
 
-PASS-OVER holds when decided is non-empty, AS-IS does not hold, and `plan.writeAs` is `settled` or `bare`. With `bare`
+PASS-OVER holds when decided is non-empty, AS-IS does not hold, and `plan.writeAs` is `settled` or `bare`, or is `agreed`
+while the path, before anything appended to it, is `agreed` (every draft came to the one answer). With `bare`
 the reply is the decided answer alone, with no work before it, and the path carries `+bare`.
 Then `+as-settled` is appended to path and no writer is called (the reply comes from O.8.6).
 
@@ -1893,7 +1894,7 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `probe` | object | none | `{member, brief, maxTokens}` for the probe slot |
 | `expect` | object | none | `{member, brief, maxTokens}` for the expectation slot |
 | `writeCode` | boolean | false | `true` sends code answers through the writers |
-| `writeAs` | text | none | `settled`: no writer for non-code answers, which go out with the work behind them; `bare`: no writer, and the answer alone; `full`: the writers are told the FULL BRIEF in place of their own, except where a piece of writing is asked for (O.8.3, O.8.4, R.5) |
+| `writeAs` | text | none | `settled`: no writer for non-code answers, which go out with the work behind them; `agreed`: the same, only where every draft came to the one answer; `bare`: no writer, and the answer alone; `full`: the writers are told the FULL BRIEF in place of their own, except where a piece of writing is asked for (O.8.3, O.8.4, R.5) |
 | `runPrograms` | boolean | true | `false`: a program the question asks the output of is not run (R.4) |
 | `toolReply` | text | none | read from the arrangement for class `tools`: `proposed` keeps a proposed reply as the turn's reply (T.9) |
 | `toolFit` | integer | 8000 | read from the arrangement for class `tools`: the most characters of tool results a proposer is sent before the earlier ones are cut (T.11) |

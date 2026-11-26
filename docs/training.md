@@ -117,10 +117,12 @@ dashboard's plan section says which pass it is, what it carried and what it leav
 
 **Time is the tie-breaker, never the reason.** A change that gains beyond its error is kept whatever its time. Once
 every class is trained, the class stage tries what would get the same answers sooner, each against the swarm as it
-stands, on held questions, two draws, every question timed as it is asked and nothing answered from memory. Two kinds
+stands, on held questions, two draws, every question timed as it is asked and nothing answered from memory. Three kinds
 of change are tried: the same model served another way (another file of it, served by another build of the engine, as
 Inkling 2 Mini is by Atomic Engine), where both are on the machine already; and a leaner arrangement for a class, one
-that was no worse on its train questions and asks less of the models. One is kept where its answers are no worse (the
+that was no worse on its train questions and asks less of the models; and, for each class that has a writer, no
+writer where every draft came to the one answer (`writeAs: 'agreed'`), the writer still writing the reply where the
+drafts differed. One is kept where its answers are no worse (the
 mean gain not below zero, no more questions lost than made good) and it saves at least 15% of the time, by more than
 twice the error of the timing. The record says seconds a question and tokens a second, before and after.
 

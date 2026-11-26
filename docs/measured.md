@@ -24,8 +24,9 @@ Measured on llama.cpp b12110, an M2 Ultra with 64 GB, twelve server slots of 4,0
   and the writer then wrote 440 tokens that were nearly a copy of one draft.
 - When the pool is full the server drops what the slot idle longest remembered, and nothing fails.
 
-What follows from it is in the changelog. Two things were not changed, because each needs measuring against answers
-first: the writer is still asked where the drafts agree, and a draft's limit is as it was.
+What follows from it is in the changelog. Two things were not changed outright, because each needs measuring against
+answers first. Passing the writer over where the drafts agree is now a change the time stage of training tries, class
+by class; it has not yet been tried in a run. A draft's limit is as it was.
 
 ## Where the other classes stand, and what code does there: 2026-11-25
 

@@ -38,7 +38,13 @@ The first version.
   - **What a task cost in tokens is written down.** Beside the seconds, an evaluation now keeps what the swarm's
     models read, still held and wrote on each task. Bonsai 2.5 27B reads 280 tokens a second and writes 28, so on one
     question a quarter of its time went on reading the question again in each slot and over half on writing.
-  - The SwOA specification says the same (S2.4.6, S2.7.1, S3.2.3). No field of a spec changed.
+  - **No writer where every draft agrees** is a change training can try (`writeAs: 'agreed'`). Where the drafts
+    agree there is already a draft that gives the answer and its work, and on that question the writer spent 21 of
+    52 seconds writing one of them out again. Where the drafts differed the writer still writes the reply. It is tried
+    for each class in the time stage, which keeps a change only where held questions are answered no worse and at
+    least 15% sooner.
+  - The SwOA specification says the same (S2.4.6, S2.7.1, S3.2.3, O.8.3). `plan.writeAs` gained the value `agreed`;
+    no other field of a spec changed.
 - **An evaluation's last minutes read rightly** (2026-11-26). Three things the dashboard said wrongly while a run was
   on its last task. The run read "100% of the run" before it had ended: a run still going now rounds down and stops at
   99%. The web search tasks read "2 s a question, about 28 s left" for the ten minutes each way of asking took, because
