@@ -24,6 +24,10 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **A fix: the picture of the swarm showed nothing through a turn with tools** (2026-11-25). A turn with tools is
+  answered another way than a plain question, and told nobody what each slot did: through a tools test of an
+  evaluation, and through the training of such turns, every slot read idle. What each slot did in the turn is now
+  written when the turn ends (what it said, how long it took). It is not yet shown working while the turn is in hand.
 - **An evaluation says from its first second what it has kept, and the page shows the slots at work** (2026-11-25).
   - The evaluator reads which answers are kept for every model it will ask before it asks any (it read them as each
     model's turn came). A run carried on shows at once what is left to do.

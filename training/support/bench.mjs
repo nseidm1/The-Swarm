@@ -385,6 +385,32 @@ export async function openSwarm(
             .slice(0, 120),
         }),
     });
+  // AND A TURN WITH TOOLS (console 2026-11-25): it is answered another way (src/tools.mjs), which tells nobody as it goes, so
+  // through every turn with tools (a tools test of an evaluation, the class of such turns in training) the page showed
+  // every slot idle. What each slot did is on the turn's record when it ends, and is written from there: each slot that took
+  // part, what it said and how long it took. Not as it happens: a slot is not shown working while the turn is in hand.
+  // (Told as it happens it would be a change to the module's own files, and an evaluation's kept answers are keyed by them.)
+  if (typeof swarm.answerTools === 'function') {
+    const withTools = swarm.answerTools.bind(swarm);
+    swarm.answerTools = async (messages, o = {}) => {
+      const got = await withTools(messages, o);
+      try {
+        for (const row of (got && got.trace) || []) {
+          if (!row || !row.slot) continue;
+          liveSlot(row.slot, {
+            state: row.ok === false ? 'failed' : 'done',
+            ms: typeof row.ms === 'number' ? row.ms : 0,
+            said: String(row.final || row.out || row.why || '')
+              .replace(/\s+/g, ' ')
+              .slice(0, 120),
+          });
+        }
+      } catch {
+        /* the page goes without */
+      }
+      return got;
+    };
+  }
   return swarm;
 }
 // one model by itself, one conversation at a time: what the swarm is measured against.
