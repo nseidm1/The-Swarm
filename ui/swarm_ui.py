@@ -307,7 +307,7 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .trainopts{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 14px}
 .trainopts .trainask{margin:0;flex:1 1 320px;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,190px));gap:6px 8px}
 .trainopts .trainask .cfgl{grid-column:1/-1;margin:0}
-.trainopts .trainmin{display:grid;gap:6px;margin:0}.trainopts .trainmin .cfgl{margin:0}.trainopts .trainmin select{width:auto}
+.trainopts .pick.trainmin{flex:0 0 auto;min-width:200px;margin:0}
 .trainopts .btn{width:auto;margin:0 0 0 auto;padding:7px 12px;font-size:12.5px;white-space:nowrap}.evd-h{margin:14px 0 0}
 .evask input{width:15px;height:15px;margin:0;accent-color:var(--teal)}.evask label:has(input:checked){border-color:var(--teal2);background:#eefaf6}.evask label:has(input:disabled){cursor:default;opacity:.6}
 .evalp>.state,.prep>.state,.evnow{margin-top:12px}.evq{margin-top:8px;padding:10px 12px;border-radius:var(--r);background:var(--soft);font-size:13px}
@@ -6562,10 +6562,11 @@ def train_options(blocked, held):
     question), every one ticked to begin with, kept on the device and sent with the press of Start (the page's trainAsk):
     the run's training step trains those and leaves the others as they are. With none ticked there is nothing to train,
     and Start waits. HOW LONG TRAINING MAY TAKE is beside them (TRAIN_MINUTES): until it is done, unless a person chooses
-    a most; a run ended by its time keeps what it kept and measures that. Clear training state, the lesser action, is
+    a most; a run ended by its time keeps what it kept and measures that. It is drawn as the configuration's choices are
+    (.pick: the name small above, the choice in bold under it, console 2026-11-26). Clear training state, the lesser action, is
     small at the end of the row."""
     return ('<div class="trainopts"><div class="evask trainask" role="group" aria-label="Which classes of input the run trains"><span class="cfgl">Trains requests</span>%s</div>'
-            '<label class="trainmin" title="How long the training step may take. Until it is done trains every class ticked to the end. With a most, training is ended there with what it kept, and the run goes on to measure that; plain questions are trained first"><span class="cfgl">Training time</span><select id="whole-minutes" aria-label="How long the training step may take"%s>%s</select></label>'
+            '<label class="pick trainmin" title="How long the training step may take. Until it is done trains every class ticked to the end. With a most, training is ended there with what it kept, and the run goes on to measure that; plain questions are trained first"><small>Training time</small><select id="whole-minutes" aria-label="How long the training step may take"%s>%s</select></label>'
             '<button class="btn top quiet" id="run-clear" type="button"%s title="Start training again from pass 1: what it has tried, measured and kept is moved aside (to .work/archive), and each model&#39;s own answers are kept">Clear training state</button></div>'
             % ("".join('<label title="%s"><input type="checkbox" data-train-class="%s" checked%s>%s</label>' % (e(CLASS_WORDS.get(c, c)), c, " disabled" if blocked else "", e(CLASS_NAMES.get(c, c))) for c in TRAIN_CLASSES),
                " disabled" if blocked else "", "".join('<option value="%d">%s</option>' % (n, e(w)) for n, w in TRAIN_MINUTES),
