@@ -2957,5 +2957,25 @@ check("where a kind of question was added after passes had been measured, the cl
       _sf_two["right"] == 150 and _sf_two["of"] == 204 and _sf_two["earlier"] == {"right": 139, "of": 192, "since": "2026-11-25"} and "earlier" not in _sf_one,
       [_sf_two, _sf_one])
 
+# ---- a run still going never reads 100%, and an evaluation's time left is by the task, not by a turn
+_nf_was = (swarm_ui._job_state, swarm_ui._run_elsewhere_now, swarm_ui._classes_alive, swarm_ui.whole_steps, swarm_ui.whole_step_share, swarm_ui.busy_with, swarm_ui.stage_record)
+swarm_ui._run_elsewhere_now, swarm_ui._classes_alive, swarm_ui.busy_with, swarm_ui.stage_record = (lambda: None), (lambda: False), (lambda: "the run"), (lambda d: {"pass": 1})
+swarm_ui._job_state = lambda name: {"running": True, "pid": 1} if name == "whole" else None
+swarm_ui.whole_steps = lambda root, key: (_st("done", "not taken", "done", "running"), True)
+swarm_ui.whole_step_share = lambda d, step: 0.996
+_nf = swarm_ui.whole_block(dict(_wq_d, state={}))
+swarm_ui._job_state, swarm_ui._run_elsewhere_now, swarm_ui._classes_alive, swarm_ui.whole_steps, swarm_ui.whole_step_share, swarm_ui.busy_with, swarm_ui.stage_record = _nf_was
+check("a run that is still going never reads 100%: with its last step 99.6% done the ring says 99% of this step and the line under it 99% of the run, both rounded down "
+      '(rounded to the nearest, it read "100% of the run" for the last forty minutes of an evaluation)',
+      _vn(_nf) == 99 and "<small>pass 1 · 99% of the run</small>" in _nf and "100%" not in _nf.split('id="wholebox"')[1].split("</span></span>")[0],
+      [_vn(_nf), _nf.split('id="wholebox"')[1][:500] if 'id="wholebox"' in _nf else _nf[:500]])
+check("while an evaluation runs, how long a question takes and how long the task has left are read from the task (when this way of asking began, the questions of it done, the ways still to come), "
+      "not from its last turn: a web search question is many turns of a few seconds and read \"2 s a question, about 28 s left\" through ten minutes; "
+      "and what a fetched page left that nobody can read is not shown under the question, in the page as drawn or as painted again",
+      "row.started&&dn?(Date.now()-row.started)/1000/dn" in swarm_ui.JS and "(of-dn)*each+(rs-r)*of*each" in swarm_ui.JS and ".replace(UNREAD,' ')" in swarm_ui.JS
+      and swarm_ui._readable("born in \\ufffd\\u000bR\ufffd\x01 1952") == "born in  R  1952" and swarm_ui._readable("plain\ntext") == "plain\ntext"
+      and '_readable(str(now.get("ask", "")))' in open(swarm_ui.__file__).read(),
+      [swarm_ui._readable("born in \\ufffd\\u000bR\ufffd\x01 1952")])
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

@@ -24,6 +24,12 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **An evaluation's last minutes read rightly** (2026-11-26). Three things the dashboard said wrongly while a run was
+  on its last task. The run read "100% of the run" before it had ended: a run still going now rounds down and stops at
+  99%. The web search tasks read "2 s a question, about 28 s left" for the ten minutes each way of asking took, because
+  a question there is many turns and the time was counted by the turn: it is now read from the task, with the ways of
+  asking still to come counted in. And a fetched page that is no text left a line of unreadable bytes under the
+  question: they are no longer shown. Nothing that is sent to a model changed.
 - **Training that was stopped carries on** (2026-11-26). Stop during training used to cost everything the step had done:
   started again, it asked every question as the swarm stood and tried every change again (half an hour of one class was
   lost to one Stop and Start). The step now writes down every answer as it comes, the swarm's and what a model wrote when

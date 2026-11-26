@@ -1009,6 +1009,8 @@ document.addEventListener('click',async(ev)=>{
 const EVW={waiting:()=>'waiting',done:s=>s.done+' asked',kept:()=>'answers kept from before',failed:s=>'failed: '+(s.why||''),stopped:s=>'stopped at '+s.done,
   asking:s=>'asking '+Math.min(s.done+1,s.of||s.done+1)+(s.of?' of '+s.of:'')};
 const mins=x=>x<90?Math.round(x)+' s':x<5400?Math.round(x/60)+' min':(x/3600).toFixed(1)+' h';
+// (what a fetched page left that nobody can read: bytes that are no text, and their escapes written out. Not shown: _readable)
+const UNREAD=/(?:\\\\u[0-9a-fA-F]{4}|[\\uFFFD\\x00-\\x08\\x0b-\\x1f])+/g;
 async function evTick(){const box=$('#evalbox');if(!box||!box.dataset.running)return;
   let s;try{s=await (await fetch('/api/eval')).json();}catch(e){return;}
   if(!s.running||(s.runId&&box.dataset.run&&s.runId!==box.dataset.run)){await swap('/fragment/eval','#evalwrap');await swap('/fragment/score','#score');return;}
@@ -1025,9 +1027,16 @@ async function evTick(){const box=$('#evalbox');if(!box||!box.dataset.running)re
   const q=box.querySelector('.evq'),n=s.now;
   if(q){q.hidden=!n;if(n){const tn=box.dataset.tname||'';
     set('q',evWho(n.who||'target',s.target||'the larger model',s.alone)+' · '+n.name+' · question '+n.i+(n.of?' of '+n.of:''));
-    const on=Math.max(0,(Date.now()-n.since)/1000),left=n.avgSeconds&&n.of?Math.max(0,(n.of-n.i+1)*n.avgSeconds-on):null;
-    set('eta','this one '+mins(on)+(n.avgSeconds?' · '+mins(n.avgSeconds)+' a question':'')+(left!==null?' · about '+mins(left)+' left in this task':''));
-    set('ask',String(n.ask||'').replace(/\\s+/g,' ').slice(-300));}
+    // HOW LONG A QUESTION TAKES IS READ FROM THE TASK, NOT FROM ITS LAST TURN (console 2026-11-26). A web search question is
+    // many turns, each a few seconds, and a task asked two ways is asked twice: counted by the turn, the last task of an
+    // evaluation read "2 s a question · about 28 s left in this task" for the ten minutes each way took. The task says when
+    // this way of asking began and how many questions of it are done; the ways still to come are counted in.
+    const on=Math.max(0,(Date.now()-n.since)/1000),row=((s.tasks||[]).find(t=>t.task===n.task)||{})[n.who||'target']||{};
+    const dn=Number(row.done)||0,rs=Number(row.rounds)||1,r=Number(row.round)||1,of=Number(row.of||n.of)||0;
+    const each=Math.max(Number(n.avgSeconds)||0,row.started&&dn?(Date.now()-row.started)/1000/dn:(rs>1&&r>1&&row.seconds&&of?row.seconds/of:0));
+    const left=each&&of?Math.max(0,(of-dn)*each+(rs-r)*of*each):null;
+    set('eta','this one '+mins(on)+(each?' · '+mins(each)+' a question':'')+(left!==null?' · about '+mins(left)+' left in this task':''));
+    set('ask',String(n.ask||'').replace(UNREAD,' ').replace(/\\s+/g,' ').slice(-300));}
     const l=s.last;set('reply',l&&l.seconds!=null?'Last answer ('+Math.round(l.seconds)+' s): '+String(l.reply||'').replace(/\\s+/g,' ').slice(0,240):'');}
   // A ROW OF THIS RUN WITH NO BARS: the card was drawn in the run's first seconds, before it had said which tasks it asks, and
   // each such row read "not evaluated yet" for as long as the run went on, the task being asked among them (2026-11-20). The
@@ -6205,7 +6214,7 @@ def eval_block(d):
                    '<p class="muted" data-ev="reply">%s</p></div></div>'
                    % (cls, e(live.get("step") or ""), e(ev_progress(live)) if running else "", "" if now else ' hidden',
                       e(("%s · %s · question %s%s" % (_ev_who(str(now.get("who") or "target"), tname, (shown or {}).get("alone")), now.get("name", ""), now.get("i", ""), (" of %s" % now["of"]) if now.get("of") else "")) if now else ""),
-                      e(" ".join(str(now.get("ask", "")).split())[-300:]), e(("Last answer (%.0f s): " % last["seconds"] + " ".join(str(last.get("reply", "")).split())[:240]) if last.get("seconds") is not None else "")))
+                      e(" ".join(_readable(str(now.get("ask", ""))).split())[-300:]), e(("Last answer (%.0f s): " % last["seconds"] + " ".join(str(last.get("reply", "")).split())[:240]) if last.get("seconds") is not None else "")))
     if not listed:
         out.append('<p class="muted">No body of work has a standard task.</p>')
     # THE WHOLE BREAKDOWN FOLDS, AND IS FOLDED TO BEGIN WITH (console instruction 2026-11-18): one section that holds every body of
@@ -6423,11 +6432,13 @@ def whole_block(d):
     if running:
         rec = stage_record(d) or {}
         now_pass = int(rec.get("pass") or (n_pass + 1))
-        figure, label, word = ring(share, True, "How far the intelligence run has come"), "of the run", "pass %d · running" % now_pass
+        figure, label, word = ring(min(99, int(share)), True, "How far the intelligence run has come"), "of the run", "pass %d · running" % now_pass
         part = whole_step_share(d, steps[at - 1]["id"]) if at else None
         if part is not None:
-            figure = ring(100.0 * part, True, "How far the step in hand has come")
-            label, word = "of this step", "pass %d · %d%% of the run" % (now_pass, round(share))
+            # (A RUN STILL GOING NEVER READS 100%: rounded to the nearest, 99.6% of the run read "100% of the run" for the
+            # last forty minutes of an evaluation, console 2026-11-26. Both figures round down and stop at 99)
+            figure = ring(min(99, int(100.0 * part)), True, "How far the step in hand has come")
+            label, word = "of this step", "pass %d · %d%% of the run" % (now_pass, min(99, int(share)))
     else:
         score, _of = whole_score(d)
         figure, label = ring(score, False, "Benchmark questions the swarm answered rightly in its last evaluation"), "benchmark questions"
@@ -6454,6 +6465,16 @@ def whole_score(d):
         return ((data.percent(right, of) if of else None), of)
     except (OSError, TypeError, ValueError, KeyError):
         return None, 0
+
+
+_UNREAD = re.compile(r"(?:\\u[0-9a-fA-F]{4}|[\ufffd\x00-\x08\x0b-\x1f])+")
+
+
+def _readable(text):
+    """A question as it is shown, without what nobody can read. A web search question carries the page it fetched, and a page
+    that is no text (an image, a compressed file) arrives as bytes and their escapes written out: the card showed a line of
+    "\\ufffd" under the question (console 2026-11-26). They are left out of what is SHOWN; what the models are sent is not touched."""
+    return _UNREAD.sub(" ", text)
 
 
 def ring(pct, running=False, word=""):
