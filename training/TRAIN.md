@@ -35,7 +35,10 @@ question at hand, benchmarks by other contributors, and questions and near misse
 **The whole of it is one run:** `bash training/run.sh [--limit N | --proof] [--train classes|off] [--train-minutes M]
 [--items a,b]`. It evaluates the module as configured, pretrains it by role and evaluates it, trains its arrangement
 (the class stage) and evaluates it again, each on the same questions, and writes the three figures side by side
-(`.work/eval/compare.json`). A run that stopped carries on from the step it stopped in.
+(`.work/eval/compare.json`). A run that stopped carries on from the step it stopped in. Training runs to its end
+unless `--train-minutes M` gives it a most: then it is ended there with what it kept, and that is what is evaluated.
+The classes are trained plain questions first, then turns with tools, requests for code and conversations, so a run
+ended early has trained what most requests are.
 
 **Training never asks a benchmark's question, and the evaluation is not ours.** The harnesses are used unchanged
 and ask the module as they ask any model. What a harness measures is whether what training found on its own

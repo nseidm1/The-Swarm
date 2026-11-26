@@ -307,6 +307,7 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 .trainopts{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 14px}
 .trainopts .trainask{margin:0;flex:1 1 320px;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,190px));gap:6px 8px}
 .trainopts .trainask .cfgl{grid-column:1/-1;margin:0}
+.trainopts .trainmin{display:grid;gap:6px;margin:0}.trainopts .trainmin .cfgl{margin:0}.trainopts .trainmin select{width:auto}
 .trainopts .btn{width:auto;margin:0 0 0 auto;padding:7px 12px;font-size:12.5px;white-space:nowrap}.evd-h{margin:14px 0 0}
 .evask input{width:15px;height:15px;margin:0;accent-color:var(--teal)}.evask label:has(input:checked){border-color:var(--teal2);background:#eefaf6}.evask label:has(input:disabled){cursor:default;opacity:.6}
 .evalp>.state,.prep>.state,.evnow{margin-top:12px}.evq{margin-top:8px;padding:10px 12px;border-radius:var(--r);background:var(--soft);font-size:13px}
@@ -901,7 +902,9 @@ setInterval(liveTick,1500);liveTick();
 // THE WHOLE RUN'S ONE BUTTON (whole_block): Start or Carry on with the size and whether to train; Stop. Its steps are drawn again
 // every three seconds while it runs, and the cards under it follow their own steps as they always do
 document.addEventListener('click',async ev=>{const b=ev.target;if(b.id!=='whole-go'&&b.id!=='whole-stop')return;b.disabled=true;
-  await evPost(b.id==='whole-go'?'/whole/start':'/whole/stop','#wholewrap',b.id==='whole-go'?{limit:Number(($('#whole-size')||{}).value||20),classes:[...document.querySelectorAll('[data-train-class]')].filter(x=>x.checked).map(x=>x.dataset.trainClass)}:{});});
+  await evPost(b.id==='whole-go'?'/whole/start':'/whole/stop','#wholewrap',b.id==='whole-go'?{limit:Number(($('#whole-size')||{}).value||20),classes:[...document.querySelectorAll('[data-train-class]')].filter(x=>x.checked).map(x=>x.dataset.trainClass),minutes:Number(($('#whole-minutes')||{}).value||0)}:{});});
+// (how long training may take: as it was left on this device)
+document.addEventListener('change',ev=>{if(ev.target.id==='whole-minutes')try{localStorage.setItem('swarm.train.minutes',ev.target.value);}catch(e){}});
 setInterval(async()=>{if($('#wholebox[data-running]')||$('#busy[data-busy="the run"]'))await swap('/fragment/whole','#wholewrap');},3000);
 // THE CHART'S LIST SCOPES THE CHART: a line pressed (or Enter, or the space bar, on it) turns its point off, and on again
 const chartLine=li=>{const off=li.classList.toggle('off');li.setAttribute('aria-pressed',off?'false':'true');
@@ -962,7 +965,8 @@ function evOff(){try{const v=JSON.parse(localStorage.getItem('swarm.eval.off')||
 // of work none of whose harnesses is ticked has nothing to ask: its box goes quiet, as it is, until one is ticked again)
 function evHOff(){try{const v=JSON.parse(localStorage.getItem('swarm.eval.hoff')||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
 // WHICH CLASSES A SESSION TRAINS: the boxes are as they were left on this device; with none ticked Train waits
-function trainAsk(){const bs=[...document.querySelectorAll('[data-train-class]')];if(!bs.length)return;let off=[];try{off=JSON.parse(localStorage.getItem('swarm.train.off')||'[]');}catch(e){}
+function trainAsk(){const tm=$('#whole-minutes');if(tm){let v='0';try{v=localStorage.getItem('swarm.train.minutes')||'0';}catch(e){}if([...tm.options].some(o=>o.value===v))tm.value=v;}
+  const bs=[...document.querySelectorAll('[data-train-class]')];if(!bs.length)return;let off=[];try{off=JSON.parse(localStorage.getItem('swarm.train.off')||'[]');}catch(e){}
   bs.forEach(x=>{x.checked=!off.includes(x.dataset.trainClass);});if(!bs.some(x=>x.checked))bs.forEach(x=>{x.checked=true;});trainLeft();}
 function trainLeft(){const bs=[...document.querySelectorAll('[data-train-class]')];if(!bs.length||bs[0].disabled)return;
   for(const g of [$('#whole-go'),$('#run-go')])if(g&&!g.dataset.held)g.disabled=!bs.some(x=>x.checked);}
@@ -1702,7 +1706,7 @@ def run_stages(d, running):
         elif x["state"] == "not taken":
             more = '<p class="small">Not taken: no adapter can be made for this model here, so training goes on without any to try.</p>'
         elif x["state"] == "time up":
-            more = '<p class="small">Training is given a set time in a run, two hours unless it is told otherwise, and this is where it ended. Nothing went wrong: what it had kept by then is kept, and the next stage measures it.%s</p>' % train_reached(d)
+            more = '<p class="small">This run gave training a set time, and this is where it ended. Nothing went wrong: what it had kept by then is kept, and the next stage measures it.%s</p>' % train_reached(d)
         # (a row of the list is told by data-stage: the plan's own rows are the ones counted as <li class=...>, ui/check.py)
         items.append('<li data-stage="%d" class="stg %s"><div class="stgh"><span><i></i><b>Stage %d of 4</b> %s</span><small>%s%s</small></div><p class="small stgd">%s</p><p class="small stgl muted">%s</p>%s</li>'
                      % (i + 1, x["state"].replace(" ", "-"), i + 1, e(x["name"]), STAGE_STATE.get(x["state"], x["state"]), (" · %d min" % x["minutes"]) if x.get("minutes") else "", does, leaves, more))
@@ -6337,8 +6341,8 @@ def whole_steps(root, key):
         elif what == "SKIP":
             state[name] = "done"
         else:
-            # (THE TRAINING STEP ENDED BY ITS OWN TIME IS NOT A FAILURE: the run gives it so many minutes, two hours unless told
-            # otherwise, ends it there with what it kept, and goes on to measure that (training/run.sh; the step then ends at
+            # (THE TRAINING STEP ENDED BY ITS OWN TIME IS NOT A FAILURE: the run gives it so many minutes where a person chose a most
+            # (two hours always, before 2026-11-25), ends it there with what it kept, and goes on to measure that (training/run.sh; the step then ends at
             # 143). The card said "failed · 120 min" of a run doing what it is made to do, console 2026-11-25. A person's
             # Stop does not come here: it ends the run, and the step has no END line)
             state[name] = "done" if code == "0" else ("not taken" if code == "3" else "time up" if code == "143" and name == "3-train-classes" else "failed")
@@ -6520,15 +6524,22 @@ def whole_share(d, steps, running):
     return 100.0 * total / max(1, len(steps))
 
 
+TRAIN_MINUTES = ((0, "Until it is done"), (120, "2 hours at most"), (240, "4 hours at most"), (480, "8 hours at most"))
+
+
 def train_options(blocked, held):
     """WHICH CLASSES OF INPUT ARE TRAINED, AND CLEAR TRAINING STATE, on the intelligence run's card (they were on the Train card,
     console 2026-11-24). A box for each class a request can be (with tools, a conversation, asking for code, a plain
     question), every one ticked to begin with, kept on the device and sent with the press of Start (the page's trainAsk):
     the run's training step trains those and leaves the others as they are. With none ticked there is nothing to train,
-    and Start waits. Clear training state, the lesser action, is small at the end of the row."""
+    and Start waits. HOW LONG TRAINING MAY TAKE is beside them (TRAIN_MINUTES): until it is done, unless a person chooses
+    a most; a run ended by its time keeps what it kept and measures that. Clear training state, the lesser action, is
+    small at the end of the row."""
     return ('<div class="trainopts"><div class="evask trainask" role="group" aria-label="Which classes of input the run trains"><span class="cfgl">Trains requests</span>%s</div>'
+            '<label class="trainmin" title="How long the training step may take. Until it is done trains every class ticked to the end. With a most, training is ended there with what it kept, and the run goes on to measure that; plain questions are trained first"><span class="cfgl">Training time</span><select id="whole-minutes" aria-label="How long the training step may take"%s>%s</select></label>'
             '<button class="btn top quiet" id="run-clear" type="button"%s title="Start training again from pass 1: what it has tried, measured and kept is moved aside (to .work/archive), and each model&#39;s own answers are kept">Clear training state</button></div>'
             % ("".join('<label title="%s"><input type="checkbox" data-train-class="%s" checked%s>%s</label>' % (e(CLASS_WORDS.get(c, c)), c, " disabled" if blocked else "", e(CLASS_NAMES.get(c, c))) for c in TRAIN_CLASSES),
+               " disabled" if blocked else "", "".join('<option value="%d">%s</option>' % (n, e(w)) for n, w in TRAIN_MINUTES),
                " disabled" if held else ""))
 
 
@@ -7103,7 +7114,11 @@ class Handler(BaseHTTPRequestHandler):
             # (the classes ticked on the card, where fewer than all: the run's training step trains those only)
             only = classes_asked(asked.get("classes") if isinstance(asked, dict) else None)
             argv = ["bash", "training/run.sh"] + (["--proof"] if limit == PROOF_SIZE else ["--limit", str(limit)]) + ["--train", train] + (["--classes", ",".join(only)] if only else [])
-            why = start_job("whole", argv, dict({"limit": limit, "train": train}, **({"classes": only} if only else {})))
+            # (how long training may take, where a person chose a most: not said, it runs to its end)
+            minutes = asked.get("minutes") if isinstance(asked, dict) else 0
+            minutes = minutes if minutes in [n for n, _ in TRAIN_MINUTES if n] else 0
+            argv += ["--train-minutes", str(minutes)] if minutes else []
+            why = start_job("whole", argv, dict({"limit": limit, "train": train}, **dict({"classes": only} if only else {}, **({"minutes": minutes} if minutes else {}))))
             if why:
                 return self._send(why, 409, "text/plain; charset=utf-8")
             return self._send(whole_block(data.load(ARGS.root)))

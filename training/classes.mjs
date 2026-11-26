@@ -463,7 +463,14 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   // WHAT IT IS DOING, IN A PERSON'S WORDS, for the page's line of what is happening: which class of the ones asked (as the page
   // names them), and what is being asked of it. It said "The class talk: plan: the writer writes the reply in full".
   const NAMES = { tools: 'with tools', talk: 'a conversation', code: 'asking for code', words: 'a plain question' };
-  const asked = CLASSES.filter((c) => !only || only.includes(c));
+  // THE ORDER THE CLASSES ARE TRAINED IN: the one most requests are comes first, so that a run ended early (its time, a
+  // person's Stop) has trained what matters most. They went as the module lists them (tools, talk, code, words), and a run
+  // that ended at its two hours on 2026-11-25 had trained turns with tools and conversations and never reached a plain
+  // question, which is what most requests and most benchmark tasks are. Each class is trained by itself: the order changes
+  // nothing of what one keeps.
+  const ORDER = ['words', 'tools', 'code', 'talk'];
+  const place = (c) => (ORDER.indexOf(c) < 0 ? ORDER.length : ORDER.indexOf(c));
+  const asked = CLASSES.filter((c) => !only || only.includes(c)).sort((a, b) => place(a) - place(b));
   const said = (K) => 'Class ' + (asked.indexOf(K) + 1) + ' of ' + asked.length + ', ' + (NAMES[K] || K);
   const plainMove = (name) => String(name).replace(/^plan: /, '');
   // the held questions on each draw (another seed for each, the first the one everything else is asked with; then put back)
@@ -482,7 +489,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   };
 
   try {
-    for (const K of CLASSES.filter((c) => !only || only.includes(c))) {
+    for (const K of asked) {
       const tr = sampleOf(
         train.filter((t) => classIs(t) === K),
         sample,

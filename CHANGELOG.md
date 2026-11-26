@@ -24,6 +24,14 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **Training in a run takes the time it needs** (2026-11-25). A run ended its training step at two hours whatever was
+  left. That limit was set when the step took twenty minutes; it has grown since, and a run stopped by it had trained
+  turns with tools and conversations, was part way through requests for code, and never reached plain questions, which
+  are most of what a benchmark asks. Now:
+  - **No limit unless you choose one.** **Training time** on the Run Intelligence Training card: until it is done, or 2,
+    4 or 8 hours at most (`run.sh --train-minutes`). With a most, training ends there with what it kept.
+  - **Plain questions are trained first**, then turns with tools, requests for code and conversations, so a run ended
+    early has trained what most requests are. Each class is trained by itself, so the order changes nothing it keeps.
 - **A fix: training that ends at its time limit is not called a failure** (2026-11-25). A run gives training two hours
   unless told otherwise, ends it there with what it kept, and goes on to measure that. The dashboard read
   "failed · 120 min" of a run doing exactly this. It now reads "ended at its time limit", counts the step as taken, and

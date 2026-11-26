@@ -3,6 +3,9 @@
 # slot and the module is trained (the arrangement, which slot carries its adapter, the instruments: where asked); and it is
 # evaluated again; each on the same questions, so that the two can be set side by side (training/evaluate.mjs --variant; the Evaluate card). Started and stopped by the page's one button, or:
 #   bash training/run.sh [--limit N | --proof] [--train classes|off] [--train-minutes M] [--items a,b] [--classes words,code]
+#   --train-minutes: training is ended after so many minutes, with what it kept. NOT SAID, TRAINING RUNS TO ITS END: it was
+#   120 unless said, set when the class stage took twenty minutes; the stage grew (more changes tried, forms, readings) and
+#   on 2026-11-25 two hours ended it with two classes of four trained and plain questions never reached
 #   --classes: only those classes of input are trained (tools, talk, code, words); every one where it is not said
 # A STEP WHOSE RESULT IS ON RECORD IS PASSED OVER: the run is opened where it was left (.work/run/<configuration>/status.txt,
 # as a pass is), so Stop and Start carry on. A run asked for at another size, or of another configuration, begins again.
@@ -13,13 +16,13 @@
 # (The adapters are made by mixture.mjs, which the page follows where it follows adapters.mjs: the same live.json.)
 cd "$(dirname "$0")/.." || exit 1
 ROOT=$(pwd)
-LIMIT=20; PROOF=; TRAIN=classes; MINUTES=120; ITEMS=; CLASSES=
+LIMIT=20; PROOF=; TRAIN=classes; MINUTES=; ITEMS=; CLASSES=
 while [ $# -gt 0 ]; do
   case "$1" in
     --limit) LIMIT=$2; shift 2 ;;
     --proof) PROOF=1; shift ;;
     --train) TRAIN=$2; shift 2 ;;
-    --train-minutes) MINUTES=$2; shift 2 ;;
+    --train-minutes) MINUTES=$2; [ "$MINUTES" = none ] && MINUTES=; shift 2 ;;
     --items) ITEMS=$2; shift 2 ;;
     --classes) CLASSES=$2; shift 2 ;;
     *) echo "run.sh: not understood: $1"; exit 2 ;;
@@ -89,7 +92,7 @@ if [ "$TRAIN" = classes ]; then
   # (the class stage, for so many minutes at most; what it kept by then is kept. Its time ends the session AND the step the
   # session waits on: a shell acts on a signal only when what it waits on ends, so the signal to the session alone left the
   # stage running to its own end, 17 minutes past 20, 2026-11-22)
-  if ! grep -qF "END   3-train-classes exit 0 " "$OUT/status.txt"; then
+  if [ -n "$MINUTES" ] && ! grep -qF "END   3-train-classes exit 0 " "$OUT/status.txt"; then
     ( sleep $((MINUTES * 60 + 1)); P=$(cat "$WORK/train/ui-run.json" 2>/dev/null | "$NODE" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).pid)}catch{}})"); [ -n "$P" ] && { kill -TERM "$P" 2>/dev/null; pkill -TERM -P "$P" 2>/dev/null; } ) > /dev/null 2>&1 &
     WATCH=$!
   fi
@@ -98,7 +101,7 @@ if [ "$TRAIN" = classes ]; then
   # (the watch on its time is ended with it, and the wait it was in: left alone it would hold the run's output open)
   if [ -n "$WATCH" ]; then pkill -P "$WATCH" 2>/dev/null; kill "$WATCH" 2>/dev/null; fi
   # (stopped by its time: what the class stage kept is kept, and the step counts as taken)
-  if [ "$code" != 0 ]; then say "The class stage ended at exit $code (its $MINUTES minutes, or a fault: see $OUT/3-train-classes.out). What it kept is measured."; fi
+  if [ "$code" != 0 ]; then say "The class stage ended at exit $code (${MINUTES:+its $MINUTES minutes, or }a fault: see $OUT/3-train-classes.out). What it kept is measured."; fi
   step 4-evaluate-trained eval "\"limit\": $LIMJ" $EVALUATE --variant trained $ASK
   [ $? = 0 ] || say "The trained module was not evaluated (see $OUT/4-evaluate-trained.out)."
 else
