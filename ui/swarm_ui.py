@@ -4833,6 +4833,19 @@ def stage_step():
     return str(live.get("step") or "") if live.get("trainer") == "classes" and fresh and stage_alive() else ""
 
 
+def record_before_stage(root, key, f):
+    """IS THIS RECORD OF THE CLASS STAGE THE ONE BEFORE'S? The stage writes its record only when it has asked every question
+    of its first class as the swarm stands (a quarter of an hour, for plain questions), so until then the file on disk is
+    the stage before, whether that one finished or was stopped part way. It is, where it was last written before the
+    session in hand began the stage (its status, .work/train/<key>/pass-*/status.txt, is last written then). Read as this
+    stage's, a stage begun again after a Stop showed the last one's round, its changes tried and its ring, 2026-11-26."""
+    try:
+        began = max((x.stat().st_mtime for x in (Path(root) / ".work" / "train" / str(key)).glob("pass-*/status.txt")), default=0)
+        return Path(f).stat().st_mtime < began
+    except OSError:
+        return False
+
+
 def stage_record(d):
     """THE RECORD THE CLASS STAGE THAT IS RUNNING WRITES (its note of what is happening names it, `record`: classes.mjs), read
     as it stands; None where no stage runs or the note names none here. A stage started from a terminal with a record of
@@ -4848,6 +4861,9 @@ def stage_record(d):
             # (not yet written by this pass: the file is the pass before, which says it is done. This one has begun)
             if rec and rec.get("done"):
                 return {"pass": (rec.get("pass") or 0) + 1, "classes": {}, "sample": rec.get("sample"), "rounds": rec.get("rounds"), "starting": True}
+            # (nor by this stage, begun again after a stop: the same pass, with nothing of it written yet)
+            if rec and record_before_stage(root, d.get("key", ""), f):
+                return {"pass": rec.get("pass") or 1, "classes": {}, "sample": rec.get("sample"), "rounds": rec.get("rounds"), "starting": True}
             return rec
     except (OSError, ValueError):
         pass
@@ -6515,8 +6531,7 @@ def train_step_share(d):
             # the stage writes its own only when it has asked every question of its first class as the swarm stands. A
             # stage begun again after one ended by its time read 62%, the old one's share, in its first minutes)
             rec_f = root / "training" / "results" / str(d.get("key", "")) / "classes.json"
-            began = max((x.stat().st_mtime for x in (root / ".work" / "train" / str(d.get("key", ""))).glob("pass-*/status.txt")), default=0)
-            rec = data._json(rec_f, None) if rec_f.exists() and rec_f.stat().st_mtime >= began else None
+            rec = data._json(rec_f, None) if rec_f.exists() and not record_before_stage(root, d.get("key", ""), rec_f) else None
             return classes_share(rec, asked, step)
         return float(pp.get("pct") or 0) / 100.0
     except (OSError, TypeError, ValueError, KeyError, AttributeError):

@@ -28,7 +28,8 @@ The first version.
   evaluation, the card showed the evaluation running beside the training, the training as "running · 120 min" from its
   end before, and the ring at 62%, read from the record of the training that had ended. A step the run was stopped in
   is no longer shown in hand, a step taken again has no time yet, and a record older than the training in hand is not
-  counted.
+  counted: on the card's ring, and in the plan, which showed the round and the changes tried of the training before
+  while this one was still asking its first questions.
 - **Training in a run takes the time it needs** (2026-11-25). A run ended its training step at two hours whatever was
   left. That limit was set when the step took twenty minutes; it has grown since, and a run stopped by it had trained
   turns with tools and conversations, was part way through requests for code, and never reached plain questions, which

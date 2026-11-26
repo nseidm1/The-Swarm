@@ -2801,6 +2801,14 @@ _ts_first = swarm_ui.train_step_share(_wq_d)
 _ts_rec = _wq_root / "training" / "results" / _ts_key / "classes.json"
 os.utime(_ts_rec, (time.time() - 3600, time.time() - 3600))
 _ts_old = swarm_ui.train_step_share(_wq_d)
+(_wq_root / ".work" / "train" / "live.json").write_text(json.dumps({"trainer": "classes", "record": str(_ts_rec.resolve()), "step": "Class 1 of 4, a plain question: how the swarm stands · question 3 of 60"}))
+_ts_ss = swarm_ui.stage_step
+swarm_ui.stage_step = lambda: "x"
+_ts_stale_rec = swarm_ui.stage_record(_wq_d)
+os.utime(_ts_rec, None)
+_ts_fresh_rec = swarm_ui.stage_record(_wq_d)
+swarm_ui.stage_step = _ts_ss
+_ts_say(1)
 os.utime(_ts_rec, None)
 _ts_say(60)
 _ts_last = swarm_ui.train_step_share(_wq_d)
@@ -2820,7 +2828,8 @@ check("the intelligence run's ring is held to what the conversation run's was: a
       "with the step and how far the whole run has come said beside it; a step that does not say how far it is (making adapters) leaves the ring as the run's own share; and the run's share counts the training step by the same share the ring shows",
       _wq_ev_fresh == 0.375 and _wq_ev_last == 0.0 and _wq_ev_old == 0.0 and _wq_ev_none == 0.0
       and _wq_tr_q == 0.0 and _wq_tr_stale == 0.0 and _wq_tr_pp == 0.4 and _wq_ad is None and _wq_run_stale == 50.0
-      and abs(_ts_first - (2 + 0.15 + 0.85 * 0.8 * 0.5 / 2) / 4) < 1e-9 and _ts_old == 0.0 and 0 < _ts_last - _ts_first < 0.01 and abs(_ts_run - 100 * (2 + _ts_last) / 4) < 1e-6
+      and abs(_ts_first - (2 + 0.15 + 0.85 * 0.8 * 0.5 / 2) / 4) < 1e-9 and _ts_old == 0.0
+      and _ts_stale_rec.get("starting") is True and _ts_stale_rec["classes"] == {} and "code" in (_ts_fresh_rec.get("classes") or {}) and 0 < _ts_last - _ts_first < 0.01 and abs(_ts_run - 100 * (2 + _ts_last) / 4) < 1e-6
       and _vn(_wq_card_train) == 40 and ">of this step<small>pass " in _wq_card_train and " · 60% of the run</small>" in _wq_card_train and 'class="ring on"' in _wq_card_train
       and _vn(_wq_card_ad) == 25 and ">of the run<small>pass " in _wq_card_ad and " · running</small>" in _wq_card_ad and "of this step" not in _wq_card_ad
       # (and the same shape as the conversation run's card, line for line: the ring, what it is of, and under it the pass)
