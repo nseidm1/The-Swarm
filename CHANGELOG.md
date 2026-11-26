@@ -24,13 +24,18 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **The first whole run in which training bettered the swarm is written down** (2026-11-26). LFM3 1.7B in every
+  place read 65.2% as configured and 79.1% trained, against 78.0% for the 30B model, on 460 questions of standard
+  tests. The README, `docs/results.md`, `docs/status.md` and `docs/measured.md` now say so, with its limits: twenty
+  questions a task, one run, and most of the gain on four tasks read before their instruments were written. They
+  also no longer say a 27B swarm holds 14.7 GB at most.
 - **Context for what works at once, on any lineup** (2026-11-26). A swarm of Bonsai 2.5 27B was slow and held 20 GB,
   more than the 30B model it is measured against. Watched for ninety seconds, it had one or two of its twelve slots
   working, and every slot held a full share of context. Three things came of it:
   - **A model is given context for what works together, in one pool.** How much is worked out from the lineup: the
     widest stage of the arrangement, times the questions it can be asked at once, which are as many as keep the context
-    within what the model's own weights take (three at most). Measured: Bonsai 2.5 27B holds 14.7 GB at most where it
-    held 20; LFM3 1.7B is served as it was, with room for three questions at once. `SWARM_QUESTIONS` names another
+    within what the model's own weights take (three at most). Measured: Bonsai 2.5 27B held 14.7 GB in a short trial
+    where it held 20, though a long evaluation later reached 17.8 GB and was rising (the pool does not bound it); LFM3 1.7B is served as it was, with room for three questions at once. `SWARM_QUESTIONS` names another
     number.
   - **A second question does not wait behind the first.** A call whose own server slot another question is using goes
     to one that is free. The served module gains by it when several programs ask at once. The evaluation and training

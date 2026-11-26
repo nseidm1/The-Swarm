@@ -3,6 +3,38 @@
 What the module scores, read with care. Every measurement, dated, is in [Measured, not claimed](measured.md); what has and
 has not been run is in [Status and limits](status.md).
 
+## LFM3 1.7B in every place, before training and after: 2026-11-26
+
+Against Nemotron 3.5 Lightning 30B, 20 questions of each of 23 standard tasks. Training kept one change, on its own
+questions: every instrument on, for plain questions. Percent right:
+
+| Body of work | As configured | Trained | The larger model |
+| --- | --- | --- | --- |
+| Code | 75.0 | 75.0 | 90.0 |
+| Math | 80.0 | 90.0 | 82.5 |
+| Logic | 69.0 | 82.0 | 88.0 |
+| Reasoning | 55.8 | 95.0 | 76.7 |
+| Instructions | 70.0 | 70.0 | 75.0 |
+| Tools | 86.0 | 86.0 | 81.0 |
+| Search | 5.0 | 5.0 | 35.0 |
+| All 460 | 65.2 | 79.1 | 78.0 |
+
+Read it with care:
+
+- This is the first run in which training bettered the swarm on standard tests: 13.9 points, with a paired error of
+  1.6. Trained, the swarm reads as the larger model does (364 right against 359, within error), in 2.1 GB of memory
+  against 18.
+- Twenty a task is a check. A verdict needs at least a hundred, and one run does not say how far a second would
+  differ.
+- Most of the gain is code answering four tasks that are operations (39 of 80 to 80 of 80; the larger model 55).
+  Those instruments were written after the four tasks were read, so those tasks are not an outside test of them.
+- On the other 19 tasks the gain is 6.1 points (error 1.3): 68.7% to 74.7%, where the larger model has 80.0%. The
+  instruments there were written from training's own questions.
+- Code, instructions, tools and search did not move: training kept nothing for them. Search is the widest gap.
+- The small model by itself was not asked these tasks in this run.
+
+## LFM2.5 1.2B in every place, as configured: 2026-11-22
+
 The module as configured (LFM2.5 1.2B in both places, the arrangement every swarm starts from, no adapters, no
 instrument on) against Nemotron 3.5 Lightning 30B, 20 questions of each of 23 standard tasks, 2026-11-22. Percent right:
 
@@ -25,8 +57,8 @@ Read it with care:
   not tools or search: the small model asked plainly 15.6%, with the module's reply layout only 19.1%, a module of one
   slot (all of the module's code round one call) 41.9%, the whole module 51.2%, the larger model 82.5%. So the code is
   worth about 26 points and the arrangement of seven slots about 9 more, before any training.
-- Training has not yet bettered the module on a benchmark. The first whole run read 50.7% and 49.6% after its two
-  stages. Since then adapters are made for each drafting slot and tried by training like any other change; training
+- On this lineup training did not better the module on a benchmark. The first whole run read 50.7% and 49.6% after
+  its two stages. Since then adapters are made for each drafting slot and tried by training like any other change; training
   kept a set of them for code on its own held questions (+29.6 points), and the code benchmarks at 100 questions each
   read 75 of 200 with them against 95 without. An adapter is now carried only on a request like what it was taught:
   training kept that for code too (+30.8 points), and the benchmarks read 92 of 200, and 247 of 460 on all 23 tasks

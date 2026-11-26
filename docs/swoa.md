@@ -548,7 +548,8 @@ together; the relaunch counts among those of S2.6.1.
 
 (Informative. A token of context takes about 9 KB for each billion parameters, so `Q` keeps a member's context within what
 its weights take. Measured on build b12110: a 27B member at 2 bits a weight held 20 GB with a share of context for each of
-twelve slots, of which one or two were ever working, and 14.7 GB at most with a pool for four.)
+twelve slots, of which one or two were ever working, and 14.7 GB in a short trial with a pool for four. A pool bounds a
+member's context and not everything its engine keeps: the same member reached 17.8 GB in a long evaluation.)
 
 
 #### S2.5 Readiness and health

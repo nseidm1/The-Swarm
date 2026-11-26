@@ -2,6 +2,19 @@
 
 What has been run:
 
+- **A whole run in which training bettered the swarm on standard tests (2026-11-26).** LFM3 1.7B in both places: 65.2%
+  as configured and 79.1% trained, against 78.0% for the 30B model, on 20 questions of each of 23 tasks
+  ([measured](measured.md#a-whole-run-on-lfm3-17b-the-swarm-trained-reads-as-the-30b-model-does-2026-11-26)).
+  Training kept one change, every instrument on for plain questions. **Limits, said plainly:** twenty a task is a
+  check; one run; most of the gain is on four tasks of operations that were read before their instruments were
+  written; on the other 19 tasks the gain is 6.1 points and the swarm stands at 74.7% against 80.0%; code,
+  instructions, tools and search did not move.
+- **What context costs (2026-11-26).** A token of context takes about 9 KB for each billion parameters, so a model is
+  now given context for what works at once and not a share for every slot
+  ([measured](measured.md#what-context-costs-and-what-works-at-once-2026-11-26)). **A limit, said plainly:** a swarm
+  of a 27B model still reached 17.8 GB in a long evaluation and was rising, against the larger model's 18; what holds
+  the rest has not been found.
+
 - **The instruments, against every benchmark question at hand, with no model (2026-11-22).** On the four tasks of a
   standard suite that ARE the operations, 1,000 of 1,000 read and right (920 never read when the instruments were
   written). On 14,957 questions of 19 other sets (other tasks of that suite, arithmetic in words, science questions,
@@ -105,7 +118,9 @@ What has not:
 - **Following instructions as well as its own model.** On 100 questions of IFEval the small model asked by itself has
   75 right and the module 68. One slot asked as the request came, for a request that instructs its reply, reads 71,
   and is now an arrangement training can keep; no run has shown whether it does.
-- **Training that betters the module on a benchmark.** Adapters made for each drafting slot gain 25 to 30 points on
+- **Training that betters the module by anything but its instruments.** On 2026-11-26 a trained swarm read 13.9
+  points above itself as configured, and all of it was the instruments training kept; no adapter and no change to a
+  brief or to the slots was kept in that run. Adapters made for each drafting slot gain 25 to 30 points on
   training's own held code questions, beyond error, and training keeps them by itself. On HumanEval and MBPP at 100
   questions each the module with them read 75 of 200 against 95 without. Carried only on requests like what they
   were taught, they read 92 of 200, and 247 of 460 on all 23 tasks against 254: no harm and no gain. Training's own
@@ -171,6 +186,9 @@ Known limits:
 - **How the larger model is served can hide what it can do, with tools above all.** Its server here returns only the first of the calls the model writes. On the function-calling test it is therefore asked two ways and counted by the better; in training it is still asked the one way, so on training's own tool questions its count beside the swarm's is a low one wherever more than one call is needed (the swarm's grade does not depend on it there).
 - **A search of the live web does not repeat.** The web search test reads different pages a day apart, so both models are asked on the same day, through the same search, and what each query returned is kept and given to both; the result says the day and the search. A score through this search is not one to set beside the published leaderboard's.
 - **Slow by design.** A question the drafts disagree about takes four stages.
+- **A swarm of a large small model is not small.** Bonsai 2.5 27B in every place reads 280 tokens a second and writes
+  28, and held up to 17.8 GB in an evaluation: as much as the 30B model it is measured against. No evaluation of it
+  has finished.
 - **Which languages are run.** JavaScript, TypeScript, Python, Go, Swift, Dart, Flutter and Kotlin, each where the
   machine already has its tools (nothing is installed for it; Kotlin's compiler is the one Android Studio carries).
   Every language but JavaScript and TypeScript runs under macOS's own sandbox, with no network, no write outside the

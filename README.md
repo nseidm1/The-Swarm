@@ -87,15 +87,17 @@ trained on improve. [How it works](docs/how-it-works.md) · [Training](docs/trai
 
 ## Where it stands
 
-Early, and measured rather than claimed. On one lineup (a 1.2B model in every place), over 460 questions of standard
-tests:
+Early, and measured rather than claimed. Over 460 questions of standard tests, one small model in every place:
 
-| The small model alone | The swarm, before training | A 30B model |
-| --- | --- | --- |
-| 30.0% | 55.2% | 77.6% |
+| The small model | By itself | The swarm, before training | The swarm, trained | A 30B model |
+| --- | --- | --- | --- | --- |
+| LFM3 1.7B (2026-11-26) | not measured | 65.2% | 79.1% | 78.0% |
+| LFM2.5 1.2B (2026-11-22 to 24) | 30.0% | 55.2% | 53.7% | 77.6% |
 
-Training has not yet improved on the untrained swarm in any outside test, and twenty questions a task is a check, not
-a proof. [Results](docs/results.md) · [Every measurement](docs/measured.md) · [Status and limits](docs/status.md)
+On the first lineup the trained swarm reads as the 30B model does, in 2.1 GB of memory against 18. Read that with
+care: twenty questions a task is a check, not a proof; it is one run; and most of the gain is code answering four
+tasks of operations that were read before that code was written. On the other 19 tasks training gained 6.1 points,
+and the swarm stands at 74.7% where the 30B model has 80.0%. [Results](docs/results.md) · [Every measurement](docs/measured.md) · [Status and limits](docs/status.md)
 
 ## Learn more
 

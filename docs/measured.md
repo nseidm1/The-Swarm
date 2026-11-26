@@ -12,7 +12,7 @@ Measured on llama.cpp b12110, an M2 Ultra with 64 GB, twelve server slots of 4,0
 | Written, tokens a second, one call | about 200 | 28 |
 | Written together, 1 / 2 / 4 / 6 calls at once (each reading 1,100 tokens first) | 147 / 174 / 224 / 248 | 17.6 / 21.3 / 27.2 / 30.5 |
 | Memory, a share of context for every slot | 2.1 GB | 18.3 GB with half the context touched; 20 GB in a run |
-| Memory, one pool of 16,384 tokens | 1.7 GB | 14.7 GB, and no more however long it runs |
+| Memory, one pool of 16,384 tokens | 1.7 GB | 14.7 GB in a trial of a few minutes; 17.8 GB and rising in a run |
 | Speed with the pool | about 15% less written a second | the same alone; about 13% less with six at once |
 | A brief still held when its slot is asked again | no: all 1,541 tokens were read again | yes: 730 of 1,867 tokens |
 
@@ -23,10 +23,54 @@ Measured on llama.cpp b12110, an M2 Ultra with 64 GB, twelve server slots of 4,0
   model time. About a quarter of that was reading, over half writing. Two drafts each ran to their limit of 450 tokens,
   and the writer then wrote 440 tokens that were nearly a copy of one draft.
 - When the pool is full the server drops what the slot idle longest remembered, and nothing fails.
+- **The pool does not bound a long run.** The first figure given here was 14.7 GB and no more; that was a trial of a
+  few minutes. In an evaluation the same server began at 14.0 GB and stood at 17.8 GB after two and a half hours,
+  still rising, against the larger model's 18. The engine keeps checkpoints of a slot's context in ordinary memory,
+  outside the pool. Tried on 60 calls over twelve slots: with them, 3 GB beyond the model and a brief remembered (759
+  tokens not read again); with none kept, nothing beyond the model, and no brief remembered at all. So the checkpoints
+  are what remembers a brief, and switching them off is not the cure. What the run held beyond that trial has not
+  been found, and no limit has been set.
 
 What follows from it is in the changelog. Two things were not changed outright, because each needs measuring against
 answers first. Passing the writer over where the drafts agree is now a change the time stage of training tries, class
 by class; it has not yet been tried in a run. A draft's limit is as it was.
+
+## A whole run on LFM3 1.7B: the swarm trained reads as the 30B model does, 2026-11-26
+
+LFM3 1.7B in both places, no decision model, against Nemotron 3.5 Lightning 30B: 20 questions of each of 23 standard
+tasks, before training and after it. Training was the class stage of one pass, on its own questions; no benchmark was
+read by it. It kept one change, for plain questions: every instrument on (17.4 points on 144 held questions, two
+draws, paired error 2.8). No adapter was made, and no change to a brief or to the slots was kept.
+
+| Body of work | As configured | Trained | The larger model |
+| --- | --- | --- | --- |
+| Code (40) | 75.0 | 75.0 | 90.0 |
+| Math (40) | 80.0 | 90.0 | 82.5 |
+| Logic (100) | 69.0 | 82.0 | 88.0 |
+| Reasoning (120) | 55.8 | 95.0 | 76.7 |
+| Instructions (20) | 70.0 | 70.0 | 75.0 |
+| Tools (100) | 86.0 | 86.0 | 81.0 |
+| Search (40) | 5.0 | 5.0 | 35.0 |
+| All 460 | 65.2 (300) | 79.1 (364) | 78.0 (359) |
+
+- **The gain is 13.9 points, with a paired error of 1.6.** 65 questions went from wrong to right and one from right to
+  wrong. Against the larger model the trained swarm is five questions ahead of 460, which is within error: it reads as
+  the larger model does, not above it.
+- **Most of the gain is on four tasks that are operations, and that has a limit to be said plainly.** Sorting words,
+  closing brackets, arithmetic of several steps and Boolean expressions went from 39 of 80 to 80 of 80, where the
+  larger model has 55. The instruments that answer them were written after those four tasks were read (2026-11-22).
+  They are code, they are right, and training kept them on wordings its trying never saw; but a task read before its
+  instrument was written is not an outside test of it.
+- **On the other 19 tasks the gain is 6.1 points, with a paired error of 1.3:** 261 of 380 to 284, where the larger
+  model has 304 (68.7%, 74.7%, 80.0%). The instruments there were written from training's own questions, with no
+  benchmark read: dates 6 to 13 of 20, a table of penguins 13 to 19, when someone was free 14 to 17, who holds what
+  after swaps 15 to 18, whether an argument holds 13 to 15.
+- **Where nothing moved.** Code, instructions, tools and search are as they were, question for question: training
+  kept nothing for those classes. A second code task (MBPP) reads 11 of 20 against 17, and search 2 of 40 against 14.
+- **Time.** About 14 seconds a question as configured and about 9 trained, since a question code answers asks no
+  model. The swarm held 2.1 GB against the larger model's 18.
+- **Not measured.** The small model by itself on these tasks; any of it at a hundred questions a task, which a verdict
+  needs; a second run, to say how far the figures move between runs.
 
 ## Where the other classes stand, and what code does there: 2026-11-25
 
