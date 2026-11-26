@@ -2024,9 +2024,9 @@ swarm_ui._ours = _keep10
 swarm_ui.ARGS = _args10
 _p10.kill()
 shutil.rmtree(_r10, ignore_errors=True)
-_prog10 = swarm_ui.ev_progress({"tasks": [{"target": {"done": 20, "of": 20}, "swarm": {"done": 5, "of": 20}}, {"target": {"done": 0, "of": 20}, "swarm": {"done": 0, "of": 20}}]})
+_prog10 = swarm_ui.ev_progress({"alone": {}, "tasks": [{"target": {"done": 20, "of": 20}, "swarm": {"done": 5, "of": 20}}, {"target": {"done": 0, "of": 20}, "swarm": {"done": 0, "of": 20}}]})
 # the swarm says how long a task is only when its turn comes: the larger model's count stands for it, so the whole is known
-_prog10_wait = swarm_ui.ev_progress({"tasks": [{"target": {"state": "kept", "done": 20, "of": 20}, "swarm": {"done": 20, "of": 20}}, {"target": {"done": 20, "of": 20}, "swarm": {"done": 6, "of": 20}},
+_prog10_wait = swarm_ui.ev_progress({"alone": {}, "tasks": [{"target": {"state": "kept", "done": 20, "of": 20}, "swarm": {"done": 20, "of": 20}}, {"target": {"done": 20, "of": 20}, "swarm": {"done": 6, "of": 20}},
                                                {"target": {"done": 20, "of": 20}, "swarm": {"state": "waiting", "done": 0, "of": None}}]})
 _prog10_open = swarm_ui.ev_progress({"tasks": [{"target": {"done": 7, "of": None}, "swarm": {"done": 0, "of": None}}]})
 check("a run this page started is running only while its own process is: a process is the run's where its command line still names what was started, so an id that has since gone to another program is not a run (an evaluation that ended the night before had read as running, with a Stop button that would have signalled that program), and neither is a training session's; and a running evaluation says how far it is in all in the headline's own unit, the questions both models have answered of all it will ask (691 answers beside a headline of 460 questions did not add up), with the share where the whole is known",
@@ -2502,7 +2502,7 @@ check("a SwOA spec pins an adapter for each role where pretraining made them (ea
       [_spins])
 
 # (a task asked in two ways: the swarm's own count starts again at the second asking, and the page counts by `whole`)
-_two = lambda sw: {"tasks": [{"target": {"state": "kept", "done": 20, "of": 20}, "swarm": {"state": "done", "done": 20, "of": 20}}, {"target": {"state": "kept", "done": 20, "of": 20}, "swarm": sw}]}
+_two = lambda sw: {"alone": {}, "tasks": [{"target": {"state": "kept", "done": 20, "of": 20}, "swarm": {"state": "done", "done": 20, "of": 20}}, {"target": {"state": "kept", "done": 20, "of": 20}, "swarm": sw}]}
 _lin = [swarm_ui.ev_progress(_two(x)) for x in ({"state": "done", "done": 20, "of": 20, "round": 1, "rounds": 2, "whole": 10}, {"state": "asking", "done": 0, "of": 20, "round": 2, "rounds": 2, "whole": 10},
                                                {"state": "asking", "done": 12, "of": 20, "round": 2, "rounds": 2, "whole": 16}, {"state": "done", "done": 20, "of": 20, "round": 2, "rounds": 2, "whole": 20})]
 check("the count of questions finished never goes back: a task asked in two ways (the web search test) starts its own count again at the second asking, and the page counts the task by how far it is over both (it read 460 of 460 and then 420); "
@@ -2732,11 +2732,11 @@ _wq_d = dict(_cvd, root=str(_wq_root))
 _wq_live = _wq_root / ".work" / "eval" / "live.json"
 _side = lambda done, of: {"done": done, "of": of}  # noqa: E731
 _wq_tasks = [{"swarm": _side(10, 20), "target": _side(20, 20)}, {"swarm": _side(0, 20), "target": _side(0, 20)}]
-_wq_live.write_text(json.dumps({"phase": "asking", "tasks": _wq_tasks}))
+_wq_live.write_text(json.dumps({"phase": "asking", "alone": {}, "tasks": _wq_tasks}))
 _wq_ev_fresh = swarm_ui.whole_step_share(_wq_d, "1-evaluate-as-configured")
 _wq_live.write_text(json.dumps({"phase": "done", "tasks": [{"swarm": _side(20, 20), "target": _side(20, 20)}]}))
 _wq_ev_last = swarm_ui.whole_step_share(_wq_d, "4-evaluate-trained")
-_wq_live.write_text(json.dumps({"phase": "asking", "tasks": _wq_tasks}))
+_wq_live.write_text(json.dumps({"phase": "asking", "alone": {}, "tasks": _wq_tasks}))
 os.utime(_wq_live, (time.time() - 3600, time.time() - 3600))
 _wq_ev_old = swarm_ui.whole_step_share(_wq_d, "1-evaluate-as-configured")
 _wq_live.unlink()
@@ -2794,6 +2794,31 @@ check("an evaluation asks the larger model, the swarm, and each small model by i
       and "const evSides=ts=>['target','swarm'," in swarm_ui.JS and "evMeta(ts,s.target||'the larger model',s.alone)" in swarm_ui.JS,
       [_sd_meta, swarm_ui.ev_progress({"tasks": _sd_rows}), swarm_ui._ev_through(_sd_rows)])
 
+# ---- a run carried on: a model that has not had its turn is not counted as having answered nothing
+_co_rows = [{"task": "t1", "name": "Task one", "harness": "lm-evaluation-harness", "target": {"state": "kept", "done": 20, "of": 20}, "swarm": {"state": "waiting", "done": 0, "of": None}},
+            {"task": "t2", "name": "Search", "harness": "bfcl-eval", "target": {"state": "asking", "done": 11, "of": 20}, "swarm": {"state": "waiting", "done": 0, "of": None}}]
+_co_live = {"phase": "asking", "target": "Big", "tasks": _co_rows}
+_co_prog = swarm_ui.ev_progress(_co_live)
+_co_said = swarm_ui.ev_progress(dict(_co_live, alone={"alone-a": "Mini A"}, tasks=[dict(r, **{"alone-a": {"state": "waiting", "done": 0, "of": None}, "alone-a-form": {"state": "waiting", "done": 0, "of": None}}) for r in _co_rows]))
+_co_root = Path(_tf.mkdtemp(prefix="swarm-carried-"))
+(_co_root / ".work" / "eval").mkdir(parents=True)
+(_co_root / ".work" / "eval" / "live.json").write_text(json.dumps(_co_live))
+_co_d = {"root": str(_co_root), "key": "k", "members": {"a": {"id": "m"}, "b": {"id": "m"}}}
+_co_ring = swarm_ui.whole_step_share(_co_d, "1-evaluate-as-configured")
+# (the same run once the small model by itself is listed, nothing more answered: the ring has not gone back)
+(_co_root / ".work" / "eval" / "live.json").write_text(json.dumps(dict(_co_live, alone={"alone-a": "Mini A"}, tasks=[dict(r, **{"alone-a": {"state": "waiting", "done": 0, "of": None}, "alone-a-form": {"state": "waiting", "done": 0, "of": None}}) for r in _co_rows])))
+_co_ring2 = swarm_ui.whole_step_share(_co_d, "1-evaluate-as-configured")
+import shutil as _shu
+_shu.rmtree(_co_root, ignore_errors=True)
+check("a run that is carried on reads which answers it has kept for a model only when that model's turn comes, so a model still waiting is not counted as having answered nothing (the line read 0 of 460 questions finished, 0%, "
+      "while the larger model was on its last task and every answer of the swarm was kept): the count is of the models that have had their turn and says who is still to come, the small models by itself among them before the run lists them; "
+      "and the run's ring counts every model the evaluation will ask from the start, so it does not go back when one is listed (a reply is not laid out for a test of calling tools)",
+      _co_prog == "31 of 40 questions answered by Big · still to come: the swarm and each small model by itself"
+      and _co_said == "31 of 40 questions answered by Big · still to come: the swarm, Mini A by itself and Mini A by itself, its reply laid out"
+      and abs(_co_ring - 31.0 / (20 * 4 + 20 * 3)) < 1e-9 and _co_ring2 == _co_ring
+      and "still to come: '+and(lt)" in swarm_ui.JS and "s.alone===undefined" in swarm_ui.JS,
+      [_co_prog, _co_said, _co_ring, _co_ring2])
+
 # ---- the plan's card sets the intelligence run out stage by stage, and the one in hand in full
 import tempfile as _tf
 _rs_root = Path(_tf.mkdtemp(prefix="swarm-stages-"))
@@ -2812,8 +2837,7 @@ swarm_ui.whole_score, swarm_ui.stage_step = (lambda d: (41.3, 460)), (lambda: "C
 _rs_three = swarm_ui.run_stages(_rs_d, True)
 swarm_ui.whole_score, swarm_ui.stage_step = _rs_was
 _rs_none = swarm_ui.run_stages({"root": str(_rs_root), "key": "nobody", "target": {"name": "Big"}}, False)
-import shutil as _sh
-_sh.rmtree(_rs_root, ignore_errors=True)
+_shu.rmtree(_rs_root, ignore_errors=True)
 check("the plan's card sets the intelligence run out stage by stage: its four stages in order, each with what it does, what it leaves for the next and where it stands; the one in hand is opened out to this moment, "
       "and for an evaluation to each model it asks in the order it asks them, how far through the tasks each is, and the questions every one has answered; a stage the run was stopped in says how Carry on goes on; "
       "a stage that is done says what it came to; and with no run begun the same list says what a run will do",
@@ -2823,7 +2847,7 @@ check("the plan's card sets the intelligence run out stage by stage: its four st
       and '<li data-s="done"><b>Big</b>: 2 of 2 tasks (2 with answers kept from before, not asked again) · every task asked</li>' in _rs_one
       and '<li data-s="done"><b>The swarm</b>: 2 of 2 tasks · every task asked</li>' in _rs_one
       and '<li data-s="on"><b>Mini A by itself, its reply laid out</b>: 0 of 2 tasks · asking Task one, question 11 of 20</li>' in _rs_one
-      and "<b>Answered by every one of them:</b> 10 of 40 questions finished · 25%." in _rs_one
+      and "<b>So far:</b> 10 of 40 questions finished · 25%." in _rs_one and "which of a model&#39;s answers are kept is read when that model&#39;s turn comes" in _rs_one
       and _rs_one.count("<small>to come</small>") == 3 and "The training itself." in _rs_one and "no benchmark question is asked" in _rs_one
       and '<p class="stgt">The intelligence run, stage by stage</p>' in _rs_one
       and '<li data-stage="1" class="stg stopped">' in _rs_stopped and "<small>stopped here</small>" in _rs_stopped and "Carry on begins it again: every task a model had finished is kept and not asked again" in _rs_stopped and "This moment" not in _rs_stopped

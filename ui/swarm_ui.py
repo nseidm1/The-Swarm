@@ -1011,9 +1011,13 @@ async function evTick(){const box=$('#evalbox');if(!box||!box.dataset.running)re
   const set=(k,t)=>{const el=box.querySelector('[data-ev="'+k+'"]');if(el&&el.textContent!==t)el.textContent=t;};
   set('step',s.step||'');
   // HOW FAR IT IS IN ALL, in questions as the headline counts them: one is finished once both models answered it (ev_progress, the same count)
-  {let dn=0,tot=0,known=true;const ws=evSides(s.tasks||[]);for(const t of s.tasks||[]){const ss=ws.map(w=>t[w]||{});dn+=Math.min(...ss.map(x=>Number(x.whole??x.done)||0));
-     const n=Math.max(0,...ss.map(x=>Number(x.of)||0));if(n)tot+=n;else known=false;}
-   set('prog',(s.tasks||[]).length?(known&&tot?dn+' of '+tot+' questions finished · '+Math.round(100*dn/tot)+'%':''):'');}
+  {let dn=0,tot=0,known=true;const ts=s.tasks||[],ws=evSides(ts);let bg=ws.filter(w=>ts.some(t=>(t[w]||{}).state!=='waiting'));if(!bg.length)bg=ws.slice(0,1);
+   for(const t of ts){dn+=Math.min(...bg.map(w=>{const x=t[w]||{};return Number(x.whole??x.done)||0;}));
+     const n=Math.max(0,...ws.map(w=>Number((t[w]||{}).of)||0));if(n)tot+=n;else known=false;}
+   const tn=s.target||'the larger model',lt=ws.filter(w=>!bg.includes(w)).map(w=>evWho(w,tn,s.alone));
+   if(s.alone===undefined&&!['done','stopped','failed'].includes(s.phase)&&!ws.some(w=>w.startsWith('alone-')))lt.push('each small model by itself');
+   const and=a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
+   set('prog',ts.length&&known&&tot?(lt.length?dn+' of '+tot+' questions answered by '+and(bg.map(w=>evWho(w,tn,s.alone)))+' · still to come: '+and(lt):dn+' of '+tot+' questions finished · '+Math.round(100*dn/tot)+'%'):'');}
   const q=box.querySelector('.evq'),n=s.now;
   if(q){q.hidden=!n;if(n){const tn=box.dataset.tname||'';
     set('q',evWho(n.who||'target',s.target||'the larger model',s.alone)+' · '+n.name+' · question '+n.i+(n.of?' of '+n.of:''));
@@ -1652,11 +1656,14 @@ def _stage_eval_now(d, tname):
                    ("every task asked" if done == len(rows) else "waits its turn" if not done else "between tasks")
             said.append('<li data-s="%s"><b>%s</b>: %d of %d tasks%s · %s</li>'
                         % ("on" if at or w == who_now else "done" if done == len(rows) else "", e(name[0].upper() + name[1:]), done, len(rows),
-                           (" (%d with answers kept from before, not asked again)" % kept) if kept else "", what))
+                           (" (%d with answers kept from before, not asked again)" % kept) if kept else "", what if (done or at) else "waits its turn: its kept answers are read then"))
+        if "alone" not in live and not any(w.startswith("alone-") for w in _ev_sides(rows)):
+            said.append('<li data-s=""><b>Each small model of the swarm by itself</b>, plainly and then with its reply laid out · waits its turn</li>')
         out.append('<p class="small" style="margin:6px 0 0"><b>Who is asked, in this order:</b></p><ol class="small stgw">%s</ol>' % "".join(said))
+        out.append('<p class="small muted" style="margin:6px 0 0">A run that is carried on keeps every answer it had: which of a model&#39;s answers are kept is read when that model&#39;s turn comes, and those tasks are then not asked again.</p>')
         prog = ev_progress(live)
         if prog:
-            out.append('<p class="small" style="margin:6px 0 0"><b>Answered by every one of them:</b> %s.</p>' % e(prog))
+            out.append('<p class="small" style="margin:6px 0 0"><b>So far:</b> %s.</p>' % e(prog))
     return "".join(out)
 
 
@@ -5092,19 +5099,34 @@ def ev_progress(live):
     691 beside a headline of 460 questions."""
     done = of = 0
     known = True
-    sides = _ev_sides(live.get("tasks") or [])
-    for t in live.get("tasks") or []:
-        ss = [t.get(w) or {} for w in sides]
+    rows = live.get("tasks") or []
+    sides = _ev_sides(rows)
+    # A MODEL THAT HAS NOT HAD ITS TURN IS NOT COUNTED AS HAVING ANSWERED NOTHING (console 2026-11-25). An evaluation that is
+    # carried on reads which answers it has kept for a model only when that model's turn comes, so until then every row of it
+    # says "waiting": counted, the line read "0 of 460 questions finished · 0%" while the larger model was on its last task
+    # and the swarm's answers to every task were kept. The count is of the models that have begun, and says who is to come.
+    begun = [w for w in sides if any((t.get(w) or {}).get("state") != "waiting" for t in rows)] or sides[:1]
+    for t in rows:
+        ss = [t.get(w) or {} for w in begun]
         done += min(_whole(s) for s in ss)
-        n = max([int(s.get("of") or 0) for s in ss] or [0])
+        n = max([int((t.get(w) or {}).get("of") or 0) for w in sides] or [0])
         if n:
             of += n
         else:
             known = False
-    if not (live.get("tasks") or []):
+    if not rows:
+        return ""
+    tname = str(live.get("target") or "the larger model")
+    later = [_ev_who(w, tname, live.get("alone")) for w in sides if w not in begun]
+    # (each small model by itself is listed by the run only when its turn comes: until then it is still to come)
+    if "alone" not in live and live.get("phase") not in ("done", "stopped", "failed") and not any(w.startswith("alone-") for w in sides):
+        later.append("each small model by itself")
+    if not (known and of):
         return ""
     # (said only where the whole is known: a bare count with no total repeats what each task's own line on the card says)
-    return ("%d of %d questions finished · %d%%" % (done, of, int(100.0 * done / of + 0.5))) if known and of else ""
+    if not later:
+        return "%d of %d questions finished · %d%%" % (done, of, int(100.0 * done / of + 0.5))
+    return "%d of %d questions answered by %s · still to come: %s" % (done, of, _and([_ev_who(w, tname, live.get("alone")) for w in begun]), _and(later))
 
 
 def _ev_bar(row, who, label):
@@ -6394,9 +6416,16 @@ def whole_step_share(d, step_id):
             # (every model the evaluation asks, each task as long as its longest side says: a side still waiting has no length yet)
             ts = live.get("tasks") or []
             ws = _ev_sides(ts)
+            # (each small model by itself, plainly and with its reply laid out, is listed only when its turn comes: until then
+            # it is counted as to come, so that the ring does not go back when it is listed. A reply is not laid out for a
+            # test of calling tools, so that asker has no part in such a task)
+            n_models = len({(m or {}).get("id") for m in (d.get("members") or {}).values() if m}) or 1
+            later = 0 if ("alone" in live or any(k.startswith("alone-") for k in ws)) else n_models
+            tool = lambda t: str(t.get("harness") or "").lower().startswith("bfcl")  # noqa: E731
             n_of = lambda t: max([int((t.get(k) or {}).get("of") or 0) for k in ws] or [0])  # noqa: E731
-            of = sum(n_of(t) * len(ws) for t in ts)
-            return (sum(min(int((t.get(k) or {}).get("done") or 0), n_of(t)) for t in ts for k in ws) / of) if of else 0.0
+            parts = lambda t: len([k for k in ws if not (k.endswith("-form") and tool(t))]) + later * (1 if tool(t) else 2)  # noqa: E731
+            of = sum(n_of(t) * parts(t) for t in ts)
+            return (sum(min(int((t.get(k) or {}).get("done") or 0), n_of(t)) for t in ts for k in ws if not (k.endswith("-form") and tool(t))) / of) if of else 0.0
         if step_id == "3-train-classes":
             qm = re.search(r"question (\d+) of (\d+)", stage_step() or "")
             if qm and int(qm.group(2)):

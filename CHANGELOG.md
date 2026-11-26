@@ -24,6 +24,11 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **A fix: a run carried on no longer reads 0% while its answers are kept** (2026-11-25). An evaluation that is
+  carried on finds which answers it has kept for a model only when that model's turn comes. Until then the cards
+  counted that model as having answered nothing: "0 of 460 questions finished · 0%" while the larger model was on its
+  last task. The count is now of the models that have had their turn, and says who is still to come; the run's ring
+  counts every model the evaluation will ask from the start, so it does not go back when one is listed.
 - **The plan says what each stage of the intelligence run is for** (2026-11-25). Under **The plan being carried
   out**, the run is set out stage by stage: what each of its four stages does, what it leaves for the next, and where
   it stands. The stage in hand is opened out to this moment: for an evaluation, each model it asks in the order it
