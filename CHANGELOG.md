@@ -24,6 +24,11 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **A fix: a run carried on shows the step it is in** (2026-11-26). Carried on into training after a stop in the last
+  evaluation, the card showed the evaluation running beside the training, the training as "running · 120 min" from its
+  end before, and the ring at 62%, read from the record of the training that had ended. A step the run was stopped in
+  is no longer shown in hand, a step taken again has no time yet, and a record older than the training in hand is not
+  counted.
 - **Training in a run takes the time it needs** (2026-11-25). A run ended its training step at two hours whatever was
   left. That limit was set when the step took twenty minutes; it has grown since, and a run stopped by it had trained
   turns with tools and conversations, was part way through requests for code, and never reached plain questions, which

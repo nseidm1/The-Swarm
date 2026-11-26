@@ -2698,6 +2698,8 @@ _tu_status.write_text("21:09:00 START 3-train-classes\n23:09:01 END   3-train-cl
 _tu_steps, _ = swarm_ui.whole_steps(str(_tu_root), "k")
 _tu_status.write_text("21:09:00 START 3-train-classes\n21:19:01 END   3-train-classes exit 1 10 min\n21:09:00 START 1-evaluate-as-configured\n21:19:01 END   1-evaluate-as-configured exit 143 10 min\n")
 _tu_bad, _ = swarm_ui.whole_steps(str(_tu_root), "k")
+_tu_status.write_text("21:09:00 START 3-train-classes\n23:09:01 END   3-train-classes exit 143 120 min\n23:09:01 START 4-evaluate-trained\n23:48:08 STOPPED\n00:04:08 RESUMED this pass had stopped: carrying on\n00:04:08 SKIP  1-evaluate-as-configured\n00:04:08 START 3-train-classes\n")
+_tu_on, _ = swarm_ui.whole_steps(str(_tu_root), "k")
 (_tu_root / "training" / "results" / "k").mkdir(parents=True)
 (_tu_root / "training" / "results" / "k" / "classes.json").write_text(json.dumps({"rounds": 2, "classes": {
     "tools": {"kept": ["plan: x"], "rounds": [{"candidates": [1] * 9, "of": 9, "kept": True}, {"candidates": [1] * 8, "of": 9}]},
@@ -2710,6 +2712,8 @@ check("the training step of a run that ended by its own time is said to have end
       [x["state"] for x in _tu_steps] == ["waiting", "waiting", "time up", "running"] and _tu_steps[2]["minutes"] == 120
       and [x["state"] for x in _tu_bad][0] == "failed" and [x["state"] for x in _tu_bad][2] == "failed"
       and swarm_ui.whole_share({}, _tu_steps, False) == 25.0
+      # (a run carried on: the step it was stopped in is no longer in hand, and a step taken again has no minutes yet)
+      and [x["state"] for x in _tu_on] == ["done", "waiting", "running", "waiting"] and _tu_on[2]["minutes"] is None
       and "Trained to the end: with tools (1 change kept)." in _tu_said and "In hand when the time ended: asking for code, 88 of 91 changes tried in round 1 of 2, nothing kept." in _tu_said
       and "Not reached, and so left as they were: a conversation and a plain question." in _tu_said,
       [[x["state"] for x in _tu_steps], [x["state"] for x in _tu_bad], _tu_said])
@@ -2793,6 +2797,11 @@ _ts_pass.mkdir(parents=True)
 _ts_say = lambda q: (_wq_root / ".work" / "train" / "live.json").write_text(json.dumps({"trainer": "classes", "step": 'Class 3 of 4, asking for code: trying "x" · question %d of 60' % q}))  # noqa: E731
 _ts_say(1)
 _ts_first = swarm_ui.train_step_share(_wq_d)
+# (and a record older than the stage's start is the last stage's: nothing of it is counted)
+_ts_rec = _wq_root / "training" / "results" / _ts_key / "classes.json"
+os.utime(_ts_rec, (time.time() - 3600, time.time() - 3600))
+_ts_old = swarm_ui.train_step_share(_wq_d)
+os.utime(_ts_rec, None)
 _ts_say(60)
 _ts_last = swarm_ui.train_step_share(_wq_d)
 _ts_run = swarm_ui.whole_share(_wq_d, _st("done", "not taken", "running", "waiting"), True)
@@ -2811,7 +2820,7 @@ check("the intelligence run's ring is held to what the conversation run's was: a
       "with the step and how far the whole run has come said beside it; a step that does not say how far it is (making adapters) leaves the ring as the run's own share; and the run's share counts the training step by the same share the ring shows",
       _wq_ev_fresh == 0.375 and _wq_ev_last == 0.0 and _wq_ev_old == 0.0 and _wq_ev_none == 0.0
       and _wq_tr_q == 0.0 and _wq_tr_stale == 0.0 and _wq_tr_pp == 0.4 and _wq_ad is None and _wq_run_stale == 50.0
-      and abs(_ts_first - (2 + 0.15 + 0.85 * 0.8 * 0.5 / 2) / 4) < 1e-9 and 0 < _ts_last - _ts_first < 0.01 and abs(_ts_run - 100 * (2 + _ts_last) / 4) < 1e-6
+      and abs(_ts_first - (2 + 0.15 + 0.85 * 0.8 * 0.5 / 2) / 4) < 1e-9 and _ts_old == 0.0 and 0 < _ts_last - _ts_first < 0.01 and abs(_ts_run - 100 * (2 + _ts_last) / 4) < 1e-6
       and _vn(_wq_card_train) == 40 and ">of this step<small>pass " in _wq_card_train and " · 60% of the run</small>" in _wq_card_train and 'class="ring on"' in _wq_card_train
       and _vn(_wq_card_ad) == 25 and ">of the run<small>pass " in _wq_card_ad and " · running</small>" in _wq_card_ad and "of this step" not in _wq_card_ad
       # (and the same shape as the conversation run's card, line for line: the ring, what it is of, and under it the pass)

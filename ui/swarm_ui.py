@@ -6332,12 +6332,20 @@ def whole_steps(root, key):
         lines = []
     state, mins = {}, {}
     for ln in lines:
+        # (A RUN CARRIED ON BEGINS AGAIN FROM THE FIRST STEP NOT DONE: a step it was stopped in is no longer in hand, and one
+        # ended by its time is taken again. Carried on into training after a stop in the last evaluation, the card showed
+        # the evaluation running beside the training, and the training "running · 120 min" from its end before, 2026-11-26)
+        if re.match(r"\S+ RESUMED\b", ln):
+            for k in [k for k, v in state.items() if v == "running"]:
+                state[k] = "waiting"
+            continue
         m = re.match(r"\S+ (START|END|SKIP)\s+(\S+)(?: exit (\d+) (\d+) min)?", ln)
         if not m:
             continue
         what, name, code, took = m.groups()
         if what == "START":
             state[name] = "running"
+            mins.pop(name, None)
         elif what == "SKIP":
             state[name] = "done"
         else:
@@ -6503,7 +6511,13 @@ def train_step_share(d):
             step = str(live.get("step") or "") if live.get("trainer") == "classes" else ""
             said = re.search(r"Class \d+ of (\d+)", step)
             asked = int(said.group(1)) if said else (len((run_state() or {}).get("classes") or []) or 4)
-            return classes_share(data._json(root / "training" / "results" / str(d.get("key", "")) / "classes.json", None), asked, step)
+            # (A RECORD WRITTEN BEFORE THIS STAGE BEGAN IS THE LAST STAGE'S, whether that one finished or was ended part way:
+            # the stage writes its own only when it has asked every question of its first class as the swarm stands. A
+            # stage begun again after one ended by its time read 62%, the old one's share, in its first minutes)
+            rec_f = root / "training" / "results" / str(d.get("key", "")) / "classes.json"
+            began = max((x.stat().st_mtime for x in (root / ".work" / "train" / str(d.get("key", ""))).glob("pass-*/status.txt")), default=0)
+            rec = data._json(rec_f, None) if rec_f.exists() and rec_f.stat().st_mtime >= began else None
+            return classes_share(rec, asked, step)
         return float(pp.get("pct") or 0) / 100.0
     except (OSError, TypeError, ValueError, KeyError, AttributeError):
         return 0.0
