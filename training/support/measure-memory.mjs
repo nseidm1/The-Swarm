@@ -105,11 +105,20 @@ export function measureSwarm({ members = {}, decider = '', target = 0 } = {}, to
 // measured" of a swarm that had been serving for an hour). Measured a minute in and every two minutes after, the most seen
 // kept (a server's contexts fill as it is asked), written where the page and the end of a pass read it.
 //   watchMemory(swarm, { file, config, target }) -> stop()        swarm: { members: { a: { pid } }, decider }
+// THE MOST SEEN IS CARRIED FROM AN EARLIER STAGE ONLY WHERE THE SWARM IS SERVED AS IT WAS THEN (servingOf: each place's server
+// slots and how many it works on at once). The same models served another way take another amount, and the figure is what the
+// swarm takes NOW: measured 2026-11-26, a swarm whose context had been cut from a share for each of twelve slots to a pool
+// for four stood at 14 GB while the page said 19.8, the most its earlier serving had reached, and would have said so for good.
+export const servingOf = (swarm) =>
+  Object.entries((swarm && swarm.members) || {})
+    .map(([k, m]) => k + ':' + ((m && m.slots) || '?') + '/' + ((m && (m.atOnce || m.slots)) || '?'))
+    .join(' ');
 export function watchMemory(swarm, { file, config, target, firstMs = 60000, everyMs = 120000 } = {}) {
   let most = null;
+  const serving = servingOf(swarm);
   try {
     const kept = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (kept && kept.config === config && kept.swarm) most = kept;
+    if (kept && kept.config === config && kept.swarm && kept.serving === serving) most = kept;
   } catch {
     /* nothing measured yet */
   }
@@ -121,7 +130,7 @@ export function watchMemory(swarm, { file, config, target, firstMs = 60000, ever
       if (m && (!most || m.swarm >= most.swarm)) {
         most = m;
         fs.mkdirSync(path.dirname(file), { recursive: true });
-        fs.writeFileSync(file + '.part', JSON.stringify({ config, ...m }));
+        fs.writeFileSync(file + '.part', JSON.stringify({ config, serving, ...m }));
         fs.renameSync(file + '.part', file);
       }
     } catch {

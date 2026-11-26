@@ -11822,14 +11822,37 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   stop();
   const kept = fs.existsSync(mfile) ? JSON.parse(fs.readFileSync(mfile, 'utf8')) : null;
   const src = (f) => fs.readFileSync(new URL('../training/' + f, import.meta.url), 'utf8');
+  // (and a figure kept from another way of serving is not carried: what is measured now replaces it, lower though it is)
+  const watchOnce = (members) => {
+    MM.watchMemory(
+      { members, decider: '' },
+      { file: mfile, config: 'mine', target: 18, firstMs: 3600000, everyMs: 3600000 },
+    )();
+    return JSON.parse(fs.readFileSync(mfile, 'utf8'));
+  };
+  const twelve = { a: { pid: process.pid, slots: 12, atOnce: 12 } };
+  const four = { a: { pid: process.pid, slots: 12, atOnce: 4 } };
+  fs.writeFileSync(
+    mfile,
+    JSON.stringify({ config: 'mine', serving: MM.servingOf({ members: twelve }), members: { a: 19.8 }, swarm: 19.8 }),
+  );
+  const sameServing = watchOnce(twelve);
+  const otherServing = watchOnce(four);
+  fs.writeFileSync(mfile, JSON.stringify({ config: 'mine', members: { a: 19.8 }, swarm: 19.8 }));
+  const noServing = watchOnce(four);
   check(
-    'what the swarm takes in memory is measured by any stage that serves it, not by the question loop alone (the run a person starts takes the class stage and pretraining, and the page said "estimated, not measured" of a swarm that had served for an hour): a watch measures each model\'s own process, keeps the most it saw and writes it where the page reads it, and the class stage and pretraining by role both keep one',
+    'what the swarm takes in memory is measured by any stage that serves it, not by the question loop alone (the run a person starts takes the class stage and pretraining, and the page said "estimated, not measured" of a swarm that had served for an hour): a watch measures each model\'s own process, keeps the most it saw and writes it where the page reads it, and the class stage and pretraining by role both keep one; and the most seen is carried from an earlier stage only where the swarm is served as it was then, so that a swarm served with less context shows what it takes now and not what it once took',
     !!kept &&
       kept.config === 'mine' &&
       // (the process that is watched here is this one, a few tens of megabytes: its own figure, which a sum to one decimal
       // of a gigabyte rounds to nothing)
       kept.members.a > 0 &&
       kept.target === 18 &&
+      MM.servingOf({ members: four }) === 'a:12/4' &&
+      sameServing.swarm === 19.8 &&
+      otherServing.swarm < 1 &&
+      otherServing.serving === 'a:12/4' &&
+      noServing.swarm < 1 &&
       /watchMemory\(swarm/.test(src('classes.mjs')) &&
       /memStop\(\);\s*await swarm\.stop\(\)/.test(src('classes.mjs')),
     { kept },

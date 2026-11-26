@@ -43,6 +43,10 @@ The first version.
     52 seconds writing one of them out again. Where the drafts differed the writer still writes the reply. It is tried
     for each class in the time stage, which keeps a change only where held questions are answered no worse and at
     least 15% sooner.
+  - **The memory on the page is the swarm's as it is served now.** The most seen was carried from one stage to the
+    next for a lineup however it was served, so a swarm given less context still read 19.8 GB, the most its earlier
+    serving had reached, while it stood at 14. A kept figure is now carried only where the swarm is served as it was
+    then.
   - The SwOA specification says the same (S2.4.6, S2.7.1, S3.2.3, O.8.3). `plan.writeAs` gained the value `agreed`;
     no other field of a spec changed.
 - **An evaluation's last minutes read rightly** (2026-11-26). Three things the dashboard said wrongly while a run was
