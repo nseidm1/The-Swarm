@@ -1011,8 +1011,8 @@ async function evTick(){const box=$('#evalbox');if(!box||!box.dataset.running)re
   const set=(k,t)=>{const el=box.querySelector('[data-ev="'+k+'"]');if(el&&el.textContent!==t)el.textContent=t;};
   set('step',s.step||'');
   // HOW FAR IT IS IN ALL, in questions as the headline counts them: one is finished once both models answered it (ev_progress, the same count)
-  {let dn=0,tot=0,known=true;const ts=s.tasks||[],ws=evSides(ts);let bg=ws.filter(w=>ts.some(t=>(t[w]||{}).state!=='waiting'));if(!bg.length)bg=ws.slice(0,1);
-   for(const t of ts){dn+=Math.min(...bg.map(w=>{const x=t[w]||{};return Number(x.whole??x.done)||0;}));
+  {let dn=0,tot=0,known=true;const ts=s.tasks||[],ws=evSides(ts);let bg=ws.filter(w=>ts.some(t=>t[w]&&t[w].state!=='waiting'));if(!bg.length)bg=ws.slice(0,1);
+   for(const t of ts){dn+=Math.min(...bg.filter(w=>t[w]||!w.startsWith('alone-')).map(w=>{const x=t[w]||{};return Number(x.whole??x.done)||0;}));
      const n=Math.max(0,...ws.map(w=>Number((t[w]||{}).of)||0));if(n)tot+=n;else known=false;}
    const tn=s.target||'the larger model',lt=ws.filter(w=>!bg.includes(w)).map(w=>evWho(w,tn,s.alone));
    if(s.alone===undefined&&!['done','stopped','failed'].includes(s.phase)&&!ws.some(w=>w.startsWith('alone-')))lt.push('each small model by itself');
@@ -1033,7 +1033,7 @@ async function evTick(){const box=$('#evalbox');if(!box||!box.dataset.running)re
   for(const t of s.tasks||[]){const row=box.querySelector('[data-evt="'+t.task+'"]');if(!row)continue;
     // (a model the row has no bar for yet, a small model asked by itself once the first two are done: the card is drawn again)
     if(evSides([t]).some(who=>!row.querySelector('[data-w="'+who+'"]'))&&row.querySelector('[data-w]')){await swap('/fragment/eval','#evalwrap');return;}
-    for(const who of evSides([t])){const w=row.querySelector('[data-w="'+who+'"]'),st=t[who]||{};if(!w)continue;
+    for(const who of evSides([t])){const w=row.querySelector('[data-w="'+who+'"]'),st=t[who]||{};if(!w||!t[who])continue;
       const pct=st.of?100*st.done/st.of:(st.state==='done'||st.state==='kept'?100:0);w.className='evw '+(st.state||'waiting');
       w.querySelector('i').style.width=pct.toFixed(1)+'%';const ws=w.querySelector('[data-ws]'),tx=(EVW[st.state]||(()=>''))(st);if(ws.textContent!==tx)ws.textContent=tx;}}
   // each body of work, in a line while it is folded; and the one being asked now opens, unless a person folded or opened it
@@ -1047,13 +1047,13 @@ async function evTick(){const box=$('#evalbox');if(!box||!box.dataset.running)re
 const evSides=ts=>['target','swarm',...[...new Set(ts.flatMap(t=>Object.keys(t).filter(k=>k.startsWith('alone-')&&t[k]&&typeof t[k]==='object')))].sort((a,b)=>{const x=a.replace('-form',''),y=b.replace('-form','');return x<y?-1:x>y?1:a.length-b.length;})];
 const evWho=(w,tn,alone)=>w==='target'?tn:w==='swarm'?'the swarm':(((alone||{})[w.replace(/-form$/,'')])||'a small model')+' by itself'+(/-form$/.test(w)?', its reply laid out':'');
 const evShare=all=>{const ts=all.filter(t=>!['target','swarm'].every(w=>String((t[w]||{}).why||'').startsWith('not asked')));if(!ts.length)return null;
-  const ws=evSides(ts);let dn=0,tot=0,known=true,sum=0;for(const t of ts){const ss=ws.map(w=>t[w]||{}),d=Math.min(...ss.map(x=>Number(x.whole??x.done)||0)),n=Math.max(0,...ss.map(x=>Number(x.of)||0));dn+=d;tot+=n;
+  const ws=evSides(ts);let dn=0,tot=0,known=true,sum=0;for(const t of ts){const ss=ws.filter(w=>t[w]||!w.startsWith('alone-')).map(w=>t[w]||{}),d=Math.min(...ss.map(x=>Number(x.whole??x.done)||0)),n=Math.max(0,...ss.map(x=>Number(x.of)||0));dn+=d;tot+=n;
     if(n)sum+=Math.min(1,d/n);else if(ss.every(x=>['done','kept'].includes(x.state)))sum+=1;else known=false;}
   return [Math.min(100,known&&tot?100*dn/tot:100*sum/ts.length),ts.some(t=>ws.some(w=>(t[w]||{}).state==='asking'))];};
 const evMeta=(all,tn,alone)=>{const na=t=>String((t.target||{}).why||'').startsWith('not asked');if(all.every(na))return all[0].target.why;
   const ts=all.filter(t=>!na(t)),k=all.length-ts.length;
-  const w=who=>{const done=ts.filter(t=>['done','kept'].includes((t[who]||{}).state)).length,a=ts.find(t=>(t[who]||{}).state==='asking');
-    return done+' of '+ts.length+' task'+(ts.length===1?'':'s')+' asked'+(a?', asking '+a.name+' '+((a[who].done||0)+1)+(a[who].of?' of '+a[who].of:''):'');};
+  const w=who=>{const mine=who.startsWith('alone-')?ts.filter(t=>t[who]):ts,done=mine.filter(t=>['done','kept'].includes((t[who]||{}).state)).length,a=mine.find(t=>(t[who]||{}).state==='asking');
+    return done+' of '+mine.length+' task'+(mine.length===1?'':'s')+' asked'+(a?', asking '+a.name+' '+((a[who].done||0)+1)+(a[who].of?' of '+a[who].of:''):'');};
   return evSides(ts).map(who=>evWho(who,tn,alone)+': '+w(who)).join(' · ')+(k?' · '+k+' not asked':'');};
 // WHO HOLDS THE MACHINE: training, an evaluation or pretraining, started or stopped anywhere (this page, another device, a script).
 // Each card was drawn again only when its OWN run ended, so a training run stopped left Evaluate and Pretrain saying they wait for it
@@ -1647,20 +1647,21 @@ def _stage_eval_now(d, tname):
         who_now = str((live.get("now") or {}).get("who") or "")
         said = []
         for w in _ev_sides(rows):
-            states = [(r.get(w) or {}).get("state") for r in rows]
+            mine = [r for r in rows if w in r] if w.startswith("alone-") else rows
+            states = [(r.get(w) or {}).get("state") for r in mine]
             done = sum(1 for s in states if s in ("done", "kept"))
             kept = sum(1 for s in states if s == "kept")
-            at = next((r for r in rows if (r.get(w) or {}).get("state") == "asking"), None)
+            at = next((r for r in mine if (r.get(w) or {}).get("state") == "asking"), None)
             name = _ev_who(w, tname, live.get("alone"))
             what = ("asking %s, question %d%s" % (e(at.get("name") or at.get("task")), ((at.get(w) or {}).get("done") or 0) + 1, (" of %d" % at[w]["of"]) if (at.get(w) or {}).get("of") else "")) if at else \
-                   ("every task asked" if done == len(rows) else "waits its turn" if not done else "between tasks")
+                   ("every task asked" if done == len(mine) else "waits its turn" if not done else "between tasks")
             said.append('<li data-s="%s"><b>%s</b>: %d of %d tasks%s · %s</li>'
-                        % ("on" if at or w == who_now else "done" if done == len(rows) else "", e(name[0].upper() + name[1:]), done, len(rows),
-                           (" (%d with answers kept from before, not asked again)" % kept) if kept else "", what if (done or at) else "waits its turn: its kept answers are read then"))
+                        % ("on" if at or w == who_now else "done" if done == len(mine) else "", e(name[0].upper() + name[1:]), done, len(mine),
+                           (" (%d with answers kept from before, not asked again)" % kept) if kept else "", what))
         if "alone" not in live and not any(w.startswith("alone-") for w in _ev_sides(rows)):
             said.append('<li data-s=""><b>Each small model of the swarm by itself</b>, plainly and then with its reply laid out · waits its turn</li>')
         out.append('<p class="small" style="margin:6px 0 0"><b>Who is asked, in this order:</b></p><ol class="small stgw">%s</ol>' % "".join(said))
-        out.append('<p class="small muted" style="margin:6px 0 0">A run that is carried on keeps every answer it had: which of a model&#39;s answers are kept is read when that model&#39;s turn comes, and those tasks are then not asked again.</p>')
+        out.append('<p class="small muted" style="margin:6px 0 0">A run that is carried on keeps every answer it had: a task whose answers are kept is not asked again.</p>')
         prog = ev_progress(live)
         if prog:
             out.append('<p class="small" style="margin:6px 0 0"><b>So far:</b> %s.</p>' % e(prog))
@@ -5105,9 +5106,10 @@ def ev_progress(live):
     # carried on reads which answers it has kept for a model only when that model's turn comes, so until then every row of it
     # says "waiting": counted, the line read "0 of 460 questions finished · 0%" while the larger model was on its last task
     # and the swarm's answers to every task were kept. The count is of the models that have begun, and says who is to come.
-    begun = [w for w in sides if any((t.get(w) or {}).get("state") != "waiting" for t in rows)] or sides[:1]
+    begun = [w for w in sides if any(w in t and (t.get(w) or {}).get("state") != "waiting" for t in rows)] or sides[:1]
     for t in rows:
-        ss = [t.get(w) or {} for w in begun]
+        # (of the models that have begun, the ones this task is asked of)
+        ss = [t.get(w) or {} for w in begun if w in t or not w.startswith("alone-")]
         done += min(_whole(s) for s in ss)
         n = max([int((t.get(w) or {}).get("of") or 0) for w in sides] or [0])
         if n:
@@ -5151,7 +5153,7 @@ def _ev_through(rows):
     parts = []
     sides = _ev_sides(ts)
     for r in ts:
-        ss = [r.get(w) or {} for w in sides]
+        ss = [r.get(w) or {} for w in sides if w in r or not w.startswith("alone-")]
         d_, n_ = min(_whole(s) for s in ss), max([int(s.get("of") or 0) for s in ss] or [0])
         done, of = done + d_, of + n_
         parts.append(min(1.0, float(d_) / n_) if n_ else (1.0 if all((s.get("state") in ("done", "kept")) for s in ss) else None))
@@ -5179,9 +5181,11 @@ def _ev_meta_live(rows, tname, alone=None):
     rows = [r for r in rows if not skipped(r)]
 
     def who(w):
-        done = sum(1 for r in rows if (r.get(w) or {}).get("state") in ("done", "kept"))
-        a = next((r for r in rows if (r.get(w) or {}).get("state") == "asking"), None)
-        return "%d of %d task%s asked%s" % (done, len(rows), "" if len(rows) == 1 else "s",
+        # (a model that has no row for a task is not asked it: counted over its own tasks)
+        mine = [r for r in rows if w in r] if w.startswith("alone-") else rows
+        done = sum(1 for r in mine if (r.get(w) or {}).get("state") in ("done", "kept"))
+        a = next((r for r in mine if (r.get(w) or {}).get("state") == "asking"), None)
+        return "%d of %d task%s asked%s" % (done, len(mine), "" if len(mine) == 1 else "s",
                                            (", asking %s %d%s" % (a.get("name") or a.get("task"), (a[w].get("done") or 0) + 1, (" of %d" % a[w]["of"]) if a[w].get("of") else "")) if a else "")
     return " · ".join("%s: %s" % (_ev_who(w, tname, alone), who(w)) for w in _ev_sides(rows)) + ((" · %d not asked" % left_out) if left_out else "")
 
@@ -6423,9 +6427,12 @@ def whole_step_share(d, step_id):
             later = 0 if ("alone" in live or any(k.startswith("alone-") for k in ws)) else n_models
             tool = lambda t: str(t.get("harness") or "").lower().startswith("bfcl")  # noqa: E731
             n_of = lambda t: max([int((t.get(k) or {}).get("of") or 0) for k in ws] or [0])  # noqa: E731
-            parts = lambda t: len([k for k in ws if not (k.endswith("-form") and tool(t))]) + later * (1 if tool(t) else 2)  # noqa: E731
+            # (a model's part in a task: the larger model and the swarm in every one; a small model by itself where the run
+            # gave the task a row of it, and not with its reply laid out in a test of calling tools)
+            has = lambda t, k: (not k.startswith("alone-")) or (k in t and not (k.endswith("-form") and tool(t)))  # noqa: E731
+            parts = lambda t: len([k for k in ws if has(t, k)]) + later * (1 if tool(t) else 2)  # noqa: E731
             of = sum(n_of(t) * parts(t) for t in ts)
-            return (sum(min(int((t.get(k) or {}).get("done") or 0), n_of(t)) for t in ts for k in ws if not (k.endswith("-form") and tool(t))) / of) if of else 0.0
+            return (sum(min(int((t.get(k) or {}).get("done") or 0), n_of(t)) for t in ts for k in ws if has(t, k)) / of) if of else 0.0
         if step_id == "3-train-classes":
             qm = re.search(r"question (\d+) of (\d+)", stage_step() or "")
             if qm and int(qm.group(2)):
@@ -6888,6 +6895,11 @@ class Handler(BaseHTTPRequestHandler):
             # a terminal. The Train card said "Nothing is running. No model is loaded." while one trained, console 2026-11-24)
             fresh = time.time() * 1000 - float(now.get("at", 0) or 0) <= 180000
             if not running and now.get("trainer") == "classes" and fresh and stage_alive():
+                running = True
+            # (AN EVALUATION ASKS THE SWARM TOO, and writes each slot's state as training does: support/bench.mjs openSwarm.
+            # The page showed every slot idle through an evaluation, because only a training session's note was believed,
+            # console 2026-11-25. Believed while an evaluation is running and the note is fresh: the swarm's part of it)
+            if not running and now.get("trainer") == "evaluate" and fresh and (job_state("eval") or {}).get("running"):
                 running = True
             # what a trainer wrote stands only while a session runs and it is fresh: a stopped session leaves nothing "working"
             if not running or time.time() * 1000 - float(now.get("at", 0) or 0) > 180000:

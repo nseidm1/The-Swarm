@@ -1007,27 +1007,6 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     const s = scoreIn(keep(b), b);
     Object.assign(row, { state: 'kept', done: s.n, of: s.n });
   }
-  if (needTarget.length) {
-    live.phase = 'loading';
-    say('Loading ' + TARGET.name);
-    const { openTarget } = await import('./target.mjs');
-    const t = await openTarget(TARGET, { llamaServer: B.llamaServer(), modelsDir: B.modelsDir(), onRecover: () => {} });
-    stopping.push(t.stop);
-    live.phase = 'asking';
-    // (a step with tools is asked of it as training asks one: training/target.mjs)
-    await askAll(
-      'target',
-      askAt(t.base),
-      askToolsAt(t.base, { model: TARGET.model || 'target', stop: ['<unk>'] }),
-      needTarget,
-      keep,
-      {
-        written: askWrittenAt(t.base, { model: TARGET.model || 'target', stop: ['<unk>'] }),
-        after: askAfterAt(t.base, { model: TARGET.model || 'target', stop: ['<unk>'] }),
-      },
-    );
-    await t.stop();
-  }
 
   // THEN THE SWARM, as it is trained now (or one already served at SWARM_EVAL_SWARM_BASE, which is left running)
   live.phase = 'loading';
@@ -1115,6 +1094,86 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     const s = scoreIn(swarmKeep(b), b);
     Object.assign(row, { state: 'kept', done: s.n, of: s.n });
   }
+  // WHICH ANSWERS ARE KEPT IS READ FOR EVERY MODEL THE RUN WILL ASK, BEFORE ANY IS ASKED (console 2026-11-25). The larger
+  // model's were read first and each other model's only when its turn came, so a run that was carried on said for the whole
+  // of the larger model's part that the swarm and each small model had answered nothing, and the page read 0% of 460
+  // questions with every one of the swarm's answers kept. Now each model's rows say what is kept from the first second;
+  // the asking below goes in the same order as before.
+  const aloneOf = {};
+  live.alone = {};
+  if (!B.has('no-alone')) {
+    for (const [k, m] of Object.entries(SERVED)) {
+      const who = 'alone-' + k;
+      const eng = swarmEngines.find((x) => x.name === String(m.engine || 'llama')) || { name: 'llama', version: '' };
+      const keepM = (b) =>
+        path.join(
+          EVAL_DIR,
+          'alone',
+          m.id,
+          b.task +
+            '-' +
+            (limitOf(b) || 'all') +
+            '-r' +
+            RELAY_VERSION +
+            enginePart(eng.name, eng.version) +
+            dayPart(b) +
+            searchPart(b),
+        );
+      // (and the same model with its reply laid out and nothing more: formOnly. Not a test of calling tools, which has no layout)
+      const whoF = who + '-form';
+      const keepF = (b) => path.join(EVAL_DIR, 'alone-form', path.relative(path.join(EVAL_DIR, 'alone'), keepM(b)));
+      // (ONE MODEL IN TWO PLACES IS ONE MODEL BY ITSELF: its answers are kept by the model, so the second place has nothing to
+      // ask once the first has been. It is given rows, and a name on the page, only if it comes to be asked after all)
+      const same = Object.values(aloneOf).some((o) => o.m.id === m.id);
+      const rows = () => {
+        live.alone[who] = m.name;
+        const formed = askable.filter((b) => !isToolTest(b));
+        // (laid out: not a test of calling tools, which has no layout, so such a task has no row of it; and what is kept of
+        // it is marked as the plain asking's is: it was left "waiting" for good where its answers were kept, 2026-11-25)
+        for (const b of formed)
+          live.tasks.find((t) => t.task === b.task)[whoF] = { state: 'waiting', done: 0, of: null, seconds: 0 };
+        const needF = formed.filter((b) => !keptIn(keepF(b), b));
+        for (const b of formed.filter((y) => !needF.includes(y))) {
+          const sc = scoreIn(keepF(b), b);
+          Object.assign(live.tasks.find((t) => t.task === b.task)[whoF], { state: 'kept', done: sc.n, of: sc.n });
+        }
+        for (const t of live.tasks)
+          t[who] = blocked.has(t.task)
+            ? { state: 'failed', why: blocked.get(t.task) }
+            : { state: 'waiting', done: 0, of: null, seconds: 0 };
+        const need = askable.filter((b) => !keptIn(keepM(b), b));
+        for (const b of askable.filter((y) => !need.includes(y))) {
+          const sc = scoreIn(keepM(b), b);
+          Object.assign(live.tasks.find((t) => t.task === b.task)[who], { state: 'kept', done: sc.n, of: sc.n });
+        }
+        return { need, needF };
+      };
+      if (!same) rows();
+      aloneOf[k] = { who, m, keepM, whoF, keepF, rows };
+    }
+  }
+  write();
+  if (needTarget.length) {
+    live.phase = 'loading';
+    say('Loading ' + TARGET.name);
+    const { openTarget } = await import('./target.mjs');
+    const t = await openTarget(TARGET, { llamaServer: B.llamaServer(), modelsDir: B.modelsDir(), onRecover: () => {} });
+    stopping.push(t.stop);
+    live.phase = 'asking';
+    // (a step with tools is asked of it as training asks one: training/target.mjs)
+    await askAll(
+      'target',
+      askAt(t.base),
+      askToolsAt(t.base, { model: TARGET.model || 'target', stop: ['<unk>'] }),
+      needTarget,
+      keep,
+      {
+        written: askWrittenAt(t.base, { model: TARGET.model || 'target', stop: ['<unk>'] }),
+        after: askAfterAt(t.base, { model: TARGET.model || 'target', stop: ['<unk>'] }),
+      },
+    );
+    await t.stop();
+  }
   if (needSwarm.length) {
     say(servedAt ? 'Using the swarm served at ' + servedAt : 'Loading the swarm (' + CONFIG_KEY.split('--')[0] + ')');
     let swarm = null;
@@ -1156,43 +1215,14 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   // does not change with the arrangement, so its answers are kept by the model and its engine's version
   // (.work/eval/alone/<model>/...) and asked once, whichever swarm it is later part of. It is asked each task plainly, one
   // call a question, served as the swarm serves it and with no adapter. --no-alone leaves this out
-  const aloneOf = {};
-  live.alone = {};
   if (!B.has('no-alone')) {
     const { startMember } = await import('../src/members.mjs');
     for (const [k, m] of Object.entries(SERVED)) {
-      const who = 'alone-' + k;
-      const eng = swarmEngines.find((x) => x.name === String(m.engine || 'llama')) || { name: 'llama', version: '' };
-      const keepM = (b) =>
-        path.join(
-          EVAL_DIR,
-          'alone',
-          m.id,
-          b.task +
-            '-' +
-            (limitOf(b) || 'all') +
-            '-r' +
-            RELAY_VERSION +
-            enginePart(eng.name, eng.version) +
-            dayPart(b) +
-            searchPart(b),
-        );
-      // (and the same model with its reply laid out and nothing more: formOnly. Not a test of calling tools, which has no layout)
-      const whoF = who + '-form';
-      const keepF = (b) => path.join(EVAL_DIR, 'alone-form', path.relative(path.join(EVAL_DIR, 'alone'), keepM(b)));
-      aloneOf[k] = { who, m, keepM, whoF, keepF };
-      live.alone[who] = m.name;
-      for (const t of live.tasks) t[whoF] = { state: 'waiting', done: 0, of: null, seconds: 0 };
-      const needF = askable.filter((b) => !isToolTest(b) && !keptIn(keepF(b), b));
-      for (const t of live.tasks)
-        t[who] = blocked.has(t.task)
-          ? { state: 'failed', why: blocked.get(t.task) }
-          : { state: 'waiting', done: 0, of: null, seconds: 0 };
-      const need = askable.filter((b) => !keptIn(keepM(b), b));
-      for (const b of askable.filter((x) => !need.includes(x))) {
-        const sc = scoreIn(keepM(b), b);
-        Object.assign(live.tasks.find((t) => t.task === b.task)[who], { state: 'kept', done: sc.n, of: sc.n });
-      }
+      const { who, whoF, keepM, keepF, rows } = aloneOf[k];
+      // (what is still to ask of it, read when its turn comes: the same model in an earlier place has been asked by now)
+      const formedNow = askable.filter((b) => !isToolTest(b));
+      if (!askable.some((b) => !keptIn(keepM(b), b)) && !formedNow.some((b) => !keptIn(keepF(b), b))) continue;
+      const { need, needF } = rows();
       if (!need.length && !needF.length) continue;
       live.phase = 'loading';
       say('Loading ' + m.name + ', by itself');

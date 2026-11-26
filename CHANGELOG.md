@@ -24,6 +24,15 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **An evaluation says from its first second what it has kept, and the page shows the slots at work** (2026-11-25).
+  - The evaluator reads which answers are kept for every model it will ask before it asks any (it read them as each
+    model's turn came). A run carried on shows at once what is left to do.
+  - A fix: the small model with its reply laid out was left "waiting" on every task whose answers were kept, and
+    was listed for the tests of calling tools, which it is never asked.
+  - A fix: one model in both places was listed by itself twice.
+  - A fix: the picture of the swarm showed every slot idle through an evaluation. The evaluator has always written
+    each slot's state; the page believed that note only from a training session. It now shows the slots while an
+    evaluation asks the swarm.
 - **A fix: a run carried on no longer reads 0% while its answers are kept** (2026-11-25). An evaluation that is
   carried on finds which answers it has kept for a model only when that model's turn comes. Until then the cards
   counted that model as having answered nothing: "0 of 460 questions finished · 0%" while the larger model was on its

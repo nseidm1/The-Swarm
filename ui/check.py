@@ -2816,7 +2816,12 @@ check("a run that is carried on reads which answers it has kept for a model only
       _co_prog == "31 of 40 questions answered by Big · still to come: the swarm and each small model by itself"
       and _co_said == "31 of 40 questions answered by Big · still to come: the swarm, Mini A by itself and Mini A by itself, its reply laid out"
       and abs(_co_ring - 31.0 / (20 * 4 + 20 * 3)) < 1e-9 and _co_ring2 == _co_ring
-      and "still to come: '+and(lt)" in swarm_ui.JS and "s.alone===undefined" in swarm_ui.JS,
+      and "still to come: '+and(lt)" in swarm_ui.JS and "s.alone===undefined" in swarm_ui.JS
+      # (a model is counted over the tasks it is asked: with its reply laid out it has no row in a test of calling tools)
+      and swarm_ui._ev_meta_live([dict(_co_rows[0], **{"alone-a": {"state": "kept", "done": 20, "of": 20}, "alone-a-form": {"state": "kept", "done": 20, "of": 20}}),
+                                  dict(_co_rows[1], **{"alone-a": {"state": "waiting", "done": 0, "of": None}})], "Big", {"alone-a": "Mini A"}).endswith("Mini A by itself: 1 of 2 tasks asked · Mini A by itself, its reply laid out: 1 of 1 task asked")
+      # (and the slots of the swarm are shown while an evaluation asks it: its note is believed while an evaluation runs)
+      and 'now.get("trainer") == "evaluate" and fresh and (job_state("eval") or {}).get("running")' in open(swarm_ui.__file__).read(),
       [_co_prog, _co_said, _co_ring, _co_ring2])
 
 # ---- the plan's card sets the intelligence run out stage by stage, and the one in hand in full
@@ -2847,7 +2852,7 @@ check("the plan's card sets the intelligence run out stage by stage: its four st
       and '<li data-s="done"><b>Big</b>: 2 of 2 tasks (2 with answers kept from before, not asked again) · every task asked</li>' in _rs_one
       and '<li data-s="done"><b>The swarm</b>: 2 of 2 tasks · every task asked</li>' in _rs_one
       and '<li data-s="on"><b>Mini A by itself, its reply laid out</b>: 0 of 2 tasks · asking Task one, question 11 of 20</li>' in _rs_one
-      and "<b>So far:</b> 10 of 40 questions finished · 25%." in _rs_one and "which of a model&#39;s answers are kept is read when that model&#39;s turn comes" in _rs_one
+      and "<b>So far:</b> 10 of 40 questions finished · 25%." in _rs_one and "a task whose answers are kept is not asked again" in _rs_one
       and _rs_one.count("<small>to come</small>") == 3 and "The training itself." in _rs_one and "no benchmark question is asked" in _rs_one
       and '<p class="stgt">The intelligence run, stage by stage</p>' in _rs_one
       and '<li data-stage="1" class="stg stopped">' in _rs_stopped and "<small>stopped here</small>" in _rs_stopped and "Carry on begins it again: every task a model had finished is kept and not asked again" in _rs_stopped and "This moment" not in _rs_stopped
