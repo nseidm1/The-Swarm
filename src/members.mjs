@@ -4,6 +4,8 @@
 //   { key, base, slots, ask(slotNumber, messages, params) -> { text, tokens, ms }, alive(), stop() }
 // and it never holds more conversations at once than it has slots: a call that finds every slot taken waits for one.
 // Each slot of the plan keeps to one server slot (id_slot), so the brief it starts with is read once and remembered by the server.
+// A member takes `atOnce` calls together (catalog.mjs servingPlan), which may be fewer than it has slots: its context is one pool
+// sized for what works at once.
 import { spawn, execFileSync } from 'node:child_process';
 import os from 'node:os';
 import net from 'node:net';
@@ -61,9 +63,25 @@ const SERVER_FAULT =
 // this member was started here (it has a `revive`), a call that finds the server gone or hung starts it again and asks once more;
 // every slot waiting on that server shares the one revival. A member that was only attached has nobody to start it, and the
 // fault is the caller's. Each revival is told to `onRecover`, so that it is on the record and not silent.
-function member(m, base, slots, stop = () => {}, { revive = null, onRecover = () => {} } = {}) {
-  const p = pool(slots);
+function member(m, base, slots, stop = () => {}, { revive = null, onRecover = () => {}, atOnce = 0 } = {}) {
+  const p = pool(Math.max(1, Math.min(slots, Number(atOnce) || slots)));
   const pinned = new Map(); // a plan slot's id -> the server slot it keeps to, while that one is free
+  // WHERE ITS OWN SERVER SLOT IS TAKEN (another question has the same slot of the plan working), a call goes to one that is
+  // free: one no slot of the plan keeps to, where there is one, so that nobody's brief is put out. Sent to its own regardless,
+  // it waited inside the server behind the other question while holding one of this member's turns
+  const busy = new Set();
+  const serverSlot = (slotId) => {
+    if (!pinned.has(slotId)) pinned.set(slotId, pinned.size % slots);
+    let s = pinned.get(slotId);
+    if (busy.has(s)) {
+      const kept = new Set(pinned.values());
+      const free = Array.from({ length: slots }, (_, i) => i).filter((i) => !busy.has(i));
+      const other = free.find((i) => !kept.has(i));
+      s = other !== undefined ? other : free.length ? free[0] : s;
+    }
+    busy.add(s);
+    return s;
+  };
   // A MODEL TRAINED TO CALL TOOLS IS NOT LEFT ABLE TO START A CALL. Given no tools, LFM2.5 still answered a quarter of its drafts
   // with <|tool_call_start|>[...] (24 of 112 in one pass, 2026-11-15), and each was an answer lost. Telling it not to did not
   // help. So the token that opens a call is found once (the server is asked what number it is) and forbidden in every request:
@@ -94,6 +112,10 @@ function member(m, base, slots, stop = () => {}, { revive = null, onRecover = ()
     base,
     slots,
     revived: 0,
+    atOnce: Math.max(1, Math.min(slots, Number(atOnce) || slots)),
+    // WHAT IT HAS READ AND WRITTEN: calls, tokens read anew, tokens it still held from the call before, tokens written, and the
+    // time they took. Where the time of a slow model goes was not on any record: only what each call wrote was
+    used: { calls: 0, read: 0, held: 0, written: 0, ms: 0 },
     busiest: () => p.most(),
     alive: () => aliveAt(self.base),
     stop: () => self.halt(),
@@ -101,8 +123,8 @@ function member(m, base, slots, stop = () => {}, { revive = null, onRecover = ()
     async ask(slotId, messages, params = {}) {
       const n = await p.take();
       const t0 = Date.now();
+      const at = serverSlot(slotId);
       try {
-        if (!pinned.has(slotId)) pinned.set(slotId, pinned.size % slots);
         banned = banned || findBanned();
         const noCall = await banned;
         // A TURN WITH TOOLS (tools.mjs): the tools offered are sent, nothing is forbidden, and a call comes back as calls
@@ -119,7 +141,7 @@ function member(m, base, slots, stop = () => {}, { revive = null, onRecover = ()
               messages,
               stream: false,
               cache_prompt: true,
-              id_slot: pinned.get(slotId),
+              id_slot: at,
               // (a model that reasons before it answers is given room for that above what the answer may take: its catalog
               // entry says how much, `thinks`. Without it the reasoning used the answer's room and nothing was answered)
               max_tokens: maxTokens + (Number(m.thinks) || 0),
@@ -141,6 +163,14 @@ function member(m, base, slots, stop = () => {}, { revive = null, onRecover = ()
           const msg = (j.choices && j.choices[0] && j.choices[0].message) || {};
           // a server that puts everything a model wrote under its reasoning, and nothing under its answer, has still been answered
           const calls = withTools && Array.isArray(msg.tool_calls) && msg.tool_calls.length ? msg.tool_calls : null;
+          const tm = j.timings || {};
+          const read = Number(tm.prompt_n ?? (j.usage && j.usage.prompt_tokens)) || 0;
+          const held = Number(tm.cache_n) || 0;
+          self.used.calls++;
+          self.used.read += read;
+          self.used.held += held;
+          self.used.written += (j.usage && j.usage.completion_tokens) || 0;
+          self.used.ms += Date.now() - t0;
           return {
             // (a call is written down as text the way tools.mjs writes an action, so that whatever reads text reads it)
             text: calls
@@ -154,6 +184,8 @@ function member(m, base, slots, stop = () => {}, { revive = null, onRecover = ()
             content: withoutThinking(msg.content || ''),
             ...(calls ? { calls } : {}),
             tokens: (j.usage && j.usage.completion_tokens) || 0,
+            read,
+            held,
             ms: Date.now() - t0,
           };
         };
@@ -173,6 +205,7 @@ function member(m, base, slots, stop = () => {}, { revive = null, onRecover = ()
           return await once();
         }
       } finally {
+        busy.delete(at);
         p.give(n);
       }
     },
@@ -324,8 +357,12 @@ export const serveWithParts = (m, file, serve) =>
 // what a member's server is started with: [program, args] for a port, the context of each slot and its own flags
 export function serveArgs(
   m,
-  { file, port, slots, contextPerSlot, serve = [], flags = [], llamaServer = '', tensorfold = '' },
+  { file, port, slots, contextPerSlot, pool = 0, serve = [], flags = [], llamaServer = '', tensorfold = '' },
 ) {
+  // ONE POOL OF CONTEXT BETWEEN THE SLOTS, where the member works on fewer at once than it has (catalog.mjs servingPlan): each
+  // slot may still hold contextPerSlot, the pool holds what works at once, and the server puts out the brief of a slot that
+  // has been idle longest when the pool is full (llama.cpp --kv-unified; measured b12110). A share for every slot otherwise
+  const shared = Number(pool) > 0 && Number(pool) < slots * contextPerSlot;
   if (engineOf(m) === 'tensorfold')
     return [
       tensorfold,
@@ -355,8 +392,9 @@ export function serveArgs(
       '127.0.0.1',
       '--port',
       String(port),
-      '-c',
-      String(slots * contextPerSlot),
+      ...(shared
+        ? ['-kvu', '-c', String(pool), '--kv-unified-per-slot', String(contextPerSlot)]
+        : ['-c', String(slots * contextPerSlot)]),
       '-np',
       String(slots),
       ...serve,
@@ -370,6 +408,7 @@ export async function startMember(m, opts = {}) {
     llamaServer,
     modelsDir,
     slots = SERVING.slots,
+    atOnce = 0,
     onLine = () => {},
     onRecover = () => {},
     waitMs = 10 * 60000,
@@ -395,6 +434,8 @@ export async function startMember(m, opts = {}) {
     };
   if (viaTensorfold && (opts.flags || []).length)
     onLine(m.key + ': served by TensorFold, which loads no adapter: started without ' + opts.flags.join(' '));
+  // (the pool, while this engine is known to take one: an older build that does not is started with a share for every slot)
+  let pooled = !viaTensorfold && Number(atOnce) > 0 && Number(atOnce) < slots;
   const UNKNOWN_FLAG = /invalid argument|unknown argument|unrecognized|error while handling argument/i;
   const NO_MEMORY =
     /out of memory|failed to allocate|insufficient memory|cannot allocate|bad_alloc|exit 137|exit -?9\b/i;
@@ -418,6 +459,7 @@ export async function startMember(m, opts = {}) {
       port,
       slots,
       contextPerSlot,
+      pool: pooled ? atOnce * contextPerSlot : 0,
       serve,
       flags: opts.flags || [],
       llamaServer: program0 || llamaServer,
@@ -488,7 +530,12 @@ export async function startMember(m, opts = {}) {
   const start = async () => {
     let r = await tryWith();
     for (let attempt = 1; !r.ok && attempt <= 3; attempt++) {
-      if (serve.length && UNKNOWN_FLAG.test(r.why)) {
+      if (pooled && UNKNOWN_FLAG.test(r.why) && /kv-unified|-kvu/.test(r.why)) {
+        pooled = false;
+        onRecover(m.name, 'this llama.cpp has no shared pool of context: started with a share for every slot', {
+          kind: 'flag',
+        });
+      } else if (serve.length && UNKNOWN_FLAG.test(r.why)) {
         const eng = viaTensorfold ? 'TensorFold' : 'llama.cpp';
         onLine(m.key + ': this ' + eng + ' does not know ' + serve.join(' ') + ': starting without it.');
         onRecover(m.name, 'this ' + eng + ' does not know ' + serve.join(' ') + ': started without it', {
@@ -525,5 +572,11 @@ export async function startMember(m, opts = {}) {
     }
     return r;
   };
-  return { ...first, member: member(m, first.base, slots, first.stop, { revive, onRecover }), contextPerSlot };
+  return {
+    ...first,
+    // (fewer at once than it has slots only where its context is one pool: a share for every slot can all work together)
+    member: member(m, first.base, slots, first.stop, { revive, onRecover, atOnce: pooled ? atOnce : 0 }),
+    contextPerSlot,
+    pooled,
+  };
 }

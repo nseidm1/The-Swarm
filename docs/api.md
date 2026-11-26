@@ -14,6 +14,8 @@ await swarm.stop();
 
 **One model in several places is loaded once.** Places that hold the same model, served the same way, share one server, started with the slots of all of them (`shareLoads: false`, or `SWARM_SHARE_LOADS=0`, gives each place its own). Measured with LFM3 1.7B in two places: 2.1 GB in place of 3.3, for about a sixth more time a question.
 
+**A model is given context for what works at once.** A slot remembers a brief; context is what a working slot needs, and it is the dear part: about 9 KB a token for each billion parameters. So each model's server holds context for the widest stage of the arrangement times the questions asked together, in one pool its slots share, and `swarm.questions` says how many questions that is: as many as keep the context within what the model's weights take, three at most (`questions`, or `SWARM_QUESTIONS`, names another). Measured: Bonsai 2.5 27B, one question at a time, 14.7 GB at most in place of 20; LFM3 1.7B, three, in the memory it had. `swarm.used()` gives what the models have read, still held and written.
+
 **As a server.** `swarm.serve()`, or `swarm serve` from a terminal, answers what llama.cpp's own server answers, so a program
 that talks to one model at an address needs no change:
 

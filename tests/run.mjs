@@ -4387,6 +4387,86 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     { before, after: x.text, took },
   );
   up.member.stop();
+  // WHAT A LOAD WORKS ON AT ONCE, AND THE CONTEXT IT IS GIVEN FOR THAT (catalog.mjs servingPlan; members.mjs)
+  {
+    const { servingPlan, widestStage } = await import('../src/catalog.mjs');
+    const MMS = await import('../src/members.mjs');
+    const briefs0 = JSON.parse(fs.readFileSync(new URL('../src/briefs.json', import.meta.url), 'utf8'));
+    const small = servingPlan({ params: 1.7, bytes: 1099627808, widest: 4, slots: 12 });
+    const large = servingPlan({ params: 27, bytes: 7673194848, widest: 4, slots: 12 });
+    const args = (pool) =>
+      MMS.serveArgs(
+        { file: 'a.gguf' },
+        { file: '/m/a.gguf', port: 9, slots: 12, contextPerSlot: 4096, pool, llamaServer: '/ll' },
+      )
+        .flat()
+        .join(' ');
+    check(
+      'a load is given context for what works at once: the widest stage of the arrangement times the questions asked at once, which are as many as keep the context within what the weights take and three at most; a model whose size is unknown is asked one; and the server holds that in one pool where it is less than a share for every slot',
+      widestStage(briefs0, ['a', 'b']) === 4 &&
+        widestStage(briefs0, ['a']) === 2 &&
+        widestStage({ slots: [], kinds: { code: { slots: [1, 2, 3].map(() => ({ member: 'a', stage: 'draft' })) } } }, [
+          'a',
+        ]) === 3 &&
+        small.questions === 3 &&
+        small.atOnce === 12 &&
+        small.pool === 49152 &&
+        large.questions === 1 &&
+        large.atOnce === 4 &&
+        large.slots === 12 &&
+        large.pool === 16384 &&
+        servingPlan({ widest: 4, slots: 12 }).questions === 1 &&
+        servingPlan({ params: 27, bytes: 7673194848, widest: 4, slots: 12, questions: 2 }).pool === 32768 &&
+        servingPlan({ params: 1.7, bytes: 1099627808, widest: 6, slots: 6 }).slots === 12 &&
+        args(16384) === '/ll -m /m/a.gguf --host 127.0.0.1 --port 9 -kvu -c 16384 --kv-unified-per-slot 4096 -np 12' &&
+        args(49152) === '/ll -m /m/a.gguf --host 127.0.0.1 --port 9 -c 49152 -np 12' &&
+        args(0) === '/ll -m /m/a.gguf --host 127.0.0.1 --port 9 -c 49152 -np 12',
+      { small, large, pooled: args(16384) },
+    );
+    const few = await startMember(M, {
+      llamaServer: FAKE,
+      file: model,
+      slots: 4,
+      atOnce: 2,
+      waitMs: 20000,
+      flags: ['--slow', '150'],
+    });
+    const alone = await few.member.ask('s', msg);
+    await Promise.all([few.member.ask('s', msg), few.member.ask('s', msg), few.member.ask('t', msg)]);
+    // (the requests that named a server slot: the ones that ask what a marker's token is name none)
+    const asked = (await (await fetch(few.member.base + '/asked')).json()).filter((x) => Number.isInteger(x));
+    const noPool = await startMember(M, {
+      llamaServer: FAKE,
+      file: model,
+      slots: 4,
+      atOnce: 2,
+      waitMs: 20000,
+      flags: ['--no-pool'],
+      onRecover,
+    });
+    check(
+      'a member takes so many calls at once and no more; a call whose own server slot another question has working goes to one that is free and that no slot of the plan keeps to; what it read, held and wrote is counted; and a llama.cpp with no shared pool is started with a share for every slot, which is written down',
+      few.ok &&
+        few.pooled === true &&
+        / -kvu -c 8192 --kv-unified-per-slot 4096 -np 4 /.test(' ' + few.args + ' ') &&
+        asked.slice(0, 3).join() === '0,0,1' &&
+        asked.length === 4 &&
+        few.member.busiest() === 2 &&
+        few.member.atOnce === 2 &&
+        alone.read === 7 &&
+        alone.held === 3 &&
+        few.member.used.calls === 4 &&
+        few.member.used.read === 28 &&
+        few.member.used.written === 12 &&
+        noPool.ok &&
+        noPool.pooled === false &&
+        / -c 16384 -np 4 /.test(' ' + noPool.args + ' ') &&
+        took.some((t) => t.kind === 'flag' && /no shared pool/.test(t.did)),
+      { args: few.args, asked, used: few.member.used, noPool: noPool.args, took },
+    );
+    few.member.stop();
+    if (noPool.ok) noPool.member.stop();
+  }
   // a server that will not start: an older llama.cpp, a machine short of memory, a start that fails once
   const old = await startMember(M, {
     llamaServer: FAKE,

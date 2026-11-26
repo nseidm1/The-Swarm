@@ -16,7 +16,19 @@
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { MEMBERS, SERVING, ENTRY, SERVED_NAME, TOOLS, toolsOf, NO_DECIDER, servedAs } from './catalog.mjs';
+import {
+  MEMBERS,
+  SERVING,
+  ENTRY,
+  SERVED_NAME,
+  TOOLS,
+  toolsOf,
+  NO_DECIDER,
+  servedAs,
+  servingPlan,
+  widestStage,
+  QUESTIONS_MOST,
+} from './catalog.mjs';
 import { attachMember, startMember, modelFile } from './members.mjs';
 import { answer as orchestrate } from './orchestrate.mjs';
 import { textOf } from './read.mjs';
@@ -196,6 +208,24 @@ export async function createSwarm(opts = {}) {
     (k) => JSON.stringify([MEM[k].id, MEM[k].file, served(k)]),
     opts.shareLoads !== undefined ? opts.shareLoads : process.env.SWARM_SHARE_LOADS !== '0',
   );
+  // WHAT EACH LOAD WORKS ON AT ONCE (catalog.mjs servingPlan): the widest stage of the places it serves, times the questions the
+  // swarm is asked at once, which is what its tightest load has context for (opts.questions, or SWARM_QUESTIONS, names another)
+  const loads = {};
+  for (const key of Object.keys(share).filter((k) => share[k].with === k)) {
+    const places = Object.keys(share).filter((k) => share[k].with === key);
+    loads[key] = {
+      widest: widestStage(briefs, places),
+      slots: slots * share[key].places,
+      params: MEM[key].params,
+      bytes: MEM[key].bytes,
+      contextPerSlot: opts.contextPerSlot,
+    };
+  }
+  const asked = Number(opts.questions) || Number(process.env.SWARM_QUESTIONS) || 0;
+  const questions = Math.max(
+    1,
+    asked || Math.min(QUESTIONS_MOST, ...Object.values(loads).map((l) => servingPlan(l).questions)),
+  );
   for (const key of Object.keys(MEM)) {
     const at = opts.attach && opts.attach[key];
     if (at) {
@@ -219,10 +249,12 @@ export async function createSwarm(opts = {}) {
     const roleFiles = roleFilesOf(opts.roleLoras && opts.roleLoras[key]);
     const lora = roleFiles.length ? null : opts.loras && opts.loras[key];
     if (roleFiles.length) roleIds[key] = Object.fromEntries(roleFiles.map(([role], i) => [role, i]));
+    const serving = servingPlan({ ...loads[key], questions });
     const r = await startMember(MEM[key], {
       ...opts,
       jinja,
-      slots: slots * share[key].places,
+      slots: serving.slots,
+      atOnce: serving.atOnce,
       file: opts.files && opts.files[key],
       ...(lora ? { flags: [...(opts.flags || []), '--lora', lora] } : {}),
       ...(roleFiles.length
@@ -360,6 +392,15 @@ export async function createSwarm(opts = {}) {
   let last = null;
   const swarm = {
     members,
+    // how many questions it may be asked at once (catalog.mjs servingPlan): whoever asks many, asks so many together
+    questions,
+    // what its models have read and written since they started, each load once (members.mjs `used`)
+    used: () => {
+      const sum = { calls: 0, read: 0, held: 0, written: 0, ms: 0 };
+      for (const m of new Set(Object.values(members)))
+        for (const k of Object.keys(sum)) sum[k] += (m.used || {})[k] || 0;
+      return sum;
+    },
     decider: deciderBase || (opts.decide ? 'given' : ''),
     // (the name from when Kev was the only decider)
     get kev() {

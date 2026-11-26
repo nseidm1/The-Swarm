@@ -24,6 +24,21 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **Context for what works at once, on any lineup** (2026-11-26). A swarm of Bonsai 2.5 27B was slow and held 20 GB,
+  more than the 30B model it is measured against. Watched for ninety seconds, it had one or two of its twelve slots
+  working, and every slot held a full share of context. Three things came of it:
+  - **A model is given context for what works together, in one pool.** How much is worked out from the lineup: the
+    widest stage of the arrangement, times the questions it can be asked at once, which are as many as keep the context
+    within what the model's own weights take (three at most). Measured: Bonsai 2.5 27B holds 14.7 GB at most where it
+    held 20; LFM3 1.7B is served as it was, with room for three questions at once. `SWARM_QUESTIONS` names another
+    number.
+  - **A second question does not wait behind the first.** A call whose own server slot another question is using goes
+    to one that is free. The served module gains by it when several programs ask at once. The evaluation and training
+    still ask one question at a time, so the seconds a question they report mean what they meant.
+  - **What a task cost in tokens is written down.** Beside the seconds, an evaluation now keeps what the swarm's
+    models read, still held and wrote on each task. Bonsai 2.5 27B reads 280 tokens a second and writes 28, so on one
+    question a quarter of its time went on reading the question again in each slot and over half on writing.
+  - The SwOA specification says the same (S2.4.6, S2.7.1, S3.2.3). No field of a spec changed.
 - **An evaluation's last minutes read rightly** (2026-11-26). Three things the dashboard said wrongly while a run was
   on its last task. The run read "100% of the run" before it had ended: a run still going now rounds down and stops at
   99%. The web search tasks read "2 s a question, about 28 s left" for the ten minutes each way of asking took, because

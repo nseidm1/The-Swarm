@@ -201,6 +201,45 @@ export const engineBuildFor = (archs, platform = process.platform, arch = proces
 // few hundred megabytes. SWARM_SLOTS sets another number.
 export const SERVING = { slots: Math.max(1, Number(process.env.SWARM_SLOTS) || 6), contextPerSlot: 4096 };
 
+// HOW MUCH A LOAD WORKS ON AT ONCE, AND SO HOW MUCH CONTEXT IT IS GIVEN (2026-11-26). A slot is a place a brief is remembered;
+// context is what a slot that is WORKING needs, and it is the dear part: a token of it takes about 9 KB for each billion
+// parameters (measured on llama.cpp b12110: LFM3 1.7B 13 KB, Bonsai 2.5 27B 250 KB), so twelve slots of 4,096 tokens were 0.6 GB
+// on the first and 12.5 GB on the second, whose 7.7 GB of weights then took 20 GB, more than the 30B model it is measured
+// against. Watched for ninety seconds, that swarm had one or two of its twelve slots working and never more.
+// So a load is given context for what works at once and no more, in ONE POOL its slots share (members.mjs serveArgs):
+//   widest      the most slots one question has working together (the widest stage of the arrangement; at least 2)
+//   questions   how many questions it is asked at once: as many as keep the context within what the weights themselves take,
+//               3 at the most (six calls at once wrote 1.7 times what one did, on both models; little is gained past that)
+//   atOnce      widest x questions: the calls it takes together; another waits its turn
+//   pool        atOnce x contextPerSlot tokens
+// Measured: Bonsai 2.5 27B, one question at once, 14.7 GB where it was past 18 and rising; LFM3 1.7B, three at once, in the
+// memory it had. SWARM_QUESTIONS names another number of questions.
+export const CONTEXT_BYTES_PER_B = 9000;
+export const QUESTIONS_MOST = 3;
+// the most slots of these places that one question has working together, in the arrangement or any class's own
+export function widestStage(briefs, places) {
+  const b = briefs || {};
+  const all = [b.slots, ...Object.values(b.kinds || {}).map((k) => k && k.slots)].filter(Array.isArray);
+  let most = 0;
+  for (const slots of all) {
+    const by = {};
+    for (const s of slots) if (!places || places.includes(s.member)) by[s.stage] = (by[s.stage] || 0) + 1;
+    most = Math.max(most, ...Object.values(by));
+  }
+  return Math.max(2, most);
+}
+export function servingPlan({ params, bytes, widest, slots, contextPerSlot, questions } = {}) {
+  const per = Number(contextPerSlot) || SERVING.contextPerSlot;
+  const have = Math.max(1, Number(slots) || SERVING.slots);
+  const wide = Math.max(1, Math.min(Number(widest) || 2, have));
+  const each = CONTEXT_BYTES_PER_B * (Number(params) || 0);
+  // (a model whose size is not known is asked one question at once)
+  const fits = each && Number(bytes) ? Math.floor(Number(bytes) / each / (wide * per)) : 1;
+  const q = Math.max(1, Math.floor(Number(questions) || Math.min(QUESTIONS_MOST, fits)));
+  const atOnce = wide * q;
+  return { questions: q, atOnce, slots: Math.max(have, atOnce), pool: atOnce * per };
+}
+
 // THE ENTRY: one item in a list of models, in the shape The Crew's llama.cpp models have (an id, a name, what it takes, what
 // to say about it), with engine 'swarm' and its members in place of one file. Its memory is a first estimate (the two files
 // read into memory, and the contexts), to be replaced by a measurement.

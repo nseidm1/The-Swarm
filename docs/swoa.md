@@ -322,6 +322,8 @@ Before SwOA, the same document was the **output spec** (header `spec`, format `"
 ### 9. Versions
 
 - **1** (2026-11-18): the first.
+- **1**, amended 2026-11-26: a member's context is for what works together, in one pool (S2.4.6, S2.7.1); a request whose
+  server slot is in use goes to a free one (S3.2.3). No field of a SwOA spec changed.
 
 ### 10. Conformance
 
@@ -375,7 +377,7 @@ S1.1 Each value of `recipe.members` is a member record. A runtime MUST read the 
 | `architecture` | string | OPTIONAL | The architecture the model file is of, where not every build of the engine knows it. The engine used MUST be a build that does. |
 | `thinks` | integer | OPTIONAL | For a model that reasons before it answers: tokens of room added to every request's limit for that reasoning. Where present, an empty answer is empty: the member's reasoning is never taken for its answer. |
 | `program` | string | OPTIONAL | Another build of the engine this member is served by, named in `engine.programs`, where it is pinned to a commit. Absent, the member is served by the engine itself. |
-| `params` | number | OPTIONAL | Parameter count in billions. Used only to order members largest first where the arrangement asks for "the largest other member" (ties keep place order). A missing value counts as 0. |
+| `params` | number | OPTIONAL | Parameter count in billions. Used to order members largest first where the arrangement asks for "the largest other member" (ties keep place order), where a missing value counts as 0; and, with `bytes`, to say how many requests the member works on together (S2.4.6). |
 | `engine` | string | OPTIONAL | What serves the member: `llama` (the default: a GGUF file served by llama.cpp, S2.4) or `tensorfold` (S2.8). A runtime MUST refuse a record whose `engine` it cannot serve. |
 | `dir` | string | REQUIRED when `engine` is not `llama` | The directory, under the models directory, that holds the member's files (S2.8.1). |
 | `id`, `name`, `by`, `license` | string | OPTIONAL | Identification. `name` is used in error messages only. |
@@ -425,7 +427,8 @@ S1.5 `recipe.serving` (OPTIONAL) holds:
 - `contextPerSlot` (integer): context tokens per server slot. Default **4096**.
 - `tools` (string): `"swarm"`, `"lead"`, a place, or a member `id` (S4.6). Default `"lead"`.
 
-Every member is served with the same `slots` and `contextPerSlot`.
+Every member is served with the same `slots` and `contextPerSlot`. How many requests a member works on together, and the
+context it is given for them, follow from these, from the arrangement and from the member record (S2.4.6).
 
 S1.6 `recipe.engine` pins the engine build. The shape it is pinned with is: `tag` (the llama.cpp release tag, e.g.
 `b12359`), `site` (the GitHub repository URL), and `builds`, an object keyed `<os>-<arch>` (`darwin-arm64`, `darwin-x64`,
@@ -495,16 +498,15 @@ S2.4.1 Each started member MUST be launched as `llama-server` with exactly these
 -m <path to file (the first part)>
 --host 127.0.0.1
 --port <P>
--c <slots × contextPerSlot>
--np <slots>
+<context…>                      (S2.4.6)
+-np <N>                         (S2.4.6)
 [--jinja]                       (S2.4.2)
 <serve…>                        (the member record's `serve`, in order)
 --cache-ram 0                   (S2.4.5)
 [--lora <adapter path>]         (S2.1.7, only for a place with a pinned adapter)
 ```
 
-where `P` is a free TCP port on the loopback interface chosen at launch. `-c` is the TOTAL context, which the engine divides
-evenly among its `-np` slots, so each server slot has `contextPerSlot` tokens.
+where `P` is a free TCP port on the loopback interface chosen at launch.
 
 S2.4.2 `--jinja` MUST be passed to a member when the tool setting (S1.5) is `"swarm"`, and to the one member that takes tool
 turns when the setting is not `"swarm"` (S4.6.1). It MUST NOT otherwise be passed, except where the operator explicitly
@@ -523,6 +525,30 @@ own contexts. Left at the engine's default that store grows to 8192 MiB a member
 memory a module takes is then not its members and their contexts. Each server slot's context still holds what it was last
 asked (S3.2.2), which is the reuse the module relies on. An operator MAY name another size in MiB for all members. For the
 relaunch rule of S2.6.1 item 1, `--cache-ram` and its value count as part of the extra flag list, after `serve`.
+
+S2.4.6 **Context for what works together.** A server slot is where a brief is remembered; context is what a slot needs
+while it is working, and a member is given context for the requests it works on together and no more. For each started
+member the runtime MUST compute:
+
+- `W`, the **widest stage**: over the arrangement's `slots` and over the `slots` of every class's own arrangement
+  (`kinds`), the greatest number of slots of one stage that belong to the places this member serves; at least 2, and at
+  most the member's server slots.
+- `Q`, the **questions together**: `floor(bytes ÷ (9000 × params) ÷ (W × contextPerSlot))`, at least 1 and at most 3; 1
+  where the member record has no `bytes` or no `params`. A module is asked as many questions together as the least `Q` of
+  its started members; an operator MAY name another number for the whole module.
+- `A = W × Q`, the requests the member works on together (S2.7), and `N`, its server slots: the `slots` of S1.5 for each
+  place it serves, or `A` where that is greater.
+
+Where `A < N` the context arguments are `-kvu -c <A × contextPerSlot> --kv-unified-per-slot <contextPerSlot>`: one pool of
+`A × contextPerSlot` tokens that the `N` server slots share, each still able to hold `contextPerSlot`. When the pool is
+full the engine drops what an idle slot remembered, and that slot reads its brief again when next asked. Otherwise the
+context argument is `-c <N × contextPerSlot>`, which the engine divides evenly among its `-np` slots. An engine build that
+refuses the pool's arguments MUST be relaunched with `-c <N × contextPerSlot>`, and its member then works on `N` requests
+together; the relaunch counts among those of S2.6.1.
+
+(Informative. A token of context takes about 9 KB for each billion parameters, so `Q` keeps a member's context within what
+its weights take. Measured on build b12110: a 27B member at 2 bits a weight held 20 GB with a share of context for each of
+twelve slots, of which one or two were ever working, and 14.7 GB at most with a pool for four.)
 
 
 #### S2.5 Readiness and health
@@ -560,7 +586,8 @@ text.)
 
 #### S2.7 Concurrency per member
 
-S2.7.1 A member MUST NOT have more requests outstanding from the runtime's own slot path (S3) than its `slots`. Requests
+S2.7.1 A member MUST NOT have more requests outstanding from the runtime's own slot path (S3) than its `A` of S2.4.6
+(its server slots, where its context is not one pool). Requests
 beyond that MUST wait in a first-in, first-out queue and are released one per completed request. Waiting has no timeout of
 its own.
 
@@ -626,8 +653,13 @@ lifetime. The table is per member and is NOT reset by a revival. The pseudo-slot
 tool turns in lead mode, S4.6) is an ordinary entry of this table.
 
 S3.2.2 The index MUST be sent as `id_slot`. Its purpose is cache reuse: a plan slot's system brief stays in its server
-slot's KV cache across messages. (The assignment is independent of which of the `slots` concurrency permits a request
-holds; if two requests resolve to the same `id_slot` the engine serialises them.)
+slot's KV cache across messages. (The assignment is independent of which of the concurrency permits of S2.7 a request
+holds.)
+
+S3.2.3 Where the member still has a request outstanding that was sent that index (another question has the same plan slot
+working), the request MUST instead be sent the lowest index that has no request outstanding and is in no entry of the
+table; where every such index is in the table, the lowest index with no request outstanding; where there is none, its
+own. The table is not changed by this. A module asked one question at a time never does this.
 
 #### S3.3 Request body
 

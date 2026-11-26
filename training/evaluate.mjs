@@ -296,13 +296,16 @@ export const keptOfAll = (ways, plain) => (ways.every(Boolean) && plain ? plain 
 // in a tenth of the memory and eight times the time is not the same result as one that does it in the same time (measured
 // 2026-11-21: 28 s a question against 3.7, and no result said so). secondsIn: the seconds a question, or null where the answers
 // were kept before this was written down or the file does not read.
-export const secondsNote = (dir, seconds, questions) => {
+// AND WHAT THE SWARM'S MODELS READ AND WROTE OVER IT (tokens: { calls, read, held, written, ms }; src/members.mjs `used`), where
+// that is known: a task that takes a slow model nine minutes says nothing of whether the time went on reading the question
+// again in every slot or on writing (measured 2026-11-26, Bonsai 2.5 27B: 280 tokens a second read, 28 written).
+export const secondsNote = (dir, seconds, questions, tokens = null) => {
   try {
     if (!(seconds > 0) || !(questions > 0)) return false;
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(
       path.join(dir, 'seconds.json'),
-      JSON.stringify({ seconds: Math.round(seconds * 10) / 10, questions }),
+      JSON.stringify({ seconds: Math.round(seconds * 10) / 10, questions, ...(tokens ? { tokens } : {}) }),
     );
     return true;
   } catch {
@@ -700,6 +703,14 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   write(true);
 
   let child = null;
+  // (what the swarm's models have read and written so far, once it is open; and since a mark, for one task)
+  let usedNow = null;
+  const usedSince = (who, was) => {
+    if (who !== 'swarm' || !usedNow || !was) return null;
+    const now = usedNow();
+    if (!now) return null;
+    return Object.fromEntries(Object.keys(now).map((k) => [k, now[k] - (was[k] || 0)]));
+  };
   const stopping = [];
   const end = (phase, step) => {
     live.phase = phase;
@@ -757,6 +768,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
 
   // one category of the tool tests, for one model behind a tool relay at `base`; the package's folder for it is `out`
   const toolTest = async (b, who, base, out) => {
+    const used0 = who === 'swarm' && usedNow ? usedNow() : null;
     const row = live.tasks.find((t) => t.task === b.task)[who];
     row.state = 'asking';
     row.started = Date.now();
@@ -804,7 +816,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       row.state = 'done';
       row.done = row.of;
       row.whole = wholeOf(row);
-      secondsNote(out, row.seconds, row.of);
+      secondsNote(out, row.seconds, row.of, usedSince(who, used0));
     } else {
       row.state = 'failed';
       row.why = got.why;
@@ -819,6 +831,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       const row = live.tasks.find((t) => t.task === b.task)[who];
       row.state = 'asking';
       row.started = Date.now();
+      const used0 = who === 'swarm' && usedNow ? usedNow() : null;
       write(true);
       const args = [
         'run',
@@ -861,7 +874,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         if (code === 0) {
           row.state = 'done';
           row.done = row.of ?? row.done;
-          secondsNote(out, row.seconds, row.done);
+          secondsNote(out, row.seconds, row.done, usedSince(who, used0));
           ok(true);
         } else {
           row.state = 'failed';
@@ -1180,6 +1193,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     let served = { base: servedAt, close: async () => {} };
     if (!servedAt) {
       swarm = await B.openSwarm(readBriefs());
+      usedNow = () => (typeof swarm.used === 'function' ? swarm.used() : null);
       stopping.push(() => swarm.stop());
       // WHAT THE SWARM TAKES IN MEMORY IS MEASURED WHILE IT IS ASKED (support/measure-memory.mjs watchMemory), into the file
       // the training stage writes and the page reads: a run's first step is an evaluation, and until this the page said

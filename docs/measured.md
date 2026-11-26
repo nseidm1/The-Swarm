@@ -2,6 +2,31 @@
 
 Every measurement, dated, newest first. Each is of the swarm named in it; the lineup has changed over time.
 
+## What context costs, and what works at once: 2026-11-26
+
+Measured on llama.cpp b12110, an M2 Ultra with 64 GB, twelve server slots of 4,096 tokens.
+
+| | LFM3 1.7B (4-bit, 1.1 GB file) | Bonsai 2.5 27B (2-bit, 7.7 GB file) |
+| --- | --- | --- |
+| Read, tokens a second | about 3,700 | 280 |
+| Written, tokens a second, one call | about 200 | 28 |
+| Written together, 1 / 2 / 4 / 6 calls at once (each reading 1,100 tokens first) | 147 / 174 / 224 / 248 | 17.6 / 21.3 / 27.2 / 30.5 |
+| Memory, a share of context for every slot | 2.1 GB | 18.3 GB with half the context touched; 20 GB in a run |
+| Memory, one pool of 16,384 tokens | 1.7 GB | 14.7 GB, and no more however long it runs |
+| Speed with the pool | about 15% less written a second | the same alone; about 13% less with six at once |
+| A brief still held when its slot is asked again | no: all 1,541 tokens were read again | yes: 730 of 1,867 tokens |
+
+- A token of context took about 13 KB on the first and 250 KB on the second: about 9 KB for each billion parameters.
+- Six calls at once wrote 1.7 times what one did, on both. Little is gained past that.
+- Watched for ninety seconds in an evaluation, the Bonsai swarm had one or two slots working and never more.
+- One evaluation question on the Bonsai swarm, traced: four calls read 4,123 tokens and wrote 956 in 62 seconds of
+  model time. About a quarter of that was reading, over half writing. Two drafts each ran to their limit of 450 tokens,
+  and the writer then wrote 440 tokens that were nearly a copy of one draft.
+- When the pool is full the server drops what the slot idle longest remembered, and nothing fails.
+
+What follows from it is in the changelog. Two things were not changed, because each needs measuring against answers
+first: the writer is still asked where the drafts agree, and a draft's limit is as it was.
+
 ## Where the other classes stand, and what code does there: 2026-11-25
 
 The classes that are not plain questions, on training's held questions (LFM3 1.7B in every place). No benchmark was
