@@ -2751,6 +2751,24 @@ _wq_tr_stale = swarm_ui.whole_step_share(_wq_d, "3-train-classes")
 swarm_ui.pass_progress = lambda d: {"pct": 40.0, "done": False}
 _wq_tr_pp = swarm_ui.whole_step_share(_wq_d, "3-train-classes")
 _wq_ad = swarm_ui.whole_step_share(_wq_d, "2-make-adapters")
+# (the class stage in hand, read from its own files: two of four classes done, the third asked as it stands and half way
+# through the first of two rounds, is 2 + 0.15 + 0.85 * 0.8 * 0.5 / 2 of 4; the question in hand moves it by a hair, no more)
+swarm_ui.pass_progress = _pp_was
+_ts_key = str(_wq_d.get("key", ""))
+_ts_pass = _wq_root / ".work" / "train" / _ts_key / "pass-1"
+_ts_pass.mkdir(parents=True)
+(_ts_pass / "status.txt").write_text("21:09:06 START 00-begin\n21:09:06 END   00-begin exit 0 0 min\n21:09:58 START 08-classes\n")
+(_wq_root / "training" / "results" / _ts_key).mkdir(parents=True)
+(_wq_root / "training" / "results" / _ts_key / "classes.json").write_text(json.dumps({"rounds": 2, "classes": {
+    "tools": {"asItStands": 7, "rounds": [{"candidates": [1] * 10, "of": 10, "kept": False}]}, "talk": {"asItStands": 8, "rounds": [{"candidates": [1] * 10, "of": 10, "kept": False}]},
+    "code": {"asItStands": 7, "rounds": [{"candidates": [1] * 5, "of": 10}]}}}))
+_ts_say = lambda q: (_wq_root / ".work" / "train" / "live.json").write_text(json.dumps({"trainer": "classes", "step": 'Class 3 of 4, asking for code: trying "x" · question %d of 60' % q}))  # noqa: E731
+_ts_say(1)
+_ts_first = swarm_ui.train_step_share(_wq_d)
+_ts_say(60)
+_ts_last = swarm_ui.train_step_share(_wq_d)
+_ts_run = swarm_ui.whole_share(_wq_d, _st("done", "not taken", "running", "waiting"), True)
+swarm_ui.pass_progress = lambda d: {"pct": 40.0, "done": False}
 # (and on the card: the step in hand in the ring, the run beside it; a step that does not say, the run in the ring)
 swarm_ui._run_elsewhere_now, swarm_ui._classes_alive = (lambda: None), (lambda: False)
 swarm_ui._job_state = lambda name: {"running": True, "pid": 1, "at": "x", "limit": 20} if name == "whole" else None
@@ -2761,15 +2779,16 @@ swarm_ui.whole_steps = lambda root, key: (_st("done", "running", "waiting", "wai
 _wq_card_ad = swarm_ui.whole_block(_wq_d)
 swarm_ui.stage_step, swarm_ui.pass_progress, swarm_ui._job_state, swarm_ui._run_elsewhere_now, swarm_ui._classes_alive, swarm_ui.whole_steps = _wq_was
 _vn = lambda h: int((re.search(r'aria-valuenow="(\d+)"', h) or [0, -1])[1])  # noqa: E731
-check("the intelligence run's ring is held to what the conversation run's was: a step just begun is not read from what the run before left (an evaluation that says it is done or stopped, or was written long ago, or a session's pass already ended, is nothing asked yet, not a step finished); while the run goes the ring is the step in hand and moves with its questions (an evaluation by the questions asked of both models, training by the question in hand), "
-      "with the step and how far the whole run has come said beside it; a step that does not say how far it is (making adapters) leaves the ring as the run's own share; and the run's share counts training by the session's share, not by the question in hand, which starts again with every change",
+check("the intelligence run's ring is held to what the conversation run's was: a step just begun is not read from what the run before left (an evaluation that says it is done or stopped, or was written long ago, or a session's pass already ended, is nothing asked yet, not a step finished); while the run goes the ring is the step in hand and moves with its questions (an evaluation by the questions asked of both models, training by the classes, rounds and changes done of those the step has to do, never by the question in hand alone, which starts again with every change), "
+      "with the step and how far the whole run has come said beside it; a step that does not say how far it is (making adapters) leaves the ring as the run's own share; and the run's share counts the training step by the same share the ring shows",
       _wq_ev_fresh == 0.375 and _wq_ev_last == 0.0 and _wq_ev_old == 0.0 and _wq_ev_none == 0.0
-      and _wq_tr_q == 0.5 and _wq_tr_stale == 0.0 and _wq_tr_pp == 0.4 and _wq_ad is None and _wq_run_stale == 50.0
-      and _vn(_wq_card_train) == 50 and ">of this step<small>pass " in _wq_card_train and " · 60% of the run</small>" in _wq_card_train and 'class="ring on"' in _wq_card_train
+      and _wq_tr_q == 0.0 and _wq_tr_stale == 0.0 and _wq_tr_pp == 0.4 and _wq_ad is None and _wq_run_stale == 50.0
+      and abs(_ts_first - (2 + 0.15 + 0.85 * 0.8 * 0.5 / 2) / 4) < 1e-9 and 0 < _ts_last - _ts_first < 0.01 and abs(_ts_run - 100 * (2 + _ts_last) / 4) < 1e-6
+      and _vn(_wq_card_train) == 40 and ">of this step<small>pass " in _wq_card_train and " · 60% of the run</small>" in _wq_card_train and 'class="ring on"' in _wq_card_train
       and _vn(_wq_card_ad) == 25 and ">of the run<small>pass " in _wq_card_ad and " · running</small>" in _wq_card_ad and "of this step" not in _wq_card_ad
       # (and the same shape as the conversation run's card, line for line: the ring, what it is of, and under it the pass)
       and re.search(r'<span>of this step<small>pass \d+ · \d+% of the (run|pass)</small>', _wq_card_train) is not None,
-      [_wq_ev_fresh, _wq_ev_last, _wq_ev_old, _wq_tr_q, _wq_tr_stale, _wq_tr_pp, _wq_ad, _wq_run_stale, _vn(_wq_card_train), _vn(_wq_card_ad)])
+      [_ts_first, _ts_last, _ts_run, _wq_ev_fresh, _wq_ev_last, _wq_ev_old, _wq_tr_q, _wq_tr_stale, _wq_tr_pp, _wq_ad, _wq_run_stale, _vn(_wq_card_train), _vn(_wq_card_ad)])
 
 # ---- an evaluation's card counts and names EVERY model it asks, the small model by itself among them
 _sd_rows = [{"task": "t1", "name": "Task one", "item": "logic", "target": {"state": "kept", "done": 20, "of": 20}, "swarm": {"state": "done", "done": 20, "of": 20},

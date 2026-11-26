@@ -24,6 +24,13 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **A fix: the intelligence run's ring during training** (2026-11-25). While the run trained, the ring showed the
+  question in hand of the one change being tried, so it ran to 100% and fell back with every change, about ninety times
+  a round; and the share of the run beside it counted training as a small part of a full pass, most of which this run
+  never takes. On a run 61% of the way through its training step the card read 93% of the step and 55% of the run. Both
+  now read how far the training step itself has come: the classes done, and in the one in hand the rounds and the
+  changes tried. The same run read 62% and 65%. On the Evaluate card, the share of the larger model's score was said
+  two ways (83.5% in the headline, 83.6% under "As configured"): both now round down.
 - **A fix: the picture of the swarm showed nothing through a turn with tools** (2026-11-25). A turn with tools is
   answered another way than a plain question, and told nobody what each slot did: through a tools test of an
   evaluation, and through the training of such turns, every slot read idle. What each slot did in the turn is now

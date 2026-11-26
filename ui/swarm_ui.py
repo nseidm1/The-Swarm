@@ -5966,7 +5966,7 @@ def eval_compare(d):
         else:
             how = "no difference shown: %s%s points on the first, within twice the error (%s)" % ("+" if r.get("diff", 0) >= 0 else "−", pts(abs(r.get("diff", 0))), pts(r.get("diffErr", 0)))
         cells.append('<span class="cmpc"><b>%s</b><span class="cmpv">%s%%<i>± %s</i></span><small>%s of the larger model&#39;s score · %d questions</small><small>%s</small></span>'
-                     % (e(r["name"]), pts(r["value"]), pts(r["stderr"]), (fmt_pct(100.0 * r["share"]) + "%") if r.get("share") is not None else "–", r["n"], how))
+                     % (e(r["name"]), pts(r["value"]), pts(r["stderr"]), (fmt_pct(int(round(1000.0 * r["share"], 6)) / 10) + "%") if r.get("share") is not None else "–", r["n"], how))  # (rounded down, as the headline is: 83.5 above and 83.6 here were one figure said two ways)
     return '<div class="cmp" role="group" aria-label="The two evaluations side by side">%s</div>' % "".join(cells)
 
 
@@ -6357,7 +6357,7 @@ def whole_block(d):
         figure, label, word = ring(share, True, "How far the intelligence run has come"), "of the run", "pass %d · running" % now_pass
         part = whole_step_share(d, steps[at - 1]["id"]) if at else None
         if part is not None:
-            figure = ring(100.0 * part, True, "How far the step in hand has come, by its questions")
+            figure = ring(100.0 * part, True, "How far the step in hand has come")
             label, word = "of this step", "pass %d · %d%% of the run" % (now_pass, round(share))
     else:
         score, _of = whole_score(d)
@@ -6407,8 +6407,8 @@ def whole_step_share(d, step_id):
     2026-11-24).
       an evaluation   the questions asked of those it has to ask, the module's and the larger model's
                       (.work/eval/live.json), while that file says an evaluation is going and was written lately
-      training        the question in hand of the step in hand, where the class stage names one (so that it moves as the
-                      questions go by); else the session's own share (pass_progress), unless that is a pass already ended
+      training        how far the training step itself has come (train_step_share): never the question in hand alone,
+                      which starts again with every change tried
       adapters        nothing says how far: None"""
     root = Path(d.get("root", ARGS.root))
     try:
@@ -6434,34 +6434,47 @@ def whole_step_share(d, step_id):
             of = sum(n_of(t) * parts(t) for t in ts)
             return (sum(min(int((t.get(k) or {}).get("done") or 0), n_of(t)) for t in ts for k in ws if has(t, k)) / of) if of else 0.0
         if step_id == "3-train-classes":
-            qm = re.search(r"question (\d+) of (\d+)", stage_step() or "")
-            if qm and int(qm.group(2)):
-                return min(1.0, int(qm.group(1)) / int(qm.group(2)))
-            pp = pass_progress(d) or {}
-            return 0.0 if pp.get("done") else float(pp.get("pct") or 0) / 100.0
+            return train_step_share(d)
     except (OSError, TypeError, ValueError, KeyError):
         return 0.0
     return None
 
 
+def train_step_share(d):
+    """HOW FAR THE RUN'S TRAINING STEP HAS COME, 0 to 1. The step is one session that trains each class as a class and no
+    more (training/session.sh, SESSION_STEPS=classes), so while that stage is in hand its own share is the step's: the
+    classes done of those asked, and in the one in hand the rounds and the changes tried (classes_share). It was read two
+    other ways, and both were wrong on a run seen 2026-11-25, 61% of the way through this step: the ring showed the
+    question in hand of one change (93%, and back to 2% with the next change, ninety times a round), and the run's share
+    counted the stage as thirty hundredths of a full pass, most of whose other steps this session never takes (so the run
+    read 55% where it was 65%). Outside the class stage, the session's own share; a pass already ended is nothing begun."""
+    try:
+        pp = pass_progress(d) or {}
+        if pp.get("done"):
+            return 0.0
+        if pp.get("step") == "08-classes":
+            root = Path(d.get("root", ARGS.root))
+            live = data._json(root / ".work" / "train" / "live.json", {}) or {}
+            step = str(live.get("step") or "") if live.get("trainer") == "classes" else ""
+            said = re.search(r"Class \d+ of (\d+)", step)
+            asked = int(said.group(1)) if said else (len((run_state() or {}).get("classes") or []) or 4)
+            return classes_share(data._json(root / "training" / "results" / str(d.get("key", "")) / "classes.json", None), asked, step)
+        return float(pp.get("pct") or 0) / 100.0
+    except (OSError, TypeError, ValueError, KeyError, AttributeError):
+        return 0.0
+
+
 def whole_share(d, steps, running):
     """How far the intelligence run has come, 0 to 100: each of its four steps is a quarter; one that is done (or was not
-    taken) is whole, and the one running counts by how far the run's training or evaluation has come as a whole (an
-    evaluation by its questions, training by the session's own share and not by the question in hand, which starts again
-    with every change tried). A step whose share cannot be read counts as begun and no more."""
+    taken) is whole, and the one running counts by how far it has come (whole_step_share: an evaluation by its questions,
+    training by the classes, rounds and changes done of those it has to do). A step whose share cannot be read counts as
+    begun and no more."""
     total = 0.0
     for x in steps:
         if x["state"] in ("done", "not taken"):
             total += 1
         elif x["state"] == "running" and running:
-            if x["id"] == "3-train-classes":
-                try:
-                    pp = pass_progress(d) or {}
-                    part = 0.0 if pp.get("done") else float(pp.get("pct") or 0) / 100.0
-                except (TypeError, ValueError):
-                    part = 0.0
-            else:
-                part = whole_step_share(d, x["id"]) or 0.0
+            part = whole_step_share(d, x["id"]) or 0.0
             total += max(0.0, min(0.99, part))
     return 100.0 * total / max(1, len(steps))
 
