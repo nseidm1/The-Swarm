@@ -2794,6 +2794,46 @@ check("an evaluation asks the larger model, the swarm, and each small model by i
       and "const evSides=ts=>['target','swarm'," in swarm_ui.JS and "evMeta(ts,s.target||'the larger model',s.alone)" in swarm_ui.JS,
       [_sd_meta, swarm_ui.ev_progress({"tasks": _sd_rows}), swarm_ui._ev_through(_sd_rows)])
 
+# ---- the plan's card sets the intelligence run out stage by stage, and the one in hand in full
+import tempfile as _tf
+_rs_root = Path(_tf.mkdtemp(prefix="swarm-stages-"))
+(_rs_root / ".work" / "eval").mkdir(parents=True)
+(_rs_root / ".work" / "run" / "k" / "pass-1").mkdir(parents=True)
+(_rs_root / ".work" / "eval" / "live.json").write_text(json.dumps({"phase": "asking", "step": "Asking Mini A by itself, its reply laid out: Task one", "alone": _sd_alone,
+                                                                  "now": {"who": "alone-a-form", "task": "t1", "name": "Task one", "i": 11, "of": 20}, "tasks": _sd_rows}))
+_rs_status = _rs_root / ".work" / "run" / "k" / "pass-1" / "status.txt"
+_rs_status.write_text("19:00:00 START 1-evaluate-as-configured\n")
+_rs_d = {"root": str(_rs_root), "key": "k", "target": {"name": "Big"}}
+_rs_one = swarm_ui.run_stages(_rs_d, True)
+_rs_stopped = swarm_ui.run_stages(_rs_d, False)
+_rs_status.write_text("19:00:00 START 1-evaluate-as-configured\n20:10:00 END   1-evaluate-as-configured exit 0 70 min\n20:10:00 START 2-make-adapters\n20:10:05 END   2-make-adapters exit 3 0 min\n20:10:05 START 3-train-classes\n")
+_rs_was = (swarm_ui.whole_score, swarm_ui.stage_step)
+swarm_ui.whole_score, swarm_ui.stage_step = (lambda d: (41.3, 460)), (lambda: "Class 4 of 4, a plain question: trying x")
+_rs_three = swarm_ui.run_stages(_rs_d, True)
+swarm_ui.whole_score, swarm_ui.stage_step = _rs_was
+_rs_none = swarm_ui.run_stages({"root": str(_rs_root), "key": "nobody", "target": {"name": "Big"}}, False)
+import shutil as _sh
+_sh.rmtree(_rs_root, ignore_errors=True)
+check("the plan's card sets the intelligence run out stage by stage: its four stages in order, each with what it does, what it leaves for the next and where it stands; the one in hand is opened out to this moment, "
+      "and for an evaluation to each model it asks in the order it asks them, how far through the tasks each is, and the questions every one has answered; a stage the run was stopped in says how Carry on goes on; "
+      "a stage that is done says what it came to; and with no run begun the same list says what a run will do",
+      _rs_one.count('class="stg ') == 4 and '<li data-stage="1" class="stg running"><div class="stgh"><span><i></i><b>Stage 1 of 4</b> Evaluate the module as configured</span><small>in hand now</small>' in _rs_one
+      and "The baseline. Nothing is changed in this stage." in _rs_one and "It leaves the first of the run&#39;s two figures" in _rs_one
+      and "<b>This moment:</b> Asking Mini A by itself, its reply laid out: Task one" in _rs_one
+      and '<li data-s="done"><b>Big</b>: 2 of 2 tasks (2 with answers kept from before, not asked again) · every task asked</li>' in _rs_one
+      and '<li data-s="done"><b>The swarm</b>: 2 of 2 tasks · every task asked</li>' in _rs_one
+      and '<li data-s="on"><b>Mini A by itself, its reply laid out</b>: 0 of 2 tasks · asking Task one, question 11 of 20</li>' in _rs_one
+      and "<b>Answered by every one of them:</b> 10 of 40 questions finished · 25%." in _rs_one
+      and _rs_one.count("<small>to come</small>") == 3 and "The training itself." in _rs_one and "no benchmark question is asked" in _rs_one
+      and '<p class="stgt">The intelligence run, stage by stage</p>' in _rs_one
+      and '<li data-stage="1" class="stg stopped">' in _rs_stopped and "<small>stopped here</small>" in _rs_stopped and "Carry on begins it again: every task a model had finished is kept and not asked again" in _rs_stopped and "This moment" not in _rs_stopped
+      and "<small>done · 70 min</small>" in _rs_three and "The swarm had <b>41.3%</b> of 460 benchmark questions right." in _rs_three
+      and '<li data-stage="2" class="stg not-taken">' in _rs_three and "Not taken: no adapter can be made for this model here" in _rs_three
+      and '<li data-stage="3" class="stg running"><div class="stgh"><span><i></i><b>Stage 3 of 4</b>' in _rs_three and "<b>This moment:</b> Class 4 of 4, a plain question: trying x" in _rs_three
+      and '<p class="stgt">What an intelligence run does, stage by stage</p>' in _rs_none and _rs_none.count("<small>to come</small>") == 4
+      and ".stg.running{" in swarm_ui.CSS,
+      [_rs_one[:900], _rs_stopped[-500:], _rs_three[:300]])
+
 # ---- the intelligence run's card has the conversation run's shape when nothing runs too
 _wi_was = (swarm_ui._job_state, swarm_ui._run_elsewhere_now, swarm_ui._classes_alive, swarm_ui.whole_steps, swarm_ui.whole_score, swarm_ui.busy_with)
 swarm_ui._run_elsewhere_now, swarm_ui._classes_alive, swarm_ui.busy_with = (lambda: None), (lambda: False), (lambda: "")

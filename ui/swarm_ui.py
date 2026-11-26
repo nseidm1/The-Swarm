@@ -373,7 +373,7 @@ button.strip:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}.st
 dialog#evd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#evd::backdrop{background:rgba(11,40,38,.45)}
 /* THE EVALUATE CARD'S HEADLINE IS A BUTTON (it opens the table, score beside score): it keeps the look of a headline, and says it can be pressed */
 .adline{display:flex;gap:14px;align-items:flex-start;margin:14px 0 4px;padding-top:12px;border-top:1px solid var(--line,#e6ecea)}.adline small{display:block;color:var(--mist);font-size:12.5px;line-height:1.45}.adline p{margin:6px 0 0}
-.wsl{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px}.ws{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--line,#d9e4e1);border-radius:10px;font-size:13px;min-width:0}.ws i{width:10px;height:10px;border-radius:50%;background:#c8d4d0}.ws.done i{background:#0f6b5a}.ws.running i{background:#c98a0b}.ws.failed i{background:#a23b2a}.ws.not-taken i,.ws.stopped i{background:#7a8a86}.ws small{opacity:.75}.wholet{display:flex;gap:6px;align-items:center;font-size:13px}@media(max-width:760px){.wsl{grid-template-columns:1fr}}
+.stgs{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:8px}.stg{border:1px solid var(--line,#d9e4e1);border-radius:10px;padding:10px 12px;min-width:0}.stg.running{border-color:#c98a0b;background:rgba(201,138,11,.05)}.stg.waiting{opacity:.78}.stgh{display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:space-between;align-items:baseline;font-size:14px}.stgh i{display:inline-block;width:10px;height:10px;border-radius:50%;background:#c8d4d0;margin-right:8px}.stg.done .stgh i{background:#0f6b5a}.stg.running .stgh i{background:#c98a0b}.stg.failed .stgh i{background:#a23b2a}.stg.stopped .stgh i,.stg.not-taken .stgh i{background:#7a8a86}.stgh small{font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:10.5px;opacity:.8}.stg p{margin:6px 0 0}.stgw{margin:4px 0 0;padding-left:20px}.stgw li{margin:2px 0}.stgw li[data-s=on]{font-weight:600}.stgw li[data-s=done]{opacity:.72}.stgt{font-size:10.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;margin:14px 0 0;opacity:.8}.wsl{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px}.ws{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--line,#d9e4e1);border-radius:10px;font-size:13px;min-width:0}.ws i{width:10px;height:10px;border-radius:50%;background:#c8d4d0}.ws.done i{background:#0f6b5a}.ws.running i{background:#c98a0b}.ws.failed i{background:#a23b2a}.ws.not-taken i,.ws.stopped i{background:#7a8a86}.ws small{opacity:.75}.wholet{display:flex;gap:6px;align-items:center;font-size:13px}@media(max-width:760px){.wsl{grid-template-columns:1fr}}
 .cmph{margin:0 0 8px;font-size:15px}#evd{overflow-x:hidden}.evdsec{margin:14px 0 0}.evdsec+.evdsec{margin-top:22px;padding-top:16px;border-top:1px solid var(--line,#d9e4e1)}.cmpt{margin:0 0 6px}.cmpt tr.sum td{font-weight:700;border-top:2px solid var(--line,#d9e4e1)}.cmpbars{display:flex;flex-direction:column;gap:8px;margin:0 0 6px}.cmpbar{display:grid;grid-template-columns:minmax(120px,190px) 1fr minmax(110px,auto);gap:10px;align-items:center;font-size:13px}.cmpbar .mbar{position:relative;height:14px;background:#e4eeeb;border-radius:7px}.cmpbar .mbar i{position:absolute;left:0;top:0;bottom:0;background:#0f6b5a;border-radius:7px}.cmpbar .mbar u{position:absolute;top:-3px;bottom:-3px;border-left:2px solid #1d2b27;border-right:2px solid #1d2b27;background:rgba(29,43,39,.18)}.cmpbar .mbar s{position:absolute;top:-6px;bottom:-6px;border-left:2px dashed #3d4a8f}.cmpbar.none{opacity:.5}
 .cmp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 4px}.cmpc{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid var(--line,#d9e4e1);border-radius:10px;min-width:0}.cmpc b{font-size:13px}.cmpv{font-size:22px;font-weight:700}.cmpv i{font-style:normal;font-size:12px;font-weight:400;margin-left:6px;opacity:.7}.cmpc small{font-size:12px;opacity:.8}.cmpc.none .cmpv{opacity:.4}.cmpc small b.up{color:#0b6b57}.cmpc small b.down{color:#a23b2a}@media(max-width:640px){.cmp{grid-template-columns:1fr}}
 .evhead{display:flex;flex-direction:column;gap:10px;align-items:flex-start;min-width:0}.evviews{display:flex;gap:8px;flex-wrap:wrap}.evviews .btn{padding:8px 14px;font-size:13px;white-space:nowrap}.ptab{font-family:Georgia,'Times New Roman',serif;color:var(--fog)}.ptab caption{caption-side:top;text-align:left;font-size:13.5px;line-height:1.5;padding:0 0 10px}.ptab caption b{font-weight:700}.ptab table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums;border-top:2px solid var(--fog);border-bottom:2px solid var(--fog)}.ptab th,.ptab td{padding:5px 10px;text-align:right;border:0;white-space:nowrap}.ptab th:first-child,.ptab td:first-child{text-align:left;white-space:normal}.ptab thead th{font-weight:400;border-bottom:1px solid var(--fog)}.ptab tr.pg td{font-style:italic;padding-top:10px;text-align:left}.ptab tr.pall td{border-top:1px solid var(--fog);padding-top:7px}.ptab td small{color:var(--mist);font-size:.82em}.ptab-wrap{overflow-x:auto;margin-top:12px}.ptab-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}#evd-latex{width:100%;min-height:160px;margin-top:10px;font:12px ui-monospace,Menlo,monospace}dialog#tqd{border:0;border-radius:var(--r);padding:26px;max-width:min(900px,94vw);width:100%;max-height:90vh;box-shadow:0 30px 80px rgba(11,93,87,.3);color:var(--fog);background:var(--panel)}dialog#tqd::backdrop{background:rgba(11,40,38,.45)}.tqctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}.tqctl select,.tqctl input{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel)}.tqctl input{flex:1 1 160px;min-width:0}.tql{list-style:none;margin:0;padding:0;display:grid;gap:10px}.tql li{border:1px solid var(--line2);border-radius:var(--r);padding:12px 14px}.tqh{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}.tqh small{color:var(--mist);font-size:12px;font-weight:600}.tqa{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.5}.tqb{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.45;color:var(--mist)}.tqb b{color:var(--fog)}.tqw{display:block;margin-top:6px;color:var(--mist);overflow-wrap:anywhere}@media (max-width:760px){dialog#tqd{padding:18px 12px}}.evbench select{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--r);border:1px solid var(--line);color:var(--fog);background:var(--panel);max-width:100%}.evbench{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}.evbench .seg small{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#9a5b00;margin-left:4px}.evbench .seg:disabled{opacity:.45;cursor:default}.evchart{margin-top:12px}.evchart svg{display:block;width:100%;height:auto;max-width:720px}.evchart .ax{stroke:var(--line);stroke-width:1}.evchart .tk{fill:var(--mist);font-size:11px}.evchart .lb{fill:var(--fog);font-size:12.5px;font-weight:700}.evchart .sb{fill:var(--mist);font-size:11.5px}.evchart .at{fill:var(--mist);font-size:11.5px;font-weight:700;letter-spacing:.04em}.evchart .pn{fill:#fff;font-size:11px;font-weight:800}.evchart .lgl{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px;font-size:13px;color:var(--fog)}.evchart .lgl li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.evchart .lgl i{flex:none;display:inline-block;min-width:20px;height:20px;line-height:20px;border-radius:50%;text-align:center;color:#fff;font-style:normal;font-size:11px;font-weight:800}.evchart .lgl span{color:var(--mist);font-variant-numeric:tabular-nums}.evchart .lgl i.hollow{background:var(--panel)}.evchart .lgl em{font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mist)}.evchart .lgl li.mine{background:var(--soft);border-radius:var(--r);padding:6px 8px;margin:0 -8px}.evchart .lgl li.mine em{color:var(--teal)}.lgl li.mine.tgt em{color:var(--tgt)}.evchart .pn.hollow{font-weight:800}.evopen{appearance:none;border:0;background:none;padding:6px 10px;margin:-6px -10px;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:12px;max-width:100%}
@@ -1604,6 +1604,103 @@ def plan_block(d):
     return training_now(d) + ('<details class="cfg fold" data-keep="plan-earlier"><summary><span class="cfgh">Earlier</span><span class="fmeta">the last runs in full, and the question-by-question pass</span></summary><div class="foldb">%s</div></details>' % earlier)
 
 
+# WHAT EACH STAGE OF THE INTELLIGENCE RUN IS: what it does, and what it leaves for the next. Said on the plan's card beside
+# where the stage stands, so that a run an hour into its first stage says what that hour is for (console 2026-11-25).
+STAGE_WORDS = {
+    "1-evaluate-as-configured": (
+        "The baseline. Nothing is changed in this stage. The module exactly as it is configured answers standard benchmark questions, "
+        "and so do the larger model and each small model of the swarm by itself, on the same questions, marked by the same checker.",
+        "It leaves the first of the run&#39;s two figures: how the swarm scores before this run trains it, beside the larger model and beside its own model alone."),
+    "2-make-adapters": (
+        "An adapter is made for each drafting slot: a small set of weights taught from that slot&#39;s own right answers, and from the larger model&#39;s where the slot was wrong.",
+        "It leaves adapters that are on no slot yet. Whether a slot carries one is a change the next stage tries, and keeps only where it helps."),
+    "3-train-classes": (
+        "The training itself. Each class of request (a turn with tools, a conversation, a request for code, a plain question) is trained as a class, on questions training makes itself: "
+        "no benchmark question is asked. Changes are tried one at a time on train questions: the arrangement of slots, an adapter on a slot, a kind of question answered by code, "
+        "a question read into a form and worked out by code, a function or a reading the larger model writes.",
+        "It leaves the module as it will be served: a change is kept only where held questions, which no change was tried on, gain by more than their error."),
+    "4-evaluate-trained": (
+        "The same benchmark questions as the first stage, asked of the module as training left it.",
+        "It leaves the second figure, set beside the first on the Evaluate card: what this run&#39;s training was worth on questions training never saw."),
+}
+STAGE_STATE = {"done": "done", "running": "in hand now", "stopped": "stopped here", "not taken": "not taken", "failed": "failed", "waiting": "to come"}
+
+
+def _stage_eval_now(d, tname):
+    """The evaluation in hand, in lines: what it is asking this moment, then each model it asks in the order it asks them and
+    how far through the tasks each is, then the questions every one of them has answered. '' where nothing says."""
+    root = Path(d.get("root", ARGS.root))
+    f = root / ".work" / "eval" / "live.json"
+    live = data._json(f, {}) or {}
+    try:
+        if live.get("phase") in ("done", "stopped", "failed") or time.time() - f.stat().st_mtime > 900:
+            return ""
+    except OSError:
+        return ""
+    rows = [t for t in live.get("tasks") or [] if not str((t.get("target") or {}).get("why") or "").startswith("not asked")]
+    out = ['<p class="small"><b>This moment:</b> %s</p>' % e(str(live.get("step") or "making ready"))]
+    if rows:
+        who_now = str((live.get("now") or {}).get("who") or "")
+        said = []
+        for w in _ev_sides(rows):
+            states = [(r.get(w) or {}).get("state") for r in rows]
+            done = sum(1 for s in states if s in ("done", "kept"))
+            kept = sum(1 for s in states if s == "kept")
+            at = next((r for r in rows if (r.get(w) or {}).get("state") == "asking"), None)
+            name = _ev_who(w, tname, live.get("alone"))
+            what = ("asking %s, question %d%s" % (e(at.get("name") or at.get("task")), ((at.get(w) or {}).get("done") or 0) + 1, (" of %d" % at[w]["of"]) if (at.get(w) or {}).get("of") else "")) if at else \
+                   ("every task asked" if done == len(rows) else "waits its turn" if not done else "between tasks")
+            said.append('<li data-s="%s"><b>%s</b>: %d of %d tasks%s · %s</li>'
+                        % ("on" if at or w == who_now else "done" if done == len(rows) else "", e(name[0].upper() + name[1:]), done, len(rows),
+                           (" (%d with answers kept from before, not asked again)" % kept) if kept else "", what))
+        out.append('<p class="small" style="margin:6px 0 0"><b>Who is asked, in this order:</b></p><ol class="small stgw">%s</ol>' % "".join(said))
+        prog = ev_progress(live)
+        if prog:
+            out.append('<p class="small" style="margin:6px 0 0"><b>Answered by every one of them:</b> %s.</p>' % e(prog))
+    return "".join(out)
+
+
+def run_stages(d, running):
+    """THE INTELLIGENCE RUN, STAGE BY STAGE, on the plan's card: its four stages in order, each with what it does, what it
+    leaves, and where it stands; the one in hand opened out to what is happening this moment. With no run going, the same
+    list says what a run will do, and where one that was stopped will carry on."""
+    root = Path(d.get("root", ARGS.root))
+    steps, done = whole_steps(root, d.get("key") or "")
+    if not running:
+        steps = [dict(x, state="stopped" if x["state"] == "running" else x["state"]) for x in steps]
+    tname = (d.get("target") or {}).get("name", "the larger model")
+    begun = any(x["state"] != "waiting" for x in steps)
+    items = []
+    for i, x in enumerate(steps):
+        does, leaves = STAGE_WORDS.get(x["id"], ("", ""))
+        more = ""
+        if x["state"] == "running":
+            if x["id"] in ("1-evaluate-as-configured", "4-evaluate-trained"):
+                more = _stage_eval_now(d, tname)
+            elif x["id"] == "2-make-adapters":
+                more = '<p class="small"><b>This moment:</b> %s</p>' % e(str(job_live("pretrain").get("step") or "making ready"))
+            else:
+                more = ('<p class="small"><b>This moment:</b> %s</p><p class="small" style="margin:6px 0 0">The class in hand, what has been tried and what has gained are set out under this list.</p>'
+                        % e(str((data._json(root / ".work" / "train" / "live.json", {}) or {}).get("step") or stage_step() or "making ready")))
+        elif x["state"] == "stopped":
+            more = '<p class="small">%s</p>' % ("The run was stopped in this stage. Carry on begins it again: every task a model had finished is kept and not asked again, so it goes on from the task it was in."
+                                               if x["id"] != "3-train-classes" and x["id"] != "2-make-adapters" else
+                                               "The run was stopped in this stage. Carry on begins it again from what it had written down.")
+        elif x["state"] == "done" and x["id"] in ("1-evaluate-as-configured", "4-evaluate-trained"):
+            # (the figure of the last evaluation finished: the first stage's, until the fourth has run)
+            score, of = whole_score(d)
+            mine = (x["id"] == "4-evaluate-trained") or steps[3]["state"] != "done"
+            more = ('<p class="small">The swarm had <b>%s%%</b> of %d benchmark questions right. Every task, beside the larger model, is on the Evaluate card.</p>' % (fmt_pct(score), of)) if score is not None and mine else ""
+        elif x["state"] == "not taken":
+            more = '<p class="small">Not taken: no adapter can be made for this model here, so training goes on without any to try.</p>'
+        # (a row of the list is told by data-stage: the plan's own rows are the ones counted as <li class=...>, ui/check.py)
+        items.append('<li data-stage="%d" class="stg %s"><div class="stgh"><span><i></i><b>Stage %d of 4</b> %s</span><small>%s%s</small></div><p class="small stgd">%s</p><p class="small stgl muted">%s</p>%s</li>'
+                     % (i + 1, x["state"].replace(" ", "-"), i + 1, e(x["name"]), STAGE_STATE.get(x["state"], x["state"]), (" · %d min" % x["minutes"]) if x.get("minutes") else "", does, leaves, more))
+    head = ("The intelligence run, stage by stage" if running or begun and not done else "The last intelligence run, stage by stage" if done else "What an intelligence run does, stage by stage")
+    # (a line of its own, not a heading the plan folds its sections by: fold_sections folds at each h4)
+    return '<p class="stgt">%s</p><ol class="stgs">%s</ol>' % (head, "".join(items))
+
+
 def training_now(d):
     """THE CURRENT STATE OF TRAINING, AND ITS PLAN (console 2026-11-24: this part of the page is the present, not past runs).
     Whichever run is going, intelligence or conversation: the class in hand and the round, what is being asked this moment,
@@ -1635,8 +1732,13 @@ def training_now(d):
                                                                     ("; conventions still missed: %s" % miss) if miss else "")) if g else "is the first: nothing is carried into it."))
         return ('<div class="panel plan" id="trainnow"><div class="plan-head"><h3>Training now</h3><span class="muted small">Nothing is training</span></div>'
                 '<p class="small" style="margin:8px 0 0">Start a run above. Each tries its changes on train questions, keeps the best only where held questions gain beyond their error, and leaves what it was short on for the next.</p>'
-                '<ul class="small" style="margin:6px 0 0;padding-left:18px">%s</ul></div>' % "".join(nxt))
+                '<ul class="small" style="margin:6px 0 0;padding-left:18px">%s</ul>%s</div>' % ("".join(nxt), run_stages(d, False)))
     which = "conversation" if conv else "classes"
+    # (the stage of the intelligence run in hand: only in its third is a class being trained)
+    w_steps = whole_steps(root, key)[0] if whole and not conv else []
+    stage_at = next((i + 1 for i, s in enumerate(w_steps) if s["state"] == "running"), None)
+    stage_name = w_steps[stage_at - 1]["name"] if stage_at else "between stages"
+    in_training = conv or not whole or stage_at == 3 or (alive and not stage_at)
     rec = stage_record(d) or data._json(res / (which + ".json"), None) or {}
     classes = [(K, C) for K, C in (rec.get("classes") or {}).items() if not C.get("skipped")]
     K, C = classes[-1] if classes else ("", {})
@@ -1648,9 +1750,14 @@ def training_now(d):
     g = R.get("gap") or {}
     of = R.get("of") or len(cands) or 1
     out = ['<div class="panel plan" id="trainnow" data-training="1"><div class="plan-head"><h3>Training now: %s</h3><span class="muted small">%s</span></div>'
-           % ("the conversation run, pass %d" % (rec.get("pass") or 1) if conv else "the intelligence run, training" if whole else "each class as a class",
-              e(("Requests %s" % CLASS_WORDS.get(K, K)) + (" · round %d" % len(rounds) if rounds else "")) if K else "starting")]
-    out.append('<p class="small" style="margin:8px 0 0"><b>This moment:</b> %s</p>' % e(str(live.get("step") or "starting")))
+           % ("the conversation run, pass %d" % (rec.get("pass") or 1) if conv else ("the intelligence run, stage %d of 4" % stage_at) if whole and stage_at else "the intelligence run" if whole else "each class as a class",
+              (e(("Requests %s" % CLASS_WORDS.get(K, K)) + (" · round %d" % len(rounds) if rounds else "")) if K else "starting") if in_training else e(stage_name))]
+    if whole and not conv:
+        out.append(run_stages(d, True))
+    if not in_training:
+        # (a stage that is not the training: the class's own detail under this is of the last training, and is not shown as now)
+        return "".join(out) + "</div>"
+    out.append('%s<p class="small" style="margin:8px 0 0"><b>This moment:</b> %s</p>' % ('<p class="stgt">The class in hand</p>' if whole and not conv else "", e(str(live.get("step") or "starting"))))
     car = rec.get("carried") or {}
     if car.get("focus"):
         out.append('<p class="small" style="margin:6px 0 0"><b>Carried in from the last pass:</b> %d more train questions of %s.</p>' % (car.get("more") or 0, ", ".join("%s +%s" % (e(k), v) for k, v in car["focus"].items())))

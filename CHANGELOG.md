@@ -24,6 +24,11 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **The plan says what each stage of the intelligence run is for** (2026-11-25). Under **The plan being carried
+  out**, the run is set out stage by stage: what each of its four stages does, what it leaves for the next, and where
+  it stands. The stage in hand is opened out to this moment: for an evaluation, each model it asks in the order it
+  asks them, how far through the tasks each is, and the questions every one has answered. A stage the run was stopped
+  in says how Carry on goes on. It had said "the intelligence run, training" through all four.
 - **A fix: an evaluation's cards count every model it asks** (2026-11-25). An evaluation asks the larger model, the
   swarm, and then each small model by itself, twice. The cards counted the first two: for the hour after, they read
   "23 of 23 tasks asked" and 100%, and named the larger model as the one answering. The line of tasks, the bar, the
