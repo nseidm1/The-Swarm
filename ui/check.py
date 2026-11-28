@@ -2992,5 +2992,15 @@ check("while an evaluation runs, how long a question takes and how long the task
       and '_readable(str(now.get("ask", "")))' in open(swarm_ui.__file__).read(),
       [swarm_ui._readable("born in \\ufffd\\u000bR\ufffd\x01 1952")])
 
+# ---- the look: one dark look, and its faces are carried with the page
+import re as _re_look
+_faces = _re_look.findall(r"url\('/fonts/([a-z-]+\.woff2)'\)", swarm_ui.CSS)
+_fonts_dir = Path(swarm_ui.__file__).resolve().parent / "fonts"
+check("the page has one dark look, and it has two typefaces and no more (a serif for the title, one face for the rest; code is in the machine's own), and each is a file carried with it (ui/fonts), each with its licence beside it: nothing is asked of another site",
+      "color-scheme:dark" in swarm_ui.CSS and len(_faces) == 2 and all((_fonts_dir / f).is_file() for f in _faces)
+      and all((_fonts_dir / ("OFL-" + f.replace("-latin.woff2", "") + ".txt")).is_file() for f in _faces)
+      and not _re_look.search(r"url\(['\"]?https?:|@import", swarm_ui.CSS) and '"/fonts/"' in open(swarm_ui.__file__).read(),
+      [_faces])
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

@@ -9,3 +9,6 @@ its own license:
 
 It can call, where the person running it has started one, a Kev decision model (github.com/jaredpalmer/kev, Apache License
 2.0). The Swarm ships none of Kev and starts none of it.
+
+The dashboard (ui/) carries two typefaces, each under the SIL Open Font License 1.1 (ui/fonts/OFL-*.txt):
+  Figtree, Instrument Serif

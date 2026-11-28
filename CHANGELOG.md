@@ -10,6 +10,10 @@ The first version.
   "the answer is: } >" and "the answer is: } }", the bracket their answers shared was taken for part of the closing
   words, and every answer said after them had a bracket too many: code closed the brackets right and the reply was
   wrong (2 of 96 made questions, the same one on both draws). The closing words now end on a word.
+- **The dashboard takes The Crew's look** (2026-11-28). One dark look: smoked glass over a night ground, a serif
+  title, and the same greens, reds and golds for right, wrong and running. Its two typefaces are carried in
+  `ui/fonts` and served by the page itself, so nothing is asked of another site. Nothing the page shows or does
+  has changed.
 - **A reader's form is never the reply, and a comparison is held to a sentence** (2026-11-28). Two things the last
   made questions showed with a model reading. Where nothing was settled, the first thing written went out as the
   reply, and that was the reader's form (4 of 480). And a table of six ferries was read as comparisons of one ferry

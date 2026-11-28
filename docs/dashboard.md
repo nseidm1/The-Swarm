@@ -98,6 +98,10 @@ Recommendations build on each other. A changed decider makes a new configuration
 members probe and the decider replay are read from the configuration with the same small models against the same larger
 model, and say so. A configuration not yet measured is never shown the way back to the one it came from.
 
+**One dark look, the same as The Crew's.** Smoked glass over a night ground; colour means a state (right, wrong,
+running) or a member of the swarm, and nothing else. Its two typefaces (a serif for the title, one face for everything else) are carried with the page in `ui/fonts` and
+served by it: nothing is asked of another site.
+
 **No model is loaded outside a session.** A session loads what it needs and unloads it when it ends, however it ends. Only
 this page can start or stop one: a request from another site is refused. To see the page before a pass has run,
 `python3 ui/sample.py /tmp/swarm-sample` makes data to look at and `python3 ui/swarm_ui.py --root /tmp/swarm-sample` shows it.
