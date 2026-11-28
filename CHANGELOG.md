@@ -6,6 +6,15 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A reply closed as the examples close keeps the whole answer** (2026-11-28). Where two worked examples both ended
+  "the answer is: } >" and "the answer is: } }", the bracket their answers shared was taken for part of the closing
+  words, and every answer said after them had a bracket too many: code closed the brackets right and the reply was
+  wrong (2 of 96 made questions, the same one on both draws). The closing words now end on a word.
+- **A reader's form is never the reply, and a comparison is held to a sentence** (2026-11-28). Two things the last
+  made questions showed with a model reading. Where nothing was settled, the first thing written went out as the
+  reply, and that was the reader's form (4 of 480). And a table of six ferries was read as comparisons of one ferry
+  with each other, by two readers alike, and code gave the wrong ferry: a comparison now stands only where one
+  sentence of the question names both.
 - **Code answers three more ways of asking, and a reading is held to the question** (2026-11-28). Made questions of
   dates, of words to order and of brackets, harder and worded as nobody here had worded them, read 21 of 48, 35 of 48
   (3 of 16 told as a story) and 1 of 48. What was found, and what was done:

@@ -431,6 +431,13 @@ function orderAnswer(f, q) {
   const items = names(pairs.flatMap((p) => [p.lesser, p.greater]));
   const n = items.length;
   if (n < 2 || n > 7 || !items.every((x) => within(q, x))) return null;
+  // (a comparison is copied from a sentence that names both: where no sentence of the question names the two together, the
+  // reader worked the comparison out, or made it up. Measured 2026-11-28: a table of six ferries and their lengths was read
+  // as five comparisons of one ferry with each other one, by two readers alike, and code gave the wrong ferry)
+  const told = String(q)
+    .split(/[.;?!\n]+/)
+    .filter((x) => /[a-z]/i.test(x));
+  if (!pairs.every((p) => told.some((t) => within(t, low(p.lesser)) && within(t, low(p.greater))))) return null;
   const rules = [];
   for (const p of pairs) {
     const a = items.indexOf(low(p.lesser));

@@ -9083,6 +9083,18 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           lettered.spaced === false
         );
       })() &&
+      // (a mark the examples' answers both begin with is the answer's: the lead ends on a word, and the answer is said whole)
+      (() => {
+        const shared = R.closingForm([
+          { role: 'assistant', content: 'Working it through, the answer is: } >' },
+          { role: 'assistant', content: 'Working it through, the answer is: } }' },
+        ]);
+        return (
+          shared.lead === 'Working it through, the answer is:' &&
+          shared.spaced === true &&
+          R.closedAs('', ') ] }', shared) === 'Working it through, the answer is: ) ] }'
+        );
+      })() &&
       // (a start that only opens a block of code has the code put in it, and the block closed)
       R.continuedFrom('\n```python\n', '```\ndef f(a):\n    return a\n```', 'def f(a):\n    return a') ===
         'def f(a):\n    return a\n```' &&
@@ -13841,6 +13853,18 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       },
       'Ada towers over Jon but Esme towers over Ada. Second tallest?',
     ),
+    // (comparisons no sentence of the question tells, made of a table's rows: no answer)
+    secondMade: A(
+      'order',
+      {
+        comparisons: [
+          { a: 'Islet', is: 'less', b: 'Corvin' },
+          { a: 'Islet', is: 'less', b: 'Alder' },
+        ],
+        asked: { rank: 1, from: 'least' },
+      },
+      'name, length\nCorvin, 23\nAlder, 53\nIslet, 38\nWhich has the smallest length?',
+    ),
     more: A('more', { first: 521, second: 749 }, 'Ines moved 749 units, then 521. How many more the second time?'),
     moreOther: A('more', { first: 521, second: 750 }, 'Ines moved 749 units, then 521.'),
     date: A(
@@ -13873,6 +13897,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           word: 'revl',
           wordOther: null,
           second: 'Ada',
+          secondMade: null,
           more: '-228',
           moreOther: null,
           date: '04/27/2017',

@@ -1682,7 +1682,8 @@ After O.8.6, when `plan.closeAs` is `shown`, the reply is non-empty, decided is 
    non-empty text (a sentence ends at `.`, `!` or `?` followed by white space, or at a line break). With fewer than two
    such messages there is no FORM and nothing is done.
 2. LEAD is the longest run of leading words that every one of those sentences begins with, leaving each at least one
-   word more. With fewer than two words in LEAD there is no FORM, unless LEAD is one word that holds no
+   word more; while LEAD has more than one word and its last word holds no letter and no digit, that word is dropped
+   from LEAD (a mark the answers share is of the answers). With fewer than two words in LEAD there is no FORM, unless LEAD is one word that holds no
    letter and no digit (a mark, as in `#### 18`). TAIL is the last character of the sentences where
    every one ends with the same one of `.`, `!`, `?`; otherwise empty. Each sentence's ANSWER is what lies between
    LEAD and TAIL; where one is empty or longer than 200 characters there is no FORM. BRACKET holds when every ANSWER
@@ -1724,8 +1725,9 @@ If the reply is still empty:
    LANG being its fence language (R.1.8);
    else if path contains `+described` and WORK is non-empty, the reply is WORK; else it is
    `(WORK ? WORK + "\n\n" : "") + DECIDED`.
-2. Otherwise, if any recorded row has non-empty `out`, take the first such row in record order
-   (O.10.3) and the reply is its read working, or its whole `out` if that is empty.
+2. Otherwise, if any recorded row whose stage is not `read` has non-empty `out`, take the first such row in record
+   order (O.10.3) and the reply is its read working, or its whole `out` if that is empty. (A row of stage `read`
+   holds a form a reader filled in, and is no reply.)
 3. path becomes: `fallback` if it was empty; unchanged if it contains `code-restored`; otherwise
    path + `+unwritten`.
 
@@ -2958,7 +2960,7 @@ training wrote (`plan.written`) answered:
 | date | `today`: `{ year, month, day }`, the date the text gives; `steps`: a list of `{ amount, unit, direction }`, `unit` one of `day`, `week`, `month`, `year`, `direction` one of `back`, `on`, taken one after another from today, six at most; a step whose amount is 0 is no step, and a list left with none gives no answer. A form with no `steps` and with `amount`, `unit` and `direction` of its own is a form of that one step. The form is shown with two worked examples, one of one length and one of two. The rules below the table hold it to the question. A month or a year on or back gives no answer where that month has no such day |
 | sorted | `words`: the words to be ordered. Where the question sets a list out (three or more single words with commas between and `and` or `or` before the last) and at least four in five of that list's words are in `words` and four in five of `words` are in that list (without regard to case), the words ordered are the first such list's own, as the question writes them; otherwise they are `words`. There is no answer with fewer than two, where one is not a word (letters, with `'`, `’` or `-` inside) or is not a word of the question, or where two are the same without regard to case. The answer is the words in alphabetical order (compared in lower case; where two are then the same, by their code units), with one space between |
 | free | `awakeFrom`, `closedAfter` and `seen`: list of `{ from, to }`, each a time as the question writes it |
-| order | `comparisons`: one for each sentence, `{ a, is, b }`, `is` one of `more`, `less`: `a` has more, or less, of the measure than `b`; `asked`: `{ rank, from }`, `from` one of `greatest`, `least` |
+| order | `comparisons`: one for each sentence, `{ a, is, b }`, `is` one of `more`, `less`: `a` has more, or less, of the measure than `b`; `asked`: `{ rank, from }`, `from` one of `greatest`, `least`. Each comparison's `a` and `b` MUST both be named in one sentence of the question (a sentence ends at `.`, `;`, `?`, `!` or a line break); otherwise there is no answer |
 | more | `first`, `second`: two figures of the question; the answer is the first less the second |
 | valid | `premises`: list of statements; `conclusion`: a statement. A statement is `{ says, subject, predicate }`, `says` one of `all`, `no`, `some`, `someNot`, `is`, `isNot` |
 | number | `start`: a number; `steps`: list of `{ do, by }`, `do` one of `add`, `subtract`, `multiply`, `divide`. `by` is a figure of the question, or 2, 3 or 4 where the question says doubled, trebled, quartered and the like. Every figure of the question has to be the start or a step, each once: with one left over the reading gives no answer |

@@ -389,6 +389,10 @@ export function closingForm(messages) {
   // (the words every one begins with, leaving each at least one word of its own: its answer)
   while (words.every((w) => w.length > n + 1 && w[n] === words[0][n])) n++;
   // (two words or more; or one that is a mark and no word, as in examples that close "#### 18")
+  // (a mark every example's answer happens to begin with is the answer's, not the form's: two examples that both close
+  // "the answer is: } >" and "... } }" share the "}", and a lead that kept it put a bracket before every answer said after
+  // it. Measured 2026-11-28: code closed the brackets right and the reply was wrong, 2 of 96. The lead ends on a word)
+  while (n > 1 && !/[A-Za-z0-9]/.test(words[0][n - 1])) n--;
   if (n < 2 && !(n === 1 && !/[A-Za-z0-9]/.test(words[0][0]))) return null;
   const lead = words[0].slice(0, n).join(' ');
   const rests = lasts.map((l) => l.slice(lead.length).trim());

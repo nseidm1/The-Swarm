@@ -1877,8 +1877,12 @@ async function answerWhole(
           : /\+described/.test(path) && work
             ? work
             : (work ? work + '\n\n' : '') + decided;
-    else if (trace.find((r) => r.out))
-      reply = workOf(trace.find((r) => r.out).out, marker) || trace.find((r) => r.out).out;
+    else {
+      // (what a reader filled in on the way to a form is no reply: measured 2026-11-28, where nothing was settled and a
+      // model had been asked to read, the first thing written was the reader's form, and that went out as the answer)
+      const first = trace.find((r) => r.out && r.stage !== 'read') || null;
+      if (first) reply = workOf(first.out, marker) || first.out;
+    }
     path = path ? (/code-restored/.test(path) ? path : path + '+unwritten') : 'fallback';
   }
   // THE REPLY CLOSES AS THE EARLIER REPLIES DO (plan.closeAs 'shown'; read.mjs closingForm says why): where the conversation's
