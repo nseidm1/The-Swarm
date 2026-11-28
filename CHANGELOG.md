@@ -13,6 +13,12 @@ The first version.
   the arrangement an evaluation measures. Carried on, a step is passed over only where all of that is as it was.
   Otherwise it is done again, and the page says which stage and what changed before the button is pressed. A run
   begun before this takes its finished steps as made by what is here now.
+- **Kept answers are named by the code that asks** (2026-11-27). The larger model's kept answers, and each small
+  model's, were reused by a version number bumped by hand, from memory: whether to bump it was a person's opinion,
+  and a change that was not bumped reused answers asked another way. The code that asks (the relay, the harness's
+  arguments, how a tools test and its search are run) now has a fingerprint, and it is part of every kept folder's
+  name. Change how a model is asked and every model is asked again, with nothing to decide. A line that is only a
+  comment does not count. The answers kept before this are still found.
 - **A probe's leads are judged by training first** (2026-11-27). The class stage puts one change, the best on its
   train questions, on its held questions. A change that gains on held questions and is not the best on train was
   never seen there. Training now reads leads for a class (`training/results/<configuration>/leads.json`), puts each on

@@ -51,6 +51,7 @@ import {
   roomLeft,
 } from './support/bfcl.mjs';
 import { laidOutAs, withoutRestating } from '../src/read.mjs';
+import { askedPart } from './support/asks.mjs';
 import {
   searchOf,
   PAGE_CHARS,
@@ -71,10 +72,10 @@ export const LMEVAL = path.join(ROOT, '.work', 'lmeval');
 export const HARNESS = 'lm-evaluation-harness 0.4.13';
 // (the same, as a SwOA spec's proof names a harness: docs/swoa.md)
 export const HARNESS_ID = { name: 'lm-evaluation-harness', version: '0.4.13' };
-// (bumped when what is done around the harness changes, so that kept answers of the larger model are not reused across it)
-// 2 (2026-11-20): a task's stop words are no longer sent to a model whose reply opening was taken off (relay, below). The larger
-// model's kept answers to HumanEval were its import line and nothing more.
-const RELAY_VERSION = 2;
+// (kept answers are named by the code that asks a model, itself: support/asks.mjs. This was a number bumped by hand, 2 since
+// 2026-11-20, when a task's stop words stopped being sent to a model whose reply opening was taken off and the larger model's
+// kept answers to HumanEval were its import line and nothing more. The answers kept under that number are still found.)
+const ASKED = askedPart();
 
 // the tasks to run, of the bodies of work named: [{ item, itemName, task, name, metric, filter, compare }]
 // (every body of work that has a standard task, unless a run names which: --items, or the page's Evaluate)
@@ -342,6 +343,7 @@ export function wayByItem(scores) {
 // the day, for answers that are only good for the day they were given (a web search)
 export const dayOf = (at = new Date()) => at.toISOString().slice(0, 10);
 
+// ASKS:BEGIN the relay between the harness and a model, and how a model is asked through it (support/asks.mjs)
 // a reply cut where the task says a reply ends
 export function cutAt(text, stops) {
   let s = String(text || '');
@@ -482,6 +484,8 @@ export const askFormAt = (base) => {
   const ask = askAt(base);
   return async (messages, body) => formOnly(await ask(messages, { ...body, stop: undefined }), messages);
 };
+
+// ASKS:END
 
 // the files the harness wrote for one task: { results, samples } (paths), or null
 export function filesOf(dir, task) {
@@ -833,6 +837,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       row.started = Date.now();
       const used0 = who === 'swarm' && usedNow ? usedNow() : null;
       write(true);
+      // ASKS:BEGIN the harness's own arguments
       const args = [
         'run',
         '--model',
@@ -849,6 +854,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         '--confirm_run_unsafe_code',
         ...(limitOf(b) ? ['--limit', String(limitOf(b))] : []),
       ];
+      // ASKS:END
       child = spawn(path.join(LMEVAL, 'venv', 'bin', 'lm_eval'), args, {
         env: {
           ...process.env,
@@ -1004,8 +1010,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         b.task +
           '-' +
           (limitOf(b) || 'all') +
-          '-r' +
-          RELAY_VERSION +
+          ASKED +
           part +
           dayPart(b) +
           searchPart(b) +
@@ -1087,8 +1092,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         b.task +
           '-' +
           (limitOf(b) || 'all') +
-          '-r' +
-          RELAY_VERSION +
+          ASKED +
           dayPart(b) +
           searchPart(b) +
           (b.way && b.way !== 'tools' ? '-' + b.way : ''),
@@ -1123,14 +1127,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
           EVAL_DIR,
           'alone',
           m.id,
-          b.task +
-            '-' +
-            (limitOf(b) || 'all') +
-            '-r' +
-            RELAY_VERSION +
-            enginePart(eng.name, eng.version) +
-            dayPart(b) +
-            searchPart(b),
+          b.task + '-' + (limitOf(b) || 'all') + ASKED + enginePart(eng.name, eng.version) + dayPart(b) + searchPart(b),
         );
       // (and the same model with its reply laid out and nothing more: formOnly. Not a test of calling tools, which has no layout)
       const whoF = who + '-form';

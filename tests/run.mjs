@@ -12703,6 +12703,32 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+// ---- KEPT ANSWERS ARE NAMED BY THE CODE THAT ASKS (training/support/asks.mjs): no number to bump, nothing to decide
+{
+  const A = await import('../training/support/asks.mjs');
+  const parts = A.askingParts();
+  const src = fs.readFileSync(new URL('../training/evaluate.mjs', import.meta.url), 'utf8');
+  const [legacy] = Object.keys(A.KEPT_AS);
+  check(
+    "the answers an evaluation keeps are named by the code that asks a model, so a change to how a model is asked asks every model again with nothing for a person to decide: the fingerprint reads the relay and the harness's arguments in evaluate.mjs and the programs a tools test and its search are run by, not the parts that report; a line that is only a comment or empty is not read, and a line of code that changes is; the answers kept under the old numbered name are still found by the fingerprint they were asked with; and the larger model's, the swarm's and each small model's folders all carry it",
+    Object.keys(parts).includes('training/evaluate.mjs#1') &&
+      Object.keys(parts).includes('training/evaluate.mjs#2') &&
+      Object.keys(parts).includes('training/support/bfcl.mjs') &&
+      !Object.keys(parts).some((k) => /mlx_adapter|harness_agree/.test(k)) &&
+      /relay\(/.test(parts['training/evaluate.mjs#1']) &&
+      /--fewshot_as_multiturn/.test(parts['training/evaluate.mjs#2']) &&
+      A.regionsOf('a\n// ASKS:BEGIN x\nb\n// ASKS:END\nc\n// ASKS:BEGIN\nd\n// ASKS:END\n').join('|') === 'b\n|d\n' &&
+      A.codeOf('  x = 1;  \n\n  // said more\nurl = "http://a";\n') === '  x = 1;\nurl = "http://a";' &&
+      A.codeOf('# a script\ny = 2\n', '#') === 'y = 2' &&
+      A.askedPart(legacy) === '-r2' &&
+      A.askedPart('0123456789ab') === '-a0123456789ab' &&
+      A.askedPart() === (A.KEPT_AS[A.askingSha()] || '-a' + A.askingSha()) &&
+      (src.match(/ASKED \+/g) || []).length === 3 &&
+      !/RELAY_VERSION/.test(src),
+    { now: A.askingSha(), legacy, parts: Object.keys(parts) },
+  );
+}
+
 // ---- THREE EVALUATIONS SIDE BY SIDE (training/evaluate.mjs --variant): the module as configured, pretrained, and pretrained and
 // trained; each one score with its error, and a difference said only beyond twice the error
 {
