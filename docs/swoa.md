@@ -2235,7 +2235,11 @@ the answer) or a non-empty reason. The decision uses no model and MUST be determ
    ```
    /(?:^|\n)\s*(?:the person['’]s message|what was settled|the draft it came from|they asked|the answer settled on|the work behind it)\s*:/i
    ```
-   the reason is `it repeats the labels it was given`.
+   the reason is `it repeats the labels it was given`. Else if it matches TOLD_TO:
+   ```
+   /\bnow write the reply itself\b|\ba statement of the answer, not the reply itself\b|\bexactly as the person will read it\b/i
+   ```
+   the reason is `it repeats what it was told to do`.
 3. Else if it matches ABOUT:
    ```
    /\b(?:the (?:message|request|prompt|question|task|person) (?:asks|is asking|asked|requires|required|wants)|the draft (?:was|is|came|included|includes|had|has)|(?:has|have) been (?:prepared|written|created|crafted|drafted)|was (?:prepared|created|drafted) (?:with|to|for)|settled (?:on|with|as)|the (?:answer|response|reply) (?:is|was) (?:settled|clear|ready|complete))\b/i
@@ -2860,7 +2864,7 @@ of Part II is not run. Instead:
 
 `plan.instruments` is a list of the ids of the instruments that are on (or `true`: every one). It is absent from an
 arrangement as it starts: an instrument is on where training kept it for the class of input. Where the question does
-not want code and at least one is on, the question is first read by the instruments that are on, in the order below. The question is taken trimmed, without a leading `Q:` or `Question:` and without the lines at
+not want code and at least one is on, the question is first read by the instruments that are on, in the order below. The question is taken trimmed, without its leading `Q:` or `Question:` labels (one, or several one after another: `Q: Question:`) and without the lines at
 its end that only say where the answer goes: a line that is one letter and at most nineteen more letters or spaces,
 then a colon, with nothing after it or `Let's think step by step.` (`A:`, `Answer:`, `Sorted:`, `Output:`), removed
 while the last line is such a line. Where an instrument applies, the answer procedure of
@@ -2879,7 +2883,7 @@ determine, solve, work, out, how, much, please, help, tell, give, me, result, an
 | sum | exactly one run of numbers, `+ - * /` and round brackets that begins with a number, a sign or a bracket and works out (operators between two numbers may be written `plus`, `minus`, `times`, `multiplied by`, `divided by`). A date as dates are written (`3/4/2020`, `2020-11-22`) is no sum | its value, by the usual precedence; an integer without a decimal point; division by zero does not apply |
 | truth | exactly one run of `True`, `False`, `not`, `and`, `or` and round brackets that works out with at least one operator. A second run that is exactly `True or False` names the two answers and is part of the asking | `True` or `False`; `not` binds tighter than `and`, `and` tighter than `or` |
 | sorted | an instruction to sort (a verb of ordering at the head of a sentence, or after a short label and a colon; or a request put as a question: `what is`, `give me`, `how would you`, ... then alphabetical) that says alphabetical, dictionary or lexicographic order, `from A to Z` or `by the alphabet`, and not reverse or descending; not a question that asks why, whether, when or should; and after its last colon a list of two or more items that does not end with `?`. Items are parted by lines where there are several, else by commas, semicolons or bars where the list holds one, else by white space; each item holds a letter or a digit | the items in order by character in lower case, joined as they were parted (a space for lines) |
-| closed | it speaks of closing, completing, finishing, balancing or of what is missing, and holds exactly one run of `( ) [ ] { } < >` and white space, at its end or at its head, with letters in the rest and no bracket elsewhere; the run closes nothing it did not open and leaves at least one open | the closing bracket of each one left open, the last opened first, with one space between |
+| closed | it speaks of closing, completing, finishing, balancing or of what is missing, and holds exactly one run of `( ) [ ] { } < >` and white space (a run begins and ends with a bracket), wherever in the question it stands, with letters in the rest and no bracket elsewhere; the run closes nothing it did not open and leaves at least one open | the closing bracket of each one left open, the last opened first, with one space between |
 | lies | every sentence is one of: `<Name> tells the truth.` or `<Name> lies.`; `<Name> says <Name> tells the truth.` or `<Name> says <Name> lies.`; one `Does <Name> tell the truth?`; a line that only asks for Yes or No. At least one person is stated outright and at least one speaks of another | `Yes` or `No`: who says a true thing tells the truth, each settled from the one they speak of. Does not apply where the one asked of is not settled, or two statements disagree |
 | word | the first sentence is `Take the word "<letters>".` (or `Start with`, `Begin with`), the last asks what is left (or what you get, what remains, what the result is), and each sentence between, with or without `Then`, `Next`, `After that`, `Now`, `Finally`, is one of: `Reverse it.`; `Write it in capital letters.`; `Write it in lower case.`; `Remove its first letter.` or `last`, or so many letters up to four; `Double it.` | the word after each is done in turn. Does not apply where a removal would leave no letter |
 | row | a sentence says there are N things in a row and names them after a colon (two to seven, each named once, as many as it says); every sentence after is one of: `The <thing> is to the left of the <thing>.` or `right`; `The <thing> is the leftmost.`, `rightmost`, or `the <second..seventh> from the left` or `right`; one `Which <thing> is the <place>?`; `Options:`, lettered options that each name one of the things, and a line asking for a letter | every order of the things is tried against the statements. Where they leave exactly one thing in the place asked: the letter of the one option that names it, or `The <thing>` where no options are given. Otherwise it does not apply |
@@ -2924,7 +2928,7 @@ training wrote (`plan.written`) answered:
    what the question is about and then one id or `none`, at temperature 0 and at most 120 tokens. Where the engine can
    hold a reply to a JSON schema, the reply is held to `{ "about": <text>, "kind": <one of the ids or "none"> }`.
    The forms then tried, three at most, are: the one named; the ones a few words of the question point to (a cue
-   for each form, such as a date written in figures beside a length of time); and the ones often taken for the one
+   for each form, such as a date, in figures or with its month by name, beside a length of time); and the ones often taken for the one
    named (`row` and `order` for each other, `date` and `free` for each other). One that the words point to and that
    is the one named, or often taken for it, comes first. Where there is none, the question is answered as any other.
    Steps 2 to 4 are done for each in turn until one gives an answer.
@@ -2950,7 +2954,8 @@ training wrote (`plan.written`) answered:
 | lies | `statements`: one for each sentence, `{ speaker, about, says }`, `says` one of `tellsTruth`, `lies`, and `speaker` empty where the text itself says it; `asked`: a name; `askedWhether`: `truthful` or `lies` (the answer is `Yes` where the one asked of is as asked) |
 | word | `word`; `steps`: list of `{ do, count }`, `do` one of `reverse`, `capitals`, `small`, `removeFirst`, `removeLast`, `double` |
 | row | `items`: list of names; `facts`: list of `{ thing, is, other, place, from }`, `is` one of `leftOf`, `rightOf`, `place`, `from` one of `left`, `right`, `place` counted from 1; `asked`: `{ place, from }`. A thing named a little otherwise than in `items` is the one item whose name holds it or is held by it |
-| date | `today`: `{ year, month, day }`; `amount`; `unit`: `day`, `week`, `month` or `year`; `direction`: `back` or `on`. A month or a year on or back gives no answer where that month has no such day |
+| date | `today`: `{ year, month, day }`, the date the text gives; `told`: which day the text says that date is, one of `today`, `yesterday`, `tomorrow`, `the day before yesterday`, `the day after tomorrow` (`today` where absent or empty); `steps`: a list of `{ amount, unit, direction }`, `unit` one of `day`, `week`, `month`, `year`, `direction` one of `back`, `on`, taken one after another from today, six at most. A form with no `steps` and with `amount`, `unit` and `direction` of its own is a form of that one step. The rules below the table hold it to the question. A month or a year on or back gives no answer where that month has no such day |
+| sorted | `words`: the words to be ordered, each as the text writes it. There is no answer with fewer than two, where one is not a word (letters, with `'`, `’` or `-` inside) or is not a word of the question, or where two are the same without regard to case. The answer is the words in alphabetical order (compared in lower case; where two are then the same, by their code units), with one space between |
 | free | `awakeFrom`, `closedAfter` and `seen`: list of `{ from, to }`, each a time as the question writes it |
 | order | `comparisons`: one for each sentence, `{ a, is, b }`, `is` one of `more`, `less`: `a` has more, or less, of the measure than `b`; `asked`: `{ rank, from }`, `from` one of `greatest`, `least` |
 | more | `first`, `second`: two figures of the question; the answer is the first less the second |
@@ -2961,6 +2966,24 @@ training wrote (`plan.written`) answered:
 | range | `from`, `to`: whole numbers; `ends`: `both`, `neither`, `first` or `last` (which of the two are counted); `dividedBy` |
 | track | `holds`: list of `{ who, has }`, each person and each thing once; `swaps`: list of `{ a, b }`, in order; `asked`: `{ wants, of }`, `wants` one of `who` (who has the thing `of`), `what` (what the person `of` has) |
 | path | `facing`: `north`, `east`, `south` or `west`; `moves`: list of `{ do, steps }`, `do` one of `forward`, `backward`, `stepLeft`, `stepRight` (steps taken, `steps` at least 1) or `turnLeft`, `turnRight`, `turnAround` (a turn on the spot); `asked`: `backAtStart` (`Yes` or `No`) or `howFar` (the steps from the start, counted along the two directions) |
+
+**A date reading is held to the question.** For the `date` form, before anything is worked out:
+
+1. `told` other than `today` gives no answer unless the question holds that word (`yesterday`, `tomorrow`, `day before
+   yesterday`, `day after tomorrow`, as a whole word or words); `told` of `today` gives no answer where the question
+   holds `yesterday` or `tomorrow` followed by `was`, `is` or `will be`. Today is the date given less one day for
+   `tomorrow`, plus one for `yesterday`, less two for `the day after tomorrow`, plus two for `the day before yesterday`.
+2. The **lengths the question names** are its matches, in order, of a number (digits, or `a`, `an`, `one` to `twelve`),
+   white space, and `day`, `week`, `month` or `year` with an optional `s`. Each goes `back` where the words that follow
+   it begin with `earlier`, `ago`, `before`, `back`, `prior`, `previous` or `previously`; `on` where they begin with
+   `later`, `after`, `from now`, `from today`, `ahead`, `hence`, `on` or `afterwards`, or where `in` stands just before
+   it; and no way otherwise. A match whose number is a word and that goes no way is not a length.
+3. Where the question names at least one length, the reading gives no answer unless it has as many steps as the
+   question names lengths and, in order, each step has that length's amount and unit and, where the length goes a way,
+   that direction.
+4. A question that holds a number followed by `hour`, `hours`, `minute` or `minutes` gives no answer.
+
+A reading that gives no answer by these rules is no reading: it does not count toward agreement (step 4 above).
 
 Lettered options are read from the question by code, not by the model: `(A) text`, several on a line or one a line,
 or `A. text` one a line. Where the question has them the answer is the letter of the one option that is what was
@@ -3548,13 +3571,24 @@ sentence ending in `?` where it has one; at most 300 characters.
 slot is called for a step (T.6 to T.8 and T.13a are not run). Otherwise the turn is taken as any turn with tools, and
 the program runs only where the step settled on is a reply, before that reply is answered (T.9).
 
-**What a question hangs on.** With its closing `?` removed: the text from its last match of `the`, one to five words
-none of which is `the`, then `that`, `which`, `who`, `whose` or `where`, to its end. Where there is no such match: its
+**What a question hangs on.** With its closing `?` removed: the **clause** is the text from its last match of `the`, one to five words
+none of which is `the`, then `that`, `which`, `who`, `whose` or `where`, to its end. Where there is a clause and, inside
+it, a match of `the`, one to three words, then `of`, `in`, `at`, `from` or `for`, followed by a name that is words each
+beginning with a capital letter (or one of `of`, `and`, `de`, `la`, `del`, `von`, `van`, `al`, `el` between them), the
+question hangs on the last such match with its name (a clause that itself hangs on a named thing is not looked up
+whole), provided the question with it taken out still holds a content word; otherwise it hangs on the clause. Where there is no clause: its
 last match of `the`, one to three words, then `of`, `in`, `at`, `from` or `for`, followed by a name, which is the
 following words while each begins with a capital letter or a digit or is one of `the`, `of`, `and`, `de`, `la`, `del`,
 `von`, `van`, `al`, `el`, ended at a word that ends with `,`, `;` or `:`, and with trailing words that are not names
 removed; there is none where no word of it begins with a capital letter or a digit. A question hangs on such a text
 only where the question with that text taken out still holds a content word (below); otherwise it hangs on nothing.
+
+**A question put straight.** A question that hangs on nothing as it stands, and that matches: any text, `the` and one
+word, then one to three words none of which is `the`, `that`, `which`, `who`, `whose` or `where`, then one of those
+five words and the rest, is **put straight**: the one to three words are moved to stand before `the` (`In what year was
+the town founded where Ada Brim was born?` becomes `In what year was founded the town where Ada Brim was born?`), where
+the question so put hangs on something; otherwise it is left as it is. The question of a turn is taken put straight,
+and so is the question as it stands each time a fact is put into it (step 2.3).
 
 **The state.** A message that makes a call carries, as its `content`, two lines: `Looking up: ` and what is being
 looked up, then `Question now: ` and the question as it stands. The state of a turn is read from the last assistant
@@ -3567,7 +3601,10 @@ the question.
 1. No call has been made: a search for what the question hangs on, or for the question where it hangs on nothing
    (the first tool that searches and takes a query, that parameter set to it). `+searched` is appended to the path.
 2. Calls have been made, fewer than `plan.searchMost` (12 where it is not set):
-   1. The last call was a search: the step opens a page (the first tool that opens one), on the first address
+   1. The last call was a search, and the first address in its `tool` message is one a call made has opened: that page,
+      as it was returned, is **read** (2.2) for what is looked up now. Where that gives a fact, steps 2.3 and 2.4 follow
+      from it, with that page as the `tool` message of 2.4. Where it gives none, or where that address was not opened
+      before: the step opens a page (the first tool that opens one), on the first address
       (`http://` or `https://`, to the next white space, quote, bracket, comma or backslash, trailing `.,;:` removed) in
       the last `tool` message that no call made contains. Where a parameter of that tool lists its values (`enum`)
       and one of them is, without regard to case, `text`, `plain`, `plaintext`, `clean`, `cleaned`, `readable`,

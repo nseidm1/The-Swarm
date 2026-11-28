@@ -1798,8 +1798,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   check(
     "every kind of held question has a second wording that changes how it is put and nothing of what it asks, and is compared with the larger model's answer to the first: a programming question by its form, every other kind from its own draw, with every number and quoted word of the first in the second, every rule word for word and in the same order, every argument a call needs said outright, and the same answer good for both; a step that is followed by a search and what it returned keeps them as they were and puts only the question another way; the only questions without one are a message there is no other way to put and an agent's steps that end on what a tool returned (4 of 222); and a kind that is asked more of keeps the questions it had and adds to them",
     second.length === held.length &&
-      others.length === 150 &&
-      others2.length === 150 &&
+      others.length === 168 &&
+      others2.length === 168 &&
       others2.every(
         (t) =>
           t.ask &&
@@ -1809,7 +1809,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           digits(t.ask) === digits(firstOf(t).ask) &&
           quoted(t.ask) === quoted(firstOf(t).ask),
       ) &&
-      rightBoth.length === 132 &&
+      rightBoth.length === 150 &&
       rightBoth.every(Boolean) &&
       // a request with rules: every rule word for word, in the same order, after the request
       others2
@@ -1841,8 +1841,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
             t.turns.slice(1).every((m, i) => m === firstOf(t).turns[i + 1]),
         ) &&
       others2.filter((t) => t.kind === 'search' && t.turns.length === 3).length >= 3 &&
-      everyKind.length === 342 &&
-      everyKind2.length === 338 &&
+      everyKind.length === 360 &&
+      everyKind2.length === 356 &&
       without.sort().join() === 'agent,agent,agent,answer' &&
       second.every(
         (t, i) =>
@@ -2166,8 +2166,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     "what the swarm is trained on is every body of work of a list kept as data (The Crew, Code, Math, Logic, Reasoning, Instructions, Tools, Search), and nothing is chosen: a pass asks the kinds of them all, each once (Code's are among The Crew's); the list has no default, since there is nothing to fall back to; the kinds of some can still be named (a record, a check), a name that is not one is passed over, and with none left it is every one; what a list of kinds covers is said from the kinds (a pass that asked The Crew's covered Code too); and every kind of every body makes a question",
     BODIES.join() === 'crew,code,math,logic,reasoning,instructions,tools,search' &&
       EQUIVALENCE.default === undefined &&
-      NAMES.length === 57 &&
-      new Set(NAMES).size === 57 &&
+      NAMES.length === 60 &&
+      new Set(NAMES).size === 60 &&
       NAMES.join() === kindsFor(BODIES).join() &&
       kindsFor().join() === NAMES.join() &&
       kindsFor([]).join() === NAMES.join() &&
@@ -2177,10 +2177,10 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       kindsFor(['crew']).join() === CREW_NAMES.join() &&
       kindsFor(['math']).slice().sort().join() === 'chain,count,rate,shop,sum,units' &&
       kindsFor(['math', 'crew']).length === CREW_NAMES.length + 6 &&
-      kindsFor(['logic', 'reasoning']).length === 16 &&
-      make({ split: 'held', each: 2, kinds: kindsFor(['math', 'logic', 'reasoning']) }).length === 44 &&
-      make({ split: 'train', each: 6 }).length === 342 &&
-      make({ split: 'held', each: 6 }).length === 342 &&
+      kindsFor(['logic', 'reasoning']).length === 19 &&
+      make({ split: 'held', each: 2, kinds: kindsFor(['math', 'logic', 'reasoning']) }).length === 50 &&
+      make({ split: 'train', each: 6 }).length === 360 &&
+      make({ split: 'held', each: 6 }).length === 360 &&
       bodiesOf(NAMES).join() === BODIES.join() &&
       bodiesOf(CREW_NAMES).join() === 'crew,code' &&
       bodiesOf(CODE_KIND_NAMES).join() === 'code' &&
@@ -2410,7 +2410,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     byRecord === 'chain,order' &&
       before === CODE_KIND_NAMES.join() &&
       first === NAMES.join() &&
-      NAMES.length === 57 &&
+      NAMES.length === 60 &&
       withOldChoice === first &&
       readOld === undefined &&
       writtenOld === undefined,
@@ -12228,8 +12228,8 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
         ) &&
         again.length === py.length &&
         again.every((t) => /^I need a function in Python, `/.test(t.ask)) &&
-        TK.KIND_NAMES.slice(-20, -15).join() === 'py-arrays,py-strings,py-numbers,py-parsing,py-wide' &&
-        TK.KIND_NAMES.slice(-15, -9).join() === 'chat-terse,chat-formal,chat-hurry,chat-heavy,chat-thanks,chat-back' &&
+        TK.KIND_NAMES.slice(-23, -18).join() === 'py-arrays,py-strings,py-numbers,py-parsing,py-wide' &&
+        TK.KIND_NAMES.slice(-18, -12).join() === 'chat-terse,chat-formal,chat-hurry,chat-heavy,chat-thanks,chat-back' &&
         before.ask === 'Today is Tuesday. What day of the week will it be 158 days from now?' &&
         (!marks || marks.join() === 'right,wrong,unsure'),
       { forms: forms.map((f) => f.slice(0, 80)), marks, canRun },
@@ -12820,6 +12820,96 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       T.straightened('What is the capital of France?') === 'What is the capital of France?' &&
       T.straightened('Who is the mayor of the capital of Aldo?') === 'Who is the mayor of the capital of Aldo?',
     { again, next, askedOf: askedOf.slice(0, 200) },
+  );
+}
+
+// ---- WHAT THE HARDER MADE QUESTIONS SHOWED (2026-11-27): brackets anywhere in a question, a date of several steps held to
+// the question, words to order picked out by a model, a label said twice, a reply that says over what it was told to do
+{
+  const I = await import('../src/instruments.mjs');
+  const F = await import('../src/forms.mjs');
+  const R = await import('../src/read.mjs');
+  const closed = (q) => (I.instrumentFor(q, ['closed']) || {}).answer;
+  const date = (q, f) => F.FORMS.date.answer(f, q);
+  const two =
+    'Today is September 4, 2019. Go to the date 3 months earlier, and then 9 days later. What is that date? Give it as MM/DD/YYYY.';
+  const day = { year: 2019, month: 9, day: 4 };
+  check(
+    'brackets are closed by code wherever the one run of them stands in the question, not only at its end or its head (asked "... ( [ <, write what must come next", no one read it), and still not where brackets stand among other things; a date of several lengths of time, one after another, is worked out step by step, from the day the question tells of where that is yesterday or the day after tomorrow; a reading is held to the question by code: one that leaves out a length of time the question names, or adds one, or takes "earlier" for later, or reads "yesterday was" as told of today, gives no answer; a reading of one step, as the form always held it, is still read; words to put in order that a model picked out are ordered by code, each one a word of the question and none twice; a label said twice before a question is taken off; and a reply that says over what its writer was told to do is not sent',
+    closed(
+      'These brackets are not all closed: ( [ <\nWrite only the brackets that must come next so that every bracket is closed in the right order.',
+    ) === '> ] )' &&
+      closed(
+        'A typesetter stopped part way: < [ ] [ (\nWhich brackets are still to be set, to close everything that is open?',
+      ) === ') ] >' &&
+      closed(
+        'Complete the rest of the sequence, making sure that the parentheses are closed properly. Input: [ { (',
+      ) === ') } ]' &&
+      closed('It is 03/05/2021 (month/day/year). Which brackets close this?') === undefined &&
+      closed('Close f(x) = [ a') === undefined &&
+      date(two, {
+        today: day,
+        told: 'today',
+        steps: [
+          { amount: 3, unit: 'month', direction: 'back' },
+          { amount: 9, unit: 'day', direction: 'on' },
+        ],
+      }) === '06/13/2019' &&
+      date(two, { today: day, told: 'today', steps: [{ amount: 3, unit: 'month', direction: 'back' }] }) === null &&
+      date(two, {
+        today: day,
+        told: 'today',
+        steps: [
+          { amount: 3, unit: 'month', direction: 'back' },
+          { amount: 9, unit: 'day', direction: 'on' },
+          { amount: 1, unit: 'day', direction: 'on' },
+        ],
+      }) === null &&
+      date(two, {
+        today: day,
+        told: 'today',
+        steps: [
+          { amount: 3, unit: 'month', direction: 'on' },
+          { amount: 9, unit: 'day', direction: 'on' },
+        ],
+      }) === null &&
+      date('Yesterday was September 4, 2019. What is the date 9 days later than today?', {
+        today: day,
+        told: 'yesterday',
+        steps: [{ amount: 9, unit: 'day', direction: 'on' }],
+      }) === '09/14/2019' &&
+      date('Yesterday was September 4, 2019. What is the date 9 days later than today?', {
+        today: day,
+        told: 'today',
+        steps: [{ amount: 9, unit: 'day', direction: 'on' }],
+      }) === null &&
+      date('It is 03/05/2021 (month/day/year). What was the date 3 weeks earlier?', {
+        today: { year: 2021, month: 3, day: 5 },
+        amount: 3,
+        unit: 'week',
+        direction: 'back',
+      }) === '02/12/2021' &&
+      F.lengthsIn('2 years earlier, and then 5 months later, and then ten days from now')
+        .map((x) => x.amount + x.unit + x.way)
+        .join() === '2yearback,5monthon,10dayon' &&
+      F.lengthsIn('What is the year built of the ferry?').length === 0 &&
+      F.FORMS.sorted.answer(
+        { words: ['plum', 'apricot', 'damson', 'cherry'] },
+        'the jars are marked plum, apricot, damson and cherry',
+      ) === 'apricot cherry damson plum' &&
+      F.FORMS.sorted.answer({ words: ['plum', 'pear'] }, 'the jars are marked plum and apricot') === null &&
+      F.FORMS.sorted.answer({ words: ['plum', 'plum'] }, 'plum and plum') === null &&
+      F.FORMS.sorted.cue('In what order do they go in a drawer kept by the alphabet?') &&
+      I.bare('Q: Question: Sherrie tells the truth. Does Sherrie tell the truth?\nA:') ===
+        'Sherrie tells the truth. Does Sherrie tell the truth?' &&
+      R.describedNotGiven(
+        '> ] )\n\nNow write the reply itself, exactly as the person will read it, and nothing else.',
+      ) !== '' &&
+      R.describedNotGiven('> ] )') === '',
+    {
+      closed: closed('These brackets are not all closed: ( [ <\nWrite only the brackets that must come next.'),
+      bare: I.bare('Q: Question: x?\nA:'),
+    },
   );
 }
 
@@ -13676,7 +13766,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       F.clausesOf(liesQ) === 3 &&
       F.formsToTry(liesQ, null).join() === 'lies' &&
       // (a form read wrongly too often is on only where it is named)
-      F.formsOn(true).join() === 'lies,word,row,date,free,order,valid,number,weekday,letters,range,track,path' &&
+      F.formsOn(true).join() === 'lies,word,row,date,sorted,free,order,valid,number,weekday,letters,range,track,path' &&
       F.formsOn(['more', 'word']).join() === 'word,more' &&
       F.formWorked('lies', liesQ, J(liesF)) === 'Yes' &&
       F.formWorked('lies', liesQ, 'nothing') === null &&
@@ -14083,9 +14173,9 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     were.names.length === 55 &&
       moved.length === 0 &&
       Object.keys(were.apart).join() === 'py-wide' &&
-      TK.KIND_NAMES.slice(-2).join() === 'swap,path' &&
-      LT.LATER_KIND_NAMES.join() === 'swap,path' &&
-      Object.keys(TK.EQUIVALENCE.since).join() === 'swap,path' &&
+      TK.KIND_NAMES.slice(-5).join() === 'swap,path,dates,listed,unclosed' &&
+      LT.LATER_KIND_NAMES.join() === 'swap,path,dates,listed,unclosed' &&
+      Object.keys(TK.EQUIVALENCE.since).join() === 'swap,path,dates,listed,unclosed' &&
       TK.KIND_NAMES.filter((k) => !were.names.includes(k)).every((k) => TK.EQUIVALENCE.since[k]) &&
       Object.values(tally).every((v) => v === '12 of 12') &&
       walks >= 12 &&

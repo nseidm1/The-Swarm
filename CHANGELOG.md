@@ -6,6 +6,25 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Code answers three more ways of asking, and a reading is held to the question** (2026-11-28). Made questions of
+  dates, of words to order and of brackets, harder and worded as nobody here had worded them, read 21 of 48, 35 of 48
+  (3 of 16 told as a story) and 1 of 48. What was found, and what was done:
+  - **Brackets** are closed by code wherever the one run of them stands in the question; it read only a run at the
+    end or the head. With no model: 0 of 48 to 48 of 48, and a question that only holds brackets is still left alone.
+  - **A date of several lengths of time**, and one told from yesterday or the day after tomorrow. The form held one
+    length; a question of two was read as its first alone, by two readers alike (8 of 9 such answers).
+  - **A reading is held to the question by code.** Every length of time the question names is in the reading, as
+    many and no more, each going the way its words say. A reading that fails this gives no answer and the question
+    goes on as it would have.
+  - **Words to order that are told, not set out,** are picked out by a model and ordered by code (a new form).
+  - With a reader that cannot misread, the date form answers 44 of 48 made questions, all of them right, and the
+    ordering form 48 of 48. What the models then read of them is a measurement of its own.
+  - Two small things: a label said twice before a question ("Q: Question:") is taken off; a reply that says over
+    what its writer was told to do is not sent.
+- **Training asks three harder kinds** (2026-11-28): a date reached by two or three lengths of time, words to order
+  told as a story, and brackets with the asking after them. Training's own questions of those three things were
+  right 6 of 6, so a change that mends the harder ones had nowhere to be kept. They stand after every other kind: no
+  earlier question changes by a letter, and a class's figures are still told of the kinds as they were.
 - **A search over chained facts is followed to its end** (2026-11-27). The search program was measured with its
   reading done by code that cannot misread, on a made web of chained facts: it answered 13 of 72 questions, so the
   fault was the program's and no model's. Three things, each mended: a page a search names first that was already

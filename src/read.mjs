@@ -327,6 +327,8 @@ export function tally(outs) {
 //   piece is far longer than the reply: "The answer is 42." is an answer; "The answer is a resume ..." in place of one is not
 const LABELS =
   /(?:^|\n)\s*(?:the person['’]s message|what was settled|the draft it came from|they asked|the answer settled on|the work behind it)\s*:/i;
+const TOLD_TO =
+  /\bnow write the reply itself\b|\ba statement of the answer, not the reply itself\b|\bexactly as the person will read it\b/i;
 const ABOUT =
   /\b(?:the (?:message|request|prompt|question|task|person) (?:asks|is asking|asked|requires|required|wants)|the draft (?:was|is|came|included|includes|had|has)|(?:has|have) been (?:prepared|written|created|crafted|drafted)|was (?:prepared|created|drafted) (?:with|to|for)|settled (?:on|with|as)|the (?:answer|response|reply) (?:is|was) (?:settled|clear|ready|complete))\b/i;
 const SAYS_WHAT =
@@ -339,6 +341,9 @@ export function describedNotGiven(reply, { settled = '', draft = '' } = {}) {
     .trim();
   if (!r) return '';
   if (LABELS.test(r)) return 'it repeats the labels it was given';
+  // (and what it was told to do, said over: "Now write the reply itself, exactly as the person will read it, and nothing else." went
+  // out as the end of a reply, under no label, on a made question of brackets: measured 2026-11-27)
+  if (TOLD_TO.test(r)) return 'it repeats what it was told to do';
   if (ABOUT.test(r)) return 'it speaks of the request, the draft or the reply instead of giving it';
   const sentence = wordCount(settled) >= 6 && !NUMBER.test(String(settled).trim().split(/\s+/)[0] || '');
   if (sentence && SAYS_WHAT.test(r) && wordCount(draft) >= 60 && wordCount(r) < 0.6 * wordCount(draft))

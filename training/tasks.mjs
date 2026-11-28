@@ -488,7 +488,19 @@ const ALL = {
   ...CHAT_KINDS,
   // (kinds added after passes had been measured: tasks-later.mjs. After EVERY other, always: no earlier kind's questions
   // change, which tests/run.mjs holds by their hash)
-  ...LATER_KINDS,
+  // (one whose answer is a line of words or of brackets, `as: 'exact'`, is marked as the exact kinds are; one with options
+  // or two words, `among`, is left as it is made)
+  ...Object.fromEntries(
+    Object.entries(LATER_KINDS).map(([k, make]) => [
+      k,
+      (t) => {
+        const m = make(t);
+        return m.among || m.grade || !m.as
+          ? m
+          : { ...m, grade: m.as === 'number' ? number(Number(m.want)) : series(String(m.want)) };
+      },
+    ]),
+  ),
 };
 // the programming kinds, and with them the conversation a seat on a team carries: what a pass asks, unless its record says otherwise
 export const CODE_KIND_NAMES = [...Object.keys(CODE_KINDS), 'trace', ...Object.keys(PY_KINDS)];

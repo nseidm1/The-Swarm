@@ -106,7 +106,7 @@ What has not:
 - **A whole pass that asks every body of work.** A pass asks all eight: 37 kinds of question, 264 train questions and 264 held: six of each kind (222) and two more of each of 21 kinds, put
   the way a standard test puts a question (28 kinds from 2026-11-18; the harder logic kinds and, on 2026-11-22, four operations code does
   exactly were added since). The class stage has asked them of real models; a whole pass has not.
-- **The second wordings of the new kinds, on real models.** Every kind has a second wording now (218 of the 222 held questions asked plainly), each checked to carry the same numbers, names, rules and arguments and to have the same answer.
+- **The second wordings of the new kinds, on real models.** Every kind has a second wording now (236 of the 240 held questions asked plainly), each checked to carry the same numbers, names, rules and arguments and to have the same answer.
   None of the 84 written on 2026-11-18 has been asked of a model yet.
 - **A pass weighted by the proof.** Built and checked against made-up evaluations, and read against the ones on record:
   Instructions (20 questions) and Tools (100) both read open, so nothing is short and nothing would be asked more of. It

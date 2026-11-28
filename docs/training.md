@@ -250,7 +250,7 @@ named.
 - **No flip goes unnamed.** Each pass names the held questions that were equivalent at the end of the last pass and are not
   now, and those that were won: a total that did not move can hide both.
 - **Every held question is asked a second way.** The wording changes and what is asked does not: every number, name, rule
-  and argument is the same. Every kind of question has a second wording (218 of the 222 held questions a pass asks plainly, six of each kind; the four
+  and argument is the same. Every kind of question has a second wording (236 of the 240 held questions a pass asks plainly, six of each kind; the four
   without are a message there is no other way to put and three steps that end on what a tool returned). Equivalence that
   holds for one wording only is not fundamental, and is reported beside the first.
 - **What the proof finds short is asked more of.** At the end of a pass the newest evaluations of the configuration are read

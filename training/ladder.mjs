@@ -24,6 +24,7 @@ export const FORM_KIND = {
   word: 'string',
   row: 'deduce',
   date: 'date',
+  sorted: 'sorted',
   free: 'free',
   order: 'order',
   more: 'extract',

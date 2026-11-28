@@ -228,7 +228,11 @@ function closedIn(q) {
     return null;
   // the run of brackets the question ends with (after its last colon, or simply at its end): all of it brackets and white space
   // (or that it begins with: "( [ { needs its closing brackets"; one run, at its end or at its head, and words for the rest)
-  const m = /([()[\]{}<>][()[\]{}<>\s]*)$/.exec(q) || /^([()[\]{}<>][()[\]{}<>\s]*)/.exec(q);
+  // (or one run anywhere, with words before it and after: "These brackets are not all closed: ( [ {  Write what must come
+  // next." The run stood at the end or at the head in every wording this was written from, and a question that asks after
+  // the run was read by no one: measured 2026-11-27 on made questions, 0 of 48 taken, and the module had 1 of 48 right)
+  const runs = [...q.matchAll(/[()[\]{}<>](?:[()[\]{}<>\s]*[()[\]{}<>])?/g)];
+  const m = runs.length === 1 ? Object.assign([runs[0][0], runs[0][0]], { index: runs[0].index }) : null;
   if (!m) return null;
   const before = q.slice(0, m.index) + ' ' + q.slice(m.index + m[1].length);
   if (!/[A-Za-z]/.test(before) || /[()[\]{}<>]/.test(before)) return null; // (brackets elsewhere, with words between: not one run)
@@ -702,7 +706,8 @@ export const bare = (question) => {
   let q = String(question || '')
     .replace(/\r/g, '')
     .trim()
-    .replace(/^Q(?:uestion)?:\s*/i, '');
+    // (a label, and a second one where a harness puts its own before the task's: "Q: Question: Sherrie tells the truth...")
+    .replace(/^(?:Q(?:uestion)?:\s*)+/i, '');
   for (;;) {
     const cut = q
       .replace(/\n+[ \t]*[A-Za-z][A-Za-z ]{0,19}:[ \t]*(?:Let'?s think step by step\.?)?[ \t]*$/i, '')

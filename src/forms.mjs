@@ -173,23 +173,102 @@ function rowAnswer(f, q) {
 // ---- a date, so long on or back
 const two = (v) => String(v).padStart(2, '0');
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+// ---- words in order: each word of the reading stands in the question, none twice; code orders them
+function sortedAnswer(f, q) {
+  const words = Array.isArray(f.words) ? f.words.map((w) => String(w).trim()) : [];
+  if (words.length < 2 || words.some((w) => !/^[\p{L}][\p{L}'’-]*$/u.test(w) || !within(q, w))) return null;
+  if (new Set(words.map((w) => w.toLowerCase())).size !== words.length) return null;
+  const key = (w) => w.toLowerCase();
+  return [...words].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : a < b ? -1 : a > b ? 1 : 0)).join(' ');
+}
+// THE LENGTHS OF TIME A QUESTION NAMES, read by code: "3 weeks earlier", "ten days from now", "a month ago" -> each with its
+// amount, its unit and, where the words beside it say, which way it goes. What a reading is held to (dateAnswer).
+const NUMBER_WORDS = {
+  a: 1,
+  an: 1,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+};
+export function lengthsIn(question) {
+  const q = String(question);
+  const out = [];
+  const re =
+    /\b(\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(day|week|month|year)s?\b([^.?!,;]{0,40})/gi;
+  for (const m of q.matchAll(re)) {
+    // ("a year" inside "a year built", "the day of the week": a length only where a number stands, or the words after say a way)
+    const after = m[3].toLowerCase();
+    const before = q.slice(Math.max(0, m.index - 12), m.index).toLowerCase();
+    const way = /^\s*(?:earlier|ago|before|back|prior|previous|previously)\b/.test(after)
+      ? 'back'
+      : /^\s*(?:later|after|from now|from today|ahead|hence|on\b|afterwards?)/.test(after) || /\bin\s*$/.test(before)
+        ? 'on'
+        : '';
+    const amount = /^\d+$/.test(m[1]) ? Number(m[1]) : NUMBER_WORDS[m[1].toLowerCase()];
+    if (!/^\d+$/.test(m[1]) && !way) continue;
+    out.push({ amount, unit: m[2].toLowerCase(), way });
+  }
+  return out;
+}
+const TOLD = { today: 0, yesterday: 1, tomorrow: -1, 'the day before yesterday': 2, 'the day after tomorrow': -2 };
 function dateAnswer(f, q) {
   const t = f.today || {};
   const [y, mo, da] = [Number(t.year), Number(t.month), Number(t.day)];
-  const start = new Date(Date.UTC(y, mo - 1, da));
+  let start = new Date(Date.UTC(y, mo - 1, da));
   if (!(y > 0) || start.getUTCMonth() !== mo - 1 || start.getUTCDate() !== da) return null; // (no such day)
-  const amount = Number(f.amount);
-  if (!(amount >= 0) || !within(q, String(y))) return null;
-  const sign = f.direction === 'back' ? -1 : f.direction === 'on' ? 1 : 0;
-  if (!sign) return null;
-  let d;
-  if (f.unit === 'day' || f.unit === 'week')
-    d = new Date(start.getTime() + sign * amount * (f.unit === 'week' ? 7 : 1) * 86400000);
-  else if (f.unit === 'month' || f.unit === 'year') {
-    const months = mo - 1 + sign * amount * (f.unit === 'year' ? 12 : 1);
-    d = new Date(Date.UTC(y + Math.floor(months / 12), ((months % 12) + 12) % 12, da));
-    if (d.getUTCDate() !== da) return null; // (the month has no such day: not ours to round)
-  } else return null;
+  if (!within(q, String(y))) return null;
+  // THE DAY TOLD IS NOT ALWAYS TODAY: "Yesterday was ...", "The day after tomorrow is ...". The reading says which, and it is
+  // believed only where the question has the word; a question that says "yesterday was" is not read as told of today
+  const told = f.told === undefined || f.told === '' ? 'today' : String(f.told).toLowerCase();
+  if (!(told in TOLD)) return null;
+  const saysOther = /\b(?:yesterday|tomorrow)\s+(?:was|is|will be)\b/i.test(q);
+  if (told === 'today' ? saysOther : !within(q, told.replace(/^the /, ''))) return null;
+  start = new Date(start.getTime() + TOLD[told] * 86400000);
+  // SEVERAL LENGTHS OF TIME, ONE AFTER ANOTHER ("3 months earlier, and then 9 days later"): the form held one, and a
+  // question of two was read as its first alone, by two readers alike, and answered wrongly (measured 2026-11-27 on made
+  // questions: of 9 such answered by reading, 8 were the first step alone). A reading of one step is still read (amount,
+  // unit, direction), as it always was.
+  const steps =
+    Array.isArray(f.steps) && f.steps.length ? f.steps : [{ amount: f.amount, unit: f.unit, direction: f.direction }];
+  if (steps.length > 6) return null;
+  // THE READING IS HELD TO THE QUESTION: every length of time the question names is in the reading, as many and no more,
+  // each with its amount and unit, and going the way the words beside it say where they say. A reading that leaves one out,
+  // or takes "earlier" for later, is no reading: the question goes on as it would have.
+  const named = lengthsIn(q);
+  if (named.length) {
+    if (named.length !== steps.length) return null;
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i] || {};
+      if (Number(s.amount) !== named[i].amount || s.unit !== named[i].unit) return null;
+      if (named[i].way && s.direction !== named[i].way) return null;
+    }
+  }
+  if (/\b\d+\s+(?:hours?|minutes?)\b/i.test(q)) return null; // (a length this form has no unit for)
+  let d = start;
+  for (const s of steps) {
+    const amount = Number(s.amount);
+    if (!(amount >= 0)) return null;
+    const sign = s.direction === 'back' ? -1 : s.direction === 'on' ? 1 : 0;
+    if (!sign) return null;
+    if (s.unit === 'day' || s.unit === 'week')
+      d = new Date(d.getTime() + sign * amount * (s.unit === 'week' ? 7 : 1) * 86400000);
+    else if (s.unit === 'month' || s.unit === 'year') {
+      const day = d.getUTCDate();
+      const months = d.getUTCMonth() + sign * amount * (s.unit === 'year' ? 12 : 1);
+      const to = new Date(Date.UTC(d.getUTCFullYear() + Math.floor(months / 12), ((months % 12) + 12) % 12, day));
+      if (to.getUTCDate() !== day) return null; // (the month has no such day: not ours to round)
+      d = to;
+    } else return null;
+  }
   const dmy = /day\s*\/\s*month\s*\/\s*year|dd\s*\/\s*mm/i.test(q);
   const write = (x) =>
     (dmy
@@ -604,21 +683,47 @@ export const FORMS = {
     answer: rowAnswer,
   },
   date: {
-    label: 'a date, and the date some days, weeks, months or years before or after it',
+    label: 'a date, and the date some days, weeks, months or years before or after it, in one step or several',
     example: {
-      question: 'It is 03/05/2021 (month/day/year). What was the date 3 weeks earlier?',
-      form: { today: { year: 2021, month: 3, day: 5 }, amount: 3, unit: 'week', direction: 'back' },
+      question:
+        'Yesterday was 03/05/2021 (month/day/year). What is the date 3 weeks earlier than today, and then 2 days later?',
+      form: {
+        today: { year: 2021, month: 3, day: 5 },
+        told: 'yesterday',
+        steps: [
+          { amount: 3, unit: 'week', direction: 'back' },
+          { amount: 2, unit: 'day', direction: 'on' },
+        ],
+      },
     },
-    cue: (q) => /\b\d{1,2}\/\d{1,2}\/\d{4}\b/.test(q) && /\b(?:days?|weeks?|months?|years?)\b/i.test(q),
+    cue: (q) =>
+      (/\b\d{1,2}\/\d{1,2}\/\d{4}\b/.test(q) ||
+        /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d{1,2}(?:st|nd|rd|th)?,? \d{4}\b/i.test(q)) &&
+      /\b(?:days?|weeks?|months?|years?)\b/i.test(q),
     about:
-      'A date and a length of time from it. "today": the date the text starts from, as numbers (mind whether it is written month/day/year or day/month/year). "amount" and "unit": the length of time. "direction": "back" where the date asked for is earlier (ago, before, earlier), "on" where it is later (from now, later, after).',
+      'A date and one or more lengths of time from it. "today": the date the text gives, as numbers (mind whether it is written month/day/year or day/month/year; a month by its name is its number). "told": which day the text says that date is: "today", or "yesterday", "tomorrow", "the day before yesterday", "the day after tomorrow" where the text says so. "steps": EVERY length of time the text names, in the order it names them, one entry each, and none it does not name. For each: "amount" and "unit", and "direction": "back" where it goes earlier (ago, before, earlier), "on" where it goes later (from now, later, after).',
     schema: obj({
       today: obj({ year: int, month: int, day: int }),
-      amount: int,
-      unit: one('day', 'week', 'month', 'year'),
-      direction: one('back', 'on'),
+      told: one('today', 'yesterday', 'tomorrow', 'the day before yesterday', 'the day after tomorrow'),
+      steps: arr(obj({ amount: int, unit: one('day', 'week', 'month', 'year'), direction: one('back', 'on') })),
     }),
     answer: dateAnswer,
+  },
+  // WORDS TO PUT IN ORDER, where the question does not set them out as a list code can find (told as a story, among other
+  // words): a model picks the words out, code orders them. The instrument takes the wordings that set a list out; this
+  // takes the rest (measured 2026-11-27 on made questions: set out as a list 32 of 32, told as a story 5 of 32).
+  sorted: {
+    label: 'a set of words to put in alphabetical (dictionary) order',
+    example: {
+      question:
+        'On the shelf the jars are marked plum, apricot, damson and cherry. In what order would a list kept by the alphabet show them?',
+      form: { words: ['plum', 'apricot', 'damson', 'cherry'] },
+    },
+    cue: (q) => /\b(?:alphabet\w*|dictionary order|sort(?:ed|ing)?)\b/i.test(q),
+    about:
+      'Words that are to be put in alphabetical order. "words": every one of the words that are to be ordered, each exactly as the text writes it, in the order the text gives them. Only those words: not the other words of the text, and none left out.',
+    schema: obj({ words: { type: 'array', items: { type: 'string', maxLength: 40 }, maxItems: 60 } }),
+    answer: sortedAnswer,
   },
   free: {
     label: 'the hours of one day of a person, and when they were free to go somewhere',

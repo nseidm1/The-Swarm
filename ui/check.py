@@ -375,7 +375,7 @@ with tempfile.TemporaryDirectory() as tmp:
         "refused": e_no == 400 and "every body of work" in e_why and "equivalence" not in json.loads(cfg_was) and get(base + "/fragment/equiv")[0] == 404,
         "leftover": asked_old == eq_all["asked"] and t_ok == 200 and "equivalence" not in cfg_after and cfg_after["tools"] == "swarm",
         "asked": "chosen" not in eq_all and eq_all["asked"] == data.bodies_asked(tg, data.load(root)["state"]) == [t["id"] for t in tg] and len(tg) == 8
-                 and "A pass asks every body of work: <b>57</b> kinds of question" in swarm_ui.main_body(data.load(root)),
+                 and "A pass asks every body of work: <b>60</b> kinds of question" in swarm_ui.main_body(data.load(root)),
         "record": data.bodies_asked(tg, {"kinds": next(t["kinds"] for t in tg if t["id"] == "crew"), "history": [{"pass": 1}]}) == ["crew", "code"]
                   and data.bodies_asked(tg, {"history": [{"pass": 1}]}) == ["code"] and data.bodies_asked(tg, {"kinds": ["chain"]}) == [] and data.bodies_asked(tg, {}) == [t["id"] for t in tg],
         # (and a SwOA says what its training asked from the questions of the pass in hand, where it has asked any)
