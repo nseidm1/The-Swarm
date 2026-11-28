@@ -595,6 +595,132 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       }
       save();
       console.log('  as it stands: ' + JSON.stringify(C.asItStands));
+      // WHAT A PROBE LEFT TO TRY FIRST (support/leads.mjs): each lead of this class is put on the held questions before the
+      // first round, beside the module as it stands, and kept by the rule every change is kept by. It is not chosen on the
+      // train questions: a probe found it on held questions of its own, and it is judged here on the stage's.
+      {
+        const L = await import('./support/leads.mjs');
+        const judgedFile = path.join(B.WORKC, 'leads-judged.json');
+        const movesOf = (b) => [
+          ...writtenMoves(b, made),
+          ...readingMoves(b, madeReadings),
+          ...steps(b, { adapters: mixture, adapterLeast: P.adapterLeast ?? 0.9 }),
+        ];
+        let heldBase = null;
+        for (const lead of L.readLeads(B.RESULTS, K).slice(0, Number(P.leads ?? 6))) {
+          const m = L.buildLead(lead, base, movesOf);
+          const row = { name: lead.name, ...(lead.probe ? { probe: lead.probe } : {}) };
+          (C.leads = C.leads || []).push(row);
+          if (!m) {
+            row.skipped = 'it cannot be made from the arrangement as it stands, or the arrangement already reads so';
+            console.log('  lead "' + lead.name + '": ' + row.skipped);
+            save();
+            continue;
+          }
+          const was = L.readJudged(judgedFile)[L.judgedKey(m.name, keyOf(asClass(K, base)))];
+          if (was && !B.has('leads-again')) {
+            Object.assign(row, {
+              skipped: 'judged on this arrangement before',
+              held: { gain: was.gain, error: was.error },
+              kept: !!was.kept,
+            });
+            console.log(
+              '  lead "' +
+                lead.name +
+                '": judged on this arrangement before (' +
+                (was.kept ? 'kept' : 'not kept') +
+                ')',
+            );
+            save();
+            continue;
+          }
+          const heMore = moreHeldOf(
+            kindsAdded(base, m.briefs),
+            held.filter((t) => classIs(t) === K),
+            makeTasks,
+            P.writeHeld ?? 18,
+            (t) => ownStandard(t) && !['open', 'talk'].includes(t.type) && classIs(t) === K,
+          );
+          const heAll = [...he, ...heMore];
+          // (the module as it stands is asked once for the leads that share its held questions, and again after one is kept)
+          const baseDraws =
+            heMore.length || !heldBase
+              ? await onDraws(heAll, asClass(K, base), said(K) + ': the swarm as it stands, on the held questions')
+              : heldBase;
+          if (!heMore.length) heldBase = baseDraws;
+          const withDraws = await onDraws(
+            heAll,
+            asClass(K, m.briefs),
+            said(K) + ': a probe\'s lead, "' + plainMove(m.name) + '", on the held questions',
+          );
+          const verdict = keepOf(
+            heAll.map((t, i) => ({
+              id: t.id,
+              kind: t.kind,
+              base: baseDraws.map((d) => (d[i].counted ? 1 : 0)),
+              with: withDraws.map((d) => (d[i].counted ? 1 : 0)),
+            })),
+            { least, margin },
+          );
+          Object.assign(row, {
+            held: {
+              asItStood: figuresOf(baseDraws[0]),
+              with: figuresOf(withDraws[0]),
+              gain: verdict.gain,
+              error: verdict.error,
+              draws: verdict.draws,
+              ...(verdict.fell.length ? { fell: verdict.fell } : {}),
+              ...(verdict.why ? { why: verdict.why } : {}),
+            },
+            kept: verdict.keep,
+          });
+          console.log(
+            '  lead "' +
+              m.name +
+              '"; on held, ' +
+              verdict.draws +
+              ' draws: ' +
+              (verdict.gain * 100).toFixed(1) +
+              ' points (paired error ' +
+              (verdict.error * 100).toFixed(1) +
+              '): ' +
+              (verdict.keep ? 'kept' : 'not kept: ' + verdict.why),
+          );
+          if (!B.has('dry'))
+            L.noteJudged(judgedFile, m.name, keyOf(asClass(K, base)), {
+              kept: verdict.keep,
+              gain: verdict.gain,
+              error: verdict.error,
+            });
+          if (!verdict.keep) {
+            save();
+            continue;
+          }
+          base = m.briefs;
+          leftBy[K] = base;
+          heldBase = null;
+          C.kept.push(m.name);
+          if (!B.has('dry')) {
+            stored = asClass(K, base);
+            stored = { ...stored, version: (stored.version || 0) + 1 };
+            saveLearned(stored, {
+              what: m.name,
+              class: K,
+              by: "the class stage, from a probe's lead",
+              gain: verdict.gain,
+              error: verdict.error,
+              questions: heAll.length,
+              draws: verdict.draws,
+            });
+            carry.note('saved|' + keyOf(readBriefs()), 1);
+          }
+          // (the rounds go on from the arrangement with the lead in it: how it stands on the train questions is asked anew)
+          baseRows = await all(tr, asClass(K, base), said(K) + ': how the swarm stands, with the lead kept');
+          lastRows[K] = baseRows;
+          C.after = figuresOf(baseRows);
+          save();
+        }
+      }
       for (let round = 0; round < rounds; round++) {
         // (where the class falls short as it stands, and so what is tried first: gapOf)
         const gap = gapOf(baseRows);

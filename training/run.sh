@@ -7,7 +7,10 @@
 #   120 unless said, set when the class stage took twenty minutes; the stage grew (more changes tried, forms, readings) and
 #   on 2026-11-25 two hours ended it with two classes of four trained and plain questions never reached
 #   --classes: only those classes of input are trained (tools, talk, code, words); every one where it is not said
-# A STEP WHOSE RESULT IS ON RECORD IS PASSED OVER: the run is opened where it was left (.work/run/<configuration>/status.txt,
+# A STEP WHOSE RESULT IS ON RECORD IS PASSED OVER, WHERE WHAT MADE IT IS AS IT WAS (training/support/made-by.mjs: its programs
+# and what they bring in, the module, the policy and questions, a probe's leads, the arrangement an evaluation measures). A step
+# made by something that has since changed is done again, so Carry on after an upgrade trains and measures with the upgrade.
+# The run is opened where it was left (.work/run/<configuration>/status.txt,
 # as a pass is), so Stop and Start carry on. A run asked for at another size, or of another configuration, begins again.
 # A STEP THAT CANNOT BE TAKEN IS SAID AND THE RUN GOES ON: a model that no adapter can be made for here is trained without
 # any to try.
@@ -60,8 +63,17 @@ now() { date "+%Y-%m-%d %H:%M:%S"; }
 # waited for. Exit 3 is a step that refused (nothing to pretrain, no adapter to measure): said, and the run goes on.
 step() {
   local name=$1 job=$2 keep=$3; shift 3
-  if grep -qF "END   $name exit 0 " "$OUT/status.txt"; then echo "$(now | cut -c12-) SKIP  $name" >> "$OUT/status.txt"; return 0; fi
-  local t0 code pid
+  local t0 code pid why
+  if grep -qF "END   $name exit 0 " "$OUT/status.txt"; then
+    # (ended well, and made by what is here now: passed over. Made by something that has since changed, a trainer, the module,
+    # the arrangement an evaluation measures: done again, and the status says what changed. training/support/made-by.mjs.
+    # A step that ended well before this was written down is taken as made by what is here now, once.)
+    "$NODE" training/support/made-by.mjs adopt "$name" "$OUT" 2>/dev/null
+    why=$("$NODE" training/support/made-by.mjs changed "$name" "$OUT" 2>/dev/null)
+    if [ -z "$why" ]; then echo "$(now | cut -c12-) SKIP  $name" >> "$OUT/status.txt"; return 0; fi
+    echo "$(now | cut -c12-) REDO  $name: $why" >> "$OUT/status.txt"
+    say "$name is done again: $why."
+  fi
   t0=$(date +%s)
   echo "$(now | cut -c12-) START $name" >> "$OUT/status.txt"
   mkdir -p "$WORK/$job"
@@ -72,6 +84,8 @@ step() {
   wait "$pid"; code=$?
   CHILD=
   echo "$(now | cut -c12-) END   $name exit $code $(( ($(date +%s) - t0) / 60 )) min" >> "$OUT/status.txt"
+  # (what made it is written down when it ends well, as things stand then: what the step itself wrote is part of it)
+  [ "$code" = 0 ] && "$NODE" training/support/made-by.mjs record "$name" "$OUT" 2>/dev/null
   return "$code"
 }
 CHILD=

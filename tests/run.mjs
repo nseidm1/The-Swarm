@@ -12532,6 +12532,177 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+// ---- CARRY ON DOES AGAIN WHAT WAS TOUCHED (training/support/made-by.mjs, training/run.sh): a step that ended well is passed
+// over only where what made it is as it was; a trainer that changed is run again, and the module is measured again only where
+// what it measures changed
+{
+  const { execFileSync } = await import('node:child_process');
+  const os10 = await import('node:os');
+  const M = await import('../training/support/made-by.mjs');
+  const dir = fs.mkdtempSync(path.join(os10.tmpdir(), 'made-by-'));
+  const log = path.join(dir, 'log');
+  fs.writeFileSync(path.join(dir, 'ev.sh'), 'echo "eval $*" >> "$LOG"\n');
+  fs.writeFileSync(path.join(dir, 'pre.sh'), 'echo make >> "$LOG"\n');
+  fs.writeFileSync(path.join(dir, 'se.sh'), 'echo "session $PASSES $SESSION_STEPS" >> "$LOG"\n');
+  const trainer = path.join(dir, 'a-trainer');
+  const measured = path.join(dir, 'what-is-measured');
+  fs.writeFileSync(trainer, 'v1');
+  fs.writeFileSync(measured, 'v1');
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const go = () => {
+    try {
+      return execFileSync('bash', ['training/run.sh', '--limit', '30'], {
+        cwd: root,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          NODE: process.execPath,
+          LOG: log,
+          RUN_WORK: path.join(dir, 'work'),
+          RUN_EVALUATE: 'sh ' + path.join(dir, 'ev.sh'),
+          RUN_MAKE: 'sh ' + path.join(dir, 'pre.sh'),
+          RUN_SESSION: 'sh ' + path.join(dir, 'se.sh'),
+          MADE_BY_ALSO: '3-train-classes=' + trainer + ',4-evaluate-trained=' + measured,
+        },
+      });
+    } catch (e) {
+      return String(e.stdout || '') + String(e.stderr || '');
+    }
+  };
+  const lines = () => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n') : []);
+  let had = 0;
+  const since = () => {
+    const all = lines();
+    const out = all.slice(had);
+    had = all.length;
+    return out.join('|');
+  };
+  go();
+  const first = since();
+  const keyDir = fs.readdirSync(path.join(dir, 'work', 'run'))[0];
+  const pass = path.join(dir, 'work', 'run', keyDir, 'pass-1');
+  const statusFile = path.join(pass, 'status.txt');
+  // (carried on: the run is taken as stopped before it was done)
+  const reopen = () => fs.writeFileSync(statusFile, fs.readFileSync(statusFile, 'utf8').replace(/\n\S+ DONE\n$/, '\n'));
+  reopen();
+  go();
+  const same = since();
+  fs.writeFileSync(trainer, 'v2');
+  reopen();
+  const said = go();
+  const afterTrainer = since();
+  fs.writeFileSync(measured, 'v2');
+  reopen();
+  go();
+  const afterMeasured = since();
+  // a run whose steps ended well before any of this was written down: taken as made by what is here now, once
+  fs.rmSync(path.join(pass, 'made'), { recursive: true });
+  reopen();
+  go();
+  const legacy = since();
+  const status = fs.readFileSync(statusFile, 'utf8');
+  check(
+    'Carry on does again what was touched: with nothing changed every step that ended well is passed over; a trainer that changed is trained again and nothing else is (the module it left is the same, so it is not measured again); what an evaluation measures changed and that evaluation alone is done again; the status says what changed; and a run whose steps ended well before this was written down is taken as made by what is here now',
+    first === 'eval --variant base --limit 30|make|session 1 classes|eval --variant trained --limit 30' &&
+      same === '' &&
+      afterTrainer === 'session 1 classes' &&
+      /3-train-classes is done again: MADE_BY_ALSO has changed/.test(said) &&
+      /REDO  3-train-classes: MADE_BY_ALSO has changed since it was done/.test(status) &&
+      afterMeasured === 'eval --variant trained --limit 30' &&
+      legacy === '' &&
+      fs.existsSync(path.join(pass, 'made', '3-train-classes.json')),
+    { first, same, afterTrainer, afterMeasured, legacy, said: said.slice(-300) },
+  );
+  const train = await M.madeBy('3-train-classes');
+  const evalBase = await M.madeBy('1-evaluate-as-configured');
+  const evalTrained = await M.madeBy('4-evaluate-trained');
+  const names = (x) => Object.keys(x.parts);
+  check(
+    'what made a step is read from the programs themselves: training is made by the class stage, what it brings in (how a change is kept, the questions), the policy and the module, and by the leads a probe left, and not by the evaluation; an evaluation is made by its program and the module, and the trained one by the arrangement training left as well',
+    [
+      'training/classes.mjs',
+      'training/keep.mjs',
+      'training/tasks.mjs',
+      'training/policy.json',
+      'src/orchestrate.mjs',
+      '(the leads a probe left)',
+    ].every((n) => names(train).includes(n)) &&
+      !names(train).includes('training/evaluate.mjs') &&
+      ['training/evaluate.mjs', 'training/evaluate.sh', 'src/orchestrate.mjs'].every((n) =>
+        names(evalBase).includes(n),
+      ) &&
+      !names(evalBase).includes('(the arrangement training left)') &&
+      names(evalTrained).includes('(the arrangement training left)') &&
+      M.changedOf({ fingerprint: 'a', parts: { x: '1', y: '2' } }, { fingerprint: 'b', parts: { x: '1', y: '3' } }) ===
+        'y has changed since it was done' &&
+      M.changedOf(null, train) === '' &&
+      M.changedOf(train, train) === '',
+    { train: names(train).length, evalBase: names(evalBase).length },
+  );
+}
+
+// ---- WHAT A PROBE LEFT FOR TRAINING TO TRY FIRST (training/support/leads.mjs): a lead is built from the arrangement as it
+// stands, judged on the class stage's own held questions before its first round, and never adopted unjudged
+{
+  const L = await import('../training/support/leads.mjs');
+  const os11 = await import('node:os');
+  const dir = fs.mkdtempSync(path.join(os11.tmpdir(), 'leads-'));
+  fs.writeFileSync(
+    L.leadsFile(dir),
+    JSON.stringify({
+      classes: {
+        code: [
+          { name: 'add x' },
+          { name: 'add x + add y' },
+          { name: 'checks always', plan: { agreeSkipsChecks: false } },
+          { name: '' },
+          null,
+        ],
+        words: 'nonsense',
+      },
+    }),
+  );
+  const base = { slots: ['a'], plan: { agreeSkipsChecks: true, keepTurns: 6 }, flow: [] };
+  // (the moves that can be made from an arrangement: one more slot, named for what it adds; y only once x is there)
+  const movesOf = (b) => [
+    ...(b.slots.includes('x') ? [] : [{ name: 'add x', briefs: { ...b, slots: [...b.slots, 'x'] } }]),
+    ...(b.slots.includes('x') && !b.slots.includes('y')
+      ? [{ name: 'add y', briefs: { ...b, slots: [...b.slots, 'y'] } }]
+      : []),
+  ];
+  const code = L.readLeads(dir, 'code');
+  const one = L.buildLead(code[0], base, movesOf);
+  const two = L.buildLead(code[1], base, movesOf);
+  const plan = L.buildLead(code[2], base, movesOf);
+  const judged = path.join(dir, 'work', 'leads-judged.json');
+  L.noteJudged(judged, 'add x', 'key-1', { kept: false, gain: 0.01, error: 0.02 });
+  const stage = fs.readFileSync(new URL('../training/classes.mjs', import.meta.url), 'utf8');
+  const at = (text) => stage.indexOf(text);
+  check(
+    "a probe leaves training leads, and training judges them itself: a lead is read for its class alone (a list that is not one, a lead with no name, a file that is not there: none); it is built by its name from the moves that can be made from the arrangement as it stands, one made from another where it is two together, or as the class's plan with its keys set; one that cannot be made, or that the plan already reads as, is none; what was judged is written down by its name and the arrangement it was judged on; and the class stage puts each lead on its held questions before its first round and keeps it by the rule every change is kept by",
+    code.length === 3 &&
+      L.readLeads(dir, 'words').length === 0 &&
+      L.readLeads(dir, 'talk').length === 0 &&
+      L.readLeads(path.join(dir, 'nowhere'), 'code').length === 0 &&
+      one.name === 'add x' &&
+      one.briefs.slots.join() === 'a,x' &&
+      two.briefs.slots.join() === 'a,x,y' &&
+      L.buildLead({ name: 'add y' }, base, movesOf) === null &&
+      plan.name === 'plan: checks always' &&
+      plan.briefs.plan.agreeSkipsChecks === false &&
+      plan.briefs.plan.keepTurns === 6 &&
+      base.plan.agreeSkipsChecks === true &&
+      L.buildLead({ name: 'as it is', plan: { keepTurns: 6 } }, base, movesOf) === null &&
+      L.readJudged(judged)[L.judgedKey('add x', 'key-1')].kept === false &&
+      !L.readJudged(judged)[L.judgedKey('add x', 'key-2')] &&
+      at('L.readLeads(B.RESULTS, K)') > 0 &&
+      at('L.readLeads(B.RESULTS, K)') < at('for (let round = 0; round < rounds; round++) {') &&
+      /a probe\\'s lead[\s\S]{0,400}const verdict = keepOf\(/.test(stage) &&
+      /if \(!verdict\.keep\) \{\s+save\(\);\s+continue;\s+\}\s+base = m\.briefs;/.test(stage),
+    { code, one, two, plan },
+  );
+}
+
 // ---- THREE EVALUATIONS SIDE BY SIDE (training/evaluate.mjs --variant): the module as configured, pretrained, and pretrained and
 // trained; each one score with its error, and a difference said only beyond twice the error
 {

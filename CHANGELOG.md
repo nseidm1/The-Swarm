@@ -6,6 +6,18 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **Carry on does again what was touched** (2026-11-27). A step of the whole run was passed over because the run's
+  status said it had ended well. That says nothing of the programs: a trainer changed since then was not run again,
+  and the old arrangement was measured as if it were the new trainer's. Each step is now written down with what made
+  it: the programs it runs and everything they bring in, the module's own files, the policy and the questions, and
+  the arrangement an evaluation measures. Carried on, a step is passed over only where all of that is as it was.
+  Otherwise it is done again, and the page says which stage and what changed before the button is pressed. A run
+  begun before this takes its finished steps as made by what is here now.
+- **A probe's leads are judged by training first** (2026-11-27). The class stage puts one change, the best on its
+  train questions, on its held questions. A change that gains on held questions and is not the best on train was
+  never seen there. Training now reads leads for a class (`training/results/<configuration>/leads.json`), puts each on
+  its own held questions before its first round, and keeps it by the rule every change is kept by. A lead is never
+  adopted unjudged, and one judged on an arrangement is not judged on it again.
 - **What three conversation passes could not mend** (2026-11-24). One swarm's passes kept one change and then
   nothing: everything still wrong sat in three kinds of turn. Five things came of reading its replies:
   - **A fix.** The answer line lost every `*` and `_`, so a function given there read `return n  5` and a name like

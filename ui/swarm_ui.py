@@ -1681,6 +1681,30 @@ def _stage_eval_now(d, tname):
     return "".join(out)
 
 
+_REDO = {"at": 0.0, "for": None, "val": {}}
+
+
+def redo_reasons(root, key):
+    """WHICH STAGES CARRY ON WOULD DO AGAIN, AND WHY (training/support/made-by.mjs): a stage that ended well is passed over
+    only where what made it is as it was (its programs, the module, the policy and questions, a probe's leads, the
+    arrangement an evaluation measures). -> {stage id: what changed}. Asked of the run's own program, in one start, and
+    held for half a minute: the page is drawn far more often than a file changes. {} where nothing is written down yet."""
+    now = time.time()
+    if _REDO["for"] == (str(root), key) and now - _REDO["at"] < 30:
+        return _REDO["val"]
+    val = {}
+    where = Path(root) / ".work" / "run" / key / "pass-1"
+    node = node_for_training()
+    if key and node and (where / "made").is_dir() and (Path(root) / "training" / "support" / "made-by.mjs").exists():
+        try:
+            out = subprocess.run([node, "training/support/made-by.mjs", "status", str(where)], cwd=str(root), capture_output=True, text=True, timeout=20).stdout
+            val = json.loads(out or "{}")
+        except (OSError, ValueError, subprocess.SubprocessError):
+            val = {}
+    _REDO.update({"at": now, "for": (str(root), key), "val": val if isinstance(val, dict) else {}})
+    return _REDO["val"]
+
+
 def run_stages(d, running):
     """THE INTELLIGENCE RUN, STAGE BY STAGE, on the plan's card: its four stages in order, each with what it does, what it
     leaves, and where it stands; the one in hand opened out to what is happening this moment. With no run going, the same
@@ -1691,6 +1715,8 @@ def run_stages(d, running):
         steps = [dict(x, state="stopped" if x["state"] == "running" else x["state"]) for x in steps]
     tname = (d.get("target") or {}).get("name", "the larger model")
     begun = any(x["state"] != "waiting" for x in steps)
+    # (what Carry on would do again: only asked with no run going, when it is the next press that matters)
+    redo = {} if running else redo_reasons(root, d.get("key") or "")
     items = []
     for i, x in enumerate(steps):
         does, leaves = STAGE_WORDS.get(x["id"], ("", ""))
@@ -1716,9 +1742,13 @@ def run_stages(d, running):
             more = '<p class="small">Not taken: no adapter can be made for this model here, so training goes on without any to try.</p>'
         elif x["state"] == "time up":
             more = '<p class="small">This run gave training a set time, and this is where it ended. Nothing went wrong: what it had kept by then is kept, and the next stage measures it.%s</p>' % train_reached(d)
+        # (A STAGE THAT IS DONE AND WILL BE DONE AGAIN says so, and why: what made it has changed since)
+        again = x["state"] == "done" and redo.get(x["id"])
+        if again:
+            more += '<p class="small" data-redo="1"><b>Carry on does this stage again:</b> %s.</p>' % e(str(again))
         # (a row of the list is told by data-stage: the plan's own rows are the ones counted as <li class=...>, ui/check.py)
-        items.append('<li data-stage="%d" class="stg %s"><div class="stgh"><span><i></i><b>Stage %d of 4</b> %s</span><small>%s%s</small></div><p class="small stgd">%s</p><p class="small stgl muted">%s</p>%s</li>'
-                     % (i + 1, x["state"].replace(" ", "-"), i + 1, e(x["name"]), STAGE_STATE.get(x["state"], x["state"]), (" · %d min" % x["minutes"]) if x.get("minutes") else "", does, leaves, more))
+        items.append('<li data-stage="%d" class="stg %s"><div class="stgh"><span><i></i><b>Stage %d of 4</b> %s</span><small>%s%s%s</small></div><p class="small stgd">%s</p><p class="small stgl muted">%s</p>%s</li>'
+                     % (i + 1, x["state"].replace(" ", "-"), i + 1, e(x["name"]), STAGE_STATE.get(x["state"], x["state"]), (" · %d min" % x["minutes"]) if x.get("minutes") else "", " · to be done again" if again else "", does, leaves, more))
     head = ("The intelligence run, stage by stage" if running or begun and not done else "The last intelligence run, stage by stage" if done else "What an intelligence run does, stage by stage")
     # (a line of its own, not a heading the plan folds its sections by: fold_sections folds at each h4)
     return '<p class="stgt">%s</p><ol class="stgs">%s</ol>' % (head, "".join(items))

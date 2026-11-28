@@ -2907,6 +2907,21 @@ swarm_ui.whole_score, swarm_ui.stage_step = (lambda d: (41.3, 460)), (lambda: "C
 _rs_three = swarm_ui.run_stages(_rs_d, True)
 swarm_ui.whole_score, swarm_ui.stage_step = _rs_was
 _rs_none = swarm_ui.run_stages({"root": str(_rs_root), "key": "nobody", "target": {"name": "Big"}}, False)
+# a stage that is done and that Carry on would do again says so, and why; while a run is going it is not asked
+_rs_status.write_text("19:00:00 START 1-evaluate-as-configured\n20:10:00 END   1-evaluate-as-configured exit 0 70 min\n20:10:05 START 3-train-classes\n21:10:05 END   3-train-classes exit 0 60 min\n21:10:05 REDO  3-train-classes: training/keep.mjs has changed since it was done\n")
+_rs_redo_none = swarm_ui.redo_reasons(str(_rs_root), "k")
+_rs_was_redo = swarm_ui.redo_reasons
+swarm_ui.redo_reasons = lambda root, key: {"3-train-classes": "training/keep.mjs has changed since it was done"}
+_rs_again = swarm_ui.run_stages(_rs_d, False)
+_rs_going = swarm_ui.run_stages(_rs_d, True)
+swarm_ui.redo_reasons = _rs_was_redo
+check("a stage that is done and that Carry on would do again says so on the plan's card, with what changed since it was done; a stage whose makings are as they were says nothing of it; "
+      "while a run is going it is not asked; a line of the status that says a stage is done again does not change where the stage stands; and where nothing is written down nothing is said",
+      '<small>done · 60 min · to be done again</small>' in _rs_again
+      and '<p class="small" data-redo="1"><b>Carry on does this stage again:</b> training/keep.mjs has changed since it was done.</p>' in _rs_again
+      and _rs_again.count('data-redo="1"') == 1 and '<small>done · 70 min</small>' in _rs_again
+      and 'data-redo' not in _rs_going and _rs_redo_none == {},
+      [_rs_again[:600], _rs_redo_none])
 _shu.rmtree(_rs_root, ignore_errors=True)
 check("the plan's card sets the intelligence run out stage by stage: its four stages in order, each with what it does, what it leaves for the next and where it stands; the one in hand is opened out to this moment, "
       "and for an evaluation to each model it asks in the order it asks them, how far through the tasks each is, and the questions every one has answered; a stage the run was stopped in says how Carry on goes on; "
