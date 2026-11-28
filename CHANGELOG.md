@@ -24,6 +24,10 @@ The first version.
   - Code can be written for a turn of a conversation: the function is given the last message, shown the answer the
     conversation says is right, and vetted by the conversation's own reading. A function may be silent on a question
     it was shown, and a refused function's code is kept with the refusal.
+- **How far a run has come is written to the hundredth** (2026-11-26). On an evaluation of 12,660 questions the ring
+  moved a point in about ten minutes and the run's share a point in forty. While a run goes, the ring and the line
+  under it now read as "31.98%" and "7.99% of the run": cut, never rounded up, and 99.99% at most. A score, with
+  nothing running, is still written whole.
 - **The first whole run in which training bettered the swarm is written down** (2026-11-26). LFM3 1.7B in every
   place read 65.2% as configured and 79.1% trained, against 78.0% for the 30B model, on 460 questions of standard
   tests. The README, `docs/results.md`, `docs/status.md` and `docs/measured.md` now say so, with its limits: twenty

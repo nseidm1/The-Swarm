@@ -2746,7 +2746,7 @@ check("how far a run has come is a ring on the run's own card, filled to a share
       and abs(swarm_ui.classes_share({"done": "2026-11-24", "classes": {"talk": {"asItStands": {}, "rounds": [{"kept": True}]}}}, 1, "Class 1 of 1, a conversation: how the swarm stands · question 53 of 90") - 0.15 * 52 / 90) < 1e-9
       and abs(swarm_ui.classes_share(None, 1, "how the swarm stands · question 46 of 90") - 0.075) < 1e-9 and swarm_ui.classes_share({"done": "x", "classes": {}}, 1, "") == 1.0 and swarm_ui.classes_share(None, 1, "") == 0.0
       and "\"starting\": True" in Path(swarm_ui.__file__).read_text()
-      and 'class="ring on"' in _cv_run and _now_pct == 25 and "of this step" in _cv_run and re.search(r"pass \d+ · \d+% of the pass", _cv_run) and 'id="converse-stop"' in _cv_run
+      and 'class="ring on dec"' in _cv_run and "<b>25.00%</b>" in _cv_run and _now_pct == 25 and "of this step" in _cv_run and re.search(r"pass \d+ · \d+\.\d\d% of the pass", _cv_run) and 'id="converse-stop"' in _cv_run
       and 'id="score"' not in swarm_ui.arrangement(_cvd) and 'id="tq-open"' not in swarm_ui.arrangement(_cvd) and 'id="tq-open"' in swarm_ui.config_section(_cvd)
       and "View training questions" in swarm_ui.config_section(_cvd) and "Your own training questions" in swarm_ui.config_section(_cvd) and ".ring .rv" in swarm_ui.CSS,
       [_sh_none, _sh_one, _sh_train, _sh_stopped, _now_pct, _rg40[:160]])
@@ -2830,10 +2830,10 @@ check("the intelligence run's ring is held to what the conversation run's was: a
       and _wq_tr_q == 0.0 and _wq_tr_stale == 0.0 and _wq_tr_pp == 0.4 and _wq_ad is None and _wq_run_stale == 50.0
       and abs(_ts_first - (2 + 0.15 + 0.85 * 0.8 * 0.5 / 2) / 4) < 1e-9 and _ts_old == 0.0
       and _ts_stale_rec.get("starting") is True and _ts_stale_rec["classes"] == {} and "code" in (_ts_fresh_rec.get("classes") or {}) and 0 < _ts_last - _ts_first < 0.01 and abs(_ts_run - 100 * (2 + _ts_last) / 4) < 1e-6
-      and _vn(_wq_card_train) == 40 and ">of this step<small>pass " in _wq_card_train and " · 60% of the run</small>" in _wq_card_train and 'class="ring on"' in _wq_card_train
+      and _vn(_wq_card_train) == 40 and ">of this step<small>pass " in _wq_card_train and " · 60.00% of the run</small>" in _wq_card_train and 'class="ring on dec"' in _wq_card_train and "<b>40.00%</b>" in _wq_card_train
       and _vn(_wq_card_ad) == 25 and ">of the run<small>pass " in _wq_card_ad and " · running</small>" in _wq_card_ad and "of this step" not in _wq_card_ad
       # (and the same shape as the conversation run's card, line for line: the ring, what it is of, and under it the pass)
-      and re.search(r'<span>of this step<small>pass \d+ · \d+% of the (run|pass)</small>', _wq_card_train) is not None,
+      and re.search(r'<span>of this step<small>pass \d+ · \d+\.\d\d% of the (run|pass)</small>', _wq_card_train) is not None,
       [_ts_first, _ts_last, _ts_run, _wq_ev_fresh, _wq_ev_last, _wq_ev_old, _wq_tr_q, _wq_tr_stale, _wq_tr_pp, _wq_ad, _wq_run_stale, _vn(_wq_card_train), _vn(_wq_card_ad)])
 
 # ---- an evaluation's card counts and names EVERY model it asks, the small model by itself among them
@@ -2965,9 +2965,9 @@ swarm_ui.whole_steps = lambda root, key: (_st("done", "not taken", "done", "runn
 swarm_ui.whole_step_share = lambda d, step: 0.996
 _nf = swarm_ui.whole_block(dict(_wq_d, state={}))
 swarm_ui._job_state, swarm_ui._run_elsewhere_now, swarm_ui._classes_alive, swarm_ui.whole_steps, swarm_ui.whole_step_share, swarm_ui.busy_with, swarm_ui.stage_record = _nf_was
-check("a run that is still going never reads 100%: with its last step 99.6% done the ring says 99% of this step and the line under it 99% of the run, both rounded down "
+check("a run that is still going never reads 100%: with its last step 99.6% done the ring says 99.60% of this step and the line under it 99.90% of the run, both cut to the hundredth and never rounded up "
       '(rounded to the nearest, it read "100% of the run" for the last forty minutes of an evaluation)',
-      _vn(_nf) == 99 and "<small>pass 1 · 99% of the run</small>" in _nf and "100%" not in _nf.split('id="wholebox"')[1].split("</span></span>")[0],
+      _vn(_nf) == 99 and "<b>99.60%</b>" in _nf and "<small>pass 1 · 99.90% of the run</small>" in _nf and swarm_ui.hundredths(99.996) == "99.99" and swarm_ui.hundredths(100) == "99.99" and "100%" not in _nf.split('id="wholebox"')[1].split("</span></span>")[0],
       [_vn(_nf), _nf.split('id="wholebox"')[1][:500] if 'id="wholebox"' in _nf else _nf[:500]])
 check("while an evaluation runs, how long a question takes and how long the task has left are read from the task (when this way of asking began, the questions of it done, the ways still to come), "
       "not from its last turn: a web search question is many turns of a few seconds and read \"2 s a question, about 28 s left\" through ten minutes; "

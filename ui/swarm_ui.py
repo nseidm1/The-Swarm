@@ -535,7 +535,7 @@ padding:11px 14px;font-size:13px;line-height:1.45;box-shadow:0 10px 30px rgba(0,
 .memnum[data-ring]{display:flex;align-items:center;gap:14px;text-align:left}.ring{position:relative;display:inline-block;width:64px;height:64px;flex:none}
 .ring svg{width:64px;height:64px;display:block}.ring circle{fill:none;stroke-width:6}.ring .rt{stroke:rgba(0,0,0,.08)}.ring .rv{stroke:var(--teal2);stroke-linecap:round;transition:stroke-dasharray .6s ease}
 .ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:var(--teal);font-variant-numeric:tabular-nums;line-height:1}
-.memnum[data-ring] .ring b{font-size:14px;display:flex;letter-spacing:-.02em}.ring.on .rv{stroke:var(--sun)}
+.memnum[data-ring] .ring b{font-size:14px;display:flex;letter-spacing:-.02em}.ring.on .rv{stroke:var(--sun)}.memnum[data-ring] .ring.dec b{font-size:11px;letter-spacing:-.03em}
 #snack.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}#snack button{background:none;border:0;color:#ffd2cd;font-weight:700;cursor:pointer;font-size:13px;padding:0;flex:none}
 .panel.run{display:grid;gap:14px;padding:18px}.panel.run>*{margin:0}
 .run .meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--mist);font-weight:600}.run .meta b{color:var(--fog);font-weight:800}
@@ -6432,13 +6432,13 @@ def whole_block(d):
     if running:
         rec = stage_record(d) or {}
         now_pass = int(rec.get("pass") or (n_pass + 1))
-        figure, label, word = ring(min(99, int(share)), True, "How far the intelligence run has come"), "of the run", "pass %d · running" % now_pass
+        figure, label, word = ring(min(99.99, share), True, "How far the intelligence run has come", 2), "of the run", "pass %d · running" % now_pass
         part = whole_step_share(d, steps[at - 1]["id"]) if at else None
         if part is not None:
             # (A RUN STILL GOING NEVER READS 100%: rounded to the nearest, 99.6% of the run read "100% of the run" for the
-            # last forty minutes of an evaluation, console 2026-11-26. Both figures round down and stop at 99)
-            figure = ring(min(99, int(100.0 * part)), True, "How far the step in hand has come")
-            label, word = "of this step", "pass %d · %d%% of the run" % (now_pass, min(99, int(share)))
+            # last forty minutes of an evaluation, console 2026-11-26. Both figures are cut, to the hundredth, and stop at 99.99)
+            figure = ring(min(99.99, 100.0 * part), True, "How far the step in hand has come", 2)
+            label, word = "of this step", "pass %d · %s%% of the run" % (now_pass, hundredths(share))
     else:
         score, _of = whole_score(d)
         figure, label = ring(score, False, "Benchmark questions the swarm answered rightly in its last evaluation"), "benchmark questions"
@@ -6477,17 +6477,26 @@ def _readable(text):
     return _UNREAD.sub(" ", text)
 
 
-def ring(pct, running=False, word=""):
+def hundredths(x, most=99.99):
+    """A SHARE OF A RUN STILL GOING, WRITTEN TO THE HUNDREDTH (console 2026-11-26): cut, never rounded up, and no more than
+    `most`, so that a run still going never reads 100%. A long evaluation moved a whole point in ten minutes; to the hundredth it
+    moves with every few questions. -> the figure as it is written, "31.98"."""
+    return "%.2f" % (int(max(0.0, min(float(most), float(x or 0))) * 100 + 1e-9) / 100.0)
+
+
+def ring(pct, running=False, word="", places=0):
     """HOW FAR, AS A RING: a circle filled to a share, with the share written in it. It is what each run card leads with: how
     far the run has come while it runs, and where it stands when it does not. pct: 0 to 100, or None where there is nothing
-    to say yet (an empty ring with a dash)."""
+    to say yet (an empty ring with a dash). places: 2 where the share is how far a run still going has come, which is written
+    to the hundredth and cut, not rounded (hundredths); a score is written whole."""
     known = pct is not None
     v = max(0.0, min(100.0, float(pct or 0)))
     r, c = 24.0, 2 * 3.14159265 * 24.0
     return ('<span class="ring%s" role="progressbar" aria-valuemin="0" aria-valuemax="100"%s aria-label="%s">'
             '<svg viewBox="0 0 60 60" aria-hidden="true"><circle class="rt" cx="30" cy="30" r="24"></circle>'
             '<circle class="rv" cx="30" cy="30" r="24" stroke-dasharray="%.2f %.2f" transform="rotate(-90 30 30)"%s></circle></svg><b>%s</b></span>'
-            % (" on" if running else "", (' aria-valuenow="%d"' % round(v)) if known else "", e(word or "How far"), c * v / 100.0, c, "" if v > 0 else ' visibility="hidden"', ("%d%%" % round(v)) if known else "–"))
+            % ((" on" if running else "") + (" dec" if places else ""), (' aria-valuenow="%d"' % (int(v) if places else round(v))) if known else "", e(word or "How far"), c * v / 100.0, c, "" if v > 0 else ' visibility="hidden"',
+               ((hundredths(v) + "%") if places else ("%d%%" % round(v))) if known else "–"))
 
 
 def whole_step_share(d, step_id):
@@ -6570,7 +6579,7 @@ def whole_share(d, steps, running):
             total += 1
         elif x["state"] == "running" and running:
             part = whole_step_share(d, x["id"]) or 0.0
-            total += max(0.0, min(0.99, part))
+            total += max(0.0, min(0.9999, part))  # (to the hundredth, as it is written: hundredths)
     return 100.0 * total / max(1, len(steps))
 
 
@@ -6647,11 +6656,11 @@ def converse_block(d):
         of_pass = 100.0 * classes_share(rec, 1, step_now)
         qm = re.search(r"question (\d+) of (\d+)", step_now or "")
         if qm and int(qm.group(2)):
-            figure = ring(100.0 * int(qm.group(1)) / int(qm.group(2)), True, "How far the step in hand has come, by its question")
+            figure = ring(100.0 * int(qm.group(1)) / int(qm.group(2)), True, "How far the step in hand has come, by its question", 2)
             what = "of this step"
-            running_word = "pass %d · %d%% of the pass" % (len(hist) + 1, round(of_pass))
+            running_word = "pass %d · %s%% of the pass" % (len(hist) + 1, hundredths(of_pass))
         else:
-            figure = ring(of_pass, True, "How far the conversation pass has come")
+            figure = ring(of_pass, True, "How far the conversation pass has come", 2)
             what = "of pass %d" % (len(hist) + 1)
             running_word = "running"
     else:
