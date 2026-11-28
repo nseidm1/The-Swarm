@@ -4573,17 +4573,24 @@ def memory_chart(d, compact=False, headless=False):
     seg = "".join('<i style="width:%.2f%%;background:%s" title="%s: about %s GB"></i>' % (100.0 * x["gb"] / scale, col(x), e(x["name"]), ab(x["gb"])) for x in fp["parts"])
     legend = "".join('<span><i style="background:%s"></i>%s <b>%s GB</b></span>' % (col(x), e(x["name"]), ab(x["gb"])) for x in fp["parts"])
     ticks = "".join('<span style="left:%.2f%%">%s</span>' % (100.0 * t / scale, ab(t)) for t in range(0, int(scale) + 1, 5 if scale > 12 else 2))
+    # (THE LARGER MODEL IN ITS PARTS TOO, where its own process was measured, data.with_target_measured: its files, and its context
+    # and working memory beside them, as the swarm's bar is drawn; one block at its listed size where it was not)
+    tcol = lambda x: "var(--tgt)" if x["kind"] == "model" else "#c5cff7"  # noqa: E731
+    tparts = fp.get("targetParts") or []
+    tseg = ("".join('<i style="width:%.2f%%;background:%s" title="%s: %s GB"></i>' % (100.0 * x["gb"] / scale, tcol(x), e(x["name"]), ab(x["gb"])) for x in tparts)
+            if tparts else '<i style="width:%.2f%%;background:var(--tgt)"></i>' % (100.0 * fp["target"] / scale))
+    tlegend = "".join('<span><i style="background:%s"></i>%s <b>%s GB</b></span>' % (tcol(x), e(x["name"]), ab(x["gb"])) for x in tparts)
     head = ('<span class="memh"><span><b>Memory saved: the swarm against the larger model</b><small>%s</small></span>'
             '<span class="memnum"><b>%s%%</b><span>memory saved · %s GB less · %s× smaller</span></span></span>'
             % (how if how else "Estimated from the model files and the listed sizes, not measured" if compact else
                "What the Swarm is for: the larger model&#39;s answers in a fraction of its memory. Estimated from what is on record (the small models&#39; files with their contexts, the decider&#39;s and the larger model&#39;s listed sizes), not measured",
                fmt_pct(fp["saved"]) if fp["saved"] > 0 else "0", ab(max(0.0, fp["savedGb"])), ab(fp["times"] or 0)))
     return ('<span class="memc%s" title="Estimates from what is on record: the small models\' files with their contexts, the decider\'s listed size, and the larger model\'s listed size. Not measured.">%s'
-            '<span class="memrows"><span class="memrow"><span class="ml">%s</span><span class="mbar"><i style="width:%.2f%%;background:var(--tgt)"></i></span><span class="mv"><b>%s GB</b></span></span>'
+            '<span class="memrows"><span class="memrow"><span class="ml">%s</span><span class="mbar%s">%s</span><span class="mv"><b>%s GB</b></span></span>'
             '<span class="memrow"><span class="ml">The swarm</span><span class="mbar stack">%s</span><span class="mv"><b>%s GB</b></span></span>'
             '<span class="memrow axis"><span></span><span class="ticks">%s</span><span class="mv">GB</span></span></span>'
             '<span class="memleg">%s</span></span>'
-            % (" compact" if compact else "", "" if headless else head, e(fp.get("targetName") or "The larger model"), 100.0 * fp["target"] / scale, ab(fp["target"]), seg, ab(fp["swarm"]), ticks, legend))
+            % (" compact" if compact else "", "" if headless else head, e(fp.get("targetName") or "The larger model"), " stack" if tparts else "", tseg, ab(fp["target"]), seg, ab(fp["swarm"]), ticks, tlegend + legend))
 
 
 
@@ -4777,8 +4784,10 @@ def memory_card(d):
             '<span class="progline">The swarm is %s× smaller than %s: %s.</span><span class="evctl"></span></div>%s</div>'
             % (fmt_pct(fp["saved"]) if fp["saved"] > 0 else "0", ab(max(0.0, fp["savedGb"])), ab(fp["times"] or 0), e(fp.get("targetName") or "the larger model"),
                # (measured where the pass in hand measured it, and said so with the estimate it replaces: data.measured_footprint)
-               ("measured while it trained, from each model&#39;s own process%s (the estimate from the model files was %s GB)" % (", with the decider at its listed size" if fp.get("deciderListed") else "", ab(fp.get("estimate") or 0)))
-               if fp.get("measured") else "estimated from the model files and the listed sizes, not measured",
+               (("measured while it trained, from each model&#39;s own process%s (the estimate from the model files was %s GB)" % (", with the decider at its listed size" if fp.get("deciderListed") else "", ab(fp.get("estimate") or 0)))
+               if fp.get("measured") else "estimated from the model files and the listed sizes, not measured")
+               # (and the larger model, where its own process was read the same way: said, with the size it is listed at)
+               + ((". The larger model is measured too, from its own process while it served (it is listed at %s GB)" % ab(fp.get("targetListed") or 0)) if fp.get("targetMeasured") else ""),
                memory_chart(d, compact=True, headless=True)))
 
 

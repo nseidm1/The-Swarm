@@ -3022,5 +3022,24 @@ check("the foot names what the swarm works with: each engine and maker links its
       and _ww.count('rel="noopener"') == 3 + 16 and "partner" not in _ww.lower(),
       [_ww[_ww.find('class="works"'):][:400]])
 
+# ---- the larger model is measured as the swarm is, and drawn in its parts
+import tempfile as _tf_tm
+_tm_root = _tf_tm.mkdtemp()
+_tm_t = {"id": "big", "name": "Big", "memGb": 18, "bytes": 16 * 2**30, "serve": {"args": ["serve", "Org/Big-Model", "--name", "target"]}}
+_tm_ps = " 18350080 /x/bin/engine serve Org/Big-Model --name target\n   204800 /x/bin/engine serve Org/Other\n"
+_tm = data.target_measured(_tm_root, _tm_t, ps=_tm_ps)
+_tm_loading = data.target_measured(_tm_root, dict(_tm_t, id="big2"), ps=" 1048576 /x/bin/engine serve Org/Big-Model --name target\n")
+_tm_gone = data.target_measured(_tm_root, _tm_t, ps="")
+_tm_fp = data.with_target_measured(dict(_fp7, swarm=2.0), _tm)
+_tm_card = swarm_ui.memory_card({"footprint": dict(_tm_fp, measured=True, estimate=2.3)})
+_tm_plain = swarm_ui.memory_card({"footprint": _fp7})
+check("the larger model is measured as the swarm is: what its own serving process holds is read while it is up and kept after it stops (a model still loading, holding less than its files, is not kept), "
+      "the saving is worked out from it, its bar is drawn in two parts (its files; its context and working memory) with a key, and the card says it is measured and what it is listed at; unmeasured, it is one block as before",
+      _tm == {"gb": 17.5, "files": 16.0, "at": _tm["at"]} and _tm_loading is None and _tm_gone == _tm
+      and _tm_fp["target"] == 17.5 and _tm_fp["targetListed"] == 18 and _tm_fp["saved"] == round(100 - 100 * 2.0 / 17.5, 1) and [x["gb"] for x in _tm_fp["targetParts"]] == [16.0, 1.5]
+      and "Its model files <b>16 GB</b>" in _tm_card and "Its context and working memory <b>1.5 GB</b>" in _tm_card and "The larger model is measured too" in _tm_card and "listed at 18 GB" in _tm_card
+      and _tm_card.count('class="mbar stack"') == 2 and _tm_plain.count('class="mbar stack"') == 1 and "measured too" not in _tm_plain and "Its model files" not in _tm_plain,
+      [_tm, _tm_loading, _tm_gone, _tm_fp.get("targetParts"), _tm_card[:600]])
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

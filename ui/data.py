@@ -14,6 +14,8 @@ Only the Python standard library is used.
 """
 
 import json
+import time
+import subprocess
 import os
 import platform
 import re
@@ -310,6 +312,89 @@ def measured_footprint(fp, loop, cfg, members, decider, kept=None):
     return dict(fp, swarm=swarm, parts=parts, measuredAt=m.get("at"), share=round(100.0 * swarm / tgt, 1), times=round(tgt / swarm, 1) if swarm else None,
                 saved=round(100.0 - 100.0 * swarm / tgt, 1), savedGb=round(tgt - swarm, 1), measured=True, estimate=fp["swarm"],
                 deciderListed=not dec and bool(listed))
+
+
+# THE LARGER MODEL, MEASURED AS THE SWARM IS. The card set a measured swarm, in its parts, beside the larger model's listed size
+# drawn as one block: the two were not read the same way, and the larger model's contexts were nowhere (console 2026-11-28). The
+# page reads the larger model's own serving process while one is up (ps: what it holds resident), keeps the newest reading in a
+# file of its own (.work/ui/target-memory.json: nothing a run reads or is made by), and draws it in two parts: its files on
+# disk, and what the process holds besides, which is its context and the engine's working memory. A reading under the size of
+# its files is a model still loading, and is not kept.
+_TARGET_READ = {"at": 0.0, "key": None, "got": None}
+
+
+def _target_needle(target):
+    """What names the larger model's serving process: the model its engine is told to serve, or its file."""
+    args = ((target or {}).get("serve") or {}).get("args") or []
+    if len(args) > 1 and args[0] == "serve":
+        return str(args[1])
+    f = (target or {}).get("file")
+    return Path(f).name if f else ""
+
+
+def _target_files_gb(target):
+    """Its files, in GB: from the catalogue where their size is on record, else what its engine fetched (the hub's folder for it)."""
+    b = ((target or {}).get("bytes") or 0) + sum((x or {}).get("bytes") or 0 for x in (target or {}).get("parts") or [])
+    if b > 2**28:
+        return b / 2**30
+    needle = _target_needle(target)
+    if "/" not in needle:
+        return 0.0
+    blobs = Path.home() / ".cache" / "huggingface" / "hub" / ("models--" + needle.replace("/", "--")) / "blobs"
+    try:
+        return sum(f.stat().st_size for f in blobs.iterdir() if f.is_file()) / 2**30
+    except OSError:
+        return 0.0
+
+
+def target_measured(root, target, ps=None, now=None):
+    """-> {"gb", "files", "at"} for this larger model, or None: read now where its process is up (at most every 30 s), else the
+    reading kept. ps: the process list as text, for a test."""
+    tid = (target or {}).get("id")
+    needle = _target_needle(target)
+    if not tid or not needle:
+        return None
+    now = time.time() if now is None else now
+    keep = Path(root) / ".work" / "ui" / "target-memory.json"
+    kept = _json(keep, {}) or {}
+    if ps is None and _TARGET_READ["key"] == (str(root), tid) and now - _TARGET_READ["at"] < 30:
+        return _TARGET_READ["got"]
+    try:
+        text = ps if ps is not None else subprocess.run(["ps", "-axo", "rss=,command="], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        text = ""
+    held = 0.0
+    for line in text.splitlines():
+        part = line.strip().split(None, 1)
+        if len(part) == 2 and needle in part[1] and part[0].isdigit() and ("serve" in part[1] or "server" in part[1]):
+            held = max(held, int(part[0]) / 2**20)
+    files = _target_files_gb(target)
+    got = kept.get(tid)
+    if held > 0 and held >= files:
+        got = {"gb": round(held, 2), "files": round(files, 2), "at": time.strftime("%Y-%m-%d %H:%M", time.localtime(now))}
+        if got != kept.get(tid):
+            try:
+                keep.parent.mkdir(parents=True, exist_ok=True)
+                keep.write_text(json.dumps(dict(kept, **{tid: got})))
+            except OSError:
+                pass
+    if ps is None:
+        _TARGET_READ.update(at=now, key=(str(root), tid), got=got)
+    return got
+
+
+def with_target_measured(fp, tm):
+    """The footprint with the larger model's size taken from its own process (target_measured), its two parts, and the saving
+    worked out again from it; the listed size is kept beside it (`targetListed`). As it was where nothing was measured."""
+    if not fp or not tm or not tm.get("gb"):
+        return fp
+    tgt = round(float(tm["gb"]), 1)
+    files = float(tm.get("files") or 0)
+    parts = ([{"name": "Its model files", "gb": round(files, 2), "kind": "model"}, {"name": "Its context and working memory", "gb": round(tm["gb"] - files, 2), "kind": "contexts"}]
+             if 0 < files < tm["gb"] else [{"name": "Its process", "gb": round(float(tm["gb"]), 2), "kind": "model"}])
+    sw = fp["swarm"]
+    return dict(fp, target=tgt, targetListed=fp["target"], targetMeasured=True, targetAt=tm.get("at"), targetParts=parts,
+                share=round(100.0 * sw / tgt, 1), times=round(tgt / sw, 1) if sw else None, saved=round(100.0 - 100.0 * sw / tgt, 1), savedGb=round(tgt - sw, 1))
 
 
 def footprint(members, decider, target):
@@ -614,9 +699,9 @@ def load(root):
         "members": members,
         "decider": decider,
         "judge": judge,
-        "footprint": measured_footprint(footprint(members, decider, target),
+        "footprint": with_target_measured(measured_footprint(footprint(members, decider, target),
                                         (lambda q: q if q and q.get("target") == (target or {}).get("id") else None)(_json(results / "questions.json", None)), cfg, members, decider,
-                                        kept=_json(root / ".work" / "train" / key / "memory.json", None)),
+                                        kept=_json(root / ".work" / "train" / key / "memory.json", None)), target_measured(root, target)),
         "cfg": cfg,
         # turns with tools: decided by the swarm, or the place of the one small model that takes them alone (src/tools.mjs; "tools"
         # in src/config.json names it by its id: src/catalog.mjs toolsOf, the same rule)

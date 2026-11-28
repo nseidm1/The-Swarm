@@ -10,6 +10,11 @@ The first version.
   "the answer is: } >" and "the answer is: } }", the bracket their answers shared was taken for part of the closing
   words, and every answer said after them had a bracket too many: code closed the brackets right and the reply was
   wrong (2 of 96 made questions, the same one on both draws). The closing words now end on a word.
+- **The larger model's memory is measured as the swarm's is** (2026-11-28). The Memory saved card set a measured
+  swarm, drawn in its parts, beside the larger model's listed size drawn as one block. The page now reads what the
+  larger model's own process holds while it serves, keeps the newest reading, and draws its bar in two parts: its
+  files, and its context and working memory. The saving is worked out from the two measurements, and the card says
+  what the larger model is listed at.
 - **What the swarm works with is named, with where to find each** (2026-11-28). The foot of the dashboard and the
   README list the engines it runs on and the makers of the models it offers, each with its own page and the X account
   that page itself gives. Credit, not endorsement.
