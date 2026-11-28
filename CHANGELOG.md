@@ -10,6 +10,9 @@ The first version.
   "the answer is: } >" and "the answer is: } }", the bracket their answers shared was taken for part of the closing
   words, and every answer said after them had a bracket too many: code closed the brackets right and the reply was
   wrong (2 of 96 made questions, the same one on both draws). The closing words now end on a word.
+- **The pictures in the README and the dashboard guide are retaken** (2026-11-28) in the dashboard's dark look,
+  each with its description brought up to what it shows. They were taken while a run was going, so the run and
+  Evaluate cards show one in hand.
 - **The larger model's memory is measured as the swarm's is** (2026-11-28). The Memory saved card set a measured
   swarm, drawn in its parts, beside the larger model's listed size drawn as one block. The page now reads what the
   larger model's own process holds while it serves, keeps the newest reading, and draws its bar in two parts: its

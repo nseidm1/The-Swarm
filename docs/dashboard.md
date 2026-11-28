@@ -11,19 +11,19 @@ Nemotron 3.5 Lightning 30B. They are taken from the page as it is served, with n
 is kept on the device.
 
 <p align="center">
-  <img src="images/dashboard-evaluate.png" alt="Evaluate the swarm: 71.1% of the larger model&#39;s score (55.2% against 77.6% on 460 questions), with Each task, Paper table and Chart; the two evaluations side by side (as configured 55.2%, which the other is set beside, and trained 49.6%, a loss of 5.7 points on the first); Asks, a ticked box for each body of work; With, a box for each harness (lm-evaluation-harness, 16 tasks; BFCL, 7 tasks); and Every task, by body of work, folded to one line" width="860">
+  <img src="images/dashboard-evaluate.png" alt="Evaluate the swarm while a run is going: the two evaluations side by side (as configured 68.5%, which is 89.1% of the larger model&#39;s score on 3341 questions; and a trained evaluation of 460 questions, asked at another size and not compared); who is being asked now, how many questions are answered, and the question in hand; and Every task, by body of work, folded to one line" width="860">
 </p>
 
 <p align="center"><em>Evaluate the swarm: the module&#39;s score as a share of the larger model&#39;s on the same questions, and the two evaluations Run sets side by side: as configured, which is the baseline, and trained. The three buttons open the same results as a line for every task, as a paper sets them out, and drawn.</em></p>
 
 <p align="center">
-  <img src="images/dashboard-arrangement.png" alt="The Swarm Viewer card: Adapters, which slots carry one for requests asking for code and the four that have been made with what each was taught on; the models (LFM2.5 1.2B in every role, no decision model, Nemotron 3.5 Lightning 30B as the target); and the plain flow as faces: draft, try, check, decide, write" width="860">
+  <img src="images/dashboard-arrangement.png" alt="The Swarm Viewer card: the models (LFM3 1.7B in every role, no decision model, Nemotron 3.5 Lightning 30B as the target); the plain flow as faces: draft, try, check, decide, write; and the key to a face&#39;s ring and state" width="860">
 </p>
 
 <p align="center"><em>The Swarm Viewer: the adapters there are and which slots carry one, and every slot as a face in the step it stands in. Choose a face to read what that slot is told.</em></p>
 
 <p align="center">
-  <img src="images/dashboard-plan.png" alt="The plan being carried out: Training now, nothing is training, and what the next conversation pass and the next intelligence run begin from" width="860">
+  <img src="images/dashboard-plan.png" alt="The plan being carried out, while the intelligence run is in its first stage: its four stages in order, each with what it does, what it leaves for the next and where it stands; the one in hand says who is asked, in what order, and how far each has come" width="860">
 </p>
 
 <p align="center"><em>The plan being carried out (a section that starts folded), with nothing training: what the next run of each kind begins from, and under it the intelligence run stage by stage (added after this picture was taken). While a run is going it holds the present state of training; earlier runs are folded under it.</em></p>
@@ -35,7 +35,7 @@ is kept on the device.
 <p align="center"><em>Visualizing the System (a section that starts folded): the run, a request inside the module, what training keeps, the training of the arrangement in detail, and the judge. Every part has a code to name it by, and the box the run or the loop is in is marked.</em></p>
 
 <p align="center">
-  <img src="images/dashboard-spec.png" alt="The head of the SwOA spec of one configuration: its name; Copy as JSON, Save as a file, and Publish to specs/ greyed out; not yet measured by training against Nemotron 3.5 Lightning 30B; and the proof: its rule, and a verdict for each capability with its questions and its gap (Code short, Instructions open, Logic short, Math open, Reasoning short, Search open, Tools at parity), each a check and not yet proof" width="860">
+  <img src="images/dashboard-spec.png" alt="The head of the SwOA spec of one configuration: its name; Copy as JSON, Save as a file, and Publish to specs/ greyed out; in training, pass 1 under way against Nemotron 3.5 Lightning 30B; this pass; the proof&#39;s rule, with no result measured on this arrangement yet; how far training took it; and what it has learned" width="860">
 </p>
 
 <p align="center"><em>The SwOA spec, its first screen: where training stands, and the proof, capability by capability. Below it in the dialog: each task, what training kept with the evidence, the card a model chooser lists, what it needs of a machine, what it can do, what it is made from (the adapters its slots carry, and the instruments that are on), its models, the flow, every slot with what it is told, and the spec as JSON. Copy it, or save it as a file.</em></p>
@@ -78,7 +78,7 @@ say which model's drafts held each right answer (and which held it alone), how o
 how often a slot stopped at its token limit, and how often the decider did not answer.
 
 <p align="center">
-  <img src="images/dashboard-recommendations.png" alt="Recommended configuration changes: no change to the configuration is recommended now; and, before an evaluation is read, to train this swarm first, since training has kept nothing for it yet, with a Train button, greyed out while the run is going" width="620">
+  <img src="images/dashboard-recommendations.png" alt="Recommended configuration changes: no change to the configuration is recommended now; and, of the engines on this machine, to update TensorFold, which serves Nemotron 3.5 Lightning 30B, with an Update button" width="620">
 </p>
 
 <p align="center"><em>Recommendations, as the page showed them on 2026-11-22: nothing to change in the lineup, and a reminder that an evaluation before training measures the swarm as every swarm starts. Under it the page lists updates to the engines on the machine.</em></p>
