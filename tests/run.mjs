@@ -12835,7 +12835,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
     'Today is September 4, 2019. Go to the date 3 months earlier, and then 9 days later. What is that date? Give it as MM/DD/YYYY.';
   const day = { year: 2019, month: 9, day: 4 };
   check(
-    'brackets are closed by code wherever the one run of them stands in the question, not only at its end or its head (asked "... ( [ <, write what must come next", no one read it), and still not where brackets stand among other things; a date of several lengths of time, one after another, is worked out step by step, from the day the question tells of where that is yesterday or the day after tomorrow; a reading is held to the question by code: one that leaves out a length of time the question names, or adds one, or takes "earlier" for later, or reads "yesterday was" as told of today, gives no answer; a reading of one step, as the form always held it, is still read; words to put in order that a model picked out are ordered by code, each one a word of the question and none twice; a label said twice before a question is taken off; and a reply that says over what its writer was told to do is not sent',
+    'brackets are closed by code wherever the one run of them stands in the question, not only at its end or its head (asked "... ( [ <, write what must come next", no one read it), and still not where brackets stand among other things; a date of several lengths of time, one after another, is worked out step by step, from the day the question tells of where that is yesterday or the day after tomorrow; a reading is held to the question by code: one that leaves out a length of time the question names, or adds one, or reads "yesterday was" as told of today, gives no answer, and one that takes "earlier" for later is put right by the words; a reading of one step, as the form always held it, is still read; words to put in order that a model picked out are ordered by code, each one a word of the question and none twice; a label said twice before a question is taken off; and a reply that says over what its writer was told to do is not sent',
     closed(
       'These brackets are not all closed: ( [ <\nWrite only the brackets that must come next so that every bracket is closed in the right order.',
     ) === '> ] )' &&
@@ -12865,6 +12865,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           { amount: 1, unit: 'day', direction: 'on' },
         ],
       }) === null &&
+      // (a reader that has the lengths and takes "earlier" for later is put right by the question's words)
       date(two, {
         today: day,
         told: 'today',
@@ -12872,7 +12873,7 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
           { amount: 3, unit: 'month', direction: 'on' },
           { amount: 9, unit: 'day', direction: 'on' },
         ],
-      }) === null &&
+      }) === '06/13/2019' &&
       date('Yesterday was September 4, 2019. What is the date 9 days later than today?', {
         today: day,
         told: 'yesterday',
@@ -12900,6 +12901,58 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       F.FORMS.sorted.answer({ words: ['plum', 'pear'] }, 'the jars are marked plum and apricot') === null &&
       F.FORMS.sorted.answer({ words: ['plum', 'plum'] }, 'plum and plum') === null &&
       F.FORMS.sorted.cue('In what order do they go in a drawer kept by the alphabet?') &&
+      // (which day the date is told of is read by code; a step of nothing is no step; two worked examples are shown)
+      F.toldIn('The day after tomorrow is May 2, 2020.') === 'the day after tomorrow' &&
+      F.toldIn('A ship left harbour on May 2, 2020.') === 'today' &&
+      date('A ship left harbour on August 14, 2010. Its log was closed 3 days later than the day it left.', {
+        today: { year: 2010, month: 8, day: 14 },
+        steps: [{ amount: 3, unit: 'day', direction: 'on' }],
+      }) === '08/17/2010' &&
+      date('Today is February 5, 2016. Go to the date 8 days later.', {
+        today: { year: 2016, month: 2, day: 5 },
+        steps: [
+          { amount: 8, unit: 'day', direction: 'on' },
+          { amount: 0, unit: 'day', direction: 'back' },
+        ],
+      }) === '02/13/2016' &&
+      date('Today is February 5, 2016. Go to the date 8 days later.', {
+        today: { year: 2016, month: 2, day: 5 },
+        steps: [],
+      }) === null &&
+      date('Yesterday was September 4, 2019. What is the date 9 days later than today?', {
+        today: day,
+        steps: [{ amount: 9, unit: 'day', direction: 'on' }],
+      }) === '09/14/2019' &&
+      // (the date is read by code where the question writes one with its month by name; an amount has no sign; the words say the way)
+      date('Yesterday was May 21, 1990. Go to the date 35 days earlier than today.', {
+        today: { year: 2025, month: 1, day: 1 },
+        steps: [{ amount: 35, unit: 'day', direction: 'back' }],
+      }) === '04/17/1990' &&
+      date('Today is November 15, 2023. Go to the date 3 months later, and then 38 days earlier.', {
+        today: { year: 2023, month: 11, day: 15 },
+        steps: [
+          { amount: 3, unit: 'month', direction: 'on' },
+          { amount: -38, unit: 'day', direction: 'on' },
+        ],
+      }) === '01/08/2024' &&
+      F.toldIn('A ship left harbour the day after April 22, 2007.') === 'yesterday' &&
+      F.namedDatesIn('Yesterday was May 21, 1990. On 3 June 2001 it rained.')
+        .map((x) => x.year + '-' + x.month + '-' + x.day)
+        .join() === '1990-5-21,2001-6-3' &&
+      F.formAsk('date', 'x?').filter((m) => m.role === 'assistant').length === 2 &&
+      F.formAsk('sorted', 'x?').filter((m) => m.role === 'assistant').length === 1 &&
+      F.FORMS.date.more.every((x) => F.FORMS.date.answer(x.form, x.question) !== null) &&
+      // (words to order: the reader points, code copies the list the question sets out; a reading of other words is held as before)
+      F.listsIn('labels reading conge, confold, matmont and mander. In what order?').join('|') ===
+        'conge,confold,matmont,mander' &&
+      F.FORMS.sorted.answer(
+        { words: ['conge', 'confold', 'matmont', 'mangeter', 'mantain', 'mander'] },
+        'labels reading conge, confold, matmont, mangeter, manter and mander, kept by the alphabet',
+      ) === 'confold conge mander mangeter manter matmont' &&
+      F.FORMS.sorted.answer(
+        { words: ['Paris', 'Madrid', 'Rome'] },
+        'Sort the capitals of France, Spain and Italy alphabetically',
+      ) === null &&
       I.bare('Q: Question: Sherrie tells the truth. Does Sherrie tell the truth?\nA:') ===
         'Sherrie tells the truth. Does Sherrie tell the truth?' &&
       R.describedNotGiven(
@@ -12910,6 +12963,105 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
       closed: closed('These brackets are not all closed: ( [ <\nWrite only the brackets that must come next.'),
       bare: I.bare('Q: Question: x?\nA:'),
     },
+  );
+}
+
+// ---- WHICH CLASSES ANSWERED A TASK IS WRITTEN BESIDE ITS KEPT ANSWERS (src/orchestrate.mjs classesUsed, training/evaluate.mjs)
+{
+  const O = await import('../src/orchestrate.mjs');
+  const E3 = await import('../training/evaluate.mjs');
+  const os12 = await import('node:os');
+  const A = {
+    about: 'x',
+    version: 3,
+    marker: 'ANSWER:',
+    plan: { keepTurns: 6 },
+    slots: [{ id: 'a' }],
+    kinds: { code: { plan: { keepTurns: 2 } }, talk: { plan: { keepTurns: 9 } } },
+  };
+  O.forgetClasses();
+  O.briefsFor(A, '', 'tools');
+  O.briefsFor(A, '', 'words');
+  O.briefsFor(A, '', 'tools');
+  const used = O.classesUsed().join();
+  O.forgetClasses();
+  const dir = fs.mkdtempSync(path.join(os12.tmpdir(), 'made-json-'));
+  E3.writeMadeBy(dir, A, ['talk', 'words']);
+  const made = JSON.parse(fs.readFileSync(path.join(dir, 'made.json'), 'utf8'));
+  const src = fs.readFileSync(new URL('../training/evaluate.mjs', import.meta.url), 'utf8');
+  check(
+    "the classes whose arrangement answered a task are known, and written beside its kept answers: every arrangement a request is answered by is looked up by its class in one place, which keeps the classes used until they are forgotten (a turn with tools and the reading it asks for are two); the fingerprint of one class's arrangement changes with that class's own part and with what every class shares, and not with another class's part, nor with what says nothing of how a request is answered; and an evaluation forgets before each task of its own swarm and writes the classes and their fingerprints when the task is kept",
+    used === 'tools,words' &&
+      O.classesUsed().length === 0 &&
+      E3.classArrangementSha(A, 'code') !== E3.classArrangementSha(A, 'talk') &&
+      E3.classArrangementSha(A, 'code') ===
+        E3.classArrangementSha(
+          { ...A, about: 'y', version: 9, kinds: { ...A.kinds, talk: { plan: { keepTurns: 1 } } } },
+          'code',
+        ) &&
+      E3.classArrangementSha(A, 'code') !==
+        E3.classArrangementSha({ ...A, kinds: { ...A.kinds, code: { plan: { keepTurns: 3 } } } }, 'code') &&
+      E3.classArrangementSha(A, 'code') !== E3.classArrangementSha({ ...A, marker: 'FINAL:' }, 'code') &&
+      E3.classArrangementSha(A, 'words') === E3.classArrangementSha({ ...A, kinds: {} }, 'words') &&
+      made.classes.join() === 'talk,words' &&
+      made.arrangement.talk === E3.classArrangementSha(A, 'talk') &&
+      /before: \(\) => forgetClasses\(\)/.test(src) &&
+      /if \(keptIn\(dir, b\)\) writeMadeBy\(dir, readBriefs\(\), classesUsed\(\)\)/.test(src),
+    { used, made },
+  );
+}
+
+// ---- A CALL'S ARGUMENTS ARE HELD TO THE CONVERSATION (src/tools.mjs heldToConversation)
+{
+  const T = await import('../src/tools.mjs');
+  const conv = (text) => [
+    { role: 'system', content: 'You are a coding agent. Use the tools.' },
+    { role: 'user', content: text },
+  ];
+  const ls = T.heldToConversation([{ name: 'ls', args: { path: '/scripts' } }], conv('What is in the scripts folder?'));
+  const read = T.heldToConversation(
+    [{ name: 'read', args: { path: '/app/math.js' } }],
+    conv('What does app/math.js export?'),
+  );
+  const abs = T.heldToConversation(
+    [{ name: 'read', args: { path: '/etc/hosts' } }],
+    conv('Show me /etc/hosts please.'),
+  );
+  const other = T.heldToConversation(
+    [{ name: 'read', args: { path: '/var/log/x.log' } }],
+    conv('What is in the scripts folder?'),
+  );
+  const made = T.heldToConversation(
+    [{ name: 'add_reminder', args: { date: '2027-07-12', text: 'renew the passport' } }],
+    conv('Add a reminder to renew the passport.'),
+  );
+  const given = T.heldToConversation(
+    [{ name: 'add_reminder', args: { date: '2027-07-12', text: 'pay the rent' } }],
+    conv('Add a reminder to pay the rent on 2027-07-12.'),
+  );
+  const worked = T.heldToConversation(
+    [{ name: 'add_reminder', args: { date: '2027-07-13', text: 'pay the rent' } }],
+    conv('Add a reminder to pay the rent tomorrow.'),
+  );
+  const src = fs.readFileSync(new URL('../src/tools.mjs', import.meta.url), 'utf8');
+  check(
+    'the call a turn settles on is held to the conversation by code: a path the request names that a model put a slash before is given as the request names it (asked what is in the scripts folder, every drafter looked in "/scripts"), while a path the request itself writes with a slash, or one the conversation does not hold at all, is left as it is; and a date nobody gave is not passed on: where the conversation holds neither that date nor any word of time, the step is a question back that names what is missing, while a date the request gives, or one worked out from "tomorrow", is passed as it is; the question back is the reply and is not answered over again; and a plan can leave this out',
+    ls.changed &&
+      ls.calls[0].args.path === 'scripts' &&
+      read.changed &&
+      read.calls[0].args.path === 'app/math.js' &&
+      !abs.changed &&
+      abs.calls[0].args.path === '/etc/hosts' &&
+      !other.changed &&
+      other.calls[0].args.path === '/var/log/x.log' &&
+      /What date should I use/.test(made.asks) &&
+      !given.asks &&
+      !given.changed &&
+      given.calls[0].args.date === '2027-07-12' &&
+      !worked.asks &&
+      /if \(action\.calls && plan\.heldCalls !== false\)/.test(src) &&
+      /readOut = held\.asks;/.test(src),
+    { ls, read, made, worked },
   );
 }
 

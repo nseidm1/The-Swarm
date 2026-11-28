@@ -381,6 +381,44 @@ export function heldBy(reply, text) {
   if (nums.some((n) => !hay.includes(n.replace(/[.,]+$/, '')))) return false;
   return !words.length || words.filter((w) => hay.includes(w)).length * 5 >= words.length * 3;
 }
+// A CALL'S ARGUMENTS ARE HELD TO THE CONVERSATION, by code (SwOA specification T.8a). A call is made "with the arguments the
+// request gives", and two things a small model does to them can be seen without judgement (measured 2026-11-28 on
+// training's own held turns with tools, where the module and its small model alone were wrong on the same five of 36, every
+// drafter alike):
+//   - a path the request names is given a slash before it: asked what is in the scripts folder, every drafter called
+//     ls with "/scripts", which is another place. Where an argument is not in the conversation as written, and is in it
+//     without a leading "/", "./" or "~/", the argument is what the conversation has;
+//   - a date is given that nobody gave: asked to add a reminder with no day said, every drafter called add_reminder with a
+//     date of its own. Where an argument is a date, and the conversation holds neither that date nor any word of time at
+//     all (a day, a month, today, tomorrow, an hour), the call is not made: the step is a reply that asks for it.
+// heldToConversation(calls, messages) -> { calls } (some arguments as the conversation writes them, `changed` where any was)
+//                                      | { asks } the question to put, where a date was given that the conversation does not give
+const TIME_WORD =
+  /\b(?:today|tonight|tomorrow|yesterday|now|noon|midnight|morning|afternoon|evening|night|week(?:s|end|day)?|month|year|mon(?:day)?|tue(?:s|sday)?|wed(?:nesday)?|thu(?:rs|rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?|jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|\d{1,2}(?::\d{2})?\s?(?:am|pm)|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\b/i;
+const A_DATE = /^\d{4}-\d{2}-\d{2}(?:[T ][\d:.+Zz-]*)?$|^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
+export function heldToConversation(calls, messages) {
+  const said = (Array.isArray(messages) ? messages : []).map((m) => textOf(m && m.content)).join('\n');
+  const whole = (v) =>
+    new RegExp('(^|[\\s"\'`(=:,])' + v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[\\s"\'`).,;:?!])').test(said);
+  let changed = false;
+  const out = [];
+  for (const c of calls) {
+    const args = {};
+    for (const [k, v] of Object.entries(c.args || {})) {
+      args[k] = v;
+      if (typeof v !== 'string' || !v) continue;
+      if (A_DATE.test(v) && !said.includes(v) && !TIME_WORD.test(said))
+        return { asks: 'What ' + k.replace(/[_-]+/g, ' ') + ' should I use for that? The request does not give one.' };
+      const bare = v.replace(/^(?:~\/|\.\/|\/)/, '');
+      if (bare !== v && bare && !whole(v) && whole(bare)) {
+        args[k] = bare;
+        changed = true;
+      }
+    }
+    out.push({ ...c, args });
+  }
+  return { calls: out, changed };
+}
 export const SEARCH_MOST = 12;
 // THE SEARCH AS A PROGRAM (SwOA specification T.13b). Code takes the question apart and puts it together again; the module is
 // asked, by its own answer procedure, the one thing in a search that is reading.
@@ -961,6 +999,20 @@ export async function answerTools(
   // the step settled on is a reply, the program takes the next step, or reads the answer out, or lets the reply stand
   let note = '';
   let readOut = '';
+  // THE CALL SETTLED ON IS HELD TO THE CONVERSATION (heldToConversation; plan.heldCalls: false leaves it): a path as the
+  // request names it, and no date nobody gave. Where a date was made up the step is a question back, written by code, and
+  // is not answered over again (it is the reply)
+  if (action.calls && plan.heldCalls !== false) {
+    const held = heldToConversation(action.calls, messages);
+    if (held.asks) {
+      action = { reply: held.asks };
+      readOut = held.asks;
+      path += '+asked';
+    } else if (held.changed) {
+      action = { calls: held.calls };
+      path += '+as-written';
+    }
+  }
   if (plan.searchThrough !== false && tool_choice === undefined && !action.calls && tools.some(isSearchTool)) {
     const next = await searchStep({ messages, tools, plan, answerReply, trace });
     if (next.call) {

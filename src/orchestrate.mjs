@@ -213,7 +213,16 @@ export function classOf(messages = [], { tools = null } = {}) {
 }
 // what a kind's own arrangement holds: what a change can alter (its slots, its plan, its flow)
 export const KIND_PARTS = ['slots', 'plan', 'flow'];
+// WHICH CLASSES' ARRANGEMENTS HAVE BEEN USED, since they were last forgotten: every arrangement a request is answered by is
+// looked up here, by its class, so this is the whole of it: a turn with tools is answered by the tools class AND, where it
+// asks the answer procedure to read a page, by the class of that reading. An evaluation writes them down beside each
+// task's kept answers (training/evaluate.mjs), so that a change to one class's arrangement need ask again only the tasks
+// that used that class. It changes nothing of how a request is answered.
+const USED = new Set();
+export const classesUsed = () => [...USED].sort();
+export const forgetClasses = () => USED.clear();
 export function briefsFor(briefs, question, kind = kindOf(question)) {
+  USED.add(String(kind));
   const k = briefs && briefs.kinds && briefs.kinds[kind];
   if (!k) return briefs;
   const out = { ...briefs };

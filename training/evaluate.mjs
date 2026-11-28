@@ -487,6 +487,40 @@ export const askFormAt = (base) => {
 
 // ASKS:END
 
+// THE ARRANGEMENT OF ONE CLASS, AS A FINGERPRINT: everything of the arrangement but what other classes have of their own
+// (and what says nothing of how a request is answered: `about`, `version`). A request of that class is answered the
+// same by two arrangements that have this in common, whatever else differs between them.
+export const classArrangementSha = (briefs, K) => {
+  const { about: _a, version: _v, kinds, ...rest } = briefs || {};
+  return crypto
+    .createHash('sha256')
+    .update(JSON.stringify({ ...rest, kinds: { [K]: (kinds || {})[K] || null } }))
+    .digest('hex')
+    .slice(0, 16);
+};
+// WHAT A TASK'S KEPT ANSWERS WERE MADE BY, written beside them (made.json): the classes whose arrangement answered its
+// requests (src/orchestrate.mjs classesUsed, counted from just before the task to just after it) and each one's
+// fingerprint. Written so that a later evaluation can tell, for a task, whether the arrangement that would answer it now
+// is the one that answered it then. Nothing reads it yet: it is written first, since it cannot be written afterwards.
+export function writeMadeBy(dir, briefs, classes) {
+  try {
+    fs.writeFileSync(
+      path.join(dir, 'made.json'),
+      JSON.stringify(
+        {
+          at: new Date().toISOString(),
+          classes,
+          arrangement: Object.fromEntries(classes.map((K) => [K, classArrangementSha(briefs, K)])),
+        },
+        null,
+        1,
+      ),
+    );
+  } catch {
+    /* the answers are kept without it */
+  }
+}
+
 // the files the harness wrote for one task: { results, samples } (paths), or null
 export function filesOf(dir, task) {
   const all = [];
@@ -960,9 +994,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
           b.name +
           (WAY_SAID[wayIs(b)] || ''),
       );
+      if (other.before) other.before(b);
       if (isToolTest(b)) await toolTest(b, who, (ro[wayIs(b)] || rt).base, outOf(b));
       else await harness(b, who, r.base, outOf(b));
       if (halted) await never();
+      if (other.done) other.done(b, outOf(b));
     }
     for (const x of relays) if (x) await x.close();
   };
@@ -1213,8 +1249,19 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     live.phase = 'asking';
     // (a task asked again starts from nothing: what a stopped run left of it is not a whole answer to it)
     for (const b of needSwarm) fs.rmSync(swarmKeep(b), { recursive: true, force: true });
+    // (which classes' arrangements answered each task is written beside its answers: only where the swarm is this program's
+    // own, since one served elsewhere uses them where this program cannot see)
+    const { classesUsed, forgetClasses } = await import('../src/orchestrate.mjs');
     await askAll('swarm', askAt(served.base), askToolsAt(served.base, { model: 'swarm' }), needSwarm, swarmKeep, {
       after: askAfterAt(served.base, { model: 'swarm' }),
+      ...(servedAt
+        ? {}
+        : {
+            before: () => forgetClasses(),
+            done: (b, dir) => {
+              if (keptIn(dir, b)) writeMadeBy(dir, readBriefs(), classesUsed());
+            },
+          }),
     });
     await served.close();
     if (swarm) await swarm.stop();

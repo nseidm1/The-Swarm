@@ -16,11 +16,31 @@ The first version.
   - **A reading is held to the question by code.** Every length of time the question names is in the reading, as
     many and no more, each going the way its words say. A reading that fails this gives no answer and the question
     goes on as it would have.
-  - **Words to order that are told, not set out,** are picked out by a model and ordered by code (a new form).
+  - **Words to order that are told, not set out,** are picked out by a model and ordered by code (a new form). The
+    reader points and code copies: where the question sets the list out in a sentence, the words ordered are the
+    question's own, since a small reader copying twenty made-up words changes one.
+  - **What the question's own words settle, code settles.** A date written with its month by name is read by code
+    (a reader gave one the question did not hold); a length's amount has no sign; and where the words say which way a
+    length goes, that is the way it goes, so a reader that has the length and takes "earlier" for later is put right
+    and not refused. The kept readings of 96 date questions, worked out again by this: 92 answered where 79 were, and
+    none wrong.
+  - **What a reader is asked is kept small.** Which day a date is told of ("yesterday was") is read by code from the
+    question's words, not asked. The date form is shown with two worked examples, of one length and of two: shown one
+    of two only, a reader gave a question of one length a second step of nothing, and every such reading was refused.
   - With a reader that cannot misread, the date form answers 44 of 48 made questions, all of them right, and the
     ordering form 48 of 48. What the models then read of them is a measurement of its own.
   - Two small things: a label said twice before a question ("Q: Question:") is taken off; a reply that says over
     what its writer was told to do is not sent.
+- **A call's arguments are held to the conversation** (2026-11-28). On training's held turns with tools the module
+  and its small model alone were wrong on the same questions, every drafter alike, in two ways code can see: a path
+  the request names was given a slash before it (asked what is in the scripts folder, every drafter looked in
+  `/scripts`), and a date was passed that nobody gave. A path is now given as the request names it, and where a date
+  was made up the step is a question back. `plan.heldCalls: false` leaves it out.
+- **Which classes answered a task is written beside its kept answers** (2026-11-28). Every standard task's requests
+  fall in one class of input (measured on the 3,341 a full-size run kept), though a turn with tools also asks the
+  plain answer path to read a page. An evaluation now writes, beside each task's kept answers, the classes whose
+  arrangement answered it and each one's fingerprint. Nothing reads it yet: it is what a later evaluation needs to ask
+  again only the tasks of a class that changed, and it cannot be written afterwards.
 - **Training asks three harder kinds** (2026-11-28): a date reached by two or three lengths of time, words to order
   told as a story, and brackets with the asking after them. Training's own questions of those three things were
   right 6 of 6, so a change that mends the harder ones had nowhere to be kept. They stand after every other kind: no

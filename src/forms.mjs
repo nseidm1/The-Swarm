@@ -174,10 +174,31 @@ function rowAnswer(f, q) {
 const two = (v) => String(v).padStart(2, '0');
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 // ---- words in order: each word of the reading stands in the question, none twice; code orders them
+// THE LISTS A QUESTION SETS OUT IN ITS OWN SENTENCES: three or more single words with commas between and "and" or "or"
+// before the last ("plum, apricot, damson and cherry"). -> each as its words, in the order written
+export function listsIn(question) {
+  const W = "[\\p{L}][\\p{L}'’-]*";
+  const re = new RegExp('(' + W + '(?:\\s*,\\s*' + W + ')+)\\s*,?\\s+(?:and|or)\\s+(' + W + ')', 'giu');
+  return [...String(question).matchAll(re)].map((m) => [...m[1].split(/\s*,\s*/), m[2]].map((w) => w.trim()));
+}
 function sortedAnswer(f, q) {
-  const words = Array.isArray(f.words) ? f.words.map((w) => String(w).trim()) : [];
-  if (words.length < 2 || words.some((w) => !/^[\p{L}][\p{L}'’-]*$/u.test(w) || !within(q, w))) return null;
-  if (new Set(words.map((w) => w.toLowerCase())).size !== words.length) return null;
+  let words = Array.isArray(f.words) ? f.words.map((w) => String(w).trim()).filter(Boolean) : [];
+  if (words.length < 2) return null;
+  // THE READER POINTS, CODE COPIES. Where the question sets a list out (listsIn) and the reading is, for the most part, that
+  // list (four in five of each are in the other), the words ordered are the list's own, as the question writes them: a
+  // small reader asked to copy twenty made-up words wrote one of them otherwise, or added one, and two readers alike
+  // (measured 2026-11-28). A reading that is of other words than any list the question sets out is held as before: every
+  // word of it a word of the question.
+  const low = (w) => w.toLowerCase();
+  const mine = new Set(words.map(low));
+  const list = listsIn(q).find((l) => {
+    const theirs = new Set(l.map(low));
+    const both = [...theirs].filter((w) => mine.has(w)).length;
+    return both * 5 >= theirs.size * 4 && both * 5 >= mine.size * 4;
+  });
+  if (list) words = list;
+  if (words.some((w) => !/^[\p{L}][\p{L}'’-]*$/u.test(w) || !within(q, w))) return null;
+  if (new Set(words.map(low)).size !== words.length) return null;
   const key = (w) => w.toLowerCase();
   return [...words].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : a < b ? -1 : a > b ? 1 : 0)).join(' ');
 }
@@ -220,41 +241,100 @@ export function lengthsIn(question) {
   return out;
 }
 const TOLD = { today: 0, yesterday: 1, tomorrow: -1, 'the day before yesterday': 2, 'the day after tomorrow': -2 };
+// which day the question says its date is: by its words ("the day after tomorrow is", "yesterday was"), else today
+// (a date the question writes with its month by name, "May 21, 1990" or "21 May 1990": read by code, with no doubt of
+// which figure is the month. -> each as { year, month, day }, in the order written)
+const MONTH_NAMES = [
+  'january',
+  'february',
+  'march',
+  'april',
+  'may',
+  'june',
+  'july',
+  'august',
+  'september',
+  'october',
+  'november',
+  'december',
+];
+const DATE_NAMED = '(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?';
+export function namedDatesIn(question) {
+  const out = [];
+  const re = new RegExp(
+    '\\b(' +
+      DATE_NAMED +
+      ')\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})\\b|\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(' +
+      DATE_NAMED +
+      '),?\\s+(\\d{4})\\b',
+    'gi',
+  );
+  for (const m of String(question).matchAll(re)) {
+    const name = (m[1] || m[5]).toLowerCase().slice(0, 3);
+    const month = MONTH_NAMES.findIndex((x) => x.startsWith(name)) + 1;
+    if (month) out.push({ year: Number(m[3] || m[6]), month, day: Number(m[2] || m[4]) });
+  }
+  return out;
+}
+export const toldIn = (question) => {
+  const q = String(question).toLowerCase();
+  // ("the day after May 21, 1990", "the day before ...": the day spoken of is one on, or one back, from the date written)
+  if (new RegExp('\\bthe day after\\s+(?:' + DATE_NAMED + '\\s+\\d|\\d{1,2}[/ ])', 'i').test(q)) return 'yesterday';
+  if (new RegExp('\\bthe day before\\s+(?:' + DATE_NAMED + '\\s+\\d|\\d{1,2}[/ ])', 'i').test(q)) return 'tomorrow';
+  if (/\bday after tomorrow\b/.test(q)) return 'the day after tomorrow';
+  if (/\bday before yesterday\b/.test(q)) return 'the day before yesterday';
+  if (/\byesterday\s+(?:was|is)\b/.test(q)) return 'yesterday';
+  if (/\btomorrow\s+(?:is|will be)\b/.test(q)) return 'tomorrow';
+  return 'today';
+};
 function dateAnswer(f, q) {
-  const t = f.today || {};
+  // THE DATE ITSELF IS READ BY CODE WHERE THE QUESTION WRITES ONE DATE WITH ITS MONTH BY NAME: a reader gave a date the
+  // question does not hold (2025-01-01 for "Yesterday was May 21, 1990"), two readers alike (measured 2026-11-28). Such a
+  // date has one reading, and code has it. A date in figures is still the reader's: which figure is the month is a matter
+  // of what the text says beside it.
+  const named = namedDatesIn(q);
+  const t = named.length === 1 ? named[0] : f.today || {};
   const [y, mo, da] = [Number(t.year), Number(t.month), Number(t.day)];
   let start = new Date(Date.UTC(y, mo - 1, da));
   if (!(y > 0) || start.getUTCMonth() !== mo - 1 || start.getUTCDate() !== da) return null; // (no such day)
   if (!within(q, String(y))) return null;
-  // THE DAY TOLD IS NOT ALWAYS TODAY: "Yesterday was ...", "The day after tomorrow is ...". The reading says which, and it is
-  // believed only where the question has the word; a question that says "yesterday was" is not read as told of today
-  const told = f.told === undefined || f.told === '' ? 'today' : String(f.told).toLowerCase();
-  if (!(told in TOLD)) return null;
-  const saysOther = /\b(?:yesterday|tomorrow)\s+(?:was|is|will be)\b/i.test(q);
-  if (told === 'today' ? saysOther : !within(q, told.replace(/^the /, ''))) return null;
+  // THE DAY TOLD IS NOT ALWAYS TODAY: "Yesterday was ...", "The day after tomorrow is ...". Which day it is, is read BY CODE
+  // from the question's own words, and is not asked of the reader: asked, a small reader shown an example that began
+  // "Yesterday was" wrote "yesterday" or "the day after tomorrow" for questions that said neither, and every such reading
+  // was refused (measured 2026-11-28: of 24 dates told as a story none was read). A reading that names a day is held to it.
+  const told = toldIn(q);
+  if (f.told !== undefined && f.told !== '' && String(f.told).toLowerCase() !== told) return null;
   start = new Date(start.getTime() + TOLD[told] * 86400000);
   // SEVERAL LENGTHS OF TIME, ONE AFTER ANOTHER ("3 months earlier, and then 9 days later"): the form held one, and a
   // question of two was read as its first alone, by two readers alike, and answered wrongly (measured 2026-11-27 on made
   // questions: of 9 such answered by reading, 8 were the first step alone). A reading of one step is still read (amount,
   // unit, direction), as it always was.
-  const steps =
-    Array.isArray(f.steps) && f.steps.length ? f.steps : [{ amount: f.amount, unit: f.unit, direction: f.direction }];
+  // (a step of no length is no step: a reader shown an example of two steps wrote a second of 0 days for a question of one)
+  const given = Array.isArray(f.steps) ? f.steps.filter((x) => x && Number(x.amount) !== 0) : [];
+  const steps = given.length
+    ? given
+    : Array.isArray(f.steps)
+      ? []
+      : [{ amount: f.amount, unit: f.unit, direction: f.direction }];
+  if (!steps.length) return null;
   if (steps.length > 6) return null;
   // THE READING IS HELD TO THE QUESTION: every length of time the question names is in the reading, as many and no more,
   // each with its amount and unit, and going the way the words beside it say where they say. A reading that leaves one out,
   // or takes "earlier" for later, is no reading: the question goes on as it would have.
-  const named = lengthsIn(q);
-  if (named.length) {
-    if (named.length !== steps.length) return null;
-    for (let i = 0; i < steps.length; i++) {
-      const s = steps[i] || {};
-      if (Number(s.amount) !== named[i].amount || s.unit !== named[i].unit) return null;
-      if (named[i].way && s.direction !== named[i].way) return null;
+  // (an amount is a length: "-38 days back" is 38 days. And where the question's words say which way a length goes, that
+  // is the way it goes: a reader that has the length and takes "earlier" for later is put right by the words, not refused)
+  const lengths = lengthsIn(q);
+  const walked = steps.map((x) => ({ ...(x || {}), amount: Math.abs(Number((x || {}).amount)) }));
+  if (lengths.length) {
+    if (lengths.length !== walked.length) return null;
+    for (let i = 0; i < walked.length; i++) {
+      if (walked[i].amount !== lengths[i].amount || walked[i].unit !== lengths[i].unit) return null;
+      if (lengths[i].way) walked[i].direction = lengths[i].way;
     }
   }
   if (/\b\d+\s+(?:hours?|minutes?)\b/i.test(q)) return null; // (a length this form has no unit for)
   let d = start;
-  for (const s of steps) {
+  for (const s of walked) {
     const amount = Number(s.amount);
     if (!(amount >= 0)) return null;
     const sign = s.direction === 'back' ? -1 : s.direction === 'on' ? 1 : 0;
@@ -685,26 +765,33 @@ export const FORMS = {
   date: {
     label: 'a date, and the date some days, weeks, months or years before or after it, in one step or several',
     example: {
-      question:
-        'Yesterday was 03/05/2021 (month/day/year). What is the date 3 weeks earlier than today, and then 2 days later?',
-      form: {
-        today: { year: 2021, month: 3, day: 5 },
-        told: 'yesterday',
-        steps: [
-          { amount: 3, unit: 'week', direction: 'back' },
-          { amount: 2, unit: 'day', direction: 'on' },
-        ],
-      },
+      question: 'It is 03/05/2021 (month/day/year). What was the date 3 weeks earlier?',
+      form: { today: { year: 2021, month: 3, day: 5 }, steps: [{ amount: 3, unit: 'week', direction: 'back' }] },
     },
+    // (a second worked example, of two lengths of time: with one example of one, a question of two was read as its first;
+    // with one example of two, a question of one was given a second step of nothing. Shown both, a reader writes as many
+    // as the question names)
+    more: [
+      {
+        question:
+          'A parcel was posted on June 9, 2014. It arrived 2 months later, and was sent back 5 days after that. On what date was it sent back?',
+        form: {
+          today: { year: 2014, month: 6, day: 9 },
+          steps: [
+            { amount: 2, unit: 'month', direction: 'on' },
+            { amount: 5, unit: 'day', direction: 'on' },
+          ],
+        },
+      },
+    ],
     cue: (q) =>
       (/\b\d{1,2}\/\d{1,2}\/\d{4}\b/.test(q) ||
         /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d{1,2}(?:st|nd|rd|th)?,? \d{4}\b/i.test(q)) &&
       /\b(?:days?|weeks?|months?|years?)\b/i.test(q),
     about:
-      'A date and one or more lengths of time from it. "today": the date the text gives, as numbers (mind whether it is written month/day/year or day/month/year; a month by its name is its number). "told": which day the text says that date is: "today", or "yesterday", "tomorrow", "the day before yesterday", "the day after tomorrow" where the text says so. "steps": EVERY length of time the text names, in the order it names them, one entry each, and none it does not name. For each: "amount" and "unit", and "direction": "back" where it goes earlier (ago, before, earlier), "on" where it goes later (from now, later, after).',
+      'A date and one or more lengths of time from it. "today": the date the text gives, as numbers (mind whether it is written month/day/year or day/month/year; a month by its name is its number). "steps": EVERY length of time the text names, in the order it names them, one entry each, and none it does not name: one entry where the text names one length, two where it names two. For each: "amount" and "unit", and "direction": "back" where it goes earlier (ago, before, earlier), "on" where it goes later (from now, later, after).',
     schema: obj({
       today: obj({ year: int, month: int, day: int }),
-      told: one('today', 'yesterday', 'tomorrow', 'the day before yesterday', 'the day after tomorrow'),
       steps: arr(obj({ amount: int, unit: one('day', 'week', 'month', 'year'), direction: one('back', 'on') })),
     }),
     answer: dateAnswer,
@@ -1008,6 +1095,11 @@ export const formAsk = (id, question, T = FORMS) => [
   },
   { role: 'user', content: T[id].example.question },
   { role: 'assistant', content: JSON.stringify(T[id].example.form) },
+  // (and the others a form gives, where one worked example pulls every reading to its own shape)
+  ...(T[id].more || []).flatMap((x) => [
+    { role: 'user', content: x.question },
+    { role: 'assistant', content: JSON.stringify(x.form) },
+  ]),
   { role: 'user', content: String(question).trim() },
 ];
 // WHICH FORM, IF ANY: told by a model too, since a cue of words is a wording. It is shown what each form is of and answers

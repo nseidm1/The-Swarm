@@ -1874,6 +1874,7 @@ No other slot field (for example `copyOf`) is read by the orchestration.
 | `written` | list of `{ id, kind, name, code }` | none | functions training wrote and kept for the class: `code` declares `answer(question)` in ECMAScript, which returns the answer as text, or null where it does not read the whole question. Where the question does not want code, each is run in turn, after the instruments and before any model, with no access to files, programs, the network or the clock and a bound on its time; the first answer given is the decided answer and the path is `written`. Where none gives one, or none can be run, the request goes on as it would have |
 | `searchFirst` | boolean | true | a turn with a search tool offered and nothing yet looked up does not end without a call (T.13a) |
 | `searchThrough` | boolean | true | a turn with a search tool offered is taken by the search program (T.13b) |
+| `heldCalls` | boolean | true | the call a turn settles on is held to the conversation (T.8a) |
 | `searchMost` | integer | 12 | the calls a conversation may hold before the search program lets a reply stand |
 | `codeAgain` | boolean | true | where the question wants code, a drafter whose final is not code is asked once more for the code (O.6.1 step 1b) |
 | `setForm` | boolean | true | where the system text sets the reply's form as a template of two keys, what was settled is written into it (O.8.8) |
@@ -2954,8 +2955,8 @@ training wrote (`plan.written`) answered:
 | lies | `statements`: one for each sentence, `{ speaker, about, says }`, `says` one of `tellsTruth`, `lies`, and `speaker` empty where the text itself says it; `asked`: a name; `askedWhether`: `truthful` or `lies` (the answer is `Yes` where the one asked of is as asked) |
 | word | `word`; `steps`: list of `{ do, count }`, `do` one of `reverse`, `capitals`, `small`, `removeFirst`, `removeLast`, `double` |
 | row | `items`: list of names; `facts`: list of `{ thing, is, other, place, from }`, `is` one of `leftOf`, `rightOf`, `place`, `from` one of `left`, `right`, `place` counted from 1; `asked`: `{ place, from }`. A thing named a little otherwise than in `items` is the one item whose name holds it or is held by it |
-| date | `today`: `{ year, month, day }`, the date the text gives; `told`: which day the text says that date is, one of `today`, `yesterday`, `tomorrow`, `the day before yesterday`, `the day after tomorrow` (`today` where absent or empty); `steps`: a list of `{ amount, unit, direction }`, `unit` one of `day`, `week`, `month`, `year`, `direction` one of `back`, `on`, taken one after another from today, six at most. A form with no `steps` and with `amount`, `unit` and `direction` of its own is a form of that one step. The rules below the table hold it to the question. A month or a year on or back gives no answer where that month has no such day |
-| sorted | `words`: the words to be ordered, each as the text writes it. There is no answer with fewer than two, where one is not a word (letters, with `'`, `’` or `-` inside) or is not a word of the question, or where two are the same without regard to case. The answer is the words in alphabetical order (compared in lower case; where two are then the same, by their code units), with one space between |
+| date | `today`: `{ year, month, day }`, the date the text gives; `steps`: a list of `{ amount, unit, direction }`, `unit` one of `day`, `week`, `month`, `year`, `direction` one of `back`, `on`, taken one after another from today, six at most; a step whose amount is 0 is no step, and a list left with none gives no answer. A form with no `steps` and with `amount`, `unit` and `direction` of its own is a form of that one step. The form is shown with two worked examples, one of one length and one of two. The rules below the table hold it to the question. A month or a year on or back gives no answer where that month has no such day |
+| sorted | `words`: the words to be ordered. Where the question sets a list out (three or more single words with commas between and `and` or `or` before the last) and at least four in five of that list's words are in `words` and four in five of `words` are in that list (without regard to case), the words ordered are the first such list's own, as the question writes them; otherwise they are `words`. There is no answer with fewer than two, where one is not a word (letters, with `'`, `’` or `-` inside) or is not a word of the question, or where two are the same without regard to case. The answer is the words in alphabetical order (compared in lower case; where two are then the same, by their code units), with one space between |
 | free | `awakeFrom`, `closedAfter` and `seen`: list of `{ from, to }`, each a time as the question writes it |
 | order | `comparisons`: one for each sentence, `{ a, is, b }`, `is` one of `more`, `less`: `a` has more, or less, of the measure than `b`; `asked`: `{ rank, from }`, `from` one of `greatest`, `least` |
 | more | `first`, `second`: two figures of the question; the answer is the first less the second |
@@ -2969,18 +2970,25 @@ training wrote (`plan.written`) answered:
 
 **A date reading is held to the question.** For the `date` form, before anything is worked out:
 
-1. `told` other than `today` gives no answer unless the question holds that word (`yesterday`, `tomorrow`, `day before
-   yesterday`, `day after tomorrow`, as a whole word or words); `told` of `today` gives no answer where the question
-   holds `yesterday` or `tomorrow` followed by `was`, `is` or `will be`. Today is the date given less one day for
-   `tomorrow`, plus one for `yesterday`, less two for `the day after tomorrow`, plus two for `the day before yesterday`.
+0. **The date** is read from the question where it writes exactly one date with its month by name (`May 21, 1990`,
+   `21 May 1990`, the month by its first three letters, an optional `st`, `nd`, `rd`, `th` after the day): that date is
+   `today`, whatever the reading has. Otherwise `today` is the reading's.
+1. **Which day the date is told of** is read from the question, not asked of the reader: `yesterday` where it holds
+   `the day after` followed by a date (a month by name and a figure, or one or two figures and `/` or a space), and
+   `tomorrow` where it holds `the day before` followed by one; else `the day after tomorrow` where
+   it holds `day after tomorrow`; else `the day before yesterday` where it holds `day before yesterday`; else `yesterday`
+   where it holds `yesterday` followed by `was` or `is`; else `tomorrow` where it holds `tomorrow` followed by `is` or
+   `will be`; else `today` (all without regard to case). A reading that carries a `told` of its own gives no answer where
+   that differs. Today is the date given less one day for `tomorrow`, plus one for `yesterday`, less two for `the day
+   after tomorrow`, plus two for `the day before yesterday`.
 2. The **lengths the question names** are its matches, in order, of a number (digits, or `a`, `an`, `one` to `twelve`),
    white space, and `day`, `week`, `month` or `year` with an optional `s`. Each goes `back` where the words that follow
    it begin with `earlier`, `ago`, `before`, `back`, `prior`, `previous` or `previously`; `on` where they begin with
    `later`, `after`, `from now`, `from today`, `ahead`, `hence`, `on` or `afterwards`, or where `in` stands just before
    it; and no way otherwise. A match whose number is a word and that goes no way is not a length.
-3. Where the question names at least one length, the reading gives no answer unless it has as many steps as the
-   question names lengths and, in order, each step has that length's amount and unit and, where the length goes a way,
-   that direction.
+3. Each step's amount is taken without its sign. Where the question names at least one length, the reading gives no
+   answer unless it has as many steps as the question names lengths and, in order, each step has that length's amount
+   and unit; and where a length goes a way by the question's words, the step goes that way, whatever the reading has.
 4. A question that holds a number followed by `hour`, `hours`, `minute` or `minutes` gives no answer.
 
 A reading that gives no answer by these rules is no reading: it does not count toward agreement (step 4 above).
@@ -3554,6 +3562,24 @@ the content where it is not closed); every comment likewise; the closing tag of 
 `section`, `article`, `ul`, `ol`, `table`, `blockquote`, and every `br`, is a line break; every other tag is a space;
 `&nbsp;`, `&#160;`, `&amp;`, `&quot;`, `&#39;`, `&apos;`, `&lt;`, `&gt;` are the characters they stand for; runs of
 spaces and tabs are one space, a line break with the white space round it is one line break, and the whole is trimmed.
+
+#### T.8a The call settled on is held to the conversation
+
+Where the step settled on is one or more calls and `plan.heldCalls` is not `false`, each argument that is a non-empty
+string is held to the conversation: the text of every message of it, joined by line breaks. A text **stands whole** in
+the conversation where it is found there with, before it, the start or one of white space, `"`, `'`, a backquote, `(`,
+`=`, `:`, `,`, and, after it, the end or one of white space, `"`, `'`, a backquote, `)`, `.`, `,`, `;`, `:`, `?`, `!`.
+
+1. **A date nobody gave.** Where an argument is a date (`YYYY-MM-DD`, with or without a time after `T` or a space, or
+   one or two figures, `/`, one or two figures, `/`, two to four figures), the conversation does not hold it, and the
+   conversation holds no word of time (`today`, `tonight`, `tomorrow`, `yesterday`, `now`, `noon`, `midnight`, `morning`,
+   `afternoon`, `evening`, `night`, `week`, `weeks`, `weekend`, `weekday`, `month`, `year`, a day of the week or a month
+   by its name or its usual short form, an hour with `am` or `pm`, or a date in figures), no call is made. The step is
+   the reply `What <the argument's name, its `_` and `-` as spaces> should I use for that? The request does not give one.`
+   It is the reply as it stands (T.9 is not run), and `+asked` is appended to the path.
+2. **A path as the request names it.** Otherwise, where an argument begins with `/`, `./` or `~/`, does not stand whole
+   in the conversation, and without that beginning is not empty and does stand whole in it, the argument is that text
+   without the beginning. Where any argument was so changed, `+as-written` is appended to the path.
 
 #### T.13b The search program (mode swarm)
 
