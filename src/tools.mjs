@@ -262,6 +262,8 @@ export function lookedUp(messages, tools = []) {
       lastText = asText(textOf(m.content));
       text += '\n' + lastText;
       const c = byId.get(m.tool_call_id) || made[made.length - 1];
+      // (what each call returned stays with it: a page opened for one fact is read again for the next, searchStep)
+      if (c) c.text = lastText;
       if (c && c.kind === 'page') {
         pagesText += '\n' + lastText;
         pagesSince++;
@@ -401,14 +403,33 @@ export function innermost(question) {
   let at = -1;
   const rel = /\bthe (?:(?!the\b)[\p{L}\p{N}'’.-]+ ){1,5}?(?:that|which|who|whose|where)\b/giu;
   for (let m = rel.exec(q); m; m = rel.exec(q)) at = m.index;
-  if (at >= 0) {
-    const text = q.slice(at).trim();
-    return at > 0 && text.split(/\s+/).length >= 2 && hangsOn(q, text) ? { text } : null;
-  }
-  // (no such clause: its last "the X of Y", Y a name. It ends where the name ends, so that what follows it in the question,
-  // "founded", "win", stays in the question when the name read is put in its place)
+  // (its last "the X of Y", Y a name. It ends where the name ends, so that what follows it in the question, "founded", "win",
+  // stays in the question when the name read is put in its place)
   const named = /\bthe (?:[\p{L}'’-]+ ){1,3}?(?:of|in|at|from|for) /giu;
   let last = null;
+  // A CLAUSE THAT ITSELF HANGS ON A NAMED THING IS NOT THE INNERMOST: "the town where the mayor of the capital of Aldo was
+  // born" hangs on "the capital of Aldo", and looked up whole it finds nothing (measured 2026-11-27 with a reader that cannot
+  // misread, on a made web: of 24 questions of four chained facts none was answered, each searched whole). Only where the
+  // name is a name: "the most tourists in 2024" inside a clause is part of what the clause says, not a thing to look up.
+  if (at >= 0) {
+    const text = q.slice(at).trim();
+    let inner = null;
+    for (let m = named.exec(text); m; m = named.exec(text)) {
+      const rest = text.slice(m.index + m[0].length).split(/\s+/);
+      let n = 0;
+      for (const w of rest) {
+        if (!/^\p{Lu}/u.test(w) && !/^(?:of|and|de|la|del|von|van|al|el)$/i.test(w)) break;
+        n++;
+        if (/[,;:]$/.test(w)) break;
+      }
+      while (n > 0 && !/^\p{Lu}/u.test(rest[n - 1])) n--;
+      if (n) inner = (m[0] + rest.slice(0, n).join(' ')).replace(/[,;:]$/, '').trim();
+      named.lastIndex = m.index + 4;
+    }
+    named.lastIndex = 0;
+    if (inner && hangsOn(q, inner)) return { text: inner };
+    return at > 0 && text.split(/\s+/).length >= 2 && hangsOn(q, text) ? { text } : null;
+  }
   for (let m = named.exec(q); m; m = named.exec(q)) {
     const rest = q.slice(m.index + m[0].length).split(/\s+/);
     let n = 0;
@@ -424,6 +445,24 @@ export function innermost(question) {
     named.lastIndex = m.index + 4;
   }
   return last && hangsOn(q, last.text) ? { text: last.text } : null;
+}
+// A CLAUSE SET APART FROM WHAT IT DESCRIBES: "In what year was the town founded where Ada Brim was born?" describes "the town
+// where Ada Brim was born" and asks when it was founded, with the asking in between. Taken as it stands, the clause is the
+// whole of what follows "the town", nothing is left that asks, and the question is looked up whole. Put straight, the words
+// in between go before the thing, so that the description stands whole at the end, where a fact can be put in its place:
+// "In what year was founded the town where Ada Brim was born?". Only where the question, as it stands, hangs on nothing
+// and, put straight, does. (Measured 2026-11-27 with a reader that cannot misread: half of the questions of four chained
+// facts ended here.)
+export function straightened(question) {
+  const q = String(question || '').trim();
+  if (innermost(q)) return q;
+  const m =
+    /^(.*?)\b(the [\p{L}'’-]+) ((?:(?!the\b|that\b|which\b|who\b|whose\b|where\b)[\p{L}'’-]+ ){1,3})(that|which|who|whose|where)\b(.*?)(\?*)\s*$/iu.exec(
+      q,
+    );
+  if (!m) return q;
+  const out = m[1] + m[3] + m[2] + ' ' + m[4] + m[5].replace(/\s+$/, '') + (m[6] || '?');
+  return innermost(out) ? out : q;
 }
 const NOTE_FIND = 'Looking up: ';
 const NOTE_NOW = 'Question now: ';
@@ -518,12 +557,14 @@ export function trailQuery(question, lastResult, allReturned = lastResult) {
 export async function searchStep({ messages, tools, plan = {}, answerReply = null, trace = [] }) {
   const seen = lookedUp(messages, tools);
   const queries = queriesMade(messages, tools);
-  const asks = questionOf(messages);
+  const asks = straightened(questionOf(messages));
   const d0 = innermost(asks);
   const state = notesOf(messages) || { find: d0 ? d0.text : asks, now: asks };
   const same = (a, b) => a.toLowerCase().replace(/\s+/g, ' ').trim() === b.toLowerCase().replace(/\s+/g, ' ').trim();
   // (a search for what the question, as it now stands, hangs on; for the question itself where it hangs on nothing)
-  const begin = (now) => {
+  const begin = (asked) => {
+    // (a fact put in the place of what described it can leave a clause set apart from its thing: put straight, straightened)
+    const now = straightened(asked);
     const d = innermost(now);
     const find = d ? d.text : now;
     return queries.some((x) => same(x, find))
@@ -532,6 +573,8 @@ export async function searchStep({ messages, tools, plan = {}, answerReply = nul
   };
   let step = null;
   let readOut = '';
+  // (the text the answer was read in: the last one returned, or a page opened before and read again)
+  let readFrom = seen.lastText;
   if (!seen.made.length) step = begin(asks);
   else if (seen.made.length < (plan.searchMost || SEARCH_MOST)) {
     const find = state.find || state.now;
@@ -566,10 +609,26 @@ export async function searchStep({ messages, tools, plan = {}, answerReply = nul
     // page, and the fact beside the one asked for stands in those lines as often as the fact itself. (Reading a fact on
     // the way from the list, to save a step, was tried on the live web, 2026-11-23: the list gave a year and the name of
     // the event as the performer's name, and every chain went on from there.)
-    const pageNext = seen.last === 'search' ? nextPageCall(tools, messages) : null;
+    // THE PAGE A SEARCH NAMES FIRST MAY BE ONE ALREADY OPENED, for the fact before: a person's page was read for who the
+    // mayor is, and the next search, for the school that mayor attended, names the same page first. It was passed over as
+    // opened, the next page was opened in its place, and the fact was never read where it stood (measured 2026-11-27 with a
+    // reader that cannot misread: 13 of 72 chained questions answered). It is read again, as it was returned, for what is
+    // looked up now; only where it does not say is the next page opened.
+    let fact = '';
+    if (seen.last === 'search') {
+      const first = (seen.lastSearch.match(/https?:\/\/[^\s'"<>\])},\\]+/g) || []).map((u) =>
+        u.replace(/[.,;:]+$/, ''),
+      )[0];
+      const before = first ? seen.made.find((c) => c.kind === 'page' && c.text && c.args.includes(first)) : null;
+      if (before) {
+        fact = await readIn(before.text);
+        if (fact) readFrom = before.text;
+      }
+    }
+    const pageNext = !fact && seen.last === 'search' ? nextPageCall(tools, messages) : null;
     if (pageNext) step = { call: pageNext, note: noteFor(find, state.now) };
     else {
-      const fact = await readIn(seen.lastText);
+      if (!fact) fact = await readIn(seen.lastText);
       if (fact && !same(find, state.now)) {
         // (a fact on the way: put in the place of what described it, and on with the question as it now stands)
         step = begin(state.now.replace(find, fact));
@@ -592,7 +651,7 @@ export async function searchStep({ messages, tools, plan = {}, answerReply = nul
   if (step && step.call) return { call: step.call, note: step.note, first: !seen.made.length };
   if (readOut) {
     // (the answer, read: in the form the system text sets where it sets one, with the sentence it was read in)
-    const held = passageFor(seen.lastText, readOut, 400).split('\n')[0] || readOut;
+    const held = passageFor(readFrom, readOut, 400).split('\n')[0] || readOut;
     const form = plan.setForm !== false ? setFormOf(messages) : null;
     return { reply: form ? inSetForm(held, readOut, form) : readOut };
   }

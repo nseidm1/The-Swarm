@@ -12729,6 +12729,100 @@ const Q = [{ role: 'user', content: 'What is six times seven?' }];
   );
 }
 
+// ---- THE SEARCH PROGRAM, THREE THINGS IT GOT WRONG WITH NOTHING MISREAD (src/tools.mjs; measured 2026-11-27 on a made web,
+// its reading done by code that cannot misread: 13 of 72 chained questions answered, 72 of 72 after)
+{
+  const T = await import('../src/tools.mjs');
+  const tools = [
+    {
+      type: 'function',
+      function: {
+        name: 'web_search',
+        description: 'Search the web.',
+        parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'open_page',
+        description: 'Open a page.',
+        parameters: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
+      },
+    },
+  ];
+  const call = (id, name, args) => ({
+    role: 'assistant',
+    content: null,
+    tool_calls: [{ id, type: 'function', function: { name, arguments: JSON.stringify(args) } }],
+  });
+  const said = (id, content) => ({ role: 'tool', tool_call_id: id, content });
+  const page = 'Ada Brim (person)\nAda Brim is the mayor of Corvo. Ada Brim attended Larch School.';
+  // a person's page was opened for who the mayor is; the next search, for her school, names that page first
+  const messages = [
+    { role: 'user', content: 'Which school did the mayor of Corvo attend?' },
+    {
+      ...call('c1', 'web_search', { query: 'the mayor of Corvo' }),
+      content: T.noteFor('the mayor of Corvo', 'Which school did the mayor of Corvo attend?'),
+    },
+    said(
+      'c1',
+      JSON.stringify([
+        { title: 'Ada Brim', href: 'https://x.example/ada-brim', body: '' },
+        { title: 'Ben Holt', href: 'https://x.example/ben-holt', body: '' },
+      ]),
+    ),
+    {
+      ...call('c2', 'open_page', { url: 'https://x.example/ada-brim' }),
+      content: T.noteFor('the mayor of Corvo', 'Which school did the mayor of Corvo attend?'),
+    },
+    said('c2', page),
+    {
+      ...call('c3', 'web_search', { query: 'Which school did Ada Brim attend?' }),
+      content: T.noteFor('Which school did Ada Brim attend?', 'Which school did Ada Brim attend?'),
+    },
+    said(
+      'c3',
+      JSON.stringify([
+        { title: 'Ada Brim', href: 'https://x.example/ada-brim', body: '' },
+        { title: 'Ben Holt', href: 'https://x.example/ben-holt', body: '' },
+      ]),
+    ),
+  ];
+  const asked = [];
+  const reader = (answer) => async (ms) => (asked.push(ms[0].content), { reply: answer });
+  const again = await T.searchStep({ messages, tools, answerReply: reader('Larch School') });
+  const askedOf = asked.join('\n');
+  asked.length = 0;
+  // where the page opened before does not say, the next page is opened as it always was
+  const next = await T.searchStep({ messages, tools, answerReply: reader('NOT FOUND') });
+  const inner = (q) => (T.innermost(q) || {}).text;
+  check(
+    'the search program, where nothing is misread: a page a search names first that was opened before, for the fact before, is read again for what is looked up now and the answer is read where it stands (it was passed over as opened and the next page opened in its place), and only where it does not say is the next page opened; a clause that itself hangs on a named thing is not what the question hangs on first ("the town where the mayor of the capital of Aldo was born" hangs on "the capital of Aldo"), while a clause that only says a year is still looked up whole; and a clause set apart from its thing by the asking ("was the town founded where Ada Brim was born") is put straight, so that the thing it describes can be looked up and a fact put in its place',
+    again.reply === 'Larch School' &&
+      /Ada Brim attended Larch School/.test(askedOf) &&
+      !again.call &&
+      next.call &&
+      next.call.name === 'open_page' &&
+      next.call.args.url === 'https://x.example/ben-holt' &&
+      inner('In what year was the town founded where the mayor of the capital of Aldo was born?') ===
+        'the capital of Aldo' &&
+      inner('Which river runs through the town where the mayor of the capital of Aldo was born?') ===
+        'the capital of Aldo' &&
+      inner('How many floors are in the tallest building in the city that received the most tourists in 2024?') ===
+        'the city that received the most tourists in 2024' &&
+      inner('Who is the richest person from the country that makes the most expensive tea?') ===
+        'the country that makes the most expensive tea' &&
+      T.straightened('In what year was the town founded where Ada Brim was born?') ===
+        'In what year was founded the town where Ada Brim was born?' &&
+      inner(T.straightened('In what year was the town founded where Ada Brim was born?')) ===
+        'the town where Ada Brim was born' &&
+      T.straightened('What is the capital of France?') === 'What is the capital of France?' &&
+      T.straightened('Who is the mayor of the capital of Aldo?') === 'Who is the mayor of the capital of Aldo?',
+    { again, next, askedOf: askedOf.slice(0, 200) },
+  );
+}
+
 // ---- THREE EVALUATIONS SIDE BY SIDE (training/evaluate.mjs --variant): the module as configured, pretrained, and pretrained and
 // trained; each one score with its error, and a difference said only beyond twice the error
 {

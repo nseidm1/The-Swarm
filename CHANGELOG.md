@@ -6,6 +6,16 @@ What changed, for a person deciding whether to update. Newest first. Versions fo
 
 The first version.
 
+- **A search over chained facts is followed to its end** (2026-11-27). The search program was measured with its
+  reading done by code that cannot misread, on a made web of chained facts: it answered 13 of 72 questions, so the
+  fault was the program's and no model's. Three things, each mended: a page a search names first that was already
+  opened, for the fact before, was passed over and the fact never read where it stood; a clause that itself hangs on
+  a named thing ("the town where the mayor of the capital of Aldo was born") was looked up whole; and a clause set
+  apart from its thing by the asking ("was the town founded where Ada Brim was born") was looked up whole. After:
+  72 of 72, in fewer searches and pages. With the models, on 30 such questions over two draws: 60 of 60 where it had
+  12, at 4.9 seconds a question where it took 18.7; the module with the program off has 23 and its small model alone
+  21. The made web is clean, and the live web is not: this says the program now follows a chain, not what a
+  standard test of searching will read.
 - **Carry on does again what was touched** (2026-11-27). A step of the whole run was passed over because the run's
   status said it had ended well. That says nothing of the programs: a trainer changed since then was not run again,
   and the old arrangement was measured as if it were the new trainer's. Each step is now written down with what made
