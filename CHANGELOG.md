@@ -10,6 +10,8 @@ The first version.
   "the answer is: } >" and "the answer is: } }", the bracket their answers shared was taken for part of the closing
   words, and every answer said after them had a bracket too many: code closed the brackets right and the reply was
   wrong (2 of 96 made questions, the same one on both draws). The closing words now end on a word.
+- **The ring at a card's head has room for its number** (2026-11-28). A share written to the hundredth stood
+  2px from the ring; the ring is larger and its line a little thinner, and the number has 10px on each side.
 - **The pictures in the README and the dashboard guide are retaken** (2026-11-28) in the dashboard's dark look,
   each with its description brought up to what it shows. They were taken while a run was going, so the run and
   Evaluate cards show one in hand.

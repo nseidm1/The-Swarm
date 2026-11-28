@@ -548,6 +548,10 @@ padding:11px 14px;font-size:13px;line-height:1.45;box-shadow:0 10px 30px rgba(0,
 .ring svg{width:64px;height:64px;display:block}.ring circle{fill:none;stroke-width:6}.ring .rt{stroke:rgba(0,0,0,.35)}.ring .rv{stroke:var(--teal2);stroke-linecap:round;transition:stroke-dasharray .6s ease}
 .ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:var(--teal);font-variant-numeric:tabular-nums;line-height:1}
 .memnum[data-ring] .ring b{font-size:14px;display:flex;letter-spacing:-.02em}.ring.on .rv{stroke:var(--sun)}.memnum[data-ring] .ring.dec b{font-size:11px;letter-spacing:-.03em}
+/* (the ring at a card's head is larger than a face's, so that a share written to the hundredth has room on both sides: at 64px
+   "73.17%" stood 2px from the ring, console 2026-11-28) */
+.memnum[data-ring] .ring,.memnum[data-ring] .ring svg{width:84px;height:84px}.memnum[data-ring] .ring circle{stroke-width:5}
+.memnum[data-ring] .ring b{font-size:16px}.memnum[data-ring] .ring.dec b{font-size:11.5px}
 #snack.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}#snack button{background:none;border:0;color:#ffd2cd;font-weight:700;cursor:pointer;font-size:13px;padding:0;flex:none}
 .panel.run{display:grid;gap:14px;padding:18px}.panel.run>*{margin:0}
 .run .meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--mist);font-weight:600}.run .meta b{color:var(--fog);font-weight:800}
