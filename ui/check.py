@@ -3002,5 +3002,17 @@ check("the page has one dark look, and it has two typefaces and no more (a serif
       and not _re_look.search(r"url\(['\"]?https?:|@import", swarm_ui.CSS) and '"/fonts/"' in open(swarm_ui.__file__).read(),
       [_faces])
 
+# ---- accessibility: a held button can be read, and says why
+_a11y_src = open(swarm_ui.__file__).read()
+check("the main button's words are dark on its fill; a control that cannot be pressed is flat and edged with readable words, not a faded fill; no type is under 10px, and only the headings of the tightest tables are under 11; "
+      "nothing moves for a reader who asked for no motion; and the pass button that waits for a run names the line that says why",
+      ".btn{background:var(--sun);color:var(--onsun)" in swarm_ui.CSS and "--onsun:#2a1c05" in swarm_ui.CSS
+      and ".btn[disabled]:not(.done):not(.busy),.btn.ghost:disabled{background:var(--well);color:var(--mist);opacity:1" in swarm_ui.CSS
+      and not _re_look.search(r"\.btn[^{}]*(?:\[disabled\]|:disabled)[^{}]*\{[^}]*opacity:\.[0-6]", swarm_ui.CSS)
+      and _re_look.findall(r"font-size:([0-9](?:\.\d+)?)px", swarm_ui.CSS) == ["9"]  # (the donut's label, in the drawing's own units)
+      and "@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important" in swarm_ui.CSS
+      and 'disabled aria-describedby="converse-why"' in _a11y_src and 'class="state warn" id="converse-why"' in _a11y_src,
+      [_re_look.findall(r"font-size:((?:[0-9]|10)(?:\.\d+)?)px", swarm_ui.CSS)])
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

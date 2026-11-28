@@ -10,6 +10,11 @@ The first version.
   "the answer is: } >" and "the answer is: } }", the bracket their answers shared was taken for part of the closing
   words, and every answer said after them had a bracket too many: code closed the brackets right and the reply was
   wrong (2 of 96 made questions, the same one on both draws). The closing words now end on a word.
+- **The dashboard's new look, made readable throughout** (2026-11-28). The main button's words were light on a
+  light gold fill, and a button that could not be pressed was that fill faded with faded words on it: neither could
+  be read. The words are now dark on the gold; a control that cannot be pressed is flat and edged, with words that
+  can be read; no type is under 10px, and only the headings of the tightest tables are under 11; a field's edge can be seen against its card; nothing moves for a reader who
+  asked for no motion; and the pass button that waits for a run names the line that says why, for a screen reader.
 - **The dashboard takes The Crew's look** (2026-11-28). One dark look: smoked glass over a night ground, a serif
   title, and the same greens, reds and golds for right, wrong and running. Its two typefaces are carried in
   `ui/fonts` and served by the page itself, so nothing is asked of another site. Nothing the page shows or does
