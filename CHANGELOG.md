@@ -10,6 +10,9 @@ The first version.
   "the answer is: } >" and "the answer is: } }", the bracket their answers shared was taken for part of the closing
   words, and every answer said after them had a bracket too many: code closed the brackets right and the reply was
   wrong (2 of 96 made questions, the same one on both draws). The closing words now end on a word.
+- **What the swarm works with is named, with where to find each** (2026-11-28). The foot of the dashboard and the
+  README list the engines it runs on and the makers of the models it offers, each with its own page and the X account
+  that page itself gives. Credit, not endorsement.
 - **The dashboard's new look, made readable throughout** (2026-11-28). The main button's words were light on a
   light gold fill, and a button that could not be pressed was that fill faded with faded words on it: neither could
   be read. The words are now dark on the gold; a control that cannot be pressed is flat and edged, with words that

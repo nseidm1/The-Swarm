@@ -3014,5 +3014,13 @@ check("the main button's words are dark on its fill; a control that cannot be pr
       and 'disabled aria-describedby="converse-why"' in _a11y_src and 'class="state warn" id="converse-why"' in _a11y_src,
       [_re_look.findall(r"font-size:((?:[0-9]|10)(?:\.\d+)?)px", swarm_ui.CSS)])
 
+# ---- the foot says what the swarm works with
+_ww = swarm_ui.footer()
+check("the foot names what the swarm works with: each engine and maker links its own page and the X account that page gives, every link opens apart, and each X link says in words what it is",
+      'class="works"' in _ww and _ww.count('class="wx"') == len(swarm_ui.WORKS_WITH) == 8
+      and all(('href="%s"' % u) in _ww and ('href="https://x.com/%s"' % x) in _ww and ('aria-label="%s on X, @%s"' % (n, x)) in _ww for n, u, x in swarm_ui.WORKS_WITH)
+      and _ww.count('rel="noopener"') == 3 + 16 and "partner" not in _ww.lower(),
+      [_ww[_ww.find('class="works"'):][:400]])
+
 print("\n" + ("%d FAILED, " % len(failed) if failed else "all ") + "%d passed." % passed)
 sys.exit(1 if failed else 0)

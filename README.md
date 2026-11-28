@@ -117,6 +117,22 @@ and the swarm stands at 74.7% where the 30B model has 80.0%. [Results](docs/resu
 The Swarm is a module from Family Office. [The Crew](docs/training.md#the-crew-the-first-project-that-uses-it) is the
 first project to use it.
 
+## Works with
+
+The engines the swarm runs on and the makers of the models it offers. Credit, not endorsement: none of them has
+anything to do with this project.
+
+| | Page | On X |
+| --- | --- | --- |
+| TensorFold | [github.com/ashhart/TensorFold](https://github.com/ashhart/TensorFold) | [@tensorfold_dev](https://x.com/tensorfold_dev) |
+| Atomic Engine | [github.com/AtomicBot-ai/atomic-engine](https://github.com/AtomicBot-ai/atomic-engine) | [@atomic_chat_hq](https://x.com/atomic_chat_hq) |
+| llama.cpp | [github.com/ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp) | [@ggml_org](https://x.com/ggml_org) |
+| Liquid AI | [liquid.ai](https://www.liquid.ai) | [@liquidai](https://x.com/liquidai) |
+| Prism ML | [prismml.com](https://prismml.com) | [@PrismML](https://x.com/PrismML) |
+| Thinking Machines | [thinkingmachines.ai](https://thinkingmachines.ai) | [@thinkymachines](https://x.com/thinkymachines) |
+| Qwen | [huggingface.co/Qwen](https://huggingface.co/Qwen) | [@alibaba_qwen](https://x.com/alibaba_qwen) |
+| Unsloth | [huggingface.co/unsloth](https://huggingface.co/unsloth) | [@UnslothAI](https://x.com/UnslothAI) |
+
 ## Contributing
 
 Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) says how to set up, the conventions the code

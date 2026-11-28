@@ -411,6 +411,12 @@ dialog#steerd{border:0;border-radius:var(--r);padding:26px;max-width:min(860px,9
 .foot{margin-top:56px;padding-top:22px;border-top:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px 30px;align-items:center}
 .foot .brand{display:flex;gap:12px;align-items:center}.foot .brand svg{width:40px;height:40px;border-radius:var(--r);flex:none}.foot .brand b{display:block;font-size:15px;letter-spacing:-.01em}.foot .brand small{color:var(--mist);font-size:12.5px}
 .foot nav{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;font-weight:700}.foot nav a{color:var(--teal);text-decoration:none}.foot nav a:hover{text-decoration:underline}
+.foot .works{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline}
+.foot .works .wl{font:700 11px/1.5 var(--label);letter-spacing:.22em;text-transform:uppercase;color:var(--mist)}
+.foot .works ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px}
+.foot .works li{display:inline-flex;gap:7px;align-items:baseline}
+.foot .works a{color:var(--fog);text-decoration:none;font-weight:700}.foot .works a.wx{color:var(--mist);font-weight:500;font-size:12px}
+.foot .works a:hover{text-decoration:underline}
 .foot .fine{grid-column:1/-1;color:var(--mist);font-size:12px;line-height:1.55;max-width:92ch}@media (max-width:700px){.foot{grid-template-columns:minmax(0,1fr)}}
 .arrh{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 18px;align-items:flex-start;margin-bottom:12px}.arrh h3{margin:0}
 .achips{display:flex;flex-wrap:wrap;gap:6px}.achips span{padding:4px 11px;border-radius:var(--r);background:var(--soft);font-size:12.5px;font-weight:600;color:var(--mist)}.achips b{color:var(--fog)}
@@ -2301,6 +2307,27 @@ def fold_sections(html, prefix, meta=None, start_open=True):
     return "".join(out)
 
 
+# WHAT THE SWARM WORKS WITH: the engines it runs on and the makers of the models it offers, each with its own page and the X
+# account that page itself links (looked up 2026-11-28 on each project's README, site or organisation page: never guessed).
+# Credit, not endorsement: none of them has anything to do with this module.
+WORKS_WITH = [
+    ("TensorFold", "https://github.com/ashhart/TensorFold", "tensorfold_dev"),
+    ("Atomic Engine", "https://github.com/AtomicBot-ai/atomic-engine", "atomic_chat_hq"),
+    ("llama.cpp", "https://github.com/ggml-org/llama.cpp", "ggml_org"),
+    ("Liquid AI", "https://www.liquid.ai", "liquidai"),
+    ("Prism ML", "https://prismml.com", "PrismML"),
+    ("Thinking Machines", "https://thinkingmachines.ai", "thinkymachines"),
+    ("Qwen", "https://huggingface.co/Qwen", "alibaba_qwen"),
+    ("Unsloth", "https://huggingface.co/unsloth", "UnslothAI"),
+]
+
+
+def works_with():
+    return ('<div class="works"><span class="wl">Works with</span><ul>%s</ul></div>' % "".join(
+        '<li><a href="%s" target="_blank" rel="noopener">%s</a><a class="wx" href="https://x.com/%s" target="_blank" rel="noopener" aria-label="%s on X, @%s">@%s</a></li>'
+        % (e(url), e(name), e(x), e(name), e(x), e(x)) for name, url, x in WORKS_WITH))
+
+
 def footer():
     mark = ""
     try:
@@ -2311,9 +2338,9 @@ def footer():
     return (
         '<footer class="foot"><div class="brand">%s<div><b>The Swarm</b><small>A Family Office product</small></div></div>'
         '<nav><a href="https://github.com/nseidm1/The-Swarm" target="_blank" rel="noopener">Source</a><a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener">Apache License 2.0</a>'
-        '<a href="https://arxiv.org" target="_blank" rel="noopener">Research from arXiv</a></nav>'
+        '<a href="https://arxiv.org" target="_blank" rel="noopener">Research from arXiv</a></nav>%s'
         '<div class="fine">Copyright 2026 Family Office. Licensed under the Apache License, Version 2.0: see LICENSE and NOTICE in this folder. Provided as is, without warranty of any kind. '
-        "The models named here belong to their makers and are used under their own licences. This page is served from this machine and reads only files in this folder.</div></footer>" % mark
+        "The models named here belong to their makers and are used under their own licences. This page is served from this machine and reads only files in this folder.</div></footer>" % (mark, works_with())
     )
 
 
